@@ -1,0 +1,179 @@
+//
+//  AuthTests.swift
+//  FestiCoreAuthTests
+//
+//  Created by FestiCore on 10/22/26.
+//
+
+import Foundation
+import Testing
+import FestiCoreAuthInterface
+import FestiCoreNetwork
+import FestiCoreNetworkInterface
+import FestiCoreStorageInterface
+@testable import FestiCoreAuth
+
+@Suite("FestiCore 인증 서비스")
+struct AuthTests {
+  private let old = FestiCoreCredential(accessToken: "old", refreshToken: "old-refresh")
+  private let successBody = Data("""
+    {"code":"SUCCESS","data":{"accessToken":"new","refreshToken":"new-refresh"},"message":"성공"}
+    """.utf8)
+
+  @Test("갱신 응답에서 새 토큰 쌍을 반환한다")
+  func refreshSuccess() async throws {
+    let recorder = FailureRecorder()
+    let client = StubRefreshClient(result: .success(successBody))
+    let refresher = TokenRefresher(client: client) { _ in await recorder.record() }
+
+    let renewed = try await refresher.refresh(old)
+
+    #expect(renewed.accessToken == "new")
+    #expect(renewed.refreshToken == "new-refresh")
+    #expect(await recorder.count == 0)
+    #expect(client.lastRequest?.path == "api/v1/auth/refresh")
+    #expect(client.lastRequest?.authorization == .none)
+    #expect(client.lastRequest?.refreshToken == "old-refresh")
+  }
+
+  @Test("401만 인증 만료를 전달한다", arguments: [401, 500])
+  func refreshResponseFailure(status: Int) async {
+    let recorder = FailureRecorder()
+    let client = StubRefreshClient(result: .failure(.response(ResponseError(httpStatus: status))))
+    let refresher = TokenRefresher(client: client) { _ in await recorder.record() }
+
+    do {
+      _ = try await refresher.refresh(old)
+      Issue.record("실패 응답을 전파해야 한다")
+    } catch {
+      guard case let FestiCoreNetworkError.response(response) = error else {
+        Issue.record("응답 오류 기대: \(error)")
+        return
+      }
+      #expect(response.httpStatus == status)
+    }
+    #expect(await recorder.count == (status == 401 ? 1 : 0))
+  }
+
+  @Test("전송 실패 시 세션을 종료하지 않는다")
+  func refreshTransportFailure() async {
+    let recorder = FailureRecorder()
+    let client = StubRefreshClient(result: .failure(.transport(.notConnected)))
+    let refresher = TokenRefresher(client: client) { _ in await recorder.record() }
+
+    do {
+      _ = try await refresher.refresh(old)
+      Issue.record("전송 실패를 전파해야 한다")
+    } catch {
+      guard case FestiCoreNetworkError.transport(.notConnected) = error else {
+        Issue.record("전송 오류 기대: \(error)")
+        return
+      }
+    }
+    #expect(await recorder.count == 0)
+  }
+
+  @Test("토큰 회전과 로그아웃은 저장소와 동일한 인증 세션을 갱신한다")
+  func authFactorySessionLifecycle() async {
+    let storage = MemorySecureStorage()
+    let refreshClient = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(
+      refreshClient: refreshClient,
+      storage: storage,
+      baseURL: URL(string: "https://festicore.test")
+    )
+    let client = auth.authenticatedClient
+    #expect((client as AnyObject) === (auth.authenticatedClient as AnyObject))
+
+    await auth.signIn(accessToken: "old", refreshToken: "old-refresh")
+    #expect(storage.load(.accessToken) == "old")
+    #expect(storage.load(.refreshToken) == "old-refresh")
+
+    await auth.signIn(accessToken: "new", refreshToken: "new-refresh")
+    #expect(storage.load(.accessToken) == "new")
+    #expect(storage.load(.refreshToken) == "new-refresh")
+
+    await auth.signOut()
+    #expect(await auth.isLoggedIn == false)
+    #expect(storage.load(.accessToken) == nil)
+    #expect(storage.load(.refreshToken) == nil)
+  }
+
+  @Test("로그아웃 뒤 늦게 도착한 갱신 결과를 저장하지 않는다")
+  func lateRefreshCannotRestoreLoggedOutSession() {
+    let storage = MemorySecureStorage()
+    let base = KeychainCredentialStore(storage: storage)
+    let guarded = GuardedCredentialStore(base: base)
+    guarded.allowSaves()
+    guarded.save(old)
+    guarded.clear()
+    guarded.save(FestiCoreCredential(accessToken: "late", refreshToken: "late-refresh"))
+
+    #expect(guarded.load() == nil)
+    #expect(storage.load(.accessToken) == nil)
+  }
+}
+
+private actor FailureRecorder {
+  private(set) var count = 0
+  func record() { count += 1 }
+}
+
+private final class MemorySecureStorage: SecureStorage, @unchecked Sendable {
+  private let values = NSLock()
+  private var stored: [SecureStorageKey: String] = [:]
+
+  func save(_ value: String, for key: SecureStorageKey) { values.withLock { stored[key] = value } }
+  func load(_ key: SecureStorageKey) -> String? { values.withLock { stored[key] } }
+  func remove(_ key: SecureStorageKey) { values.withLock { stored.removeValue(forKey: key) } }
+  func removeAll() { values.withLock { stored.removeAll() } }
+}
+
+private final class StubRefreshClient: FestiCoreRequestClient, @unchecked Sendable {
+  struct CapturedRequest: Sendable {
+    let path: String
+    let authorization: FestiCoreAuthorization
+    let refreshToken: String?
+  }
+
+  private let result: Result<Data, FestiCoreNetworkError>
+  private let lock = NSLock()
+  private var captured: CapturedRequest?
+
+  init(result: Result<Data, FestiCoreNetworkError>) { self.result = result }
+
+  var lastRequest: CapturedRequest? { lock.withLock { captured } }
+
+  func send<R: FestiCoreDataRequest, T: Decodable & Sendable>(
+    _ request: R,
+    as _: T.Type
+  ) async throws(FestiCoreNetworkError) -> T {
+    let parameters = request.parameters
+    let body = parameters.flatMap { try? JSONEncoder().encode($0) }
+    let refreshToken = body.flatMap {
+      (try? JSONSerialization.jsonObject(with: $0) as? [String: String])?["refreshToken"]
+    }
+    lock.withLock {
+      captured = CapturedRequest(
+        path: request.path,
+        authorization: request.authorization,
+        refreshToken: refreshToken
+      )
+    }
+    let data: Data
+    switch result {
+    case let .success(value): data = value
+    case let .failure(error): throw error
+    }
+    do { return try JSONDecoder().decode(T.self, from: data) }
+    catch { throw .decoding(.failed(error)) }
+  }
+
+  func send<R: FestiCoreDataRequest>(_ request: R) async throws(FestiCoreNetworkError) -> R.Response {
+    try await send(request, as: R.Response.self)
+  }
+
+  func sendResponse<R: FestiCoreDataRequest>(_: R) async throws(FestiCoreNetworkError) -> FestiCoreHTTPResponse {
+    throw .request(.invalidURL)
+  }
+}
