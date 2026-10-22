@@ -184,7 +184,7 @@ case "install":
 case "generate":
   status = tuist(["generate"] + generationArguments(forwarded))
 case "cache":
-  status = tuist(cacheWarmArguments(forwarded))
+  status = tuist(cacheWarmArguments(forwarded), environmentOverrides: ["TUIST_LOCAL_CACHE_ONLY": "true"])
 case "cache:setup":
   status = tuist(["setup", "cache"] + forwarded)
 case "build":
