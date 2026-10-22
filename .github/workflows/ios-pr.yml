@@ -18,6 +18,12 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: self-hosted
     timeout-minutes: 30
+    env:
+      TUIST_BUILD_TAGS: ci,pull-request
+      TUIST_BUILD_VALUE_PR_URL: ${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}
+      TUIST_GENERATE_CACHE_PROFILE: only-external
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
     steps:
       - uses: actions/checkout@v4
       - name: Setup iOS runner
@@ -47,13 +53,20 @@ jobs:
             echo "XCODE_COMPILATION_CACHE_ENABLED=YES" >> "$GITHUB_ENV"
           else
             echo "XCODE_COMPILATION_CACHE_ENABLED=NO" >> "$GITHUB_ENV"
+            echo "Tuist cache를 사용할 수 없어 Xcode compilation cache 없이 진행합니다."
           fi
+      - name: Set up Tuist insights
+        continue-on-error: true
+        timeout-minutes: 3
+        run: mise exec -- tuist setup insights
       - name: Generate project
         run: |
           mise exec -- tuist install
           mise exec -- tuist generate --no-open --cache-profile only-external
       - name: Select simulator
         run: echo "SIMULATOR_DESTINATION=$(python3 Scripts/select-ios-simulator.py)" >> "$GITHUB_ENV"
+      - name: Prepare simulator
+        run: bash Scripts/prepare-ios-simulator.sh
       - name: Build app
         run: |
           mkdir -p "$CI_DERIVED_DATA"
@@ -70,14 +83,19 @@ jobs:
             CLANG_ENABLE_PROJECT_PREFIX_MAPPING=NO \
             COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
       - name: Run tests
+        id: tests
+        continue-on-error: true
         run: |
-          xcodebuild test -quiet \
-            -workspace FestiCore.xcworkspace \
-            -scheme FestiCore-Stage \
-            -configuration Stage \
+          mise exec -- tuist test run FestiCore-Stage \
+            --configuration Stage \
+            --no-selective-testing \
+            --inspect-mode remote \
+            --result-bundle-path "$RUNNER_TEMP/FestiCore-${{ github.run_id }}.xcresult" \
+            --run-report-path "$RUNNER_TEMP/FestiCore-${{ github.run_id }}-test-report.json" \
+            --path "$PWD" \
+            -- \
             -destination "$SIMULATOR_DESTINATION" \
             -derivedDataPath "$CI_DERIVED_DATA" \
-            -resultBundlePath "$RUNNER_TEMP/FestiCore-${{ github.run_id }}.xcresult" \
             -enableCodeCoverage YES \
             CODE_SIGNING_ALLOWED=NO \
             SWIFT_ENABLE_PREFIX_MAPPING=NO \
@@ -89,6 +107,8 @@ jobs:
         if: always()
         env:
           RESULT_BUNDLE: ${{ runner.temp }}/FestiCore-${{ github.run_id }}.xcresult
+          TEST_RUN_REPORT: ${{ runner.temp }}/FestiCore-${{ github.run_id }}-test-report.json
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
         run: |
           python3 Scripts/ios-pr-coverage.py "$RESULT_BUNDLE" > pr-coverage.md
           cat pr-coverage.md >> "$GITHUB_STEP_SUMMARY"
@@ -99,6 +119,7 @@ jobs:
           name: pr-test-coverage-${{ github.run_id }}
           path: |
             ${{ runner.temp }}/FestiCore-${{ github.run_id }}.xcresult
+            ${{ runner.temp }}/FestiCore-${{ github.run_id }}-test-report.json
             pr-coverage.md
           if-no-files-found: ignore
           retention-days: 7
@@ -120,3 +141,6 @@ jobs:
             } else {
               await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body })
             }
+      - name: Fail if tests failed
+        if: steps.tests.outcome != 'success'
+        run: exit 1
