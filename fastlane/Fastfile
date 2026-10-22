@@ -1,0 +1,188 @@
+default_platform(:ios)
+
+APP_NAME = "FestiCore"
+BUNDLE_ID = "io.festiCore.co"
+STAGE_SCHEME = "FestiCore-Stage"
+PROD_SCHEME = "FestiCore-Prod"
+TEAM_ID = "N94CS4N6VR"
+
+def require_environment!(*names)
+  missing = names.select { |name| ENV[name].to_s.empty? }
+  UI.user_error!("필수 환경 변수 누락: #{missing.join(', ')}") unless missing.empty?
+end
+
+def release_credentials!
+  require_environment!(
+    "MATCH_GIT_URL",
+    "MATCH_PASSWORD",
+    "APP_STORE_CONNECT_TEAM_ID",
+    "APP_STORE_CONNECT_API_KEY_ID",
+    "APP_STORE_CONNECT_ISSUER_ID",
+    "APP_STORE_CONNECT_API_KEY_CONTENT"
+  )
+end
+
+def connect_api_key
+  app_store_connect_api_key(
+    key_id: ENV.fetch("APP_STORE_CONNECT_API_KEY_ID"),
+    issuer_id: ENV.fetch("APP_STORE_CONNECT_ISSUER_ID"),
+    key_content: ENV.fetch("APP_STORE_CONNECT_API_KEY_CONTENT"),
+    is_key_content_base64: true,
+    in_house: false
+  )
+end
+
+def prepare_workspace
+  sh("mise exec -- tuist install")
+  sh("mise exec -- tuist generate --no-open")
+end
+
+def run_stage_tests
+  prepare_workspace
+  run_tests(
+    workspace: File.expand_path("FestiCore.xcworkspace"),
+    scheme: STAGE_SCHEME,
+    devices: ["iPhone 17 Pro"],
+    xcodebuild_formatter: "",
+    xcargs: "CODE_SIGNING_ALLOWED=NO"
+  )
+end
+
+def next_build_number(api_key, version)
+  previous = latest_testflight_build_number(
+    api_key: api_key,
+    app_identifier: BUNDLE_ID,
+    version: version,
+    initial_build_number: 0
+  ).to_i
+  [previous + 1, Time.now.strftime("%y%m%d%H%M").to_i].max.to_s
+end
+
+def signed_ipa(scheme, configuration, version, build_number, api_key)
+  match(
+    type: "appstore",
+    readonly: true,
+    api_key: api_key,
+    git_url: ENV.fetch("MATCH_GIT_URL"),
+    app_identifier: [BUNDLE_ID]
+  )
+  prepare_workspace
+  update_code_signing_settings(
+    path: "Projects/App/FestiCore.xcodeproj",
+    targets: [APP_NAME],
+    build_configurations: [configuration],
+    use_automatic_signing: false,
+    team_id: TEAM_ID,
+    code_sign_identity: "Apple Distribution",
+    profile_name: "match AppStore #{BUNDLE_ID}"
+  )
+  build_app(
+    workspace: File.expand_path("FestiCore.xcworkspace"),
+    scheme: scheme,
+    configuration: configuration,
+    export_method: "app-store",
+    output_directory: "fastlane/output",
+    output_name: "#{APP_NAME}.ipa",
+    xcodebuild_formatter: "",
+    xcargs: "FESTICORE_VERSION=#{version} FESTICORE_BUILD_NUMBER=#{build_number}",
+    export_options: {
+      signingStyle: "manual",
+      teamID: TEAM_ID,
+      provisioningProfiles: { BUNDLE_ID => "match AppStore #{BUNDLE_ID}" }
+    }
+  )
+end
+
+platform :ios do
+  before_all do
+    Dir.chdir(File.expand_path("..", __dir__))
+  end
+
+  desc "Stage 시뮬레이터 테스트"
+  lane :test do
+    run_stage_tests
+  end
+
+  desc "Stage 시뮬레이터 빌드"
+  lane :build do
+    prepare_workspace
+    build_app(
+      workspace: File.expand_path("FestiCore.xcworkspace"),
+      scheme: STAGE_SCHEME,
+      configuration: "Stage",
+      sdk: "iphonesimulator",
+      xcodebuild_formatter: "",
+      skip_package_ipa: true,
+      skip_codesigning: true
+    )
+  end
+
+  desc "Attendance QA와 같은 Stage TestFlight 업로드"
+  lane :QA do |options|
+    release_credentials!
+    version = options[:version] || ENV["FESTICORE_VERSION"]
+    UI.user_error!("version 옵션 또는 FESTICORE_VERSION이 필요합니다.") if version.to_s.empty?
+    api_key = connect_api_key
+    build_number = next_build_number(api_key, version)
+    ipa = signed_ipa(STAGE_SCHEME, "Stage", version, build_number, api_key)
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: ipa,
+      changelog: options[:changelog] || "FestiCore QA 빌드 #{build_number}",
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "Prod 빌드를 TestFlight에 업로드하고 App Store 버전을 준비"
+  lane :release do |options|
+    release_credentials!
+    version = options[:version] || ENV["FESTICORE_VERSION"]
+    UI.user_error!("version 옵션 또는 FESTICORE_VERSION이 필요합니다.") if version.to_s.empty?
+    api_key = connect_api_key
+    build_number = next_build_number(api_key, version)
+    ipa = signed_ipa(PROD_SCHEME, "Prod", version, build_number, api_key)
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: ipa,
+      changelog: options[:changelog] || "FestiCore #{version}",
+      skip_submission: true,
+      skip_waiting_for_build_processing: false
+    )
+    upload_to_app_store(
+      api_key: api_key,
+      app_version: version,
+      build_number: build_number,
+      team_id: ENV.fetch("APP_STORE_CONNECT_TEAM_ID"),
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: true,
+      submit_for_review: false,
+      automatic_release: false
+    )
+  end
+
+  desc "지정한 App Store 버전과 빌드를 심사 제출"
+  lane :submit_for_review do |options|
+    release_credentials!
+    version = options[:version]
+    UI.user_error!("version 옵션이 필요합니다.") if version.to_s.empty?
+    build_number = options[:build_number]
+    UI.user_error!("build_number 옵션이 필요합니다.") if build_number.to_s.empty?
+    upload_to_app_store(
+      api_key: connect_api_key,
+      app_version: version,
+      build_number: build_number,
+      team_id: ENV.fetch("APP_STORE_CONNECT_TEAM_ID"),
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: true,
+      submit_for_review: true,
+      automatic_release: false
+    )
+  end
+
+  desc "Attendance tdd_ci에 대응하는 PR 시뮬레이터 검증"
+  lane :tdd_ci do
+    run_stage_tests
+  end
+end

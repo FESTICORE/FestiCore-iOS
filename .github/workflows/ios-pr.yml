@@ -1,0 +1,122 @@
+name: iOS PR
+
+on:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: ios-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: self-hosted
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup iOS runner
+        uses: ./.github/actions/setup-ios-runner
+        with:
+          tuist-token: ${{ secrets.TUIST_TOKEN }}
+          derived-data-directory: FestiCore-pr
+      - name: Validate GitHub Actions configuration
+        env:
+          APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          TUIST_TOKEN: ${{ secrets.TUIST_TOKEN }}
+        run: |
+          test "$APP_IDENTIFIER" = 'io.festiCore.co'
+          test "$TEAM_ID" = 'N94CS4N6VR'
+          test -n "$TUIST_TOKEN"
+      - name: Check tracked files and secrets
+        run: bash Scripts/check-tracked-secrets.sh
+      - name: Set up Tuist Xcode cache
+        id: tuist-cache
+        continue-on-error: true
+        timeout-minutes: 3
+        run: mise exec -- tuist setup cache
+      - name: Configure compilation cache fallback
+        run: |
+          if [[ "${{ steps.tuist-cache.outcome }}" == "success" ]]; then
+            echo "XCODE_COMPILATION_CACHE_ENABLED=YES" >> "$GITHUB_ENV"
+          else
+            echo "XCODE_COMPILATION_CACHE_ENABLED=NO" >> "$GITHUB_ENV"
+          fi
+      - name: Generate project
+        run: |
+          mise exec -- tuist install
+          mise exec -- tuist generate --no-open
+      - name: Select simulator
+        run: echo "SIMULATOR_DESTINATION=$(python3 Scripts/select-ios-simulator.py)" >> "$GITHUB_ENV"
+      - name: Build app
+        run: |
+          mkdir -p "$CI_DERIVED_DATA"
+          xcodebuild build -quiet \
+            -workspace FestiCore.xcworkspace \
+            -scheme FestiCore-Stage \
+            -configuration Stage \
+            -destination "$SIMULATOR_DESTINATION" \
+            -derivedDataPath "$CI_DERIVED_DATA" \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_ENABLE_PREFIX_MAPPING=NO \
+            SWIFT_ENABLE_PROJECT_PREFIX_MAPPING=NO \
+            CLANG_ENABLE_PREFIX_MAPPING=NO \
+            CLANG_ENABLE_PROJECT_PREFIX_MAPPING=NO \
+            COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
+      - name: Run tests
+        run: |
+          xcodebuild test -quiet \
+            -workspace FestiCore.xcworkspace \
+            -scheme FestiCore-Stage \
+            -configuration Stage \
+            -destination "$SIMULATOR_DESTINATION" \
+            -derivedDataPath "$CI_DERIVED_DATA" \
+            -resultBundlePath "$RUNNER_TEMP/FestiCore-${{ github.run_id }}.xcresult" \
+            -enableCodeCoverage YES \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_ENABLE_PREFIX_MAPPING=NO \
+            SWIFT_ENABLE_PROJECT_PREFIX_MAPPING=NO \
+            CLANG_ENABLE_PREFIX_MAPPING=NO \
+            CLANG_ENABLE_PROJECT_PREFIX_MAPPING=NO \
+            COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
+      - name: Report test coverage
+        if: always()
+        env:
+          RESULT_BUNDLE: ${{ runner.temp }}/FestiCore-${{ github.run_id }}.xcresult
+        run: |
+          python3 Scripts/ios-pr-coverage.py "$RESULT_BUNDLE" > pr-coverage.md
+          cat pr-coverage.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test and coverage result
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: pr-test-coverage-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/FestiCore-${{ github.run_id }}.xcresult
+            pr-coverage.md
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Report to PR
+        if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs')
+            const marker = '<!-- festicore-ios-pr-coverage -->'
+            const coverage = fs.existsSync('pr-coverage.md')
+              ? fs.readFileSync('pr-coverage.md', 'utf8')
+              : '커버리지 결과를 생성하지 못했습니다.'
+            const body = `${marker}\n## iOS PR 테스트·커버리지\n\n${coverage}\n[Actions 실행](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
+            const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number: context.issue.number, per_page: 100 })
+            const previous = comments.find(comment => comment.user?.type === 'Bot' && comment.body?.includes(marker))
+            if (previous) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: previous.id, body })
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body })
+            }

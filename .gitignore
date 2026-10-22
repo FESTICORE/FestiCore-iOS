@@ -60,3 +60,19 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+fastlane/output/
+
+# Local credentials and generated projects
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+client_secret*.json
+GoogleService-Info.plist
+fastlane/AuthKey_*.json
+.env*
+Config/*.local.xcconfig
+*.xcodeproj/
+*.xcworkspace/
+Derived/
+Tuist/.build/

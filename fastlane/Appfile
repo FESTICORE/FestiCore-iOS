@@ -1,0 +1,3 @@
+app_identifier("io.festiCore.co")
+team_id("N94CS4N6VR")
+itc_team_id(ENV["APP_STORE_CONNECT_TEAM_ID"]) if ENV["APP_STORE_CONNECT_TEAM_ID"]

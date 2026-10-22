@@ -1,0 +1,16 @@
+//
+//  Project.swift
+//  {{ name }}
+//
+//  Created by {{ author }} on {{ currentDate }}.
+//
+
+import ProjectDescription
+import ProjectTemplatePlugin
+import DependencyPlugin
+import DependencyPackagePlugin
+
+let project = Project.makeModule(
+  name: "{{ name }}",
+  hasTests: true
+)
