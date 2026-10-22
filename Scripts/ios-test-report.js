@@ -237,6 +237,41 @@ function readDashboardURLFromFile(reportPath, pathSegment) {
   }
 }
 
+// `tuist inspect bundle --json` 결과를 읽는다. IPA를 검사하면 installSize와
+// downloadSize가 모두 바이트 단위로 기록된다. 비교 기준이 함께 기록된
+// 리포트도 받을 수 있게 해 PR 리포트에서 크기 변화까지 계산한다.
+function readBundleInsights(reportPath) {
+  if (!reportPath || !fs.existsSync(reportPath)) return null;
+
+  try {
+    const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+    const current = report.current || report.bundle || report;
+    const baseline = report.baseline || report.previous || null;
+    if (!Number.isFinite(current?.installSize) && !Number.isFinite(current?.downloadSize)) return null;
+
+    const delta = (key) => {
+      const explicit = current[`${key}Delta`] ?? report[`${key}Delta`];
+      if (Number.isFinite(explicit)) return explicit;
+      if (Number.isFinite(baseline?.[key]) && Number.isFinite(current[key])) {
+        return current[key] - baseline[key];
+      }
+      return null;
+    };
+
+    return {
+      name: current.name || current.bundleId || "App",
+      installSize: Number.isFinite(current.installSize) ? current.installSize : null,
+      downloadSize: Number.isFinite(current.downloadSize) ? current.downloadSize : null,
+      installSizeDelta: delta("installSize"),
+      downloadSizeDelta: delta("downloadSize"),
+      baselineInstallSize: Number.isFinite(baseline?.installSize) ? baseline.installSize : null,
+      baselineDownloadSize: Number.isFinite(baseline?.downloadSize) ? baseline.downloadSize : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // 빌드가 깨지면 테스트가 0개로 끝나 실패 원인이 안 보인다
 function readBuildErrors(bundle) {
   try {
@@ -440,7 +475,48 @@ function renderCoverage(coverage, stats = {}) {
   return lines;
 }
 
-function renderReport({ summary, coverage, coverageStats, buildErrors, outcome, runUrl, sha, testRunUrl }) {
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return "—";
+
+  const units = ["B", "KB", "MB", "GB"];
+  let value = Math.abs(bytes);
+  let unit = 0;
+  while (value >= 1000 && unit < units.length - 1) {
+    value /= 1000;
+    unit += 1;
+  }
+
+  const sign = bytes < 0 ? "-" : "";
+  const digits = unit === 0 ? 0 : 1;
+  return `${sign}${value.toFixed(digits)} ${units[unit]}`;
+}
+
+function formatBundleSize(size, delta, baseline) {
+  if (!Number.isFinite(size)) return "—";
+
+  const lines = [formatBytes(size)];
+  if (Number.isFinite(delta)) {
+    const sign = delta > 0 ? "+" : "";
+    const percentage = Number.isFinite(baseline) && baseline > 0 ? ` (${sign}${((delta / baseline) * 100).toFixed(2)}%)` : "";
+    lines.push(`<sub>Δ ${sign}${formatBytes(delta)}${percentage}</sub>`);
+  }
+  return lines.join("<br>");
+}
+
+function renderBundleInsights(bundle) {
+  if (!bundle) return [];
+
+  return [
+    "### 📦 Bundle 크기",
+    "",
+    "| Bundle | Install size | Download size |",
+    "| --- | ---: | ---: |",
+    `| ${bundle.name} | ${formatBundleSize(bundle.installSize, bundle.installSizeDelta, bundle.baselineInstallSize)} | ${formatBundleSize(bundle.downloadSize, bundle.downloadSizeDelta, bundle.baselineDownloadSize)} |`,
+    "",
+  ];
+}
+
+function renderReport({ summary, coverage, coverageStats, buildErrors, bundleInsights, outcome, runUrl, sha, testRunUrl, buildRunUrl }) {
   const lines = [MARKER, ""];
   const footer = [`\`${sha.slice(0, 7)}\``, `[워크플로 로그](${runUrl})`].join(" · ");
 
@@ -481,10 +557,12 @@ function renderReport({ summary, coverage, coverageStats, buildErrors, outcome, 
     meta.push(`${summary.device.modelName} (${summary.device.platform} ${summary.device.osVersion})`);
   }
   if (testRunUrl) meta.push(`[Tuist 테스트 실행](${testRunUrl})`);
+  if (buildRunUrl) meta.push(`[Tuist 빌드 실행](${buildRunUrl})`);
   meta.push(footer);
   lines.push(meta.join(" · "), "");
 
   if (summary.failures.length > 0) lines.push(...renderFailures(summary.failures));
+  lines.push(...renderBundleInsights(bundleInsights));
   lines.push(...renderCoverage(coverage, coverageStats));
 
   return lines.join("\n");
@@ -500,16 +578,20 @@ module.exports = async ({ github, context, core }) => {
   const coverage = mergeCoverage([readMergedCoverage(bundles, coverageStats)]);
   const buildErrors = bundles.flatMap(readBuildErrors);
   const testRunUrl = readDashboardURL(process.env.TEST_RUN_REPORT_PATH, "/tests/test-runs/");
+  const buildRunUrl = readDashboardURL(process.env.BUILD_RUN_REPORT_PATH, "/builds/build-runs/");
+  const bundleInsights = readBundleInsights(process.env.BUNDLE_INSPECT_REPORT_PATH);
 
   const body = renderReport({
     summary: summaries.length > 0 ? mergeSummaries(summaries) : null,
     coverage,
     coverageStats,
     buildErrors,
+    bundleInsights,
     outcome: process.env.TEST_OUTCOME || "unknown",
     runUrl: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
     sha: context.payload.pull_request.head.sha,
     testRunUrl,
+    buildRunUrl,
   });
 
   await core.summary.addRaw(body.replace(MARKER, "")).write();
@@ -538,5 +620,7 @@ module.exports.__test__ = {
   internalCoverageTargetNames,
   mergeCoverage,
   readMergedCoverage,
+  readBundleInsights,
   readDashboardURL,
+  renderBundleInsights,
 };
