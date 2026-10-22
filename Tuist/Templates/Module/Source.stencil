@@ -1,0 +1,8 @@
+//
+//  {{ name }}.swift
+//  {{ name }}
+//
+//  Created by {{ author }} on {{ currentDate }}.
+//
+
+public enum {{ name }} {}

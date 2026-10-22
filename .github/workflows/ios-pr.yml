@@ -1,0 +1,44 @@
+name: iOS PR
+
+on:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v5
+      - name: Check tracked files and secrets
+        run: bash Scripts/check-tracked-secrets.sh
+      - name: Generate project
+        run: |
+          mise exec -- tuist install
+          mise exec -- tuist generate --no-open
+      - name: Build app
+        run: |
+          xcodebuild build -quiet \
+            -workspace FestiCore.xcworkspace \
+            -scheme FestiCore-Stage \
+            -configuration Stage \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -derivedDataPath "$RUNNER_TEMP/festicore-derived" \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Run tests
+        run: |
+          xcodebuild test -quiet \
+            -workspace FestiCore.xcworkspace \
+            -scheme FestiCore-Stage \
+            -configuration Stage \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -derivedDataPath "$RUNNER_TEMP/festicore-derived" \
+            CODE_SIGNING_ALLOWED=NO
