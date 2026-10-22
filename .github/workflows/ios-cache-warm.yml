@@ -1,0 +1,42 @@
+name: Warm Module Cache
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'Tuist/Package.swift'
+      - 'Tuist/Package.resolved'
+      - 'Tuist.swift'
+      - '.mise.toml'
+      - '.github/workflows/ios-cache-warm.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-cache-warm
+  cancel-in-progress: true
+
+jobs:
+  warm:
+    runs-on: self-hosted
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      TUIST_TOKEN: ${{ secrets.TUIST_TOKEN }}
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup iOS runner
+        uses: ./.github/actions/setup-ios-runner
+        with:
+          tuist-token: ${{ secrets.TUIST_TOKEN }}
+          derived-data-directory: FestiCore-cache-warm
+      - name: Setup Tuist cache
+        continue-on-error: true
+        timeout-minutes: 3
+        run: mise exec -- tuist setup cache
+      - name: Resolve dependencies
+        run: mise exec -- tuist install
+      - name: Warm external module cache
+        run: mise exec -- tuist cache warm --cache-profile only-external --configuration Stage

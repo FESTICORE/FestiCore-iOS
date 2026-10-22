@@ -1,0 +1,48 @@
+name: iOS Preview
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ios-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  share:
+    runs-on: self-hosted
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      TUIST_TOKEN: ${{ secrets.TUIST_TOKEN }}
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup iOS runner
+        uses: ./.github/actions/setup-ios-runner
+        with:
+          tuist-token: ${{ secrets.TUIST_TOKEN }}
+          derived-data-directory: FestiCore-preview
+      - name: Verify Tuist authentication
+        run: test -n "$TUIST_TOKEN"
+      - name: Resolve dependencies
+        run: mise exec -- tuist install
+      - name: Generate workspace
+        run: mise exec -- tuist generate --no-open --cache-profile only-external
+      - name: Build simulator app
+        run: |
+          xcodebuild build \
+            -workspace FestiCore.xcworkspace \
+            -scheme FestiCore-Stage \
+            -configuration Stage \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/FestiCore-preview" \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Share private Tuist preview
+        run: |
+          APP_PATH="$RUNNER_TEMP/FestiCore-preview/Build/Products/Stage-iphonesimulator/FestiCore.app"
+          test -d "$APP_PATH"
+          mise exec -- tuist share "$APP_PATH" --track nightly
