@@ -64,9 +64,6 @@ private func warmBinaryCache(_ arguments: [String]) -> Int32 {
 
 private func generationArguments(_ arguments: [String]) -> [String] {
   var result = arguments
-  if !result.contains("--no-open") && !result.contains("--open") {
-    result.append("--no-open")
-  }
   if !result.contains("--no-binary-cache")
     && !result.contains(where: { $0 == "--cache-profile" || $0.hasPrefix("--cache-profile=") }) {
     result += ["--cache-profile", "only-external"]
