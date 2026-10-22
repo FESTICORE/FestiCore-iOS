@@ -18,6 +18,7 @@ let project = Project.makeAppModule(
   dependencies: [
     .feature(.home),
     .service(.assembly),
+    .ui(.designSystem),
     .SPM.dependencies
   ],
   sources: ["Sources/**"],
