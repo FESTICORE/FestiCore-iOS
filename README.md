@@ -1,6 +1,6 @@
 # FestiCore iOS
 
-축제 앱의 iOS 프로젝트입니다. iOS 18.0 이상 iPhone을 대상으로 하며, 앱 식별자는 `io.festiCore.co`, Apple Development Team ID는 `N94CS4N6VR`입니다.
+축제 앱의 iOS 프로젝트입니다. iOS 18.0 이상 iPhone을 대상으로 하며, 앱 식별자는 `io.festiCore.co`, Apple Team ID는 `N94CS4N6VR`입니다.
 
 ## 시작
 
