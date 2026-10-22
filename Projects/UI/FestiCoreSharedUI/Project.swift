@@ -11,5 +11,6 @@ import DependencyPlugin
 
 let project = Project.makeModule(
   name: "FestiCoreSharedUI",
-  dependencies: [.ui(.animation), .ui(.designSystem)]
+  dependencies: [.ui(.animation), .ui(.designSystem)],
+  hasTests: true
 )
