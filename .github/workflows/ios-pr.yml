@@ -108,6 +108,7 @@ jobs:
         id: build
         continue-on-error: true
         run: |
+          set -o pipefail
           mise exec -- tuist test run FestiCore-Stage \
             --build-only \
             --no-binary-cache \
@@ -133,6 +134,20 @@ jobs:
             ONLY_ACTIVE_ARCH=YES \
             COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED" \
             2>&1 | tee TuistShardBuild.log
+
+      - name: Validate shard plan
+        if: steps.build.outcome == 'success'
+        env:
+          SHARD_MATRIX: ${{ steps.build.outputs.matrix }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          matrix = json.loads(os.environ.get("SHARD_MATRIX") or "{}")
+          if not matrix.get("shard"):
+              raise SystemExit("Tuist가 테스트 shard를 생성하지 못했습니다. Build and plan test shards 로그를 확인하세요.")
+          PY
 
       # tuist test 실패 시 Test Insights만 업로드될 수 있으므로, 남은 xcactivitylog를
       # 명시적으로 분석해 Builds 표에도 실패한 Stage 빌드를 기록한다.
