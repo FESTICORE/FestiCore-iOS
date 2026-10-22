@@ -162,6 +162,18 @@ Tuist 웹 프로젝트: [Tests](https://tuist.dev/suhwj81/festicore/tests/test-r
 
 관련 워크플로: [.github/workflows/ios-pr.yml](.github/workflows/ios-pr.yml), [.github/workflows/ios-develop-sharded-tests.yml](.github/workflows/ios-develop-sharded-tests.yml).
 
+## 배포 준비
+
+`fastlane/`에는 테스트·빌드·QA·릴리스·심사 제출 lane이 있습니다. 서명과 App Store Connect 인증은 실행 환경에서 주입하며 저장소에는 보관하지 않습니다. 실제 기기 서명과 배포는 아직 검증하지 않았습니다.
+
+~~~bash
+bundle install
+bundle exec fastlane ios test
+bundle exec fastlane ios build
+~~~
+
+배포 lane에는 `MATCH_GIT_URL`, `MATCH_PASSWORD`, `APP_STORE_CONNECT_TEAM_ID`, `APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_CONTENT`가 필요합니다. 키 콘텐츠는 Base64로 전달합니다. `develop` 푸시의 Preview는 시뮬레이터 앱을 Tuist에 공유하며 App Store 배포와는 별개입니다.
+
 ## 개발 가이드
 
 - [개발 환경](docs/agent/development-environment.md)
