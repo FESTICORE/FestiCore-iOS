@@ -11,10 +11,10 @@ import FestiCoreNetworkInterface
 
 /// `FestiCoreNetworkClient` 조립 진입점. 호출부는 이 팩토리만 알면 된다.
 public enum NetworkClientFactory {
-  /// Info.plist 의 `FESTICORE_API_HOST`(호스트만 담긴 값)로 조립한 앱 서버 baseURL.
+  /// Info.plist 의 `FestiCoreAPIHost`(호스트만 담긴 값)로 조립한 앱 서버 baseURL.
   /// 값이 없으면 nil 이고, 그 클라이언트의 요청은 `.request(.invalidURL)` 로 즉시 실패한다.
   public static var bundleBaseURL: URL? {
-    guard let host = Bundle.main.object(forInfoDictionaryKey: "FESTICORE_API_HOST") as? String,
+    guard let host = Bundle.main.object(forInfoDictionaryKey: "FestiCoreAPIHost") as? String,
           !host.isEmpty
     else {
       return nil
