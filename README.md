@@ -158,7 +158,7 @@ cd FestiCore-iOS
 - `develop` 워크플로는 전체 테스트를 shard로 실행하고 Stage 모듈 캐시를 준비합니다. Xcode Compilation Cache와 Tuist 캐시는 사용 가능한 경우 활성화합니다.
 - Tuist 웹의 PR 앱 댓글과 `tuist/bundle-size` 체크는 GitHub 앱의 저장소 연결 및 번들 임계값 설정이 필요합니다. 현재 GitHub Actions PR 리포트와는 별개의 연동입니다.
 
-Tuist 웹 프로젝트: [Tests](https://tuist.dev/suhwj81/festicore/tests/test-runs) · [Builds](https://tuist.dev/suhwj81/festicore/builds/build-runs) · [Bundles](https://tuist.dev/suhwj81/festicore/bundles)
+Tuist 웹 프로젝트: [Tests](https://tuist.dev/FestiCore/festicore/tests/test-runs) · [Builds](https://tuist.dev/FestiCore/festicore/builds/build-runs) · [Bundles](https://tuist.dev/FestiCore/festicore/bundles)
 
 관련 워크플로: [.github/workflows/ios-pr.yml](.github/workflows/ios-pr.yml), [.github/workflows/ios-develop-sharded-tests.yml](.github/workflows/ios-develop-sharded-tests.yml).
 
