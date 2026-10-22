@@ -12,10 +12,13 @@ private let command = arguments.first ?? "help"
 private let forwarded = Array(arguments.dropFirst())
 
 @discardableResult
-private func run(_ executable: String, _ arguments: [String]) -> Int32 {
+private func run(_ executable: String, _ arguments: [String], environmentOverrides: [String: String] = [:]) -> Int32 {
   let process = Process()
   process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
   process.arguments = [executable] + arguments
+  if !environmentOverrides.isEmpty {
+    process.environment = ProcessInfo.processInfo.environment.merging(environmentOverrides) { _, new in new }
+  }
   process.standardInput = FileHandle.standardInput
   process.standardOutput = FileHandle.standardOutput
   process.standardError = FileHandle.standardError
@@ -29,8 +32,58 @@ private func run(_ executable: String, _ arguments: [String]) -> Int32 {
   }
 }
 
-private func tuist(_ arguments: [String]) -> Int32 {
-  run("mise", ["exec", "--", "tuist"] + arguments)
+private func tuist(_ arguments: [String], environmentOverrides: [String: String] = [:]) -> Int32 {
+  run("mise", ["exec", "--", "tuist"] + arguments, environmentOverrides: environmentOverrides)
+}
+
+private var isCI: Bool {
+  ["1", "true", "TRUE"].contains(ProcessInfo.processInfo.environment["CI"] ?? "")
+    || ["1", "true", "TRUE"].contains(ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] ?? "")
+}
+
+private func cacheWarmArguments(_ arguments: [String]) -> [String] {
+  if arguments.first == "print-hashes" { return ["cache"] + arguments }
+  var forwarded = arguments.first == "warm" ? Array(arguments.dropFirst()) : arguments
+  let hasProfile = forwarded.contains { $0 == "--cache-profile" || $0.hasPrefix("--cache-profile=") }
+  let includeProjectTargets = forwarded.contains("--no-external-only")
+  forwarded.removeAll { $0 == "--external-only" || $0 == "--no-external-only" }
+  return ["cache", "warm"]
+    + (hasProfile ? [] : ["--cache-profile", includeProjectTargets ? "all-possible" : "only-external"])
+    + forwarded
+}
+
+private func setupCompilationCache() -> Int32 {
+  guard !isCI else { return 0 }
+  return tuist(["setup", "cache"])
+}
+
+private func warmBinaryCache(_ arguments: [String]) -> Int32 {
+  guard !isCI, !arguments.contains("--no-binary-cache") else { return 0 }
+  return tuist(cacheWarmArguments([]), environmentOverrides: ["TUIST_LOCAL_CACHE_ONLY": "true"])
+}
+
+private func generationArguments(_ arguments: [String]) -> [String] {
+  var result = arguments
+  if !result.contains("--no-open") && !result.contains("--open") {
+    result.append("--no-open")
+  }
+  if !result.contains("--no-binary-cache")
+    && !result.contains(where: { $0 == "--cache-profile" || $0.hasPrefix("--cache-profile=") }) {
+    result += ["--cache-profile", "only-external"]
+  }
+  return result
+}
+
+private func installAndGenerate(_ arguments: [String] = []) -> Int32 {
+  let install = tuist(["install"] + arguments.filter { $0 != "--no-open" && $0 != "--no-binary-cache" })
+  guard install == 0 else { return install }
+  let setup = setupCompilationCache()
+  guard setup == 0 else { return setup }
+  let warm = warmBinaryCache(arguments)
+  guard warm == 0 else { return warm }
+  return tuist(["generate"] + generationArguments(
+    arguments.filter { $0 == "--no-open" || $0 == "--no-binary-cache" }
+  ))
 }
 
 private func module(_ arguments: [String]) -> Int32 {
@@ -128,11 +181,15 @@ private let status: Int32
 switch command {
 case "setup":
   let install = run("mise", ["install"])
-  status = install == 0 ? tuist(["install"]) : install
+  status = install == 0 ? installAndGenerate(forwarded) : install
 case "install":
-  status = tuist(["install"] + forwarded)
+  status = installAndGenerate(forwarded)
 case "generate":
-  status = tuist(["generate"] + (forwarded.isEmpty ? ["--no-open"] : forwarded))
+  status = tuist(["generate"] + generationArguments(forwarded))
+case "cache":
+  status = tuist(cacheWarmArguments(forwarded))
+case "cache:setup":
+  status = tuist(["setup", "cache"] + forwarded)
 case "build":
   status = run("xcodebuild", ["build", "-workspace", "FestiCore.xcworkspace", "-scheme", "FestiCore-Stage", "-configuration", "Stage", "-destination", "generic/platform=iOS Simulator", "CODE_SIGNING_ALLOWED=NO"] + forwarded)
 case "test":
@@ -143,9 +200,11 @@ case "module":
   status = module(forwarded)
 case "help":
   print("""
-  ./make setup                 mise 설치 및 Tuist 의존성 설치
-  ./make install               Tuist 의존성 설치
-  ./make generate              FestiCore.xcworkspace 생성
+  ./make setup                 mise 설치, 의존성·로컬 Tuist 캐시 준비, 프로젝트 생성
+  ./make install               의존성·로컬 Tuist 캐시 준비, 프로젝트 생성
+  ./make generate              준비된 캐시로 FestiCore.xcworkspace 생성
+  ./make cache                 외부 모듈 바이너리 캐시 준비
+  ./make cache:setup           Xcode Compilation Cache 설정
   ./make build                 Stage 시뮬레이터 빌드
   ./make test                  Stage 시뮬레이터 테스트
   ./make module <Layer> <Name> Feature/Domain/Data 또는 FestiCore 접두어가 있는 Core/UI 모듈 생성

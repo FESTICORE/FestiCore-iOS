@@ -51,7 +51,7 @@ jobs:
       - name: Generate project
         run: |
           mise exec -- tuist install
-          mise exec -- tuist generate --no-open
+          mise exec -- tuist generate --no-open --cache-profile only-external
       - name: Select simulator
         run: echo "SIMULATOR_DESTINATION=$(python3 Scripts/select-ios-simulator.py)" >> "$GITHUB_ENV"
       - name: Build app
