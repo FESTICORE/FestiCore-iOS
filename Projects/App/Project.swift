@@ -7,7 +7,6 @@
 
 import DependencyPlugin
 import DependencyPackagePlugin
-import DependencyPackagePlugin
 import ProjectTemplatePlugin
 
 import ProjectDescription
