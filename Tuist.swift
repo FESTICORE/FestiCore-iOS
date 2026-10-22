@@ -9,7 +9,7 @@ import Foundation
 import ProjectDescription
 
 let tuist = Tuist(
-  fullHandle: "suhwj81/festicore",
+  fullHandle: "FestiCore/festicore",
   xcodeCache: .xcodeCache(
     upload: Environment.isCI
   ),
