@@ -8,4 +8,9 @@
 import ProjectDescription
 import ProjectTemplatePlugin
 
-let project = Project.makeModule(name: "FestiCoreDesignSystem", product: .framework)
+let project = Project.makeModule(
+  name: "FestiCoreDesignSystem",
+  product: .framework,
+  testResources: ["Tests/Resources/**"],
+  hasTests: true
+)
