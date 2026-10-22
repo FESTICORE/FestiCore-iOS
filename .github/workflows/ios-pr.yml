@@ -26,6 +26,9 @@ jobs:
         run: |
           mise exec -- tuist install
           mise exec -- tuist generate --no-open
+      - name: Set up Tuist Xcode cache
+        if: env.TUIST_TOKEN != ''
+        run: mise exec -- tuist setup cache
       - name: Build app
         run: |
           xcodebuild build -quiet \

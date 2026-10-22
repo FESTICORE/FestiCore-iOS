@@ -7,7 +7,7 @@ Attendance_iOS의 Tuist 플러그인 분리, 모듈 카탈로그, `make → Tuis
 ## 프로젝트와 의존성
 
 - `Workspace.swift`는 `Projects/**`를 포함하고 Stage 스킴에 앱 테스트와 `Project.swift`/`Tests`가 있는 모든 모듈 테스트를 등록한다.
-- `Tuist.swift`는 Tuist 웹 프로젝트 `suhwj81/festicore`를 참조한다. CI에서 `TUIST_TOKEN`이 설정된 경우 Xcode 캐시 업로드를 활성화하고, 시크릿이 없으면 업로드를 건너뛴다. 웹 프로젝트 접근과 토큰은 별도 인증이 필요하다.
+- `Tuist.swift`는 Tuist 웹 프로젝트 `suhwj81/festicore`를 참조한다. CI에 `TUIST_TOKEN`이 있으면 `tuist setup cache`와 Xcode 캐시 업로드를 활성화한다. 토큰으로 `tuist project show suhwj81/festicore --no-web` 조회를 확인했다. 실제 캐시 업로드는 토큰 설정 후 CI 실행에서 확인한다.
 - `Plugins/ProjectTemplatePlugin`: Attendance처럼 `Configruation`, `Project+Templete`, `Scheme`, `Setting`, `infoPlist` helper 디렉터리에 앱 환경, Stage/Prod 빌드 설정, 모듈 타깃 및 Info.plist 템플릿을 분리한다. 앱 매니페스트는 `.appInfoPlist`, 모듈 타깃은 `.moduleInfoPlist`를 사용한다.
 - `Plugins/DependencyPlugin`: `TargetDependency+Module`에 레이어 경로, 모듈 카탈로그, 내부 의존성 DSL을 둔다.
 - `Plugins/DependencyPackagePlugin`: `DependencyPackage`에 외부 SPM 의존성 명명 공간을 둔다. Attendance의 패키지 버전을 유지하고 Kingfisher 8.14.0을 추가한다. 아직 앱 타깃에서 직접 사용하는 외부 패키지는 없다.
