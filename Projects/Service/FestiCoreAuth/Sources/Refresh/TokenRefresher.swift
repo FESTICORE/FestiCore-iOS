@@ -33,10 +33,11 @@ struct TokenRefresher: TokenRefreshing {
         expiresAt: JWTDecoder.decodeExpiration(response.data.accessToken)
       )
     } catch {
-      if case let .response(response) = error, response.isUnauthorized {
+      let networkError = (error as? FestiCoreNetworkError) ?? .decoding(.failed(error))
+      if case let .response(response) = networkError, response.isUnauthorized {
         await onAuthFailure(current)
       }
-      throw error
+      throw networkError
     }
   }
 }
