@@ -14,6 +14,8 @@ Xcode 27.1과 mise를 설치한 뒤 저장소 루트에서 실행합니다.
 
 `./make help`에서 명령을 볼 수 있습니다. 생성된 `FestiCore.xcworkspace`의 `FestiCore-Stage` 스킴을 실행합니다. `FestiCore-Prod`는 배포 설정입니다. 두 API 호스트는 `Config/Stage.xcconfig`, `Config/Prod.xcconfig`의 예시 값이므로 서버 연결 전에 교체해야 합니다.
 
+`./make setup`은 의존성 설치, Xcode Compilation Cache 설정, 외부 모듈의 로컬 Tuist 바이너리 캐시 준비와 프로젝트 생성을 순서대로 실행합니다. `./make cache`로 외부 모듈 캐시를 따로 준비할 수 있습니다. `./make generate`와 PR CI는 `only-external` 캐시 프로필로 워크스페이스를 생성하며, `develop`에서는 캐시 warm 작업을 별도로 실행합니다.
+
 ## 모듈 구조
 
 `Workspace.swift`가 `Projects/**`를 모으고, 세 플러그인이 프로젝트 템플릿·내부 의존성·외부 패키지 의존성을 분리합니다.
@@ -29,6 +31,9 @@ Projects/UI/
   ├─ FestiCoreAnimation
   ├─ FestiCoreDesignSystem
   └─ FestiCoreSharedUI
+Projects/Service/
+  ├─ FestiCoreAuth
+  └─ ServiceAssembly
 ```
 
 `ProjectTemplatePlugin`은 Stage/Prod 설정과 모듈 타깃을 만들고, `DependencyPlugin`의 카탈로그가 `.feature(.home)`, `.core(.network)`, `.ui(.designSystem)` 같은 참조를 제공합니다. `DependencyPackagePlugin`은 외부 패키지 의존성 명명 공간을 제공합니다. Domain/Data는 기능별로 실체가 생길 때 추가합니다.
@@ -44,7 +49,7 @@ Projects/UI/
 이 브랜치에서 Core는 로깅, Alamofire 기반 네트워크 요청·인증 갱신, Keychain·공유 값 저장소를 구현 중입니다. Network의 `Interface`에는 `FestiCoreDataRequest`, `FestiCoreNetworkClient`, `CredentialStore`, `TokenRefreshing` 공개 계약이 있고, `Sources`에는 요청 클라이언트와 `NetworkClientFactory`가 있습니다.
 
 - 일반 요청: 요청 타입을 `FestiCoreDataRequest`로 정의하고 `NetworkClientFactory.plain(baseURL:)`로 만든 클라이언트에서 `send(_:)` 또는 `send(_:as:)`를 호출합니다.
-- 인증 요청: 저장소와 갱신기를 `NetworkClientFactory.unified(store:refresher:baseURL:)`에 주입합니다. 로그인·로그아웃 시 반환된 `credentials.update(_:)`로 자격 증명을 갱신합니다.
+- 인증 요청: `ServiceAssembly`가 Keychain 저장소, 토큰 갱신기와 `NetworkClientFactory.unified(store:refresher:baseURL:)`를 조립합니다. 로그인·로그아웃은 `AuthService`를 통해 저장소와 인증 클라이언트를 함께 갱신합니다.
 
 실제 서버 엔드포인트가 확정되기 전까지 실행 가능한 API 호출 코드는 예제로 싣지 않습니다.
 
