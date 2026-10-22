@@ -1,4 +1,35 @@
 storage_mode("git")
-git_url(ENV["MATCH_GIT_URL"]) if ENV["MATCH_GIT_URL"]
+git_url(ENV.fetch("MATCH_GIT_URL", "git@github.com:Roy-wonji/FastlaneMatch.git"))
 app_identifier(["io.festiCore.co"])
 team_id("N94CS4N6VR")
+include_mac_in_profiles(true)
+include_all_certificates(true)
+force_for_new_certificates(true)
+shallow_clone(true)
+skip_certificate_matching(true)
+skip_confirmation(true)
+keychain_name(ENV["MATCH_KEYCHAIN_NAME"] || "match_keychain")
+keychain_password(ENV["MATCH_KEYCHAIN_PASSWORD"])
+
+# API 키 환경 변수가 있으면 Apple ID 로그인 대신 임시 JSON 키로 인증하고 종료 시 삭제
+if ENV["APP_STORE_CONNECT_API_KEY_ID"] && ENV["APP_STORE_CONNECT_ISSUER_ID"] && ENV["APP_STORE_CONNECT_API_KEY_CONTENT"]
+  require 'json'
+  require 'base64'
+
+  api_key_path = File.expand_path("AuthKey_#{ENV['APP_STORE_CONNECT_API_KEY_ID']}.json", __dir__)
+
+  api_key_data = {
+    "key_id" => ENV["APP_STORE_CONNECT_API_KEY_ID"],
+    "issuer_id" => ENV["APP_STORE_CONNECT_ISSUER_ID"],
+    "key" => Base64.decode64(ENV["APP_STORE_CONNECT_API_KEY_CONTENT"]),
+    "duration" => 1200,
+    "in_house" => false
+  }
+
+  File.write(api_key_path, JSON.pretty_generate(api_key_data), perm: 0o600)
+  api_key_path(api_key_path)
+
+  at_exit do
+    File.delete(api_key_path) if File.exist?(api_key_path)
+  end
+end
