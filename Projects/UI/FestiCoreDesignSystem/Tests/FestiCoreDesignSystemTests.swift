@@ -1,5 +1,6 @@
 import Testing
 import UIKit
+import SwiftUI
 @testable import FestiCoreDesignSystem
 
 struct FestiCoreDesignSystemTests {
@@ -16,6 +17,15 @@ struct FestiCoreDesignSystemTests {
     #expect(FestiCoreTypography.baseBodyRegular.size == 17)
     #expect(FestiCoreTypography.baseBodyRegular.lineHeight == 1.529)
     #expect(FestiCoreTypography.pointDisplay.fontFamily == "Bagel Fat One")
+  }
+
+  @Test @MainActor func tokensComposeWithSwiftUIModifiers() {
+    let label = Text("Festival")
+      .festiCoreTextStyle(FestiCoreTypography.baseBodyRegular)
+      .foregroundStyle(Color.festiCore(FestiCoreColor.labelNormal))
+      .padding(FestiCoreSpacing.marginM12)
+    let controller = UIHostingController(rootView: label)
+    #expect(controller.view != nil)
   }
 }
 

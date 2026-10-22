@@ -21,8 +21,8 @@ public struct FestiCoreSection<Content: View>: View {
   public var body: some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM12) {
       Text(title)
-        .font(Font(FestiCoreTypography.baseHeadlineBold.font))
-        .foregroundStyle(Color(uiColor: FestiCoreColor.labelStrong))
+        .festiCoreTextStyle(FestiCoreTypography.baseHeadlineBold)
+        .foregroundStyle(Color.festiCore(FestiCoreColor.labelStrong))
       content
     }
   }

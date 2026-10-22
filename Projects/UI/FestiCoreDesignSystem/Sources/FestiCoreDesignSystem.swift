@@ -21,11 +21,11 @@ public struct FestiCorePrimaryButton: View {
   public var body: some View {
     Button(action: action) {
       Text(title)
-        .font(Font(FestiCoreTypography.baseBodyBold.font))
-        .foregroundStyle(Color(uiColor: FestiCoreColor.primaryOnPrimary))
+        .festiCoreTextStyle(FestiCoreTypography.baseBodyBold)
+        .foregroundStyle(Color.festiCore(FestiCoreColor.primaryOnPrimary))
         .frame(maxWidth: .infinity)
         .padding(.vertical, FestiCoreSpacing.paddingP16)
-        .background(Color(uiColor: FestiCoreColor.primaryNormal))
+        .background(Color.festiCore(FestiCoreColor.primaryNormal))
         .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
     }
     .disabled(!isEnabled)
@@ -41,7 +41,7 @@ public struct FestiCoreDivider: View {
   }
 
   public var body: some View {
-    Color(uiColor: FestiCoreColor.lineNormal)
+    Color.festiCore(FestiCoreColor.lineNormal)
       .frame(height: thickness)
       .accessibilityHidden(true)
   }
