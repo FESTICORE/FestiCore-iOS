@@ -4,33 +4,41 @@ on:
   pull_request:
     branches: [develop]
 
-permissions:
-  contents: read
-  issues: write
-  pull-requests: write
-
+# 같은 PR 에 새 커밋이 오면 이전 실행은 취소한다(러너가 한 대뿐이라 대기열을 줄인다).
 concurrency:
-  group: ios-pr-${{ github.event.pull_request.number }}
+  group: pr-coverage-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+
 jobs:
-  build-and-test:
+  build-test-shards:
     if: github.event.pull_request.head.repo.full_name == github.repository
+    name: Build test shards
     runs-on: self-hosted
-    timeout-minutes: 30
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+
     env:
+      TUIST_GENERATE_CACHE_PROFILE: only-external
       TUIST_BUILD_TAGS: ci,pull-request
       TUIST_BUILD_VALUE_PR_URL: ${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}
-      TUIST_GENERATE_CACHE_PROFILE: only-external
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
+
+    outputs:
+      matrix: ${{ steps.build.outputs.matrix }}
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup iOS runner
         uses: ./.github/actions/setup-ios-runner
         with:
           tuist-token: ${{ secrets.TUIST_TOKEN }}
-          derived-data-directory: FestiCore-pr
+          derived-data-directory: FestiCore-pr-build-shards
+
       - name: Validate GitHub Actions configuration
         env:
           APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
@@ -40,58 +48,78 @@ jobs:
           test "$APP_IDENTIFIER" = 'io.festiCore.co'
           test "$TEAM_ID" = 'N94CS4N6VR'
           test -n "$TUIST_TOKEN"
+
       - name: Check tracked files and secrets
         run: bash Scripts/check-tracked-secrets.sh
-      - name: Set up Tuist Xcode cache
+
+      # CI 잡마다 캐시 데몬과 소켓을 빌드 전에 보장한다.
+      # 인증이나 daemon 기동이 실패해도 테스트 자체는 캐시 없이 계속한다.
+      - name: Setup Tuist cache
         id: tuist-cache
         continue-on-error: true
         timeout-minutes: 3
         run: mise exec -- tuist setup cache
+
       - name: Configure compilation cache fallback
         run: |
           if [[ "${{ steps.tuist-cache.outcome }}" == "success" ]]; then
             echo "XCODE_COMPILATION_CACHE_ENABLED=YES" >> "$GITHUB_ENV"
-          else
-            echo "XCODE_COMPILATION_CACHE_ENABLED=NO" >> "$GITHUB_ENV"
-            echo "Tuist cache를 사용할 수 없어 Xcode compilation cache 없이 진행합니다."
+            exit 0
           fi
-      - name: Set up Tuist insights
+
+          echo "XCODE_COMPILATION_CACHE_ENABLED=NO" >> "$GITHUB_ENV"
+          echo "Tuist cache를 사용할 수 없어 이번 실행은 Xcode compilation cache 없이 진행합니다."
+
+      # 토큰 권한이 정상일 때만 러너 메트릭 수집을 활성화한다.
+      - name: Setup Tuist insights
         continue-on-error: true
         timeout-minutes: 3
         run: mise exec -- tuist setup insights
-      - name: Generate project
-        run: |
-          mise exec -- tuist install
-          mise exec -- tuist generate --no-open --cache-profile only-external
-      - name: Select simulator
-        run: echo "SIMULATOR_DESTINATION=$(python3 Scripts/select-ios-simulator.py)" >> "$GITHUB_ENV"
-      - name: Prepare simulator
-        run: bash Scripts/prepare-ios-simulator.sh
-      - name: Build app
+
+      - name: Install project dependencies
+        run: mise exec -- tuist install
+
+      - name: Prepare build DerivedData
         run: |
           mkdir -p "$CI_DERIVED_DATA"
-          xcodebuild build -quiet \
-            -workspace FestiCore.xcworkspace \
-            -scheme FestiCore-Stage \
-            -configuration Stage \
-            -destination "$SIMULATOR_DESTINATION" \
-            -derivedDataPath "$CI_DERIVED_DATA" \
-            CODE_SIGNING_ALLOWED=NO \
-            SWIFT_ENABLE_PREFIX_MAPPING=NO \
-            SWIFT_ENABLE_PROJECT_PREFIX_MAPPING=NO \
-            CLANG_ENABLE_PREFIX_MAPPING=NO \
-            CLANG_ENABLE_PROJECT_PREFIX_MAPPING=NO \
-            COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
-      - name: Run tests
-        id: tests
+          rm -rf \
+            "$CI_DERIVED_DATA/Build" \
+            "$CI_DERIVED_DATA/Index.noindex" \
+            "$CI_DERIVED_DATA/Logs" \
+            "$CI_DERIVED_DATA/SourcePackages" \
+            "$CI_DERIVED_DATA/info.plist" \
+            ShardBuildResults.xcresult \
+            ShardBuildRunReport.json \
+            TuistShardBuild.log
+
+      # Xcode 업데이트 뒤에도 러너에 실제 설치된 최신 iPhone runtime을 사용한다.
+      - name: Select simulator
+        run: |
+          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py)"
+          echo "SIMULATOR_DESTINATION=$SIMULATOR_DESTINATION" >> "$GITHUB_ENV"
+
+      # 사용 중인 개발용 기기 대신 유휴 기기를 부팅하고 actool의 CoreSimulator spawn을 미리 검증한다.
+      - name: Prepare simulator
+        run: ./Scripts/prepare-ios-simulator.sh
+
+      # Tuist가 테스트 산출물을 원격 shard storage에 올리고 matrix JSON을 GITHUB_OUTPUT으로 내보낸다.
+      # 소스 경로 매핑은 xctestrun의 원본 소스 목록과 달라져 xccov가 0/0을 기록한다.
+      # 커버리지 빌드만 원본 경로를 유지하고 컴파일 캐시는 계속 사용한다.
+      - name: Build and plan test shards
+        id: build
         continue-on-error: true
         run: |
           mise exec -- tuist test run FestiCore-Stage \
+            --build-only \
+            --no-binary-cache \
+            --test-plan FestiCore \
             --configuration Stage \
             --no-selective-testing \
+            --shard-total 2 \
+            --shard-granularity suite \
             --inspect-mode remote \
-            --result-bundle-path "$RUNNER_TEMP/FestiCore-${{ github.run_id }}.xcresult" \
-            --run-report-path "$RUNNER_TEMP/FestiCore-${{ github.run_id }}-test-report.json" \
+            --result-bundle-path ShardBuildResults.xcresult \
+            --run-report-path ShardBuildRunReport.json \
             --path "$PWD" \
             -- \
             -destination "$SIMULATOR_DESTINATION" \
@@ -102,45 +130,254 @@ jobs:
             SWIFT_ENABLE_PROJECT_PREFIX_MAPPING=NO \
             CLANG_ENABLE_PREFIX_MAPPING=NO \
             CLANG_ENABLE_PROJECT_PREFIX_MAPPING=NO \
-            COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
-      - name: Report test coverage
-        if: always()
-        env:
-          RESULT_BUNDLE: ${{ runner.temp }}/FestiCore-${{ github.run_id }}.xcresult
-          TEST_RUN_REPORT: ${{ runner.temp }}/FestiCore-${{ github.run_id }}-test-report.json
-          TEST_OUTCOME: ${{ steps.tests.outcome }}
+            -collect-test-diagnostics never \
+            ONLY_ACTIVE_ARCH=YES \
+            COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED" \
+            2>&1 | tee TuistShardBuild.log
+
+      # tuist test 실패 시 Test Insights만 업로드될 수 있으므로, 남은 xcactivitylog를
+      # 명시적으로 분석해 Builds 표에도 실패한 Stage 빌드를 기록한다.
+      - name: Report failed build to Tuist
+        if: steps.build.outcome == 'failure'
+        continue-on-error: true
         run: |
-          python3 Scripts/ios-pr-coverage.py "$RESULT_BUNDLE" > pr-coverage.md
-          cat pr-coverage.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload test and coverage result
+          mise exec -- tuist inspect build \
+            --derived-data-path "$CI_DERIVED_DATA"
+
+      - name: Upload shard build reports
+        id: upload-shard-build-reports
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: pr-test-coverage-${{ github.run_id }}
+          name: pr-test-build-${{ github.run_id }}
           path: |
-            ${{ runner.temp }}/FestiCore-${{ github.run_id }}.xcresult
-            ${{ runner.temp }}/FestiCore-${{ github.run_id }}-test-report.json
-            pr-coverage.md
+            ShardBuildResults.xcresult
+            ShardBuildRunReport.json
+            TuistShardBuild.log
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Retry shard build report upload
+        if: always() && steps.upload-shard-build-reports.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: pr-test-build-${{ github.run_id }}-retry-${{ github.run_attempt }}
+          path: |
+            ShardBuildResults.xcresult
+            ShardBuildRunReport.json
+            TuistShardBuild.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Shut down shard build simulator
+        if: always()
+        run: |
+          SIMULATOR_UDID="${SIMULATOR_DESTINATION##*,id=}"
+          if [[ -n "$SIMULATOR_UDID" && "$SIMULATOR_UDID" != "$SIMULATOR_DESTINATION" ]]; then
+            xcrun simctl shutdown "$SIMULATOR_UDID" || true
+          fi
+
+      - name: Clean shard build DerivedData
+        if: always()
+        run: |
+          rm -rf \
+            "$CI_DERIVED_DATA/Build" \
+            "$CI_DERIVED_DATA/Index.noindex" \
+            "$CI_DERIVED_DATA/Logs" \
+            "$CI_DERIVED_DATA/SourcePackages" \
+            "$CI_DERIVED_DATA/info.plist" \
+            ShardBuildResults.xcresult \
+            ShardBuildRunReport.json \
+            TuistShardBuild.log
+
+      - name: Fail if shard build failed
+        if: steps.build.outcome != 'success'
+        run: exit 1
+
+  test-shards:
+    name: Test shard ${{ matrix.shard }}
+    needs: build-test-shards
+    if: needs.build-test-shards.result == 'success' && toJSON(fromJSON(needs.build-test-shards.outputs.matrix || '{"shard":[]}').shard) != '[]'
+    runs-on: self-hosted
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.build-test-shards.outputs.matrix || '{"shard":[]}') }}
+
+    env:
+      TUIST_GENERATE_CACHE_PROFILE: only-external
+      TUIST_BUILD_TAGS: ci,pull-request,sharded
+      TUIST_BUILD_VALUE_PR_URL: ${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}
+      TUIST_SHARD_INDEX: ${{ matrix.shard }}
+      TUIST_SHARD_PLAN_ID: ${{ matrix.shard_plan_id }}
+      XCODE_COMPILATION_CACHE_ENABLED: NO
+      RESULT_BUNDLE: TestResults-${{ matrix.shard }}.xcresult
+      TEST_RUN_REPORT_PATH: TestRunReport-${{ matrix.shard }}.json
+      TEST_LOG_PATH: TuistTestRun-${{ matrix.shard }}.log
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup iOS runner
+        uses: ./.github/actions/setup-ios-runner
+        with:
+          tuist-token: ${{ secrets.TUIST_TOKEN }}
+          derived-data-directory: FestiCore-pr-shard-${{ matrix.shard }}
+
+      - name: Select simulator
+        run: |
+          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py)"
+          echo "SIMULATOR_DESTINATION=$SIMULATOR_DESTINATION" >> "$GITHUB_ENV"
+
+      - name: Prepare simulator
+        run: ./Scripts/prepare-ios-simulator.sh
+
+      - name: Prepare shard DerivedData
+        run: |
+          mkdir -p "$CI_DERIVED_DATA"
+          rm -rf \
+            "$CI_DERIVED_DATA/Build" \
+            "$CI_DERIVED_DATA/Index.noindex" \
+            "$CI_DERIVED_DATA/Logs" \
+            "$CI_DERIVED_DATA/SourcePackages" \
+            "$CI_DERIVED_DATA/info.plist" \
+            "$RESULT_BUNDLE" \
+            "$TEST_RUN_REPORT_PATH" \
+            "$TEST_LOG_PATH"
+
+      - name: Run test shard
+        id: tests
+        continue-on-error: true
+        run: |
+          mise exec -- tuist test run FestiCore-Stage \
+            --test-plan FestiCore \
+            --configuration Stage \
+            --no-selective-testing \
+            --without-building \
+            --shard-plan-id "$TUIST_SHARD_PLAN_ID" \
+            --shard-index "$TUIST_SHARD_INDEX" \
+            --inspect-mode remote \
+            --result-bundle-path "$RESULT_BUNDLE" \
+            --run-report-path "$TEST_RUN_REPORT_PATH" \
+            --path "$PWD" \
+            -- \
+            -destination "$SIMULATOR_DESTINATION" \
+            -derivedDataPath "$CI_DERIVED_DATA" \
+            -enableCodeCoverage YES \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_ENABLE_PREFIX_MAPPING=NO \
+            SWIFT_ENABLE_PROJECT_PREFIX_MAPPING=NO \
+            CLANG_ENABLE_PREFIX_MAPPING=NO \
+            CLANG_ENABLE_PROJECT_PREFIX_MAPPING=NO \
+            -collect-test-diagnostics never \
+            ONLY_ACTIVE_ARCH=YES \
+            COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED" \
+            2>&1 | tee "$TEST_LOG_PATH"
+          test -s "$TEST_RUN_REPORT_PATH"
+          test -d "$RESULT_BUNDLE"
+          xcrun xcresulttool get test-results summary --path "$RESULT_BUNDLE" \
+            | python3 -c 'import json,sys; assert json.load(sys.stdin).get("totalTestCount", 0) > 0, "실행된 테스트가 없습니다."'
+
+
+      - name: Upload test shard reports
+        id: upload-test-reports
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: pr-test-shard-${{ github.run_id }}-${{ matrix.shard }}
+          path: |
+            TestResults-${{ matrix.shard }}.xcresult
+            TestRunReport-${{ matrix.shard }}.json
+            TuistTestRun-${{ matrix.shard }}.log
+            TestLogs
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Retry test shard report upload
+        if: always() && steps.upload-test-reports.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: pr-test-shard-${{ github.run_id }}-${{ matrix.shard }}-retry-${{ github.run_attempt }}
+          path: |
+            TestResults-${{ matrix.shard }}.xcresult
+            TestRunReport-${{ matrix.shard }}.json
+            TuistTestRun-${{ matrix.shard }}.log
+            TestLogs
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Shut down test shard simulator
+        if: always()
+        run: |
+          SIMULATOR_UDID="${SIMULATOR_DESTINATION##*,id=}"
+          if [[ -n "$SIMULATOR_UDID" && "$SIMULATOR_UDID" != "$SIMULATOR_DESTINATION" ]]; then
+            xcrun simctl shutdown "$SIMULATOR_UDID" || true
+          fi
+
+      - name: Clean test shard DerivedData
+        if: always()
+        run: |
+          rm -rf \
+            "$CI_DERIVED_DATA/Build" \
+            "$CI_DERIVED_DATA/Index.noindex" \
+            "$CI_DERIVED_DATA/Logs" \
+            "$CI_DERIVED_DATA/SourcePackages" \
+            "$CI_DERIVED_DATA/info.plist" \
+            "$RESULT_BUNDLE" \
+            "$TEST_RUN_REPORT_PATH" \
+            "$TEST_LOG_PATH" \
+            TestLogs
+
+      - name: Fail if test shard failed
+        if: steps.tests.outcome != 'success'
+        run: exit 1
+
+  pr-report:
+    name: PR report
+    if: always() && github.event.pull_request.head.repo.full_name == github.repository && needs.build-test-shards.result != 'cancelled'
+    needs: [build-test-shards, test-shards]
+    runs-on: self-hosted
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download test and coverage reports
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          pattern: pr-test-*-${{ github.run_id }}*
+          path: Artifacts/tests
+
       - name: Report to PR
-        if: always() && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
+        env:
+          # Fork tokens cannot write comments; keep the same results in Actions summary.
+          REPORT_COMMENT: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          RESULT_BUNDLE_DIR: Artifacts/tests
+          COVERAGE_SHARD_IDS: ${{ join(fromJSON(needs.build-test-shards.outputs.matrix || '{"shard":[]}').shard, ',') }}
+          TEST_OUTCOME: ${{ needs.build-test-shards.result == 'success' && needs.test-shards.result == 'success' && 'success' || 'failure' }}
+          TEST_RUN_REPORT_PATH: Artifacts/tests
         with:
           script: |
-            const fs = require('fs')
-            const marker = '<!-- festicore-ios-pr-coverage -->'
-            const coverage = fs.existsSync('pr-coverage.md')
-              ? fs.readFileSync('pr-coverage.md', 'utf8')
-              : '커버리지 결과를 생성하지 못했습니다.'
-            const body = `${marker}\n## iOS PR 테스트·커버리지\n\n${coverage}\n[Actions 실행](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
-            const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number: context.issue.number, per_page: 100 })
-            const previous = comments.find(comment => comment.user?.type === 'Bot' && comment.body?.includes(marker))
-            if (previous) {
-              await github.rest.issues.updateComment({ ...context.repo, comment_id: previous.id, body })
-            } else {
-              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body })
-            }
-      - name: Fail if tests failed
-        if: steps.tests.outcome != 'success'
+            const report = require(`${process.env.GITHUB_WORKSPACE}/Scripts/ios-test-report.js`)
+            await report({ github, context, core })
+
+      - name: Fail if a required PR check failed
+        if: needs.build-test-shards.result != 'success' || needs.test-shards.result != 'success'
         run: exit 1
