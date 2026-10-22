@@ -20,6 +20,14 @@ FestiCore는 축제 앱의 iOS 기반을 개발하고 있습니다. 현재 `deve
 
 대상은 iOS 18.0 이상 iPhone이며, 번들 ID는 `io.festiCore.co`, Apple Team ID는 `N94CS4N6VR`입니다.
 
+현재 구성된 기반:
+
+- Stage·Prod 앱과 Home 화면
+- HTTP 요청, 자격 증명 저장과 토큰 갱신
+- Keychain·공유 값 저장소와 공통 로깅
+- DesignKit 색상·Pretendard 타이포그래피·공통 UI
+- Swift Testing, Tuist 테스트·빌드·번들 분석
+
 ## 아키텍처
 
 SwiftUI 기반 Tuist 멀티모듈 프로젝트입니다. The Composable Architecture는 의존성으로 등록돼 있습니다. `Workspace.swift`가 `Projects/**`를 모으고 Stage 전체 테스트 스킴을 정의합니다.
@@ -59,6 +67,13 @@ flowchart TD
 
 실제 타깃 의존성은 각 모듈의 `Project.swift`가 기준입니다. `FestiCoreNetwork`와 `FestiCoreStorage`는 `Interface`와 `Sources` 타깃을 분리합니다. `ProjectTemplatePlugin`은 모듈·스킴·설정을 만들고, `DependencyPlugin`과 `DependencyPackagePlugin`은 내부·외부 의존성을 정의합니다. Domain/Data는 아직 생성하지 않았으며 기능 구현에 맞춰 추가합니다.
 
+설계 원칙:
+
+- App은 화면 진입점과 환경 설정을 소유하고, 공통 구현은 ServiceAssembly에서 조립합니다.
+- Feature는 필요한 Service·UI 모듈을 명시적으로 의존합니다.
+- Network·Storage의 공개 계약은 구현 타깃과 분리합니다.
+- Domain/Data는 실제 기능의 모델·저장소 계약이 생길 때 추가합니다.
+
 ### 의존성 주입과 네트워크
 
 Point-Free Dependencies를 사용합니다. `ServiceAssembly`가 인증 서비스와 네트워크·저장소의 라이브 의존성을 조립합니다. 일반 요청은 `FestiCoreDataRequest`로 정의하고 `NetworkClientFactory.plain(baseURL:)`의 클라이언트로 보냅니다. 인증 요청은 `NetworkClientFactory.unified(store:refresher:baseURL:)`에 자격 증명 저장소와 갱신기를 주입합니다. 로그인·로그아웃 시 반환된 `credentials.update(_:)`로 자격 증명을 갱신합니다.
@@ -87,6 +102,10 @@ Text("Festival")
 | 테스트 | Swift Testing, Tuist Test Insights |
 
 `Tuist/Package.swift`에는 GoogleSignIn, Firebase, AppAuth, TCAFlow도 등록돼 있습니다. 패키지 등록만으로 앱 기능이 완성된 것은 아니므로 실제 사용은 해당 모듈 소스를 기준으로 확인합니다.
+
+### 로깅과 진단
+
+`FestiCoreLogger`가 공통 로그 API를 제공합니다. CI는 Tuist Build·Test Insights와 앱 Bundle Insights를 수집합니다. Mixpanel과 Sentry 연동은 예정되어 있으며 현재 앱 코드에는 아직 연결되지 않았습니다.
 
 ## 빌드 환경
 
