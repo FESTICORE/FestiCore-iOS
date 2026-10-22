@@ -7,5 +7,11 @@
 
 import ProjectDescription
 import ProjectTemplatePlugin
+import DependencyPackagePlugin
 
-let project = Project.makeModule(name: "FestiCoreAnimation", product: .framework)
+let project = Project.makeModule(
+  name: "FestiCoreAnimation",
+  product: .framework,
+  dependencies: [.SPM.sdwebImage],
+  hasTests: true
+)
