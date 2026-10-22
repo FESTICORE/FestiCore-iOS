@@ -5,13 +5,12 @@
 //  Created by FestiCore on 10/22/26.
 //
 
-import Foundation
 import ProjectDescription
 
 let tuist = Tuist(
-  fullHandle: "suhwj81/festicore",
+  fullHandle: "FestiCore/festicore",
   xcodeCache: .xcodeCache(
-    upload: Environment.isCI && !(ProcessInfo.processInfo.environment["TUIST_TOKEN"] ?? "").isEmpty
+    upload: Environment.isCI
   ),
   project: .tuist(
     compatibleXcodeVersions: .all,
