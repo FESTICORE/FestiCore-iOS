@@ -8,4 +8,4 @@
 import ProjectDescription
 import ProjectTemplatePlugin
 
-let project = Project.makeModule(name: "FestiCoreLogger", product: .framework)
+let project = Project.makeModule(name: "FestiCoreLogger", product: .framework, hasTests: true)
