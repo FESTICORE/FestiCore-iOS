@@ -20,6 +20,8 @@ let project = Project.makeAppModule(
     .service(.assembly),
     .SPM.dependencies
   ],
+  sources: ["Sources/**"],
+  resources: ["Resources/**"],
   infoPlist: .appInfoPlist,
   entitlements: .file(path: "../../Entitlements/FestiCore.entitlements"),
   hasTests: true
