@@ -10,6 +10,7 @@ public struct FestiCoreTextStyle {
   public let fontFamily: String
 
   public var font: UIFont { UIFont.systemFont(ofSize: size, weight: weight) }
+  public var lineSpacing: CGFloat { max(0, size * lineHeight - font.lineHeight) }
 
   public init(size: CGFloat, weight: UIFont.Weight, lineHeight: CGFloat, letterSpacing: CGFloat, fontFamily: String) {
     self.size = size

@@ -16,6 +16,8 @@ struct FestiCoreDesignSystemTests {
     #expect(FestiCoreRadius.r12 == 12)
     #expect(FestiCoreTypography.baseBodyRegular.size == 17)
     #expect(FestiCoreTypography.baseBodyRegular.lineHeight == 1.529)
+    let body = FestiCoreTypography.baseBodyRegular
+    #expect(abs(body.font.lineHeight + body.lineSpacing - body.size * body.lineHeight) < 0.01)
     #expect(FestiCoreTypography.pointDisplay.fontFamily == "Bagel Fat One")
   }
 
