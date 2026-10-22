@@ -16,20 +16,43 @@ Xcode 27.1과 mise를 설치한 뒤 저장소 루트에서 실행합니다.
 
 ## 모듈 구조
 
-Attendance_iOS처럼 `Workspace.swift`가 `Projects/**`를 모으고, 세 플러그인이 프로젝트 템플릿·내부 의존성·외부 패키지 의존성을 분리합니다.
+`Workspace.swift`가 `Projects/**`를 모으고, 세 플러그인이 프로젝트 템플릿·내부 의존성·외부 패키지 의존성을 분리합니다.
 
 ```text
 Projects/App
-  └─ Feature/Home
+Projects/Feature/Home
+Projects/Core/
+  ├─ FestiCoreLogger
+  ├─ FestiCoreNetwork       # Interface / Sources / Tests
+  └─ FestiCoreStorage       # Interface / Sources / Tests
+Projects/UI/
+  ├─ FestiCoreAnimation
+  ├─ FestiCoreDesignSystem
+  └─ FestiCoreSharedUI
 ```
 
-`ProjectTemplatePlugin`은 Stage/Prod 설정과 모듈 타깃을 만들고, `DependencyPlugin`의 카탈로그가 `.feature(.home)` 같은 참조를 제공합니다. `DependencyPackagePlugin`은 Attendance와 같은 패키지 의존성 명명 공간을 제공합니다. Domain/Data는 기능별로 실체가 생길 때 추가합니다.
+`ProjectTemplatePlugin`은 Stage/Prod 설정과 모듈 타깃을 만들고, `DependencyPlugin`의 카탈로그가 `.feature(.home)`, `.core(.network)`, `.ui(.designSystem)` 같은 참조를 제공합니다. `DependencyPackagePlugin`은 외부 패키지 의존성 명명 공간을 제공합니다. Domain/Data는 기능별로 실체가 생길 때 추가합니다.
 
 ```sh
 ./make module Feature Search
 ```
 
-이 명령은 `Projects/Feature/Search`의 매니페스트·소스·테스트 파일을 만들고 카탈로그에 등록한 뒤 워크스페이스를 생성합니다. 파일 헤더의 프로젝트·작성자 이름은 FestiCore입니다. 새 모듈의 실제 의존성은 생성된 `Project.swift`에서 명시합니다. 지원 레이어는 `Feature`, `Domain`, `Data`입니다.
+이 명령은 `Projects/Feature/Search`의 매니페스트·소스·테스트 파일을 만들고 카탈로그에 등록한 뒤 워크스페이스를 생성합니다. 파일 헤더의 프로젝트·작성자 이름은 FestiCore입니다. 새 모듈의 실제 의존성은 생성된 `Project.swift`에서 명시합니다. 지원 레이어는 `Feature`, `Domain`, `Data`, `Core`, `UI`입니다. Core/UI 모듈 이름에는 `FestiCore` 접두어가 필요합니다.
+
+## Core와 UI 사용 범위
+
+이 브랜치에서 Core는 로깅, Alamofire 기반 네트워크 요청·인증 갱신, Keychain·공유 값 저장소를 구현 중입니다. Network의 `Interface`에는 `FestiCoreDataRequest`, `FestiCoreNetworkClient`, `CredentialStore`, `TokenRefreshing` 공개 계약이 있고, `Sources`에는 요청 클라이언트와 `NetworkClientFactory`가 있습니다.
+
+- 일반 요청: 요청 타입을 `FestiCoreDataRequest`로 정의하고 `NetworkClientFactory.plain(baseURL:)`로 만든 클라이언트에서 `send(_:)` 또는 `send(_:as:)`를 호출합니다.
+- 인증 요청: 저장소와 갱신기를 `NetworkClientFactory.unified(store:refresher:baseURL:)`에 주입합니다. 로그인·로그아웃 시 반환된 `credentials.update(_:)`로 자격 증명을 갱신합니다.
+
+실제 서버 엔드포인트가 확정되기 전까지 실행 가능한 API 호출 코드는 예제로 싣지 않습니다.
+
+UI의 `FestiCoreDesignSystem`에는 [FestiCore-DesignSystem](https://github.com/FESTICORE/FestiCore-DesignSystem) 토큰을 참조한 Swift 색상·레이아웃·타이포그래피 코드가 작업 중입니다. 현재 토큰은 스냅샷이며 **원천 저장소에서 iOS로 자동 갱신하는 흐름은 아직 구현 중**입니다. `FestiCoreAnimation`과 `FestiCoreSharedUI`는 모듈 구조를 만들었고, 공통 컴포넌트는 실제 화면 요구에 맞춰 추가합니다.
+
+## AI 작업 문서
+
+[AGENTS.md](AGENTS.md)에 작업·커밋·검증 규칙과 주제별 문서 목록이 있습니다. [개발 환경](docs/agent/development-environment.md), [Git·PR](docs/agent/git-workflow.md), [테스트 자동화](docs/agent/test-auto-pr-agent.md) 가이드도 참고합니다. Claude Code의 공유 훅 설정은 `.claude/settings.json`에 있으며 개인 설정과 메모리는 추적하지 않습니다.
 
 ## 검증과 배포 설정
 
@@ -42,6 +65,6 @@ bundle exec fastlane ios test
 bundle exec fastlane ios build
 ```
 
-Fastlane은 `Gemfile`과 `fastlane/`에 정의합니다. Attendance에 대응하는 `ios QA`, `ios release`, `ios submit_for_review`, `ios tdd_ci` lane이 있습니다. 배포 lane에는 `MATCH_GIT_URL`, `MATCH_PASSWORD`, `APP_STORE_CONNECT_TEAM_ID`, `APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_CONTENT`(Base64 인코딩)가 필요합니다. 인증 값은 저장소에 넣지 않습니다. 실기기 서명과 배포는 아직 검증하지 않았습니다.
+Fastlane은 `Gemfile`과 `fastlane/`에 정의합니다. `ios QA`, `ios release`, `ios submit_for_review`, `ios tdd_ci` lane이 있습니다. 배포 lane에는 `MATCH_GIT_URL`, `MATCH_PASSWORD`, `APP_STORE_CONNECT_TEAM_ID`, `APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_CONTENT`(Base64 인코딩)가 필요합니다. 인증 값은 저장소에 넣지 않습니다. 실기기 서명과 배포는 아직 검증하지 않았습니다.
 
-`develop` 대상 PR에서는 프로젝트 생성, 시뮬레이터 빌드·테스트와 추적 파일 검사를 실행합니다. 작업은 이슈 번호를 딴 `feature/<번호>` 브랜치에서 진행하고 PR에 작업 유형 라벨을 붙입니다. 자세한 결정은 [초기 설정 설계](docs/initial-setup-design.md)에 있습니다.
+`develop` 대상 PR에서는 프로젝트 생성, 시뮬레이터 빌드·테스트와 추적 파일 검사를 실행합니다. 현재 Core·UI 작업 브랜치는 `feature/core-ui-modules`이며 이슈 번호 `#3`은 각 한국어 커밋 제목 끝에 붙입니다. PR에는 작업 유형 라벨을 붙입니다. 자세한 결정은 [초기 설정 설계](docs/initial-setup-design.md)와 [Core·UI 설계](docs/core-ui-modules-design.md)에 있습니다.
