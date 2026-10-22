@@ -1,8 +1,8 @@
-name: iOS PR
+name: PR Test Coverage
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
 
 # 같은 PR 에 새 커밋이 오면 이전 실행은 취소한다(러너가 한 대뿐이라 대기열을 줄인다).
 concurrency:
@@ -21,7 +21,6 @@ jobs:
       contents: read
 
     env:
-      TUIST_GENERATE_CACHE_PROFILE: only-external
       TUIST_BUILD_TAGS: ci,pull-request
       TUIST_BUILD_VALUE_PR_URL: ${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}
       LANG: en_US.UTF-8
@@ -211,12 +210,10 @@ jobs:
       matrix: ${{ fromJSON(needs.build-test-shards.outputs.matrix || '{"shard":[]}') }}
 
     env:
-      TUIST_GENERATE_CACHE_PROFILE: only-external
       TUIST_BUILD_TAGS: ci,pull-request,sharded
       TUIST_BUILD_VALUE_PR_URL: ${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}
       TUIST_SHARD_INDEX: ${{ matrix.shard }}
       TUIST_SHARD_PLAN_ID: ${{ matrix.shard_plan_id }}
-      XCODE_COMPILATION_CACHE_ENABLED: NO
       RESULT_BUNDLE: TestResults-${{ matrix.shard }}.xcresult
       TEST_RUN_REPORT_PATH: TestRunReport-${{ matrix.shard }}.json
       TEST_LOG_PATH: TuistTestRun-${{ matrix.shard }}.log
@@ -256,36 +253,7 @@ jobs:
       - name: Run test shard
         id: tests
         continue-on-error: true
-        run: |
-          mise exec -- tuist test run FestiCore-Stage \
-            --test-plan FestiCore \
-            --configuration Stage \
-            --no-selective-testing \
-            --without-building \
-            --shard-plan-id "$TUIST_SHARD_PLAN_ID" \
-            --shard-index "$TUIST_SHARD_INDEX" \
-            --inspect-mode remote \
-            --result-bundle-path "$RESULT_BUNDLE" \
-            --run-report-path "$TEST_RUN_REPORT_PATH" \
-            --path "$PWD" \
-            -- \
-            -destination "$SIMULATOR_DESTINATION" \
-            -derivedDataPath "$CI_DERIVED_DATA" \
-            -enableCodeCoverage YES \
-            CODE_SIGNING_ALLOWED=NO \
-            SWIFT_ENABLE_PREFIX_MAPPING=NO \
-            SWIFT_ENABLE_PROJECT_PREFIX_MAPPING=NO \
-            CLANG_ENABLE_PREFIX_MAPPING=NO \
-            CLANG_ENABLE_PROJECT_PREFIX_MAPPING=NO \
-            -collect-test-diagnostics never \
-            ONLY_ACTIVE_ARCH=YES \
-            COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED" \
-            2>&1 | tee "$TEST_LOG_PATH"
-          test -s "$TEST_RUN_REPORT_PATH"
-          test -d "$RESULT_BUNDLE"
-          xcrun xcresulttool get test-results summary --path "$RESULT_BUNDLE" \
-            | python3 -c 'import json,sys; assert json.load(sys.stdin).get("totalTestCount", 0) > 0, "실행된 테스트가 없습니다."'
-
+        run: ./Scripts/run-isolated-module-tests.sh
 
       - name: Upload test shard reports
         id: upload-test-reports
