@@ -59,9 +59,15 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/FestiCore-preview" \
             CODE_SIGNING_ALLOWED=NO \
+            FESTICORE_BUILD_NUMBER="$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" \
             COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
       - name: Share private Tuist preview
         run: |
           APP_PATH="$RUNNER_TEMP/FestiCore-preview/Build/Products/Stage-iphonesimulator/FestiCore.app"
           test -d "$APP_PATH"
+          BUNDLE_BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$APP_PATH/Info.plist")
+          if [[ "$BUNDLE_BUILD_NUMBER" != "$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" ]]; then
+            echo "Preview 빌드 번호가 GitHub 실행 번호와 다릅니다: $BUNDLE_BUILD_NUMBER" >&2
+            exit 1
+          fi
           mise exec -- tuist share "$APP_PATH" --track nightly
