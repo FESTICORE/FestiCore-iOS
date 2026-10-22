@@ -14,12 +14,16 @@ import ProjectDescription
 let project = Project.makeAppModule(
   name: Project.Environment.appName,
   bundleId: .mainBundleID(),
-  settings: .moduleSettings,
+  settings: .appMainSettings,
   dependencies: [
     .feature(.home),
     .service(.assembly),
+    .ui(.designSystem),
     .SPM.dependencies
   ],
+  sources: ["Sources/**"],
+  resources: ["Resources/**"],
   infoPlist: .appInfoPlist,
+  entitlements: .file(path: "../../Entitlements/FestiCore.entitlements"),
   hasTests: true
 )

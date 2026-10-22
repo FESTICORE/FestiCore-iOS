@@ -13,7 +13,10 @@ public extension Project {
     bundleId: String = Environment.mainBundleId,
     settings: Settings = .moduleSettings,
     dependencies: [TargetDependency] = [],
+    sources _: SourceFilesList = ["Sources/**"],
+    resources: ResourceFileElements? = nil,
     infoPlist: InfoPlist = .default,
+    entitlements: Entitlements? = nil,
     hasTests: Bool = false
   ) -> Project {
     let appTarget: Target = .target(
@@ -23,14 +26,12 @@ public extension Project {
       bundleId: bundleId,
       deploymentTargets: Environment.deploymentTarget,
       infoPlist: infoPlist,
-      sources: ["Sources/**"],
+      buildableFolders: resources != nil ? ["Sources", "Resources"] : ["Sources"],
+      entitlements: entitlements,
       dependencies: dependencies,
       settings: .settings(base: [
-        "DEVELOPMENT_TEAM": .string(Environment.organizationTeamId),
         "TARGETED_DEVICE_FAMILY": "1",
-        "SWIFT_VERSION": "6.0",
-        "MARKETING_VERSION": "$(FESTICORE_VERSION)",
-        "CURRENT_PROJECT_VERSION": "$(FESTICORE_BUILD_NUMBER)"
+        "SWIFT_VERSION": "6.0"
       ])
     )
     var targets = [appTarget]
@@ -42,17 +43,23 @@ public extension Project {
         bundleId: "\(bundleId).tests",
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .default,
-        sources: ["Tests/**"],
+        buildableFolders: ["Tests/Sources"],
         dependencies: [.target(name: name)]
       ))
     }
     return Project(
       name: name,
+      options: .options(
+        automaticSchemesOptions: .enabled(codeCoverageEnabled: true),
+        defaultKnownRegions: ["en", "ko"],
+        developmentRegion: "ko"
+      ),
       settings: settings,
       targets: targets,
       schemes: [
         .appEnvironment(name: name, environment: .prod, hasTests: false)
-      ]
+      ],
+      additionalFiles: hasTests ? ["Tests/*.xctestplan"] : []
     )
   }
 
@@ -60,8 +67,9 @@ public extension Project {
     name: String,
     product: Product = .staticFramework,
     dependencies: [TargetDependency] = [],
+    sources _: SourceFilesList = ["Sources/**"],
     resources: ResourceFileElements? = nil,
-    testResources: ResourceFileElements? = nil,
+    testResources _: ResourceFileElements? = nil,
     hasTests: Bool = false,
     hasInterface: Bool = false,
     interfaceDependencies: [TargetDependency] = [],
@@ -77,7 +85,7 @@ public extension Project {
         bundleId: .appBundleID(name: "\(name)Interface"),
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .moduleInfoPlist,
-        sources: ["Interface/**"],
+        buildableFolders: ["Interface"],
         dependencies: interfaceDependencies
       ))
     }
@@ -89,8 +97,7 @@ public extension Project {
         bundleId: .appBundleID(name: name),
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .moduleInfoPlist,
-        sources: ["Sources/**"],
-        resources: resources,
+        buildableFolders: resources != nil ? ["Sources", "Resources"] : ["Sources"],
         dependencies: (hasInterface ? [.target(name: "\(name)Interface")] : []) + dependencies
       ))
 
@@ -102,7 +109,7 @@ public extension Project {
         bundleId: .appBundleID(name: "\(name)Demo"),
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .default,
-        sources: ["Demo/**"],
+        buildableFolders: ["Demo"],
         dependencies: [.target(name: name)]
       ))
     }
@@ -115,12 +122,20 @@ public extension Project {
         bundleId: .appBundleID(name: "\(name)Tests"),
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .default,
-        sources: ["Tests/**"],
-        resources: testResources,
+        buildableFolders: ["Tests"],
         dependencies: [.target(name: name)] + (hasInterface ? [.target(name: "\(name)Interface")] : [])
       ))
     }
 
-    return Project(name: name, settings: .moduleSettings, targets: targets)
+    return Project(
+      name: name,
+      options: .options(
+        automaticSchemesOptions: .enabled(codeCoverageEnabled: true),
+        defaultKnownRegions: ["en", "ko"],
+        developmentRegion: "ko"
+      ),
+      settings: .moduleSettings,
+      targets: targets
+    )
   }
 }

@@ -12,6 +12,7 @@ let tuist = Tuist(
   xcodeCache: .xcodeCache(
     upload: Environment.isCI
   ),
+  // CI만 컴파일 캐시를 업로드하고 로컬 빌드는 내려받아 사용한다.
   project: .tuist(
     compatibleXcodeVersions: .all,
     swiftVersion: .some("6.4.0"),

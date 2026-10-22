@@ -12,6 +12,8 @@ import Dependencies
 
 @main
 struct FestiCoreApp: App {
+  @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
   private let configuration = AppConfiguration(infoDictionary: Bundle.main.infoDictionary ?? [:])
 
   init() {

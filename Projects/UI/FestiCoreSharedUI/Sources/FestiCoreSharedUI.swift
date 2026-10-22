@@ -6,9 +6,9 @@
 //
 
 import SwiftUI
-import FestiCoreDesignSystem
+import FestiCoreDesignKit
 
-/// A reusable title and content arrangement for feature screens.
+/// 기능 화면에서 제목과 내용을 함께 배치합니다.
 public struct FestiCoreSection<Content: View>: View {
   private let title: String
   private let content: Content
@@ -22,7 +22,7 @@ public struct FestiCoreSection<Content: View>: View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM12) {
       Text(title)
         .festiCoreTextStyle(FestiCoreTypography.baseHeadlineBold)
-        .foregroundStyle(Color.festiCore(FestiCoreColor.labelStrong))
+        .foregroundStyle(Color.labelStrong)
       content
     }
   }

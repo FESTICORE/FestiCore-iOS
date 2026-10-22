@@ -477,6 +477,7 @@ private struct ClientTokenRefresher: TokenRefreshing {
 private final class ClientCredentialStore: CredentialStore, @unchecked Sendable {
   private let lock = NSLock()
   private var credential: FestiCoreCredential?
+  private var currentRevision = UUID()
 
   init(credential: FestiCoreCredential?) {
     self.credential = credential
@@ -487,11 +488,30 @@ private final class ClientCredentialStore: CredentialStore, @unchecked Sendable 
   }
 
   func save(_ credential: FestiCoreCredential) {
-    lock.withLock { self.credential = credential }
+    lock.withLock {
+      self.credential = credential
+      currentRevision = UUID()
+    }
+  }
+
+  func revision(matching current: FestiCoreCredential) -> UUID? {
+    lock.withLock { credential == current ? currentRevision : nil }
+  }
+
+  func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {
+    lock.withLock {
+      guard self.credential == current, currentRevision == revision else { return false }
+      self.credential = credential
+      currentRevision = UUID()
+      return true
+    }
   }
 
   func clear() {
-    lock.withLock { credential = nil }
+    lock.withLock {
+      credential = nil
+      currentRevision = UUID()
+    }
   }
 }
 
