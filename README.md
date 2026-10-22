@@ -37,7 +37,7 @@ Projects/
 │   ├── FestiCoreNetwork/        # HTTP 요청과 인증 인터셉터
 │   └── FestiCoreStorage/        # Keychain과 공유 값 저장소
 └── UI/
-    ├── FestiCoreDesignSystem/   # 코드 기반 색상·타이포그래피·간격
+    ├── FestiCoreDesignKit/      # 코드 기반 색상·타이포그래피·간격
     ├── FestiCoreSharedUI/       # 공통 화면 컴포넌트
     └── FestiCoreAnimation/      # 애니메이션 표시 API
 ~~~
@@ -65,12 +65,12 @@ Point-Free Dependencies를 사용합니다. `ServiceAssembly`가 인증 서비�
 
 ### 디자인 시스템
 
-`FestiCoreDesignSystem`은 [FestiCore-DesignSystem](https://github.com/FESTICORE/FestiCore-DesignSystem)의 토큰을 참조한 Swift 색상·타이포그래피·간격을 제공합니다. 현재 값은 코드 스냅샷이며 원천 저장소에서 iOS로 자동 반영하는 작업은 별도로 진행 중입니다. SwiftUI modifier를 이어서 사용합니다.
+`FestiCoreDesignKit`은 [FestiCore-DesignSystem](https://github.com/FESTICORE/FestiCore-DesignSystem)의 토큰에서 생성한 Swift 색상·타이포그래피·간격을 제공합니다. 원본 JSON과 출처 SHA를 함께 보관하며, 토큰 동기화 워크플로가 변경 PR을 만듭니다. SwiftUI modifier를 이어서 사용합니다.
 
 ~~~swift
 Text("Festival")
   .festiCoreTextStyle(FestiCoreTypography.baseBodyRegular)
-  .foregroundStyle(Color.festiCore(FestiCoreColor.labelNormal))
+  .foregroundStyle(Color.labelNormal)
   .padding(FestiCoreSpacing.marginM12)
 ~~~
 
@@ -95,7 +95,7 @@ Text("Festival")
 | Stage | 로컬 개발과 CI 테스트 | `FestiCore-Stage` |
 | Prod | 배포 구성 | `FestiCore-Prod` |
 
-설정은 `Config/Stage.xcconfig`와 `Config/Prod.xcconfig`에서 관리합니다. Stage API 호스트는 `festicore-dev.up.railway.app`, Prod API 호스트는 `festicore.up.railway.app`입니다. 현재 프로젝트 버전 설정은 `0.1.0`입니다.
+설정은 `Config/Stage.xcconfig`와 `Config/Prod.xcconfig`에서 관리합니다. Stage API 호스트는 `festicore-dev.up.railway.app`, Prod API 호스트는 `festicore.up.railway.app`입니다. 현재 프로젝트 버전 설정은 `1.0.0`입니다.
 
 ## 빠른 시작
 
