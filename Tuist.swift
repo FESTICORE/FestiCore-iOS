@@ -5,7 +5,6 @@
 //  Created by FestiCore on 10/22/26.
 //
 
-import Foundation
 import ProjectDescription
 
 let tuist = Tuist(
