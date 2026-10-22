@@ -48,7 +48,16 @@ Projects/UI/
 
 실제 서버 엔드포인트가 확정되기 전까지 실행 가능한 API 호출 코드는 예제로 싣지 않습니다.
 
-UI의 `FestiCoreDesignSystem`에는 [FestiCore-DesignSystem](https://github.com/FESTICORE/FestiCore-DesignSystem) 토큰을 참조한 Swift 색상·레이아웃·타이포그래피 코드가 작업 중입니다. 현재 토큰은 스냅샷이며 **원천 저장소에서 iOS로 자동 갱신하는 흐름은 아직 구현 중**입니다. `FestiCoreAnimation`과 `FestiCoreSharedUI`는 모듈 구조를 만들었고, 공통 컴포넌트는 실제 화면 요구에 맞춰 추가합니다.
+UI의 `FestiCoreDesignSystem`에는 [FestiCore-DesignSystem](https://github.com/FESTICORE/FestiCore-DesignSystem) 토큰을 참조한 Swift 색상·레이아웃·타이포그래피 코드가 있습니다. 현재 토큰은 스냅샷이며 **원천 저장소에서 iOS로 자동 갱신하는 흐름은 아직 구현 중**입니다. SwiftUI에서는 modifier를 이어서 사용합니다.
+
+```swift
+Text("Festival")
+  .festiCoreTextStyle(FestiCoreTypography.baseBodyRegular)
+  .foregroundStyle(Color.festiCore(FestiCoreColor.labelNormal))
+  .padding(FestiCoreSpacing.marginM12)
+```
+
+`FestiCoreAnimation`은 호출자가 제공한 번들의 애니메이션을 표시하고, `FestiCoreSharedUI`는 공통 섹션 컴포넌트를 제공합니다.
 
 ## AI 작업 문서
 
