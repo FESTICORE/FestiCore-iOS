@@ -24,6 +24,15 @@ jobs:
         with:
           tuist-token: ${{ secrets.TUIST_TOKEN }}
           derived-data-directory: FestiCore-pr
+      - name: Validate GitHub Actions configuration
+        env:
+          APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          TUIST_TOKEN: ${{ secrets.TUIST_TOKEN }}
+        run: |
+          test "$APP_IDENTIFIER" = 'io.festiCore.co'
+          test "$TEAM_ID" = 'N94CS4N6VR'
+          test -n "$TUIST_TOKEN"
       - name: Check tracked files and secrets
         run: bash Scripts/check-tracked-secrets.sh
       - name: Set up Tuist Xcode cache

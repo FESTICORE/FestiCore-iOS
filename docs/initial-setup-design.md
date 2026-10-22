@@ -30,6 +30,6 @@ Fastlane의 `test`와 `build`는 로컬 검증용이다. Attendance의 `QA`, `re
 
 ## PR runner와 커버리지
 
-- Attendance와 같이 PR CI는 `self-hosted` macOS runner와 `.github/actions/setup-ios-runner`를 사용한다. 공통 action은 mise 경로, Tuist 설치, `TUIST_TOKEN`, 전용 DerivedData를 설정한다.
+- Attendance와 같이 PR CI는 `self-hosted` macOS runner와 `.github/actions/setup-ios-runner`를 사용한다. 공통 action은 mise 경로, Tuist 설치, `TUIST_TOKEN`, 전용 DerivedData를 설정한다. 저장소 Secret `APP_IDENTIFIER`, `TEAM_ID`, `TUIST_TOKEN`을 확인한 뒤 빌드한다. Attendance의 Firebase·서명·배포 Secret 값은 FestiCore의 값이 아니므로 복사하지 않는다.
 - 설치된 iPhone 시뮬레이터를 실행 때 선택하고 `xcodebuild test` 결과 번들의 앱·Feature 모듈 커버리지를 PR 댓글과 Actions 요약에 기록한다. 테스트 타깃 자체는 커버리지 합계에서 제외한다. 결과 번들은 7일 동안 아티팩트로 보관한다.
-- Runner 호스트에서 등록을 마친 후 `bash Scripts/setup-macos-runner-service.sh <runner 설치 경로>`를 실행해 LaunchAgent를 설치·시작한다. LaunchAgent의 `RunAtLoad` 설정으로 Mac 재시동 후 해당 사용자 로그인 때 runner가 시작된다. 이 스크립트는 runner 호스트에서 직접 실행해야 하며 원격 Mac의 로그인 전 기동을 보장하지 않는다.
+- Runner 호스트에서 등록을 마친 후 `bash Scripts/setup-macos-runner-service.sh <runner 설치 경로>`를 실행해 LaunchAgent를 설치·시작한다. 등록된 runner를 홈 디렉터리로 옮겨 macOS Desktop 접근 제한을 피하고 서비스 시작·GitHub 온라인 상태를 확인했다. LaunchAgent의 `RunAtLoad` 설정으로 Mac 재시동 후 해당 사용자 로그인 때 runner가 시작된다. 실제 재시동 검증과 로그인 전 기동은 이번 변경에서 확인하지 않았다.
