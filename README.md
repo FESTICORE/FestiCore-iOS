@@ -2,6 +2,8 @@
 
 <div align="center">
 
+<img width="150" alt="FestiCore Logo" src="https://avatars.githubusercontent.com/u/345318911?v=4">
+
 **축제 탐색 앱 FestiCore의 iOS 프로젝트**
 
 ![Platform](https://img.shields.io/badge/Platform-iOS-orange.svg)
@@ -10,7 +12,7 @@
 ![Architecture](https://img.shields.io/badge/Architecture-TCA-purple.svg)
 ![Tuist](https://img.shields.io/badge/Tuist-4.206.0-blue.svg)
 
-[아키텍처](#아키텍처) · [빠른 시작](#빠른-시작) · [개발 명령어](#개발-명령어) · [테스트와 CI](#테스트와-ci)
+[아키텍처](#아키텍처) · [빠른 시작](#빠른-시작) · [개발 명령어](#개발-명령어)
 
 </div>
 
@@ -20,13 +22,17 @@ FestiCore는 축제 앱의 iOS 기반을 개발하고 있습니다. 현재 `deve
 
 대상은 iOS 18.0 이상 iPhone이며, 번들 ID는 `io.festiCore.co`, Apple Team ID는 `N94CS4N6VR`입니다.
 
-현재 구성된 기반:
+현재 구성된 기능과 기반:
 
 - Stage·Prod 앱과 Home 화면
 - HTTP 요청, 자격 증명 저장과 토큰 갱신
 - Keychain·공유 값 저장소와 공통 로깅
 - DesignKit 색상·Pretendard 타이포그래피·공통 UI
 - Swift Testing, Tuist 테스트·빌드·번들 분석
+
+## 스크린샷
+
+앱 화면 캡처는 첫 기능 화면이 완성된 뒤 추가합니다.
 
 ## 아키텍처
 
@@ -65,18 +71,62 @@ flowchart TD
     Auth --> Logger
 ~~~
 
-실제 타깃 의존성은 각 모듈의 `Project.swift`가 기준입니다. `FestiCoreNetwork`와 `FestiCoreStorage`는 `Interface`와 `Sources` 타깃을 분리합니다. `ProjectTemplatePlugin`은 모듈·스킴·설정을 만들고, `DependencyPlugin`과 `DependencyPackagePlugin`은 내부·외부 의존성을 정의합니다. Domain/Data는 아직 생성하지 않았으며 기능 구현에 맞춰 추가합니다.
-
 설계 원칙:
 
-- App은 화면 진입점과 환경 설정을 소유하고, 공통 구현은 ServiceAssembly에서 조립합니다.
-- Feature는 필요한 Service·UI 모듈을 명시적으로 의존합니다.
-- Network·Storage의 공개 계약은 구현 타깃과 분리합니다.
-- Domain/Data는 실제 기능의 모델·저장소 계약이 생길 때 추가합니다.
+- **App**은 Home, ServiceAssembly, DesignKit에 직접 의존하며 앱 진입점과 환경 설정을 소유합니다.
+- **ServiceAssembly**는 인증 서비스, Network Interface, Storage 구현을 연결합니다.
+- **FestiCoreNetwork**와 **FestiCoreStorage**는 Interface와 구현 타깃을 분리합니다.
+- 리소스를 포함하는 **FestiCoreDesignKit**과 **FestiCoreAnimation**은 동적 프레임워크입니다.
+- Domain/Data 모듈은 실제 기능의 모델과 저장소 계약이 생길 때 추가합니다.
 
-### 의존성 주입과 네트워크
+### 의존성 주입
 
-Point-Free Dependencies를 사용합니다. `ServiceAssembly`가 인증 서비스와 네트워크·저장소의 라이브 의존성을 조립합니다. 일반 요청은 `FestiCoreDataRequest`로 정의하고 `NetworkClientFactory.plain(baseURL:)`의 클라이언트로 보냅니다. 인증 요청은 `NetworkClientFactory.unified(store:refresher:baseURL:)`에 자격 증명 저장소와 갱신기를 주입합니다. 로그인·로그아웃 시 반환된 `credentials.update(_:)`로 자격 증명을 갱신합니다.
+별도 런타임 DI 컨테이너 대신 Point-Free Dependencies를 사용합니다.
+
+- **ServiceAssembly**: 인증, Network, Storage의 라이브 의존성 조립
+- **FestiCoreNetwork**: `FestiCoreDataRequest` 요청 명세와 HTTP 클라이언트 제공
+- **FestiCoreAuth**: 자격 증명 저장과 만료 토큰 갱신
+- **App**: ServiceAssembly에서 조립한 의존성을 앱 시작 시 사용
+
+일반 요청에는 `NetworkClientFactory.plain(baseURL:)`, 인증 요청에는 `NetworkClientFactory.unified(store:refresher:baseURL:)`를 사용합니다. 로그인·로그아웃 시에는 반환된 `credentials.update(_:)`로 자격 증명을 갱신합니다.
+
+### 모듈 그래프
+
+현재 `Projects/**/Project.swift`에 선언된 내부 타깃 의존성을 간추린 그래프입니다. 앱에 연결되지 않은 UI 모듈은 별도로 표시합니다.
+
+<details>
+<summary>FestiCore 전체 모듈</summary>
+
+~~~mermaid
+flowchart TD
+    App --> Home
+    App --> ServiceAssembly
+    App --> FestiCoreDesignKit
+    ServiceAssembly --> FestiCoreAuth
+    ServiceAssembly --> FestiCoreNetworkInterface["FestiCoreNetwork / Interface"]
+    ServiceAssembly --> FestiCoreStorage
+    FestiCoreAuth --> FestiCoreNetwork
+    FestiCoreAuth --> FestiCoreStorageImplementation["FestiCoreStorage / Implementation"]
+    FestiCoreNetwork --> FestiCoreLogger
+    FestiCoreSharedUI
+    FestiCoreAnimation
+~~~
+
+</details>
+
+<details>
+<summary>인증·네트워크 경계</summary>
+
+~~~mermaid
+flowchart LR
+    ServiceAssembly --> NetworkInterface["Network Interface"]
+    ServiceAssembly --> FestiCoreAuth
+    FestiCoreAuth --> NetworkImplementation["Network Implementation"]
+    FestiCoreAuth --> StorageImplementation["Storage Implementation"]
+    NetworkImplementation --> FestiCoreLogger
+~~~
+
+</details>
 
 ### 디자인 시스템
 
@@ -92,20 +142,34 @@ Text("Festival")
 ## 기술 스택
 
 | 영역 | 기술 |
-| --- | --- |
-| 언어·UI | Swift 6, SwiftUI |
-| 상태·의존성 | The Composable Architecture, Point-Free Dependencies |
+|---|---|
+| 언어 | Swift 6, Swift Concurrency |
+| UI | SwiftUI |
+| 상태 관리 | The Composable Architecture 패키지 설정 |
+| 내비게이션 | TCAFlow 1.2.0 패키지 설정 |
 | 프로젝트 | Tuist 4.206.0, Mise |
-| 네트워크 | FestiCoreNetwork, Alamofire |
-| 인증·저장소 | FestiCoreAuth, FestiCoreStorage, Keychain, SQLiteData |
-| 이미지 | SDWebImageSwiftUI, Kingfisher 패키지 설정 |
+| 의존성 주입 | Point-Free Dependencies |
+| 네트워크 | FestiCoreNetwork, Alamofire 5.12.0 |
+| 인증 | FestiCoreAuth, GoogleSignIn 9.2.0·AppAuth 패키지 설정 |
+| 저장소 | FestiCoreStorage, Keychain, SQLiteData |
+| 이미지 | SDWebImageSwiftUI 3.1.4, Kingfisher 8.14.0 패키지 설정 |
+| 모니터링 | Firebase Crashlytics 패키지 설정 |
 | 테스트 | Swift Testing, Tuist Test Insights |
 
 `Tuist/Package.swift`에는 GoogleSignIn, Firebase, AppAuth, TCAFlow도 등록돼 있습니다. 패키지 등록만으로 앱 기능이 완성된 것은 아니므로 실제 사용은 해당 모듈 소스를 기준으로 확인합니다.
 
 ### 로깅과 진단
 
-`FestiCoreLogger`가 공통 로그 API를 제공합니다. CI는 Tuist Build·Test Insights와 앱 Bundle Insights를 수집합니다. Mixpanel과 Sentry 연동은 예정되어 있으며 현재 앱 코드에는 아직 연결되지 않았습니다.
+- **FestiCoreLogger**: 공통 로그 API
+- **Tuist Insights**: CI의 빌드·테스트·번들 결과 수집
+- **Mixpanel·Sentry**: 도입 예정이며 현재 앱 코드에는 연결되지 않음
+
+지원 환경:
+
+- iOS 18.0 이상
+- Swift 6
+- Xcode 27.1
+- iPhone
 
 ## 빌드 환경
 
@@ -114,7 +178,7 @@ Text("Festival")
 | Stage | 로컬 개발과 CI 테스트 | `FestiCore-Stage` |
 | Prod | 배포 구성 | `FestiCore-Prod` |
 
-설정은 `Config/Stage.xcconfig`와 `Config/Prod.xcconfig`에서 관리합니다. Stage API 호스트는 `festicore-dev.up.railway.app`, Prod API 호스트는 `festicore.up.railway.app`입니다. 현재 프로젝트 버전 설정은 `1.0.0`입니다.
+프로젝트는 Dev 없이 두 구성만 사용합니다. 환경 값은 `Config/Stage.xcconfig`와 `Config/Prod.xcconfig`에서 관리합니다. Stage API 호스트는 `festicore-dev.up.railway.app`, Prod API 호스트는 `festicore.up.railway.app`입니다. 현재 프로젝트 버전 설정은 `1.0.0`입니다.
 
 ## 빠른 시작
 
@@ -124,78 +188,103 @@ Text("Festival")
 - Mise
 - iOS 18.0 이상 iPhone 시뮬레이터
 
+### 설치
+
 ~~~bash
 git clone https://github.com/FESTICORE/FestiCore-iOS.git
 cd FestiCore-iOS
-./make setup
+
+# Mise 도구 설치 → Tuist 의존성 설치 → 캐시 준비 → 워크스페이스 생성
+./make setup --no-open
+
+open FestiCore.xcworkspace
 ~~~
 
-`./make setup`은 도구·의존성을 설치하고 로컬 Tuist 캐시를 준비한 뒤 workspace를 생성해 Xcode에서 엽니다. 이미 설치를 마쳤다면 `./make generate`로 다시 생성할 수 있습니다. Xcode에서 `FestiCore-Stage` 스킴과 사용 가능한 iPhone 시뮬레이터를 선택합니다.
+Xcode에서 **FestiCore-Stage** 스킴과 사용할 iPhone 시뮬레이터를 선택해 실행합니다. 이미 도구와 의존성을 설치했다면 `./make generate`로 워크스페이스를 다시 생성할 수 있습니다.
 
 ## 개발 명령어
 
 ~~~bash
-./make setup                    # Mise·Tuist 설치, 캐시 준비, workspace 생성
-./make install                  # Tuist 의존성·캐시 준비, workspace 생성
-./make generate                 # 캐시를 사용해 workspace 재생성
-./make cache                    # 외부 모듈 바이너리 캐시 준비
-./make cache:setup              # Xcode Compilation Cache 설정
-./make build                    # Stage 시뮬레이터 빌드
-./make test                     # Stage 시뮬레이터 테스트
-./make clean                    # Tuist 생성물 정리
-./make help                     # 지원 명령 확인
-./make module Feature Search    # Feature 모듈 생성·카탈로그 등록
-./make module Core FestiCoreFoo # Core 모듈 생성·카탈로그 등록
+./make setup         # Mise 도구, 의존성, 로컬 캐시, 워크스페이스 준비
+./make install       # 의존성 설치 후 워크스페이스 생성
+./make generate      # 외부 바이너리 캐시를 사용해 프로젝트 재생성
+./make build         # Stage 시뮬레이터 빌드
+./make test          # Stage 시뮬레이터 테스트
+./make cache         # Tuist 외부 모듈 바이너리 캐시 준비
+./make cache:setup   # Xcode Compilation Cache 준비
+./make clean         # Tuist 생성물 정리
+./make help          # 지원 명령 확인
 ~~~
 
-모듈 생성기는 `Feature`, `Domain`, `Data`, `Core`, `UI`, `Service`를 지원합니다. Core/UI/Service 이름에는 `FestiCore` 접두어가 필요합니다. 생성된 모듈의 실제 의존성은 해당 `Project.swift`에서 명시합니다.
+새 모듈 생성:
+
+~~~bash
+./make module Feature Search
+./make module Domain Festival
+./make module Data Festival
+./make module Core FestiCoreFoo
+./make module UI FestiCoreFoo
+./make module Service FestiCoreFoo
+~~~
+
+Core/UI/Service 모듈에는 `FestiCore` 접두어가 필요합니다. 생성 명령은 scaffold와 모듈 카탈로그를 갱신하며, 실제 의존성은 해당 `Project.swift`에서 명시합니다.
 
 ## 테스트와 CI
 
 - `FestiCore-Stage` workspace 스킴이 테스트 타깃을 수집하고 관련 타깃의 커버리지를 집계합니다.
-- PR 워크플로는 self-hosted macOS 러너에서 `tuist test run`으로 테스트를 두 shard로 나누고, Swift Testing 결과·커버리지·앱 번들 크기를 PR 리포트에 기록합니다.
-- 테스트와 빌드는 Tuist Test/Build Insights로 업로드합니다. 앱 번들 분석도 성공한 테스트 뒤 실행합니다.
-- `develop` 워크플로는 전체 테스트를 shard로 실행하고 Stage 모듈 캐시를 준비합니다. Xcode Compilation Cache와 Tuist 캐시는 사용 가능한 경우 활성화합니다.
-- Tuist 웹의 PR 앱 댓글과 `tuist/bundle-size` 체크는 GitHub 앱의 저장소 연결 및 번들 임계값 설정이 필요합니다. 현재 GitHub Actions PR 리포트와는 별개의 연동입니다.
+- PR 워크플로는 self-hosted macOS 러너에서 Stage 테스트를 한 번 빌드하고 Tuist Test Sharding으로 두 shard에 나눠 실행합니다.
+- 테스트는 `tuist test run`과 `--inspect-mode remote`로 실행하고 결과를 [Tuist 웹 프로젝트](https://tuist.dev/FestiCore/festicore)에 업로드합니다.
+- Tuist Test Insights에서 테스트 케이스, 성공·실패와 실행 시간을 확인할 수 있습니다.
+- 각 shard의 Swift Testing 결과와 커버리지를 모아 PR 리포트를 작성합니다.
+- 앱 빌드가 성공하면 코드 서명 없이 Stage 디바이스 앱을 묶어 `FestiCore-Stage.ipa`를 만들고 Bundle Insights를 생성합니다.
+- 번들 분석 결과는 PR 리포트에 반영하며 Tuist 서버에도 등록합니다. 테스트나 빌드가 실패한 경우에는 실패 결과를 리포트에 기록합니다.
+- `develop` 워크플로도 Tuist Test Sharding으로 테스트를 분산하고 Stage 외부 모듈 캐시를 준비합니다.
+- Xcode Compilation Cache와 Tuist 외부 패키지 바이너리 캐시는 사용할 수 있을 때 활성화합니다.
 
-Tuist 웹 프로젝트: [Tests](https://tuist.dev/FestiCore/festicore/tests/test-runs) · [Builds](https://tuist.dev/FestiCore/festicore/builds/build-runs) · [Bundles](https://tuist.dev/FestiCore/festicore/bundles)
+Tuist 웹 리포트:
 
-관련 워크플로: [.github/workflows/ios-pr.yml](.github/workflows/ios-pr.yml), [.github/workflows/ios-develop-sharded-tests.yml](.github/workflows/ios-develop-sharded-tests.yml).
+- [Tests](https://tuist.dev/FestiCore/festicore/tests/test-runs): 테스트 실행과 테스트 케이스
+- [Builds](https://tuist.dev/FestiCore/festicore/builds/build-runs): 빌드 성공 여부와 빌드 시간
+- [Bundles](https://tuist.dev/FestiCore/festicore/bundles): 앱 번들 크기와 변경 추이
 
-## 배포 준비
+관련 워크플로:
 
-`fastlane/`에는 테스트·빌드·QA·릴리스·심사 제출 lane이 있습니다. 서명과 App Store Connect 인증은 실행 환경에서 주입하며 저장소에는 보관하지 않습니다. 실제 기기 서명과 배포는 아직 검증하지 않았습니다.
-
-~~~bash
-bundle install
-bundle exec fastlane ios test
-bundle exec fastlane ios build
-~~~
-
-배포 lane에는 `MATCH_GIT_URL`, `MATCH_PASSWORD`, `APP_STORE_CONNECT_TEAM_ID`, `APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_CONTENT`가 필요합니다. 키 콘텐츠는 Base64로 전달합니다. `develop` 푸시의 Preview는 시뮬레이터 앱을 Tuist에 공유하며 App Store 배포와는 별개입니다.
+- [.github/workflows/ios-pr.yml](.github/workflows/ios-pr.yml)
+- [.github/workflows/ios-develop-sharded-tests.yml](.github/workflows/ios-develop-sharded-tests.yml)
+- [.github/workflows/ios-cache-warm.yml](.github/workflows/ios-cache-warm.yml)
+- [.github/workflows/ios-preview.yml](.github/workflows/ios-preview.yml)
+- [.github/workflows/design-token-sync.yml](.github/workflows/design-token-sync.yml)
 
 ## 개발 가이드
 
-- [개발 환경](docs/agent/development-environment.md)
-- [Git·PR](docs/agent/git-workflow.md)
-- [Swift 규칙](docs/agent/swift-coding-rules.md)
 - [TCA 패턴](docs/agent/tca-patterns.md)
-- [의존성 주입](docs/agent/dependency-injection.md)
 - [SwiftUI 패턴](docs/agent/swiftui-patterns.md)
+- [Swift 코딩 규칙](docs/agent/swift-coding-rules.md)
 - [팝업과 모달](docs/agent/popup-modal-system.md)
+- [TCAFlow 내비게이션](docs/agent/tcaflow-navigation.md)
+- [개발 환경](docs/agent/development-environment.md)
+- [Git 워크플로](docs/agent/git-workflow.md)
+- [의존성 주입](docs/agent/dependency-injection.md)
 - [테스트·PR 자동화](docs/agent/test-auto-pr-agent.md)
 
 프로젝트 운영 규칙과 AI 에이전트 지침은 [AGENTS.md](AGENTS.md)를 기준으로 합니다. 설계 배경은 [초기 설정 설계](docs/initial-setup-design.md)와 [Core·UI 설계](docs/core-ui-modules-design.md)에 있습니다.
 
 ## 브랜치 전략
 
-- `main`: 운영 배포 기준
-- `develop`: 개발 통합과 shard 테스트
-- 기능·수정 브랜치 → `develop` Pull Request
+- **main**: 릴리스 기준. `fastlane/`의 테스트·빌드·QA·릴리스·심사 제출 lane으로 배포를 준비합니다.
+- **develop**: 개발 통합. 푸시하면 shard 테스트와 Tuist Preview 워크플로가 실행됩니다.
+- 기능·수정 브랜치 → develop Pull Request
 
-이번 초기 설정 이슈의 커밋 제목에는 `#3`을 붙입니다. 배포 인증 값과 개인 설정은 저장소에 넣지 않습니다.
+배포 인증 값은 실행 환경에서 주입합니다. 실제 기기 서명과 App Store 배포는 아직 검증하지 않았습니다.
 
 ## 문의
 
 - [GitHub Issues](https://github.com/FESTICORE/FestiCore-iOS/issues)
 - [Pull Requests](https://github.com/FESTICORE/FestiCore-iOS/pulls)
+- [FestiCore DesignSystem](https://github.com/FESTICORE/FestiCore-DesignSystem)
+
+<div align="center">
+
+Made with ❤️ by FestiCore
+
+</div>
