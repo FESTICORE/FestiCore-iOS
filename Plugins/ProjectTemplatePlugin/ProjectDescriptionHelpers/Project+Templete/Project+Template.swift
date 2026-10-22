@@ -14,6 +14,7 @@ public extension Project {
     settings: Settings = .moduleSettings,
     dependencies: [TargetDependency] = [],
     infoPlist: InfoPlist = .default,
+    entitlements: Entitlements? = nil,
     hasTests: Bool = false
   ) -> Project {
     let appTarget: Target = .target(
@@ -24,13 +25,11 @@ public extension Project {
       deploymentTargets: Environment.deploymentTarget,
       infoPlist: infoPlist,
       sources: ["Sources/**"],
+      entitlements: entitlements,
       dependencies: dependencies,
       settings: .settings(base: [
-        "DEVELOPMENT_TEAM": .string(Environment.organizationTeamId),
         "TARGETED_DEVICE_FAMILY": "1",
-        "SWIFT_VERSION": "6.0",
-        "MARKETING_VERSION": "$(FESTICORE_VERSION)",
-        "CURRENT_PROJECT_VERSION": "$(FESTICORE_BUILD_NUMBER)"
+        "SWIFT_VERSION": "6.0"
       ])
     )
     var targets = [appTarget]
