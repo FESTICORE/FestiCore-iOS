@@ -35,7 +35,7 @@ private func tuist(_ arguments: [String]) -> Int32 {
 
 private func module(_ arguments: [String]) -> Int32 {
   guard arguments.count == 2 else {
-    fputs("사용법: ./make module <Feature|Domain|Data> <Name>\n", stderr)
+    fputs("사용법: ./make module <Feature|Domain|Data|Core|UI> <Name>\n", stderr)
     return 2
   }
   let layer = arguments[0]
@@ -48,11 +48,14 @@ private func module(_ arguments: [String]) -> Int32 {
     "Static", "Struct", "Subscript", "Super", "Switch", "Throw", "Throws", "True", "Try",
     "Typealias", "Var", "Where", "While", "Path", "RawValue", "AllCases"
   ]
-  guard ["Feature", "Domain", "Data"].contains(layer),
+  let isCoreOrUI = ["Core", "UI"].contains(layer)
+  guard ["Feature", "Domain", "Data", "Core", "UI"].contains(layer),
         name.range(of: "^[A-Z][A-Za-z0-9]*$", options: .regularExpression) != nil,
-        !name.hasPrefix("FestiCore"),
+        (isCoreOrUI
+          ? name.range(of: "^FestiCore[A-Z][A-Za-z0-9]*$", options: .regularExpression) != nil
+          : !name.hasPrefix("FestiCore")),
         !reservedNames.contains(name) else {
-    fputs("레이어 또는 이름이 올바르지 않습니다. 모듈 이름에는 FestiCore 접두어를 쓰지 마세요.\n", stderr)
+    fputs("레이어 또는 이름이 올바르지 않습니다. Core/UI에는 FestiCore 접두어가 필요합니다.\n", stderr)
     return 2
   }
   let target = name
@@ -65,7 +68,8 @@ private func module(_ arguments: [String]) -> Int32 {
     fputs("의존성 플러그인 파일을 읽지 못했습니다.\n", stderr)
     return 1
   }
-  let caseName = name.prefix(1).lowercased() + name.dropFirst()
+  let catalogName = isCoreOrUI ? String(name.dropFirst("FestiCore".count)) : name
+  let caseName = catalogName.prefix(1).lowercased() + catalogName.dropFirst()
   guard !FileManager.default.fileExists(atPath: path),
         !catalog.contains("case \(caseName) ="),
         !catalog.contains("\"\(target)\"") else {
@@ -144,7 +148,7 @@ case "help":
   ./make generate              FestiCore.xcworkspace 생성
   ./make build                 Stage 시뮬레이터 빌드
   ./make test                  Stage 시뮬레이터 테스트
-  ./make module <Layer> <Name> Feature, Domain, Data 모듈 생성 (예: Feature/Home)
+  ./make module <Layer> <Name> Feature/Domain/Data 또는 FestiCore 접두어가 있는 Core/UI 모듈 생성
   ./make clean                 Tuist 생성물 정리
   """)
   status = 0

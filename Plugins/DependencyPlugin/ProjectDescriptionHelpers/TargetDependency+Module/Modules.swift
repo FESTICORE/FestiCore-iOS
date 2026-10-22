@@ -12,3 +12,19 @@ public enum FeatureModule: String, CaseIterable {
 
   var path: Path { .relativeToFeature(rawValue) }
 }
+
+public enum CoreModule: String, CaseIterable {
+  case logger = "FestiCoreLogger"
+  case network = "FestiCoreNetwork"
+  case storage = "FestiCoreStorage"
+
+  var path: Path { .relativeToCore(rawValue) }
+}
+
+public enum UIModule: String, CaseIterable {
+  case animation = "FestiCoreAnimation"
+  case designSystem = "FestiCoreDesignSystem"
+  case sharedUI = "FestiCoreSharedUI"
+
+  var path: Path { .relativeToUI(rawValue) }
+}

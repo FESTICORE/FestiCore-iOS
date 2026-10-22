@@ -22,6 +22,14 @@ private func moduleDependency(name: String, path: Path, target: ModuleTarget) ->
 }
 
 public extension TargetDependency {
+  static func core(_ module: CoreModule, _ target: ModuleTarget = .implementation) -> Self {
+    moduleDependency(name: module.rawValue, path: module.path, target: target)
+  }
+
+  static func ui(_ module: UIModule, _ target: ModuleTarget = .implementation) -> Self {
+    moduleDependency(name: module.rawValue, path: module.path, target: target)
+  }
+
   static func feature(_ module: FeatureModule, _ target: ModuleTarget = .implementation) -> Self {
     moduleDependency(name: module.rawValue, path: module.path, target: target)
   }

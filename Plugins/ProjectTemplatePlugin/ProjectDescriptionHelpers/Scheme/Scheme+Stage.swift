@@ -16,7 +16,7 @@ public extension Scheme {
       .deletingLastPathComponent()
       .deletingLastPathComponent()
       .deletingLastPathComponent()
-    let moduleTests: [TestableTarget] = ["Feature", "Domain", "Data"].flatMap { layer in
+    let moduleTests: [TestableTarget] = ["Feature", "Domain", "Data", "Core", "UI"].flatMap { layer in
       let directory = root.appendingPathComponent("Projects/\(layer)")
       let modules = (try? FileManager.default.contentsOfDirectory(
         at: directory,

@@ -58,21 +58,54 @@ public extension Project {
 
   static func makeModule(
     name: String,
+    product: Product = .staticFramework,
     dependencies: [TargetDependency] = [],
-    hasTests: Bool = false
+    resources: ResourceFileElements? = nil,
+    testResources: ResourceFileElements? = nil,
+    hasTests: Bool = false,
+    hasInterface: Bool = false,
+    interfaceDependencies: [TargetDependency] = [],
+    hasDemo: Bool = false
   ) -> Project {
-    var targets: [Target] = [
-      .target(
+    var targets: [Target] = []
+
+    if hasInterface {
+      targets.append(.target(
+        name: "\(name)Interface",
+        destinations: Environment.deploymentDestination,
+        product: product,
+        bundleId: .appBundleID(name: "\(name)Interface"),
+        deploymentTargets: Environment.deploymentTarget,
+        infoPlist: .moduleInfoPlist,
+        sources: ["Interface/**"],
+        dependencies: interfaceDependencies
+      ))
+    }
+
+    targets.append(.target(
         name: name,
         destinations: Environment.deploymentDestination,
-        product: .staticFramework,
+        product: product,
         bundleId: .appBundleID(name: name),
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .moduleInfoPlist,
         sources: ["Sources/**"],
-        dependencies: dependencies
-      )
-    ]
+        resources: resources,
+        dependencies: (hasInterface ? [.target(name: "\(name)Interface")] : []) + dependencies
+      ))
+
+    if hasDemo {
+      targets.append(.target(
+        name: "\(name)Demo",
+        destinations: Environment.deploymentDestination,
+        product: .app,
+        bundleId: .appBundleID(name: "\(name)Demo"),
+        deploymentTargets: Environment.deploymentTarget,
+        infoPlist: .default,
+        sources: ["Demo/**"],
+        dependencies: [.target(name: name)]
+      ))
+    }
 
     if hasTests {
       targets.append(.target(
@@ -83,7 +116,8 @@ public extension Project {
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .default,
         sources: ["Tests/**"],
-        dependencies: [.target(name: name)]
+        resources: testResources,
+        dependencies: [.target(name: name)] + (hasInterface ? [.target(name: "\(name)Interface")] : [])
       ))
     }
 
