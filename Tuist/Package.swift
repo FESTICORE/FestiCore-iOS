@@ -10,15 +10,36 @@ import PackageDescription
 
 #if TUIST
 import ProjectDescription
+import Foundation
+
+// XCTest가 로드하는 Apple Sharing 모듈과 Point-Free Sharing 제품의 이름 충돌을 막는다.
+private let packageBaseSettings: Settings = .settings(
+  base: ["OTHER_SWIFT_FLAGS": "$(inherited) -module-alias Sharing=FestiCorePointFreeSharing"],
+  configurations: [.debug(name: "Stage"), .release(name: "Prod")]
+)
 
 let packageSettings = PackageSettings(
   productTypes: [
     "Alamofire": .framework,
     "ComposableArchitecture": .framework,
     "Dependencies": .framework,
+    "DependenciesMacros": .framework,
+    "IssueReporting": .framework,
+    "IssueReportingPackageSupport": .framework,
+    "XCTestDynamicOverlay": .framework,
+    "Perception": .framework,
+    "PerceptionCore": .framework,
     "Sharing": .framework,
+    "Sharing1": .staticFramework,
+    "Sharing2": .staticFramework,
     "SQLiteData": .framework,
+    "GRDB": .framework,
+    "GRDBSQLite": .framework,
+    "GRDB_GRDB": .framework,
     "StructuredQueries": .framework,
+    "StructuredQueriesCore": .framework,
+    "StructuredQueriesSQLite": .framework,
+    "StructuredQueriesSQLiteCore": .framework,
     "TCAFlow": .framework,
     "SDWebImageSwiftUI": .framework,
     "GoogleSignIn": .framework,
@@ -26,10 +47,10 @@ let packageSettings = PackageSettings(
     "FirebaseCrashlytics": .framework,
     "Kingfisher": .framework
   ],
-  baseSettings: .settings(configurations: [
-    .debug(name: "Stage"),
-    .release(name: "Prod")
-  ])
+  baseSettings: packageBaseSettings,
+  targetSettings: [
+    "Sharing": .settings(base: ["PRODUCT_NAME": "FestiCorePointFreeSharing"])
+  ]
 )
 #endif
 

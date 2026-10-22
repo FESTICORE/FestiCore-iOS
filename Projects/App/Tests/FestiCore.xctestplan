@@ -1,0 +1,26 @@
+{
+  "configurations": [
+    { "id": "F42EF06D-2E58-4763-A8AE-3FA25D875527", "name": "Stage", "options": {} }
+  ],
+  "defaultOptions": {
+    "codeCoverageEnabled": true,
+    "targetForVariableExpansion": {
+      "containerPath": "container:Projects/App/FestiCore.xcodeproj",
+      "identifier": "5DBFBA3A92FFDDFCDD8EF148",
+      "name": "FestiCore"
+    },
+    "testTimeoutsEnabled": true
+  },
+  "testTargets": [
+    { "target": { "containerPath": "container:Projects/App/FestiCore.xcodeproj", "identifier": "40E83F3AA76A953E7B9097E0", "name": "FestiCoreTests" } },
+    { "target": { "containerPath": "container:Projects/Core/FestiCoreLogger/FestiCoreLogger.xcodeproj", "identifier": "6587E7CD20D518868CF1C33A", "name": "FestiCoreLoggerTests" } },
+    { "target": { "containerPath": "container:Projects/Core/FestiCoreNetwork/FestiCoreNetwork.xcodeproj", "identifier": "34D54AFA2FE302A132BBB075", "name": "FestiCoreNetworkTests" } },
+    { "target": { "containerPath": "container:Projects/Core/FestiCoreStorage/FestiCoreStorage.xcodeproj", "identifier": "C3A7A4C878250A948210E6AB", "name": "FestiCoreStorageTests" } },
+    { "target": { "containerPath": "container:Projects/Service/FestiCoreAuth/FestiCoreAuth.xcodeproj", "identifier": "CD229F4A06E3E8E646ECCE43", "name": "FestiCoreAuthTests" } },
+    { "target": { "containerPath": "container:Projects/Service/ServiceAssembly/ServiceAssembly.xcodeproj", "identifier": "221DF709E8C424F75EB43F24", "name": "ServiceAssemblyTests" } },
+    { "target": { "containerPath": "container:Projects/UI/FestiCoreAnimation/FestiCoreAnimation.xcodeproj", "identifier": "863BBCE987BABBFC0A028768", "name": "FestiCoreAnimationTests" } },
+    { "target": { "containerPath": "container:Projects/UI/FestiCoreDesignSystem/FestiCoreDesignSystem.xcodeproj", "identifier": "FFBDB367ADCEB9E8DE5281C6", "name": "FestiCoreDesignSystemTests" } },
+    { "target": { "containerPath": "container:Projects/UI/FestiCoreSharedUI/FestiCoreSharedUI.xcodeproj", "identifier": "A134F4C78B2ADA3FC1B2B08D", "name": "FestiCoreSharedUITests" } }
+  ],
+  "version": 1
+}

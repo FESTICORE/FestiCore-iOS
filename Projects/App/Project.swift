@@ -17,7 +17,8 @@ let project = Project.makeAppModule(
   settings: .moduleSettings,
   dependencies: [
     .feature(.home),
-    .service(.assembly)
+    .service(.assembly),
+    .SPM.dependencies
   ],
   infoPlist: .appInfoPlist,
   hasTests: true
