@@ -35,10 +35,16 @@ final class FestiCoreAuthenticator: Authenticator {
     for _: Session,
     completion: @escaping @Sendable (Result<FestiCoreCredential, any Error>) -> Void
   ) {
+    guard let revision = store.revision(matching: credential) else {
+      completion(.failure(StaleRefreshError()))
+      return
+    }
     Task {
       do {
         let renewed = try await refresher.refresh(credential)
-        store.save(renewed) // refresh 된 토큰 영속화
+        guard store.replace(renewed, ifCurrent: credential, revision: revision) else {
+          throw StaleRefreshError()
+        }
         completion(.success(renewed))
       } catch {
         completion(.failure(error))
@@ -60,3 +66,5 @@ final class FestiCoreAuthenticator: Authenticator {
     urlRequest.headers["Authorization"] == HTTPHeader.authorization(bearerToken: credential.accessToken).value
   }
 }
+
+private struct StaleRefreshError: Error {}

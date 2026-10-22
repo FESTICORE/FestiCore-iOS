@@ -17,6 +17,8 @@ jobs:
       contents: read
     env:
       TUIST_TOKEN: ${{ secrets.TUIST_TOKEN }}
+      TUIST_BUILD_TAGS: ci,develop,preview
+      TUIST_BUILD_VALUE_COMMIT: ${{ github.sha }}
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
     steps:
@@ -28,19 +30,36 @@ jobs:
           derived-data-directory: FestiCore-preview
       - name: Verify Tuist authentication
         run: test -n "$TUIST_TOKEN"
+      - name: Setup Tuist cache
+        id: tuist-cache
+        continue-on-error: true
+        timeout-minutes: 3
+        run: mise exec -- tuist setup cache
+      - name: Configure compilation cache fallback
+        run: |
+          if [[ "${{ steps.tuist-cache.outcome }}" == "success" ]]; then
+            echo "XCODE_COMPILATION_CACHE_ENABLED=YES" >> "$GITHUB_ENV"
+          else
+            echo "XCODE_COMPILATION_CACHE_ENABLED=NO" >> "$GITHUB_ENV"
+          fi
+      - name: Setup Tuist insights
+        continue-on-error: true
+        timeout-minutes: 3
+        run: mise exec -- tuist setup insights
       - name: Resolve dependencies
         run: mise exec -- tuist install
       - name: Generate workspace
         run: mise exec -- tuist generate --no-open --cache-profile only-external
       - name: Build simulator app
         run: |
-          xcodebuild build \
+          mise exec -- tuist xcodebuild build \
             -workspace FestiCore.xcworkspace \
             -scheme FestiCore-Stage \
             -configuration Stage \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/FestiCore-preview" \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
       - name: Share private Tuist preview
         run: |
           APP_PATH="$RUNNER_TEMP/FestiCore-preview/Build/Products/Stage-iphonesimulator/FestiCore.app"

@@ -9,10 +9,11 @@ import Foundation
 import ProjectDescription
 
 let tuist = Tuist(
-  fullHandle: "suhwj81/festicore",
+  fullHandle: "FestiCore/festicore",
   xcodeCache: .xcodeCache(
-    upload: Environment.isCI && !(ProcessInfo.processInfo.environment["TUIST_TOKEN"] ?? "").isEmpty
+    upload: Environment.isCI
   ),
+  // CI만 컴파일 캐시를 업로드하고 로컬 빌드는 내려받아 사용한다.
   project: .tuist(
     compatibleXcodeVersions: .all,
     swiftVersion: .some("6.4.0"),

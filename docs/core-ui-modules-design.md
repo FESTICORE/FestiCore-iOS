@@ -2,17 +2,17 @@
 
 ## 목표와 완료 조건
 
-iOS 18.0의 FestiCore 앱에 Core(Logger, Network, Storage)와 UI(Animation, DesignSystem, SharedUI) 모듈을 먼저 구성한다. 각 모듈의 타깃·의존성·테스트가 Tuist Workspace와 Stage PR CI에 포함되고, 기능별 커밋 뒤 develop PR을 검증·병합한다. 디자인 토큰 자동 갱신은 별도 FestiCore-DesignSystem 이슈 #1에서 이어서 구현한다.
+iOS 18.0의 FestiCore 앱에 Core(Logger, Network, Storage)와 UI(Animation, DesignKit, SharedUI) 모듈을 먼저 구성한다. 각 모듈의 타깃·의존성·테스트가 Tuist Workspace와 Stage PR CI에 포함되고, 기능별 커밋 뒤 develop PR을 검증·병합한다. 디자인 토큰 자동 갱신은 별도 FestiCore-DesignSystem 이슈 #1에서 이어서 구현한다.
 
 ## 이름과 경계
 
-- 경로와 타깃 이름은 Projects/Core/FestiCoreLogger, FestiCoreNetwork, FestiCoreStorage 및 Projects/UI/FestiCoreAnimation, FestiCoreDesignSystem, FestiCoreSharedUI를 쓴다. Core/UI 생성 명령은 `FestiCore` 접두어를 필수로 하고 Feature/Domain/Data는 기존 무접두어 규칙을 유지한다. 사용법·README·도움말도 같은 규칙으로 갱신한다.
+- 경로와 타깃 이름은 Projects/Core/FestiCoreLogger, FestiCoreNetwork, FestiCoreStorage 및 Projects/UI/FestiCoreAnimation, FestiCoreDesignKit, FestiCoreSharedUI를 쓴다. Core/UI 생성 명령은 `FestiCore` 접두어를 필수로 하고 Feature/Domain/Data는 기존 무접두어 규칙을 유지한다. 사용법·README·도움말도 같은 규칙으로 갱신한다.
 - Logger는 OSLog 레벨·카테고리 API를 제공하고 민감한 값은 private로 기록한다.
 - Network는 참고 앱의 Interface/Sources/Tests 구조와 호출 방식을 유지한다. Interface에는 Endpoint, DataRequest, UploadRequest, FileUploadRequest, Request/Upload/FileUpload Client, 인증 정책·Credential·Store·Refreshing, HTTP/전송/디코딩 오류와 Dependencies 주입 지점을 둔다. 구현에는 Alamofire 세션, 인증 인터셉터, 재시도, 요청 인코딩, 일반·멀티파트·원시 파일 업로드, 응답 처리, 이벤트 로깅, 팩토리를 둔다. 공개 API의 DDD 접두어는 FestiCore로 바꾼다. 서버 전용 URL과 오류 코드는 실제 FestiCore 계약 전까지 옮기지 않는다.
 - Storage는 Interface와 구현을 나눈다. Keychain·공유 값 저장 계약과 팩토리를 제공한다. 앱별 데이터 마이그레이션은 넣지 않는다. Keychain 어댑터는 주입 가능하게 만들어 단위 테스트에서 메모리 더블을 쓴다. 실제 Keychain 검증은 `IntegrationTests/`의 별도 호스트 앱 타깃에서 수행하며, Stage 스킴의 `Tests/` 검색 대상에서는 제외한다. 호스트 앱·서명이 준비되지 않으면 PR 한계에 명시한다.
 - Animation은 외부 Bundle과 리소스 이름을 받는 뷰 경계를 제공한다. 실제 리소스가 없으므로 빈 Resources glob을 만들지 않는다.
-- DesignSystem은 `FESTICORE/FestiCore-DesignSystem`의 `e8a0aec50760526e20492f7d166752c4058dea21` 커밋에 있는 `tokens/color/atomic.json`, `tokens/color/semantic.light.json`, `tokens/color/semantic.dark.json`, `tokens/foundation.json`, `tokens/typography.json`, `tokens/$themes.json`을 출처로 삼는다. 원본 JSON을 `Projects/UI/FestiCoreDesignSystem/Tokens/`에 스냅샷으로 두고 출처 SHA를 문서화한다. `makeModule`의 `testResources` 옵션으로 JSON은 테스트 타깃에만 넣는다. `$themes.json`을 따라 light 트리는 atomic·foundation·typography·semantic.light, dark 트리는 atomic·foundation·typography·semantic.dark로 각각 구성한다. 한 트리 안의 중복 dotted path, `{...}` 별칭의 순환·미해결 참조는 실패 처리한다. 각 트리의 값은 대응하는 `.light`·`.dark` UIColor trait collection과 비교한다. dimension은 1px = 1pt, lineHeight는 fontSize × 배율(pt), SwiftUI lineSpacing은 그 값에서 fontSize를 뺀 근삿값, letterSpacing은 fontSize × em으로 변환해 tracking에 쓴다. 테스트는 17pt × 1.294 및 17pt × -0.026em 사례를 포함한다. Pretendard는 아직 번들되지 않았으므로 fontFamily를 메타데이터로 보존하고 렌더링에는 system font와 매핑된 weight를 쓴다. 테스트는 family, size, line height, weight, tracking을 확인하고 폰트 대체는 PR 한계에 적는다. 자동 생성 결과는 별도 저장소의 자동화가 검증된 다음 갱신한다. 없는 브랜드 이미지·폰트·GIF를 임의로 만들지 않는다.
-- SharedUI는 DesignSystem·Animation을 이용하는 공통 조립 컴포넌트만 제공한다.
+- DesignKit은 `FESTICORE/FestiCore-DesignSystem`의 토큰 JSON을 출처로 삼는다. 원본 JSON은 `Projects/UI/FestiCoreDesignKit/Tests/Resources/Tokens/`에 둔다. 생성 Swift 코드는 `Sources/Token/Color/`의 `Color`, `UIColor`, `ShapeStyle` 확장과 `Sources/Token/Layout/`, `Sources/Token/Typography/`의 레이아웃·타이포그래피에 둔다. `TokenSnapshot/.source-sha`에 출처 커밋을 기록한다. `Sources/Component/`에 수작업 버튼·구분선을 분리하고 `Resources/ImageAssets.xcassets`는 이미지가 생기기 전까지 빈 카탈로그로 둔다. 색상 에셋은 만들지 않는다. `$themes.json`을 따라 light 트리는 atomic·foundation·typography·semantic.light, dark 트리는 atomic·foundation·typography·semantic.dark로 각각 구성한다. 한 트리 안의 중복 dotted path, `{...}` 별칭의 순환·미해결 참조는 실패 처리한다. 각 트리의 색상 값은 대응하는 `.light`·`.dark` UIColor trait collection과 비교한다. dimension은 1px = 1pt, lineHeight는 fontSize × 배율(pt), SwiftUI lineSpacing은 그 값에서 fontSize를 뺀 근삿값, letterSpacing은 fontSize × em으로 변환해 tracking에 쓴다. Pretendard는 아직 번들되지 않았으므로 fontFamily를 메타데이터로 보존하고 렌더링에는 system font와 매핑된 weight를 쓴다. 없는 브랜드 이미지·폰트·GIF를 임의로 만들지 않는다.
+- SharedUI는 DesignKit·Animation을 이용하는 공통 조립 컴포넌트만 제공한다.
 
 ## Tuist 변경
 

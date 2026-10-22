@@ -71,7 +71,7 @@ struct AuthenticationTests {
 
   @Test("토큰 갱신 성공 결과를 저장하고 호출자에게 돌려준다")
   func refreshPersistsCredential() async throws {
-    let store = RecordingCredentialStore()
+    let store = RecordingCredentialStore(initial: current)
     let authenticator = FestiCoreAuthenticator(
       refresher: StubTokenRefresher(result: .success(renewed)),
       store: store
@@ -85,7 +85,7 @@ struct AuthenticationTests {
 
   @Test("토큰 갱신 실패를 그대로 전달하고 저장하지 않는다")
   func refreshPropagatesFailure() async {
-    let store = RecordingCredentialStore()
+    let store = RecordingCredentialStore(initial: current)
     let expected = ResponseError(httpStatus: 401, code: "REFRESH_EXPIRED")
     let authenticator = FestiCoreAuthenticator(
       refresher: StubTokenRefresher(result: .failure(.response(expected))),
@@ -101,7 +101,73 @@ struct AuthenticationTests {
         return
       }
       #expect(error == expected)
-      #expect(store.saved == nil)
+      #expect(store.saved == current)
+    }
+  }
+
+  @Test("로그아웃 중 완료된 갱신은 인터셉터에 credential을 복원하지 않는다")
+  func refreshAfterSignOutCannotRestoreInterceptor() async throws {
+    let expiring = FestiCoreCredential(
+      accessToken: "old-access",
+      refreshToken: "refresh",
+      expiresAt: .distantPast
+    )
+    let store = RecordingCredentialStore(initial: expiring)
+    let refresher = SuspendedTokenRefresher()
+    let (authorizing, updater) = SessionFactory.authorization(store: store, refresher: refresher)
+    let request = URLRequest(url: URL(string: "https://festicore.test/private")!)
+    let adaptation = Task { try await adapt(authorizing, request: request) }
+
+    await refresher.waitUntilStarted()
+    store.clear()
+    updater.update(nil)
+    await refresher.complete(with: renewed)
+
+    do {
+      _ = try await adaptation.value
+      Issue.record("로그아웃한 세션의 갱신은 실패해야 한다")
+    } catch {
+      #expect(store.load() == nil)
+      #expect(authorizing.base.credential == nil)
+    }
+  }
+
+  @Test("새 로그인 중 완료된 이전 세션 갱신은 새 credential을 보존한다")
+  func refreshAfterReplacementSignInCannotOverwrite() async throws {
+    let store = RecordingCredentialStore(initial: current)
+    let refresher = SuspendedTokenRefresher()
+    let authenticator = FestiCoreAuthenticator(refresher: refresher, store: store)
+    let operation = Task { try await refresh(authenticator, credential: current) }
+
+    await refresher.waitUntilStarted()
+    let replacement = FestiCoreCredential(accessToken: "signed-in", refreshToken: "other-refresh")
+    store.save(replacement)
+    await refresher.complete(with: renewed)
+
+    do {
+      _ = try await operation.value
+      Issue.record("이전 세션의 갱신은 실패해야 한다")
+    } catch {
+      #expect(store.load() == replacement)
+    }
+  }
+
+  @Test("동일 토큰 재로그인도 이전 갱신 세션과 구별한다")
+  func refreshAfterSameTokenSignInIsRejected() async throws {
+    let store = RecordingCredentialStore(initial: current)
+    let refresher = SuspendedTokenRefresher()
+    let authenticator = FestiCoreAuthenticator(refresher: refresher, store: store)
+    let operation = Task { try await refresh(authenticator, credential: current) }
+
+    await refresher.waitUntilStarted()
+    store.save(current)
+    await refresher.complete(with: renewed)
+
+    do {
+      _ = try await operation.value
+      Issue.record("동일 토큰이어도 새 로그인 후 이전 갱신은 실패해야 한다")
+    } catch {
+      #expect(store.load() == current)
     }
   }
 
@@ -179,9 +245,35 @@ private struct StubTokenRefresher: TokenRefreshing {
   }
 }
 
+private actor SuspendedTokenRefresher: TokenRefreshing {
+  private var started = false
+  private var startedContinuation: CheckedContinuation<Void, Never>?
+  private var resultContinuation: CheckedContinuation<FestiCoreCredential, Never>?
+
+  func refresh(_: FestiCoreCredential) async throws(FestiCoreNetworkError) -> FestiCoreCredential {
+    await withCheckedContinuation { continuation in
+      resultContinuation = continuation
+      started = true
+      startedContinuation?.resume()
+      startedContinuation = nil
+    }
+  }
+
+  func waitUntilStarted() async {
+    guard !started else { return }
+    await withCheckedContinuation { startedContinuation = $0 }
+  }
+
+  func complete(with credential: FestiCoreCredential) {
+    resultContinuation?.resume(returning: credential)
+    resultContinuation = nil
+  }
+}
+
 private final class RecordingCredentialStore: CredentialStore, @unchecked Sendable {
   private let lock = NSLock()
   private var credential: FestiCoreCredential?
+  private var currentRevision = UUID()
 
   init(initial: FestiCoreCredential? = nil) {
     credential = initial
@@ -198,12 +290,27 @@ private final class RecordingCredentialStore: CredentialStore, @unchecked Sendab
   func save(_ credential: FestiCoreCredential) {
     lock.withLock {
       self.credential = credential
+      currentRevision = UUID()
+    }
+  }
+
+  func revision(matching current: FestiCoreCredential) -> UUID? {
+    lock.withLock { credential == current ? currentRevision : nil }
+  }
+
+  func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {
+    lock.withLock {
+      guard self.credential == current, currentRevision == revision else { return false }
+      self.credential = credential
+      currentRevision = UUID()
+      return true
     }
   }
 
   func clear() {
     lock.withLock {
       credential = nil
+      currentRevision = UUID()
     }
   }
 }

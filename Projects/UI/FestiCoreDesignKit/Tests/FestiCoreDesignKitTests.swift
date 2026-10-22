@@ -1,12 +1,31 @@
+//
+//  FestiCoreDesignKitTests.swift
+//  FestiCoreDesignKit
+//
+//  Created by FestiCore on 10/22/26.
+//
+
 import Testing
 import UIKit
 import SwiftUI
-@testable import FestiCoreDesignSystem
+@testable import FestiCoreDesignKit
 
-struct FestiCoreDesignSystemTests {
+struct FestiCoreDesignKitTests {
+  @Test func pretendardRegistersForUIKitAndSwiftUI() {
+    PretendardFontFamily.registerFonts()
+    PretendardFontFamily.registerFonts()
+
+    for family in [PretendardFontFamily.regular, .medium, .bold] {
+      let font = UIFont.pretendardFontFamily(family: family, size: 17)
+      #expect(font.fontName == family.postScriptName)
+      #expect(UIFont(name: family.postScriptName, size: 17) != nil)
+      _ = Font.pretendardFontFamily(family: family, size: 17)
+    }
+  }
+
   @Test @MainActor func primaryColorTracksSystemAppearance() {
-    let light = FestiCoreColor.primaryNormal.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
-    let dark = FestiCoreColor.primaryNormal.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
+    let light = UIColor.primaryNormal.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
+    let dark = UIColor.primaryNormal.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
     #expect(light.getRed() == 0x11)
     #expect(dark.getRed() == 0xC6)
   }
@@ -24,10 +43,14 @@ struct FestiCoreDesignSystemTests {
   @Test @MainActor func tokensComposeWithSwiftUIModifiers() {
     let label = Text("Festival")
       .festiCoreTextStyle(FestiCoreTypography.baseBodyRegular)
-      .foregroundStyle(Color.festiCore(FestiCoreColor.labelNormal))
+      .foregroundStyle(Color.labelNormal)
       .padding(FestiCoreSpacing.marginM12)
     let controller = UIHostingController(rootView: label)
     #expect(controller.view != nil)
+
+    let styled = Rectangle().foregroundStyle(.labelNormal)
+    let shapeController = UIHostingController(rootView: styled)
+    #expect(shapeController.view != nil)
   }
 }
 

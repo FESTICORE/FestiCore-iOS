@@ -112,6 +112,52 @@ struct AuthTests {
     #expect(guarded.load() == nil)
     #expect(storage.load(.accessToken) == nil)
   }
+
+  @Test("로그아웃 및 재로그인 뒤에는 이전 토큰 갱신 결과를 교체하지 않는다")
+  func guardedStoreRejectsPreviousSessionRefresh() throws {
+    let storage = MemorySecureStorage()
+    let guarded = GuardedCredentialStore(base: KeychainCredentialStore(storage: storage))
+    let late = FestiCoreCredential(accessToken: "late", refreshToken: "late-refresh")
+    guarded.allowSaves()
+    guarded.save(old)
+    let oldRevision = try #require(guarded.revision(matching: old))
+
+    guarded.clear()
+    #expect(guarded.replace(late, ifCurrent: old, revision: oldRevision) == false)
+    #expect(guarded.load() == nil)
+
+    let replacement = FestiCoreCredential(accessToken: "signed-in", refreshToken: "other-refresh")
+    guarded.allowSaves()
+    guarded.save(replacement)
+    #expect(guarded.replace(late, ifCurrent: old, revision: oldRevision) == false)
+    #expect(guarded.load() == replacement)
+    #expect(storage.load(.accessToken) == "signed-in")
+
+    guarded.clear()
+    guarded.allowSaves()
+    guarded.save(old)
+    #expect(guarded.replace(late, ifCurrent: old, revision: oldRevision) == false)
+    #expect(guarded.load() == old)
+  }
+
+  @Test("키체인에서 다시 읽은 JWT 만료시각은 갱신 세션 비교와 일치한다")
+  func keychainReloadPreservesRefreshIdentity() throws {
+    let storage = MemorySecureStorage()
+    let store = KeychainCredentialStore(storage: storage)
+    let token = "eyJhbGciOiJub25lIn0.eyJleHAiOjE4MDAwMDAwMDB9.signature"
+    let current = FestiCoreCredential(
+      accessToken: token,
+      refreshToken: "refresh",
+      expiresAt: JWTDecoder.decodeExpiration(token)
+    )
+    let renewed = FestiCoreCredential(accessToken: "renewed", refreshToken: "new-refresh")
+    store.save(current)
+
+    #expect(store.load() == current)
+    let revision = try #require(store.revision(matching: current))
+    #expect(store.replace(renewed, ifCurrent: current, revision: revision))
+    #expect(store.load() == renewed)
+  }
 }
 
 private actor FailureRecorder {
