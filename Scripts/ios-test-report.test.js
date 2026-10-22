@@ -33,3 +33,21 @@ test('두 샤드의 테스트 건수와 부분 커버리지를 PR 리포트에 �
   assert.match(body, /샤드 2개 중 1개/)
   assert.match(body, /50\.0%/)
 })
+
+test('번들 크기와 기준선 대비 증감을 PR 리포트에 표시한다', () => {
+  const lines = report.renderBundleInsights({
+    name: 'FestiCore',
+    installSize: 1_100_000,
+    downloadSize: 900_000,
+    installSizeDelta: 100_000,
+    downloadSizeDelta: -100_000,
+    baselineInstallSize: 1_000_000,
+    baselineDownloadSize: 1_000_000,
+  })
+
+  const body = lines.join('\n')
+  assert.match(body, /FestiCore/)
+  assert.match(body, /1\.1 MB/)
+  assert.match(body, /\+10\.00%/)
+  assert.match(body, /-10\.00%/)
+})

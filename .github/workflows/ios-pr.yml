@@ -342,10 +342,169 @@ jobs:
         if: steps.tests.outcome != 'success'
         run: exit 1
 
+  bundle-insights:
+    name: Bundle insights
+    needs: test-shards
+    if: always() && needs.test-shards.result != 'cancelled'
+    runs-on: self-hosted
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+
+    env:
+      TUIST_BUILD_TAGS: ci,pull-request,bundle
+      TUIST_BUILD_VALUE_PR_URL: ${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+      BUILD_RUN_REPORT_PATH: BuildRunReport.json
+      BUNDLE_INSPECT_REPORT_PATH: BundleInspectReport.json
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup iOS runner
+        uses: ./.github/actions/setup-ios-runner
+        with:
+          tuist-token: ${{ secrets.TUIST_TOKEN }}
+          derived-data-directory: FestiCore-pr-bundle
+
+      - name: Setup Tuist cache
+        id: tuist-cache
+        continue-on-error: true
+        timeout-minutes: 3
+        run: mise exec -- tuist setup cache
+
+      - name: Configure compilation cache fallback
+        run: |
+          if [[ "${{ steps.tuist-cache.outcome }}" == "success" ]]; then
+            echo "XCODE_COMPILATION_CACHE_ENABLED=YES" >> "$GITHUB_ENV"
+          else
+            echo "XCODE_COMPILATION_CACHE_ENABLED=NO" >> "$GITHUB_ENV"
+            echo "Tuist cache를 사용할 수 없어 bundle build는 Xcode compilation cache 없이 진행합니다."
+          fi
+
+      - name: Setup Tuist insights
+        continue-on-error: true
+        timeout-minutes: 3
+        run: mise exec -- tuist setup insights
+
+      - name: Generate Xcode workspace
+        run: |
+          mise exec -- tuist install
+          mise exec -- tuist generate --no-open --cache-profile none
+
+      - name: Prepare bundle DerivedData
+        run: |
+          mkdir -p "$CI_DERIVED_DATA"
+          rm -rf \
+            "$CI_DERIVED_DATA/Build" \
+            "$CI_DERIVED_DATA/Index.noindex" \
+            "$CI_DERIVED_DATA/Logs" \
+            "$CI_DERIVED_DATA/SourcePackages" \
+            "$CI_DERIVED_DATA/info.plist" \
+            BundleBuildResults.xcresult \
+            "$BUILD_RUN_REPORT_PATH" \
+            "$BUNDLE_INSPECT_REPORT_PATH" \
+            FestiCore-Stage.ipa
+
+      - name: Build app for bundle insights
+        id: app-build
+        continue-on-error: true
+        run: |
+          TUIST_RUN_REPORT_PATH="$BUILD_RUN_REPORT_PATH" \
+            mise exec -- tuist xcodebuild build \
+            -workspace FestiCore.xcworkspace \
+            -scheme FestiCore-Stage \
+            -configuration Stage \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$CI_DERIVED_DATA" \
+            -resultBundlePath BundleBuildResults.xcresult \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
+
+          if [[ ! -s "$BUILD_RUN_REPORT_PATH" ]]; then
+            echo "Tuist build run이 서버 dashboard URL을 기록하지 못했습니다: $BUILD_RUN_REPORT_PATH" >&2
+            exit 1
+          fi
+
+      - name: Inspect bundle size
+        id: bundle-inspect
+        if: steps.app-build.outcome == 'success'
+        continue-on-error: true
+        run: |
+          APP_PATH="$(find "$CI_DERIVED_DATA/Build/Products/Stage-iphoneos" -maxdepth 1 -type d -name FestiCore.app -print -quit)"
+          if [[ -z "$APP_PATH" ]]; then
+            echo "Stage 디바이스 앱 번들을 찾지 못했습니다." >&2
+            exit 1
+          fi
+
+          BUNDLE_PAYLOAD="$RUNNER_TEMP/festicore-bundle-payload"
+          rm -rf "$BUNDLE_PAYLOAD"
+          mkdir -p "$BUNDLE_PAYLOAD/Payload"
+          ditto "$APP_PATH" "$BUNDLE_PAYLOAD/Payload/FestiCore.app"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$BUNDLE_PAYLOAD/Payload" \
+            FestiCore-Stage.ipa
+
+          mise exec -- tuist inspect bundle FestiCore-Stage.ipa --json \
+            > "$BUNDLE_INSPECT_REPORT_PATH"
+          mise exec -- tuist inspect bundle FestiCore-Stage.ipa
+
+      - name: Upload bundle reports
+        id: upload-bundle-reports
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: pr-bundle-insights-${{ github.run_id }}
+          path: |
+            BundleBuildResults.xcresult
+            BuildRunReport.json
+            BundleInspectReport.json
+            FestiCore-Stage.ipa
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Retry bundle report upload
+        if: always() && steps.upload-bundle-reports.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: pr-bundle-insights-${{ github.run_id }}-retry-${{ github.run_attempt }}
+          path: |
+            BundleBuildResults.xcresult
+            BuildRunReport.json
+            BundleInspectReport.json
+            FestiCore-Stage.ipa
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Clean bundle DerivedData
+        if: always()
+        run: |
+          rm -rf \
+            "$CI_DERIVED_DATA/Build" \
+            "$CI_DERIVED_DATA/Index.noindex" \
+            "$CI_DERIVED_DATA/Logs" \
+            "$CI_DERIVED_DATA/SourcePackages" \
+            "$CI_DERIVED_DATA/info.plist" \
+            BundleBuildResults.xcresult \
+            "$BUILD_RUN_REPORT_PATH" \
+            "$BUNDLE_INSPECT_REPORT_PATH" \
+            FestiCore-Stage.ipa
+
+      # 기존 계약대로 앱 build는 필수지만 bundle inspect는 정보성으로 유지한다.
+      - name: Fail if app build failed
+        if: steps.app-build.outcome != 'success'
+        run: exit 1
+
   pr-report:
     name: PR report
     if: always() && github.event.pull_request.head.repo.full_name == github.repository && needs.build-test-shards.result != 'cancelled'
-    needs: [build-test-shards, test-shards]
+    needs: [build-test-shards, test-shards, bundle-insights]
     runs-on: self-hosted
     timeout-minutes: 10
 
@@ -364,6 +523,14 @@ jobs:
           pattern: pr-test-*-${{ github.run_id }}*
           path: Artifacts/tests
 
+      - name: Download bundle reports
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          pattern: pr-bundle-insights-${{ github.run_id }}*
+          path: Artifacts/bundle
+          merge-multiple: true
+
       - name: Report to PR
         uses: actions/github-script@v7
         env:
@@ -373,11 +540,13 @@ jobs:
           COVERAGE_SHARD_IDS: ${{ join(fromJSON(needs.build-test-shards.outputs.matrix || '{"shard":[]}').shard, ',') }}
           TEST_OUTCOME: ${{ needs.build-test-shards.result == 'success' && needs.test-shards.result == 'success' && 'success' || 'failure' }}
           TEST_RUN_REPORT_PATH: Artifacts/tests
+          BUILD_RUN_REPORT_PATH: Artifacts/bundle/BuildRunReport.json
+          BUNDLE_INSPECT_REPORT_PATH: Artifacts/bundle/BundleInspectReport.json
         with:
           script: |
             const report = require(`${process.env.GITHUB_WORKSPACE}/Scripts/ios-test-report.js`)
             await report({ github, context, core })
 
       - name: Fail if a required PR check failed
-        if: needs.build-test-shards.result != 'success' || needs.test-shards.result != 'success'
+        if: needs.build-test-shards.result != 'success' || needs.test-shards.result != 'success' || needs.bundle-insights.result != 'success'
         run: exit 1
