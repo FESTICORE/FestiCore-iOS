@@ -18,10 +18,8 @@ class SyncDesignTokensTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.source = self.root / "source"
         self.source.mkdir()
-        for name in sync.EXPECTED_SOURCES:
-            self.put(f"generated/ios/Sources/{name}", "import UIKit\n")
-        self.put("generated/ios/Assets/FestiCoreColors.xcassets/Contents.json", "{}\n")
-        self.put("generated/ios/Assets/FestiCoreColors.xcassets/primaryNormal.colorset/Contents.json", "{}\n")
+        for name in sync.SOURCE_PATHS:
+            self.put(f"generated/ios/Sources/{name}", sync.generated_header(name) + "import UIKit\n")
         self.put("tokens/$themes.json", "{}\n")
         subprocess.run(["git", "init", "-q", str(self.source)], check=True)
         subprocess.run(["git", "-C", str(self.source), "add", "."], check=True)
@@ -44,7 +42,8 @@ class SyncDesignTokensTests(unittest.TestCase):
         first = sync.snapshot_digest(destination, self.sha)
         sync.import_tokens(self.source, destination, self.sha)
         self.assertEqual(first, sync.snapshot_digest(destination, self.sha))
-        self.assertEqual((destination / ".source-sha").read_text(), self.sha + "\n")
+        self.assertEqual((destination / sync.SHA_PATH).read_text(), self.sha + "\n")
+        self.assertTrue((destination / sync.SOURCE_PATHS["Colors.swift"]).is_file())
 
     def test_wrong_sha_and_unexpected_path_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "does not match"):
@@ -54,15 +53,53 @@ class SyncDesignTokensTests(unittest.TestCase):
             sync.import_tokens(self.source, self.root / "Generated", self.sha)
 
     def test_symlink_is_rejected(self):
-        (self.source / "generated/ios/Sources/extra.swift").symlink_to("FestiCoreColor.swift")
+        (self.source / "generated/ios/Sources/extra.swift").symlink_to("Colors.swift")
         with self.assertRaisesRegex(ValueError, "ordinary, unlinked file"):
+            sync.import_tokens(self.source, self.root / "Generated", self.sha)
+
+    def test_asset_catalog_is_rejected(self):
+        self.put("generated/ios/Assets/FestiCoreColors.xcassets/Contents.json", "{}\n")
+        with self.assertRaisesRegex(ValueError, "Unexpected generated path"):
             sync.import_tokens(self.source, self.root / "Generated", self.sha)
 
     def test_changed_snapshot_is_rejected(self):
         destination = self.root / "Generated"
         sync.import_tokens(self.source, destination, self.sha)
-        (destination / "Tokens/$themes.json").write_text("{\"changed\":true}\n")
+        (destination / sync.TOKEN_PATH / "$themes.json").write_text("{\"changed\":true}\n")
         self.assertNotEqual(sync.snapshot_digest(destination, self.sha), sync.snapshot_digest(self._fresh_snapshot(), self.sha))
+
+    def test_unrelated_sources_and_resources_are_preserved(self):
+        destination = self.root / "FestiCoreDesignKit"
+        (destination / "Sources/Component/Button").mkdir(parents=True)
+        (destination / "Sources/Component/Button/FestiCorePrimaryButton.swift").write_text("import SwiftUI\n")
+        (destination / "Sources/Token/Typography").mkdir(parents=True)
+        (destination / "Sources/Token/Typography/Text+FestiCoreTextStyle.swift").write_text("import SwiftUI\n")
+        (destination / "Resources/ImageAssets.xcassets").mkdir(parents=True)
+        (destination / "Resources/ImageAssets.xcassets/Contents.json").write_text("{}\n")
+        sync.import_tokens(self.source, destination, self.sha)
+        self.assertEqual((destination / "Sources/Component/Button/FestiCorePrimaryButton.swift").read_text(), "import SwiftUI\n")
+        self.assertEqual((destination / "Sources/Token/Typography/Text+FestiCoreTextStyle.swift").read_text(), "import SwiftUI\n")
+        self.assertEqual((destination / "Resources/ImageAssets.xcassets/Contents.json").read_text(), "{}\n")
+
+    def test_hand_written_file_at_generated_path_is_not_overwritten(self):
+        destination = self.root / "FestiCoreDesignKit"
+        path = destination / sync.SOURCE_PATHS["Colors.swift"]
+        path.parent.mkdir(parents=True)
+        path.write_text("// 수동 색상 파일\nimport SwiftUI\n")
+        with self.assertRaisesRegex(ValueError, "Refusing to overwrite"):
+            sync.import_tokens(self.source, destination, self.sha)
+        self.assertEqual(path.read_text(), "// 수동 색상 파일\nimport SwiftUI\n")
+        self.assertFalse((destination / sync.SHA_PATH).exists())
+
+    def test_reserved_generated_basename_cannot_exist_elsewhere(self):
+        destination = self.root / "FestiCoreDesignKit"
+        path = destination / "Sources/Component/Colors.swift"
+        path.parent.mkdir(parents=True)
+        path.write_text("// 수동 색상 파일\n")
+        with self.assertRaisesRegex(ValueError, "basename is reserved"):
+            sync.import_tokens(self.source, destination, self.sha)
+        self.assertEqual(path.read_text(), "// 수동 색상 파일\n")
+        self.assertFalse((destination / sync.SHA_PATH).exists())
 
     def _fresh_snapshot(self):
         destination = self.root / "Fresh"

@@ -12,7 +12,7 @@ Xcode 27.1과 mise를 설치한 뒤 저장소 루트에서 실행합니다.
 ./make test
 ```
 
-`./make help`에서 명령을 볼 수 있습니다. 생성된 `FestiCore.xcworkspace`의 `FestiCore-Stage` 스킴을 실행합니다. `FestiCore-Prod`는 배포 설정입니다. 두 API 호스트는 `Config/Stage.xcconfig`, `Config/Prod.xcconfig`의 예시 값이므로 서버 연결 전에 교체해야 합니다.
+`./make help`에서 명령을 볼 수 있습니다. 생성된 `FestiCore.xcworkspace`의 `FestiCore-Stage` 스킴을 실행합니다. `FestiCore-Prod`는 배포 설정입니다. API 호스트는 `Config/Stage.xcconfig`의 개발 서버와 `Config/Prod.xcconfig`의 운영 서버로 나뉩니다.
 
 `./make setup`은 의존성 설치, Xcode Compilation Cache 설정, 외부 모듈의 로컬 Tuist 바이너리 캐시 준비와 프로젝트 생성을 순서대로 실행합니다. `./make cache`로 외부 모듈 캐시를 따로 준비할 수 있습니다. `./make generate`와 PR CI는 `only-external` 캐시 프로필로 워크스페이스를 생성하며, `develop`에서는 캐시 warm 작업을 별도로 실행합니다.
 
@@ -22,6 +22,8 @@ Xcode 27.1과 mise를 설치한 뒤 저장소 루트에서 실행합니다.
 
 ```text
 Projects/App
+  ├─ Sources/Application   # 앱 진입점·AppDelegate·환경 설정
+  └─ Resources/Assets.xcassets
 Projects/Feature/Home
 Projects/Core/
   ├─ FestiCoreLogger
@@ -29,7 +31,7 @@ Projects/Core/
   └─ FestiCoreStorage       # Interface / Sources / Tests
 Projects/UI/
   ├─ FestiCoreAnimation
-  ├─ FestiCoreDesignSystem
+  ├─ FestiCoreDesignKit
   └─ FestiCoreSharedUI
 Projects/Service/
   ├─ FestiCoreAuth
@@ -46,21 +48,23 @@ Projects/Service/
 
 ## Core와 UI 사용 범위
 
-이 브랜치에서 Core는 로깅, Alamofire 기반 네트워크 요청·인증 갱신, Keychain·공유 값 저장소를 구현 중입니다. Network의 `Interface`에는 `FestiCoreDataRequest`, `FestiCoreNetworkClient`, `CredentialStore`, `TokenRefreshing` 공개 계약이 있고, `Sources`에는 요청 클라이언트와 `NetworkClientFactory`가 있습니다.
+Core에는 로깅, Alamofire 기반 네트워크 요청·인증 갱신, Keychain·공유 값 저장소가 있습니다. Network의 `Interface`에는 `FestiCoreDataRequest`, `FestiCoreNetworkClient`, `CredentialStore`, `TokenRefreshing` 공개 계약이 있고, `Sources`에는 요청 클라이언트와 `NetworkClientFactory`가 있습니다.
 
 - 일반 요청: 요청 타입을 `FestiCoreDataRequest`로 정의하고 `NetworkClientFactory.plain(baseURL:)`로 만든 클라이언트에서 `send(_:)` 또는 `send(_:as:)`를 호출합니다.
 - 인증 요청: `ServiceAssembly`가 Keychain 저장소, 토큰 갱신기와 `NetworkClientFactory.unified(store:refresher:baseURL:)`를 조립합니다. 로그인·로그아웃은 `AuthService`를 통해 저장소와 인증 클라이언트를 함께 갱신합니다.
 
 실제 서버 엔드포인트가 확정되기 전까지 실행 가능한 API 호출 코드는 예제로 싣지 않습니다.
 
-UI의 `FestiCoreDesignSystem`에는 [FestiCore-DesignSystem](https://github.com/FESTICORE/FestiCore-DesignSystem) 토큰을 참조한 Swift 색상·레이아웃·타이포그래피 코드가 있습니다. SwiftUI에서는 modifier를 이어서 사용합니다.
+UI의 `FestiCoreDesignKit`에는 [FestiCore-DesignSystem](https://github.com/FESTICORE/FestiCore-DesignSystem) 토큰을 참조한 Swift 색상·레이아웃·타이포그래피 코드가 있습니다. SwiftUI에서는 modifier를 이어서 사용합니다.
 
-디자인 토큰은 `Projects/UI/FestiCoreDesignSystem/Generated/`에 보관합니다. `.source-sha`는 원본 저장소의 커밋을 가리킵니다. 최초 자동 동기화가 완료되면 `Sources/`, `Assets/`, `Tokens/`에 그 커밋의 검증된 생성물과 원본 JSON이 들어갑니다. 수작업 SwiftUI 확장은 이 폴더 밖에 둡니다. `Sync design tokens` 워크플로는 매주 또는 수동 실행 시 원본 `main`의 SHA를 고정하고 `npm run check`, `./make generate`, 디자인 모듈 및 Stage 테스트와 커버리지를 확인한 뒤 `develop`을 대상으로 `chore/design-tokens-sync` PR을 만들거나 갱신합니다. 원본과 스냅샷이 같으면 PR을 생성하지 않습니다. PR 작성 권한은 저장소 Actions 설정에서 허용되어야 합니다.
+생성된 색상 코드는 `Projects/UI/FestiCoreDesignKit/Sources/Token/Color/`의 `Color`, `UIColor`, `ShapeStyle` 확장에 둡니다. 레이아웃과 타이포그래피는 각각 `Sources/Token/Layout/`, `Sources/Token/Typography/`에 둡니다. 원본 JSON은 `Tests/Resources/Tokens/`에, 출처 커밋은 `TokenSnapshot/.source-sha`에 보관합니다. 이미지 리소스용 `Resources/ImageAssets.xcassets`는 현재 비어 있습니다. Pretendard Variable 글꼴과 라이선스는 `Resources/FontAsset/`에 있으며, 글꼴 등록과 SwiftUI 스타일은 `Sources/Token/Typography/`에서 처리합니다. 수작업 컴포넌트와 SwiftUI 확장은 `Sources/Component/` 및 `Sources/Token/`의 별도 파일로 관리합니다.
+
+DesignSystem 저장소의 토큰 변경이 `main`에 머지되면 iOS의 `Sync design tokens` 워크플로가 매주 또는 수동 실행 시 원본 SHA를 고정해 가져옵니다. 원본 검사, DesignKit 및 Stage 테스트, 커버리지가 통과하면 `develop` 대상 `chore/design-tokens-sync` PR을 만들거나 갱신합니다. 같은 SHA면 PR을 만들지 않습니다. PR 작성 권한은 저장소 Actions 설정에서 허용되어야 합니다.
 
 ```swift
 Text("Festival")
   .festiCoreTextStyle(FestiCoreTypography.baseBodyRegular)
-  .foregroundStyle(Color.festiCore(FestiCoreColor.labelNormal))
+  .foregroundStyle(Color.labelNormal)
   .padding(FestiCoreSpacing.marginM12)
 ```
 
@@ -83,4 +87,4 @@ bundle exec fastlane ios build
 
 Fastlane은 `Gemfile`과 `fastlane/`에 정의합니다. `ios QA`, `ios release`, `ios submit_for_review`, `ios tdd_ci` lane이 있습니다. 배포 lane에는 `MATCH_GIT_URL`, `MATCH_PASSWORD`, `APP_STORE_CONNECT_TEAM_ID`, `APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_CONTENT`(Base64 인코딩)가 필요합니다. 인증 값은 저장소에 넣지 않습니다. 실기기 서명과 배포는 아직 검증하지 않았습니다.
 
-`develop` 대상 PR에서는 프로젝트 생성, 시뮬레이터 빌드·테스트와 추적 파일 검사를 실행합니다. 현재 Core·UI 작업 브랜치는 `feature/core-ui-modules`이며 이슈 번호 `#3`은 각 한국어 커밋 제목 끝에 붙입니다. PR에는 작업 유형 라벨을 붙입니다. 자세한 결정은 [초기 설정 설계](docs/initial-setup-design.md)와 [Core·UI 설계](docs/core-ui-modules-design.md)에 있습니다.
+`develop` 대상 PR에서는 프로젝트 생성, 시뮬레이터 빌드·테스트와 추적 파일 검사를 실행합니다. 작업 커밋의 한국어 제목 끝에는 이슈 번호 `#3`을 붙이고 PR에는 작업 유형 라벨을 붙입니다. 자세한 결정은 [초기 설정 설계](docs/initial-setup-design.md)와 [Core·UI 설계](docs/core-ui-modules-design.md)에 있습니다.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import a pinned FestiCore-DesignSystem checkout without executing its files."""
+"""고정된 FestiCore-DesignSystem 커밋의 생성물과 토큰을 가져옵니다."""
 
 import argparse
 import hashlib
@@ -12,19 +12,37 @@ import subprocess
 import tempfile
 
 
-EXPECTED_SOURCES = {
-    "FestiCoreColor.swift",
-    "FestiCoreLayout.swift",
-    "FestiCoreTypography.swift",
+SOURCE_PATHS = {
+    "Colors.swift": Path("Sources/Token/Color/Colors.swift"),
+    "UIColors.swift": Path("Sources/Token/Color/UIColors.swift"),
+    "ShapeStyle+.swift": Path("Sources/Token/Color/ShapeStyle+.swift"),
+    "FestiCoreLayout.swift": Path("Sources/Token/Layout/FestiCoreLayout.swift"),
+    "FestiCoreTypography.swift": Path("Sources/Token/Typography/FestiCoreTypography.swift"),
 }
+TOKEN_PATH = Path("Tests/Resources/Tokens")
+SHA_PATH = Path("TokenSnapshot/.source-sha")
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
-ASSET_NAME = re.compile(r"[A-Za-z][A-Za-z0-9]*\.colorset\Z")
+
+
+def generated_header(name: str) -> str:
+    return (
+        f"//\n//  {name}\n//  FestiCoreDesignKit\n//\n"
+        "//  Created by FestiCore-DesignSystem generator.\n//\n\n"
+    )
 
 
 def regular_file(path: Path) -> None:
     stat = path.lstat()
     if not path.is_file() or path.is_symlink() or stat.st_nlink != 1:
         raise ValueError(f"Expected an ordinary, unlinked file: {path}")
+
+
+def reject_symlink_ancestors(root: Path, relative: Path) -> None:
+    current = root
+    for part in relative.parts[:-1]:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError(f"Symlink directory is forbidden: {current}")
 
 
 def walk_regular_files(root: Path) -> list[Path]:
@@ -57,23 +75,13 @@ def validate_source(source: Path, sha: str) -> tuple[list[Path], list[Path]]:
     swift_files = {
         path.name for path in files if path.parent == Path("Sources")
     }
-    if swift_files != EXPECTED_SOURCES:
+    if swift_files != SOURCE_PATHS.keys():
         raise ValueError(f"Unexpected generated Swift sources: {sorted(swift_files)}")
-    asset_root = Path("Assets/FestiCoreColors.xcassets")
-    assets = [path for path in files if path.parts[:2] == asset_root.parts]
-    if not assets or asset_root / "Contents.json" not in assets:
-        raise ValueError("Missing generated color asset catalog")
     for path in files:
-        if path.parent == Path("Sources") and path.suffix == ".swift":
-            continue
-        if path == asset_root / "Contents.json":
-            pass
-        elif path.parent.parent == asset_root and ASSET_NAME.fullmatch(path.parent.name) and path.name == "Contents.json":
-            pass
-        else:
+        if path.parent != Path("Sources") or path.suffix != ".swift":
             raise ValueError(f"Unexpected generated path: {path}")
-        if path.suffix == ".json":
-            json.loads((generated / path).read_text(encoding="utf-8"))
+        if not (generated / path).read_text(encoding="utf-8").startswith(generated_header(path.name)):
+            raise ValueError(f"Missing generated Swift header: {path}")
 
     tokens = walk_regular_files(source / "tokens")
     if not tokens or any(path.suffix != ".json" for path in tokens):
@@ -82,34 +90,24 @@ def validate_source(source: Path, sha: str) -> tuple[list[Path], list[Path]]:
 
 
 def snapshot_digest(destination: Path, sha: str) -> str:
-    files = walk_regular_files(destination)
-    if (destination / ".source-sha").read_text(encoding="ascii") != sha + "\n":
+    if destination.is_symlink():
+        raise ValueError("Destination cannot be a symlink")
+    reject_symlink_ancestors(destination, SHA_PATH)
+    regular_file(destination / SHA_PATH)
+    if (destination / SHA_PATH).read_text(encoding="ascii") != sha + "\n":
         raise ValueError("Snapshot source SHA does not match")
-    generated = [path for path in files if path.parts[0] in ("Sources", "Assets")]
-    sources = {path.name for path in generated if path.parent == Path("Sources")}
-    if sources != EXPECTED_SOURCES:
-        raise ValueError("Snapshot is missing generated Swift sources")
-    if Path("Assets/FestiCoreColors.xcassets/Contents.json") not in generated:
-        raise ValueError("Snapshot is missing the color asset catalog")
-    for path in files:
-        if path == Path(".source-sha"):
-            continue
-        if path.parts[0] == "Tokens" and path.suffix == ".json":
-            json.loads((destination / path).read_text(encoding="utf-8"))
-        elif path.parent == Path("Sources") and path.suffix == ".swift":
-            pass
-        elif path == Path("Assets/FestiCoreColors.xcassets/Contents.json"):
-            json.loads((destination / path).read_text(encoding="utf-8"))
-        elif (
-            path.parent.parent == Path("Assets/FestiCoreColors.xcassets")
-            and ASSET_NAME.fullmatch(path.parent.name)
-            and path.name == "Contents.json"
-        ):
-            json.loads((destination / path).read_text(encoding="utf-8"))
-        else:
-            raise ValueError(f"Unexpected snapshot path: {path}")
-    if not any(path.parts[0] == "Tokens" for path in files):
+    for relative in SOURCE_PATHS.values():
+        reject_symlink_ancestors(destination, relative)
+        regular_file(destination / relative)
+        if not (destination / relative).read_text(encoding="utf-8").startswith(generated_header(relative.name)):
+            raise ValueError(f"Missing generated Swift header: {relative}")
+    reject_symlink_ancestors(destination, TOKEN_PATH / "file.json")
+    tokens = walk_regular_files(destination / TOKEN_PATH)
+    if not tokens or any(path.suffix != ".json" for path in tokens):
         raise ValueError("Snapshot is missing source tokens")
+    for path in tokens:
+        json.loads((destination / TOKEN_PATH / path).read_text(encoding="utf-8"))
+    files = sorted([*SOURCE_PATHS.values(), *(TOKEN_PATH / path for path in tokens), SHA_PATH])
     digest = hashlib.sha256()
     for path in files:
         digest.update(str(path).encode("utf-8") + b"\0")
@@ -121,21 +119,43 @@ def import_tokens(source: Path, destination: Path, sha: str) -> None:
     generated_files, token_files = validate_source(source, sha)
     if destination.is_symlink():
         raise ValueError("Destination cannot be a symlink")
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="design-token-import-", dir=destination.parent) as temp:
-        staged = Path(temp) / "Generated"
+    destination.mkdir(parents=True, exist_ok=True)
+    sources_root = destination / "Sources"
+    if sources_root.exists():
+        for relative in walk_regular_files(sources_root):
+            if relative.name in SOURCE_PATHS and sources_root / relative != destination / SOURCE_PATHS[relative.name]:
+                raise ValueError(f"Generated Swift basename is reserved: {relative}")
+    for relative in [*SOURCE_PATHS.values(), TOKEN_PATH, SHA_PATH]:
+        reject_symlink_ancestors(destination, relative)
+        if (destination / relative).is_symlink():
+            raise ValueError(f"Symlink destination is forbidden: {destination / relative}")
+        target = destination / relative
+        if relative in SOURCE_PATHS.values() and target.exists():
+            regular_file(target)
+            if not target.read_text(encoding="utf-8").startswith(generated_header(relative.name)):
+                raise ValueError(f"Refusing to overwrite non-generated Swift source: {relative}")
+    with tempfile.TemporaryDirectory(prefix="design-token-import-", dir=destination) as temp:
+        staged = Path(temp)
         for relative in generated_files:
-            target = staged / relative
+            target = staged / SOURCE_PATHS[relative.name]
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source / "generated/ios" / relative, target)
         for relative in token_files:
-            target = staged / "Tokens" / relative
+            target = staged / TOKEN_PATH / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source / "tokens" / relative, target)
-        (staged / ".source-sha").write_text(sha + "\n", encoding="ascii")
-        if destination.exists():
-            shutil.rmtree(destination)
-        shutil.move(str(staged), destination)
+        (staged / SHA_PATH).parent.mkdir(parents=True, exist_ok=True)
+        (staged / SHA_PATH).write_text(sha + "\n", encoding="ascii")
+        snapshot_digest(staged, sha)
+        for relative in SOURCE_PATHS.values():
+            target = destination / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(staged / relative, target)
+        if (destination / TOKEN_PATH).exists():
+            shutil.rmtree(destination / TOKEN_PATH)
+        shutil.copytree(staged / TOKEN_PATH, destination / TOKEN_PATH)
+        (destination / SHA_PATH).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(staged / SHA_PATH, destination / SHA_PATH)
 
 
 def main() -> None:

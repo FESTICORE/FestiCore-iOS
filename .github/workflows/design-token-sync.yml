@@ -37,8 +37,8 @@ jobs:
           SHA="$(git ls-remote https://github.com/FESTICORE/FestiCore-DesignSystem.git refs/heads/main | cut -f1)"
           [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          if [[ -f Projects/UI/FestiCoreDesignSystem/Generated/.source-sha ]] &&
-             [[ "$(cat Projects/UI/FestiCoreDesignSystem/Generated/.source-sha)" == "$SHA" ]]; then
+          if [[ -f Projects/UI/FestiCoreDesignKit/TokenSnapshot/.source-sha ]] &&
+             [[ "$(cat Projects/UI/FestiCoreDesignKit/TokenSnapshot/.source-sha)" == "$SHA" ]]; then
             echo "Design tokens already match $SHA" >> "$GITHUB_STEP_SUMMARY"
             echo 'already_current=true' >> "$GITHUB_OUTPUT"
           fi
@@ -63,10 +63,17 @@ jobs:
           mkdir -p "$RUNNER_TEMP/design-token-staging"
           DIGEST="$(python3 Scripts/sync-design-tokens.py \
             --source "$RUNNER_TEMP/festicore-design-tokens" \
-            --destination Projects/UI/FestiCoreDesignSystem/Generated \
+            --destination Projects/UI/FestiCoreDesignKit \
             --sha '${{ steps.source.outputs.sha }}')"
           echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
-          cp -R Projects/UI/FestiCoreDesignSystem/Generated "$RUNNER_TEMP/design-token-staging/Generated"
+          MODULE=Projects/UI/FestiCoreDesignKit
+          SNAPSHOT="$RUNNER_TEMP/design-token-staging/FestiCoreDesignKit"
+          mkdir -p "$SNAPSHOT/Sources/Token/Color" "$SNAPSHOT/Sources/Token/Layout" "$SNAPSHOT/Sources/Token/Typography" "$SNAPSHOT/Tests/Resources" "$SNAPSHOT/TokenSnapshot"
+          cp "$MODULE/Sources/Token/Color/Colors.swift" "$MODULE/Sources/Token/Color/UIColors.swift" "$MODULE/Sources/Token/Color/ShapeStyle+.swift" "$SNAPSHOT/Sources/Token/Color/"
+          cp "$MODULE/Sources/Token/Layout/FestiCoreLayout.swift" "$SNAPSHOT/Sources/Token/Layout/"
+          cp "$MODULE/Sources/Token/Typography/FestiCoreTypography.swift" "$SNAPSHOT/Sources/Token/Typography/"
+          cp -R "$MODULE/Tests/Resources/Tokens" "$SNAPSHOT/Tests/Resources/Tokens"
+          cp "$MODULE/TokenSnapshot/.source-sha" "$SNAPSHOT/TokenSnapshot/.source-sha"
 
       - name: Setup iOS runner
         if: steps.source.outputs.already_current != 'true'
@@ -85,7 +92,7 @@ jobs:
           SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py)"
           xcodebuild test \
             -workspace FestiCore.xcworkspace \
-            -scheme FestiCoreDesignSystem \
+            -scheme FestiCoreDesignKit \
             -configuration Stage \
             -destination "$SIMULATOR_DESTINATION" \
             -derivedDataPath "$CI_DERIVED_DATA" \
@@ -164,7 +171,7 @@ jobs:
           test "$SHA" = "$SOURCE_SHA"
           DIGEST="$(python3 Scripts/sync-design-tokens.py \
             --verify-only \
-            --destination "$RUNNER_TEMP/verified-design-tokens/Generated" \
+            --destination "$RUNNER_TEMP/verified-design-tokens/FestiCoreDesignKit" \
             --sha "$SOURCE_SHA")"
           test "$DIGEST" = "$TREE_DIGEST"
           test -s "$RUNNER_TEMP/verified-design-tokens/test-summary.json"
@@ -176,24 +183,47 @@ jobs:
           BRANCH=chore/design-tokens-sync
           git fetch origin develop
           test "$(git rev-parse HEAD)" = "$(git rev-parse origin/develop)"
-          CURRENT_SHA="$(cat Projects/UI/FestiCoreDesignSystem/Generated/.source-sha 2>/dev/null || true)"
+          CURRENT_SHA="$(cat Projects/UI/FestiCoreDesignKit/TokenSnapshot/.source-sha 2>/dev/null || true)"
           if [[ "$CURRENT_SHA" == "$SOURCE_SHA" ]]; then
             echo "Design token source is already on develop." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           REMOTE_HEAD="$(git ls-remote --heads origin "$BRANCH" | cut -f1)"
           git switch -C "$BRANCH"
-          python3 - "$RUNNER_TEMP/verified-design-tokens/Generated" Projects/UI/FestiCoreDesignSystem/Generated <<'PY'
+          python3 - "$RUNNER_TEMP/verified-design-tokens/FestiCoreDesignKit" Projects/UI/FestiCoreDesignKit <<'PY'
           from pathlib import Path
           import shutil, sys
           source, target = map(Path, sys.argv[1:])
           if target.is_symlink():
-              raise SystemExit("Generated destination is a symlink")
-          if target.exists():
-              shutil.rmtree(target)
-          shutil.copytree(source, target, symlinks=False)
+              raise SystemExit("DesignKit destination is a symlink")
+          def destination_for(relative):
+              current = target
+              for part in Path(relative).parts[:-1]:
+                  current = current / part
+                  if current.is_symlink():
+                      raise SystemExit(f"Symlink destination: {current}")
+              destination = target / relative
+              if destination.is_symlink():
+                  raise SystemExit(f"Symlink destination: {destination}")
+              return destination
+          sources = (
+              "Sources/Token/Color/Colors.swift",
+              "Sources/Token/Color/UIColors.swift",
+              "Sources/Token/Color/ShapeStyle+.swift",
+              "Sources/Token/Layout/FestiCoreLayout.swift",
+              "Sources/Token/Typography/FestiCoreTypography.swift",
+              "TokenSnapshot/.source-sha",
+          )
+          for name in sources:
+              destination = destination_for(name)
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(source / name, destination)
+          tokens = destination_for("Tests/Resources/Tokens")
+          if tokens.exists():
+              shutil.rmtree(tokens)
+          shutil.copytree(source / "Tests/Resources/Tokens", tokens, symlinks=False)
           PY
-          git add Projects/UI/FestiCoreDesignSystem/Generated
+          git add Projects/UI/FestiCoreDesignKit/Sources/Token/Color Projects/UI/FestiCoreDesignKit/Sources/Token/Layout Projects/UI/FestiCoreDesignKit/Sources/Token/Typography/FestiCoreTypography.swift Projects/UI/FestiCoreDesignKit/Tests/Resources/Tokens Projects/UI/FestiCoreDesignKit/TokenSnapshot/.source-sha
           if git diff --cached --quiet; then
             echo "No design token changes to publish." >> "$GITHUB_STEP_SUMMARY"
             exit 0
