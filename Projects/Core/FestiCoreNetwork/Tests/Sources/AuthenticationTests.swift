@@ -101,7 +101,7 @@ struct AuthenticationTests {
         return
       }
       #expect(error == expected)
-      #expect(store.saved == nil)
+      #expect(store.saved == current)
     }
   }
 
