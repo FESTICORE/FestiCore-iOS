@@ -64,6 +64,10 @@ jobs:
             -destination "$SIMULATOR_DESTINATION" \
             -derivedDataPath "$CI_DERIVED_DATA" \
             CODE_SIGNING_ALLOWED=NO \
+            SWIFT_ENABLE_PREFIX_MAPPING=NO \
+            SWIFT_ENABLE_PROJECT_PREFIX_MAPPING=NO \
+            CLANG_ENABLE_PREFIX_MAPPING=NO \
+            CLANG_ENABLE_PROJECT_PREFIX_MAPPING=NO \
             COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
       - name: Run tests
         run: |
@@ -76,6 +80,10 @@ jobs:
             -resultBundlePath "$RUNNER_TEMP/FestiCore-${{ github.run_id }}.xcresult" \
             -enableCodeCoverage YES \
             CODE_SIGNING_ALLOWED=NO \
+            SWIFT_ENABLE_PREFIX_MAPPING=NO \
+            SWIFT_ENABLE_PROJECT_PREFIX_MAPPING=NO \
+            CLANG_ENABLE_PREFIX_MAPPING=NO \
+            CLANG_ENABLE_PROJECT_PREFIX_MAPPING=NO \
             COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
       - name: Report test coverage
         if: always()
