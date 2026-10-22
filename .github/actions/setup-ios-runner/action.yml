@@ -1,0 +1,38 @@
+name: Setup iOS runner
+description: Configure the self-hosted macOS runner for FestiCore builds.
+
+inputs:
+  tuist-token:
+    description: Tuist CI token.
+    required: false
+    default: ''
+  derived-data-directory:
+    description: Directory name below $HOME/ci-derived-data.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Configure runner PATH
+      shell: bash
+      env:
+        DERIVED_DATA_DIRECTORY: ${{ inputs.derived-data-directory }}
+      run: |
+        echo "/opt/homebrew/bin" >> "$GITHUB_PATH"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        echo "$HOME/.local/share/mise/shims" >> "$GITHUB_PATH"
+        echo "CI_DERIVED_DATA=$HOME/ci-derived-data/$DERIVED_DATA_DIRECTORY" >> "$GITHUB_ENV"
+
+    - name: Install Tuist
+      shell: bash
+      run: mise install tuist
+
+    - name: Configure Tuist authentication
+      shell: bash
+      env:
+        CI_TUIST_TOKEN: ${{ inputs.tuist-token }}
+      run: |
+        if [[ -n "$CI_TUIST_TOKEN" ]]; then
+          echo "::add-mask::$CI_TUIST_TOKEN"
+          printf 'TUIST_TOKEN=%s\n' "$CI_TUIST_TOKEN" >> "$GITHUB_ENV"
+        fi

@@ -7,7 +7,7 @@ Attendance_iOS의 Tuist 플러그인 분리, 모듈 카탈로그, `make → Tuis
 ## 프로젝트와 의존성
 
 - `Workspace.swift`는 `Projects/**`를 포함하고 Stage 스킴에 앱 테스트와 `Project.swift`/`Tests`가 있는 모든 모듈 테스트를 등록한다.
-- `Tuist.swift`는 Tuist 웹 프로젝트 `suhwj81/festicore`를 참조한다. CI에 `TUIST_TOKEN`이 있으면 `tuist setup cache`와 Xcode 캐시 업로드를 활성화한다. 토큰으로 `tuist project show suhwj81/festicore --no-web` 조회를 확인했다. 실제 캐시 업로드는 토큰 설정 후 CI 실행에서 확인한다.
+- `Tuist.swift`는 Tuist 웹 프로젝트 `suhwj81/festicore`를 참조한다. CI에 `TUIST_TOKEN`이 있으면 `tuist setup cache`와 Xcode 캐시 업로드를 활성화한다. 토큰으로 `tuist project show suhwj81/festicore --no-web` 조회를 확인했다. 캐시 설정 단계는 PR CI에서 성공했다.
 - `Plugins/ProjectTemplatePlugin`: Attendance처럼 `Configruation`, `Project+Templete`, `Scheme`, `Setting`, `infoPlist` helper 디렉터리에 앱 환경, Stage/Prod 빌드 설정, 모듈 타깃 및 Info.plist 템플릿을 분리한다. 앱 매니페스트는 `.appInfoPlist`, 모듈 타깃은 `.moduleInfoPlist`를 사용한다.
 - `Plugins/DependencyPlugin`: `TargetDependency+Module`에 레이어 경로, 모듈 카탈로그, 내부 의존성 DSL을 둔다.
 - `Plugins/DependencyPackagePlugin`: `DependencyPackage`에 외부 SPM 의존성 명명 공간을 둔다. Attendance의 패키지 버전을 유지하고 Kingfisher 8.14.0을 추가한다. 아직 앱 타깃에서 직접 사용하는 외부 패키지는 없다.
@@ -25,5 +25,11 @@ Fastlane의 `test`와 `build`는 로컬 검증용이다. Attendance의 `QA`, `re
 - GitHub 이슈 #1에서 `feature/1` 브랜치를 만들고 `develop`으로 PR을 연다.
 - PR에 `⚙️ 환경설정` 라벨을 붙인다. Attendance 유형 라벨 9개를 저장소에 등록한다.
 - 로컬에서 Tuist 생성, 시뮬레이터 빌드·테스트, Swift/Ruby 구문, 추적 비밀 파일 검사, `git diff --check`를 확인한다. 원격 CI 상태는 별도로 기록한다.
-- PR에는 What/Why/How/Test와 검증하지 못한 항목을 적는다. 병합과 배포는 이 변경의 완료 기준이 아니다.
+- PR에는 What/Why/How/Test와 검증하지 못한 항목을 적고, CI 통과 후 `develop`에 병합한다. 배포는 이번 변경 범위가 아니다.
 - Attendance와 같이 GitHub의 Codex 리뷰 앱을 사용한다. PR을 리뷰 가능한 상태로 열고 봇 리뷰를 확인한다. 자동 리뷰가 나타나지 않으면 `@codex review`를 요청하고, 설치 또는 권한으로 리뷰가 불가능하면 PR에 그 상태를 명시한다.
+
+## PR runner와 커버리지
+
+- Attendance와 같이 PR CI는 `self-hosted` macOS runner와 `.github/actions/setup-ios-runner`를 사용한다. 공통 action은 mise 경로, Tuist 설치, `TUIST_TOKEN`, 전용 DerivedData를 설정한다.
+- 설치된 iPhone 시뮬레이터를 실행 때 선택하고 `xcodebuild test` 결과 번들의 앱·Feature 모듈 커버리지를 PR 댓글과 Actions 요약에 기록한다. 테스트 타깃 자체는 커버리지 합계에서 제외한다. 결과 번들은 7일 동안 아티팩트로 보관한다.
+- Runner 호스트에서 등록을 마친 후 `bash Scripts/setup-macos-runner-service.sh <runner 설치 경로>`를 실행해 LaunchAgent를 설치·시작한다. LaunchAgent의 `RunAtLoad` 설정으로 Mac 재시동 후 해당 사용자 로그인 때 runner가 시작된다. 이 스크립트는 runner 호스트에서 직접 실행해야 하며 원격 Mac의 로그인 전 기동을 보장하지 않는다.
