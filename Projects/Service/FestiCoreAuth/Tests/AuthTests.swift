@@ -32,7 +32,7 @@ struct AuthTests {
     #expect(renewed.refreshToken == "new-refresh")
     #expect(await recorder.count == 0)
     #expect(client.lastRequest?.path == "api/v1/auth/refresh")
-    #expect(client.lastRequest?.authorization == .none)
+    #expect(client.lastRequest?.authorization == FestiCoreAuthorization.none)
     #expect(client.lastRequest?.refreshToken == "old-refresh")
   }
 
