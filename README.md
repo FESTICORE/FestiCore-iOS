@@ -95,7 +95,7 @@ Text("Festival")
 | Stage | 로컬 개발과 CI 테스트 | `FestiCore-Stage` |
 | Prod | 배포 구성 | `FestiCore-Prod` |
 
-설정은 `Config/Stage.xcconfig`와 `Config/Prod.xcconfig`에서 관리합니다. 현재 API 호스트는 `stage.example.invalid`, `api.example.invalid` 예시 값입니다. 서버에 연결하려면 개발 `https://festicore-dev.up.railway.app`, 운영 `https://festicore.up.railway.app`에 맞게 환경 설정을 완료해야 합니다. 현재 프로젝트 버전 설정은 `0.1.0`입니다.
+설정은 `Config/Stage.xcconfig`와 `Config/Prod.xcconfig`에서 관리합니다. Stage API 호스트는 `festicore-dev.up.railway.app`, Prod API 호스트는 `festicore.up.railway.app`입니다. 현재 프로젝트 버전 설정은 `0.1.0`입니다.
 
 ## 빠른 시작
 
@@ -109,18 +109,18 @@ Text("Festival")
 git clone https://github.com/FESTICORE/FestiCore-iOS.git
 cd FestiCore-iOS
 ./make setup
-./make generate
-open FestiCore.xcworkspace
 ~~~
 
-Xcode에서 `FestiCore-Stage` 스킴과 사용 가능한 iPhone 시뮬레이터를 선택합니다. `./make generate`는 기본적으로 workspace를 자동으로 열지 않습니다.
+`./make setup`은 도구·의존성을 설치하고 로컬 Tuist 캐시를 준비한 뒤 workspace를 생성해 Xcode에서 엽니다. 이미 설치를 마쳤다면 `./make generate`로 다시 생성할 수 있습니다. Xcode에서 `FestiCore-Stage` 스킴과 사용 가능한 iPhone 시뮬레이터를 선택합니다.
 
 ## 개발 명령어
 
 ~~~bash
-./make setup                    # Mise 도구와 Tuist 의존성 설치
-./make install                  # Tuist 의존성 설치
-./make generate                 # FestiCore.xcworkspace 생성
+./make setup                    # Mise·Tuist 설치, 캐시 준비, workspace 생성
+./make install                  # Tuist 의존성·캐시 준비, workspace 생성
+./make generate                 # 캐시를 사용해 workspace 재생성
+./make cache                    # 외부 모듈 바이너리 캐시 준비
+./make cache:setup              # Xcode Compilation Cache 설정
 ./make build                    # Stage 시뮬레이터 빌드
 ./make test                     # Stage 시뮬레이터 테스트
 ./make clean                    # Tuist 생성물 정리
@@ -129,7 +129,7 @@ Xcode에서 `FestiCore-Stage` 스킴과 사용 가능한 iPhone 시뮬레이터�
 ./make module Core FestiCoreFoo # Core 모듈 생성·카탈로그 등록
 ~~~
 
-모듈 생성기는 `Feature`, `Domain`, `Data`, `Core`, `UI`를 지원합니다. Core/UI 이름에는 `FestiCore` 접두어가 필요합니다. 생성된 모듈의 실제 의존성은 해당 `Project.swift`에서 명시합니다.
+모듈 생성기는 `Feature`, `Domain`, `Data`, `Core`, `UI`, `Service`를 지원합니다. Core/UI/Service 이름에는 `FestiCore` 접두어가 필요합니다. 생성된 모듈의 실제 의존성은 해당 `Project.swift`에서 명시합니다.
 
 ## 테스트와 CI
 
