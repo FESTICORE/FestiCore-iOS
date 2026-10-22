@@ -76,3 +76,12 @@ Config/*.local.xcconfig
 *.xcworkspace/
 Derived/
 Tuist/.build/
+
+# Claude Code local state
+.claude/settings.local.json
+.claude/agent-memory/
+.claude/scheduled_tasks.lock
+.claude/app-harness.config.json
+.claude/worktrees/
+.omc/
+.omx/
