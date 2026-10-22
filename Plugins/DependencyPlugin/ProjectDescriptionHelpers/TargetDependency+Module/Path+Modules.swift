@@ -8,6 +8,18 @@
 import ProjectDescription
 
 public extension ProjectDescription.Path {
+  static func relativeToCore(_ name: String) -> Self {
+    .relativeToRoot("Projects/Core/\(name)")
+  }
+
+  static func relativeToUI(_ name: String) -> Self {
+    .relativeToRoot("Projects/UI/\(name)")
+  }
+
+  static func relativeToService(_ name: String) -> Self {
+    .relativeToRoot("Projects/Service/\(name)")
+  }
+
   static func relativeToFeature(_ name: String) -> Self {
     .relativeToRoot("Projects/Feature/\(name)")
   }

@@ -24,7 +24,7 @@ if result.returncode:
 
 targets = [
     target for target in json.loads(result.stdout)
-    if not target["name"].endswith(".xctest")
+    if not target["name"].endswith(".xctest") and target["executableLines"] > 0
 ]
 covered = sum(target["coveredLines"] for target in targets)
 executable = sum(target["executableLines"] for target in targets)
@@ -37,5 +37,5 @@ print("| 타깃 | 커버리지 | 실행 줄 |")
 print("| --- | ---: | ---: |")
 for target in targets:
     lines = target["executableLines"]
-    ratio = target["coveredLines"] / lines if lines else 0
+    ratio = target["coveredLines"] / lines
     print(f"| {target['name']} | {ratio:.1%} | {target['coveredLines']}/{lines} |")
