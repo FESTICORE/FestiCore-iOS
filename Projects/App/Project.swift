@@ -16,7 +16,8 @@ let project = Project.makeAppModule(
   bundleId: .mainBundleID(),
   settings: .moduleSettings,
   dependencies: [
-    .feature(.home)
+    .feature(.home),
+    .service(.assembly)
   ],
   infoPlist: .appInfoPlist,
   hasTests: true

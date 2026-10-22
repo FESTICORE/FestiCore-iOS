@@ -34,4 +34,8 @@ public extension TargetDependency {
     moduleDependency(name: module.rawValue, path: module.path, target: target)
   }
 
+  static func service(_ module: ServiceModule, _ target: ModuleTarget = .implementation) -> Self {
+    moduleDependency(name: module.rawValue, path: module.path, target: target)
+  }
+
 }

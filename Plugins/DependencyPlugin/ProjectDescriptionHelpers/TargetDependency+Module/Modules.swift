@@ -28,3 +28,10 @@ public enum UIModule: String, CaseIterable {
 
   var path: Path { .relativeToUI(rawValue) }
 }
+
+public enum ServiceModule: String, CaseIterable {
+  case auth = "FestiCoreAuth"
+  case assembly = "ServiceAssembly"
+
+  var path: Path { .relativeToService(rawValue) }
+}
