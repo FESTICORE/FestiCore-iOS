@@ -11,6 +11,8 @@ import ProjectTemplatePlugin
 let project = Project.makeModule(
   name: "FestiCoreDesignSystem",
   product: .framework,
+  sources: ["Sources/**", "Generated/Sources/**"],
+  resources: ["Generated/Assets/**"],
   testResources: ["Tests/Resources/**"],
   hasTests: true
 )

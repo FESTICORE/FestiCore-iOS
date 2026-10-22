@@ -60,6 +60,7 @@ public extension Project {
     name: String,
     product: Product = .staticFramework,
     dependencies: [TargetDependency] = [],
+    sources: SourceFilesList = ["Sources/**"],
     resources: ResourceFileElements? = nil,
     testResources: ResourceFileElements? = nil,
     hasTests: Bool = false,
@@ -89,7 +90,7 @@ public extension Project {
         bundleId: .appBundleID(name: name),
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .moduleInfoPlist,
-        sources: ["Sources/**"],
+        sources: sources,
         resources: resources,
         dependencies: (hasInterface ? [.target(name: "\(name)Interface")] : []) + dependencies
       ))
