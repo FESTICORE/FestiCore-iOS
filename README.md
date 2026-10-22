@@ -53,7 +53,9 @@ Projects/Service/
 
 실제 서버 엔드포인트가 확정되기 전까지 실행 가능한 API 호출 코드는 예제로 싣지 않습니다.
 
-UI의 `FestiCoreDesignSystem`에는 [FestiCore-DesignSystem](https://github.com/FESTICORE/FestiCore-DesignSystem) 토큰을 참조한 Swift 색상·레이아웃·타이포그래피 코드가 있습니다. 현재 토큰은 스냅샷이며 **원천 저장소에서 iOS로 자동 갱신하는 흐름은 아직 구현 중**입니다. SwiftUI에서는 modifier를 이어서 사용합니다.
+UI의 `FestiCoreDesignSystem`에는 [FestiCore-DesignSystem](https://github.com/FESTICORE/FestiCore-DesignSystem) 토큰을 참조한 Swift 색상·레이아웃·타이포그래피 코드가 있습니다. SwiftUI에서는 modifier를 이어서 사용합니다.
+
+디자인 토큰은 `Projects/UI/FestiCoreDesignSystem/Generated/`에 보관합니다. `.source-sha`는 원본 저장소의 커밋을 가리킵니다. 최초 자동 동기화가 완료되면 `Sources/`, `Assets/`, `Tokens/`에 그 커밋의 검증된 생성물과 원본 JSON이 들어갑니다. 수작업 SwiftUI 확장은 이 폴더 밖에 둡니다. `Sync design tokens` 워크플로는 매주 또는 수동 실행 시 원본 `main`의 SHA를 고정하고 `npm run check`, `./make generate`, 디자인 모듈 및 Stage 테스트와 커버리지를 확인한 뒤 `develop`을 대상으로 `chore/design-tokens-sync` PR을 만들거나 갱신합니다. 원본과 스냅샷이 같으면 PR을 생성하지 않습니다. PR 작성 권한은 저장소 Actions 설정에서 허용되어야 합니다.
 
 ```swift
 Text("Festival")
