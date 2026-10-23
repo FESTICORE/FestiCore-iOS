@@ -2,6 +2,8 @@ default_platform(:ios)
 
 APP_NAME = "FestiCore"
 BUNDLE_ID = "io.festiCore.co"
+LIVE_ACTIVITY_BUNDLE_ID = "#{BUNDLE_ID}.LiveActivity"
+LIVE_ACTIVITY_TARGET = "FestiCoreLiveActivityExtension"
 STAGE_SCHEME = "FestiCore-Stage"
 PROD_SCHEME = "FestiCore-Prod"
 TEAM_ID = "N94CS4N6VR"
@@ -64,7 +66,7 @@ def signed_ipa(scheme, configuration, version, build_number, api_key)
     readonly: true,
     api_key: api_key,
     git_url: ENV.fetch("MATCH_GIT_URL"),
-    app_identifier: [BUNDLE_ID]
+    app_identifier: [BUNDLE_ID, LIVE_ACTIVITY_BUNDLE_ID]
   )
   prepare_workspace
   update_code_signing_settings(
@@ -75,6 +77,15 @@ def signed_ipa(scheme, configuration, version, build_number, api_key)
     team_id: TEAM_ID,
     code_sign_identity: "Apple Distribution",
     profile_name: "match AppStore #{BUNDLE_ID}"
+  )
+  update_code_signing_settings(
+    path: "Projects/UI/FestiCoreLiveActivity/FestiCoreLiveActivity.xcodeproj",
+    targets: [LIVE_ACTIVITY_TARGET],
+    build_configurations: [configuration],
+    use_automatic_signing: false,
+    team_id: TEAM_ID,
+    code_sign_identity: "Apple Distribution",
+    profile_name: "match AppStore #{LIVE_ACTIVITY_BUNDLE_ID}"
   )
   build_app(
     workspace: File.expand_path("FestiCore.xcworkspace"),
@@ -88,7 +99,10 @@ def signed_ipa(scheme, configuration, version, build_number, api_key)
     export_options: {
       signingStyle: "manual",
       teamID: TEAM_ID,
-      provisioningProfiles: { BUNDLE_ID => "match AppStore #{BUNDLE_ID}" }
+      provisioningProfiles: {
+        BUNDLE_ID => "match AppStore #{BUNDLE_ID}",
+        LIVE_ACTIVITY_BUNDLE_ID => "match AppStore #{LIVE_ACTIVITY_BUNDLE_ID}"
+      }
     }
   )
 end
