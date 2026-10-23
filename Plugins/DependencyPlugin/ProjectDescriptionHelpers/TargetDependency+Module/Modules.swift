@@ -14,6 +14,7 @@ public enum FeatureModule: String, CaseIterable {
 }
 
 public enum CoreModule: String, CaseIterable {
+  case assembly = "CoreAssembly"
   case logger = "FestiCoreLogger"
   case network = "FestiCoreNetwork"
   case storage = "FestiCoreStorage"
