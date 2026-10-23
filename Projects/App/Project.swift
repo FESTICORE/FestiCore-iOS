@@ -19,6 +19,8 @@ let project = Project.makeAppModule(
     .feature(.home),
     .service(.assembly),
     .ui(.designSystem),
+    .ui(.liveActivity),
+    .project(target: "FestiCoreLiveActivityExtension", path: .relativeToUI("FestiCoreLiveActivity")),
     .SPM.dependencies
   ],
   sources: ["Sources/**"],
