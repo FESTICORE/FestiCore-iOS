@@ -6,7 +6,7 @@
 
 - 앱 이름: `FestiCore`; 번들 ID: `io.festiCore.co`; Apple Team ID: `N94CS4N6VR`.
 - iOS 18.0 이상, iPhone 대상. Xcode 프로젝트는 Tuist로 생성한다.
-- `Projects/App`가 진입점이며 `Projects/Feature/Home`이 현재 Feature다. `Projects/Core`와 `Projects/UI`에는 공통 모듈이 있다. Domain/Data 모듈은 기능 구현에 따라 추가한다.
+- `Projects/App`가 진입점이다. `FeatureAssembly`가 Feature와 Service 조립 모듈을 앱에 연결하고, 현재 화면 기능은 `Projects/Feature/Home`에 둔다. `Projects/Core`와 `Projects/UI`에는 공통 모듈이 있다. Domain/Data 모듈은 기능 구현에 따라 추가한다.
 - `Plugins/ProjectTemplatePlugin`은 타깃과 스킴, `DependencyPlugin`은 내부 모듈, `DependencyPackagePlugin`은 외부 패키지 의존성을 정의한다.
 - Stage/Prod 구성은 `Config/`와 Tuist 매니페스트를 확인한다. 새로운 모듈은 `Projects/<계층>/<이름>/Project.swift`로 등록한다.
 - DesignSystem의 원천 토큰과 생성 자동화는 별도 `FestiCore-DesignSystem` 저장소에서 관리한다. iOS 모듈에 토큰을 임의로 복제하거나 직접 수정하지 않는다.
@@ -14,11 +14,18 @@
 ## 작업 규칙
 
 1. 기존 파일과 모듈 의존성을 먼저 확인한 뒤 수정한다. 다른 작업자의 미커밋 변경은 보존한다.
-2. 변경 범위를 좁게 유지하고 기능별 커밋으로 분리한다. 커밋 제목과 본문은 한국어로 작성하고, 이번 이슈의 커밋 제목 끝에는 `#3`을 붙인다.
-3. 브랜치 이름과 커밋의 이슈 번호를 구별한다. 현재 작업 브랜치는 `feature/core-ui-modules`이며 PR 대상은 `develop`이다.
+2. 변경 범위를 좁게 유지하고 기능별 커밋으로 분리한다. 커밋 제목과 본문은 한국어로 작성하고, 제목 끝에 해당 작업 이슈 번호를 `#27`처럼 붙인다.
+3. `feature/<작업명>` 브랜치에서 작업하고 PR은 `develop`으로 보낸다. 브랜치 이름과 커밋의 이슈 번호는 구별한다. PR 변경 규모는 2,000줄 이내로 유지한다.
 4. 새 라이브러리나 앱 전용 자산을 추가하기 전에 현재 `Tuist/Package.swift`와 관련 모듈을 확인한다. 자격 증명과 로컬 설정을 추적 파일에 넣지 않는다.
 5. 변경 후 관련 테스트와 `git diff --check`를 실행하고, 실제로 확인한 범위만 보고한다. 테스트·CI·실기기 검증은 구별한다.
-6. 10분 동안 의미 있는 편집이 없으면 진행 상태를 사용자에게 보고한다.
+6. 10분 동안 의미 있는 편집이 없거나 같은 접근이 두 번 실패하면 중단하고 시도 결과와 다음 접근을 사용자에게 확인한다. 승인 없이 같은 수정의 세 번째 시도를 하지 않는다.
+
+## TCA와 의존성 주입
+
+- 앱은 `FestiCoreApp`에서 `AppCoordinator` Store를 만들고 `AppCoordinatorView`를 표시한다. 화면 전환은 `AppCoordinator`와 TCAFlow가 소유한다.
+- Feature는 `@Reducer`로 상태와 동작을 정의하고 View에는 `StoreOf<Feature>`를 전달한다. 앱이 개별 Feature 구현을 직접 import하지 않도록 `FeatureAssembly`에서 공개한다.
+- Point-Free Dependencies를 사용한다. 의존성 인터페이스는 해당 Core·Service 모듈에, 라이브 구현의 `DependencyKey.liveValue`는 구현 또는 조립 모듈에 둔다. 앱 시작점에서 DI 컨테이너를 만들거나 `prepareDependencies`로 전체 등록을 반복하지 않는다.
+- Feature는 `@Dependency`로 필요한 인터페이스를 사용하고 테스트에서 결정적인 대역을 주입한다. `ServiceAssembly`의 명시적 `register(into:)`는 별도의 주입 범위를 구성할 때만 사용한다. WeaveDI는 사용하지 않는다.
 
 ## Claudex Loop
 
