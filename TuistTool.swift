@@ -36,6 +36,40 @@ private func tuist(_ arguments: [String], environmentOverrides: [String: String]
   run("mise", ["exec", "--", "tuist"] + arguments, environmentOverrides: environmentOverrides)
 }
 
+private func availableSimulatorDestination() -> String? {
+  let process = Process()
+  let output = Pipe()
+  process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+  process.arguments = ["python3", "Scripts/select-ios-simulator.py"]
+  process.standardOutput = output
+  process.standardError = FileHandle.standardError
+  do {
+    try process.run()
+    let destination = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    process.waitUntilExit()
+    return process.terminationStatus == 0 && !destination.isEmpty ? destination : nil
+  } catch {
+    fputs("시뮬레이터 선택 실패: \(error)\n", stderr)
+    return nil
+  }
+}
+
+private func testFull(_ arguments: [String]) -> Int32 {
+  guard let destination = availableSimulatorDestination() else { return 1 }
+  return tuist([
+    "test", "run", "FestiCore-Stage",
+    "--test-plan", "FestiCore",
+    "--configuration", "Stage",
+    "--no-selective-testing",
+    "--skip-quarantine",
+    "--no-binary-cache",
+    "--",
+    "-destination", destination,
+    "CODE_SIGNING_ALLOWED=NO"
+  ] + arguments)
+}
+
 private var isCI: Bool {
   ["1", "true", "TRUE"].contains(ProcessInfo.processInfo.environment["CI"] ?? "")
     || ["1", "true", "TRUE"].contains(ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] ?? "")
@@ -190,7 +224,7 @@ case "cache:setup":
 case "build":
   status = run("xcodebuild", ["build", "-workspace", "FestiCore.xcworkspace", "-scheme", "FestiCore-Stage", "-configuration", "Stage", "-destination", "generic/platform=iOS Simulator", "CODE_SIGNING_ALLOWED=NO"] + forwarded)
 case "test":
-  status = run("xcodebuild", ["test", "-workspace", "FestiCore.xcworkspace", "-scheme", "FestiCore-Stage", "-configuration", "Stage", "-destination", "platform=iOS Simulator,name=iPhone 17 Pro", "CODE_SIGNING_ALLOWED=NO"] + forwarded)
+  status = testFull(forwarded)
 case "clean":
   status = tuist(["clean"] + forwarded)
 case "module":
@@ -203,7 +237,7 @@ case "help":
   ./make cache                 외부 모듈 바이너리 캐시 준비
   ./make cache:setup           Xcode Compilation Cache 설정
   ./make build                 Stage 시뮬레이터 빌드
-  ./make test                  Stage 시뮬레이터 테스트
+  ./make test                  Stage 플랜 전체 테스트 (선택적 테스트 비활성화)
   ./make module <Layer> <Name> Feature/Domain/Data 또는 FestiCore 접두어가 있는 Core/UI/Service 모듈 생성
   ./make clean                 Tuist 생성물 정리
   """)

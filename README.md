@@ -211,7 +211,7 @@ Xcode에서 **FestiCore-Stage** 스킴과 사용할 iPhone 시뮬레이터를 �
 ./make install       # 의존성 설치 후 워크스페이스 생성
 ./make generate      # 외부 바이너리 캐시를 사용해 프로젝트 재생성
 ./make build         # Stage 시뮬레이터 빌드
-./make test          # Stage 시뮬레이터 테스트
+./make test          # Stage 플랜 전체 테스트
 ./make cache         # Tuist 외부 모듈 바이너리 캐시 준비
 ./make cache:setup   # Xcode Compilation Cache 준비
 ./make clean         # Tuist 생성물 정리
@@ -233,7 +233,8 @@ Core/UI/Service 모듈에는 `FestiCore` 접두어가 필요합니다. 생성 �
 
 ## 테스트와 CI
 
-- `FestiCore-Stage` workspace 스킴이 테스트 타깃을 수집하고 관련 타깃의 커버리지를 집계합니다.
+- `FestiCore-Stage` workspace 스킴의 `FestiCore` 테스트 플랜에 현재 테스트 타깃 9개가 등록되어 있습니다. 새 테스트 타깃을 추가하면 `Projects/App/Tests/FestiCore.xctestplan`에도 등록합니다.
+- `./make test`는 `tuist test run FestiCore-Stage --test-plan FestiCore`를 사용하며 선택적 테스트와 격리된 테스트 생략을 비활성화해 전체 플랜을 실행합니다. `tuist test`만 실행하면 선택적 테스트가 기본 활성화됩니다.
 - PR 워크플로는 self-hosted macOS 러너에서 Stage 테스트를 한 번 빌드하고 Tuist Test Sharding으로 두 shard에 나눠 실행합니다.
 - 테스트는 `tuist test run`과 `--inspect-mode remote`로 실행하고 결과를 [Tuist 웹 프로젝트](https://tuist.dev/FestiCore/festicore)에 업로드합니다.
 - Tuist Test Insights에서 테스트 케이스, 성공·실패와 실행 시간을 확인할 수 있습니다.
