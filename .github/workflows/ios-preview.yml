@@ -4,6 +4,12 @@ on:
   push:
     branches: [develop]
   workflow_dispatch:
+    inputs:
+      provision_live_activity_profile:
+        description: Live Activity 확장 서명 프로파일 발급
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: ios-preview-${{ github.ref }}
@@ -11,6 +17,7 @@ concurrency:
 
 jobs:
   share:
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.provision_live_activity_profile }}
     runs-on: self-hosted
     timeout-minutes: 30
     permissions:
@@ -71,3 +78,27 @@ jobs:
             exit 1
           fi
           mise exec -- tuist share "$APP_PATH" --track nightly
+
+  provision-signing:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.provision_live_activity_profile }}
+    runs-on: self-hosted
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+      MATCH_GIT_URL: git@github.com:Roy-wonji/FastlaneMatch.git
+      APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup iOS runner
+        uses: ./.github/actions/setup-ios-runner
+        with:
+          derived-data-directory: FestiCore-live-activity-signing
+      - name: Install Fastlane dependencies
+        run: bundle install
+      - name: Provision Live Activity profiles
+        run: bundle exec fastlane provision_live_activity_signing
