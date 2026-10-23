@@ -89,6 +89,7 @@ jobs:
             --test-plan FestiCore \
             --configuration Stage \
             --no-selective-testing \
+            --skip-quarantine \
             --shard-total 2 \
             --shard-granularity suite \
             --inspect-mode remote \
@@ -178,13 +179,15 @@ jobs:
             "$CI_DERIVED_DATA/info.plist"
 
       # 빌드 단계가 업로드한 테스트 산출물을 받아 이 shard에 배정된 테스트만 실행한다.
-      # Tuist wrapper가 quarantine과 Test Insights 업로드를 함께 처리한다.
+      # 모든 테스트를 실행하고 Test Insights에 결과를 업로드한다.
       - name: Run shard
         run: |
           mise exec -- tuist test run FestiCore-Stage \
             --without-building \
             --test-plan FestiCore \
             --configuration Stage \
+            --no-selective-testing \
+            --skip-quarantine \
             --shard-plan-id "$TUIST_SHARD_PLAN_ID" \
             --shard-index "$TUIST_SHARD_INDEX" \
             --inspect-mode remote \
