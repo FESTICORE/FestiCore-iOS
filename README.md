@@ -132,6 +132,8 @@ flowchart LR
 
 `FestiCoreDesignKit`은 [FestiCore-DesignSystem](https://github.com/FESTICORE/FestiCore-DesignSystem)의 토큰에서 생성한 Swift 색상·타이포그래피·간격을 제공합니다. 원본 JSON과 출처 SHA를 함께 보관하며, 토큰 동기화 워크플로가 변경 PR을 만듭니다. SwiftUI modifier를 이어서 사용합니다.
 
+동기화 워크플로는 6시간마다 원본 `main`을 확인합니다. 생성물이나 원본 토큰이 바뀌면 검증 후 `develop` 대상 PR을 만들고, 현재 스냅샷과 같으면 새 PR을 만들지 않습니다. GitHub Actions에서 수동으로도 실행할 수 있습니다.
+
 ~~~swift
 Text("Festival")
   .festiCoreTextStyle(FestiCoreTypography.baseBodyRegular)
