@@ -6,14 +6,20 @@
 //
 
 import Dependencies
+import CoreAssembly
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
-import FestiCoreStorage
 
 public enum ServiceDependencyAssembly {
   public static func register(into values: inout DependencyValues) {
-    StorageFactory.register(into: &values)
-    values.networkClient = NetworkContainer.authenticatedClient
-    values.authService = NetworkContainer.authService
+    values.registerLiveServices()
+  }
+}
+
+public extension DependencyValues {
+  mutating func registerLiveServices() {
+    StorageAssembly.register(into: &self)
+    networkClient = NetworkContainer.authenticatedClient
+    authService = NetworkContainer.authService
   }
 }
