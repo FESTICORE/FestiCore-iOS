@@ -15,7 +15,7 @@ public struct FestiCoreDivider: View {
   }
 
   public var body: some View {
-    Color.lineNormal
+    FestiCoreSemanticColor.lineNormal.color
       .frame(height: thickness)
       .accessibilityHidden(true)
   }

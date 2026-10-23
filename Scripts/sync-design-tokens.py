@@ -13,12 +13,15 @@ import tempfile
 
 
 SOURCE_PATHS = {
-    "Colors.swift": Path("Sources/Token/Color/Colors.swift"),
-    "UIColors.swift": Path("Sources/Token/Color/UIColors.swift"),
+    "FestiCoreSemanticColor.swift": Path("Sources/Token/Color/FestiCoreSemanticColor.swift"),
     "ShapeStyle+.swift": Path("Sources/Token/Color/ShapeStyle+.swift"),
     "FestiCoreLayout.swift": Path("Sources/Token/Layout/FestiCoreLayout.swift"),
     "FestiCoreTypography.swift": Path("Sources/Token/Typography/FestiCoreTypography.swift"),
 }
+RETIRED_SOURCE_PATHS = (
+    Path("Sources/Token/Color/Colors.swift"),
+    Path("Sources/Token/Color/UIColors.swift"),
+)
 TOKEN_PATH = Path("Tests/Resources/Tokens")
 SHA_PATH = Path("TokenSnapshot/.source-sha")
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
@@ -134,6 +137,13 @@ def import_tokens(source: Path, destination: Path, sha: str) -> None:
             regular_file(target)
             if not target.read_text(encoding="utf-8").startswith(generated_header(relative.name)):
                 raise ValueError(f"Refusing to overwrite non-generated Swift source: {relative}")
+    for relative in RETIRED_SOURCE_PATHS:
+        reject_symlink_ancestors(destination, relative)
+        target = destination / relative
+        if target.exists() or target.is_symlink():
+            regular_file(target)
+            if not target.read_text(encoding="utf-8").startswith(generated_header(relative.name)):
+                raise ValueError(f"Refusing to remove non-generated Swift source: {relative}")
     with tempfile.TemporaryDirectory(prefix="design-token-import-", dir=destination) as temp:
         staged = Path(temp)
         for relative in generated_files:
@@ -151,6 +161,8 @@ def import_tokens(source: Path, destination: Path, sha: str) -> None:
             target = destination / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(staged / relative, target)
+        for relative in RETIRED_SOURCE_PATHS:
+            (destination / relative).unlink(missing_ok=True)
         if (destination / TOKEN_PATH).exists():
             shutil.rmtree(destination / TOKEN_PATH)
         shutil.copytree(staged / TOKEN_PATH, destination / TOKEN_PATH)

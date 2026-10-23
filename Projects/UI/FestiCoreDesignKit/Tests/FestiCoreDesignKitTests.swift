@@ -24,8 +24,8 @@ struct FestiCoreDesignKitTests {
   }
 
   @Test @MainActor func primaryColorTracksSystemAppearance() {
-    let light = UIColor.primaryNormal.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
-    let dark = UIColor.primaryNormal.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
+    let light = FestiCoreSemanticColor.primaryNormal.uiColor.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
+    let dark = FestiCoreSemanticColor.primaryNormal.uiColor.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
     #expect(light.getRed() == 0x11)
     #expect(dark.getRed() == 0xC6)
   }
@@ -33,17 +33,20 @@ struct FestiCoreDesignKitTests {
   @Test @MainActor func layoutAndTypographyMatchTokenSnapshot() {
     #expect(FestiCoreSpacing.marginM12 == 12)
     #expect(FestiCoreRadius.r12 == 12)
+    #expect(FestiCoreState.disabledOpacity == 0.3)
     #expect(FestiCoreTypography.baseBodyRegular.size == 17)
     #expect(FestiCoreTypography.baseBodyRegular.lineHeight == 1.529)
     let body = FestiCoreTypography.baseBodyRegular
-    #expect(abs(body.font.lineHeight + body.lineSpacing - body.size * body.lineHeight) < 0.01)
+    #expect(body.resolvedFont.fontName == PretendardFontFamily.regular.postScriptName)
+    #expect(abs(body.resolvedFont.lineHeight + body.resolvedLineSpacing - body.size * body.lineHeight) < 0.01)
     #expect(FestiCoreTypography.pointDisplay.fontFamily == "Bagel Fat One")
+    #expect(FestiCoreTypography.pointDisplay.resolvedFont.fontName == "BagelFatOne-Regular")
   }
 
   @Test @MainActor func tokensComposeWithSwiftUIModifiers() {
     let label = Text("Festival")
       .festiCoreTextStyle(FestiCoreTypography.baseBodyRegular)
-      .foregroundStyle(Color.labelNormal)
+      .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       .padding(FestiCoreSpacing.marginM12)
     let controller = UIHostingController(rootView: label)
     #expect(controller.view != nil)

@@ -43,7 +43,7 @@ class SyncDesignTokensTests(unittest.TestCase):
         sync.import_tokens(self.source, destination, self.sha)
         self.assertEqual(first, sync.snapshot_digest(destination, self.sha))
         self.assertEqual((destination / sync.SHA_PATH).read_text(), self.sha + "\n")
-        self.assertTrue((destination / sync.SOURCE_PATHS["Colors.swift"]).is_file())
+        self.assertTrue((destination / sync.SOURCE_PATHS["FestiCoreSemanticColor.swift"]).is_file())
 
     def test_wrong_sha_and_unexpected_path_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "does not match"):
@@ -53,7 +53,7 @@ class SyncDesignTokensTests(unittest.TestCase):
             sync.import_tokens(self.source, self.root / "Generated", self.sha)
 
     def test_symlink_is_rejected(self):
-        (self.source / "generated/ios/Sources/extra.swift").symlink_to("Colors.swift")
+        (self.source / "generated/ios/Sources/extra.swift").symlink_to("FestiCoreSemanticColor.swift")
         with self.assertRaisesRegex(ValueError, "ordinary, unlinked file"):
             sync.import_tokens(self.source, self.root / "Generated", self.sha)
 
@@ -81,9 +81,27 @@ class SyncDesignTokensTests(unittest.TestCase):
         self.assertEqual((destination / "Sources/Token/Typography/Text+FestiCoreTextStyle.swift").read_text(), "import SwiftUI\n")
         self.assertEqual((destination / "Resources/ImageAssets.xcassets/Contents.json").read_text(), "{}\n")
 
+    def test_retired_generated_color_files_are_removed(self):
+        destination = self.root / "FestiCoreDesignKit"
+        for relative in sync.RETIRED_SOURCE_PATHS:
+            target = destination / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(sync.generated_header(target.name) + "import SwiftUI\n")
+        sync.import_tokens(self.source, destination, self.sha)
+        self.assertTrue(all(not (destination / relative).exists() for relative in sync.RETIRED_SOURCE_PATHS))
+
+    def test_hand_written_retired_color_file_is_preserved(self):
+        destination = self.root / "FestiCoreDesignKit"
+        target = destination / sync.RETIRED_SOURCE_PATHS[0]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("// 직접 작성한 파일\n")
+        with self.assertRaisesRegex(ValueError, "Refusing to remove"):
+            sync.import_tokens(self.source, destination, self.sha)
+        self.assertEqual(target.read_text(), "// 직접 작성한 파일\n")
+
     def test_hand_written_file_at_generated_path_is_not_overwritten(self):
         destination = self.root / "FestiCoreDesignKit"
-        path = destination / sync.SOURCE_PATHS["Colors.swift"]
+        path = destination / sync.SOURCE_PATHS["FestiCoreSemanticColor.swift"]
         path.parent.mkdir(parents=True)
         path.write_text("// 수동 색상 파일\nimport SwiftUI\n")
         with self.assertRaisesRegex(ValueError, "Refusing to overwrite"):
@@ -93,7 +111,7 @@ class SyncDesignTokensTests(unittest.TestCase):
 
     def test_reserved_generated_basename_cannot_exist_elsewhere(self):
         destination = self.root / "FestiCoreDesignKit"
-        path = destination / "Sources/Component/Colors.swift"
+        path = destination / "Sources/Component/FestiCoreSemanticColor.swift"
         path.parent.mkdir(parents=True)
         path.write_text("// 수동 색상 파일\n")
         with self.assertRaisesRegex(ValueError, "basename is reserved"):
