@@ -36,13 +36,14 @@ FestiCore는 축제 앱의 iOS 기반을 개발하고 있습니다. 현재 `deve
 
 ## 아키텍처
 
-SwiftUI 기반 Tuist 멀티모듈 프로젝트입니다. The Composable Architecture는 의존성으로 등록돼 있습니다. `Workspace.swift`가 `Projects/**`를 모으고 Stage 전체 테스트 스킴을 정의합니다.
+SwiftUI 기반 Tuist 멀티모듈 프로젝트입니다. Home은 The Composable Architecture로 상태를 관리하고 AppCoordinator는 TCAFlow로 화면을 구성합니다. `Workspace.swift`가 `Projects/**`를 모으고 Stage 전체 테스트 스킴을 정의합니다.
 
 ~~~text
 Projects/
 ├── App/                         # 앱 진입점과 환경 설정
 ├── Feature/
-│   └── Home/                    # 현재 Home 화면
+│   ├── FeatureAssembly/         # Feature와 Service 연결
+│   └── Home/                    # 현재 Home 화면과 Reducer
 ├── Service/
 │   ├── ServiceAssembly/         # 공통 의존성 조립
 │   └── FestiCoreAuth/           # 자격 증명 저장과 토큰 갱신
@@ -62,8 +63,9 @@ Projects/
 
 ~~~mermaid
 flowchart TD
-    App --> Home[Feature/Home]
-    App --> ServiceAssembly
+    App --> FeatureAssembly[Feature/FeatureAssembly]
+    FeatureAssembly --> Home[Feature/Home]
+    FeatureAssembly --> ServiceAssembly
     App --> LiveActivity[UI/FestiCoreLiveActivity]
     LiveActivityExtension[Widget 확장] --> LiveActivity
     ServiceAssembly --> Auth[Service/FestiCoreAuth]
@@ -78,7 +80,8 @@ flowchart TD
 
 설계 원칙:
 
-- **App**은 Home, ServiceAssembly, DesignKit, LiveActivity에 직접 의존하며 앱 진입점과 환경 설정을 소유합니다.
+- **App**은 FeatureAssembly, DesignKit, LiveActivity에 의존하며 앱 진입점과 AppCoordinator를 소유합니다.
+- **FeatureAssembly**는 Home과 ServiceAssembly를 앱에 연결합니다. Home은 `StoreOf<HomeFeature>`로 상태를 표시합니다.
 - **FestiCoreLiveActivity**는 앱과 Widget 확장이 공유하는 축제 상태를 정의합니다. Widget 확장은 앱에 포함됩니다.
 - **CoreAssembly**는 Network와 Storage 구현의 생성·등록 경계를 제공합니다.
 - **ServiceAssembly**는 CoreAssembly를 사용해 인증 서비스와 인증 클라이언트를 조립합니다.
@@ -94,7 +97,7 @@ flowchart TD
 - **ServiceAssembly**: 인증, Network의 라이브 의존성 조립
 - **FestiCoreNetwork**: `FestiCoreDataRequest` 요청 명세와 HTTP 클라이언트 제공
 - **FestiCoreAuth**: 자격 증명 저장과 만료 토큰 갱신
-- **App**: ServiceAssembly에서 조립한 의존성을 앱 시작 시 사용
+- **App**: Coordinator Store를 생성합니다. 각 모듈의 `DependencyKey.liveValue`가 라이브 구현을 제공합니다.
 
 일반 요청에는 `NetworkClientFactory.plain(baseURL:)`, 인증 요청에는 `NetworkClientFactory.unified(store:refresher:baseURL:)`를 사용합니다. 로그인·로그아웃 시에는 반환된 `credentials.update(_:)`로 자격 증명을 갱신합니다.
 
@@ -107,8 +110,9 @@ flowchart TD
 
 ~~~mermaid
 flowchart TD
-    App --> Home
-    App --> ServiceAssembly
+    App --> FeatureAssembly
+    FeatureAssembly --> Home
+    FeatureAssembly --> ServiceAssembly
     App --> FestiCoreDesignKit
     App --> FestiCoreLiveActivity
     App --> FestiCoreLiveActivityExtension
@@ -252,7 +256,7 @@ Core/UI/Service 모듈에는 `FestiCore` 접두어가 필요합니다. 생성 �
 
 ## 테스트와 CI
 
-- `FestiCore-Stage` workspace 스킴의 `FestiCore` 테스트 플랜에 현재 테스트 타깃 9개가 등록되어 있습니다. 새 테스트 타깃을 추가하면 `Projects/App/Tests/FestiCore.xctestplan`에도 등록합니다.
+- `FestiCore-Stage` workspace 스킴의 `FestiCore` 테스트 플랜에 테스트 타깃을 등록합니다. 새 테스트 타깃을 추가하면 `Projects/App/Tests/FestiCore.xctestplan`에도 등록합니다.
 - `./make test`는 `tuist test run FestiCore-Stage --test-plan FestiCore`를 사용하며 선택적 테스트와 격리된 테스트 생략을 비활성화해 전체 플랜을 실행합니다. `tuist test`만 실행하면 선택적 테스트가 기본 활성화됩니다.
 - PR 워크플로는 self-hosted macOS 러너에서 Stage 테스트를 한 번 빌드하고 Tuist Test Sharding으로 두 shard에 나눠 실행합니다.
 - 테스트는 `tuist test run`과 `--inspect-mode remote`로 실행하고 결과를 [Tuist 웹 프로젝트](https://tuist.dev/FestiCore/festicore)에 업로드합니다.

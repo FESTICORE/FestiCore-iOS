@@ -16,11 +16,12 @@ let project = Project.makeAppModule(
   bundleId: .mainBundleID(),
   settings: .appMainSettings,
   dependencies: [
-    .feature(.home),
-    .service(.assembly),
+    .feature(.assembly),
     .ui(.designSystem),
     .ui(.liveActivity),
     .project(target: "FestiCoreLiveActivityExtension", path: .relativeToUI("FestiCoreLiveActivity")),
+    .SPM.composableArchitecture,
+    .SPM.tcaFlow,
     .SPM.dependencies
   ],
   sources: ["Sources/**"],

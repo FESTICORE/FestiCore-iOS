@@ -13,6 +13,7 @@
   },
   "testTargets": [
     { "target": { "containerPath": "container:Projects/App/FestiCore.xcodeproj", "identifier": "40E83F3AA76A953E7B9097E0", "name": "FestiCoreTests" } },
+    { "target": { "containerPath": "container:Projects/Feature/Home/Home.xcodeproj", "identifier": "AF31213DA71B06E9B09EA3F0", "name": "HomeTests" } },
     { "target": { "containerPath": "container:Projects/Core/CoreAssembly/CoreAssembly.xcodeproj", "identifier": "CCB9372E197172D37648EB7D", "name": "CoreAssemblyTests" } },
     { "target": { "containerPath": "container:Projects/Core/FestiCoreLogger/FestiCoreLogger.xcodeproj", "identifier": "6587E7CD20D518868CF1C33A", "name": "FestiCoreLoggerTests" } },
     { "target": { "containerPath": "container:Projects/Core/FestiCoreNetwork/FestiCoreNetwork.xcodeproj", "identifier": "34D54AFA2FE302A132BBB075", "name": "FestiCoreNetworkTests" } },

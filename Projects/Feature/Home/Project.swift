@@ -6,8 +6,11 @@
 //
 
 import ProjectDescription
+import DependencyPackagePlugin
 import ProjectTemplatePlugin
 
 let project = Project.makeModule(
-  name: "Home"
+  name: "Home",
+  dependencies: [.SPM.composableArchitecture],
+  hasTests: true
 )

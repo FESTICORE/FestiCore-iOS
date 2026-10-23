@@ -6,25 +6,20 @@
 //
 
 import SwiftUI
-import Home
-import ServiceAssembly
-import Dependencies
+import FeatureAssembly
+import ComposableArchitecture
 
 @main
 struct FestiCoreApp: App {
   @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
-  private let configuration = AppConfiguration(infoDictionary: Bundle.main.infoDictionary ?? [:])
-
-  init() {
-    prepareDependencies {
-      ServiceDependencyAssembly.register(into: &$0)
-    }
-  }
-
   var body: some Scene {
     WindowGroup {
-      FestiCoreHomeView(configurationIsAvailable: configuration != nil)
+      let store = Store(initialState: AppCoordinator.State()) {
+        AppCoordinator()
+      }
+
+      AppCoordinatorView(store: store)
     }
   }
 }

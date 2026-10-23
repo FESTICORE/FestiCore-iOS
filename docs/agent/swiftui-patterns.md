@@ -1,6 +1,6 @@
 # SwiftUI 패턴
 
-현재 화면은 `Projects/Feature/Home/Sources/FestiCoreHomeView.swift`에 있다. 데이터 입력을 초기화 인자로 받고 `body`는 표시 역할에 집중한다.
+현재 화면은 `Projects/Feature/Home/Sources/FestiCoreHomeView.swift`에 있다. `StoreOf<HomeFeature>`를 초기화 인자로 받고 `body`는 상태 표시와 액션 전달에 집중한다.
 
 - 복잡한 화면에서는 의미 있는 하위 View로 분리한다. 추상화는 실제 재사용이 있을 때 추가한다.
 - 접근성 레이블과 Dynamic Type, 다크 모드를 실제 화면에서 확인한다.
