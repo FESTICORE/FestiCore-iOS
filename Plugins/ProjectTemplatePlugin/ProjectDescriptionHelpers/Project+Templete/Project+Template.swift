@@ -127,15 +127,21 @@ public extension Project {
       ))
     }
 
+    let schemes: [Scheme] = hasDemo ? [
+      .module(name: name, hasTests: hasTests),
+      .demo(name: "\(name)Demo")
+    ] : []
+
     return Project(
       name: name,
       options: .options(
-        automaticSchemesOptions: .enabled(codeCoverageEnabled: true),
+        automaticSchemesOptions: hasDemo ? .disabled : .enabled(codeCoverageEnabled: true),
         defaultKnownRegions: ["en", "ko"],
         developmentRegion: "ko"
       ),
       settings: .moduleSettings,
-      targets: targets
+      targets: targets,
+      schemes: schemes
     )
   }
 }
