@@ -55,6 +55,14 @@ struct FestiCoreDesignKitTests {
     let shapeController = UIHostingController(rootView: styled)
     #expect(shapeController.view != nil)
   }
+
+  @Test @MainActor func missingImageAssetUsesAttendanceFallback() {
+    let asset = ImageAsset(rawValue: "missing-image")
+    #expect(UIImage(asset) == nil)
+    #expect(UIImage(assetName: asset.rawValue) == nil)
+    let controller = UIHostingController(rootView: Image(asset: asset))
+    #expect(controller.view != nil)
+  }
 }
 
 private extension UIColor {
