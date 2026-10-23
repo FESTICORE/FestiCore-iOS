@@ -115,6 +115,7 @@ jobs:
             --test-plan FestiCore \
             --configuration Stage \
             --no-selective-testing \
+            --skip-quarantine \
             --shard-total 2 \
             --shard-granularity suite \
             --inspect-mode remote \

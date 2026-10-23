@@ -56,6 +56,7 @@ mise exec -- tuist test run "$TEST_SCHEME" \
   --test-plan "$TEST_PLAN" \
   --configuration "$CONFIGURATION" \
   --no-selective-testing \
+  --skip-quarantine \
   "${shard_arguments[@]}" \
   --inspect-mode remote \
   --result-bundle-path "$RESULT_BUNDLE" \
