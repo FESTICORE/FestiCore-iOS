@@ -24,6 +24,7 @@ public enum CoreModule: String, CaseIterable {
 public enum UIModule: String, CaseIterable {
   case animation = "FestiCoreAnimation"
   case designSystem = "FestiCoreDesignKit"
+  case liveActivity = "FestiCoreLiveActivity"
   case sharedUI = "FestiCoreSharedUI"
 
   var path: Path { .relativeToUI(rawValue) }

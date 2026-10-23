@@ -52,6 +52,7 @@ Projects/
 │   └── FestiCoreStorage/        # Keychain과 공유 값 저장소
 └── UI/
     ├── FestiCoreDesignKit/      # 코드 기반 색상·타이포그래피·간격
+    ├── FestiCoreLiveActivity/   # 축제 Live Activity 데이터와 Widget 확장
     ├── FestiCoreSharedUI/       # 공통 화면 컴포넌트
     └── FestiCoreAnimation/      # 애니메이션 표시 API
 ~~~
@@ -62,6 +63,8 @@ Projects/
 flowchart TD
     App --> Home[Feature/Home]
     App --> ServiceAssembly
+    App --> LiveActivity[UI/FestiCoreLiveActivity]
+    LiveActivityExtension[Widget 확장] --> LiveActivity
     ServiceAssembly --> Auth[Service/FestiCoreAuth]
     ServiceAssembly --> Network[Core/FestiCoreNetwork]
     ServiceAssembly --> Storage[Core/FestiCoreStorage]
@@ -73,7 +76,8 @@ flowchart TD
 
 설계 원칙:
 
-- **App**은 Home, ServiceAssembly, DesignKit에 직접 의존하며 앱 진입점과 환경 설정을 소유합니다.
+- **App**은 Home, ServiceAssembly, DesignKit, LiveActivity에 직접 의존하며 앱 진입점과 환경 설정을 소유합니다.
+- **FestiCoreLiveActivity**는 앱과 Widget 확장이 공유하는 축제 상태를 정의합니다. Widget 확장은 앱에 포함됩니다.
 - **ServiceAssembly**는 인증 서비스, Network Interface, Storage 구현을 연결합니다.
 - **FestiCoreNetwork**와 **FestiCoreStorage**는 Interface와 구현 타깃을 분리합니다.
 - 리소스를 포함하는 **FestiCoreDesignKit**과 **FestiCoreAnimation**은 동적 프레임워크입니다.
@@ -102,6 +106,9 @@ flowchart TD
     App --> Home
     App --> ServiceAssembly
     App --> FestiCoreDesignKit
+    App --> FestiCoreLiveActivity
+    App --> FestiCoreLiveActivityExtension
+    FestiCoreLiveActivityExtension --> FestiCoreLiveActivity
     ServiceAssembly --> FestiCoreAuth
     ServiceAssembly --> FestiCoreNetworkInterface["FestiCoreNetwork / Interface"]
     ServiceAssembly --> FestiCoreStorage
@@ -127,6 +134,10 @@ flowchart LR
 ~~~
 
 </details>
+
+### Live Activity
+
+`FestiCoreLiveActivity`의 `FestiCoreFestivalLiveActivity.start/update/end`로 축제 상태를 표시하고 종료할 수 있습니다. 앱은 Live Activity를 지원하며 `FestiCoreLiveActivityExtension`을 포함합니다. 현재 기능 화면에서 자동 시작하지 않고, 축제 상세 흐름이 생기면 사용자 동작에 연결합니다. 원격 갱신용 APNs 토큰 등록과 서버 연동은 아직 없습니다.
 
 ### 디자인 시스템
 
