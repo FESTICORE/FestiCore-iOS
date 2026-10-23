@@ -20,7 +20,7 @@
 
 FestiCore는 축제 앱의 iOS 기반을 개발하고 있습니다. 현재 `develop`에는 앱 진입점과 Home 화면, 네트워크·인증·저장소·로깅, 공통 UI 모듈이 있습니다. 화면별 제품 기능은 이후 Feature 모듈에서 구현합니다.
 
-대상은 iOS 18.0 이상 iPhone이며, 번들 ID는 `io.festiCore.co`, Apple Team ID는 `N94CS4N6VR`입니다.
+대상은 iOS 18.0 이상 iPhone이며, 번들 ID는 `io.festiCore.co`입니다.
 
 현재 구성된 기능과 기반:
 
@@ -47,6 +47,7 @@ Projects/
 │   ├── ServiceAssembly/         # 공통 의존성 조립
 │   └── FestiCoreAuth/           # 자격 증명 저장과 토큰 갱신
 ├── Core/
+│   ├── CoreAssembly/            # Core 구현 조립
 │   ├── FestiCoreLogger/         # 로그
 │   ├── FestiCoreNetwork/        # HTTP 요청과 인증 인터셉터
 │   └── FestiCoreStorage/        # Keychain과 공유 값 저장소
@@ -66,8 +67,9 @@ flowchart TD
     App --> LiveActivity[UI/FestiCoreLiveActivity]
     LiveActivityExtension[Widget 확장] --> LiveActivity
     ServiceAssembly --> Auth[Service/FestiCoreAuth]
-    ServiceAssembly --> Network[Core/FestiCoreNetwork]
-    ServiceAssembly --> Storage[Core/FestiCoreStorage]
+    ServiceAssembly --> CoreAssembly[Core/CoreAssembly]
+    CoreAssembly --> Network[Core/FestiCoreNetwork]
+    CoreAssembly --> Storage[Core/FestiCoreStorage]
     Auth --> Network
     Auth --> Storage
     Network --> Logger[Core/FestiCoreLogger]
@@ -78,7 +80,8 @@ flowchart TD
 
 - **App**은 Home, ServiceAssembly, DesignKit, LiveActivity에 직접 의존하며 앱 진입점과 환경 설정을 소유합니다.
 - **FestiCoreLiveActivity**는 앱과 Widget 확장이 공유하는 축제 상태를 정의합니다. Widget 확장은 앱에 포함됩니다.
-- **ServiceAssembly**는 인증 서비스, Network Interface, Storage 구현을 연결합니다.
+- **CoreAssembly**는 Network와 Storage 구현의 생성·등록 경계를 제공합니다.
+- **ServiceAssembly**는 CoreAssembly를 사용해 인증 서비스와 인증 클라이언트를 조립합니다.
 - **FestiCoreNetwork**와 **FestiCoreStorage**는 Interface와 구현 타깃을 분리합니다.
 - 리소스를 포함하는 **FestiCoreDesignKit**과 **FestiCoreAnimation**은 동적 프레임워크입니다.
 - Domain/Data 모듈은 실제 기능의 모델과 저장소 계약이 생길 때 추가합니다.
@@ -87,7 +90,8 @@ flowchart TD
 
 별도 런타임 DI 컨테이너 대신 Point-Free Dependencies를 사용합니다.
 
-- **ServiceAssembly**: 인증, Network, Storage의 라이브 의존성 조립
+- **CoreAssembly**: Core 모듈이 소유한 생성·등록 함수를 호출
+- **ServiceAssembly**: 인증, Network의 라이브 의존성 조립
 - **FestiCoreNetwork**: `FestiCoreDataRequest` 요청 명세와 HTTP 클라이언트 제공
 - **FestiCoreAuth**: 자격 증명 저장과 만료 토큰 갱신
 - **App**: ServiceAssembly에서 조립한 의존성을 앱 시작 시 사용
