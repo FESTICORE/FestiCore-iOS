@@ -112,6 +112,33 @@ platform :ios do
     Dir.chdir(File.expand_path("..", __dir__))
   end
 
+  desc "Live Activity 확장의 Development 및 AppStore 프로파일 발급"
+  lane :provision_live_activity_signing do
+    require_environment!(
+      "MATCH_PASSWORD",
+      "APP_STORE_CONNECT_API_KEY_ID",
+      "APP_STORE_CONNECT_ISSUER_ID",
+      "APP_STORE_CONNECT_API_KEY_CONTENT"
+    )
+    api_key = connect_api_key
+    ["development", "appstore"].each do |profile_type|
+      match(
+        type: profile_type,
+        readonly: false,
+        api_key: api_key,
+        git_url: ENV.fetch("MATCH_GIT_URL", "git@github.com:Roy-wonji/FastlaneMatch.git"),
+        app_identifier: LIVE_ACTIVITY_BUNDLE_ID
+      )
+    end
+    signed_ipa(
+      PROD_SCHEME,
+      "Prod",
+      ENV.fetch("FESTICORE_VERSION", "1.0.0"),
+      ENV.fetch("GITHUB_RUN_NUMBER", "1"),
+      api_key
+    )
+  end
+
   desc "Stage 시뮬레이터 테스트"
   lane :test do
     run_stage_tests
