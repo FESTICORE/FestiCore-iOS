@@ -22,13 +22,14 @@ public struct FestiCorePrimaryButton: View {
     Button(action: action) {
       Text(title)
         .festiCoreTextStyle(FestiCoreTypography.baseBodyBold)
-        .foregroundStyle(Color.primaryOnPrimary)
+        .foregroundStyle(FestiCoreSemanticColor.primaryOnPrimary.color)
         .frame(maxWidth: .infinity)
         .padding(.vertical, FestiCoreSpacing.paddingP16)
-        .background(Color.primaryNormal)
+        .background(FestiCoreSemanticColor.primaryNormal.color)
         .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
     }
     .disabled(!isEnabled)
-    .opacity(isEnabled ? 1 : 0.5)
+    // Foundation state.disabled는 요소 전체에 30% opacity를 적용한다.
+    .opacity(isEnabled ? 1 : FestiCoreState.disabledOpacity)
   }
 }

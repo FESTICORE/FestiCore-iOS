@@ -22,7 +22,7 @@ public struct FestiCoreSection<Content: View>: View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM12) {
       Text(title)
         .festiCoreTextStyle(FestiCoreTypography.baseHeadlineBold)
-        .foregroundStyle(Color.labelStrong)
+        .foregroundStyle(FestiCoreSemanticColor.labelStrong.color)
       content
     }
   }

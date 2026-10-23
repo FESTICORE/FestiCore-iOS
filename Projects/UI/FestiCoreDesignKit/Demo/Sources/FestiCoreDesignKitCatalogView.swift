@@ -21,7 +21,7 @@ struct FestiCoreDesignKitCatalogView: View {
         }
         .padding(FestiCoreSpacing.paddingP20)
       }
-      .background(Color.backgroundNormal)
+      .background(FestiCoreSemanticColor.backgroundNormal.color)
       .navigationTitle("FestiCoreDesignKit")
     }
   }
@@ -43,13 +43,13 @@ struct FestiCoreDesignKitCatalogView: View {
       sectionTitle("Typography")
       Text("FestiCore Title")
         .festiCoreTextStyle(FestiCoreTypography.baseTitle1Bold)
-        .foregroundStyle(Color.labelStrong)
+        .foregroundStyle(FestiCoreSemanticColor.labelStrong.color)
       Text("Pretendard 본문 텍스트")
         .festiCoreTextStyle(FestiCoreTypography.baseBodyRegular)
-        .foregroundStyle(Color.labelNormal)
+        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       Text("Caption · 작은 설명")
         .festiCoreTextStyle(FestiCoreTypography.baseCaption1Regular)
-        .foregroundStyle(Color.labelNeutral)
+        .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
   }
 
@@ -64,17 +64,17 @@ struct FestiCoreDesignKitCatalogView: View {
   private func sectionTitle(_ title: String) -> some View {
     Text(title)
       .festiCoreTextStyle(FestiCoreTypography.baseHeadlineBold)
-      .foregroundStyle(Color.labelStrong)
+      .foregroundStyle(FestiCoreSemanticColor.labelStrong.color)
   }
 
-  private func colorSwatch(_ title: String, color: Color) -> some View {
+  private func colorSwatch(_ title: String, color: FestiCoreSemanticColor) -> some View {
     VStack(spacing: FestiCoreSpacing.paddingP8) {
-      color
+      color.color
         .frame(height: 48)
         .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r8))
       Text(title)
         .festiCoreTextStyle(FestiCoreTypography.baseCaption2Medium)
-        .foregroundStyle(Color.labelNeutral)
+        .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
     .frame(maxWidth: .infinity)
   }
