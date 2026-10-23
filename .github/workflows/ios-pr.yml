@@ -418,6 +418,7 @@ jobs:
         id: bundle-inspect
         if: steps.app-build.outcome == 'success'
         continue-on-error: true
+        timeout-minutes: 5
         run: |
           APP_PATH="$(find "$CI_DERIVED_DATA/Build/Products/Stage-iphoneos" -maxdepth 1 -type d -name FestiCore.app -print -quit)"
           if [[ -z "$APP_PATH" ]]; then
