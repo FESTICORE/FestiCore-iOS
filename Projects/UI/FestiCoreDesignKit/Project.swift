@@ -14,5 +14,6 @@ let project = Project.makeModule(
   sources: ["Sources/**"],
   resources: ["Resources/**"],
   testResources: ["Tests/Resources/**"],
-  hasTests: true
+  hasTests: true,
+  hasDemo: true
 )
