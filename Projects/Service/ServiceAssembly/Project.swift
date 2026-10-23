@@ -14,8 +14,7 @@ let project = Project.makeModule(
   name: "ServiceAssembly",
   product: .framework,
   dependencies: [
-    .core(.network, .interface),
-    .core(.storage),
+    .core(.assembly),
     .service(.auth),
     .SPM.dependencies
   ],
