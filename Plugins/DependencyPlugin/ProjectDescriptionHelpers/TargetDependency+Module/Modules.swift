@@ -32,6 +32,13 @@ public enum UIModule: String, CaseIterable {
   var path: Path { .relativeToUI(rawValue) }
 }
 
+public enum WidgetModule: String, CaseIterable {
+  case liveActivity = "FestiCoreLiveActivityWidget"
+
+  var path: Path { .relativeToWidget(rawValue) }
+  var targetName: String { "FestiCoreLiveActivityExtension" }
+}
+
 public enum ServiceModule: String, CaseIterable {
   case auth = "FestiCoreAuth"
   case device = "FestiCoreDevice"

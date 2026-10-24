@@ -30,6 +30,10 @@ public extension TargetDependency {
     moduleDependency(name: module.rawValue, path: module.path, target: target)
   }
 
+  static func widget(_ module: WidgetModule) -> Self {
+    .project(target: module.targetName, path: module.path)
+  }
+
   static func feature(_ module: FeatureModule, _ target: ModuleTarget = .implementation) -> Self {
     moduleDependency(name: module.rawValue, path: module.path, target: target)
   }
