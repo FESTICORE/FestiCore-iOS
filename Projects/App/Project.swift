@@ -23,7 +23,8 @@ let project = Project.makeAppModule(
     .SPM.composableArchitecture,
     .SPM.tcaFlow,
     .SPM.dependencies,
-    .SPM.mixpanel
+    .SPM.mixpanel,
+    .SPM.sentry
   ],
   sources: ["Sources/**"],
   resources: ["Resources/**"],
