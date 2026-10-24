@@ -63,6 +63,17 @@ runs:
             "$selected_derived_data/CompilationCache.noindex"
         fi
 
+        # 이전 PR 워크플로가 사용하던 경로이며 현재 워크플로에서는 참조하지 않는다.
+        legacy_pr_derived_data="$derived_data_root/FestiCore-pr"
+        if [[ -L "$legacy_pr_derived_data" \
+          || ( -e "$legacy_pr_derived_data" && ! -d "$legacy_pr_derived_data" ) ]]; then
+          echo "::error::Unsafe legacy FestiCore PR derived data path"
+          exit 1
+        fi
+        if [[ -d "$legacy_pr_derived_data" ]]; then
+          rm -rf -- "$legacy_pr_derived_data"
+        fi
+
         echo "Disk space after FestiCore CI cleanup:"
         df -h "$HOME"
 
