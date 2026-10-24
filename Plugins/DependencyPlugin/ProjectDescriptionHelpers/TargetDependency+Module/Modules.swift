@@ -34,6 +34,7 @@ public enum UIModule: String, CaseIterable {
 
 public enum ServiceModule: String, CaseIterable {
   case auth = "FestiCoreAuth"
+  case device = "FestiCoreDevice"
   case assembly = "ServiceAssembly"
 
   var path: Path { .relativeToService(rawValue) }
