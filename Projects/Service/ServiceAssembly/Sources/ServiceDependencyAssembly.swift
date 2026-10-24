@@ -22,6 +22,7 @@ public extension DependencyValues {
     StorageAssembly.register(into: &self)
     networkClient = NetworkContainer.authenticatedClient
     authService = NetworkContainer.authService
+    deviceRegistrationService = NetworkContainer.deviceRegistrationService
     liveActivityRegistrationService = NetworkContainer.liveActivityRegistrationService
   }
 }
