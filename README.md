@@ -145,7 +145,7 @@ flowchart LR
 
 ### Live Activity
 
-`FestiCoreLiveActivity`의 `FestiCoreFestivalLiveActivity.start/update/end`로 축제 상태를 표시하고 종료할 수 있습니다. 앱은 Live Activity를 지원하며 `FestiCoreLiveActivityExtension`을 포함합니다. 현재 기능 화면에서 자동 시작하지 않고, 축제 상세 흐름이 생기면 사용자 동작에 연결합니다. `start(..., remoteUpdates: true)`로 원격 갱신 토큰을 요청하고 `pushTokenUpdates(id:)`로 현재 토큰과 교체된 토큰을 관찰할 수 있습니다. `FestiCoreDevice`는 서버의 `PUT/DELETE /api/v1/devices/live-activity` 요청과 기기 인증 헤더를 제공하며 `PUT /api/v1/devices` 응답의 기기 인증 토큰을 Keychain에 보관합니다. 기기 등록을 앱 시작 흐름에 연결하고 ActivityKit 토큰 변경을 서버에 전송하는 작업, 실기기 원격 갱신 검증은 아직 없습니다.
+`FestiCoreLiveActivity`의 `FestiCoreFestivalLiveActivity.start/update/end`로 축제 상태를 표시하고 종료할 수 있습니다. 앱은 Live Activity를 지원하며 `FestiCoreLiveActivityExtension`을 포함합니다. 현재 기능 화면에서 자동 시작하지 않고, 축제 상세 흐름이 생기면 사용자 동작에 연결합니다. `start(..., remoteUpdates: true)`로 원격 갱신 토큰을 요청하고 `pushTokenUpdates(id:)`로 현재 토큰과 교체된 토큰을 관찰할 수 있습니다. `FestiCoreDevice`는 서버의 `PUT/DELETE /api/v1/devices/live-activity` 요청과 기기 인증 헤더를 제공합니다. 앱 시작 시 `PUT /api/v1/devices`로 기기를 등록하고 응답의 기기 인증 토큰을 Keychain에 보관합니다. 앱 시작 등록에서는 APNs 기기 토큰을 `null`로 전송합니다. ActivityKit 토큰 변경을 서버에 전송하는 작업과 실기기 원격 갱신 검증은 아직 없습니다.
 
 ### 디자인 시스템
 

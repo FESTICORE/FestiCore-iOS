@@ -37,6 +37,7 @@ let project = Project(
       buildableFolders: ["Extension"],
       dependencies: [.target(name: "FestiCoreLiveActivity")],
       settings: .settings(base: [
+        "APPLICATION_EXTENSION_API_ONLY": "YES",
         "CODE_SIGN_STYLE": "Manual",
         "DEVELOPMENT_TEAM": .string(Project.Environment.organizationTeamId)
       ], configurations: [

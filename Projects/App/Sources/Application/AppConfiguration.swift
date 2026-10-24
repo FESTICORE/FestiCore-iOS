@@ -6,10 +6,18 @@
 //
 
 import Foundation
+import FestiCoreDeviceInterface
 
 enum AppEnvironment: String {
   case stage
   case production
+
+  var apnsEnvironment: DeviceRegistrationMetadata.APNsEnvironment {
+    switch self {
+    case .stage: .sandbox
+    case .production: .production
+    }
+  }
 }
 
 struct AppConfiguration {
