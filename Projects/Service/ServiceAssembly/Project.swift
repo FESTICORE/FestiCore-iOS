@@ -16,6 +16,7 @@ let project = Project.makeModule(
   dependencies: [
     .core(.assembly),
     .service(.auth),
+    .service(.device),
     .SPM.dependencies
   ],
   hasTests: true

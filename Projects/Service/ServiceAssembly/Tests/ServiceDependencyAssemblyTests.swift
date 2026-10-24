@@ -8,6 +8,8 @@
 import Dependencies
 import Testing
 import FestiCoreAuthInterface
+import FestiCoreDevice
+import FestiCoreDeviceInterface
 import FestiCoreNetworkInterface
 @testable import ServiceAssembly
 
@@ -34,5 +36,6 @@ struct ServiceDependencyAssemblyTests {
 
     #expect((values.networkClient as AnyObject) === (NetworkContainer.authenticatedClient as AnyObject))
     #expect((values.authService as AnyObject) === (NetworkContainer.authService as AnyObject))
+    #expect(values.liveActivityRegistrationService is NetworkLiveActivityRegistrationService)
   }
 }

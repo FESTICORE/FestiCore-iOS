@@ -8,6 +8,7 @@
 import Dependencies
 import CoreAssembly
 import FestiCoreAuthInterface
+import FestiCoreDeviceInterface
 import FestiCoreNetworkInterface
 
 public enum ServiceDependencyAssembly {
@@ -21,5 +22,6 @@ public extension DependencyValues {
     StorageAssembly.register(into: &self)
     networkClient = NetworkContainer.authenticatedClient
     authService = NetworkContainer.authService
+    liveActivityRegistrationService = NetworkContainer.liveActivityRegistrationService
   }
 }
