@@ -94,6 +94,24 @@ struct KeychainStorageTests {
     #expect(try storage.load(.accessToken) == nil)
     #expect(try storage.load(.refreshToken) == nil)
   }
+
+  @Test
+  func 로그아웃은_기기_식별정보를_유지한다() throws {
+    let storage = makeStorage()
+    defer {
+      try? storage.remove(.deviceID)
+      try? storage.remove(.deviceAccessToken)
+    }
+
+    try storage.save("device-id", for: .deviceID)
+    try storage.save("device-token", for: .deviceAccessToken)
+    try storage.save("user-token", for: .accessToken)
+    try storage.removeAll()
+
+    #expect(try storage.load(.accessToken) == nil)
+    #expect(try storage.load(.deviceID) == "device-id")
+    #expect(try storage.load(.deviceAccessToken) == "device-token")
+  }
 }
 
 private extension KeychainStorageTests {
