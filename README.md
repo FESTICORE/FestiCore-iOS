@@ -188,7 +188,7 @@ Text("Festival")
 - **FestiCoreLogger**: 공통 로그 API
 - **Tuist Insights**: CI의 빌드·테스트·번들 결과 수집
 - **Mixpanel**: 앱 시작 시 토큰이 설정된 경우에만 SDK를 초기화하며 자동 이벤트 수집은 끔
-- **Sentry**: 도입 예정이며 현재 앱 코드에는 연결되지 않음
+- **Sentry**: 앱 시작 시 DSN이 설정된 경우에만 오류 수집을 시작하며 기본 PII 전송과 성능 추적은 끔
 
 지원 환경:
 
@@ -207,6 +207,8 @@ Text("Festival")
 프로젝트는 Dev 없이 두 구성만 사용합니다. 환경 값은 `Config/Stage.xcconfig`와 `Config/Prod.xcconfig`에서 관리합니다. Stage API 호스트는 `festicore-dev.up.railway.app`, Prod API 호스트는 `festicore.up.railway.app`입니다. 현재 프로젝트 버전 설정은 `1.0.0`입니다.
 
 Mixpanel 프로젝트 토큰은 저장소에 넣지 않습니다. `FESTICORE_MIXPANEL_TOKEN` 빌드 설정을 Stage·Prod별로 주입하면 앱 Info.plist의 `FestiCoreMixpanelToken`으로 전달됩니다. 기본값은 비어 있으며 이 경우 Mixpanel은 초기화되지 않습니다. SDK 연결만 설정되어 있고 이벤트 추적은 별도 기능에서 추가합니다.
+
+Sentry DSN도 저장소에 넣지 않습니다. `FESTICORE_SENTRY_DSN` 빌드 설정을 Stage·Prod별로 주입하면 앱 Info.plist의 `FestiCoreSentryDSN`으로 전달됩니다. 기본값은 비어 있으며 이 경우 Sentry는 초기화되지 않습니다. DSN을 제공하면 각 구성의 `stage` 또는 `production` 환경으로 오류를 수집합니다.
 
 ## 빠른 시작
 

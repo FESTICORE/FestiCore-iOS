@@ -8,9 +8,11 @@
 import Foundation
 import FestiCoreDesignKit
 import Mixpanel
+import Sentry
 
 extension AppDelegate {
   func configure() {
+    configureSentry()
     configureFonts()
     configureMixpanel()
   }
@@ -25,5 +27,19 @@ extension AppDelegate {
     }
 
     Mixpanel.initialize(token: token, trackAutomaticEvents: false)
+  }
+
+  func configureSentry() {
+    guard let configuration = AppConfiguration(infoDictionary: Bundle.main.infoDictionary ?? [:]),
+          let dsn = configuration.sentryDSN else {
+      return
+    }
+
+    SentrySDK.start { options in
+      options.dsn = dsn
+      options.environment = configuration.environment.rawValue
+      options.sendDefaultPii = false
+      options.tracesSampleRate = 0
+    }
   }
 }
