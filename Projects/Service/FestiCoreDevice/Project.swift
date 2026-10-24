@@ -15,6 +15,7 @@ let project = Project.makeModule(
   product: .framework,
   dependencies: [
     .core(.network, .interface),
+    .core(.storage, .interface),
     .SPM.alamofire
   ],
   hasTests: true,
