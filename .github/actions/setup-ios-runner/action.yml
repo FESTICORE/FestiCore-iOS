@@ -23,6 +23,60 @@ runs:
         echo "$HOME/.local/share/mise/shims" >> "$GITHUB_PATH"
         echo "CI_DERIVED_DATA=$HOME/ci-derived-data/$DERIVED_DATA_DIRECTORY" >> "$GITHUB_ENV"
 
+    - name: Prepare FestiCore CI derived data
+      shell: bash
+      env:
+        DERIVED_DATA_DIRECTORY: ${{ inputs.derived-data-directory }}
+      run: |
+        set -euo pipefail
+
+        if [[ ! "$DERIVED_DATA_DIRECTORY" =~ ^FestiCore-[A-Za-z0-9_-]+$ ]]; then
+          echo "::error::Invalid FestiCore derived data directory"
+          exit 1
+        fi
+
+        derived_data_root="$HOME/ci-derived-data"
+        selected_derived_data="$derived_data_root/$DERIVED_DATA_DIRECTORY"
+        if [[ "${CI_DERIVED_DATA:-}" != "$selected_derived_data" \
+          || -L "$derived_data_root" || -L "$selected_derived_data" \
+          || ( -e "$derived_data_root" && ! -d "$derived_data_root" ) \
+          || ( -e "$selected_derived_data" && ! -d "$selected_derived_data" ) ]]; then
+          echo "::error::Unsafe FestiCore derived data path"
+          exit 1
+        fi
+
+        echo "Disk space before FestiCore CI cleanup:"
+        df -h "$HOME"
+
+        if [[ -d "$selected_derived_data" ]]; then
+          for entry in Build Index.noindex Logs CompilationCache.noindex; do
+            if [[ -L "$selected_derived_data/$entry" ]]; then
+              echo "::error::Symlink found in FestiCore derived data: $entry"
+              exit 1
+            fi
+          done
+
+          rm -rf -- \
+            "$selected_derived_data/Build" \
+            "$selected_derived_data/Index.noindex" \
+            "$selected_derived_data/Logs" \
+            "$selected_derived_data/CompilationCache.noindex"
+        fi
+
+        # 이전 PR 워크플로가 사용하던 경로이며 현재 워크플로에서는 참조하지 않는다.
+        legacy_pr_derived_data="$derived_data_root/FestiCore-pr"
+        if [[ -L "$legacy_pr_derived_data" \
+          || ( -e "$legacy_pr_derived_data" && ! -d "$legacy_pr_derived_data" ) ]]; then
+          echo "::error::Unsafe legacy FestiCore PR derived data path"
+          exit 1
+        fi
+        if [[ -d "$legacy_pr_derived_data" ]]; then
+          rm -rf -- "$legacy_pr_derived_data"
+        fi
+
+        echo "Disk space after FestiCore CI cleanup:"
+        df -h "$HOME"
+
     - name: Install Tuist
       shell: bash
       run: mise install tuist
