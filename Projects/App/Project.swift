@@ -19,6 +19,8 @@ let project = Project.makeAppModule(
     .feature(.assembly),
     .ui(.designSystem),
     .ui(.liveActivity),
+    .service(.assembly),
+    .service(.device, .interface),
     .project(target: "FestiCoreLiveActivityExtension", path: .relativeToUI("FestiCoreLiveActivity")),
     .SPM.composableArchitecture,
     .SPM.tcaFlow,

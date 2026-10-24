@@ -57,4 +57,9 @@ struct AppConfigurationTests {
       "FestiCoreSentryDSN": "  https://key@example.invalid/1  "
     ]) { _, new in new })).sentryDSN == "https://key@example.invalid/1")
   }
+
+  @Test func apnsEnvironmentMatchesBuildConfiguration() {
+    #expect(AppEnvironment.stage.apnsEnvironment == .sandbox)
+    #expect(AppEnvironment.production.apnsEnvironment == .production)
+  }
 }
