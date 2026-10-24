@@ -16,6 +16,10 @@ public extension ProjectDescription.Path {
     .relativeToRoot("Projects/UI/\(name)")
   }
 
+  static func relativeToWidget(_ name: String) -> Self {
+    .relativeToRoot("Projects/Widget/\(name)")
+  }
+
   static func relativeToService(_ name: String) -> Self {
     .relativeToRoot("Projects/Service/\(name)")
   }
