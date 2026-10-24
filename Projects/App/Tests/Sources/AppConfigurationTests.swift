@@ -42,4 +42,19 @@ struct AppConfigurationTests {
       "FestiCoreMixpanelToken": "  project-token  "
     ]) { _, new in new })).mixpanelToken == "project-token")
   }
+
+  @Test func sentryDSNIsOptionalAndWhitespaceIsIgnored() throws {
+    let requiredValues: [String: Any] = [
+      "FestiCoreEnvironment": "production",
+      "FestiCoreAPIHost": "example.invalid"
+    ]
+
+    #expect(try #require(AppConfiguration(infoDictionary: requiredValues)).sentryDSN == nil)
+    #expect(try #require(AppConfiguration(infoDictionary: requiredValues.merging([
+      "FestiCoreSentryDSN": "  \n "
+    ]) { _, new in new })).sentryDSN == nil)
+    #expect(try #require(AppConfiguration(infoDictionary: requiredValues.merging([
+      "FestiCoreSentryDSN": "  https://key@example.invalid/1  "
+    ]) { _, new in new })).sentryDSN == "https://key@example.invalid/1")
+  }
 }

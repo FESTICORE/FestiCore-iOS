@@ -16,6 +16,7 @@ struct AppConfiguration {
   let environment: AppEnvironment
   let apiBaseURL: URL
   let mixpanelToken: String?
+  let sentryDSN: String?
 
   init?(infoDictionary: [String: Any]) {
     guard
@@ -34,5 +35,8 @@ struct AppConfiguration {
     let token = (infoDictionary["FestiCoreMixpanelToken"] as? String)?
       .trimmingCharacters(in: .whitespacesAndNewlines)
     self.mixpanelToken = token.flatMap { $0.isEmpty ? nil : $0 }
+    let dsn = (infoDictionary["FestiCoreSentryDSN"] as? String)?
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    self.sentryDSN = dsn.flatMap { $0.isEmpty ? nil : $0 }
   }
 }

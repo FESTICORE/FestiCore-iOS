@@ -25,4 +25,5 @@ public extension TargetDependency.SPM {
   static let firebaseCrashlytics = TargetDependency.external(name: "FirebaseCrashlytics")
   static let kingfisher = TargetDependency.external(name: "Kingfisher")
   static let mixpanel = TargetDependency.external(name: "Mixpanel")
+  static let sentry = TargetDependency.external(name: "Sentry-Static")
 }
