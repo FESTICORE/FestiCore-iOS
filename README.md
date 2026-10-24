@@ -16,12 +16,22 @@ FestiCore 축제 앱의 iOS 프로젝트입니다. SwiftUI와 Tuist로 구성하
 
 ## 구조
 
-`Projects/App`이 앱 진입점과 의존성을 조립합니다. `Feature`는 화면과 TCA 상태를, `Service`는 인증과 기기 등록을, `Core`는 네트워크·저장소·로깅을, `UI`는 디자인 요소와 활동 상태를, `Widget`은 Live Activity 표시를 담당합니다. 모듈 경계와 의존성 흐름은 [아키텍처](docs/architecture.md)에 정리했습니다.
+`Workspace.swift`가 `Projects/**`의 Tuist 프로젝트를 포함합니다. 앱은 SwiftUI를 사용하고 Home 상태는 TCA, 화면 연결은 TCAFlow가 맡습니다.
+
+| 모듈 | 역할 |
+| --- | --- |
+| `App` | 앱 진입점, 화면 연결, Stage·Prod 설정 |
+| `Feature` | 화면과 Reducer |
+| `Service` | 인증, 기기 등록, 의존성 조립 |
+| `Core` | 네트워크, 저장소, 로깅 |
+| `UI` | DesignKit, 공통 UI, Live Activity 공유 상태 |
+| `Widget` | 잠금 화면과 Dynamic Island의 Live Activity 확장 |
+
+`FestiCoreApp.init()`에서 `ServiceDependencyAssembly`를 등록합니다. Service는 Core의 구현을 조립하고, 테스트는 Point-Free Dependencies의 의존성 값을 교체합니다. Widget 확장은 공유 ActivityAttributes만 참조하며 네트워크·인증 구현에는 의존하지 않습니다. 구체적인 기능 계약이 생기면 Domain/Data 모듈을 추가합니다.
 
 ## 문서
 
 - [빠른 시작](docs/quick-start.md): 개발 도구, 워크스페이스, 첫 실행
-- [아키텍처](docs/architecture.md): 모듈, 의존성 주입, 네트워크 경계
 - [개발 환경](docs/development.md): Stage·Prod, 명령어, 설정값
 - [테스트와 CI](docs/testing-ci.md): 전체 테스트, PR 검사, Tuist 결과
 - [디자인 시스템](docs/design-system.md): 토큰 출처, 동기화, DesignKit 사용
