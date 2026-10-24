@@ -37,14 +37,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   ) {}
 
   private func registerDevice() {
-    guard let configuration = AppConfiguration(infoDictionary: Bundle.main.infoDictionary ?? [:]) else {
+    let infoDictionary = Bundle.main.infoDictionary ?? [:]
+    guard let configuration = AppConfiguration(infoDictionary: infoDictionary) else {
+      logger.error("기기 등록 건너뜀: FestiCoreEnvironment 또는 FestiCoreAPIHost 설정이 유효하지 않음")
+      return
+    }
+    guard let appVersion = infoDictionary["CFBundleShortVersionString"] as? String, !appVersion.isEmpty else {
+      logger.error("기기 등록 건너뜀: CFBundleShortVersionString 설정이 유효하지 않음")
       return
     }
 
     let metadata = DeviceRegistrationMetadata(
       apnsEnvironment: configuration.environment.apnsEnvironment,
       apnsToken: nil,
-      appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0",
+      appVersion: appVersion,
       osVersion: UIDevice.current.systemVersion,
       locale: Locale.current.identifier,
       timezone: TimeZone.current.identifier

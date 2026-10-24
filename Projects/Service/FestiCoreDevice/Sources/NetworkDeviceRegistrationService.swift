@@ -69,7 +69,8 @@ struct DeviceRegistrationRequest: FestiCoreDataRequest {
   var path: String { "api/v1/devices" }
   var method: HTTPMethod { .put }
   var authorization: FestiCoreAuthorization { .none }
-  var maxRetryAttempts: Int { 0 }
+  // 같은 기기 ID로 재등록하므로 네트워크 계층의 일시적 오류 재시도를 사용한다.
+  var maxRetryAttempts: Int { 2 }
   var headers: HTTPHeaders {
     var headers: HTTPHeaders = ["X-Device-Id": deviceID]
     if let bearerToken {
