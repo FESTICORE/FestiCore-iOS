@@ -17,9 +17,10 @@ FestiCore는 SwiftUI 기반 Tuist 멀티모듈 프로젝트입니다. `Workspace
 | `Projects/UI/FestiCoreDesignKit` | 디자인 토큰과 컴포넌트 |
 | `Projects/UI/FestiCoreSharedUI` | 공통 UI |
 | `Projects/UI/FestiCoreAnimation` | 애니메이션 표시 API |
-| `Projects/UI/FestiCoreLiveActivity` | 축제 활동 상태 API와 Widget 확장 |
+| `Projects/UI/FestiCoreLiveActivity` | 앱과 Widget이 공유하는 축제 활동 상태 및 앱 측 ActivityKit API |
+| `Projects/Widget/FestiCoreLiveActivityWidget` | 잠금 화면과 Dynamic Island의 WidgetKit 확장 |
 
-현재 Widget 확장 타깃 `FestiCoreLiveActivityExtension`은 `Projects/UI/FestiCoreLiveActivity/Project.swift`에 선언되어 앱에 포함됩니다. 모듈 경계가 바뀌면 이 문서도 함께 갱신합니다. Domain/Data는 구체적인 기능 계약이 생길 때 추가하는 구조입니다.
+Widget 확장 타깃 `FestiCoreLiveActivityExtension`은 독립 Widget 프로젝트에 선언되고 앱에 포함됩니다. 확장은 공유 ActivityAttributes를 참조하며 네트워크·인증 구현에는 의존하지 않습니다. Domain/Data는 구체적인 기능 계약이 생길 때 추가하는 구조입니다.
 
 ## 의존성 주입
 

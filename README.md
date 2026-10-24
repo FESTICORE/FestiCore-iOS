@@ -16,7 +16,7 @@ FestiCore 축제 앱의 iOS 프로젝트입니다. SwiftUI와 Tuist로 구성하
 
 ## 구조
 
-`Projects/App`이 앱 진입점과 의존성을 조립합니다. `Feature`는 화면과 TCA 상태를, `Service`는 인증과 기기 등록을, `Core`는 네트워크·저장소·로깅을, `UI`는 디자인 요소와 Live Activity를 담당합니다. 모듈 경계와 의존성 흐름은 [아키텍처](docs/architecture.md)에 정리했습니다.
+`Projects/App`이 앱 진입점과 의존성을 조립합니다. `Feature`는 화면과 TCA 상태를, `Service`는 인증과 기기 등록을, `Core`는 네트워크·저장소·로깅을, `UI`는 디자인 요소와 활동 상태를, `Widget`은 Live Activity 표시를 담당합니다. 모듈 경계와 의존성 흐름은 [아키텍처](docs/architecture.md)에 정리했습니다.
 
 ## 문서
 
