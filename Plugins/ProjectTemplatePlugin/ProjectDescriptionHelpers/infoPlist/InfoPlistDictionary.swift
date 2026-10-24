@@ -19,6 +19,7 @@ extension InfoPlistDictionary {
   func setCFBundleVersion(_ value: String) -> Self { set("CFBundleVersion", .string(value)) }
   func setFestiCoreEnvironment(_ value: String) -> Self { set("FestiCoreEnvironment", .string(value)) }
   func setFestiCoreAPIHost(_ value: String) -> Self { set("FestiCoreAPIHost", .string(value)) }
+  func setFestiCoreMixpanelToken(_ value: String) -> Self { set("FestiCoreMixpanelToken", .string(value)) }
   func setUILaunchScreen() -> Self { set("UILaunchScreen", .dictionary([:])) }
   func setUISupportedInterfaceOrientations(_ values: [String]) -> Self {
     set("UISupportedInterfaceOrientations", .array(values.map(Plist.Value.string)))

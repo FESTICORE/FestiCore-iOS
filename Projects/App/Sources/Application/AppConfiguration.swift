@@ -15,6 +15,7 @@ enum AppEnvironment: String {
 struct AppConfiguration {
   let environment: AppEnvironment
   let apiBaseURL: URL
+  let mixpanelToken: String?
 
   init?(infoDictionary: [String: Any]) {
     guard
@@ -30,5 +31,8 @@ struct AppConfiguration {
 
     self.environment = environment
     self.apiBaseURL = url
+    let token = (infoDictionary["FestiCoreMixpanelToken"] as? String)?
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    self.mixpanelToken = token.flatMap { $0.isEmpty ? nil : $0 }
   }
 }

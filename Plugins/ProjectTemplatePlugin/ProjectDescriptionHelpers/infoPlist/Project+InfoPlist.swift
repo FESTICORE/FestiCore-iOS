@@ -15,6 +15,7 @@ public extension InfoPlist {
       .setCFBundleVersion("$(FESTICORE_BUILD_NUMBER)")
       .setFestiCoreEnvironment("$(FESTICORE_ENVIRONMENT)")
       .setFestiCoreAPIHost("$(FESTICORE_API_HOST)")
+      .setFestiCoreMixpanelToken("$(FESTICORE_MIXPANEL_TOKEN)")
       .set("NSSupportsLiveActivities", .boolean(true))
       .setUILaunchScreen()
       .setUISupportedInterfaceOrientations(["UIInterfaceOrientationPortrait"])

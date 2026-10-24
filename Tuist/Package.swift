@@ -45,7 +45,8 @@ let packageSettings = PackageSettings(
     "GoogleSignIn": .framework,
     "FirebaseCore": .framework,
     "FirebaseCrashlytics": .framework,
-    "Kingfisher": .framework
+    "Kingfisher": .framework,
+    "Mixpanel": .framework
   ],
   baseSettings: packageBaseSettings,
   targetSettings: [
@@ -67,6 +68,7 @@ let package = Package(
     .package(url: "https://github.com/Roy-wonji/TCAFlow.git", exact: "1.2.0"),
     .package(url: "https://github.com/openid/AppAuth-iOS.git", exact: "2.1.0"),
     .package(url: "https://github.com/Alamofire/Alamofire", exact: "5.12.0"),
-    .package(url: "https://github.com/onevcat/Kingfisher.git", exact: "8.14.0")
+    .package(url: "https://github.com/onevcat/Kingfisher.git", exact: "8.14.0"),
+    .package(url: "https://github.com/mixpanel/mixpanel-swift.git", exact: "7.0.0")
   ]
 )

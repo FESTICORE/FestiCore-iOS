@@ -22,7 +22,8 @@ let project = Project.makeAppModule(
     .project(target: "FestiCoreLiveActivityExtension", path: .relativeToUI("FestiCoreLiveActivity")),
     .SPM.composableArchitecture,
     .SPM.tcaFlow,
-    .SPM.dependencies
+    .SPM.dependencies,
+    .SPM.mixpanel
   ],
   sources: ["Sources/**"],
   resources: ["Resources/**"],

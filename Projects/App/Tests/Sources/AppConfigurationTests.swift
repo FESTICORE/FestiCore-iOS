@@ -27,4 +27,19 @@ struct AppConfigurationTests {
       "FestiCoreAPIHost": "example.invalid/path"
     ]) == nil)
   }
+
+  @Test func mixpanelTokenIsOptionalAndWhitespaceIsIgnored() throws {
+    let requiredValues: [String: Any] = [
+      "FestiCoreEnvironment": "stage",
+      "FestiCoreAPIHost": "stage.example.invalid"
+    ]
+
+    #expect(try #require(AppConfiguration(infoDictionary: requiredValues)).mixpanelToken == nil)
+    #expect(try #require(AppConfiguration(infoDictionary: requiredValues.merging([
+      "FestiCoreMixpanelToken": "  \n "
+    ]) { _, new in new })).mixpanelToken == nil)
+    #expect(try #require(AppConfiguration(infoDictionary: requiredValues.merging([
+      "FestiCoreMixpanelToken": "  project-token  "
+    ]) { _, new in new })).mixpanelToken == "project-token")
+  }
 }
