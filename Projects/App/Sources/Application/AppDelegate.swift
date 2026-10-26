@@ -48,7 +48,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     let metadata = DeviceRegistrationMetadata(
-      apnsEnvironment: configuration.environment.apnsEnvironment,
+      apnsEnvironment: configuration.apnsEnvironment,
       apnsToken: nil,
       appVersion: appVersion,
       osVersion: UIDevice.current.systemVersion,

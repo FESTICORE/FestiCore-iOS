@@ -11,17 +11,11 @@ import FestiCoreDeviceInterface
 enum AppEnvironment: String {
   case stage
   case production
-
-  var apnsEnvironment: DeviceRegistrationMetadata.APNsEnvironment {
-    switch self {
-    case .stage: .sandbox
-    case .production: .production
-    }
-  }
 }
 
 struct AppConfiguration {
   let environment: AppEnvironment
+  let apnsEnvironment: DeviceRegistrationMetadata.APNsEnvironment
   let apiBaseURL: URL
   let mixpanelToken: String?
   let sentryDSN: String?
@@ -30,6 +24,10 @@ struct AppConfiguration {
     guard
       let rawEnvironment = infoDictionary["FestiCoreEnvironment"] as? String,
       let environment = AppEnvironment(rawValue: rawEnvironment),
+      let rawAPNsEnvironment = infoDictionary["FestiCoreAPNsEnvironment"] as? String,
+      let apnsEnvironment = DeviceRegistrationMetadata.APNsEnvironment(
+        rawValue: rawAPNsEnvironment == "development" ? "sandbox" : rawAPNsEnvironment
+      ),
       let host = infoDictionary["FestiCoreAPIHost"] as? String,
       !host.isEmpty,
       !host.contains("/"),
@@ -39,6 +37,7 @@ struct AppConfiguration {
     }
 
     self.environment = environment
+    self.apnsEnvironment = apnsEnvironment
     self.apiBaseURL = url
     let token = (infoDictionary["FestiCoreMixpanelToken"] as? String)?
       .trimmingCharacters(in: .whitespacesAndNewlines)
