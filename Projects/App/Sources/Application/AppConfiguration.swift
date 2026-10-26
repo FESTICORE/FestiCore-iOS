@@ -15,7 +15,7 @@ enum AppEnvironment: String {
 
 struct AppConfiguration {
   let environment: AppEnvironment
-  let apnsEnvironment: DeviceRegistrationMetadata.APNsEnvironment
+  let apnsEnvironment: DeviceRegistrationMetadata.APNsEnvironment?
   let apiBaseURL: URL
   let mixpanelToken: String?
   let sentryDSN: String?
@@ -24,10 +24,6 @@ struct AppConfiguration {
     guard
       let rawEnvironment = infoDictionary["FestiCoreEnvironment"] as? String,
       let environment = AppEnvironment(rawValue: rawEnvironment),
-      let rawAPNsEnvironment = infoDictionary["FestiCoreAPNsEnvironment"] as? String,
-      let apnsEnvironment = DeviceRegistrationMetadata.APNsEnvironment(
-        rawValue: rawAPNsEnvironment == "development" ? "sandbox" : rawAPNsEnvironment
-      ),
       let host = infoDictionary["FestiCoreAPIHost"] as? String,
       !host.isEmpty,
       !host.contains("/"),
@@ -37,7 +33,11 @@ struct AppConfiguration {
     }
 
     self.environment = environment
-    self.apnsEnvironment = apnsEnvironment
+    switch infoDictionary["FestiCoreAPNsEnvironment"] as? String {
+    case "development": self.apnsEnvironment = .sandbox
+    case "production": self.apnsEnvironment = .production
+    default: self.apnsEnvironment = nil
+    }
     self.apiBaseURL = url
     let token = (infoDictionary["FestiCoreMixpanelToken"] as? String)?
       .trimmingCharacters(in: .whitespacesAndNewlines)

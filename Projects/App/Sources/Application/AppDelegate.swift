@@ -42,13 +42,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       logger.error("기기 등록 건너뜀: FestiCoreEnvironment 또는 FestiCoreAPIHost 설정이 유효하지 않음")
       return
     }
+    guard let apnsEnvironment = configuration.apnsEnvironment else {
+      logger.error("기기 등록 건너뜀: FestiCoreAPNsEnvironment 설정이 유효하지 않음")
+      return
+    }
     guard let appVersion = infoDictionary["CFBundleShortVersionString"] as? String, !appVersion.isEmpty else {
       logger.error("기기 등록 건너뜀: CFBundleShortVersionString 설정이 유효하지 않음")
       return
     }
 
     let metadata = DeviceRegistrationMetadata(
-      apnsEnvironment: configuration.apnsEnvironment,
+      apnsEnvironment: apnsEnvironment,
       apnsToken: nil,
       appVersion: appVersion,
       osVersion: UIDevice.current.systemVersion,
