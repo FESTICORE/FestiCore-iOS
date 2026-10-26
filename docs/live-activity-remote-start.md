@@ -25,7 +25,7 @@ Notification Service Extension에서 ActivityKit 활동을 시작하지 않는�
 - 현재 Swift Testing은 로컬 `start`·`end`를 검증한다. 시작 토큰 수집과 서버 등록 계약 테스트는 API가 정해진 뒤 추가한다. 시뮬레이터의 로컬 화면 검증은 원격 푸시 증거와 구분한다.
 - 서버 API와 서명이 준비되면 실기기에서 앱을 종료하고 APNs `start`를 보낸다. 잠금 화면 표시, 원격 `update`·`end`, 토큰 교체를 각각 확인한다.
 
-Apple Developer에서 앱 ID `io.festiCore.co`의 Push Notifications 기능을 켜고 새 확장 앱 ID `io.festiCore.co.NotificationService`를 등록해야 한다. 이어서 `bundle exec fastlane ios provision_live_activity_signing force:true`로 앱·Live Activity·알림 확장의 Development/AppStore 프로파일을 한 번 재발급한다. 이 절차를 마치기 전에는 QA/TestFlight/릴리스 서명 빌드가 실패할 수 있다. 평소 실행에서는 `force:true`를 생략해 공유 프로파일을 불필요하게 갱신하지 않는다.
+Apple Developer에서 앱 ID `io.festiCore.co`의 Push Notifications 기능을 켜고 새 확장 앱 ID `io.festiCore.co.NotificationService`를 등록해야 한다. 이어서 `bundle exec fastlane ios provision_live_activity_signing force:true`로 앱·Live Activity·알림 확장의 Development/AppStore 프로파일을 한 번 재발급한다. GitHub Actions에서는 `iOS Preview` 수동 실행의 `provision_live_activity_profile`과 `force_regenerate_profiles`를 모두 켜면 같은 작업을 실행한다. 이 절차를 마치기 전에는 QA/TestFlight/릴리스 서명 빌드가 실패할 수 있다. 평소 실행에서는 `force:true`를 생략해 공유 프로파일을 불필요하게 갱신하지 않는다.
 
 TestFlight QA는 Stage API를 쓰더라도 AppStore 서명이므로 APNs 환경은 production이다. 현재 시작 토큰 스트림은 서버 등록 API가 없어 호출자가 없으며, 실기기에서 원격 시작을 검증한 상태가 아니다.
 
