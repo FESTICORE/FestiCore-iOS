@@ -13,10 +13,12 @@ struct AppConfigurationTests {
   @Test func stageConfigurationUsesItsOwnHost() throws {
     let configuration = try #require(AppConfiguration(infoDictionary: [
       "FestiCoreEnvironment": "stage",
+      "FestiCoreAPNsEnvironment": "development",
       "FestiCoreAPIHost": "stage.example.invalid"
     ]))
 
     #expect(configuration.environment == .stage)
+    #expect(configuration.apnsEnvironment == .sandbox)
     #expect(configuration.apiBaseURL.absoluteString == "https://stage.example.invalid")
   }
 
@@ -24,6 +26,7 @@ struct AppConfigurationTests {
     #expect(AppConfiguration(infoDictionary: ["FestiCoreEnvironment": "production"]) == nil)
     #expect(AppConfiguration(infoDictionary: [
       "FestiCoreEnvironment": "production",
+      "FestiCoreAPNsEnvironment": "production",
       "FestiCoreAPIHost": "example.invalid/path"
     ]) == nil)
   }
@@ -31,6 +34,7 @@ struct AppConfigurationTests {
   @Test func mixpanelTokenIsOptionalAndWhitespaceIsIgnored() throws {
     let requiredValues: [String: Any] = [
       "FestiCoreEnvironment": "stage",
+      "FestiCoreAPNsEnvironment": "development",
       "FestiCoreAPIHost": "stage.example.invalid"
     ]
 
@@ -46,6 +50,7 @@ struct AppConfigurationTests {
   @Test func sentryDSNIsOptionalAndWhitespaceIsIgnored() throws {
     let requiredValues: [String: Any] = [
       "FestiCoreEnvironment": "production",
+      "FestiCoreAPNsEnvironment": "production",
       "FestiCoreAPIHost": "example.invalid"
     ]
 
@@ -58,8 +63,21 @@ struct AppConfigurationTests {
     ]) { _, new in new })).sentryDSN == "https://key@example.invalid/1")
   }
 
-  @Test func apnsEnvironmentMatchesBuildConfiguration() {
-    #expect(AppEnvironment.stage.apnsEnvironment == .sandbox)
-    #expect(AppEnvironment.production.apnsEnvironment == .production)
+  @Test func apnsEnvironmentFollowsSigningRatherThanAPIHost() throws {
+    let configuration = try #require(AppConfiguration(infoDictionary: [
+      "FestiCoreEnvironment": "stage",
+      "FestiCoreAPNsEnvironment": "production",
+      "FestiCoreAPIHost": "stage.example.invalid"
+    ]))
+    #expect(configuration.environment == .stage)
+    #expect(configuration.apnsEnvironment == .production)
+  }
+
+  @Test func missingAPNsEnvironmentDoesNotDisableTheApp() throws {
+    let configuration = try #require(AppConfiguration(infoDictionary: [
+      "FestiCoreEnvironment": "stage",
+      "FestiCoreAPIHost": "stage.example.invalid"
+    ]))
+    #expect(configuration.apnsEnvironment == nil)
   }
 }

@@ -14,6 +14,7 @@ public extension InfoPlist {
       .setCFBundleShortVersionString("$(FESTICORE_VERSION)")
       .setCFBundleVersion("$(FESTICORE_BUILD_NUMBER)")
       .setFestiCoreEnvironment("$(FESTICORE_ENVIRONMENT)")
+      .set("FestiCoreAPNsEnvironment", .string("$(FESTICORE_APNS_ENVIRONMENT)"))
       .setFestiCoreAPIHost("$(FESTICORE_API_HOST)")
       .setFestiCoreMixpanelToken("$(FESTICORE_MIXPANEL_TOKEN)")
       .setFestiCoreSentryDSN("$(FESTICORE_SENTRY_DSN)")

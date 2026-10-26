@@ -20,6 +20,10 @@ public extension ProjectDescription.Path {
     .relativeToRoot("Projects/Widget/\(name)")
   }
 
+  static func relativeToExtension(_ name: String) -> Self {
+    .relativeToRoot("Projects/Extension/\(name)")
+  }
+
   static func relativeToService(_ name: String) -> Self {
     .relativeToRoot("Projects/Service/\(name)")
   }

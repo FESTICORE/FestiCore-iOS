@@ -22,6 +22,7 @@ let project = Project.makeAppModule(
     .service(.assembly),
     .service(.device, .interface),
     .widget(.liveActivity),
+    .appExtension(.notificationService),
     .SPM.composableArchitecture,
     .SPM.tcaFlow,
     .SPM.dependencies,

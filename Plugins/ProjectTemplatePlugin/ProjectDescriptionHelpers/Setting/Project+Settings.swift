@@ -18,12 +18,18 @@ public extension Settings {
     ], configurations: [
       .debug(
         name: BuildEnvironment.stage.configurationName,
-        settings: ["PROVISIONING_PROFILE_SPECIFIER": .string("match Development \(Project.Environment.mainBundleId)")],
+        settings: [
+          "FESTICORE_APNS_ENVIRONMENT": "development",
+          "PROVISIONING_PROFILE_SPECIFIER": .string("match Development \(Project.Environment.mainBundleId)")
+        ],
         xcconfig: BuildEnvironment.stage.xcconfigPath
       ),
       .release(
         name: BuildEnvironment.prod.configurationName,
-        settings: ["PROVISIONING_PROFILE_SPECIFIER": .string("match AppStore \(Project.Environment.mainBundleId)")],
+        settings: [
+          "FESTICORE_APNS_ENVIRONMENT": "production",
+          "PROVISIONING_PROFILE_SPECIFIER": .string("match AppStore \(Project.Environment.mainBundleId)")
+        ],
         xcconfig: BuildEnvironment.prod.xcconfigPath
       )
     ])

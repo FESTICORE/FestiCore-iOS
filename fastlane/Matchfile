@@ -1,6 +1,6 @@
 storage_mode("git")
 git_url(ENV.fetch("MATCH_GIT_URL", "git@github.com:Roy-wonji/FastlaneMatch.git"))
-app_identifier(["io.festiCore.co", "io.festiCore.co.LiveActivity"])
+app_identifier(["io.festiCore.co", "io.festiCore.co.LiveActivity", "io.festiCore.co.NotificationService"])
 team_id("N94CS4N6VR")
 include_mac_in_profiles(true)
 include_all_certificates(true)

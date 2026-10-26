@@ -10,6 +10,11 @@ on:
         type: boolean
         required: false
         default: false
+      force_regenerate_profiles:
+        description: Push 권한 변경 후 앱 및 확장 프로파일 강제 재발급
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: ios-preview-${{ github.ref }}
@@ -17,7 +22,7 @@ concurrency:
 
 jobs:
   share:
-    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.provision_live_activity_profile }}
+    if: ${{ github.event_name != 'workflow_dispatch' || !(inputs.provision_live_activity_profile || inputs.force_regenerate_profiles) }}
     runs-on: self-hosted
     timeout-minutes: 30
     permissions:
@@ -80,7 +85,7 @@ jobs:
           mise exec -- tuist share "$APP_PATH" --track nightly
 
   provision-signing:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.provision_live_activity_profile }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.provision_live_activity_profile || inputs.force_regenerate_profiles) }}
     runs-on: self-hosted
     timeout-minutes: 30
     permissions:
@@ -101,4 +106,4 @@ jobs:
       - name: Install Fastlane dependencies
         run: bundle install
       - name: Provision Live Activity profiles
-        run: bundle exec fastlane provision_live_activity_signing
+        run: bundle exec fastlane provision_live_activity_signing force:${{ inputs.force_regenerate_profiles }}

@@ -4,6 +4,8 @@ APP_NAME = "FestiCore"
 BUNDLE_ID = "io.festiCore.co"
 LIVE_ACTIVITY_BUNDLE_ID = "#{BUNDLE_ID}.LiveActivity"
 LIVE_ACTIVITY_TARGET = "FestiCoreLiveActivityExtension"
+NOTIFICATION_SERVICE_BUNDLE_ID = "#{BUNDLE_ID}.NotificationService"
+NOTIFICATION_SERVICE_TARGET = "FestiCoreNotificationServiceExtension"
 STAGE_SCHEME = "FestiCore-Stage"
 PROD_SCHEME = "FestiCore-Prod"
 TEAM_ID = "N94CS4N6VR"
@@ -92,7 +94,7 @@ def signed_ipa(scheme, configuration, version, build_number, api_key)
     readonly: true,
     api_key: api_key,
     git_url: ENV.fetch("MATCH_GIT_URL"),
-    app_identifier: [BUNDLE_ID, LIVE_ACTIVITY_BUNDLE_ID],
+    app_identifier: [BUNDLE_ID, LIVE_ACTIVITY_BUNDLE_ID, NOTIFICATION_SERVICE_BUNDLE_ID],
     keychain_name: MATCH_KEYCHAIN_NAME,
     keychain_password: ENV.fetch("MATCH_KEYCHAIN_PASSWORD")
   )
@@ -107,13 +109,22 @@ def signed_ipa(scheme, configuration, version, build_number, api_key)
     profile_name: "match AppStore #{BUNDLE_ID}"
   )
   update_code_signing_settings(
-    path: File.join(PROJECT_ROOT, "Projects/UI/FestiCoreLiveActivity/FestiCoreLiveActivity.xcodeproj"),
+    path: File.join(PROJECT_ROOT, "Projects/Widget/FestiCoreLiveActivityWidget/FestiCoreLiveActivityWidget.xcodeproj"),
     targets: [LIVE_ACTIVITY_TARGET],
     build_configurations: [configuration],
     use_automatic_signing: false,
     team_id: TEAM_ID,
     code_sign_identity: "Apple Distribution",
     profile_name: "match AppStore #{LIVE_ACTIVITY_BUNDLE_ID}"
+  )
+  update_code_signing_settings(
+    path: File.join(PROJECT_ROOT, "Projects/Extension/FestiCoreNotificationService/FestiCoreNotificationService.xcodeproj"),
+    targets: [NOTIFICATION_SERVICE_TARGET],
+    build_configurations: [configuration],
+    use_automatic_signing: false,
+    team_id: TEAM_ID,
+    code_sign_identity: "Apple Distribution",
+    profile_name: "match AppStore #{NOTIFICATION_SERVICE_BUNDLE_ID}"
   )
   build_app(
     workspace: File.expand_path("FestiCore.xcworkspace"),
@@ -123,13 +134,14 @@ def signed_ipa(scheme, configuration, version, build_number, api_key)
     output_directory: "fastlane/output",
     output_name: "#{APP_NAME}.ipa",
     xcodebuild_formatter: "",
-    xcargs: "FESTICORE_VERSION=#{version} FESTICORE_BUILD_NUMBER=#{build_number}",
+    xcargs: "FESTICORE_VERSION=#{version} FESTICORE_BUILD_NUMBER=#{build_number} FESTICORE_APNS_ENVIRONMENT=production",
     export_options: {
       signingStyle: "manual",
       teamID: TEAM_ID,
       provisioningProfiles: {
         BUNDLE_ID => "match AppStore #{BUNDLE_ID}",
-        LIVE_ACTIVITY_BUNDLE_ID => "match AppStore #{LIVE_ACTIVITY_BUNDLE_ID}"
+        LIVE_ACTIVITY_BUNDLE_ID => "match AppStore #{LIVE_ACTIVITY_BUNDLE_ID}",
+        NOTIFICATION_SERVICE_BUNDLE_ID => "match AppStore #{NOTIFICATION_SERVICE_BUNDLE_ID}"
       }
     }
   )
@@ -140,8 +152,8 @@ platform :ios do
     Dir.chdir(File.expand_path("..", __dir__))
   end
 
-  desc "Live Activity 확장의 Development 및 AppStore 프로파일 발급"
-  lane :provision_live_activity_signing do
+  desc "Live Activity 및 알림 확장의 Development 및 AppStore 프로파일 발급"
+  lane :provision_live_activity_signing do |options|
     require_environment!(
       "MATCH_PASSWORD",
       "APP_STORE_CONNECT_API_KEY_ID",
@@ -156,7 +168,8 @@ platform :ios do
         readonly: false,
         api_key: api_key,
         git_url: ENV.fetch("MATCH_GIT_URL", "git@github.com:Roy-wonji/FastlaneMatch.git"),
-        app_identifier: LIVE_ACTIVITY_BUNDLE_ID,
+        app_identifier: [BUNDLE_ID, LIVE_ACTIVITY_BUNDLE_ID, NOTIFICATION_SERVICE_BUNDLE_ID],
+        force: options[:force] == true,
         keychain_name: MATCH_KEYCHAIN_NAME,
         keychain_password: ENV.fetch("MATCH_KEYCHAIN_PASSWORD")
       )

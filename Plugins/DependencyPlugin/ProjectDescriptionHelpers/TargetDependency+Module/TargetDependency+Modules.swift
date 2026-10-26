@@ -34,6 +34,10 @@ public extension TargetDependency {
     .project(target: module.targetName, path: module.path)
   }
 
+  static func appExtension(_ module: ExtensionModule) -> Self {
+    .project(target: module.targetName, path: module.path)
+  }
+
   static func feature(_ module: FeatureModule, _ target: ModuleTarget = .implementation) -> Self {
     moduleDependency(name: module.rawValue, path: module.path, target: target)
   }
