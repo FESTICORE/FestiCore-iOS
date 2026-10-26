@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   share:
-    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.provision_live_activity_profile }}
+    if: ${{ github.event_name != 'workflow_dispatch' || !(inputs.provision_live_activity_profile || inputs.force_regenerate_profiles) }}
     runs-on: self-hosted
     timeout-minutes: 30
     permissions:
@@ -85,7 +85,7 @@ jobs:
           mise exec -- tuist share "$APP_PATH" --track nightly
 
   provision-signing:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.provision_live_activity_profile }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.provision_live_activity_profile || inputs.force_regenerate_profiles) }}
     runs-on: self-hosted
     timeout-minutes: 30
     permissions:
