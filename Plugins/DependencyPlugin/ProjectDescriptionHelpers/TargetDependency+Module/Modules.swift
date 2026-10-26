@@ -39,6 +39,13 @@ public enum WidgetModule: String, CaseIterable {
   var targetName: String { "FestiCoreLiveActivityExtension" }
 }
 
+public enum ExtensionModule: String, CaseIterable {
+  case notificationService = "FestiCoreNotificationService"
+
+  var path: Path { .relativeToExtension(rawValue) }
+  var targetName: String { "FestiCoreNotificationServiceExtension" }
+}
+
 public enum ServiceModule: String, CaseIterable {
   case auth = "FestiCoreAuth"
   case device = "FestiCoreDevice"
