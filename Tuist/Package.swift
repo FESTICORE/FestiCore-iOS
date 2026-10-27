@@ -70,6 +70,7 @@ let package = Package(
     .package(url: "https://github.com/openid/AppAuth-iOS.git", exact: "2.1.0"),
     .package(url: "https://github.com/Alamofire/Alamofire", exact: "5.12.0"),
     .package(url: "https://github.com/onevcat/Kingfisher.git", exact: "8.14.0"),
+    .package(url: "https://github.com/airbnb/lottie-spm.git", exact: "4.5.2"),
     .package(url: "https://github.com/mixpanel/mixpanel-swift.git", exact: "7.0.0"),
     .package(url: "https://github.com/getsentry/sentry-apple-binaries.git", exact: "9.30.1")
   ]
