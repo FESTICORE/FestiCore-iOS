@@ -21,6 +21,15 @@ extension InfoPlistDictionary {
   func setFestiCoreAPIHost(_ value: String) -> Self { set("FestiCoreAPIHost", .string(value)) }
   func setFestiCoreMixpanelToken(_ value: String) -> Self { set("FestiCoreMixpanelToken", .string(value)) }
   func setFestiCoreSentryDSN(_ value: String) -> Self { set("FestiCoreSentryDSN", .string(value)) }
+  func setNSExtension(pointIdentifier: String, principalClass: String? = nil) -> Self {
+    var values: [String: Plist.Value] = [
+      "NSExtensionPointIdentifier": .string(pointIdentifier)
+    ]
+    if let principalClass {
+      values["NSExtensionPrincipalClass"] = .string(principalClass)
+    }
+    return set("NSExtension", .dictionary(values))
+  }
   func setUILaunchScreen() -> Self { set("UILaunchScreen", .dictionary([:])) }
   func setUISupportedInterfaceOrientations(_ values: [String]) -> Self {
     set("UISupportedInterfaceOrientations", .array(values.map(Plist.Value.string)))
