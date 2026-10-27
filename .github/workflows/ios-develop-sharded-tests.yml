@@ -63,7 +63,7 @@ jobs:
 
       - name: Select simulator
         run: |
-          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py --require-shutdown)"
+          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py --prefer-shutdown)"
           echo "SIMULATOR_DESTINATION=$SIMULATOR_DESTINATION" >> "$GITHUB_ENV"
 
       - name: Prepare simulator
@@ -170,7 +170,7 @@ jobs:
 
       - name: Select simulator
         run: |
-          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py --require-shutdown)"
+          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py --prefer-shutdown)"
           echo "SIMULATOR_DESTINATION=$SIMULATOR_DESTINATION" >> "$GITHUB_ENV"
 
       - name: Prepare simulator

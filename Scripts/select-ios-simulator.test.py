@@ -72,7 +72,7 @@ class SimulatorSelectionTests(unittest.TestCase):
                 device("iPhone Duo", "booted", state="Booted"),
                 device("iPhone Duo (CI)", "shutdown"),
             ],
-        }, "--require-shutdown")
+        }, "--prefer-shutdown")
         self.assertEqual(ci.returncode, 0, ci.stderr)
         self.assertEqual(ci.stdout.strip(), "platform=iOS Simulator,id=shutdown")
 
@@ -114,14 +114,18 @@ class SimulatorSelectionTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("사용 가능한 iOS 시뮬레이터 런타임이 없습니다", result.stderr)
 
-    def test_ci_fails_instead_of_reusing_booted_duo(self) -> None:
+    def test_ci_reuses_most_recent_booted_duo_when_none_are_shutdown(self) -> None:
         latest = runtime("27.1")
-        devices = {latest["identifier"]: [device("iPhone Duo", "in-use", state="Booted")]}
+        older = device("iPhone Duo", "older", state="Booted")
+        older["lastUsedAt"] = "2026-10-26T03:16:53Z"
+        recent = device("iPhone Duo", "recent", state="Booted")
+        recent["lastUsedAt"] = "2026-10-27T14:44:04Z"
+        devices = {latest["identifier"]: [older, recent]}
         local = self.run_selector([latest], devices)
-        ci = self.run_selector([latest], devices, "--require-shutdown")
-        self.assertEqual(local.stdout.strip(), "platform=iOS Simulator,id=in-use")
-        self.assertNotEqual(ci.returncode, 0)
-        self.assertIn("종료된 iPhone Duo가 없습니다", ci.stderr)
+        ci = self.run_selector([latest], devices, "--prefer-shutdown")
+        self.assertEqual(local.stdout.strip(), "platform=iOS Simulator,id=older")
+        self.assertEqual(ci.returncode, 0, ci.stderr)
+        self.assertEqual(ci.stdout.strip(), "platform=iOS Simulator,id=recent")
 
     def test_fails_clearly_on_malformed_runtime_version(self) -> None:
         latest = runtime("27.1")
