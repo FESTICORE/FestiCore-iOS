@@ -89,7 +89,10 @@ jobs:
           mise exec -- tuist setup cache
           mise exec -- tuist install
           ./make generate --no-open
-          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py)"
+          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py --ci-duo)"
+          echo "SIMULATOR_DESTINATION=$SIMULATOR_DESTINATION" >> "$GITHUB_ENV"
+          export SIMULATOR_DESTINATION
+          ./Scripts/prepare-ios-simulator.sh
           xcodebuild test \
             -workspace FestiCore.xcworkspace \
             -scheme FestiCoreDesignKit \
@@ -129,6 +132,14 @@ jobs:
           report = json.load(open(sys.argv[1], encoding="utf-8"))
           assert report.get("executableLines", 0) > 0, "Coverage contains no executable lines"
           PY
+
+      - name: Shut down design token test simulator
+        if: always()
+        run: |
+          SIMULATOR_UDID="${SIMULATOR_DESTINATION##*,id=}"
+          if [[ -n "$SIMULATOR_UDID" && "${SIMULATOR_BOOTED_BY_JOB:-}" == "$SIMULATOR_UDID" ]]; then
+            xcrun simctl shutdown "$SIMULATOR_UDID" || true
+          fi
 
       - name: Upload verified snapshot
         id: upload
