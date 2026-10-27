@@ -16,10 +16,8 @@ import ServiceAssembly
 @main
 struct FestiCoreApp: App {
   @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-  private let configuration: AppConfiguration?
 
   init() {
-    configuration = AppConfiguration(infoDictionary: Bundle.main.infoDictionary ?? [:])
     prepareDependencies {
       ServiceDependencyAssembly.register(into: &$0)
     }
@@ -27,7 +25,7 @@ struct FestiCoreApp: App {
 
   var body: some Scene {
     WindowGroup {
-      let store = Store(initialState: AppCoordinator.State(configurationIsAvailable: configuration != nil)) {
+      let store = Store(initialState: AppCoordinator.State()) {
         AppCoordinator()
       }
 
