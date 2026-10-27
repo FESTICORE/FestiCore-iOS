@@ -34,18 +34,20 @@ struct FestiCoreDesignKitTests {
     #expect(FestiCoreSpacing.marginM12 == 12)
     #expect(FestiCoreRadius.r12 == 12)
     #expect(FestiCoreState.disabledOpacity == 0.3)
-    #expect(FestiCoreTypography.baseBodyRegular.size == 17)
-    #expect(FestiCoreTypography.baseBodyRegular.lineHeight == 1.529)
-    let body = FestiCoreTypography.baseBodyRegular
+    #expect(FestiCoreTextStyle.baseBodyRegular.size == 17)
+    #expect(FestiCoreTextStyle.baseBodyRegular.lineHeight == 1.529)
+    let body = FestiCoreTextStyle.baseBodyRegular
     #expect(body.resolvedFont.fontName == PretendardFontFamily.regular.postScriptName)
     #expect(abs(body.resolvedFont.lineHeight + body.resolvedLineSpacing - body.size * body.lineHeight) < 0.01)
-    #expect(FestiCoreTypography.pointDisplay.fontFamily == "Bagel Fat One")
-    #expect(FestiCoreTypography.pointDisplay.resolvedFont.fontName == "BagelFatOne-Regular")
+    let point = FestiCoreTextStyle.pointDisplay
+    #expect(point.fontFamily == .regular)
+    #expect(point.resolvedFont.fontName == PretendardFontFamily.regular.postScriptName)
+    #expect(point.size == 40)
   }
 
   @Test @MainActor func tokensComposeWithSwiftUIModifiers() {
     let label = Text("Festival")
-      .festiCoreTextStyle(FestiCoreTypography.baseBodyRegular)
+      .festiCoreTextStyle(.baseBodyRegular)
       .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       .padding(FestiCoreSpacing.marginM12)
     let controller = UIHostingController(rootView: label)
@@ -54,6 +56,19 @@ struct FestiCoreDesignKitTests {
     let styled = Rectangle().foregroundStyle(.labelNormal)
     let shapeController = UIHostingController(rootView: styled)
     #expect(shapeController.view != nil)
+  }
+
+  @Test @MainActor func typographyModifierUsesFixedTokenSizeAcrossContentSizeCategories() {
+    let style = FestiCoreTextStyle.baseBodyRegular
+    let standard = UIHostingController(rootView: Text("Festival")
+      .festiCoreTextStyle(style)
+      .environment(\.sizeCategory, .large))
+    let accessibility = UIHostingController(rootView: Text("Festival")
+      .festiCoreTextStyle(style)
+      .environment(\.sizeCategory, .accessibilityExtraExtraExtraLarge))
+
+    #expect(standard.view.sizeThatFits(CGSize(width: 300, height: 300)) ==
+      accessibility.view.sizeThatFits(CGSize(width: 300, height: 300)))
   }
 
   @Test @MainActor func missingImageAssetUsesAttendanceFallback() {

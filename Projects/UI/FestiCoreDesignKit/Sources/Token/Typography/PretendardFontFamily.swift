@@ -24,7 +24,7 @@ public enum PretendardFontFamily {
 
   private static let registration: Void = {
     var registeredPaths = Set<String>()
-    // 폰트 등록 목록에는 Pretendard와 Bagel Fat One 번들이 함께 포함된다.
+    // 생성된 폰트 등록 목록에서 같은 경로는 한 번만 등록한다.
     for font in FestiCoreDesignKitFontFamily.allCustomFonts
     where registeredPaths.insert(font.path).inserted {
       font.register()

@@ -32,6 +32,6 @@ public extension UIFont {
 public extension Font {
   static func pretendardFontFamily(family: PretendardFontFamily, size: CGFloat) -> Font {
     PretendardFontFamily.registerFonts()
-    return .custom(family.postScriptName, size: size)
+    return .custom(family.postScriptName, fixedSize: size)
   }
 }

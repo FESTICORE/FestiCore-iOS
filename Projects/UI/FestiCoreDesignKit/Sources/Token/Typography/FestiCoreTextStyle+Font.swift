@@ -13,14 +13,8 @@ public extension FestiCoreTextStyle {
   }
 
   var resolvedFont: UIFont {
-    if fontFamily == "Bagel Fat One" {
-      // Tuist가 번들한 두 서체는 한 번에 등록된다.
-      PretendardFontFamily.registerFonts()
-      return UIFont(name: "BagelFatOne-Regular", size: size) ?? .systemFont(ofSize: size)
-    }
-
     return UIFont.pretendardFontFamily(
-      family: PretendardFontFamily(weight: weight),
+      family: fontFamily,
       size: size
     )
   }
