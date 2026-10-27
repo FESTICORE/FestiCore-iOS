@@ -20,6 +20,9 @@ struct FestiCoreAnimationTests {
     #expect(shortened.duration(.nan).targetDuration == 2)
     #expect(shortened.speed(for: 6) == 3)
     #expect(shortened.speed(for: .infinity) == 1)
+    #expect(original.speedOverride(for: 6) == nil)
+    #expect(shortened.speedOverride(for: 6) == 3)
+    #expect(shortened.speedOverride(for: .infinity) == nil)
   }
 
   @Test func remoteSourceRequiresHTTPSAndKeepsExplicitFormat() {

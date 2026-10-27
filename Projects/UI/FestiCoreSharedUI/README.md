@@ -8,4 +8,4 @@ FestiCoreRemoteImage(url: imageURL)
   .frame(width: 120, height: 120)
 ```
 
-`.content(.fit)`으로 이미지 전체가 보이게 할 수 있습니다. 원격 SVG 처리기는 포함하지 않습니다.
+`.content(.fit)`으로 이미지 전체가 보이게 할 수 있습니다. 이미지 크기는 호출부의 `.frame(width:height:)` 또는 `.aspectRatio(_:)`로 지정합니다. URL이 없거나 로딩·실패 중에는 `fillNormal`을 표시하고, 성공한 이미지의 투명 영역에는 부모 배경이 보입니다. 원격 SVG 처리기는 포함하지 않습니다.

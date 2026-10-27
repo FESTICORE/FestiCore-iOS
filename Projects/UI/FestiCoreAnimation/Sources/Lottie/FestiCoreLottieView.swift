@@ -55,7 +55,11 @@ public struct FestiCoreLottieView: View {
           LottieView(dotLottieFile: file)
             .looping()
             // .lottie 파일은 여러 애니메이션을 담을 수 있어 실제 재생 중인 길이를 사용한다.
-            .configure { view in view.animationSpeed = speed(for: view.animation?.duration) }
+            .configure { view in
+              if let speed = speedOverride(for: view.animation?.duration), view.animationSpeed != speed {
+                view.animationSpeed = speed
+              }
+            }
             .resizable()
         } else {
           ProgressView()
@@ -72,12 +76,16 @@ public struct FestiCoreLottieView: View {
   }
 
   func speed(for intrinsicDuration: TimeInterval?) -> Double {
+    speedOverride(for: intrinsicDuration) ?? 1
+  }
+
+  func speedOverride(for intrinsicDuration: TimeInterval?) -> Double? {
     guard let targetDuration,
           let intrinsicDuration,
           intrinsicDuration.isFinite,
-          intrinsicDuration > 0 else { return 1 }
+          intrinsicDuration > 0 else { return nil }
     let result = intrinsicDuration / targetDuration
-    return result.isFinite && result > 0 ? result : 1
+    return result.isFinite && result > 0 ? result : nil
   }
 
   func taskID(url: URL, format: FestiCoreLottieFormat) -> String {

@@ -27,4 +27,13 @@ struct FestiCoreSharedUITests {
 
     #expect(controller.sizeThatFits(in: CGSize(width: 200, height: 200)) == CGSize(width: 84, height: 50))
   }
+
+  @Test @MainActor func fittedRemoteImageKeepsCallerFrame() {
+    let image = FestiCoreRemoteImage(url: URL(string: "https://example.invalid/photo.png"))
+      .content(.fit)
+      .frame(width: 120, height: 80)
+    let controller = UIHostingController(rootView: image)
+
+    #expect(controller.sizeThatFits(in: CGSize(width: 200, height: 200)) == CGSize(width: 120, height: 80))
+  }
 }
