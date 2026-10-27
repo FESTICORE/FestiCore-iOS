@@ -7,7 +7,6 @@
 
 import ComposableArchitecture
 import FeatureAssembly
-import Foundation
 import TCAFlow
 
 @FlowCoordinator(screen: "AppScreen", navigation: true)
@@ -15,10 +14,6 @@ struct AppCoordinator {
   @ObservableState
   struct State: Equatable {
     var routes: [Route<AppScreen.State>]
-
-    init() {
-      self.init(configurationIsAvailable: AppConfiguration(infoDictionary: Bundle.main.infoDictionary ?? [:]) != nil)
-    }
 
     init(configurationIsAvailable: Bool) {
       routes = [
