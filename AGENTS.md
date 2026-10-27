@@ -17,15 +17,15 @@
 2. 변경 범위를 좁게 유지하고 기능별 커밋으로 분리한다. 커밋 제목과 본문은 한국어로 작성하고, 제목 끝에 해당 작업 이슈 번호를 `#27`처럼 붙인다.
 3. `feature/<작업명>` 브랜치에서 작업하고 PR은 `develop`으로 보낸다. 브랜치 이름과 커밋의 이슈 번호는 구별한다. PR 변경 규모는 2,000줄 이내로 유지한다.
 4. 새 라이브러리나 앱 전용 자산을 추가하기 전에 현재 `Tuist/Package.swift`와 관련 모듈을 확인한다. 자격 증명과 로컬 설정을 추적 파일에 넣지 않는다.
-5. 변경 후 관련 테스트와 `git diff --check`를 실행하고, 실제로 확인한 범위만 보고한다. 테스트·CI·실기기 검증은 구별한다.
-6. 10분 동안 의미 있는 편집이 없거나 같은 접근이 두 번 실패하면 중단하고 시도 결과와 다음 접근을 사용자에게 확인한다. 승인 없이 같은 수정의 세 번째 시도를 하지 않는다.
+5. 변경 후 관련 테스트와 `git diff --check`를 실행하고, 실제로 확인한 범위만 보고한다. `./make test`와 CI의 iOS 시뮬레이터 테스트는 최신 사용 가능 iOS 런타임의 iPhone Duo에서 실행한다. 테스트·CI·실기기 검증은 구별한다.
+6. 10분 동안 의미 있는 편집이 없으면 현재 진행 상황과 다음 접근을 사용자에게 알린다.
 
 ## TCA와 의존성 주입
 
 - 앱은 `FestiCoreApp`에서 `AppCoordinator` Store를 만들고 `AppCoordinatorView`를 표시한다. 화면 전환은 `AppCoordinator`와 TCAFlow가 소유한다.
 - Feature는 `@Reducer`로 상태와 동작을 정의하고 View에는 `StoreOf<Feature>`를 전달한다. 앱이 개별 Feature 구현을 직접 import하지 않도록 `FeatureAssembly`에서 공개한다.
-- Point-Free Dependencies를 사용한다. 의존성 인터페이스는 해당 Core·Service 모듈에, 라이브 구현의 `DependencyKey.liveValue`는 구현 또는 조립 모듈에 둔다. 앱 시작점에서 DI 컨테이너를 만들거나 `prepareDependencies`로 전체 등록을 반복하지 않는다.
-- Feature는 `@Dependency`로 필요한 인터페이스를 사용하고 테스트에서 결정적인 대역을 주입한다. `ServiceAssembly`의 명시적 `register(into:)`는 별도의 주입 범위를 구성할 때만 사용한다. WeaveDI는 사용하지 않는다.
+- Point-Free Dependencies를 사용한다. 의존성 인터페이스는 해당 Core·Service 모듈에, 라이브 구현의 `DependencyKey.liveValue`는 구현 또는 조립 모듈에 둔다. 앱 시작점에서는 `prepareDependencies`로 `ServiceDependencyAssembly.register(into:)`를 한 번 실행하며 별도 런타임 DI 컨테이너는 만들지 않는다.
+- Feature는 `@Dependency`로 필요한 인터페이스를 사용하고 테스트에서 결정적인 대역을 주입한다. 테스트나 별도 `DependencyValues` 범위에서는 필요한 `register(into:)`를 명시적으로 호출한다. WeaveDI는 사용하지 않는다.
 
 ## Claudex Loop
 

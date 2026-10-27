@@ -19,7 +19,7 @@
 | `./make install --no-open` | 의존성과 캐시를 준비한 뒤 워크스페이스 생성 |
 | `./make generate --no-open` | 현재 의존성으로 워크스페이스 재생성 |
 | `./make build` | 서명 없는 Stage 시뮬레이터 빌드 |
-| `./make test` | 설치된 iPhone 시뮬레이터에서 Stage 테스트 플랜 전체 실행 |
+| `./make test` | 최신 사용 가능 iOS 런타임의 iPhone Duo에서 Stage 테스트 플랜 전체 실행 ([대상 선택](testing-ci.md)) |
 | `./make cache` | 외부 모듈 바이너리 캐시 준비 |
 | `./make cache:setup` | Xcode Compilation Cache 설정 |
 | `./make help` | 지원 명령 표시 |

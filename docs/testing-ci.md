@@ -2,7 +2,7 @@
 
 ## 로컬 테스트
 
-`./make test`는 `FestiCore-Stage` 스킴의 `FestiCore` 테스트 플랜을 실행합니다. `TuistTool.swift`는 `--no-selective-testing`을 사용하므로 전체 플랜을 대상으로 합니다. 새 테스트 타깃은 `Projects/App/Tests/FestiCore.xctestplan`에도 등록해야 합니다. 실행할 iPhone 시뮬레이터는 `Scripts/select-ios-simulator.py`가 선택합니다.
+`./make test`는 `FestiCore-Stage` 스킴의 `FestiCore` 테스트 플랜을 실행합니다. `TuistTool.swift`는 `--no-selective-testing`을 사용하므로 전체 플랜을 대상으로 합니다. 새 테스트 타깃은 `Projects/App/Tests/FestiCore.xctestplan`에도 등록해야 합니다. `Scripts/select-ios-simulator.py`는 최신 사용 가능 iOS 런타임의 iPhone Duo를 선택하며, 해당 런타임에 Duo가 없으면 실패합니다. 로컬 테스트는 이미 부팅된 Duo를 우선합니다. CI는 종료된 Duo만 선택해 이미 부팅된 기기를 재사용하지 않으며, 완료나 실패 시 선택한 기기를 종료합니다. 사용 가능한 Duo가 모두 부팅되어 선택이 실패하면 공유 Mac의 기기 상태를 확인해야 합니다.
 
 ```bash
 ./make test

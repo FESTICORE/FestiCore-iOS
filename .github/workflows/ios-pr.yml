@@ -91,13 +91,16 @@ jobs:
             ShardBuildRunReport.json \
             TuistShardBuild.log
 
-      # Xcode 업데이트 뒤에도 러너에 실제 설치된 최신 iPhone runtime을 사용한다.
+      - name: Test simulator selector
+        run: python3 Scripts/select-ios-simulator.test.py
+
+      # 최신 사용 가능 iOS 런타임의 iPhone Duo를 선택한다. 없으면 실패한다.
       - name: Select simulator
         run: |
-          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py)"
+          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py --require-shutdown)"
           echo "SIMULATOR_DESTINATION=$SIMULATOR_DESTINATION" >> "$GITHUB_ENV"
 
-      # 사용 중인 개발용 기기 대신 유휴 기기를 부팅하고 actool의 CoreSimulator spawn을 미리 검증한다.
+      # 종료된 Duo만 선택해 부팅하고 actool의 CoreSimulator spawn을 미리 검증한다. 없으면 실패한다.
       - name: Prepare simulator
         run: ./Scripts/prepare-ios-simulator.sh
 
@@ -247,7 +250,7 @@ jobs:
 
       - name: Select simulator
         run: |
-          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py)"
+          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py --require-shutdown)"
           echo "SIMULATOR_DESTINATION=$SIMULATOR_DESTINATION" >> "$GITHUB_ENV"
 
       - name: Prepare simulator

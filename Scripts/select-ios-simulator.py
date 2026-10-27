@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 
-"""Print the destination for the newest available iPhone simulator."""
+"""Print the newest available iOS runtime's iPhone Duo destination."""
 
+import argparse
 import json
-import re
 import subprocess
 import sys
 
 
-def runtime_version(identifier: str) -> tuple[int, ...]:
-    return tuple(map(int, re.findall(r"\d+", identifier)))
+DUO_TYPE = "com.apple.CoreSimulator.SimDeviceType.iPhone-Duo"
+
+
+def runtime_version(runtime: dict) -> tuple[int, ...]:
+    try:
+        return tuple(int(part) for part in runtime["version"].split("."))
+    except (KeyError, AttributeError, ValueError):
+        raise SystemExit(f"iOS 런타임 버전 형식이 올바르지 않습니다: {runtime.get('identifier', 'unknown')}")
 
 
 def load_simulators() -> dict:
@@ -18,25 +24,47 @@ def load_simulators() -> dict:
         if stdin:
             return json.loads(stdin)
 
-    output = subprocess.check_output(
-        ["xcrun", "simctl", "list", "devices", "available", "--json"],
-        text=True,
-    )
-    return json.loads(output)
+    return {
+        kind: json.loads(subprocess.check_output(
+            ["xcrun", "simctl", "list", kind, "available", "--json"], text=True,
+        ))[kind]
+        for kind in ("runtimes", "devices")
+    }
 
 
-devices_by_runtime = load_simulators().get("devices", {})
-for runtime in sorted(devices_by_runtime, key=runtime_version, reverse=True):
-    available_iphones = [
-        device
-        for device in devices_by_runtime[runtime]
-        if device.get("isAvailable", True)
-        and device.get("name", "").startswith("iPhone")
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--require-shutdown", action="store_true", help="Require an unused Duo for CI")
+    args = parser.parse_args()
+    simulators = load_simulators()
+    ios_runtimes = [
+        runtime for runtime in simulators.get("runtimes", [])
+        if runtime.get("platform") == "iOS" and runtime.get("isAvailable")
     ]
+    if not ios_runtimes:
+        raise SystemExit("사용 가능한 iOS 시뮬레이터 런타임이 없습니다.")
 
-    available_iphones.sort(key=lambda device: device.get("state") != "Shutdown")
-    if available_iphones:
-        print(f"platform=iOS Simulator,id={available_iphones[0]['udid']}")
-        raise SystemExit
+    latest = max(ios_runtimes, key=runtime_version)
+    available_duos = [
+        device for device in simulators.get("devices", {}).get(latest["identifier"], [])
+        if device.get("isAvailable", True)
+        and device.get("deviceTypeIdentifier") == DUO_TYPE
+        and device.get("udid")
+    ]
+    if not available_duos:
+        raise SystemExit(f"최신 iOS 런타임({latest['identifier']})에 사용 가능한 iPhone Duo가 없습니다.")
 
-raise SystemExit("사용 가능한 iPhone 시뮬레이터가 없습니다.")
+    if args.require_shutdown:
+        available_duos = [device for device in available_duos if device.get("state") == "Shutdown"]
+        if not available_duos:
+            raise SystemExit(f"최신 iOS 런타임({latest['identifier']})에 종료된 iPhone Duo가 없습니다.")
+
+    preferred_state = "Shutdown" if args.require_shutdown else "Booted"
+    available_duos.sort(key=lambda device: (
+        device.get("state") != preferred_state, device.get("name", ""), device["udid"],
+    ))
+    print(f"platform=iOS Simulator,id={available_duos[0]['udid']}")
+
+
+if __name__ == "__main__":
+    main()

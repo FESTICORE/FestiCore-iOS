@@ -63,7 +63,7 @@ jobs:
 
       - name: Select simulator
         run: |
-          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py)"
+          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py --require-shutdown)"
           echo "SIMULATOR_DESTINATION=$SIMULATOR_DESTINATION" >> "$GITHUB_ENV"
 
       - name: Prepare simulator
@@ -122,6 +122,14 @@ jobs:
             --configuration Stage \
             --derived-data-path "$CI_DERIVED_DATA"
 
+      - name: Shut down shard build simulator
+        if: always()
+        run: |
+          SIMULATOR_UDID="${SIMULATOR_DESTINATION##*,id=}"
+          if [[ -n "$SIMULATOR_UDID" && "$SIMULATOR_UDID" != "$SIMULATOR_DESTINATION" ]]; then
+            xcrun simctl shutdown "$SIMULATOR_UDID" || true
+          fi
+
       - name: Clean build DerivedData
         if: always()
         run: |
@@ -162,7 +170,7 @@ jobs:
 
       - name: Select simulator
         run: |
-          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py)"
+          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py --require-shutdown)"
           echo "SIMULATOR_DESTINATION=$SIMULATOR_DESTINATION" >> "$GITHUB_ENV"
 
       - name: Prepare simulator
@@ -200,6 +208,14 @@ jobs:
             -collect-test-diagnostics never \
             CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=YES
+
+      - name: Shut down test shard simulator
+        if: always()
+        run: |
+          SIMULATOR_UDID="${SIMULATOR_DESTINATION##*,id=}"
+          if [[ -n "$SIMULATOR_UDID" && "$SIMULATOR_UDID" != "$SIMULATOR_DESTINATION" ]]; then
+            xcrun simctl shutdown "$SIMULATOR_UDID" || true
+          fi
 
       - name: Clean shard DerivedData
         if: always()
