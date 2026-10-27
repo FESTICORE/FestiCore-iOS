@@ -25,13 +25,13 @@ public extension View {
 public extension UIFont {
   static func pretendardFontFamily(family: PretendardFontFamily, size: CGFloat) -> UIFont {
     PretendardFontFamily.registerFonts()
-    return UIFont(name: family.postScriptName, size: size) ?? .systemFont(ofSize: size)
+    return UIFont(name: "PretendardVariable-\(family)", size: size) ?? .systemFont(ofSize: size)
   }
 }
 
 public extension Font {
   static func pretendardFontFamily(family: PretendardFontFamily, size: CGFloat) -> Font {
     PretendardFontFamily.registerFonts()
-    return .custom(family.postScriptName, fixedSize: size)
+    return .custom("PretendardVariable-\(family)", fixedSize: size)
   }
 }

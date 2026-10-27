@@ -15,10 +15,11 @@ struct FestiCoreDesignKitTests {
     PretendardFontFamily.registerFonts()
     PretendardFontFamily.registerFonts()
 
-    for family in [PretendardFontFamily.regular, .medium, .bold] {
+    for family in [PretendardFontFamily.Regular, .Medium, .Bold] {
       let font = UIFont.pretendardFontFamily(family: family, size: 17)
-      #expect(font.fontName == family.postScriptName)
-      #expect(UIFont(name: family.postScriptName, size: 17) != nil)
+      let fontName = "PretendardVariable-\(family)"
+      #expect(font.fontName == fontName)
+      #expect(UIFont(name: fontName, size: 17) != nil)
       _ = Font.pretendardFontFamily(family: family, size: 17)
     }
   }
@@ -37,11 +38,11 @@ struct FestiCoreDesignKitTests {
     #expect(FestiCoreTextStyle.baseBodyRegular.size == 17)
     #expect(FestiCoreTextStyle.baseBodyRegular.lineHeight == 1.529)
     let body = FestiCoreTextStyle.baseBodyRegular
-    #expect(body.resolvedFont.fontName == PretendardFontFamily.regular.postScriptName)
+    #expect(body.resolvedFont.fontName == "PretendardVariable-Regular")
     #expect(abs(body.resolvedFont.lineHeight + body.resolvedLineSpacing - body.size * body.lineHeight) < 0.01)
     let point = FestiCoreTextStyle.pointDisplay
-    #expect(point.fontFamily == .regular)
-    #expect(point.resolvedFont.fontName == PretendardFontFamily.regular.postScriptName)
+    #expect(point.fontFamily == .Regular)
+    #expect(point.resolvedFont.fontName == "PretendardVariable-Regular")
     #expect(point.size == 40)
   }
 
