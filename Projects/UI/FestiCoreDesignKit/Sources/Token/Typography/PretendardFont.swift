@@ -7,6 +7,10 @@
 
 import SwiftUI
 
+private enum PretendardFontRegistration {
+  static let once: Void = PretendardFontFamily.registerFonts()
+}
+
 public struct PretendardFont: ViewModifier {
   public let family: PretendardFontFamily
   public let size: CGFloat
@@ -24,14 +28,14 @@ public extension View {
 
 public extension UIFont {
   static func pretendardFontFamily(family: PretendardFontFamily, size: CGFloat) -> UIFont {
-    PretendardFontFamily.registerFonts()
-    return UIFont(name: family.postScriptName, size: size) ?? .systemFont(ofSize: size)
+    _ = PretendardFontRegistration.once
+    return UIFont(name: "PretendardVariable-\(family)", size: size) ?? .systemFont(ofSize: size)
   }
 }
 
 public extension Font {
   static func pretendardFontFamily(family: PretendardFontFamily, size: CGFloat) -> Font {
-    PretendardFontFamily.registerFonts()
-    return .custom(family.postScriptName, size: size)
+    _ = PretendardFontRegistration.once
+    return .custom("PretendardVariable-\(family)", fixedSize: size)
   }
 }

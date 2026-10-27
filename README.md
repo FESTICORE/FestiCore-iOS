@@ -24,7 +24,7 @@ FestiCore는 축제를 위한 iOS 앱입니다. 현재 저장소에는 앱 진�
 
 - Stage·Prod 앱과 TCA 기반 Home 화면
 - 네트워크·인증·저장소·로깅의 모듈 경계와 의존성 조립
-- 코드 기반 색상, Pretendard 타이포그래피, 공통 UI
+- 코드 기반 색상, base·point Pretendard 타이포그래피, 공통 UI
 - ActivityKit 공유 모델과 독립 WidgetKit 확장
 - Swift Testing, Tuist 프로젝트 생성 및 PR CI
 
