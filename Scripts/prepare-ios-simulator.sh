@@ -10,7 +10,10 @@ if [[ -z "$simulator_udid" || "$simulator_udid" == "$destination" ]]; then
   exit 1
 fi
 
-xcrun simctl boot "$simulator_udid" 2>/dev/null || true
+xcrun simctl boot "$simulator_udid"
+if [[ -n "${GITHUB_ENV:-}" ]]; then
+  echo "SIMULATOR_BOOTED_BY_JOB=$simulator_udid" >> "$GITHUB_ENV"
+fi
 xcrun simctl bootstatus "$simulator_udid" -b
 xcrun simctl spawn "$simulator_udid" /usr/bin/true
 

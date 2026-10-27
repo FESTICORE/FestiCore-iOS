@@ -3,13 +3,16 @@
 """Regression tests for the local and CI simulator destination."""
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 
 
 SCRIPT = Path(__file__).with_name("select-ios-simulator.py")
+PREPARE_SCRIPT = Path(__file__).with_name("prepare-ios-simulator.sh")
 DUO_TYPE = "com.apple.CoreSimulator.SimDeviceType.iPhone-Duo"
 
 
@@ -127,6 +130,42 @@ class SimulatorSelectionTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("iOS 런타임 버전 형식이 올바르지 않습니다", result.stderr)
         self.assertNotIn("Traceback", result.stderr)
+
+
+class SimulatorPreparationTests(unittest.TestCase):
+    def run_prepare(self, boot_fails: bool) -> tuple[subprocess.CompletedProcess[str], str]:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            xcrun = path / "xcrun"
+            xcrun.write_text(
+                "#!/bin/sh\n"
+                "if [ \"$2\" = boot ] && [ \"$MOCK_BOOT_FAIL\" = 1 ]; then exit 1; fi\n"
+                "exit 0\n"
+            )
+            xcrun.chmod(0o755)
+            github_env = path / "github-env"
+            environment = os.environ.copy()
+            environment.update({
+                "PATH": f"{directory}:{environment['PATH']}",
+                "SIMULATOR_DESTINATION": "platform=iOS Simulator,id=duo-id",
+                "GITHUB_ENV": str(github_env),
+                "MOCK_BOOT_FAIL": "1" if boot_fails else "0",
+            })
+            result = subprocess.run(
+                ["bash", str(PREPARE_SCRIPT)], env=environment,
+                text=True, capture_output=True, check=False,
+            )
+            return result, github_env.read_text() if github_env.exists() else ""
+
+    def test_marks_successfully_booted_duo_as_owned(self) -> None:
+        result, marker = self.run_prepare(boot_fails=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(marker, "SIMULATOR_BOOTED_BY_JOB=duo-id\n")
+
+    def test_does_not_claim_duo_when_boot_fails(self) -> None:
+        result, marker = self.run_prepare(boot_fails=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(marker, "")
 
 
 if __name__ == "__main__":

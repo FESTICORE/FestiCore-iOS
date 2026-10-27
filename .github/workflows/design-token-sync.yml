@@ -91,6 +91,8 @@ jobs:
           ./make generate --no-open
           SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py --require-shutdown)"
           echo "SIMULATOR_DESTINATION=$SIMULATOR_DESTINATION" >> "$GITHUB_ENV"
+          export SIMULATOR_DESTINATION
+          ./Scripts/prepare-ios-simulator.sh
           xcodebuild test \
             -workspace FestiCore.xcworkspace \
             -scheme FestiCoreDesignKit \
@@ -135,7 +137,7 @@ jobs:
         if: always()
         run: |
           SIMULATOR_UDID="${SIMULATOR_DESTINATION##*,id=}"
-          if [[ -n "$SIMULATOR_UDID" && "$SIMULATOR_UDID" != "$SIMULATOR_DESTINATION" ]]; then
+          if [[ -n "$SIMULATOR_UDID" && "${SIMULATOR_BOOTED_BY_JOB:-}" == "$SIMULATOR_UDID" ]]; then
             xcrun simctl shutdown "$SIMULATOR_UDID" || true
           fi
 

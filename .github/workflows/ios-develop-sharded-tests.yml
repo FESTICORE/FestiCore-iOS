@@ -126,7 +126,7 @@ jobs:
         if: always()
         run: |
           SIMULATOR_UDID="${SIMULATOR_DESTINATION##*,id=}"
-          if [[ -n "$SIMULATOR_UDID" && "$SIMULATOR_UDID" != "$SIMULATOR_DESTINATION" ]]; then
+          if [[ -n "$SIMULATOR_UDID" && "${SIMULATOR_BOOTED_BY_JOB:-}" == "$SIMULATOR_UDID" ]]; then
             xcrun simctl shutdown "$SIMULATOR_UDID" || true
           fi
 
@@ -213,7 +213,7 @@ jobs:
         if: always()
         run: |
           SIMULATOR_UDID="${SIMULATOR_DESTINATION##*,id=}"
-          if [[ -n "$SIMULATOR_UDID" && "$SIMULATOR_UDID" != "$SIMULATOR_DESTINATION" ]]; then
+          if [[ -n "$SIMULATOR_UDID" && "${SIMULATOR_BOOTED_BY_JOB:-}" == "$SIMULATOR_UDID" ]]; then
             xcrun simctl shutdown "$SIMULATOR_UDID" || true
           fi
 
