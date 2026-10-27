@@ -9,6 +9,7 @@ import sys
 
 
 DUO_TYPE = "com.apple.CoreSimulator.SimDeviceType.iPhone-Duo"
+CI_DUO_NAME = "FestiCore CI iPhone Duo"
 
 
 def runtime_version(runtime: dict) -> tuple[int, ...]:
@@ -34,7 +35,7 @@ def load_simulators() -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--prefer-shutdown", action="store_true", help="Prefer an unused Duo for CI")
+    parser.add_argument("--ci-duo", action="store_true", help="Use the dedicated FestiCore CI Duo")
     args = parser.parse_args()
     simulators = load_simulators()
     ios_runtimes = [
@@ -54,17 +55,18 @@ def main() -> None:
     if not available_duos:
         raise SystemExit(f"최신 iOS 런타임({latest['identifier']})에 사용 가능한 iPhone Duo가 없습니다.")
 
-    if args.prefer_shutdown:
-        shutdown_duos = [device for device in available_duos if device.get("state") == "Shutdown"]
-        if shutdown_duos:
-            available_duos = shutdown_duos
-        else:
-            # CI가 남긴 부팅 상태가 모두 남아 있으면 최근 사용한 Duo를 재사용한다.
-            available_duos.sort(key=lambda device: (device.get("lastUsedAt", ""), device["udid"]), reverse=True)
-            print(f"platform=iOS Simulator,id={available_duos[0]['udid']}")
-            return
+    if args.ci_duo:
+        available_duos = [device for device in available_duos if device.get("name") == CI_DUO_NAME]
+        if len(available_duos) != 1:
+            raise SystemExit(f"최신 iOS 런타임({latest['identifier']})에 CI 전용 iPhone Duo가 정확히 한 대 있어야 합니다: {CI_DUO_NAME}")
+        if available_duos[0].get("state") not in ("Booted", "Shutdown"):
+            raise SystemExit(f"CI 전용 iPhone Duo가 준비 중인 상태입니다: {available_duos[0].get('state')}")
+    else:
+        available_duos = [device for device in available_duos if device.get("name") != CI_DUO_NAME]
+        if not available_duos:
+            raise SystemExit(f"최신 iOS 런타임({latest['identifier']})에 개인 작업용 iPhone Duo가 없습니다.")
 
-    preferred_state = "Shutdown" if args.prefer_shutdown else "Booted"
+    preferred_state = "Booted"
     available_duos.sort(key=lambda device: (
         device.get("state") != preferred_state, device.get("name", ""), device["udid"],
     ))

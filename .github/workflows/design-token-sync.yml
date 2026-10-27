@@ -89,7 +89,7 @@ jobs:
           mise exec -- tuist setup cache
           mise exec -- tuist install
           ./make generate --no-open
-          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py --prefer-shutdown)"
+          SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py --ci-duo)"
           echo "SIMULATOR_DESTINATION=$SIMULATOR_DESTINATION" >> "$GITHUB_ENV"
           export SIMULATOR_DESTINATION
           ./Scripts/prepare-ios-simulator.sh
