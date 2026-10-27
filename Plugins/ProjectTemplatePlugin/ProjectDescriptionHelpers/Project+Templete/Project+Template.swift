@@ -67,6 +67,7 @@ public extension Project {
     name: String,
     product: Product = .staticFramework,
     dependencies: [TargetDependency] = [],
+    targetSettings: Settings? = nil,
     sources _: SourceFilesList = ["Sources/**"],
     resources: ResourceFileElements? = nil,
     testResources _: ResourceFileElements? = nil,
@@ -98,7 +99,8 @@ public extension Project {
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .moduleInfoPlist,
         buildableFolders: resources != nil ? ["Sources", "Resources"] : ["Sources"],
-        dependencies: (hasInterface ? [.target(name: "\(name)Interface")] : []) + dependencies
+        dependencies: (hasInterface ? [.target(name: "\(name)Interface")] : []) + dependencies,
+        settings: targetSettings
       ))
 
     if hasDemo {
@@ -142,6 +144,47 @@ public extension Project {
       settings: .moduleSettings,
       targets: targets,
       schemes: schemes
+    )
+  }
+
+  static func makeAppExtensionModule(
+    name: String,
+    targetName: String,
+    bundleId: String,
+    infoPlist: InfoPlist,
+    dependencies: [TargetDependency] = []
+  ) -> Project {
+    Project(
+      name: name,
+      settings: .moduleSettings,
+      targets: [
+        .target(
+          name: targetName,
+          destinations: Environment.deploymentDestination,
+          product: .appExtension,
+          bundleId: bundleId,
+          deploymentTargets: Environment.deploymentTarget,
+          infoPlist: infoPlist,
+          buildableFolders: ["Extension"],
+          dependencies: dependencies,
+          settings: .settings(base: [
+            "APPLICATION_EXTENSION_API_ONLY": "YES",
+            "CODE_SIGN_STYLE": "Manual",
+            "DEVELOPMENT_TEAM": .string(Environment.organizationTeamId)
+          ], configurations: [
+            .debug(
+              name: BuildEnvironment.stage.configurationName,
+              settings: ["PROVISIONING_PROFILE_SPECIFIER": .string("match Development \(bundleId)")],
+              xcconfig: BuildEnvironment.stage.xcconfigPath
+            ),
+            .release(
+              name: BuildEnvironment.prod.configurationName,
+              settings: ["PROVISIONING_PROFILE_SPECIFIER": .string("match AppStore \(bundleId)")],
+              xcconfig: BuildEnvironment.prod.xcconfigPath
+            )
+          ])
+        )
+      ]
     )
   }
 }
