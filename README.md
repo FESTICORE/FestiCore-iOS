@@ -87,7 +87,7 @@ flowchart TD
 
 ### 의존성 주입
 
-Point-Free Dependencies를 사용합니다. 각 구현 모듈이 `DependencyKey.liveValue`를 제공하고 앱은 조립 모듈을 import합니다. 테스트에서는 의존성 값을 교체합니다. 런타임 DI 컨테이너는 사용하지 않습니다.
+Point-Free Dependencies를 사용합니다. 앱 시작 시 `ServiceDependencyAssembly`를 등록하고, 각 모듈은 자신의 `DependencyKey`와 라이브 구현을 제공합니다. 테스트에서는 의존성 값을 교체합니다. 런타임 DI 컨테이너는 사용하지 않습니다.
 
 ## 기술 스택
 
