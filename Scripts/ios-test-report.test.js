@@ -29,6 +29,8 @@ test('두 샤드의 테스트 건수와 부분 커버리지를 PR 리포트에 �
   })
   assert.match(body, /8 passed/)
   assert.match(body, /1 failed/)
+  assert.match(body, /테스트 케이스 총 9개/)
+  assert.match(body, /Ran test modules.*테스트 모듈 수/)
   assert.match(body, /StorageTests\/testRead/)
   assert.match(body, /샤드 2개 중 1개/)
   assert.match(body, /50\.0%/)
