@@ -550,7 +550,8 @@ function renderReport({ summary, coverage, coverageStats, buildErrors, bundleIns
 
   const duration = formatDuration(summary.finishTime - summary.startTime);
   if (duration) counts.push(duration);
-  lines.push(`${counts.join(" · ")} · 총 ${comma(total)}개`, "");
+  lines.push(`${counts.join(" · ")} · 테스트 케이스 총 ${comma(total)}개`, "");
+  lines.push("Tuist의 `Ran test modules`는 테스트 케이스가 아닌 테스트 모듈 수입니다.", "");
 
   const meta = [];
   if (summary.device) {
