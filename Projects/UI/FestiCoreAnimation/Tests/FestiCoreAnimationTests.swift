@@ -42,7 +42,7 @@ struct FestiCoreAnimationTests {
     }
   }
 
-  @Test func remoteRequestIdentityIncludesURLAndFormat() {
+  @Test @MainActor func remoteRequestIdentityIncludesURLAndFormat() {
     let url = URL(string: "https://example.com/loading")!
     let view = FestiCoreLottieView(.remote(url: url, format: .json))
 

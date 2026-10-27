@@ -29,7 +29,7 @@ struct FestiCoreSharedUITests {
   }
 
   @Test @MainActor func fittedRemoteImageKeepsCallerFrame() {
-    let image = FestiCoreRemoteImage(url: URL(string: "https://example.invalid/photo.png"))
+    let image = FestiCoreRemoteImage(url: nil)
       .content(.fit)
       .frame(width: 120, height: 80)
     let controller = UIHostingController(rootView: image)
