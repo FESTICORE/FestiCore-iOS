@@ -31,6 +31,30 @@ struct FestiCoreDesignKitTests {
     #expect(dark.getRed() == 0xC6)
   }
 
+  @Test @MainActor func swiftUISemanticColorsTrackColorScheme() {
+    var light = EnvironmentValues()
+    light.colorScheme = .light
+    var dark = EnvironmentValues()
+    dark.colorScheme = .dark
+
+    let lightPrimary = Color.primaryNormal.resolve(in: light)
+    let darkPrimary = Color.primaryNormal.resolve(in: dark)
+    #expect(lightPrimary.red.isApproximately(0x11 / 255.0))
+    #expect(darkPrimary.red.isApproximately(0xC6 / 255.0))
+
+    let lightLabel = Color.labelNormal.resolve(in: light)
+    let darkLabel = Color.labelNormal.resolve(in: dark)
+    #expect(lightLabel.red.isApproximately(0x11 / 255.0))
+    #expect(darkLabel.red.isApproximately(1))
+
+    let lightFill = Color.fillNormal.resolve(in: light)
+    let darkFill = Color.fillNormal.resolve(in: dark)
+    #expect(lightFill.opacity.isApproximately(1))
+    #expect(darkFill.opacity.isApproximately(0x1A / 255.0))
+
+    #expect(Color.staticWhite.resolve(in: light) == Color.staticWhite.resolve(in: dark))
+  }
+
   @Test @MainActor func layoutAndTypographyMatchTokenSnapshot() {
     #expect(FestiCoreSpacing.marginM12 == 12)
     #expect(FestiCoreRadius.r12 == 12)
@@ -89,5 +113,11 @@ private extension UIColor {
     var alpha: CGFloat = 0
     getRed(&red, green: &green, blue: &blue, alpha: &alpha)
     return Int((red * 255).rounded())
+  }
+}
+
+private extension Float {
+  func isApproximately(_ expected: Float) -> Bool {
+    abs(self - expected) < 0.01
   }
 }
