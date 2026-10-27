@@ -1,5 +1,5 @@
 {
-  "originHash" : "b225dda75a267c459572416c796ab2d872780618a24feb9c2056c28abe9d8eae",
+  "originHash" : "c8f8b5bd2c35c2318dcf5b3ee7f33797fc55e9334b9b88b8162ffd14ccc6bd11",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -161,6 +161,15 @@
       "state" : {
         "revision" : "a0bc79961d7be727d258d33d5a6b2f1023270ba1",
         "version" : "1.22.5"
+      }
+    },
+    {
+      "identity" : "lottie-spm",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/airbnb/lottie-spm",
+      "state" : {
+        "revision" : "04f2fd18cc9404a0a0917265a449002674f24ec9",
+        "version" : "4.5.2"
       }
     },
     {
