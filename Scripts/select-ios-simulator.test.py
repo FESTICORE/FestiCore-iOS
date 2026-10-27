@@ -137,12 +137,13 @@ class SimulatorSelectionTests(unittest.TestCase):
 
 
 class SimulatorPreparationTests(unittest.TestCase):
-    def run_prepare(self, boot_fails: bool) -> tuple[subprocess.CompletedProcess[str], str]:
+    def run_prepare(self, boot_fails: bool, state: str = "Shutdown") -> tuple[subprocess.CompletedProcess[str], str]:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)
             xcrun = path / "xcrun"
             xcrun.write_text(
                 "#!/bin/sh\n"
+                "if [ \"$2\" = list ]; then printf '{\"devices\":{\"runtime\":[{\"udid\":\"duo-id\",\"state\":\"%s\"}]}}' \"$MOCK_STATE\"; exit 0; fi\n"
                 "if [ \"$2\" = boot ] && [ \"$MOCK_BOOT_FAIL\" = 1 ]; then exit 1; fi\n"
                 "exit 0\n"
             )
@@ -154,6 +155,7 @@ class SimulatorPreparationTests(unittest.TestCase):
                 "SIMULATOR_DESTINATION": "platform=iOS Simulator,id=duo-id",
                 "GITHUB_ENV": str(github_env),
                 "MOCK_BOOT_FAIL": "1" if boot_fails else "0",
+                "MOCK_STATE": state,
             })
             result = subprocess.run(
                 ["bash", str(PREPARE_SCRIPT)], env=environment,
@@ -169,6 +171,11 @@ class SimulatorPreparationTests(unittest.TestCase):
     def test_does_not_claim_duo_when_boot_fails(self) -> None:
         result, marker = self.run_prepare(boot_fails=True)
         self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(marker, "")
+
+    def test_reuses_booted_duo_without_claiming_it(self) -> None:
+        result, marker = self.run_prepare(boot_fails=True, state="Booted")
+        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(marker, "")
 
 
