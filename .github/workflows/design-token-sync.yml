@@ -69,7 +69,7 @@ jobs:
           MODULE=Projects/UI/FestiCoreDesignKit
           SNAPSHOT="$RUNNER_TEMP/design-token-staging/FestiCoreDesignKit"
           mkdir -p "$SNAPSHOT/Sources/Token/Color" "$SNAPSHOT/Sources/Token/Layout" "$SNAPSHOT/Sources/Token/Typography" "$SNAPSHOT/Tests/Resources" "$SNAPSHOT/TokenSnapshot"
-          cp "$MODULE/Sources/Token/Color/Colors.swift" "$MODULE/Sources/Token/Color/UIColors.swift" "$MODULE/Sources/Token/Color/ShapeStyle+.swift" "$SNAPSHOT/Sources/Token/Color/"
+          cp "$MODULE/Sources/Token/Color/FestiCoreSemanticColor.swift" "$MODULE/Sources/Token/Color/ShapeStyle+.swift" "$SNAPSHOT/Sources/Token/Color/"
           cp "$MODULE/Sources/Token/Layout/FestiCoreLayout.swift" "$SNAPSHOT/Sources/Token/Layout/"
           cp "$MODULE/Sources/Token/Typography/FestiCoreTypography.swift" "$SNAPSHOT/Sources/Token/Typography/"
           cp -R "$MODULE/Tests/Resources/Tokens" "$SNAPSHOT/Tests/Resources/Tokens"
@@ -207,8 +207,7 @@ jobs:
                   raise SystemExit(f"Symlink destination: {destination}")
               return destination
           sources = (
-              "Sources/Token/Color/Colors.swift",
-              "Sources/Token/Color/UIColors.swift",
+              "Sources/Token/Color/FestiCoreSemanticColor.swift",
               "Sources/Token/Color/ShapeStyle+.swift",
               "Sources/Token/Layout/FestiCoreLayout.swift",
               "Sources/Token/Typography/FestiCoreTypography.swift",
