@@ -10,11 +10,12 @@ import TCAFlow
 @testable import FestiCore
 
 struct AppCoordinatorTests {
-  @Test func startsAtHomeWithConfigurationState() {
-    let state = AppCoordinator.State(configurationIsAvailable: true)
+  @Test(arguments: [true, false])
+  func startsAtHomeWithConfigurationState(configurationIsAvailable: Bool) {
+    let state = AppCoordinator.State(configurationIsAvailable: configurationIsAvailable)
 
     #expect(state.routes == [
-      .root(.home(.init(configurationIsAvailable: true)), embedInNavigationView: true)
+      .root(.home(.init(configurationIsAvailable: configurationIsAvailable)), embedInNavigationView: true)
     ])
   }
 }
