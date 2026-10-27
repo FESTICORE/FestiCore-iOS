@@ -24,4 +24,21 @@ public extension InfoPlist {
   )
 
   static let moduleInfoPlist: Self = .extendingDefault(with: InfoPlistDictionary())
+
+  static let liveActivityWidgetInfoPlist: Self = .extendingDefault(
+    with: InfoPlistDictionary()
+      .setCFBundleShortVersionString("$(FESTICORE_VERSION)")
+      .setCFBundleVersion("$(FESTICORE_BUILD_NUMBER)")
+      .setNSExtension(pointIdentifier: "com.apple.widgetkit-extension")
+  )
+
+  static let notificationServiceInfoPlist: Self = .extendingDefault(
+    with: InfoPlistDictionary()
+      .setCFBundleShortVersionString("$(FESTICORE_VERSION)")
+      .setCFBundleVersion("$(FESTICORE_BUILD_NUMBER)")
+      .setNSExtension(
+        pointIdentifier: "com.apple.usernotifications.service",
+        principalClass: "$(PRODUCT_MODULE_NAME).NotificationService"
+      )
+  )
 }
