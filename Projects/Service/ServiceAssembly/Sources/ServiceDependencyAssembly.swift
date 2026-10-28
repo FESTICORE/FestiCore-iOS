@@ -10,6 +10,7 @@ import CoreAssembly
 import FestiCoreAuthInterface
 import FestiCoreDeviceInterface
 import FestiCoreNetworkInterface
+import FestiCorePackInterface
 
 public enum ServiceDependencyAssembly {
   public static func register(into values: inout DependencyValues) {
@@ -24,5 +25,6 @@ public extension DependencyValues {
     authService = NetworkContainer.authService
     deviceRegistrationService = NetworkContainer.deviceRegistrationService
     liveActivityRegistrationService = NetworkContainer.liveActivityRegistrationService
+    packSyncService = NetworkContainer.packSyncService
   }
 }

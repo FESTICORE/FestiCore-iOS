@@ -15,8 +15,10 @@ let project = Project.makeModule(
   product: .framework,
   dependencies: [
     .core(.assembly),
+    .core(.network),
     .service(.auth),
     .service(.device),
+    .service(.pack),
     .SPM.dependencies
   ],
   hasTests: true
