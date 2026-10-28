@@ -22,15 +22,14 @@ let project = Project.makeAppModule(
     .ui(.liveActivity),
     .core(.logger),
     .core(.assembly),
+    .service(.analytics),
     .service(.assembly),
     .service(.device, .interface),
     .widget(.liveActivity),
     .appExtension(.notificationService),
     .SPM.composableArchitecture,
     .SPM.tcaFlow,
-    .SPM.dependencies,
-    .SPM.mixpanel,
-    .SPM.sentry
+    .SPM.dependencies
   ],
   sources: ["Sources/**"],
   resources: ["Resources/**"],
