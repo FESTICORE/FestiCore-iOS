@@ -7,11 +7,13 @@
 
 import Lottie
 import SwiftUI
+import UIKit
 
 /// 로컬 JSON 또는 HTTPS 애니메이션을 반복 재생합니다.
 public struct FestiCoreLottieView: View {
   private let source: FestiCoreLottieSource
   private(set) var targetDuration: TimeInterval?
+  private(set) var animationContentMode: UIView.ContentMode = .scaleAspectFit
 
   @State private var remoteAnimation: LottieAnimation?
   @State private var remoteDotLottieFile: DotLottieFile?
@@ -34,6 +36,13 @@ public struct FestiCoreLottieView: View {
     return copy
   }
 
+  /// 원본 비율을 유지하거나 현재 표시 영역에 맞게 채웁니다.
+  public func contentMode(_ mode: UIView.ContentMode) -> Self {
+    var copy = self
+    copy.animationContentMode = mode
+    return copy
+  }
+
   public var body: some View {
     switch source {
     case let .asset(name, bundle):
@@ -42,6 +51,7 @@ public struct FestiCoreLottieView: View {
           .looping()
           .animationSpeed(speed(for: animation.duration))
           .resizable()
+          .configure { $0.contentMode = animationContentMode }
       } else {
         failureView
       }
@@ -55,11 +65,13 @@ public struct FestiCoreLottieView: View {
             .looping()
             .animationSpeed(speed(for: animation.duration))
             .resizable()
+            .configure { $0.contentMode = animationContentMode }
         } else if loadedSourceID == taskID(url: url, format: format), let file = remoteDotLottieFile {
           LottieView(dotLottieFile: file)
             .looping()
             // .lottie 파일은 여러 애니메이션을 담을 수 있어 실제 재생 중인 길이를 사용한다.
             .configure { view in
+              view.contentMode = animationContentMode
               if let speed = speedOverride(for: view.animation?.duration), view.animationSpeed != speed {
                 view.animationSpeed = speed
               }

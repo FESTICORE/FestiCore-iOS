@@ -19,11 +19,16 @@ struct SplashView: View {
       Color.staticInk
         .ignoresSafeArea()
 
-      FestiCoreLottieView(.splash)
-        .duration(2)
-        .aspectRatio(FestiCoreAnimationAsset.splash.canvasAspectRatio, contentMode: .fit)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .ignoresSafeArea()
+      GeometryReader { geometry in
+        let isWide = geometry.size.width > geometry.size.height * (FestiCoreAnimationAsset.splash.canvasAspectRatio ?? 1)
+
+        FestiCoreLottieView(.splash)
+          .duration(2)
+          .contentMode(isWide ? .scaleAspectFill : .scaleAspectFit)
+          .frame(width: geometry.size.width, height: geometry.size.height)
+          .clipped()
+      }
+      .ignoresSafeArea()
     }
     .statusBarHidden()
     .onAppear { send(.onAppear) }

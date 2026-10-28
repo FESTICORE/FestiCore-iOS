@@ -13,7 +13,8 @@ struct FestiCoreAnimationTests {
     #expect(json["h"] as? Int == 852)
     #expect(json["fr"] as? Int == 60)
     #expect(json["op"] as? Int == 180)
-    #expect(FestiCoreAnimationAsset.splash.canvasAspectRatio == 393.0 / 852.0)
+    let aspectRatio = try #require(FestiCoreAnimationAsset.splash.canvasAspectRatio)
+    #expect(abs(aspectRatio - 393.0 / 852.0) < 0.000_001)
     let layers = try #require(json["layers"] as? [[String: Any]])
     #expect(layers.contains { $0["nm"] as? String == "Background #111113" && $0["sc"] as? String == "#111113" })
   }
