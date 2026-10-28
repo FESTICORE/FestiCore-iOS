@@ -216,7 +216,8 @@ private final class StubRefreshClient: FestiCoreRequestClient, @unchecked Sendab
   }
 
   func send<R: FestiCoreDataRequest>(_ request: R) async throws(FestiCoreNetworkError) -> R.Response {
-    try await send(request, as: R.Response.self)
+    Issue.record("인증 요청은 응답 타입을 지정해 전송해야 한다")
+    throw .request(.invalidURL)
   }
 
   func sendResponse<R: FestiCoreDataRequest>(_: R) async throws(FestiCoreNetworkError) -> FestiCoreHTTPResponse {

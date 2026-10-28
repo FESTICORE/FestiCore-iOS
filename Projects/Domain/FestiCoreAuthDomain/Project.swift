@@ -16,7 +16,7 @@ let project = Project.makeModule(
   dependencies: [
     .core(.network, .interface),
     .service(.auth, .interface),
-    .SPM.alamofire,
+    .service(.apiEndpoint),
     .SPM.dependencies
   ],
   hasTests: true,

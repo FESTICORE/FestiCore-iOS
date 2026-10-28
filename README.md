@@ -49,6 +49,8 @@ Projects/
 │   └── FestiCoreFestivalDomain/ # 축제 목록 계약과 모델
 ├── Service/
 │   ├── ServiceAssembly/         # 서비스 의존성 조립
+│   ├── FestiCoreAPI/            # API 경로 선언
+│   ├── FestiCoreAPIEndpoint/    # API 요청과 인증 정책
 │   ├── FestiCoreAnalytics/      # Mixpanel·Sentry 초기화
 │   ├── FestiCoreConfig/         # Firebase 앱 설정
 │   ├── FestiCoreAuth/           # 인증 세션과 토큰 갱신
@@ -89,6 +91,10 @@ flowchart TD
     CoreAssembly --> FestiCoreNetwork
     CoreAssembly --> FestiCoreStorage
     FestiCoreAuth --> FestiCoreNetwork
+    FestiCoreAuth --> FestiCoreAPIEndpoint
+    FestiCoreAuthDomain --> FestiCoreAPIEndpoint
+    FestiCoreAPIEndpoint --> FestiCoreAPI
+    FestiCoreAPIEndpoint --> FestiCoreNetwork
     FestiCoreAuth --> FestiCoreStorage
     App --> FestiCoreLiveActivity
     App --> FestiCoreNotificationService
@@ -101,7 +107,7 @@ flowchart TD
 - ServiceAssembly는 인증과 Core 구현을 연결하고, CoreAssembly는 Network·Storage 구현을 등록합니다.
 - Network·Storage는 Interface와 구현 타깃을 분리합니다.
 - 위젯은 공유 ActivityKit 타입을 사용하며 앱의 네트워크·인증 구현에 의존하지 않습니다.
-- Domain 모듈은 기능 계약과 유스케이스를 둡니다.
+- Domain Interface는 Entity·Repository·UseCase 계약을, 구현 타깃은 DTO·Mapper·Repository 구현과 UseCase 구현을 둡니다. 인증 요청 경로와 HTTP 요청은 Service의 API·APIEndpoint 모듈이 소유합니다.
 
 ### 의존성 주입
 

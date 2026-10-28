@@ -6,7 +6,7 @@ Core 모듈의 Interface와 구현 타깃은 경계를 나눈다. `FestiCoreStor
 
 `StorageAssembly.register(into:)`와 `ServiceDependencyAssembly.register(into:)`는 명시적으로 `DependencyValues`를 구성할 때 사용한다. 앱 시작점에서는 전역 등록하지 않는다. `AppDelegate`가 쓰는 기기 등록 서비스도 해당 모듈의 `liveValue`에서 제공한다. 테스트는 `TestStore` 또는 `withDependencies`에서 실제 네트워크·키체인 대신 결정적인 대역을 주입한다. WeaveDI는 사용하지 않는다.
 
-`FestiCoreAuthDomain`은 Network/Auth Interface만 의존한다. Repository는 `@Dependency`로 공용 클라이언트와 인증 서비스를 사용하고, 도메인 모듈이 자신의 live use case를 등록한다. 실제 네트워크·Keychain 세션은 계속 `ServiceAssembly`에서 조립한다.
+`FestiCoreAuthDomain`은 Network/Auth Interface와 `FestiCoreAPIEndpoint`에 의존한다. Repository는 `@Dependency`로 공용 클라이언트와 인증 서비스를 사용하고, 도메인 모듈이 자신의 live use case를 등록한다. APIEndpoint는 Domain/Auth에 의존하지 않는다. 실제 네트워크·Keychain 세션은 계속 `ServiceAssembly`에서 조립한다.
 
 의도적으로 로그아웃하는 동안 다른 인증 요청의 refresh가 401을 받으면 `festiCoreAuthSessionDidExpire` 알림이 발생할 수 있다. 후속 로그인 UI의 알림 관찰자는 로그아웃 진행 중 이 알림을 무시하거나 억제해야 한다.
 

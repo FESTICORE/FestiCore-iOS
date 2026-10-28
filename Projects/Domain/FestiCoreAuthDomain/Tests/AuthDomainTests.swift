@@ -15,17 +15,13 @@ import Testing
 
 @Suite("인증 API 도메인")
 struct AuthDomainTests {
-  @Test("Google 요청은 공개 인증을 사용하고 선택한 코드만 전달한다")
+  @Test("Google 로그인 본문은 선택한 코드만 전달한다")
   func googleRequest() throws {
-    let request = AuthLoginRequest(credential: .google(idToken: "google-id"))
-    #expect(request.path == "api/v1/auth/login")
-    #expect(request.authorization == .none)
-    #expect(request.maxRetryAttempts == 0)
-    let body = try #require(request.parameters)
-    let json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(AnyEncodable(body))) as? [String: String])
+    let body = AuthCredential.google(idToken: "google-id").loginBody
+    let json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(body)) as? [String: String])
     #expect(json == ["provider": "google", "token": "google-id"])
 
-    let withCode = AuthLoginBody(credential: .google(idToken: "google-id", serverAuthCode: "server-code"))
+    let withCode = AuthCredential.google(idToken: "google-id", serverAuthCode: "server-code").loginBody
     let encoded = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(withCode)) as? [String: String])
     #expect(encoded["authorizationCode"] == "server-code")
     #expect(encoded["name"] == nil)
@@ -33,15 +29,13 @@ struct AuthDomainTests {
 
   @Test("Apple 요청은 인가 코드와 최초 이름을 전달한다")
   func appleRequest() throws {
-    let body = AuthLoginBody(credential: .apple(
+    let body = AuthCredential.apple(
       idToken: "apple-id", authorizationCode: "apple-code", name: "원지"
-    ))
+    ).loginBody
     let json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(body)) as? [String: String])
     #expect(json == [
       "provider": "apple", "token": "apple-id", "authorizationCode": "apple-code", "name": "원지"
     ])
-    #expect(AuthLogoutRequest().authorization == .automatic)
-    #expect(AuthLogoutRequest().parameters == nil)
   }
 
   @Test("nullable 사용자 필드와 밀리초 날짜 문자열을 손실 없이 매핑한다")
@@ -61,7 +55,7 @@ struct AuthDomainTests {
     let repository = withDependencies {
       $0.networkClient = client
       $0.authService = auth
-    } operation: { NetworkAuthRepository() }
+    } operation: { AuthRepositoryImpl() }
 
     let result = try await repository.signIn(with: .google(idToken: "id"))
 
@@ -78,7 +72,7 @@ struct AuthDomainTests {
     let repository = withDependencies {
       $0.networkClient = client
       $0.authService = auth
-    } operation: { NetworkAuthRepository() }
+    } operation: { AuthRepositoryImpl() }
 
     await #expect(throws: FestiCoreNetworkError.self) {
       try await repository.signIn(with: .google(idToken: "invalid"))
@@ -94,10 +88,10 @@ struct AuthDomainTests {
     let repository = withDependencies {
       $0.networkClient = client
       $0.authService = auth
-    } operation: { NetworkAuthRepository() }
+    } operation: { AuthRepositoryImpl() }
     let useCase = withDependencies {
       $0.authRepository = repository
-    } operation: { DefaultAuthUseCase() }
+    } operation: { AuthUseCaseImpl() }
 
     let result = try await useCase.signIn(with: .google(idToken: "id"))
     #expect(result.user.id == "user-1")
@@ -107,10 +101,10 @@ struct AuthDomainTests {
     let logoutRepository = withDependencies {
       $0.networkClient = logoutClient
       $0.authService = auth
-    } operation: { NetworkAuthRepository() }
+    } operation: { AuthRepositoryImpl() }
     let logoutUseCase = withDependencies {
       $0.authRepository = logoutRepository
-    } operation: { DefaultAuthUseCase() }
+    } operation: { AuthUseCaseImpl() }
     try await logoutUseCase.signOut()
     #expect(await auth.isLoggedIn == false)
   }
@@ -121,7 +115,7 @@ struct AuthDomainTests {
     let repository = withDependencies {
       $0.networkClient = client
       $0.authService = StubAuthService()
-    } operation: { NetworkAuthRepository() }
+    } operation: { AuthRepositoryImpl() }
     await #expect(throws: AuthDomainError.self) {
       try await repository.signIn(with: .apple(idToken: "id", authorizationCode: ""))
     }
@@ -131,9 +125,7 @@ struct AuthDomainTests {
   @Test("긴 Apple 이름은 UTF-16 30 코드 단위로 잘라 로그인에 전달한다")
   func truncatesAppleName() async throws {
     let name = String(repeating: "🎉", count: 16)
-    let body = AuthLoginBody(credential: .apple(
-      idToken: "id", authorizationCode: "code", name: name
-    ))
+    let body = AuthCredential.apple(idToken: "id", authorizationCode: "code", name: name).loginBody
     #expect(body.name == String(repeating: "🎉", count: 15))
     #expect(body.name?.utf16.count == 30)
 
@@ -141,7 +133,7 @@ struct AuthDomainTests {
     let repository = withDependencies {
       $0.networkClient = client
       $0.authService = StubAuthService()
-    } operation: { NetworkAuthRepository() }
+    } operation: { AuthRepositoryImpl() }
     _ = try await repository.signIn(with: .apple(
       idToken: "id", authorizationCode: "code", name: name
     ))
@@ -151,13 +143,9 @@ struct AuthDomainTests {
   @Test("Apple 이름을 글자 중간에서 자르지 않고 빈 이름은 생략한다")
   func appleNameGraphemeBoundary() {
     let longName = String(repeating: "가", count: 29) + "👨‍👩‍👧‍👦"
-    let body = AuthLoginBody(credential: .apple(
-      idToken: "id", authorizationCode: "code", name: longName
-    ))
+    let body = AuthCredential.apple(idToken: "id", authorizationCode: "code", name: longName).loginBody
     #expect(body.name == String(repeating: "가", count: 29))
-    let empty = AuthLoginBody(credential: .apple(
-      idToken: "id", authorizationCode: "code", name: "  \n "
-    ))
+    let empty = AuthCredential.apple(idToken: "id", authorizationCode: "code", name: "  \n ").loginBody
     #expect(empty.name == nil)
   }
 
@@ -168,7 +156,7 @@ struct AuthDomainTests {
     let repository = withDependencies {
       $0.networkClient = client
       $0.authService = auth
-    } operation: { NetworkAuthRepository() }
+    } operation: { AuthRepositoryImpl() }
     try await repository.signOut()
     #expect(await auth.isLoggedIn == false)
     #expect(await auth.signOutCalls == 1)
@@ -182,7 +170,7 @@ struct AuthDomainTests {
     let repository = withDependencies {
       $0.networkClient = client
       $0.authService = auth
-    } operation: { NetworkAuthRepository() }
+    } operation: { AuthRepositoryImpl() }
     try await repository.signOut()
     #expect(await client.calls == 0)
   }
@@ -194,7 +182,7 @@ struct AuthDomainTests {
     let repository = withDependencies {
       $0.networkClient = client
       $0.authService = auth
-    } operation: { NetworkAuthRepository() }
+    } operation: { AuthRepositoryImpl() }
     try await repository.signOut()
     #expect(await auth.isLoggedIn == false)
     #expect(await auth.signOutCalls == 1)
@@ -210,7 +198,7 @@ struct AuthDomainTests {
     let repository = withDependencies {
       $0.networkClient = client
       $0.authService = auth
-    } operation: { NetworkAuthRepository() }
+    } operation: { AuthRepositoryImpl() }
     await #expect(throws: FestiCoreNetworkError.self) { try await repository.signOut() }
     #expect(await auth.isLoggedIn)
     #expect(await auth.signOutCalls == 0)
@@ -225,7 +213,7 @@ struct AuthDomainTests {
     let repository = withDependencies {
       $0.networkClient = client
       $0.authService = auth
-    } operation: { NetworkAuthRepository() }
+    } operation: { AuthRepositoryImpl() }
     try await repository.signOut()
     #expect(await auth.isLoggedIn == false)
     #expect(await auth.signOutCalls == 1)
@@ -234,12 +222,6 @@ struct AuthDomainTests {
   private var loginBody: Data {
     Data(#"{"code":"SUCCESS","data":{"accessToken":"access","refreshToken":"refresh","newUser":true,"user":{"id":"user-1","provider":"google","email":null,"nickname":null,"nicknameConfirmed":false,"termsAcceptedAt":"2026-10-29T01:02:03.123Z","termsVersion":null,"pushOptIn":false,"profileImageUrl":null}}}"#.utf8)
   }
-}
-
-private struct AnyEncodable: Encodable {
-  let value: any Encodable
-  init(_ value: any Encodable) { self.value = value }
-  func encode(to encoder: Encoder) throws { try value.encode(to: encoder) }
 }
 
 private actor StubAuthService: AuthService {
@@ -277,18 +259,19 @@ private actor StubClient: FestiCoreNetworkClient {
   func send<R: FestiCoreDataRequest, T: Decodable & Sendable>(
     _ request: R, as type: T.Type
   ) async throws(FestiCoreNetworkError) -> T {
-    fatalError("사용하지 않는 요청")
-  }
-
-  func send<R: FestiCoreDataRequest>(_ request: R) async throws(FestiCoreNetworkError) -> R.Response {
     calls += 1
     await onSend?()
     switch result {
     case let .success(data):
-      do { return try JSONDecoder().decode(R.Response.self, from: data) }
-      catch { fatalError("잘못된 테스트 응답: \(error)") }
+      do { return try JSONDecoder().decode(type, from: data) }
+      catch { throw .decoding(.failed(error)) }
     case let .failure(error): throw error
     }
+  }
+
+  func send<R: FestiCoreDataRequest>(_ request: R) async throws(FestiCoreNetworkError) -> R.Response {
+    Issue.record("인증 요청은 응답 타입을 지정해 전송해야 한다")
+    throw .request(.invalidURL)
   }
 
   func sendResponse<R: FestiCoreDataRequest>(

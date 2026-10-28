@@ -1,16 +1,17 @@
 //
-//  NetworkAuthRepository.swift
+//  AuthRepositoryImpl.swift
 //  FestiCoreAuthDomain
 //
 //  Created by FestiCore on 10/29/26.
 //
 
 import Dependencies
+import FestiCoreAPIEndpoint
 import FestiCoreAuthDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
 
-public struct NetworkAuthRepository: AuthRepository {
+public struct AuthRepositoryImpl: AuthRepository {
   @Dependency(\.networkClient) private var client
   @Dependency(\.authService) private var authService
 
@@ -25,7 +26,10 @@ public struct NetworkAuthRepository: AuthRepository {
         throw AuthDomainError.invalidCredential
       }
     }
-    let response = try await client.send(AuthLoginRequest(credential: credential))
+    let response = try await client.send(
+      AuthRequest.login(body: credential.loginBody),
+      as: AuthLoginResponseDTO.self
+    )
     guard response.code == "SUCCESS",
           !response.data.accessToken.isEmpty,
           !response.data.refreshToken.isEmpty else {
@@ -42,7 +46,7 @@ public struct NetworkAuthRepository: AuthRepository {
     guard await authService.isLoggedIn else { return }
 
     do {
-      let response = try await client.send(AuthLogoutRequest())
+      let response = try await client.send(AuthRequest.logout, as: AuthLogoutResponseDTO.self)
       guard response.code == "SUCCESS", response.data.success else {
         throw AuthDomainError.invalidResponse
       }
