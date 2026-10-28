@@ -6,7 +6,6 @@
 //
 
 import ComposableArchitecture
-import FeatureAssembly
 import Foundation
 
 @Reducer
@@ -14,7 +13,7 @@ struct AppCoordinator {
   @ObservableState
   enum State: Equatable {
     case splash(SplashFeature.State)
-    case home(HomeFeature.State)
+    case home(HomeCoordinator.State)
 
     init() {
       self = .splash(SplashFeature.State())
@@ -47,7 +46,7 @@ struct AppCoordinator {
   @CasePathable
   enum ScopeAction {
     case splash(SplashFeature.Action)
-    case home(HomeFeature.Action)
+    case home(HomeCoordinator.Action)
   }
 
   var body: some ReducerOf<Self> {
@@ -67,7 +66,7 @@ struct AppCoordinator {
       SplashFeature()
     }
     .ifCaseLet(\.home, action: \.scope.home) {
-      HomeFeature()
+      HomeCoordinator()
     }
   }
 }

@@ -1,32 +1,38 @@
 import Foundation
 import Darwin
 import FestiCorePackInterface
+import FestiCoreNetworkInterface
+
+private enum PackUpdateWaitError: Error { case idleTimeout }
 
 public actor NetworkPackSyncService: PackSyncService {
   private let baseURL: URL?
   private let cache: PackCache
-  private let socketFactory: @Sendable (URL) -> any PackSocket
+  private let client: any FestiCoreWebSocketClient
   private let responseTimeoutNanoseconds: UInt64
+  private let rejectedHandshakeRetryNanoseconds: UInt64
   private var requestGeneration: [String: Int] = [:]
   private var committedGeneration: [String: Int] = [:]
 
-  public init(baseURL: URL?, cacheDirectory: URL, session: URLSession = .shared) {
+  public init(baseURL: URL?, cacheDirectory: URL, client: any FestiCoreWebSocketClient) {
     self.baseURL = baseURL
     cache = PackCache(directory: cacheDirectory)
-    socketFactory = { URLSessionPackSocket(url: $0, session: session) }
+    self.client = client
     responseTimeoutNanoseconds = 15_000_000_000
+    rejectedHandshakeRetryNanoseconds = 300_000_000_000
   }
 
-  // Test seam: real network construction remains the public initializer.
   init(
     baseURL: URL?, cacheDirectory: URL,
     responseTimeoutNanoseconds: UInt64 = 15_000_000_000,
-    socketFactory: @escaping @Sendable (URL) -> any PackSocket
+    rejectedHandshakeRetryNanoseconds: UInt64 = 300_000_000_000,
+    client: any FestiCoreWebSocketClient
   ) {
     self.baseURL = baseURL
     cache = PackCache(directory: cacheDirectory)
-    self.socketFactory = socketFactory
+    self.client = client
     self.responseTimeoutNanoseconds = responseTimeoutNanoseconds
+    self.rejectedHandshakeRetryNanoseconds = rejectedHandshakeRetryNanoseconds
   }
 
   public func cachedPack(for festivalID: String) async throws -> CachedFestivalPack? {
@@ -38,7 +44,7 @@ public actor NetworkPackSyncService: PackSyncService {
   }
 
   public func sync(for festivalID: String) async throws -> PackSyncResult {
-    let socket = try socketFactory(endpoint())
+    let socket = client.connect(to: try endpoint())
     return try await withTaskCancellationHandler {
       defer { socket.cancel() }
       return try await synchronize(for: festivalID, on: socket)
@@ -63,23 +69,32 @@ public actor NetworkPackSyncService: PackSyncService {
       return
     }
     var backoff = ReconnectBackoff()
+    var rejectedHandshakesSinceSuccess = 0
+    var hasReceivedPack = false
     while !Task.isCancelled {
       do {
-        let socket = try socketFactory(endpoint())
+        let socket = client.connect(to: try endpoint())
         try await withTaskCancellationHandler {
           defer { socket.cancel() }
           while !Task.isCancelled {
             let result = try await synchronize(for: festivalID, on: socket)
             backoff.reset()
+            rejectedHandshakesSinceSuccess = 0
+            if case .updated = result { hasReceivedPack = true }
+            if case .notModified = result { hasReceivedPack = true }
             continuation.yield(result)
             if case .retryAfter(let seconds) = result {
               try await Task.sleep(nanoseconds: UInt64(max(0.1, min(seconds, 30)) * 1_000_000_000))
               continue
             }
             while !Task.isCancelled {
-              let message = try PackWire.decode(
-                try await PackWire.receiveText(on: socket, timeoutNanoseconds: 60_000_000_000)
-              )
+              let text: String
+              do {
+                text = try await PackWire.receiveText(on: socket, timeoutNanoseconds: 60_000_000_000)
+              } catch PackSyncError.timeout {
+                throw PackUpdateWaitError.idleTimeout
+              }
+              let message = try PackWire.decode(text)
               if message.event == "pack.updated", message.data?["festivalId"] as? String == festivalID {
                 break
               }
@@ -90,11 +105,25 @@ public actor NetworkPackSyncService: PackSyncService {
         }
       } catch {
         if Task.isCancelled { break }
+        if error is PackUpdateWaitError {
+          // A quiet stream is refreshed without showing an outage or retrying images.
+          try? await Task.sleep(nanoseconds: backoff.nextDelayNanoseconds())
+          continue
+        }
         guard isTransportFailure(error) else {
           continuation.finish(throwing: error)
           return
         }
+        if let urlError = error as? URLError, urlError.code == .badServerResponse {
+          rejectedHandshakesSinceSuccess += 1
+          if rejectedHandshakesSinceSuccess >= 3 {
+            // A short server deploy must not leave a foreground watch stopped indefinitely.
+            try? await Task.sleep(nanoseconds: rejectedHandshakeRetryNanoseconds)
+            continue
+          }
+        }
         // Socket loss does not discard a complete cache; reconnect with its ETag.
+        if hasReceivedPack { continuation.yield(.reconnecting) }
         try? await Task.sleep(nanoseconds: backoff.nextDelayNanoseconds())
       }
     }
@@ -191,7 +220,7 @@ public actor NetworkPackSyncService: PackSyncService {
       switch urlError.code {
       case .notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost,
            .cannotFindHost, .timedOut, .dnsLookupFailed, .internationalRoamingOff,
-           .dataNotAllowed, .callIsActive:
+           .dataNotAllowed, .callIsActive, .badServerResponse:
         return true
       default:
         return false
@@ -199,7 +228,8 @@ public actor NetworkPackSyncService: PackSyncService {
     }
     let nsError = error as NSError
     guard nsError.domain == NSPOSIXErrorDomain else { return false }
-    return [ENETDOWN, ENETUNREACH, ECONNRESET, ECONNREFUSED, ETIMEDOUT, EHOSTUNREACH, EPIPE]
+    return [ENETDOWN, ENETUNREACH, ECONNRESET, ECONNABORTED, ENOTCONN,
+            ECONNREFUSED, ETIMEDOUT, EHOSTUNREACH, EPIPE]
       .contains(Int32(nsError.code))
   }
 
@@ -221,16 +251,4 @@ public actor NetworkPackSyncService: PackSyncService {
       ($0 >= 65 && $0 <= 90) || ($0 >= 97 && $0 <= 122) || ($0 >= 48 && $0 <= 57) || $0 == 45 || $0 == 95
     }
   }
-}
-
-struct ReconnectBackoff {
-  private var attempt = 0
-
-  mutating func nextDelayNanoseconds() -> UInt64 {
-    let seconds = min(30, 1 << min(attempt, 5))
-    attempt += 1
-    return UInt64(seconds) * 1_000_000_000
-  }
-
-  mutating func reset() { attempt = 0 }
 }

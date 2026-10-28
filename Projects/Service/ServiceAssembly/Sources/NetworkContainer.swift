@@ -11,7 +11,7 @@ import FestiCoreAuthInterface
 import FestiCoreDevice
 import FestiCoreDeviceInterface
 import FestiCoreFestivalCatalog
-import FestiCoreFestivalCatalogInterface
+import FestiCoreFestivalDomainInterface
 import FestiCoreNetworkInterface
 import FestiCoreNetwork
 import FestiCorePack
@@ -45,7 +45,8 @@ public enum NetworkContainer {
       liveActivityRegistrationService: NetworkLiveActivityRegistrationService(client: auth.authenticatedClient),
       packSyncService: NetworkPackSyncService(
         baseURL: NetworkClientFactory.bundleBaseURL,
-        cacheDirectory: packCacheDirectory
+        cacheDirectory: packCacheDirectory,
+        client: URLSessionWebSocketClient()
       ),
       festivalCatalogService: NetworkFestivalCatalogService(
         client: NetworkAssembly.plainClient(),

@@ -26,6 +26,10 @@ public extension TargetDependency {
     moduleDependency(name: module.rawValue, path: module.path, target: target)
   }
 
+  static func domain(_ module: DomainModule, _ target: ModuleTarget = .implementation) -> Self {
+    moduleDependency(name: module.rawValue, path: module.path, target: target)
+  }
+
   static func ui(_ module: UIModule, _ target: ModuleTarget = .implementation) -> Self {
     moduleDependency(name: module.rawValue, path: module.path, target: target)
   }

@@ -13,7 +13,7 @@ import ProjectTemplatePlugin
 let project = Project.makeModule(
   name: "Home",
   dependencies: [
-    .service(.festivalCatalog, .interface),
+    .domain(.festival, .interface),
     .service(.pack, .interface),
     .ui(.sharedUI),
     .SPM.kingfisher,
