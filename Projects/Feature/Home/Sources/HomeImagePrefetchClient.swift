@@ -7,7 +7,7 @@ struct HomeImagePrefetchClient: Sendable {
   var stop: @Sendable () async -> Void
 }
 
-extension HomeImagePrefetchClient: TestDependencyKey {
+extension HomeImagePrefetchClient: DependencyKey {
   static let testValue = Self(start: { _ in }, stop: {})
 
   static let liveValue: Self = {

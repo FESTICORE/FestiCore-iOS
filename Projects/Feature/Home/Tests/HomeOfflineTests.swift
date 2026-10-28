@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import Dependencies
 import FestiCoreFestivalDomainInterface
 import FestiCorePackInterface
 import Foundation
@@ -6,6 +7,15 @@ import Testing
 @testable import Home
 
 struct HomeOfflineTests {
+  @Test func liveImagePrefetchDependencyIsRegistered() async {
+    func requireLiveDependency<Key: DependencyKey>(_: Key.Type) {}
+    requireLiveDependency(HomeImagePrefetchClient.self)
+
+    let client = HomeImagePrefetchClient.liveValue
+    await client.start([])
+    await client.stop()
+  }
+
   @Test @MainActor func cachedPackAppearsBeforeFailedRefresh() async {
     let pack = CachedFestivalPack(
       festivalID: "fst_cached", packVersion: 1, etag: "\"v1\"",
@@ -216,6 +226,41 @@ struct HomeOfflineTests {
     #expect(await recorder.startedURLs() == [item.thumbnailURL!])
     await store.send(.inner(.catalogRefreshed([item])))
     #expect(store.state.imageRevision == 0)
+  }
+
+  @Test @MainActor func unselectedCachedFestivalPosterIsResolvedAndPrefetched() async throws {
+    let recorder = PrefetchRecorder()
+    let selected = CachedFestivalPack(
+      festivalID: "fst_selected", packVersion: 1, etag: "\"v1\"",
+      pack: Data(#"{"id":"fst_selected","name":"가 축제","thumbUrl":"https://example.com/selected.webp"}"#.utf8)
+    )
+    let unselected = CachedFestivalPack(
+      festivalID: "fst_unselected", packVersion: 1, etag: "\"v1\"",
+      pack: Data(#"{"id":"fst_unselected","name":"나 축제","thumbUrl":"https://example.com/unselected.webp"}"#.utf8)
+    )
+    var initialState = HomeFeature.State()
+    initialState.cachedPacks = [selected.festivalID: selected, unselected.festivalID: unselected]
+    initialState.selectedFestivalID = selected.festivalID
+    initialState.selectedPack = try JSONDecoder().decode(FestivalPackDocument.self, from: selected.pack)
+    let store = TestStore(initialState: initialState) { HomeFeature() } withDependencies: {
+      $0.festivalCatalogService = ImageCatalog()
+      $0.homeImagePrefetchClient = HomeImagePrefetchClient(
+        start: { urls in await recorder.start(urls) }, stop: { await recorder.stop() }
+      )
+    }
+
+    await store.send(.inner(.catalogRefreshed([]))) {
+      $0.imageURLs = [
+        "https://example.com/selected.webp": URL(string: "https://example.com/selected.webp")!,
+        "https://example.com/unselected.webp": URL(string: "https://example.com/unselected.webp")!
+      ]
+    }
+    await store.finish()
+    #expect(store.state.festivals.map(\.id) == [selected.festivalID, unselected.festivalID])
+    #expect(await recorder.startedURLs() == [
+      URL(string: "https://example.com/selected.webp")!,
+      URL(string: "https://example.com/unselected.webp")!
+    ])
   }
 
   @Test @MainActor func failedRefreshRetriesImagesOnceAfterRecovery() async {

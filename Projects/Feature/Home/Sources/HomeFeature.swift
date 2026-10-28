@@ -217,9 +217,9 @@ public struct HomeFeature {
         + (pack.artists ?? []).compactMap { state.imageURL(for: $0.imageUrl) }
         + pack.performances.compactMap { state.imageURL(for: $0.imageUrl) }
     } ?? []
-    let catalogURLs = state.catalog.compactMap { state.imageURL(for: $0.thumbnailURL?.absoluteString) }
+    let festivalURLs = state.festivals.compactMap { state.imageURL(for: $0.thumbnailURL?.absoluteString) }
     var seen = Set<URL>()
-    let urls = Array((packURLs + catalogURLs).filter { seen.insert($0).inserted }.prefix(100))
+    let urls = Array((packURLs + festivalURLs).filter { seen.insert($0).inserted }.prefix(100))
     return .run { _ in await imagePrefetchClient.start(urls) }
       .cancellable(id: CancelID.imagePrefetch, cancelInFlight: true)
   }
@@ -240,13 +240,13 @@ public struct HomeFeature {
 
   private func resolveImageURLs(in state: inout State) {
     var urls: [String: URL] = [:]
-    let catalogURLs = state.catalog.compactMap { $0.thumbnailURL?.absoluteString }
+    let festivalURLs = state.festivals.compactMap { $0.thumbnailURL?.absoluteString }
     let packURLs = state.selectedPack.map { pack in
       [pack.thumbUrl].compactMap { $0 }
         + (pack.artists ?? []).compactMap(\.imageUrl)
         + pack.performances.compactMap(\.imageUrl)
     } ?? []
-    for value in catalogURLs + packURLs where urls[value] == nil {
+    for value in festivalURLs + packURLs where urls[value] == nil {
       urls[value] = catalogService.imageURL(for: value)
     }
     state.imageURLs = urls
