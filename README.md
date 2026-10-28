@@ -18,13 +18,14 @@
 
 ## 프로젝트
 
-FestiCore는 축제를 위한 iOS 앱입니다. 현재 저장소에는 앱 진입점과 Home 화면, 공통 모듈, Live Activity 위젯의 기반이 있습니다. 축제 데이터 API를 사용하는 화면 흐름과 Live Activity의 화면상 시작 동작은 아직 구현되지 않았습니다.
+FestiCore는 축제를 위한 iOS 앱입니다. Home에서 축제 목록을 조회하고, 축제를 선택하면 공개 팩을 받아 저장합니다. 저장된 목록과 팩은 앱 재시작 후 네트워크 없이 다시 볼 수 있습니다. Live Activity의 화면상 시작 동작은 아직 구현되지 않았습니다.
 
 현재 구성:
 
 - Stage·Prod 앱, Splash에서 Home으로 이어지는 TCA 화면 전환
 - 네트워크·인증·저장소·로깅의 모듈 경계와 의존성 조립
 - APNs 토큰의 Keychain 보관과 앱 실행 시 기기 등록
+- 공개 축제 목록의 마지막 정상 응답 저장, 팩 WebSocket 동기화와 오프라인 복구
 - 코드 기반 색상, base·point Pretendard 타이포그래피, 공통 UI
 - ActivityKit 공유 모델과 독립 WidgetKit 확장
 - Swift Testing, Tuist 프로젝트 생성 및 PR CI
@@ -47,7 +48,9 @@ Projects/
 │   ├── ServiceAssembly/         # 서비스 의존성 조립
 │   ├── FestiCoreAnalytics/      # Mixpanel·Sentry 초기화
 │   ├── FestiCoreAuth/           # 인증 세션과 토큰 갱신
-│   └── FestiCoreDevice/         # 기기 등록 계약
+│   ├── FestiCoreDevice/         # 기기 등록 계약
+│   ├── FestiCoreFestivalCatalog/ # 공개 축제 목록과 로컬 목록 캐시
+│   └── FestiCorePack/           # 축제 팩 WebSocket 동기화와 로컬 팩 캐시
 ├── Core/
 │   ├── CoreAssembly/            # Core 구현 조립
 │   ├── FestiCoreNetwork/        # HTTP 클라이언트
@@ -74,6 +77,8 @@ flowchart TD
     App --> FestiCoreAnalytics
     App --> CoreAssembly
     ServiceAssembly --> FestiCoreAuth
+    ServiceAssembly --> FestiCoreFestivalCatalog
+    ServiceAssembly --> FestiCorePack
     ServiceAssembly --> CoreAssembly
     CoreAssembly --> FestiCoreNetwork
     CoreAssembly --> FestiCoreStorage

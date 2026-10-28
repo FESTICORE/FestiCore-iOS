@@ -10,6 +10,8 @@ import FestiCoreAuth
 import FestiCoreAuthInterface
 import FestiCoreDevice
 import FestiCoreDeviceInterface
+import FestiCoreFestivalCatalog
+import FestiCoreFestivalCatalogInterface
 import FestiCoreNetworkInterface
 import FestiCoreNetwork
 import FestiCorePack
@@ -28,6 +30,7 @@ public enum NetworkContainer {
     assembly.deviceRegistrationService
   }
   public static var packSyncService: any PackSyncService { assembly.packSyncService }
+  public static var festivalCatalogService: any FestivalCatalogService { assembly.festivalCatalogService }
 
   private static func makeAssembly() -> Assembly {
     let storage = StorageAssembly.secureStorage()
@@ -43,6 +46,11 @@ public enum NetworkContainer {
       packSyncService: NetworkPackSyncService(
         baseURL: NetworkClientFactory.bundleBaseURL,
         cacheDirectory: packCacheDirectory
+      ),
+      festivalCatalogService: NetworkFestivalCatalogService(
+        client: NetworkAssembly.plainClient(),
+        cacheURL: packCacheDirectory.deletingLastPathComponent().appendingPathComponent("festival-catalog.json"),
+        baseURL: NetworkClientFactory.bundleBaseURL
       )
     )
   }
@@ -62,5 +70,6 @@ private extension NetworkContainer {
     let deviceRegistrationService: any DeviceRegistrationService
     let liveActivityRegistrationService: any LiveActivityRegistrationService
     let packSyncService: any PackSyncService
+    let festivalCatalogService: any FestivalCatalogService
   }
 }

@@ -9,6 +9,7 @@ import Dependencies
 import CoreAssembly
 import FestiCoreAuthInterface
 import FestiCoreDeviceInterface
+import FestiCoreFestivalCatalogInterface
 import FestiCoreNetworkInterface
 import FestiCorePackInterface
 
@@ -26,5 +27,6 @@ public extension DependencyValues {
     deviceRegistrationService = NetworkContainer.deviceRegistrationService
     liveActivityRegistrationService = NetworkContainer.liveActivityRegistrationService
     packSyncService = NetworkContainer.packSyncService
+    festivalCatalogService = NetworkContainer.festivalCatalogService
   }
 }

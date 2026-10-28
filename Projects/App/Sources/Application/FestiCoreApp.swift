@@ -8,6 +8,7 @@
 import SwiftUI
 
 import FeatureAssembly
+import ServiceAssembly
 
 @main
 struct FestiCoreApp: App {
@@ -17,6 +18,8 @@ struct FestiCoreApp: App {
     WindowGroup {
       let store = Store(initialState: AppCoordinator.State()) {
         AppCoordinator()
+      } withDependencies: {
+        ServiceDependencyAssembly.register(into: &$0)
       }
 
       AppCoordinatorView(store: store)
