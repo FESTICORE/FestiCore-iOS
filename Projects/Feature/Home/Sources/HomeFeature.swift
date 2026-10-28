@@ -13,24 +13,12 @@ public struct HomeFeature {
 
   @ObservableState
   public struct State: Equatable {
-    public var configurationIsAvailable: Bool
-
-    public init(configurationIsAvailable: Bool) {
-      self.configurationIsAvailable = configurationIsAvailable
-    }
+    public init() {}
   }
 
-  public enum Action {
-    case configurationStatusChanged(Bool)
-  }
+  public enum Action {}
 
   public var body: some ReducerOf<Self> {
-    Reduce { state, action in
-      switch action {
-      case .configurationStatusChanged(let isAvailable):
-        state.configurationIsAvailable = isAvailable
-        return .none
-      }
-    }
+    EmptyReducer()
   }
 }

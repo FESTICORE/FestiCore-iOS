@@ -19,7 +19,7 @@ public struct FestiCoreHomeView: View {
     VStack(spacing: 12) {
       Text("FestiCore")
         .font(.largeTitle.bold())
-      Text(store.configurationIsAvailable ? "곧 만나요" : "설정을 확인해 주세요")
+      Text("곧 만나요")
         .foregroundStyle(.secondary)
     }
     .accessibilityElement(children: .combine)

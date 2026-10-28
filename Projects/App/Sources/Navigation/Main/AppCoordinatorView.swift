@@ -13,18 +13,35 @@ struct AppCoordinatorView: View {
   @Bindable var store: StoreOf<AppCoordinator>
 
   var body: some View {
-    SwitchStore(store.scope(state: \.screen, action: \.screen)) { state in
+    SwitchStore(store) { state in
       switch state {
       case .splash:
-        if let splashStore = store.scope(state: \.screen.splash, action: \.screen.splash) {
+        if let splashStore = store.scope(\.splash, action: \.scope.splash) {
           SplashView(store: splashStore)
+            .transition(.opacity.combined(with: .scale(scale: 0.98)))
         }
 
       case .home:
-        if let homeStore = store.scope(state: \.screen.home, action: \.screen.home) {
+        if let homeStore = store.scope(\.home, action: \.scope.home) {
           FestiCoreHomeView(store: homeStore)
+            .transition(.asymmetric(
+              insertion: .move(edge: .trailing),
+              removal: .move(edge: .leading)
+            ))
         }
       }
     }
+    .animation(
+      .spring(response: 0.52, dampingFraction: 0.94, blendDuration: 0.14),
+      value: store.state.animationID
+    )
   }
+}
+
+#Preview {
+  AppCoordinatorView(
+    store: Store(initialState: AppCoordinator.State()) {
+      AppCoordinator()
+    }
+  )
 }

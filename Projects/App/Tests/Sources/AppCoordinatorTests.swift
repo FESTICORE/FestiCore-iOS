@@ -12,25 +12,18 @@ import ComposableArchitecture
 @testable import FestiCore
 
 struct AppCoordinatorTests {
-  @Test func defaultStateUsesAppConfiguration() {
-    let configurationIsAvailable = AppConfiguration(infoDictionary: Bundle.main.infoDictionary ?? [:]) != nil
-    #expect(AppCoordinator.State() == AppCoordinator.State(configurationIsAvailable: configurationIsAvailable))
+  @Test func startsAtSplash() {
+    #expect(AppCoordinator.State() == .splash(.init()))
   }
 
-  @Test(arguments: [true, false])
-  func startsAtSplashAndKeepsConfigurationState(configurationIsAvailable: Bool) async {
-    let state = AppCoordinator.State(configurationIsAvailable: configurationIsAvailable)
-
-    #expect(state.configurationIsAvailable == configurationIsAvailable)
-    #expect(state.screen == .splash(.init()))
-
-    let store = TestStore(initialState: state) {
+  @Test func splashCompletionShowsHome() async {
+    let store = TestStore(initialState: AppCoordinator.State()) {
       AppCoordinator()
     }
-    await store.send(.screen(.splash(.delegate(.presentHome)))) {
-      $0.screen = .home(.init(configurationIsAvailable: configurationIsAvailable))
+    await store.send(.scope(.splash(.delegate(.presentHome))))
+    await store.receive(\.view.presentHome)
+    await store.receive(\.inner.completeHomeTransition) {
+      $0 = .home(.init())
     }
-
-    #expect(store.state.screen == .home(.init(configurationIsAvailable: configurationIsAvailable)))
   }
 }

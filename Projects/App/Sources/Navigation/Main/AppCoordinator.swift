@@ -12,50 +12,94 @@ import Foundation
 @Reducer
 struct AppCoordinator {
   @ObservableState
-  struct State: Equatable {
-    var screen: AppScreen.State
-    var configurationIsAvailable: Bool
+  enum State: Equatable {
+    case splash(SplashFeature.State)
+    case home(HomeFeature.State)
 
     init() {
-      self.init(configurationIsAvailable: AppConfiguration(infoDictionary: Bundle.main.infoDictionary ?? [:]) != nil)
+      self = .splash(SplashFeature.State())
     }
 
-    init(configurationIsAvailable: Bool) {
-      self.configurationIsAvailable = configurationIsAvailable
-      screen = .splash(SplashFeature.State())
+    var animationID: String {
+      switch self {
+      case .splash: "splash"
+      case .home: "home"
+      }
     }
+  }
+
+  enum Action: ViewAction {
+    case view(View)
+    case inner(InnerAction)
+    case scope(ScopeAction)
   }
 
   @CasePathable
-  enum Action {
-    case screen(AppScreen.Action)
+  enum View {
+    case presentHome
+  }
+
+  @CasePathable
+  enum InnerAction {
+    case completeHomeTransition
+  }
+
+  @CasePathable
+  enum ScopeAction {
+    case splash(SplashFeature.Action)
+    case home(HomeFeature.Action)
   }
 
   var body: some ReducerOf<Self> {
-    Scope(\.screen, action: \.screen) {
-      Reduce<AppScreen.State, AppScreen.Action> { _, _ in .none }
-        .ifCaseLet(\.splash, action: \.splash) {
-          SplashFeature()
-        }
-        .ifCaseLet(\.home, action: \.home) {
-          HomeFeature()
-        }
-    }
     Reduce { state, action in
-      if case .screen(.splash(.delegate(.presentHome))) = action {
-        state.screen = .home(HomeFeature.State(configurationIsAvailable: state.configurationIsAvailable))
+      switch action {
+      case let .view(viewAction):
+        return handleViewAction(viewAction)
+
+      case let .inner(innerAction):
+        return handleInnerAction(state: &state, action: innerAction)
+
+      case let .scope(scopeAction):
+        return handleScopeAction(state: &state, action: scopeAction)
       }
+    }
+    .ifCaseLet(\.splash, action: \.scope.splash) {
+      SplashFeature()
+    }
+    .ifCaseLet(\.home, action: \.scope.home) {
+      HomeFeature()
+    }
+  }
+}
+
+private extension AppCoordinator {
+  func handleViewAction(_ action: View) -> Effect<Action> {
+    switch action {
+    case .presentHome:
+      return .send(.inner(.completeHomeTransition))
+    }
+  }
+
+  func handleInnerAction(
+    state: inout State,
+    action: InnerAction
+  ) -> Effect<Action> {
+    switch action {
+    case .completeHomeTransition:
+      state = .home(.init())
+      return .none
+    }
+  }
+
+  func handleScopeAction(
+    state: inout State,
+    action: ScopeAction
+  ) -> Effect<Action> {
+    switch (action, state) {
+    case (.splash(.delegate(.presentHome)), .splash):
+      return .send(.view(.presentHome))
+    default:
       return .none
     }
   }
 }
-
-extension AppCoordinator {
-  @Reducer
-  enum AppScreen {
-    case splash(SplashFeature)
-    case home(HomeFeature)
-  }
-}
-
-extension AppCoordinator.AppScreen.State: Equatable {}

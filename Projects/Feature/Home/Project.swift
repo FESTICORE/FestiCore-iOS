@@ -12,5 +12,5 @@ import ProjectTemplatePlugin
 let project = Project.makeModule(
   name: "Home",
   dependencies: [.SPM.composableArchitecture],
-  hasTests: true
+  hasTests: false
 )
