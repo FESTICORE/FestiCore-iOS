@@ -42,10 +42,12 @@ struct FestiCoreEventMonitor: EventMonitor {
 
     // ── 요청 ──
     if let headers = urlRequest?.allHTTPHeaderFields, !headers.isEmpty {
-      lines.append("  · Request Headers\n\(format(headers))")
+      lines.append("  · Request Headers\n\(format(NetworkLogRedactor.headers(headers)))")
     }
     if let body = urlRequest?.httpBody, !body.isEmpty {
-      lines.append("  · Request Body\n\(indent(prettyBody(body)))")
+      let description = NetworkLogRedactor.hidesBody(for: urlRequest?.url)
+        ? "<redacted>" : prettyBody(body)
+      lines.append("  · Request Body\n\(indent(description))")
     }
 
     // ── 응답 ──
@@ -62,7 +64,9 @@ struct FestiCoreEventMonitor: EventMonitor {
       }
     }
     if let data = response.data, !data.isEmpty {
-      lines.append("  · Response Body\n\(indent(prettyBody(data)))")
+      let description = NetworkLogRedactor.hidesBody(for: urlRequest?.url)
+        ? "<redacted>" : prettyBody(data)
+      lines.append("  · Response Body\n\(indent(description))")
     }
 
     let message = lines.joined(separator: "\n")
