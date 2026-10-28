@@ -86,6 +86,7 @@ private extension AppCoordinator {
   ) -> Effect<Action> {
     switch action {
     case .completeHomeTransition:
+      guard case .splash = state else { return .none }
       state = .home(.init())
       return .none
     }

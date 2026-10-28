@@ -27,4 +27,11 @@ struct AppCoordinatorTests {
       $0 = .home(.init())
     }
   }
+
+  @Test func repeatedHomeTransitionKeepsExistingState() async {
+    let store = TestStore(initialState: AppCoordinator.State.home(.init())) {
+      AppCoordinator()
+    }
+    await store.send(.inner(.completeHomeTransition))
+  }
 }

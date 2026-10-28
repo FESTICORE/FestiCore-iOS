@@ -34,7 +34,7 @@ FestiCore는 축제를 위한 iOS 앱입니다. 현재 저장소에는 앱 진�
 
 ## 아키텍처
 
-SwiftUI와 The Composable Architecture를 사용하는 Tuist 멀티모듈 프로젝트입니다. `Workspace.swift`가 `Projects/**`를 모으고, AppCoordinator는 TCAFlow로 화면을 연결합니다.
+SwiftUI와 The Composable Architecture를 사용하는 Tuist 멀티모듈 프로젝트입니다. `Workspace.swift`가 `Projects/**`를 모으고, AppCoordinator는 Splash에서 Home으로 전환합니다.
 
 ~~~text
 Projects/
