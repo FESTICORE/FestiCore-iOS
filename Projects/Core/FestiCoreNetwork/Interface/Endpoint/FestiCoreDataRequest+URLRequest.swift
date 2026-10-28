@@ -1,17 +1,15 @@
 //
 //  FestiCoreDataRequest+URLRequest.swift
-//  FestiCoreNetwork
+//  FestiCoreNetworkInterface
 //
 //  Copyright © 2026 FestiCore. All rights reserved.
 //
 
 import Foundation
 
-import FestiCoreNetworkInterface
-
 import Alamofire
 
-extension FestiCoreDataRequest {
+public extension FestiCoreDataRequest {
   func asURLRequest(baseURL: URL) throws -> URLRequest {
     var urlRequest = try URLRequest(
       url: baseURL.appendingPathComponent(path),

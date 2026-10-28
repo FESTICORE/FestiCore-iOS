@@ -20,6 +20,8 @@
     { "target": { "containerPath": "container:Projects/Domain/FestiCoreAuthDomain/FestiCoreAuthDomain.xcodeproj", "identifier": "77FD48157A2A4C158610BFD7", "name": "FestiCoreAuthDomainTests" } },
     { "target": { "containerPath": "container:Projects/Feature/Home/Home.xcodeproj", "identifier": "AF31213DA71B06E9B09EA3F0", "name": "HomeTests" } },
     { "target": { "containerPath": "container:Projects/Service/FestiCoreAnalytics/FestiCoreAnalytics.xcodeproj", "identifier": "2F7655471E814E2CABCA1BCF", "name": "FestiCoreAnalyticsTests" } },
+    { "target": { "containerPath": "container:Projects/Service/FestiCoreAPI/FestiCoreAPI.xcodeproj", "identifier": "8C2635CB80E96224A0E0C2D5", "name": "FestiCoreAPITests" } },
+    { "target": { "containerPath": "container:Projects/Service/FestiCoreAPIEndpoint/FestiCoreAPIEndpoint.xcodeproj", "identifier": "B01BAECEF6A58D13044B5DD7", "name": "FestiCoreAPIEndpointTests" } },
     { "target": { "containerPath": "container:Projects/Service/FestiCoreAuth/FestiCoreAuth.xcodeproj", "identifier": "CD229F4A06E3E8E646ECCE43", "name": "FestiCoreAuthTests" } },
     { "target": { "containerPath": "container:Projects/Service/FestiCoreDevice/FestiCoreDevice.xcodeproj", "identifier": "07CB41584352B22A9AF55AAC", "name": "FestiCoreDeviceTests" } },
     { "target": { "containerPath": "container:Projects/Service/FestiCoreFestivalCatalog/FestiCoreFestivalCatalog.xcodeproj", "identifier": "DFE4266116A46AE7A8F8F4C2", "name": "FestiCoreFestivalCatalogTests" } },
