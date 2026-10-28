@@ -11,6 +11,7 @@ import FestiCoreDeviceInterface
 import OSLog
 
 class AppDelegate: UIResponder, UIApplicationDelegate {
+  @Dependency(\.context) private var dependencyContext
   @Dependency(\.deviceRegistrationService) private var deviceRegistrationService
   private let logger = Logger(subsystem: "io.festiCore.co", category: "DeviceRegistration")
 
@@ -37,6 +38,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   ) {}
 
   private func registerDevice() {
+    guard case .live = dependencyContext else { return }
+
     let infoDictionary = Bundle.main.infoDictionary ?? [:]
     guard let configuration = AppConfiguration(infoDictionary: infoDictionary) else {
       logger.error("기기 등록 건너뜀: FestiCoreEnvironment 또는 FestiCoreAPIHost 설정이 유효하지 않음")
