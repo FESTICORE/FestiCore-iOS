@@ -3,6 +3,8 @@ import Darwin
 import FestiCorePackInterface
 import FestiCoreNetworkInterface
 
+private enum PackUpdateWaitError: Error { case idleTimeout }
+
 public actor NetworkPackSyncService: PackSyncService {
   private let baseURL: URL?
   private let cache: PackCache
@@ -64,6 +66,7 @@ public actor NetworkPackSyncService: PackSyncService {
     }
     var backoff = ReconnectBackoff()
     var rejectedHandshakesSinceSuccess = 0
+    var hasReceivedPack = false
     while !Task.isCancelled {
       do {
         let socket = client.connect(to: try endpoint())
@@ -73,15 +76,21 @@ public actor NetworkPackSyncService: PackSyncService {
             let result = try await synchronize(for: festivalID, on: socket)
             backoff.reset()
             rejectedHandshakesSinceSuccess = 0
+            if case .updated = result { hasReceivedPack = true }
+            if case .notModified = result { hasReceivedPack = true }
             continuation.yield(result)
             if case .retryAfter(let seconds) = result {
               try await Task.sleep(nanoseconds: UInt64(max(0.1, min(seconds, 30)) * 1_000_000_000))
               continue
             }
             while !Task.isCancelled {
-              let message = try PackWire.decode(
-                try await PackWire.receiveText(on: socket, timeoutNanoseconds: 60_000_000_000)
-              )
+              let text: String
+              do {
+                text = try await PackWire.receiveText(on: socket, timeoutNanoseconds: 60_000_000_000)
+              } catch PackSyncError.timeout {
+                throw PackUpdateWaitError.idleTimeout
+              }
+              let message = try PackWire.decode(text)
               if message.event == "pack.updated", message.data?["festivalId"] as? String == festivalID {
                 break
               }
@@ -92,6 +101,11 @@ public actor NetworkPackSyncService: PackSyncService {
         }
       } catch {
         if Task.isCancelled { break }
+        if error is PackUpdateWaitError {
+          // A quiet stream is refreshed without showing an outage or retrying images.
+          try? await Task.sleep(nanoseconds: backoff.nextDelayNanoseconds())
+          continue
+        }
         guard isTransportFailure(error) else {
           continuation.finish(throwing: error)
           return
@@ -104,7 +118,7 @@ public actor NetworkPackSyncService: PackSyncService {
           }
         }
         // Socket loss does not discard a complete cache; reconnect with its ETag.
-        continuation.yield(.reconnecting)
+        if hasReceivedPack { continuation.yield(.reconnecting) }
         try? await Task.sleep(nanoseconds: backoff.nextDelayNanoseconds())
       }
     }

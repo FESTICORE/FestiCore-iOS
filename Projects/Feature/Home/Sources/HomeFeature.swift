@@ -19,6 +19,7 @@ public struct HomeFeature {
     public var imageURLs: [String: URL] = [:]
     public var imageRevision = 0
     public var imageRetryPending = false
+    public var packWatchFailed = false
     public var selectedFestivalID: String?
     public var selectedPack: FestivalPackDocument?
     public var connection: Connection = .loading
@@ -119,6 +120,7 @@ public struct HomeFeature {
         return .merge(refreshCatalog(), watchSelectedPack(state), prefetchImages(state))
 
       case .view(.refreshRequested):
+        state.packWatchFailed = false
         return .merge(refreshCatalog(), watchSelectedPack(state))
 
       case let .view(.foregroundChanged(isForeground)):
@@ -127,6 +129,7 @@ public struct HomeFeature {
           return isForeground ? .send(.view(.onAppear)) : prefetchImages(state)
         }
         if isForeground {
+          state.packWatchFailed = false
           return .merge(refreshCatalog(), watchSelectedPack(state), prefetchImages(state))
         }
         return .merge(.cancel(id: CancelID.packUpdates), prefetchImages(state))
@@ -134,6 +137,7 @@ public struct HomeFeature {
       case let .view(.selectFestival(id)):
         guard state.festivals.contains(where: { $0.id == id }) else { return .none }
         state.selectedFestivalID = id
+        state.packWatchFailed = false
         showCachedPack(in: &state)
         resolveImageURLs(in: &state)
         return .merge(
@@ -144,6 +148,8 @@ public struct HomeFeature {
 
       case let .inner(.catalogRefreshed(catalog)):
         let previouslyAvailable = (state.selectedFestival?.packVersion ?? 0) > 0
+        let restartFailedWatch = state.packWatchFailed
+        state.packWatchFailed = false
         state.catalog = identifiedCatalog(catalog)
         retryImagesAfterRecovery(in: &state)
         state.catalogCacheReadFailed = false
@@ -158,7 +164,7 @@ public struct HomeFeature {
           state.connection = .unavailable
         }
         let prefetch = prefetchImages(state)
-        return !previouslyAvailable && (state.selectedFestival?.packVersion ?? 0) > 0
+        return (restartFailedWatch || !previouslyAvailable) && (state.selectedFestival?.packVersion ?? 0) > 0
           ? .merge(watchSelectedPack(state), prefetch) : prefetch
 
       case .inner(.catalogFailed):
@@ -175,6 +181,7 @@ public struct HomeFeature {
           if let document = try? JSONDecoder().decode(FestivalPackDocument.self, from: pack.pack) {
             state.selectedPack = document
             state.connection = .live
+            state.packWatchFailed = false
             state.packCacheReadFailed = false
             let retryPending = state.imageRetryPending
             retryImagesAfterRecovery(in: &state)
@@ -194,6 +201,7 @@ public struct HomeFeature {
       case let .inner(.packFailed(id)):
         guard state.selectedFestivalID == id else { return .none }
         state.imageRetryPending = true
+        state.packWatchFailed = true
         state.connection = .offline
         return .none
       }

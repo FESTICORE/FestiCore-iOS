@@ -78,6 +78,45 @@ struct PackSyncTests {
     try await assertReconnects(after: URLError(.badServerResponse))
   }
 
+  @Test("조용한 업데이트 소켓의 유휴 만료는 이미지 복구 이벤트 없이 갱신한다")
+  func idleUpdateTimeoutDoesNotSignalOutage() async throws {
+    let first = ScriptSocket(emptyError: PackSyncError.timeout) { request in
+      [snapshot(request, version: 1, etag: "\"one\"")]
+    }
+    let second = ScriptSocket { request in
+      [message("pack.not_modified", request["requestId"] as? String ?? "", [
+        "festivalId": "fst_example", "packVersion": 1, "etag": "\"one\""
+      ])]
+    }
+    let syncService = service(directory: temporaryDirectory(), sockets: [first, second])
+    var packResults = 0
+    var reconnectCount = 0
+    for try await result in syncService.updates(for: id) {
+      if case .updated = result { packResults += 1 }
+      if case .notModified = result { packResults += 1 }
+      if case .reconnecting = result { reconnectCount += 1 }
+      if packResults == 2 { break }
+    }
+    #expect(packResults == 2)
+    #expect(reconnectCount == 0)
+    #expect(second.requests.first?["ifNoneMatch"] as? String == "\"one\"")
+  }
+
+  @Test("첫 연결 실패는 기존 오프라인 상태를 바꾸지 않고 재시도한다")
+  func firstConnectionFailureDoesNotSignalReconnect() async throws {
+    let unavailable = ScriptSocket(emptyError: URLError(.notConnectedToInternet)) { _ in [] }
+    let online = ScriptSocket { request in [snapshot(request, version: 1, etag: "\"one\"")] }
+    let syncService = service(directory: temporaryDirectory(), sockets: [unavailable, online])
+    var reconnectCount = 0
+    var receivedPack = false
+    for try await result in syncService.updates(for: id) {
+      if case .reconnecting = result { reconnectCount += 1 }
+      if case .updated = result { receivedPack = true; break }
+    }
+    #expect(receivedPack)
+    #expect(reconnectCount == 0)
+  }
+
   @Test("반복해서 거부된 웹소켓 연결은 재시도를 끝내고 오류를 전달한다")
   func repeatedRejectedHandshakesFinishStream() async throws {
     let sockets = (0..<3).map { _ in
@@ -93,7 +132,7 @@ struct PackSyncTests {
     } catch let error as URLError {
       #expect(error.code == .badServerResponse)
     }
-    #expect(reconnectCount == 2)
+    #expect(reconnectCount == 0)
     #expect(sockets.allSatisfy { $0.requests.count == 1 })
   }
 

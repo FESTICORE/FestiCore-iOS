@@ -110,6 +110,35 @@ struct HomeOfflineTests {
     #expect(!store.state.cacheReadFailed)
   }
 
+  @Test @MainActor func successfulCatalogRefreshRestartsFailedPackWatch() async {
+    let pack = CachedFestivalPack(
+      festivalID: "fst_cached", packVersion: 1, etag: "\"v1\"",
+      pack: Data(#"{"id":"fst_cached","name":"저장된 축제","packVersion":1}"#.utf8)
+    )
+    let counter = PackWatchCounter()
+    var initialState = HomeFeature.State()
+    initialState.cachedPacks = [pack.festivalID: pack]
+    initialState.selectedFestivalID = pack.festivalID
+    initialState.connection = .live
+    let store = TestStore(initialState: initialState) { HomeFeature() } withDependencies: {
+      $0.festivalCatalogService = ImageCatalog()
+      $0.packSyncService = RecordingPackWatchService(counter: counter)
+    }
+
+    await store.send(.inner(.packFailed(pack.festivalID))) {
+      $0.imageRetryPending = true
+      $0.packWatchFailed = true
+      $0.connection = .offline
+    }
+    await store.send(.inner(.catalogRefreshed([]))) {
+      $0.packWatchFailed = false
+      $0.imageRetryPending = false
+      $0.imageRevision = 1
+    }
+    await store.finish()
+    #expect(counter.count == 1)
+  }
+
   @Test @MainActor func catalogRefreshDoesNotHidePackCacheFailure() async {
     var initialState = HomeFeature.State()
     initialState.packCacheReadFailed = true
@@ -430,6 +459,26 @@ private struct NoSocketPackService: PackSyncService {
   func sync(for _: String) async throws -> PackSyncResult { throw OfflineCatalog.NetworkUnavailable() }
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
     fatalError("Background cache load must not open a WebSocket")
+  }
+}
+
+private final class PackWatchCounter: @unchecked Sendable {
+  private let lock = NSLock()
+  private var starts = 0
+
+  var count: Int { lock.withLock { starts } }
+  func record() { lock.withLock { starts += 1 } }
+}
+
+private struct RecordingPackWatchService: PackSyncService {
+  let counter: PackWatchCounter
+
+  func cachedPack(for _: String) async throws -> CachedFestivalPack? { nil }
+  func cachedPacks() async throws -> [CachedFestivalPack] { [] }
+  func sync(for _: String) async throws -> PackSyncResult { throw OfflineCatalog.NetworkUnavailable() }
+  func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
+    counter.record()
+    return AsyncThrowingStream { $0.finish() }
   }
 }
 
