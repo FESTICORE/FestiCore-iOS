@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import FestiCoreLogger
 import Sentry
 
 enum SentryConfiguration {
@@ -25,7 +26,14 @@ enum SentryConfiguration {
   }
 
   static func configure(infoDictionary: [String: Any]) {
-    guard let configuration = options(infoDictionary: infoDictionary) else { return }
+    guard let configuration = options(infoDictionary: infoDictionary) else {
+      let dsn = (infoDictionary["FestiCoreSentryDSN"] as? String)?
+        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      if !dsn.isEmpty {
+        FestiCoreLogger.error("Sentry 시작 건너뜀: FestiCoreEnvironment 설정이 유효하지 않음", category: .app)
+      }
+      return
+    }
     SentrySDK.start { options in
       options.dsn = configuration.dsn
       options.environment = configuration.environment

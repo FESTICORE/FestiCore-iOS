@@ -18,9 +18,20 @@ struct AnalyticsConfigurationTests {
   @Test func sentryRequiresDSNAndKnownEnvironment() {
     #expect(SentryConfiguration.options(infoDictionary: ["FestiCoreEnvironment": "stage"]) == nil)
     #expect(SentryConfiguration.options(infoDictionary: [
+      "FestiCoreEnvironment": "stage",
+      "FestiCoreSentryDSN": " \n "
+    ]) == nil)
+    #expect(SentryConfiguration.options(infoDictionary: [
+      "FestiCoreSentryDSN": "https://key@example.invalid/1"
+    ]) == nil)
+    #expect(SentryConfiguration.options(infoDictionary: [
       "FestiCoreEnvironment": "other",
       "FestiCoreSentryDSN": "https://key@example.invalid/1"
     ]) == nil)
+    #expect(SentryConfiguration.options(infoDictionary: [
+      "FestiCoreEnvironment": "stage",
+      "FestiCoreSentryDSN": "https://key@example.invalid/1"
+    ]) == .init(dsn: "https://key@example.invalid/1", environment: "stage"))
     #expect(SentryConfiguration.options(infoDictionary: [
       "FestiCoreEnvironment": "production",
       "FestiCoreSentryDSN": "  https://key@example.invalid/1  "
