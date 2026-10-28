@@ -3,6 +3,20 @@ import Testing
 @testable import FestiCoreAnimation
 
 struct FestiCoreAnimationTests {
+  @Test func splashResourceHasExpectedCanvasAndDuration() throws {
+    let bundle = Bundle(for: FestiCoreAnimationBundleMarker.self)
+    let url = try #require(bundle.url(forResource: FestiCoreAnimationAsset.splash.rawValue, withExtension: "json"))
+    let data = try Data(contentsOf: url)
+    let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+    #expect(json["w"] as? Int == 393)
+    #expect(json["h"] as? Int == 852)
+    #expect(json["fr"] as? Int == 60)
+    #expect(json["op"] as? Int == 180)
+    let layers = try #require(json["layers"] as? [[String: Any]])
+    #expect(layers.contains { $0["nm"] as? String == "Background #111113" && $0["sc"] as? String == "#111113" })
+  }
+
   @Test @MainActor func viewAcceptsCallerBundleAndPausedBinding() {
     let view = FestiCoreAnimationView(name: "loading.gif", bundle: .main, isAnimating: .constant(false))
     let controller = UIHostingController(rootView: view)

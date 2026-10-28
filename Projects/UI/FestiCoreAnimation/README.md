@@ -3,6 +3,9 @@
 GIF는 기존 `FestiCoreAnimationView`로 표시합니다. Lottie는 호출자가 소유한 JSON 번들 에셋이나 HTTPS URL을 받습니다.
 
 ```swift
+FestiCoreLottieView(.splash)
+
+// 호출자가 소유한 JSON도 표시할 수 있습니다.
 FestiCoreLottieView(.asset(name: "loading", bundle: .main))
   .duration(2)
 

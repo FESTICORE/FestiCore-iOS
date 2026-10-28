@@ -22,6 +22,10 @@ public struct FestiCoreLottieView: View {
     self.source = source
   }
 
+  public init(_ asset: FestiCoreAnimationAsset) {
+    source = .asset(name: asset.rawValue, bundle: Bundle(for: FestiCoreAnimationBundleMarker.self))
+  }
+
   /// 애니메이션 한 번의 목표 재생 시간을 초 단위로 지정합니다.
   public func duration(_ seconds: TimeInterval) -> Self {
     guard seconds.isFinite, seconds > 0 else { return self }
