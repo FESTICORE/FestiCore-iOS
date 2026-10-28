@@ -18,22 +18,20 @@ struct AppCoordinatorView: View {
       Color.backgroundNormal
         .ignoresSafeArea()
 
-      SwitchStore(store) { state in
-        switch state {
-        case .splash:
-          if let splashStore = store.scope(\.splash, action: \.scope.splash) {
-            SplashView(store: splashStore)
-              .transition(.opacity.combined(with: .scale(scale: 0.98)))
-          }
+      switch store.state {
+      case .splash:
+        if let splashStore = store.scope(\.splash, action: \.scope.splash) {
+          SplashView(store: splashStore)
+            .transition(.opacity.combined(with: .scale(scale: 0.98)))
+        }
 
-        case .home:
-          if let homeStore = store.scope(\.home, action: \.scope.home) {
-            FestiCoreHomeView(store: homeStore)
-              .transition(.asymmetric(
-                insertion: .move(edge: .trailing),
-                removal: .move(edge: .leading)
-              ))
-          }
+      case .home:
+        if let homeStore = store.scope(\.home, action: \.scope.home) {
+          FestiCoreHomeView(store: homeStore)
+            .transition(.asymmetric(
+              insertion: .move(edge: .trailing),
+              removal: .move(edge: .leading)
+            ))
         }
       }
     }
