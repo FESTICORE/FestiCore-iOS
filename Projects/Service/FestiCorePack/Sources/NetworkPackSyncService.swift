@@ -1,6 +1,7 @@
 import Foundation
 import Darwin
 import FestiCorePackInterface
+import FestiCoreNetwork
 
 public actor NetworkPackSyncService: PackSyncService {
   private let baseURL: URL?
@@ -13,7 +14,8 @@ public actor NetworkPackSyncService: PackSyncService {
   public init(baseURL: URL?, cacheDirectory: URL, session: URLSession = .shared) {
     self.baseURL = baseURL
     cache = PackCache(directory: cacheDirectory)
-    socketFactory = { URLSessionPackSocket(url: $0, session: session) }
+    let client = URLSessionWebSocketClient(session: session)
+    socketFactory = { client.connect(to: $0) }
     responseTimeoutNanoseconds = 15_000_000_000
   }
 
@@ -221,16 +223,4 @@ public actor NetworkPackSyncService: PackSyncService {
       ($0 >= 65 && $0 <= 90) || ($0 >= 97 && $0 <= 122) || ($0 >= 48 && $0 <= 57) || $0 == 45 || $0 == 95
     }
   }
-}
-
-struct ReconnectBackoff {
-  private var attempt = 0
-
-  mutating func nextDelayNanoseconds() -> UInt64 {
-    let seconds = min(30, 1 << min(attempt, 5))
-    attempt += 1
-    return UInt64(seconds) * 1_000_000_000
-  }
-
-  mutating func reset() { attempt = 0 }
 }

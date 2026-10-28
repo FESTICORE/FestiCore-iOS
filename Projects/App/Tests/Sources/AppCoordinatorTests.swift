@@ -9,6 +9,7 @@ import Foundation
 import Testing
 
 import ComposableArchitecture
+import FestiCoreFestivalDomainInterface
 @testable import FestiCore
 
 @MainActor
@@ -20,6 +21,8 @@ struct AppCoordinatorTests {
   @Test func splashCompletionShowsHome() async {
     let store = TestStore(initialState: AppCoordinator.State()) {
       AppCoordinator()
+    } withDependencies: {
+      $0.festivalCatalogService = EmptyFestivalCatalogService()
     }
     await store.send(.scope(.splash(.delegate(.presentHome))))
     await store.receive(\.view.presentHome)
@@ -31,7 +34,20 @@ struct AppCoordinatorTests {
   @Test func repeatedHomeTransitionKeepsExistingState() async {
     let store = TestStore(initialState: AppCoordinator.State.home(.init())) {
       AppCoordinator()
+    } withDependencies: {
+      $0.festivalCatalogService = EmptyFestivalCatalogService()
     }
     await store.send(.inner(.completeHomeTransition))
   }
+
+  @Test func homeCoordinatorStartsWithHomeFeatureRoute() {
+    let coordinator = HomeCoordinator.State()
+    #expect(coordinator.routes.count == 1)
+    #expect(coordinator.routes.first?.screen.home != nil)
+  }
+}
+
+private struct EmptyFestivalCatalogService: FestivalCatalogService {
+  func cachedFestivals() async throws -> [FestivalCatalogItem] { [] }
+  func refresh() async throws -> [FestivalCatalogItem] { [] }
 }

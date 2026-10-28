@@ -6,7 +6,6 @@
 //
 
 import ComposableArchitecture
-import FeatureAssembly
 import FestiCoreDesignKit
 import SwiftUI
 
@@ -27,7 +26,7 @@ struct AppCoordinatorView: View {
 
       case .home:
         if let homeStore = store.scope(\.home, action: \.scope.home) {
-          FestiCoreHomeView(store: homeStore)
+          HomeCoordinatorView(store: homeStore)
             .transition(.asymmetric(
               insertion: .move(edge: .trailing),
               removal: .move(edge: .leading)

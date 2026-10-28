@@ -11,7 +11,7 @@ import FestiCoreAuthInterface
 import FestiCoreDevice
 import FestiCoreDeviceInterface
 import FestiCoreFestivalCatalog
-import FestiCoreFestivalCatalogInterface
+import FestiCoreFestivalDomainInterface
 import FestiCoreNetworkInterface
 import FestiCoreNetwork
 import FestiCorePack

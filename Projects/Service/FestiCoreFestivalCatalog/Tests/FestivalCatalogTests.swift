@@ -1,4 +1,4 @@
-import FestiCoreFestivalCatalogInterface
+import FestiCoreFestivalDomainInterface
 import FestiCoreNetworkInterface
 import Foundation
 import Testing
@@ -47,6 +47,22 @@ struct FestivalCatalogTests {
     #expect(try await service.refresh().first?.thumbnailURL?.absoluteString ==
       "https://festicore-dev.up.railway.app/api/v1/festivals/images/poster")
     #expect(service.imageURL(for: "javascript:alert(1)") == nil)
+  }
+
+  @Test("이전 버전 캐시의 thumbUrl을 읽어 포스터를 복구한다")
+  func restoresExistingCatalogCache() async throws {
+    let cacheURL = temporaryCacheURL()
+    try FileManager.default.createDirectory(
+      at: cacheURL.deletingLastPathComponent(), withIntermediateDirectories: true
+    )
+    try Data(#"[{"id":"fst_saved","name":"저장된 축제","thumbUrl":"/api/v1/festivals/images/poster","packVersion":2}]"#.utf8)
+      .write(to: cacheURL)
+    let service = NetworkFestivalCatalogService(
+      client: ScriptClient(pages: []), cacheURL: cacheURL,
+      baseURL: URL(string: "https://festicore-dev.up.railway.app")
+    )
+    #expect(try await service.cachedFestivals().first?.thumbnailURL?.absoluteString ==
+      "https://festicore-dev.up.railway.app/api/v1/festivals/images/poster")
   }
 
   private func temporaryCacheURL() -> URL {

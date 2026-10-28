@@ -1,5 +1,6 @@
 import Foundation
 import FestiCorePackInterface
+import FestiCoreNetworkInterface
 
 enum PackWire {
   static let maxPackBytes = 8 * 1024 * 1024
@@ -87,16 +88,20 @@ enum PackWire {
   }
 
   static func receiveText(on socket: any PackSocket, timeoutNanoseconds: UInt64) async throws -> String {
-    try await withThrowingTaskGroup(of: String.self) { group in
-      group.addTask { try await socket.receive() }
-      group.addTask {
-        try await Task.sleep(nanoseconds: timeoutNanoseconds)
-        socket.cancel()
-        throw PackSyncError.timeout
+    do {
+      return try await withThrowingTaskGroup(of: String.self) { group in
+        group.addTask { try await socket.receive() }
+        group.addTask {
+          try await Task.sleep(nanoseconds: timeoutNanoseconds)
+          socket.cancel()
+          throw PackSyncError.timeout
+        }
+        guard let result = try await group.next() else { throw PackSyncError.timeout }
+        group.cancelAll()
+        return result
       }
-      guard let result = try await group.next() else { throw PackSyncError.timeout }
-      group.cancelAll()
-      return result
+    } catch FestiCoreWebSocketError.nonTextMessage {
+      throw PackSyncError.invalidMessage
     }
   }
 

@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import FestiCorePackInterface
+import FestiCoreNetworkInterface
 @testable import FestiCorePack
 
 @Suite("오프라인 팩 복구")
@@ -245,6 +246,24 @@ struct PackSyncTests {
     #expect(try await retry.cachedPack(for: id)?.packVersion == 1)
   }
 
+  @Test("텍스트가 아닌 웹소켓 메시지는 잘못된 팩 메시지로 처리하고 연결을 닫는다")
+  func nonTextMessageClosesSocket() async throws {
+    let socket = ScriptSocket(emptyError: FestiCoreWebSocketError.nonTextMessage) { _ in [] }
+    let syncService = service(directory: temporaryDirectory(), sockets: [socket])
+
+    await #expect(throws: PackSyncError.invalidMessage) { try await syncService.sync(for: id) }
+    #expect(socket.cancelCount == 1)
+  }
+
+  @Test("단발 동기화가 끝나면 웹소켓 연결을 닫는다")
+  func completedSyncClosesSocket() async throws {
+    let socket = ScriptSocket { request in [snapshot(request, version: 1, etag: "\"one\"")] }
+    let syncService = service(directory: temporaryDirectory(), sockets: [socket])
+
+    _ = try await syncService.sync(for: id)
+    #expect(socket.cancelCount == 1)
+  }
+
   @Test("서버 오류는 무한 재접속하지 않고 스트림에 전달한다")
   func serverErrorFinishesStream() async throws {
     let socket = ScriptSocket { request in
@@ -351,6 +370,7 @@ private final class ScriptSocket: PackSocket, @unchecked Sendable {
   private let emptyError: Error
   private var messages: [String] = []
   private var sent: [[String: Any]] = []
+  private var cancellations = 0
 
   init(
     delayNanoseconds: UInt64 = 0,
@@ -363,6 +383,7 @@ private final class ScriptSocket: PackSocket, @unchecked Sendable {
   }
 
   var requests: [[String: Any]] { lock.withLock { sent } }
+  var cancelCount: Int { lock.withLock { cancellations } }
 
   func send(_ text: String) async throws {
     let request = try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any] ?? [:]
@@ -381,5 +402,5 @@ private final class ScriptSocket: PackSocket, @unchecked Sendable {
     }
   }
 
-  func cancel() {}
+  func cancel() { lock.withLock { cancellations += 1 } }
 }

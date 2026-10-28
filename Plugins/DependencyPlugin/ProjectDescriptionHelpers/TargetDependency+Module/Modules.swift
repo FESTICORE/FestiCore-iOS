@@ -23,6 +23,12 @@ public enum CoreModule: String, CaseIterable {
   var path: Path { .relativeToCore(rawValue) }
 }
 
+public enum DomainModule: String, CaseIterable {
+  case festival = "FestiCoreFestivalDomain"
+
+  var path: Path { .relativeToDomain(rawValue) }
+}
+
 public enum UIModule: String, CaseIterable {
   case animation = "FestiCoreAnimation"
   case designSystem = "FestiCoreDesignKit"
