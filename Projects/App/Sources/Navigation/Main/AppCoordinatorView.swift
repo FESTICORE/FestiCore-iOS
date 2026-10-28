@@ -8,19 +8,22 @@
 import ComposableArchitecture
 import FeatureAssembly
 import SwiftUI
-import TCAFlow
 
 struct AppCoordinatorView: View {
   @Bindable var store: StoreOf<AppCoordinator>
 
   var body: some View {
-    TCAFlowRouter(store.scope(\.routes, action: \.router)) { screen in
-      switch screen.case {
-      case .splash(let splashStore):
-        SplashView(store: splashStore)
+    SwitchStore(store.scope(state: \.screen, action: \.screen)) { state in
+      switch state {
+      case .splash:
+        if let splashStore = store.scope(state: \.screen.splash, action: \.screen.splash) {
+          SplashView(store: splashStore)
+        }
 
-      case .home(let homeStore):
-        FestiCoreHomeView(store: homeStore)
+      case .home:
+        if let homeStore = store.scope(state: \.screen.home, action: \.screen.home) {
+          FestiCoreHomeView(store: homeStore)
+        }
       }
     }
   }

@@ -59,7 +59,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       apnsToken: nil,
       appVersion: appVersion,
       osVersion: UIDevice.current.systemVersion,
-      locale: Locale.current.identifier,
+      locale: Locale.current.identifier(.bcp47),
       timezone: TimeZone.current.identifier
     )
 

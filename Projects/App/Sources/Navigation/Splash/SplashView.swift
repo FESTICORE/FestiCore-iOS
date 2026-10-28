@@ -20,14 +20,13 @@ struct SplashView: View {
         .ignoresSafeArea()
 
       FestiCoreLottieView(.splash)
-        .duration(3)
+        .duration(2)
         .aspectRatio(FestiCoreAnimationAsset.splash.canvasAspectRatio, contentMode: .fit)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
     }
     .statusBarHidden()
     .onAppear { send(.onAppear) }
-    .onDisappear { send(.onDisappear) }
     .accessibilityIdentifier("splash_root")
   }
 }

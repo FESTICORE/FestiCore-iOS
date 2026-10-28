@@ -8,13 +8,12 @@
 import ComposableArchitecture
 import FeatureAssembly
 import Foundation
-import TCAFlow
 
-@FlowCoordinator(screen: "AppScreen", navigation: true)
+@Reducer
 struct AppCoordinator {
   @ObservableState
   struct State: Equatable {
-    var routes: [Route<AppScreen.State>]
+    var screen: AppScreen.State
     var configurationIsAvailable: Bool
 
     init() {
@@ -23,31 +22,29 @@ struct AppCoordinator {
 
     init(configurationIsAvailable: Bool) {
       self.configurationIsAvailable = configurationIsAvailable
-      routes = [
-        .root(
-          .splash(SplashFeature.State())
-        )
-      ]
+      screen = .splash(SplashFeature.State())
     }
   }
 
   @CasePathable
   enum Action {
-    case router(IndexedRouterActionOf<AppScreen>)
+    case screen(AppScreen.Action)
   }
 
-  func handleRoute(state: inout State, action: Action) -> Effect<Action> {
-    switch action {
-    case .router(.routeAction(id: _, action: .splash(.delegate(.presentHome)))):
-      state.routes = [
-        .root(
-          .home(HomeFeature.State(configurationIsAvailable: state.configurationIsAvailable)),
-          embedInNavigationView: true
-        )
-      ]
-      return .none
-
-    default:
+  var body: some ReducerOf<Self> {
+    Scope(\.screen, action: \.screen) {
+      Reduce<AppScreen.State, AppScreen.Action> { _, _ in .none }
+        .ifCaseLet(\.splash, action: \.splash) {
+          SplashFeature()
+        }
+        .ifCaseLet(\.home, action: \.home) {
+          HomeFeature()
+        }
+    }
+    Reduce { state, action in
+      if case .screen(.splash(.delegate(.presentHome))) = action {
+        state.screen = .home(HomeFeature.State(configurationIsAvailable: state.configurationIsAvailable))
+      }
       return .none
     }
   }

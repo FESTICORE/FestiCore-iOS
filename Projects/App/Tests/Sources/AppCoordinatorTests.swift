@@ -7,7 +7,8 @@
 
 import Foundation
 import Testing
-import TCAFlow
+
+import ComposableArchitecture
 @testable import FestiCore
 
 struct AppCoordinatorTests {
@@ -17,21 +18,19 @@ struct AppCoordinatorTests {
   }
 
   @Test(arguments: [true, false])
-  func startsAtSplashAndKeepsConfigurationState(configurationIsAvailable: Bool) {
-    var state = AppCoordinator.State(configurationIsAvailable: configurationIsAvailable)
+  func startsAtSplashAndKeepsConfigurationState(configurationIsAvailable: Bool) async {
+    let state = AppCoordinator.State(configurationIsAvailable: configurationIsAvailable)
 
     #expect(state.configurationIsAvailable == configurationIsAvailable)
-    #expect(state.routes == [
-      .root(.splash(.init()))
-    ])
+    #expect(state.screen == .splash(.init()))
 
-    _ = AppCoordinator().handleRoute(
-      state: &state,
-      action: .router(.routeAction(id: 0, action: .splash(.delegate(.presentHome))))
-    )
+    let store = TestStore(initialState: state) {
+      AppCoordinator()
+    }
+    await store.send(.screen(.splash(.delegate(.presentHome)))) {
+      $0.screen = .home(.init(configurationIsAvailable: configurationIsAvailable))
+    }
 
-    #expect(state.routes == [
-      .root(.home(.init(configurationIsAvailable: configurationIsAvailable)), embedInNavigationView: true)
-    ])
+    #expect(store.state.screen == .home(.init(configurationIsAvailable: configurationIsAvailable)))
   }
 }

@@ -25,7 +25,6 @@ struct SplashFeature {
 
   enum View {
     case onAppear
-    case onDisappear
   }
 
   @CasePathable
@@ -41,10 +40,6 @@ struct SplashFeature {
   @CasePathable
   enum DelegateAction {
     case presentHome
-  }
-
-  private enum CancelID: Hashable {
-    case timer
   }
 
   @Dependency(\.continuousClock) private var clock
@@ -70,28 +65,18 @@ struct SplashFeature {
 
 private extension SplashFeature {
   func handleViewAction(state: inout State, action: View) -> Effect<Action> {
-    switch action {
-    case .onAppear:
-      guard !state.hasStarted else { return .none }
-      state.hasStarted = true
-      return .send(.async(.waitForAnimation))
-
-    case .onDisappear:
-      if !state.didComplete {
-        state.hasStarted = false
-      }
-      return .cancel(id: CancelID.timer)
-    }
+    guard !state.hasStarted else { return .none }
+    state.hasStarted = true
+    return .send(.async(.waitForAnimation))
   }
 
   func handleAsyncAction(action: AsyncAction) -> Effect<Action> {
     switch action {
     case .waitForAnimation:
       return .run { send in
-        try await clock.sleep(for: .seconds(3))
+        try await clock.sleep(for: .seconds(2))
         await send(.inner(.animationFinished))
       }
-      .cancellable(id: CancelID.timer, cancelInFlight: true)
     }
   }
 

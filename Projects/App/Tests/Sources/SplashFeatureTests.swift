@@ -12,7 +12,7 @@ import Testing
 
 @MainActor
 struct SplashFeatureTests {
-  @Test func completesOnceAfterThreeSeconds() async {
+  @Test func completesOnceAfterTwoSeconds() async {
     let clock = TestClock()
     let store = TestStore(initialState: SplashFeature.State()) {
       SplashFeature()
@@ -26,7 +26,7 @@ struct SplashFeatureTests {
     await store.receive(\.async.waitForAnimation)
     await store.send(.view(.onAppear))
 
-    await clock.advance(by: .seconds(2))
+    await clock.advance(by: .seconds(1))
     await clock.advance(by: .seconds(1))
 
     await store.receive(\.inner.animationFinished) {
@@ -36,7 +36,7 @@ struct SplashFeatureTests {
     await store.send(.inner(.animationFinished))
   }
 
-  @Test func disappearingCancelsTransition() async {
+  @Test func ignoresCompletionBeforeAppear() async {
     let clock = TestClock()
     let store = TestStore(initialState: SplashFeature.State()) {
       SplashFeature()
@@ -44,20 +44,13 @@ struct SplashFeatureTests {
       $0.continuousClock = clock
     }
 
-    await store.send(.view(.onAppear)) {
-      $0.hasStarted = true
-    }
-    await store.receive(\.async.waitForAnimation)
-    await store.send(.view(.onDisappear)) {
-      $0.hasStarted = false
-    }
-    await clock.advance(by: .seconds(3))
+    await store.send(.inner(.animationFinished))
 
     await store.send(.view(.onAppear)) {
       $0.hasStarted = true
     }
     await store.receive(\.async.waitForAnimation)
-    await clock.advance(by: .seconds(3))
+    await clock.advance(by: .seconds(2))
     await store.receive(\.inner.animationFinished) {
       $0.didComplete = true
     }
