@@ -11,6 +11,7 @@ import Testing
 import ComposableArchitecture
 @testable import FestiCore
 
+@MainActor
 struct AppCoordinatorTests {
   @Test func startsAtSplash() {
     #expect(AppCoordinator.State() == .splash(.init()))

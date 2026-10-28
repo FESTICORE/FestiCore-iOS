@@ -9,11 +9,12 @@ import Lottie
 import SwiftUI
 import UIKit
 
-/// 로컬 JSON 또는 HTTPS 애니메이션을 반복 재생합니다.
+/// 로컬 JSON 또는 HTTPS 애니메이션을 재생합니다.
 public struct FestiCoreLottieView: View {
   private let source: FestiCoreLottieSource
   private(set) var targetDuration: TimeInterval?
   private(set) var animationContentMode: UIView.ContentMode = .scaleAspectFit
+  private(set) var loopMode: LottieLoopMode = .loop
 
   @State private var remoteAnimation: LottieAnimation?
   @State private var remoteDotLottieFile: DotLottieFile?
@@ -36,6 +37,12 @@ public struct FestiCoreLottieView: View {
     return copy
   }
 
+  public func playOnce() -> Self {
+    var copy = self
+    copy.loopMode = .playOnce
+    return copy
+  }
+
   /// 원본 비율을 유지하거나 현재 표시 영역에 맞게 채웁니다.
   public func contentMode(_ mode: UIView.ContentMode) -> Self {
     var copy = self
@@ -48,7 +55,7 @@ public struct FestiCoreLottieView: View {
     case let .asset(name, bundle):
       if let animation = LottieAnimation.named(name, bundle: bundle) {
         LottieView(animation: animation)
-          .looping()
+          .playing(.fromProgress(0, toProgress: 1, loopMode: loopMode))
           .animationSpeed(speed(for: animation.duration))
           .resizable()
           .configure { $0.contentMode = animationContentMode }
@@ -62,13 +69,13 @@ public struct FestiCoreLottieView: View {
           failureView
         } else if loadedSourceID == taskID(url: url, format: format), let animation = remoteAnimation {
           LottieView(animation: animation)
-            .looping()
+            .playing(.fromProgress(0, toProgress: 1, loopMode: loopMode))
             .animationSpeed(speed(for: animation.duration))
             .resizable()
             .configure { $0.contentMode = animationContentMode }
         } else if loadedSourceID == taskID(url: url, format: format), let file = remoteDotLottieFile {
           LottieView(dotLottieFile: file)
-            .looping()
+            .playing(.fromProgress(0, toProgress: 1, loopMode: loopMode))
             // .lottie 파일은 여러 애니메이션을 담을 수 있어 실제 재생 중인 길이를 사용한다.
             .configure { view in
               view.contentMode = animationContentMode
