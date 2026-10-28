@@ -14,6 +14,7 @@ let project = Project.makeModule(
   name: "FeatureAssembly",
   dependencies: [
     .feature(.home),
+    .domain(.auth),
     .service(.assembly),
     .SPM.composableArchitecture
   ]
