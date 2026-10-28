@@ -8,20 +8,30 @@
 import UIKit
 import Dependencies
 import FestiCoreDeviceInterface
-import OSLog
+import FestiCoreLogger
 
 class AppDelegate: UIResponder, UIApplicationDelegate {
   @Dependency(\.context) private var dependencyContext
   @Dependency(\.deviceRegistrationService) private var deviceRegistrationService
-  private let logger = Logger(subsystem: "io.festiCore.co", category: "DeviceRegistration")
+  private var registrationTask: Task<Void, Never>?
 
   func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     configure()
-    registerDevice()
+    registerDevice(apnsToken: nil)
+    application.registerForRemoteNotifications()
     return true
+  }
+
+  func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    let apnsToken = deviceToken.map { String(format: "%02x", $0) }.joined()
+    registerDevice(apnsToken: apnsToken)
+  }
+
+  func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    FestiCoreLogger.error("APNs 토큰 등록 실패: \(error.localizedDescription)", category: .app)
   }
 
   func application(
@@ -37,37 +47,39 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     didDiscardSceneSessions sceneSessions: Set<UISceneSession>
   ) {}
 
-  private func registerDevice() {
+  private func registerDevice(apnsToken: String?) {
     guard case .live = dependencyContext else { return }
 
     let infoDictionary = Bundle.main.infoDictionary ?? [:]
-    guard let configuration = AppConfiguration(infoDictionary: infoDictionary) else {
-      logger.error("기기 등록 건너뜀: FestiCoreEnvironment 또는 FestiCoreAPIHost 설정이 유효하지 않음")
-      return
-    }
-    guard let apnsEnvironment = configuration.apnsEnvironment else {
-      logger.error("기기 등록 건너뜀: FestiCoreAPNsEnvironment 설정이 유효하지 않음")
+    let apnsEnvironment: DeviceRegistrationMetadata.APNsEnvironment
+    switch infoDictionary["FestiCoreAPNsEnvironment"] as? String {
+    case "development": apnsEnvironment = .sandbox
+    case "production": apnsEnvironment = .production
+    default:
+      FestiCoreLogger.error("기기 등록 건너뜀: FestiCoreAPNsEnvironment 설정이 유효하지 않음", category: .app)
       return
     }
     guard let appVersion = infoDictionary["CFBundleShortVersionString"] as? String, !appVersion.isEmpty else {
-      logger.error("기기 등록 건너뜀: CFBundleShortVersionString 설정이 유효하지 않음")
+      FestiCoreLogger.error("기기 등록 건너뜀: CFBundleShortVersionString 설정이 유효하지 않음", category: .app)
       return
     }
 
     let metadata = DeviceRegistrationMetadata(
       apnsEnvironment: apnsEnvironment,
-      apnsToken: nil,
+      apnsToken: apnsToken,
       appVersion: appVersion,
       osVersion: UIDevice.current.systemVersion,
       locale: Locale.current.identifier(.bcp47),
       timezone: TimeZone.current.identifier
     )
 
-    Task {
+    let previousRegistration = registrationTask
+    registrationTask = Task {
+      await previousRegistration?.value
       do {
         _ = try await deviceRegistrationService.register(metadata)
       } catch {
-        logger.error("기기 등록 실패: \(error.localizedDescription)")
+        FestiCoreLogger.error("기기 등록 실패: \(error.localizedDescription)", category: .app)
       }
     }
   }
