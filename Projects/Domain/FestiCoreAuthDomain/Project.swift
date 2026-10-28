@@ -17,6 +17,7 @@ let project = Project.makeModule(
     .core(.network, .interface),
     .service(.auth, .interface),
     .service(.apiEndpoint),
+    .SPM.googleSignIn,
     .SPM.dependencies
   ],
   hasTests: true,
