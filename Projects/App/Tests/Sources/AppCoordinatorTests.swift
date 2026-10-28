@@ -9,7 +9,7 @@ import Foundation
 import Testing
 
 import ComposableArchitecture
-import FestiCoreFestivalDomainInterface
+import FestivalDomainInterface
 @testable import FestiCore
 
 @MainActor

@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import FestiCoreAPIEndpoint
+import APIEndpoint
 import FestiCoreNetworkInterface
 
 struct TokenRefresher: TokenRefreshing {

@@ -1,5 +1,5 @@
 import Alamofire
-import FestiCoreFestivalDomain
+import FestivalDomain
 import FestiCoreNetworkInterface
 
 struct FestivalListRequest: FestiCoreDataRequest {
