@@ -23,7 +23,7 @@ struct SplashView: View {
 
       FestiCoreLottieView(.splash)
         .duration(3)
-        .aspectRatio(393.0 / 852.0, contentMode: .fit)
+        .aspectRatio(FestiCoreAnimationAsset.splash.canvasAspectRatio, contentMode: .fit)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
     }

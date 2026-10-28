@@ -23,16 +23,17 @@ struct SplashFeatureTests {
     await store.send(.view(.onAppear)) {
       $0.hasStarted = true
     }
+    await store.receive(\.async.waitForAnimation)
     await store.send(.view(.onAppear))
 
     await clock.advance(by: .seconds(2))
     await clock.advance(by: .seconds(1))
 
-    await store.receive(\.timerFinished) {
+    await store.receive(\.inner.animationFinished) {
       $0.didComplete = true
     }
     await store.receive(\.delegate.presentHome)
-    await store.send(.timerFinished)
+    await store.send(.inner(.animationFinished))
   }
 
   @Test func disappearingCancelsTransition() async {
@@ -46,6 +47,7 @@ struct SplashFeatureTests {
     await store.send(.view(.onAppear)) {
       $0.hasStarted = true
     }
+    await store.receive(\.async.waitForAnimation)
     await store.send(.view(.onDisappear)) {
       $0.hasStarted = false
     }
@@ -54,8 +56,9 @@ struct SplashFeatureTests {
     await store.send(.view(.onAppear)) {
       $0.hasStarted = true
     }
+    await store.receive(\.async.waitForAnimation)
     await clock.advance(by: .seconds(3))
-    await store.receive(\.timerFinished) {
+    await store.receive(\.inner.animationFinished) {
       $0.didComplete = true
     }
     await store.receive(\.delegate.presentHome)
