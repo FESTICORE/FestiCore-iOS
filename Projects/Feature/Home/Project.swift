@@ -7,10 +7,18 @@
 
 import ProjectDescription
 import DependencyPackagePlugin
+import DependencyPlugin
 import ProjectTemplatePlugin
 
 let project = Project.makeModule(
   name: "Home",
-  dependencies: [.SPM.composableArchitecture],
-  hasTests: false
+  dependencies: [
+    .service(.festivalCatalog, .interface),
+    .service(.pack, .interface),
+    .ui(.sharedUI),
+    .SPM.kingfisher,
+    .SPM.composableArchitecture,
+    .SPM.dependencies
+  ],
+  hasTests: true
 )

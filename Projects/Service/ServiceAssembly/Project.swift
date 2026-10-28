@@ -18,6 +18,7 @@ let project = Project.makeModule(
     .core(.network),
     .service(.auth),
     .service(.device),
+    .service(.festivalCatalog),
     .service(.pack),
     .SPM.dependencies
   ],
