@@ -168,8 +168,10 @@ public struct HomeFeature {
           ? .merge(watchSelectedPack(state), prefetch) : prefetch
 
       case .inner(.catalogFailed):
-        state.imageRetryPending = true
-        if state.connection != .live { state.connection = .offline }
+        if state.connection != .live {
+          state.imageRetryPending = true
+          state.connection = .offline
+        }
         return .none
 
       case let .inner(.packReceived(id, result)):

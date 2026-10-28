@@ -354,6 +354,12 @@ struct HomeOfflineTests {
     #expect(store.state.imageRevision == 0)
     #expect(await recorder.startCount() == 1)
 
+    await store.send(.inner(.catalogFailed))
+    await store.send(.inner(.packReceived(pack.festivalID, .notModified(pack))))
+    await store.finish()
+    #expect(store.state.imageRevision == 0)
+    #expect(await recorder.startCount() == 1)
+
     await store.send(.inner(.packReceived(pack.festivalID, .reconnecting))) {
       $0.connection = .reconnecting
       $0.imageRetryPending = true
