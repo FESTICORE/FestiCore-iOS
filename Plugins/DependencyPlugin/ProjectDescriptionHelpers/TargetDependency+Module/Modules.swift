@@ -49,6 +49,7 @@ public enum ExtensionModule: String, CaseIterable {
 public enum ServiceModule: String, CaseIterable {
   case auth = "FestiCoreAuth"
   case device = "FestiCoreDevice"
+  case pack = "FestiCorePack"
   case assembly = "ServiceAssembly"
 
   var path: Path { .relativeToService(rawValue) }

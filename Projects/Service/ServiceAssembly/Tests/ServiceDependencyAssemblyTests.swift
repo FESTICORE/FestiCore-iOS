@@ -11,26 +11,30 @@ import FestiCoreAuthInterface
 import FestiCoreDevice
 import FestiCoreDeviceInterface
 import FestiCoreNetworkInterface
+import FestiCorePack
+import FestiCorePackInterface
 @testable import ServiceAssembly
 
 @Suite("ServiceAssembly")
 struct ServiceDependencyAssemblyTests {
   @Test("별도 앱 등록 없이 라이브 의존성을 제공한다")
   func resolvesLiveServicesWithoutAppRegistration() {
-    let (networkClient, authService, deviceService, liveActivityService) = withDependencies {
+    let (networkClient, authService, deviceService, liveActivityService, packService) = withDependencies {
       $0.context = .live
     } operation: {
       @Dependency(\.networkClient) var networkClient
       @Dependency(\.authService) var authService
       @Dependency(\.deviceRegistrationService) var deviceService
       @Dependency(\.liveActivityRegistrationService) var liveActivityService
-      return (networkClient, authService, deviceService, liveActivityService)
+      @Dependency(\.packSyncService) var packService
+      return (networkClient, authService, deviceService, liveActivityService, packService)
     }
 
     #expect((networkClient as AnyObject) === (NetworkContainer.authenticatedClient as AnyObject))
     #expect((authService as AnyObject) === (NetworkContainer.authService as AnyObject))
     #expect(deviceService is NetworkDeviceRegistrationService)
     #expect(liveActivityService is NetworkLiveActivityRegistrationService)
+    #expect(packService is NetworkPackSyncService)
   }
 
   @Test("같은 인증 수명주기의 클라이언트와 서비스를 등록한다")
@@ -42,5 +46,6 @@ struct ServiceDependencyAssemblyTests {
     #expect((values.authService as AnyObject) === (NetworkContainer.authService as AnyObject))
     #expect(values.liveActivityRegistrationService is NetworkLiveActivityRegistrationService)
     #expect(values.deviceRegistrationService is NetworkDeviceRegistrationService)
+    #expect(values.packSyncService is NetworkPackSyncService)
   }
 }

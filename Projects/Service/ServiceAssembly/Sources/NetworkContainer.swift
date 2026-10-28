@@ -11,6 +11,10 @@ import FestiCoreAuthInterface
 import FestiCoreDevice
 import FestiCoreDeviceInterface
 import FestiCoreNetworkInterface
+import FestiCoreNetwork
+import FestiCorePack
+import FestiCorePackInterface
+import Foundation
 
 public enum NetworkContainer {
   private static let assembly = makeAssembly()
@@ -23,6 +27,7 @@ public enum NetworkContainer {
   public static var deviceRegistrationService: any DeviceRegistrationService {
     assembly.deviceRegistrationService
   }
+  public static var packSyncService: any PackSyncService { assembly.packSyncService }
 
   private static func makeAssembly() -> Assembly {
     let storage = StorageAssembly.secureStorage()
@@ -34,8 +39,19 @@ public enum NetworkContainer {
       authenticatedClient: auth.authenticatedClient,
       authService: auth,
       deviceRegistrationService: NetworkDeviceRegistrationService(client: auth.authenticatedClient, storage: storage),
-      liveActivityRegistrationService: NetworkLiveActivityRegistrationService(client: auth.authenticatedClient)
+      liveActivityRegistrationService: NetworkLiveActivityRegistrationService(client: auth.authenticatedClient),
+      packSyncService: NetworkPackSyncService(
+        baseURL: NetworkClientFactory.bundleBaseURL,
+        cacheDirectory: packCacheDirectory
+      )
     )
+  }
+
+  private static var packCacheDirectory: URL {
+    let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+      ?? URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+        .appendingPathComponent("Library/Application Support", isDirectory: true)
+    return applicationSupport.appendingPathComponent("FestiCore/Packs", isDirectory: true)
   }
 }
 
@@ -45,5 +61,6 @@ private extension NetworkContainer {
     let authService: any AuthService
     let deviceRegistrationService: any DeviceRegistrationService
     let liveActivityRegistrationService: any LiveActivityRegistrationService
+    let packSyncService: any PackSyncService
   }
 }
