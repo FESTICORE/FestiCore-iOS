@@ -7,18 +7,16 @@
 
 import ComposableArchitecture
 import FestiCoreAnimation
+import FestiCoreDesignKit
 import SwiftUI
 
 @ViewAction(for: SplashFeature.self)
 struct SplashView: View {
   @Bindable var store: StoreOf<SplashFeature>
 
-  // Splash 원본은 밝기 모드와 관계없이 #111113 배경을 사용합니다.
-  private let background = Color(red: 17.0 / 255, green: 17.0 / 255, blue: 19.0 / 255)
-
   var body: some View {
     ZStack {
-      background
+      Color.staticInk
         .ignoresSafeArea()
 
       FestiCoreLottieView(.splash)
@@ -32,4 +30,12 @@ struct SplashView: View {
     .onDisappear { send(.onDisappear) }
     .accessibilityIdentifier("splash_root")
   }
+}
+
+#Preview {
+  SplashView(
+    store: Store(initialState: SplashFeature.State()) {
+      SplashFeature()
+    }
+  )
 }
