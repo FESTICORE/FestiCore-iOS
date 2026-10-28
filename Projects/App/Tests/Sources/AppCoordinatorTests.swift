@@ -7,21 +7,31 @@
 
 import Foundation
 import Testing
-import TCAFlow
+
+import ComposableArchitecture
 @testable import FestiCore
 
+@MainActor
 struct AppCoordinatorTests {
-  @Test func defaultStateUsesAppConfiguration() {
-    let configurationIsAvailable = AppConfiguration(infoDictionary: Bundle.main.infoDictionary ?? [:]) != nil
-    #expect(AppCoordinator.State() == AppCoordinator.State(configurationIsAvailable: configurationIsAvailable))
+  @Test func startsAtSplash() {
+    #expect(AppCoordinator.State() == .splash(.init()))
   }
 
-  @Test(arguments: [true, false])
-  func startsAtHomeWithConfigurationState(configurationIsAvailable: Bool) {
-    let state = AppCoordinator.State(configurationIsAvailable: configurationIsAvailable)
+  @Test func splashCompletionShowsHome() async {
+    let store = TestStore(initialState: AppCoordinator.State()) {
+      AppCoordinator()
+    }
+    await store.send(.scope(.splash(.delegate(.presentHome))))
+    await store.receive(\.view.presentHome)
+    await store.receive(\.inner.completeHomeTransition) {
+      $0 = .home(.init())
+    }
+  }
 
-    #expect(state.routes == [
-      .root(.home(.init(configurationIsAvailable: configurationIsAvailable)), embedInNavigationView: true)
-    ])
+  @Test func repeatedHomeTransitionKeepsExistingState() async {
+    let store = TestStore(initialState: AppCoordinator.State.home(.init())) {
+      AppCoordinator()
+    }
+    await store.send(.inner(.completeHomeTransition))
   }
 }

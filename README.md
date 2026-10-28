@@ -22,8 +22,9 @@ FestiCore는 축제를 위한 iOS 앱입니다. 현재 저장소에는 앱 진�
 
 현재 구성:
 
-- Stage·Prod 앱과 TCA 기반 Home 화면
+- Stage·Prod 앱, Splash에서 Home으로 이어지는 TCA 화면 전환
 - 네트워크·인증·저장소·로깅의 모듈 경계와 의존성 조립
+- APNs 토큰의 Keychain 보관과 앱 실행 시 기기 등록
 - 코드 기반 색상, base·point Pretendard 타이포그래피, 공통 UI
 - ActivityKit 공유 모델과 독립 WidgetKit 확장
 - Swift Testing, Tuist 프로젝트 생성 및 PR CI
@@ -34,7 +35,7 @@ FestiCore는 축제를 위한 iOS 앱입니다. 현재 저장소에는 앱 진�
 
 ## 아키텍처
 
-SwiftUI와 The Composable Architecture를 사용하는 Tuist 멀티모듈 프로젝트입니다. `Workspace.swift`가 `Projects/**`를 모으고, AppCoordinator는 TCAFlow로 화면을 연결합니다.
+SwiftUI와 The Composable Architecture를 사용하는 Tuist 멀티모듈 프로젝트입니다. `Workspace.swift`가 `Projects/**`를 모으고, AppCoordinator는 Splash에서 Home으로 전환합니다.
 
 ~~~text
 Projects/
@@ -67,6 +68,7 @@ flowchart TD
     App --> FeatureAssembly
     FeatureAssembly --> Home
     App --> ServiceAssembly
+    App --> CoreAssembly
     ServiceAssembly --> FestiCoreAuth
     ServiceAssembly --> CoreAssembly
     CoreAssembly --> FestiCoreNetwork
@@ -94,7 +96,7 @@ Point-Free Dependencies를 사용합니다. 앱 시작 시 `ServiceDependencyAss
 | 영역 | 기술 |
 | --- | --- |
 | 언어·UI | Swift 6, SwiftUI |
-| 상태 관리·내비게이션 | The Composable Architecture, TCAFlow |
+| 상태 관리·내비게이션 | The Composable Architecture, TCAFlow 패키지 준비 |
 | 프로젝트 | Tuist 4.206.0, Mise |
 | 의존성 주입 | Point-Free Dependencies |
 | 네트워크·저장소 | Alamofire, Keychain |
@@ -103,7 +105,7 @@ Point-Free Dependencies를 사용합니다. 앱 시작 시 `ServiceDependencyAss
 | 진단 | FestiCoreLogger, Mixpanel·Sentry 설정 |
 | 테스트 | Swift Testing, Tuist Test Insights |
 
-지원 환경: iOS 18.0 이상, iPhone, Xcode 27.1.
+지원 환경: iOS 18.0 이상, iPhone, Xcode 27.1. 화면 변경 시 iPhone Duo의 접힌 상태와 펼친 상태를 모두 확인합니다.
 
 ## 빌드 환경
 
@@ -145,7 +147,7 @@ open FestiCore.xcworkspace
 
 - [디자인 시스템](docs/design-system.md): 토큰 출처와 DesignKit 사용
 - [Live Activity](docs/live-activity.md): 위젯 구성과 남은 화면·기기 검증
-- [TCA 패턴](docs/agent/tca-patterns.md), [TCAFlow 내비게이션](docs/agent/tcaflow-navigation.md)
+- [TCA 패턴](docs/agent/tca-patterns.md), [화면 전환](docs/agent/tcaflow-navigation.md)
 - [SwiftUI 패턴](docs/agent/swiftui-patterns.md), [Swift 코딩 규칙](docs/agent/swift-coding-rules.md)
 - [의존성 주입](docs/agent/dependency-injection.md), [개발 환경](docs/agent/development-environment.md)
 

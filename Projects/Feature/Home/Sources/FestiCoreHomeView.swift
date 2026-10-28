@@ -9,19 +9,21 @@ import SwiftUI
 import ComposableArchitecture
 
 public struct FestiCoreHomeView: View {
+  @Bindable public var store: StoreOf<HomeFeature>
+
   public init(store: StoreOf<HomeFeature>) {
     self.store = store
   }
-
-  private let store: StoreOf<HomeFeature>
 
   public var body: some View {
     VStack(spacing: 12) {
       Text("FestiCore")
         .font(.largeTitle.bold())
-      Text(store.configurationIsAvailable ? "곧 만나요" : "설정을 확인해 주세요")
+      Text("곧 만나요")
         .foregroundStyle(.secondary)
     }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .multilineTextAlignment(.center)
     .accessibilityElement(children: .combine)
   }
 }

@@ -18,7 +18,10 @@ let project = Project.makeAppModule(
   dependencies: [
     .feature(.assembly),
     .ui(.designSystem),
+    .ui(.animation),
     .ui(.liveActivity),
+    .core(.logger),
+    .core(.assembly),
     .service(.assembly),
     .service(.device, .interface),
     .widget(.liveActivity),

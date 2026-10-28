@@ -40,6 +40,23 @@ struct DeviceRegistrationTests {
     #expect(fields["appVersion"] as? String == "1.0.0")
   }
 
+  @Test("APNs 토큰을 받으면 기기 등록 요청에 전달한다")
+  func encodesAPNsToken() throws {
+    let metadata = DeviceRegistrationMetadata(
+      apnsEnvironment: .sandbox,
+      apnsToken: "00abff",
+      appVersion: "1.0.0",
+      osVersion: "18.0",
+      locale: "ko-KR",
+      timezone: "Asia/Seoul"
+    )
+    let request = DeviceRegistrationRequest(deviceID: UUID().uuidString, bearerToken: nil, metadata: metadata)
+    let body = try #require(request.parameters)
+    let fields = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(body)) as? [String: Any])
+
+    #expect(fields["apnsToken"] as? String == "00abff")
+  }
+
   @Test("첫 등록 토큰을 저장하고 다음 등록에 같은 기기 ID와 토큰을 사용한다")
   func persistsDeviceAuthorization() async throws {
     let storage = MemoryDeviceStorage()
