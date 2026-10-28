@@ -10,7 +10,7 @@ import AuthDomainInterface
 import Foundation
 import UIKit
 
-public struct AppleOAuthRepositoryImpl: AppleOAuthRepository {
+public struct AppleOAuthRepositoryImpl: AppleOAuthInterface {
   public init() {}
 
   @MainActor

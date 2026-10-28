@@ -8,7 +8,7 @@
 import Dependencies
 import AuthDomainInterface
 
-public struct OAuthUseCaseImpl: OAuthUseCase {
+public struct OAuthUseCaseImpl: OAuthUseCaseInterface {
   @Dependency(\.googleOAuthRepository) private var googleRepository
   @Dependency(\.appleOAuthRepository) private var appleRepository
   @Dependency(\.authUseCase) private var authUseCase

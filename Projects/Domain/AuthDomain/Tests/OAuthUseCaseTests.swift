@@ -48,31 +48,31 @@ struct OAuthUseCaseTests {
   }
 }
 
-private struct StubGoogleOAuthRepository: GoogleOAuthRepository {
+private struct StubGoogleOAuthRepository: GoogleOAuthInterface {
   func credential() async throws -> AuthCredential {
     .google(idToken: "google-id", serverAuthCode: "server-code")
   }
 }
 
-private struct FailedGoogleOAuthRepository: GoogleOAuthRepository {
+private struct FailedGoogleOAuthRepository: GoogleOAuthInterface {
   let error: AuthDomainError
 
   func credential() async throws -> AuthCredential { throw error }
 }
 
-private struct StubAppleOAuthRepository: AppleOAuthRepository {
+private struct StubAppleOAuthRepository: AppleOAuthInterface {
   func credential() async throws -> AuthCredential {
     .apple(idToken: "apple-id", authorizationCode: "apple-code")
   }
 }
 
-private struct FailedAppleOAuthRepository: AppleOAuthRepository {
+private struct FailedAppleOAuthRepository: AppleOAuthInterface {
   let error: AuthDomainError
 
   func credential() async throws -> AuthCredential { throw error }
 }
 
-private actor RecordingAuthUseCase: AuthUseCase {
+private actor RecordingAuthUseCase: AuthUseCaseInterface {
   private(set) var received: [AuthCredential] = []
 
   func signIn(with credential: AuthCredential) async throws -> AuthLoginResult {
