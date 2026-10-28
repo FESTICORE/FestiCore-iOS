@@ -7,6 +7,7 @@
 
 import Foundation
 import FestiCoreDesignKit
+import FestiCoreLogger
 import Mixpanel
 import Sentry
 
@@ -35,10 +36,15 @@ extension AppDelegate {
       .trimmingCharacters(in: .whitespacesAndNewlines), !dsn.isEmpty else {
       return
     }
+    guard let environment = Bundle.main.object(forInfoDictionaryKey: "FestiCoreEnvironment") as? String,
+          environment == "stage" || environment == "production" else {
+      FestiCoreLogger.error("Sentry 시작 건너뜀: FestiCoreEnvironment 설정이 유효하지 않음", category: .app)
+      return
+    }
 
     SentrySDK.start { options in
       options.dsn = dsn
-      options.environment = (Bundle.main.object(forInfoDictionaryKey: "FestiCoreEnvironment") as? String) ?? "stage"
+      options.environment = environment
       options.sendDefaultPii = false
       options.tracesSampleRate = 0
     }

@@ -6,11 +6,13 @@
 //
 
 import UIKit
+import CoreAssembly
 import Dependencies
 import FestiCoreDeviceInterface
 import FestiCoreLogger
 
 class AppDelegate: UIResponder, UIApplicationDelegate {
+  private let secureStorage = StorageAssembly.secureStorage()
   @Dependency(\.context) private var dependencyContext
   @Dependency(\.deviceRegistrationService) private var deviceRegistrationService
   private var registrationTask: Task<Void, Never>?
@@ -20,13 +22,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     configure()
-    registerDevice(apnsToken: nil)
+    do {
+      registerDevice(apnsToken: try secureStorage.load(.apnsToken))
+    } catch {
+      FestiCoreLogger.error("저장된 APNs 토큰 조회 실패: \(error.localizedDescription)", category: .app)
+    }
     application.registerForRemoteNotifications()
     return true
   }
 
   func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
     let apnsToken = deviceToken.map { String(format: "%02x", $0) }.joined()
+    do {
+      try secureStorage.save(apnsToken, for: .apnsToken)
+    } catch {
+      FestiCoreLogger.error("APNs 토큰 저장 실패: \(error.localizedDescription)", category: .app)
+    }
     registerDevice(apnsToken: apnsToken)
   }
 
