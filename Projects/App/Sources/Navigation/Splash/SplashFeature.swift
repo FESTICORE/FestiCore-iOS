@@ -51,7 +51,7 @@ struct SplashFeature {
         return handleViewAction(state: &state, action: viewAction)
 
       case let .async(asyncAction):
-        return handleAsyncAction(action: asyncAction)
+        return handleAsyncAction(state: &state, action: asyncAction)
 
       case let .inner(innerAction):
         return handleInnerAction(state: &state, action: innerAction)
@@ -64,15 +64,19 @@ struct SplashFeature {
 }
 
 private extension SplashFeature {
-  func handleViewAction(state: inout State, action: View) -> Effect<Action> {
+  func handleViewAction(
+    state: inout State,
+    action: View
+  ) -> Effect<Action> {
     guard !state.hasStarted else { return .none }
     state.hasStarted = true
     return .send(.async(.waitForAnimation))
   }
 
-  func handleAsyncAction(action: AsyncAction) -> Effect<Action> {
+  func handleAsyncAction(state: inout State, action: AsyncAction) -> Effect<Action> {
     switch action {
     case .waitForAnimation:
+      guard state.hasStarted, !state.didComplete else { return .none }
       return .run { send in
         try await clock.sleep(for: .seconds(2))
         await send(.inner(.animationFinished))
@@ -80,7 +84,10 @@ private extension SplashFeature {
     }
   }
 
-  func handleInnerAction(state: inout State, action: InnerAction) -> Effect<Action> {
+  func handleInnerAction(
+    state: inout State,
+    action: InnerAction
+  ) -> Effect<Action> {
     switch action {
     case .animationFinished:
       guard state.hasStarted, !state.didComplete else { return .none }

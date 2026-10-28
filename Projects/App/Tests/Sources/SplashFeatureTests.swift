@@ -34,6 +34,7 @@ struct SplashFeatureTests {
     }
     await store.receive(\.delegate.presentHome)
     await store.send(.inner(.animationFinished))
+    await store.send(.async(.waitForAnimation))
   }
 
   @Test func ignoresCompletionBeforeAppear() async {
@@ -45,6 +46,7 @@ struct SplashFeatureTests {
     }
 
     await store.send(.inner(.animationFinished))
+    await store.send(.async(.waitForAnimation))
 
     await store.send(.view(.onAppear)) {
       $0.hasStarted = true
