@@ -78,6 +78,25 @@ struct PackSyncTests {
     try await assertReconnects(after: URLError(.badServerResponse))
   }
 
+  @Test("반복해서 거부된 웹소켓 연결은 재시도를 끝내고 오류를 전달한다")
+  func repeatedRejectedHandshakesFinishStream() async throws {
+    let sockets = (0..<3).map { _ in
+      ScriptSocket(emptyError: URLError(.badServerResponse)) { _ in [] }
+    }
+    let syncService = service(directory: temporaryDirectory(), sockets: sockets)
+    var reconnectCount = 0
+    do {
+      for try await result in syncService.updates(for: id) {
+        if case .reconnecting = result { reconnectCount += 1 }
+      }
+      Issue.record("rejected handshake error expected")
+    } catch let error as URLError {
+      #expect(error.code == .badServerResponse)
+    }
+    #expect(reconnectCount == 2)
+    #expect(sockets.allSatisfy { $0.requests.count == 1 })
+  }
+
   private func assertReconnects(after error: Error) async throws {
     let first = ScriptSocket(emptyError: error) { request in
       [snapshot(request, version: 1, etag: "\"one\"")]

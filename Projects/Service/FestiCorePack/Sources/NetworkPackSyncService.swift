@@ -63,6 +63,7 @@ public actor NetworkPackSyncService: PackSyncService {
       return
     }
     var backoff = ReconnectBackoff()
+    var rejectedHandshakesSinceSuccess = 0
     while !Task.isCancelled {
       do {
         let socket = client.connect(to: try endpoint())
@@ -71,6 +72,7 @@ public actor NetworkPackSyncService: PackSyncService {
           while !Task.isCancelled {
             let result = try await synchronize(for: festivalID, on: socket)
             backoff.reset()
+            rejectedHandshakesSinceSuccess = 0
             continuation.yield(result)
             if case .retryAfter(let seconds) = result {
               try await Task.sleep(nanoseconds: UInt64(max(0.1, min(seconds, 30)) * 1_000_000_000))
@@ -93,6 +95,13 @@ public actor NetworkPackSyncService: PackSyncService {
         guard isTransportFailure(error) else {
           continuation.finish(throwing: error)
           return
+        }
+        if let urlError = error as? URLError, urlError.code == .badServerResponse {
+          rejectedHandshakesSinceSuccess += 1
+          if rejectedHandshakesSinceSuccess >= 3 {
+            continuation.finish(throwing: error)
+            return
+          }
         }
         // Socket loss does not discard a complete cache; reconnect with its ETag.
         continuation.yield(.reconnecting)
