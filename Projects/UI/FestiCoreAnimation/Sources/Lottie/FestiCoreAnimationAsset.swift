@@ -12,13 +12,18 @@ import Lottie
 public enum FestiCoreAnimationAsset: String, Sendable {
   case splash = "Splash"
 
-  /// Lottie 원본 캔버스의 가로세로 비율입니다.
-  public var canvasAspectRatio: CGFloat? {
+  /// Lottie 원본 캔버스 크기입니다.
+  public var canvasSize: CGSize? {
     guard let animation = LottieAnimation.named(rawValue, bundle: Bundle(for: FestiCoreAnimationBundleMarker.self)),
           animation.bounds.width > 0,
           animation.bounds.height > 0 else { return nil }
 
-    return animation.bounds.width / animation.bounds.height
+    return animation.bounds.size
+  }
+
+  public var canvasAspectRatio: CGFloat? {
+    guard let canvasSize else { return nil }
+    return canvasSize.width / canvasSize.height
   }
 }
 

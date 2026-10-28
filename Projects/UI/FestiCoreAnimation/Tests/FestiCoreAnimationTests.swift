@@ -13,6 +13,8 @@ struct FestiCoreAnimationTests {
     #expect(json["h"] as? Int == 852)
     #expect(json["fr"] as? Int == 60)
     #expect(json["op"] as? Int == 180)
+    let canvasSize = try #require(FestiCoreAnimationAsset.splash.canvasSize)
+    #expect(canvasSize == CGSize(width: 393, height: 852))
     let aspectRatio = try #require(FestiCoreAnimationAsset.splash.canvasAspectRatio)
     #expect(abs(aspectRatio - 393.0 / 852.0) < 0.000_001)
     let layers = try #require(json["layers"] as? [[String: Any]])
