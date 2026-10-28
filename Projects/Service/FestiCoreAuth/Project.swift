@@ -17,7 +17,7 @@ let project = Project.makeModule(
     .core(.logger),
     .core(.network),
     .core(.storage, .interface),
-    .SPM.alamofire
+    .service(.apiEndpoint)
   ],
   hasTests: true,
   hasInterface: true,

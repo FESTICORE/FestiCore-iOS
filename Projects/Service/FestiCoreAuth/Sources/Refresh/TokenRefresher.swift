@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import Alamofire
+import FestiCoreAPIEndpoint
 import FestiCoreNetworkInterface
 
 struct TokenRefresher: TokenRefreshing {
@@ -23,7 +23,10 @@ struct TokenRefresher: TokenRefreshing {
 
   func refresh(_ current: FestiCoreCredential) async throws(FestiCoreNetworkError) -> FestiCoreCredential {
     do {
-      let response = try await client.send(RefreshRequest(refreshToken: current.refreshToken))
+      let response = try await client.send(
+        AuthRequest.refresh(refreshToken: current.refreshToken),
+        as: RefreshEnvelope.self
+      )
       guard response.code == "SUCCESS" else {
         throw FestiCoreNetworkError.decoding(.failed(UnexpectedResponseCode(code: response.code)))
       }
@@ -40,21 +43,6 @@ struct TokenRefresher: TokenRefreshing {
       throw networkError
     }
   }
-}
-
-private struct RefreshRequest: FestiCoreDataRequest, Sendable {
-  typealias Response = RefreshEnvelope
-  let refreshToken: String
-
-  var path: String { "api/v1/auth/refresh" }
-  var method: HTTPMethod { .post }
-  var authorization: FestiCoreAuthorization { .none }
-  var maxRetryAttempts: Int { 0 }
-  var parameters: (any Encodable & Sendable)? { RefreshBody(refreshToken: refreshToken) }
-}
-
-private struct RefreshBody: Encodable, Sendable {
-  let refreshToken: String
 }
 
 private struct RefreshEnvelope: Decodable, Sendable {

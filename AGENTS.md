@@ -6,7 +6,7 @@
 
 - 앱 이름: `FestiCore`; 번들 ID: `io.festiCore.co`; Apple Team ID: `N94CS4N6VR`.
 - iOS 18.0 이상, iPhone 대상. Xcode 프로젝트는 Tuist로 생성한다.
-- `Projects/App`가 진입점이다. `FeatureAssembly`가 Feature와 Service 조립 모듈을 앱에 연결하고, 현재 화면 기능은 `Projects/Feature/Home`에 둔다. `Projects/Core`와 `Projects/UI`에는 공통 모듈이 있다. Domain/Data 모듈은 기능 구현에 따라 추가한다.
+- `Projects/App`가 진입점이다. `FeatureAssembly`가 Feature와 Service 조립 모듈을 앱에 연결한다. `Projects/Feature`에는 화면, `Projects/Domain`에는 기능별 계약과 구현, `Projects/Service`에는 API와 세션 등 서비스, `Projects/Core`와 `Projects/UI`에는 공통 모듈을 둔다.
 - `Plugins/ProjectTemplatePlugin`은 타깃과 스킴, `DependencyPlugin`은 내부 모듈, `DependencyPackagePlugin`은 외부 패키지 의존성을 정의한다.
 - Stage/Prod 구성은 `Config/`와 Tuist 매니페스트를 확인한다. 새로운 모듈은 `Projects/<계층>/<이름>/Project.swift`로 등록한다.
 - DesignSystem의 원천 토큰과 생성 자동화는 별도 `FestiCore-DesignSystem` 저장소에서 관리한다. iOS 모듈에 토큰을 임의로 복제하거나 직접 수정하지 않는다.
@@ -24,8 +24,16 @@
 
 - 앱은 `FestiCoreApp`에서 `AppCoordinator` Store를 만들고 `AppCoordinatorView`를 표시한다. 루트 화면 전환은 `AppCoordinator.State`의 enum case와 `store.state` 분기가 담당한다.
 - Feature는 `@Reducer`로 상태와 동작을 정의하고 View에는 `StoreOf<Feature>`를 전달한다. 앱이 개별 Feature 구현을 직접 import하지 않도록 `FeatureAssembly`에서 공개한다.
-- Point-Free Dependencies를 사용한다. 의존성 인터페이스는 해당 Core·Service 모듈에, 라이브 구현의 `DependencyKey.liveValue`는 구현 또는 조립 모듈에 둔다. 앱 시작점에서 전역 등록하지 않으며 별도 런타임 DI 컨테이너는 만들지 않는다.
+- Point-Free Dependencies를 사용한다. 의존성 인터페이스는 해당 Core·Service·Domain 모듈의 Interface 타깃에, 라이브 구현의 `DependencyKey.liveValue`는 구현 또는 조립 모듈에 둔다. 앱 시작점에서 전역 등록하지 않으며 별도 런타임 DI 컨테이너는 만들지 않는다.
 - Feature는 `@Dependency`로 필요한 인터페이스를 사용하고 테스트에서 결정적인 대역을 주입한다. 테스트나 별도 `DependencyValues` 범위에서는 필요한 `register(into:)`를 명시적으로 호출한다. WeaveDI는 사용하지 않는다.
+
+## 통신과 Domain 모듈
+
+- 새 Domain 모듈은 `Interface`와 `Sources`를 나눈다. `Interface/Entity`에는 공개 값·오류 타입, `Interface/<기능>`에는 `Sendable` Repository·UseCase 계약과 `DependencyValues` 접근자를 둔다. `Sources`에는 `Repository/*Impl`, `UseCase/*Impl`, `Model/DTO`, `Model/Mapper`, 라이브 의존성 등록을 둔다. 파일과 타입은 역할별로 분리한다.
+- Feature는 Domain UseCase Interface를 주입받고, UseCase 구현은 Repository Interface를 사용한다. Repository 구현은 공용 Network·Auth Interface를 주입받는다. 새 클라이언트나 토큰 저장소를 Domain마다 만들지 않는다. 로그인 응답을 검증한 뒤 공용 인증 세션에 저장한다.
+- API 경로는 `FestiCoreAPI`, `FestiCoreDataRequest` 요청은 `FestiCoreAPIEndpoint`에 둔다. 요청마다 path, HTTP method, authorization, `Encodable & Sendable` body, 재시도 정책을 명시한다. DTO에서 Entity로의 변환과 도메인 값에서 요청 body로의 변환은 Domain Mapper가 담당한다. APIEndpoint는 Domain이나 Auth Service에 의존하지 않는다.
+- 공개 로그인·토큰 갱신은 `.none`, 로그아웃은 `.automatic`을 사용한다. 인증 요청은 응답 DTO를 명시해 `send(_:as:)`로 전송한다. 최종 URL이 `/api/v1/auth/` 로그 본문 보호 규칙과 일치해야 한다. 토큰·인가 코드·비밀 값은 로그와 테스트 실패 메시지에 넣지 않는다.
+- 요청의 실제 URL·method·인증·body와 nullable DTO 매핑, 오류 전파, 로그인·로그아웃·갱신의 세션 변경을 테스트한다. `FestiCore.xctestplan`에 새 테스트 타깃을 추가해 CI에서 실행되는지 확인한다. Attendance의 현재 코드 구조를 참고하되 오래된 WeaveDI 문서와 Attendance 전용 API 계약은 복사하지 않는다.
 
 ## Claudex Loop
 

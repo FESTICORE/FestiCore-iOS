@@ -1,5 +1,5 @@
 //
-//  DefaultAuthUseCase.swift
+//  AuthUseCaseImpl.swift
 //  FestiCoreAuthDomain
 //
 //  Created by FestiCore on 10/29/26.
@@ -8,7 +8,7 @@
 import Dependencies
 import FestiCoreAuthDomainInterface
 
-public struct DefaultAuthUseCase: AuthUseCase {
+public struct AuthUseCaseImpl: AuthUseCase {
   @Dependency(\.authRepository) private var repository
 
   public init() {}

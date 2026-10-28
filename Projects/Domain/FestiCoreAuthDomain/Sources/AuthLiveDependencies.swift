@@ -9,9 +9,9 @@ import Dependencies
 import FestiCoreAuthDomainInterface
 
 extension AuthRepositoryDependency: DependencyKey {
-  public static var liveValue: any AuthRepository { NetworkAuthRepository() }
+  public static var liveValue: any AuthRepository { AuthRepositoryImpl() }
 }
 
 extension AuthUseCaseDependency: DependencyKey {
-  public static var liveValue: any AuthUseCase { DefaultAuthUseCase() }
+  public static var liveValue: any AuthUseCase { AuthUseCaseImpl() }
 }
