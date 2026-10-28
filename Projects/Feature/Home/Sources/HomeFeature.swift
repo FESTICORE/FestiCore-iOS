@@ -18,6 +18,7 @@ public struct HomeFeature {
     public var cachedPacks: [String: CachedFestivalPack] = [:]
     public var imageURLs: [String: URL] = [:]
     public var imageRevision = 0
+    public var imageRetryPending = false
     public var selectedFestivalID: String?
     public var selectedPack: FestivalPackDocument?
     public var connection: Connection = .loading
@@ -55,6 +56,7 @@ public struct HomeFeature {
     case loading
     case cached
     case connecting
+    case reconnecting
     case live
     case offline
     case unavailable
@@ -114,20 +116,20 @@ public struct HomeFeature {
           ?? available.first?.id
         showCachedPack(in: &state)
         resolveImageURLs(in: &state)
-        return .merge(refreshCatalog(), watchSelectedPack(state), prefetchSelectedPack(state))
+        return .merge(refreshCatalog(), watchSelectedPack(state), prefetchImages(state))
 
       case .view(.refreshRequested):
-        return .merge(refreshCatalog(), watchSelectedPack(state), prefetchSelectedPack(state))
+        return .merge(refreshCatalog(), watchSelectedPack(state))
 
       case let .view(.foregroundChanged(isForeground)):
         state.isForeground = isForeground
         guard state.hasStarted else {
-          return isForeground ? .send(.view(.onAppear)) : prefetchSelectedPack(state)
+          return isForeground ? .send(.view(.onAppear)) : prefetchImages(state)
         }
         if isForeground {
-          return .merge(refreshCatalog(), watchSelectedPack(state), prefetchSelectedPack(state))
+          return .merge(refreshCatalog(), watchSelectedPack(state), prefetchImages(state))
         }
-        return .merge(.cancel(id: CancelID.packUpdates), prefetchSelectedPack(state))
+        return .merge(.cancel(id: CancelID.packUpdates), prefetchImages(state))
 
       case let .view(.selectFestival(id)):
         guard state.festivals.contains(where: { $0.id == id }) else { return .none }
@@ -137,28 +139,30 @@ public struct HomeFeature {
         return .merge(
           .run { _ in selectionStore.save(id) },
           watchSelectedPack(state),
-          prefetchSelectedPack(state)
+          prefetchImages(state)
         )
 
       case let .inner(.catalogRefreshed(catalog)):
         let previouslyAvailable = (state.selectedFestival?.packVersion ?? 0) > 0
         state.catalog = identifiedCatalog(catalog)
-        state.imageRevision += 1
+        retryImagesAfterRecovery(in: &state)
         state.catalogCacheReadFailed = false
         if state.selectedFestival == nil, let first = state.festivals.first(where: { $0.isCached || $0.packVersion > 0 }) ?? state.festivals.first {
           state.selectedFestivalID = first.id
           showCachedPack(in: &state)
           resolveImageURLs(in: &state)
-          return .merge(watchSelectedPack(state), prefetchSelectedPack(state))
+          return .merge(watchSelectedPack(state), prefetchImages(state))
         }
         resolveImageURLs(in: &state)
         if state.selectedPack == nil, state.selectedFestival?.packVersion == 0 {
           state.connection = .unavailable
         }
+        let prefetch = prefetchImages(state)
         return !previouslyAvailable && (state.selectedFestival?.packVersion ?? 0) > 0
-          ? .merge(watchSelectedPack(state), prefetchSelectedPack(state)) : .none
+          ? .merge(watchSelectedPack(state), prefetch) : prefetch
 
       case .inner(.catalogFailed):
+        state.imageRetryPending = true
         if state.connection != .live { state.connection = .offline }
         return .none
 
@@ -166,24 +170,30 @@ public struct HomeFeature {
         guard state.selectedFestivalID == id else { return .none }
         switch result {
         case let .updated(pack), let .notModified(pack):
+          let previousPack = state.selectedPack
           state.cachedPacks[id] = pack
           if let document = try? JSONDecoder().decode(FestivalPackDocument.self, from: pack.pack) {
             state.selectedPack = document
             state.connection = .live
             state.packCacheReadFailed = false
-            state.imageRevision += 1
+            let retryPending = state.imageRetryPending
+            retryImagesAfterRecovery(in: &state)
             resolveImageURLs(in: &state)
-            return prefetchSelectedPack(state)
+            return previousPack != document || retryPending ? prefetchImages(state) : .none
           } else {
             state.connection = state.selectedPack == nil ? .unavailable : .cached
           }
         case .retryAfter:
           state.connection = state.selectedPack == nil ? .connecting : .cached
+        case .reconnecting:
+          state.connection = .reconnecting
+          state.imageRetryPending = true
         }
         return .none
 
       case let .inner(.packFailed(id)):
         guard state.selectedFestivalID == id else { return .none }
+        state.imageRetryPending = true
         state.connection = .offline
         return .none
       }
@@ -197,18 +207,27 @@ public struct HomeFeature {
     }
   }
 
-  private func prefetchSelectedPack(_ state: State) -> Effect<Action> {
-    guard state.isForeground, let pack = state.selectedPack else {
+  private func prefetchImages(_ state: State) -> Effect<Action> {
+    guard state.isForeground else {
       return .run { _ in await imagePrefetchClient.stop() }
         .cancellable(id: CancelID.imagePrefetch, cancelInFlight: true)
     }
-    let sourceURLs = [pack.thumbUrl].compactMap(state.imageURL(for:))
-      + (pack.artists ?? []).compactMap { state.imageURL(for: $0.imageUrl) }
-      + pack.performances.compactMap { state.imageURL(for: $0.imageUrl) }
+    let packURLs = state.selectedPack.map { pack in
+      [pack.thumbUrl].compactMap(state.imageURL(for:))
+        + (pack.artists ?? []).compactMap { state.imageURL(for: $0.imageUrl) }
+        + pack.performances.compactMap { state.imageURL(for: $0.imageUrl) }
+    } ?? []
+    let catalogURLs = state.catalog.compactMap { state.imageURL(for: $0.thumbnailURL?.absoluteString) }
     var seen = Set<URL>()
-    let urls = Array(sourceURLs.filter { seen.insert($0).inserted }.prefix(100))
+    let urls = Array((packURLs + catalogURLs).filter { seen.insert($0).inserted }.prefix(100))
     return .run { _ in await imagePrefetchClient.start(urls) }
       .cancellable(id: CancelID.imagePrefetch, cancelInFlight: true)
+  }
+
+  private func retryImagesAfterRecovery(in state: inout State) {
+    guard state.imageRetryPending else { return }
+    state.imageRetryPending = false
+    state.imageRevision += 1
   }
 
   private func identifiedCatalog(_ items: [FestivalCatalogItem]) -> IdentifiedArrayOf<FestivalCatalogItem> {

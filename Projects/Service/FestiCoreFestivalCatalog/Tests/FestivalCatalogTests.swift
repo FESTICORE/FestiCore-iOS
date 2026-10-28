@@ -47,6 +47,9 @@ struct FestivalCatalogTests {
     #expect(try await service.refresh().first?.thumbnailURL?.absoluteString ==
       "https://festicore-dev.up.railway.app/api/v1/festivals/images/poster")
     #expect(service.imageURL(for: "javascript:alert(1)") == nil)
+    #expect(service.imageURL(for: "http://example.com/poster.jpg") == nil)
+    #expect(FestivalImageURLResolver(baseURL: URL(string: "http://example.com"))
+      .resolve("/poster.jpg") == nil)
   }
 
   @Test("이전 버전 캐시의 thumbUrl을 읽어 포스터를 복구한다")

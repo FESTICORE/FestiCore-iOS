@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import Testing
 import FestiCorePackInterface
 import FestiCoreNetworkInterface
@@ -16,7 +17,7 @@ struct PackSyncTests {
     let result = try await online.sync(for: id)
     guard case .updated(let saved) = result else { Issue.record("snapshot expected"); return }
 
-    let offline = NetworkPackSyncService(baseURL: nil, cacheDirectory: directory)
+    let offline = NetworkPackSyncService(baseURL: nil, cacheDirectory: directory, client: SocketFactory([]))
     #expect(try await offline.cachedPack(for: id) == saved)
     await #expect(throws: PackSyncError.unconfigured) { try await offline.sync(for: id) }
   }
@@ -38,13 +39,15 @@ struct PackSyncTests {
       withDestinationURL: directory.appendingPathComponent("fst_a.json")
     )
 
-    let offline = NetworkPackSyncService(baseURL: nil, cacheDirectory: directory)
+    let offline = NetworkPackSyncService(baseURL: nil, cacheDirectory: directory, client: SocketFactory([]))
     #expect(try await offline.cachedPacks().map(\.festivalID) == ["fst_a", "fst_z"])
   }
 
   @Test("캐시 디렉터리가 없으면 오프라인 목록은 비어 있다")
   func missingCacheDirectoryHasNoPacks() async throws {
-    let offline = NetworkPackSyncService(baseURL: nil, cacheDirectory: temporaryDirectory())
+    let offline = NetworkPackSyncService(
+      baseURL: nil, cacheDirectory: temporaryDirectory(), client: SocketFactory([])
+    )
     #expect(try await offline.cachedPacks().isEmpty)
   }
 
@@ -55,14 +58,46 @@ struct PackSyncTests {
     let second = ScriptSocket { request in [snapshot(request, version: 2, etag: "\"two\"")] }
     let service = service(directory: directory, sockets: [first, second])
     var versions: [Int] = []
+    var reconnectCount = 0
     for try await result in service.updates(for: id) {
       if case .updated(let pack) = result { versions.append(pack.packVersion) }
+      if case .reconnecting = result { reconnectCount += 1 }
       if versions.count == 2 { break }
     }
     #expect(versions == [1, 2])
+    #expect(reconnectCount == 1)
     #expect(second.requests.count == 1)
     #expect(second.requests[0]["ifNoneMatch"] as? String == "\"one\"")
     #expect(try await service.cachedPack(for: id)?.packVersion == 2)
+  }
+
+  @Test("소켓 종료와 핸드셰이크 전송 오류 뒤 저장된 ETag로 재접속한다")
+  func reconnectsAfterSocketAndHandshakeErrors() async throws {
+    try await assertReconnects(after: NSError(domain: NSPOSIXErrorDomain, code: Int(ENOTCONN)))
+    try await assertReconnects(after: NSError(domain: NSPOSIXErrorDomain, code: Int(ECONNABORTED)))
+    try await assertReconnects(after: URLError(.badServerResponse))
+  }
+
+  private func assertReconnects(after error: Error) async throws {
+    let first = ScriptSocket(emptyError: error) { request in
+      [snapshot(request, version: 1, etag: "\"one\"")]
+    }
+    let second = ScriptSocket { request in
+      [snapshot(request, version: 2, etag: "\"two\"")]
+    }
+    let syncService = service(directory: temporaryDirectory(), sockets: [first, second])
+    var versions: [Int] = []
+    var reconnectCount = 0
+    for try await result in syncService.updates(for: id) {
+      if case .updated(let pack) = result { versions.append(pack.packVersion) }
+      if case .reconnecting = result { reconnectCount += 1 }
+      if versions.count == 2 { break }
+    }
+    #expect(versions == [1, 2])
+    #expect(reconnectCount == 1)
+    #expect(second.requests.count == 1)
+    #expect(second.requests.first?["ifNoneMatch"] as? String == "\"one\"")
+    #expect(try await syncService.cachedPack(for: id)?.packVersion == 2)
   }
 
   @Test("청크 일부 또는 잘못된 SHA-256은 기존 팩을 교체하지 않는다")
@@ -118,7 +153,7 @@ struct PackSyncTests {
     let pack: CachedFestivalPack
     switch result {
     case .updated(let value), .notModified(let value): pack = value
-    case .retryAfter: Issue.record("chunked pack expected"); return
+    case .retryAfter, .reconnecting: Issue.record("chunked pack expected"); return
     }
     #expect(pack.packVersion == 3)
     #expect(socket.requests.count == 2)
@@ -240,7 +275,7 @@ struct PackSyncTests {
     }
     let retry = NetworkPackSyncService(
       baseURL: URL(string: "https://festicore-dev.up.railway.app"), cacheDirectory: directory,
-      responseTimeoutNanoseconds: 20_000_000, socketFactory: { _ in slow }
+      responseTimeoutNanoseconds: 20_000_000, client: SocketFactory([slow])
     )
     await #expect(throws: PackSyncError.timeout) { try await retry.sync(for: id) }
     #expect(try await retry.cachedPack(for: id)?.packVersion == 1)
@@ -329,7 +364,7 @@ struct PackSyncTests {
     let factory = SocketFactory(sockets)
     return NetworkPackSyncService(
       baseURL: URL(string: "https://festicore-dev.up.railway.app"), cacheDirectory: directory,
-      socketFactory: { _ in factory.next() }
+      client: factory
     )
   }
 
@@ -352,13 +387,13 @@ private func message(_ event: String, _ requestID: String, _ data: [String: Any]
   return String(decoding: bytes, as: UTF8.self)
 }
 
-private final class SocketFactory: @unchecked Sendable {
+private final class SocketFactory: FestiCoreWebSocketClient, @unchecked Sendable {
   private let lock = NSLock()
   private var sockets: [ScriptSocket]
 
   init(_ sockets: [ScriptSocket]) { self.sockets = sockets }
 
-  func next() -> any PackSocket {
+  func connect(to url: URL) -> any FestiCoreWebSocketConnection {
     lock.withLock { sockets.isEmpty ? ScriptSocket { _ in [] } : sockets.removeFirst() }
   }
 }

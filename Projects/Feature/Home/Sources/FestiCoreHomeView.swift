@@ -74,6 +74,10 @@ public struct FestiCoreHomeView: View {
     case .loading: "저장된 축제를 불러오는 중"
     case .cached: "저장된 정보 표시 중 · 연결되면 갱신됩니다"
     case .connecting: "최신 정보를 확인하는 중"
+    case .reconnecting:
+      store.selectedPack == nil
+        ? "연결을 다시 시도하는 중 · 저장된 상세 정보가 없습니다"
+        : "연결을 다시 시도하는 중 · 저장된 정보를 표시합니다"
     case .live: "최신 정보로 갱신됨"
     case .offline:
       store.selectedPack == nil

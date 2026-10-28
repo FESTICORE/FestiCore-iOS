@@ -1,33 +1,31 @@
 import Foundation
 import Darwin
 import FestiCorePackInterface
-import FestiCoreNetwork
+import FestiCoreNetworkInterface
 
 public actor NetworkPackSyncService: PackSyncService {
   private let baseURL: URL?
   private let cache: PackCache
-  private let socketFactory: @Sendable (URL) -> any PackSocket
+  private let client: any FestiCoreWebSocketClient
   private let responseTimeoutNanoseconds: UInt64
   private var requestGeneration: [String: Int] = [:]
   private var committedGeneration: [String: Int] = [:]
 
-  public init(baseURL: URL?, cacheDirectory: URL, session: URLSession = .shared) {
+  public init(baseURL: URL?, cacheDirectory: URL, client: any FestiCoreWebSocketClient) {
     self.baseURL = baseURL
     cache = PackCache(directory: cacheDirectory)
-    let client = URLSessionWebSocketClient(session: session)
-    socketFactory = { client.connect(to: $0) }
+    self.client = client
     responseTimeoutNanoseconds = 15_000_000_000
   }
 
-  // Test seam: real network construction remains the public initializer.
   init(
     baseURL: URL?, cacheDirectory: URL,
     responseTimeoutNanoseconds: UInt64 = 15_000_000_000,
-    socketFactory: @escaping @Sendable (URL) -> any PackSocket
+    client: any FestiCoreWebSocketClient
   ) {
     self.baseURL = baseURL
     cache = PackCache(directory: cacheDirectory)
-    self.socketFactory = socketFactory
+    self.client = client
     self.responseTimeoutNanoseconds = responseTimeoutNanoseconds
   }
 
@@ -40,7 +38,7 @@ public actor NetworkPackSyncService: PackSyncService {
   }
 
   public func sync(for festivalID: String) async throws -> PackSyncResult {
-    let socket = try socketFactory(endpoint())
+    let socket = client.connect(to: try endpoint())
     return try await withTaskCancellationHandler {
       defer { socket.cancel() }
       return try await synchronize(for: festivalID, on: socket)
@@ -67,7 +65,7 @@ public actor NetworkPackSyncService: PackSyncService {
     var backoff = ReconnectBackoff()
     while !Task.isCancelled {
       do {
-        let socket = try socketFactory(endpoint())
+        let socket = client.connect(to: try endpoint())
         try await withTaskCancellationHandler {
           defer { socket.cancel() }
           while !Task.isCancelled {
@@ -97,6 +95,7 @@ public actor NetworkPackSyncService: PackSyncService {
           return
         }
         // Socket loss does not discard a complete cache; reconnect with its ETag.
+        continuation.yield(.reconnecting)
         try? await Task.sleep(nanoseconds: backoff.nextDelayNanoseconds())
       }
     }
@@ -193,7 +192,7 @@ public actor NetworkPackSyncService: PackSyncService {
       switch urlError.code {
       case .notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost,
            .cannotFindHost, .timedOut, .dnsLookupFailed, .internationalRoamingOff,
-           .dataNotAllowed, .callIsActive:
+           .dataNotAllowed, .callIsActive, .badServerResponse:
         return true
       default:
         return false
@@ -201,7 +200,8 @@ public actor NetworkPackSyncService: PackSyncService {
     }
     let nsError = error as NSError
     guard nsError.domain == NSPOSIXErrorDomain else { return false }
-    return [ENETDOWN, ENETUNREACH, ECONNRESET, ECONNREFUSED, ETIMEDOUT, EHOSTUNREACH, EPIPE]
+    return [ENETDOWN, ENETUNREACH, ECONNRESET, ECONNABORTED, ENOTCONN,
+            ECONNREFUSED, ETIMEDOUT, EHOSTUNREACH, EPIPE]
       .contains(Int32(nsError.code))
   }
 
