@@ -46,6 +46,7 @@ Projects/
 ├── Service/
 │   ├── ServiceAssembly/         # 서비스 의존성 조립
 │   ├── FestiCoreAnalytics/      # Mixpanel·Sentry 초기화
+│   ├── FestiCoreConfig/         # Firebase 앱 설정
 │   ├── FestiCoreAuth/           # 인증 세션과 토큰 갱신
 │   └── FestiCoreDevice/         # 기기 등록 계약
 ├── Core/
@@ -72,6 +73,7 @@ flowchart TD
     FeatureAssembly --> Home
     App --> ServiceAssembly
     App --> FestiCoreAnalytics
+    App --> FestiCoreConfig
     App --> CoreAssembly
     ServiceAssembly --> FestiCoreAuth
     ServiceAssembly --> CoreAssembly
@@ -128,6 +130,7 @@ Point-Free Dependencies를 사용합니다. 앱 시작 시 `ServiceDependencyAss
 ~~~bash
 git clone https://github.com/FESTICORE/FestiCore-iOS.git
 cd FestiCore-iOS
+cp /path/to/GoogleService-Info.plist Projects/App/Resources/GoogleService-Info.plist
 ./make setup --no-open
 open FestiCore.xcworkspace
 ~~~

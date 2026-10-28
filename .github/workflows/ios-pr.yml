@@ -38,6 +38,11 @@ jobs:
           tuist-token: ${{ secrets.TUIST_TOKEN }}
           derived-data-directory: FestiCore-pr-build-shards
 
+      - name: Restore Google service configuration
+        uses: ./.github/actions/restore-google-service
+        with:
+          plist-base64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
+
       - name: Validate GitHub Actions configuration
         env:
           APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
@@ -355,6 +360,11 @@ jobs:
         with:
           tuist-token: ${{ secrets.TUIST_TOKEN }}
           derived-data-directory: FestiCore-pr-bundle
+
+      - name: Restore Google service configuration
+        uses: ./.github/actions/restore-google-service
+        with:
+          plist-base64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
 
       - name: Setup Tuist cache
         id: tuist-cache

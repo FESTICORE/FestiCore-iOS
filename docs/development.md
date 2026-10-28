@@ -9,6 +9,8 @@
 
 `Config/Stage.xcconfig`와 `Config/Prod.xcconfig`가 환경 값과 현재 앱 버전 `1.0.0`을 정의합니다. 번들 ID는 `io.festiCore.co`입니다. Mixpanel 토큰과 Sentry DSN은 저장소에서 비워 두며 각각 `FESTICORE_MIXPANEL_TOKEN`, `FESTICORE_SENTRY_DSN` 빌드 설정으로 주입합니다. 값이 없으면 해당 SDK 초기화는 건너뜁니다.
 
+Google 로그인용 공개 클라이언트 ID와 URL 스킴은 두 `xcconfig`의 `GOOGLE_CLIENT_ID`(서버), `GOOGLE_IOS_CLIENT_ID`(iOS), `REVERSED_CLIENT_ID`에서 관리합니다. 로컬 Firebase 초기화에는 발급받은 `GoogleService-Info.plist`를 `Projects/App/Resources/GoogleService-Info.plist`에 복사한 뒤 `./make generate --no-open`을 실행합니다. 이 plist는 Git에서 제외됩니다. CI에서는 저장소 Secret `GOOGLE_SERVICE_INFO_PLIST_BASE64`로 같은 경로에 복원하고 번들 ID를 확인합니다.
+
 ## 명령어
 
 저장소 루트의 `make` 실행 파일이 `TuistTool.swift`를 호출합니다.
