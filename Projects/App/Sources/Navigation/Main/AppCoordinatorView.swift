@@ -16,6 +16,9 @@ struct AppCoordinatorView: View {
   var body: some View {
     TCAFlowRouter(store.scope(\.routes, action: \.router)) { screen in
       switch screen.case {
+      case .splash(let splashStore):
+        SplashView(store: splashStore)
+
       case .home(let homeStore):
         FestiCoreHomeView(store: homeStore)
       }

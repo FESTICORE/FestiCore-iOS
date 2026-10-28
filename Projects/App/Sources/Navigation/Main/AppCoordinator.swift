@@ -15,16 +15,17 @@ struct AppCoordinator {
   @ObservableState
   struct State: Equatable {
     var routes: [Route<AppScreen.State>]
+    var configurationIsAvailable: Bool
 
     init() {
       self.init(configurationIsAvailable: AppConfiguration(infoDictionary: Bundle.main.infoDictionary ?? [:]) != nil)
     }
 
     init(configurationIsAvailable: Bool) {
+      self.configurationIsAvailable = configurationIsAvailable
       routes = [
         .root(
-          .home(HomeFeature.State(configurationIsAvailable: configurationIsAvailable)),
-          embedInNavigationView: true
+          .splash(SplashFeature.State())
         )
       ]
     }
@@ -36,13 +37,26 @@ struct AppCoordinator {
   }
 
   func handleRoute(state: inout State, action: Action) -> Effect<Action> {
-    .none
+    switch action {
+    case .router(.routeAction(id: _, action: .splash(.delegate(.presentHome)))):
+      state.routes = [
+        .root(
+          .home(HomeFeature.State(configurationIsAvailable: state.configurationIsAvailable)),
+          embedInNavigationView: true
+        )
+      ]
+      return .none
+
+    default:
+      return .none
+    }
   }
 }
 
 extension AppCoordinator {
   @Reducer
   enum AppScreen {
+    case splash(SplashFeature)
     case home(HomeFeature)
   }
 }

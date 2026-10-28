@@ -17,8 +17,18 @@ struct AppCoordinatorTests {
   }
 
   @Test(arguments: [true, false])
-  func startsAtHomeWithConfigurationState(configurationIsAvailable: Bool) {
-    let state = AppCoordinator.State(configurationIsAvailable: configurationIsAvailable)
+  func startsAtSplashAndKeepsConfigurationState(configurationIsAvailable: Bool) {
+    var state = AppCoordinator.State(configurationIsAvailable: configurationIsAvailable)
+
+    #expect(state.configurationIsAvailable == configurationIsAvailable)
+    #expect(state.routes == [
+      .root(.splash(.init()))
+    ])
+
+    _ = AppCoordinator().handleRoute(
+      state: &state,
+      action: .router(.routeAction(id: 0, action: .splash(.delegate(.presentHome))))
+    )
 
     #expect(state.routes == [
       .root(.home(.init(configurationIsAvailable: configurationIsAvailable)), embedInNavigationView: true)
