@@ -1,4 +1,4 @@
-import FestiCoreFestivalDomainInterface
+import FestivalDomainInterface
 import FestiCorePackInterface
 import Foundation
 

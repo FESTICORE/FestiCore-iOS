@@ -5,7 +5,7 @@
 //  Created by FestiCore on 10/29/26.
 //
 
-import FestiCoreAuthDomain
+import AuthDomain
 import Foundation
 
 @MainActor

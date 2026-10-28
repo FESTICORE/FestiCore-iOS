@@ -1,5 +1,5 @@
 import Foundation
-import FestiCoreFestivalDomain
+import FestivalDomain
 
 struct FestivalCatalogCache {
   let url: URL

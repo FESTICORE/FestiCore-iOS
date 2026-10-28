@@ -1,5 +1,5 @@
 import Dependencies
-import FestiCoreFestivalDomainInterface
+import FestivalDomainInterface
 
 extension FestivalCatalogServiceDependency: DependencyKey {
   public static var liveValue: any FestivalCatalogService {

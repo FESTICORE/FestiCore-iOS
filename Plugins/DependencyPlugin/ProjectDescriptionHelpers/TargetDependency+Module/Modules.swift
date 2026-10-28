@@ -24,8 +24,8 @@ public enum CoreModule: String, CaseIterable {
 }
 
 public enum DomainModule: String, CaseIterable {
-  case auth = "FestiCoreAuthDomain"
-  case festival = "FestiCoreFestivalDomain"
+  case auth = "AuthDomain"
+  case festival = "FestivalDomain"
 
   var path: Path { .relativeToDomain(rawValue) }
 }
@@ -54,8 +54,8 @@ public enum ExtensionModule: String, CaseIterable {
 }
 
 public enum ServiceModule: String, CaseIterable {
-  case api = "FestiCoreAPI"
-  case apiEndpoint = "FestiCoreAPIEndpoint"
+  case api = "API"
+  case apiEndpoint = "APIEndpoint"
   case analytics = "FestiCoreAnalytics"
   case auth = "FestiCoreAuth"
   case config = "FestiCoreConfig"

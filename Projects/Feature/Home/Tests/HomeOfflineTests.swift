@@ -1,6 +1,6 @@
 import ComposableArchitecture
 import Dependencies
-import FestiCoreFestivalDomainInterface
+import FestivalDomainInterface
 import FestiCorePackInterface
 import Foundation
 import Testing

@@ -1,5 +1,5 @@
-import FestiCoreFestivalDomain
-import FestiCoreFestivalDomainInterface
+import FestivalDomain
+import FestivalDomainInterface
 import FestiCoreNetworkInterface
 import Foundation
 

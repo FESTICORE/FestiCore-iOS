@@ -9,7 +9,7 @@ import Dependencies
 import CoreAssembly
 import FestiCoreAuthInterface
 import FestiCoreDeviceInterface
-import FestiCoreFestivalDomainInterface
+import FestivalDomainInterface
 import FestiCoreNetworkInterface
 import FestiCorePackInterface
 
