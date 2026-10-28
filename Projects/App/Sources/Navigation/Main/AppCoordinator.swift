@@ -97,6 +97,15 @@ private extension AppCoordinator {
   ) -> Effect<Action> {
     switch (action, state) {
     case (.splash(.delegate(.presentHome)), .splash):
+      return handleScopeNavigation(action: action)
+    default:
+      return .none
+    }
+  }
+
+  func handleScopeNavigation(action: ScopeAction) -> Effect<Action> {
+    switch action {
+    case .splash(.delegate(.presentHome)):
       return .send(.view(.presentHome))
     default:
       return .none
