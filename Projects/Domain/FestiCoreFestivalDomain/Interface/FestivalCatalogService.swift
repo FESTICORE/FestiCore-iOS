@@ -7,5 +7,9 @@ public protocol FestivalCatalogService: Sendable {
 }
 
 public extension FestivalCatalogService {
-  func imageURL(for value: String?) -> URL? { value.flatMap(URL.init(string:)) }
+  func imageURL(for value: String?) -> URL? {
+    guard let value, let url = URL(string: value),
+          url.scheme?.lowercased() == "https", url.host != nil else { return nil }
+    return url
+  }
 }

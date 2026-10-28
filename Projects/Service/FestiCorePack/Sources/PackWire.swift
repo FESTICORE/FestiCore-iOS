@@ -2,6 +2,14 @@ import Foundation
 import FestiCorePackInterface
 import FestiCoreNetworkInterface
 
+private final class PackReceiveTimeout: @unchecked Sendable {
+  private let lock = NSLock()
+  private var timedOut = false
+
+  func mark() { lock.withLock { timedOut = true } }
+  var occurred: Bool { lock.withLock { timedOut } }
+}
+
 enum PackWire {
   static let maxPackBytes = 8 * 1024 * 1024
   private static let chunkBytes = 48 * 1024
@@ -88,11 +96,13 @@ enum PackWire {
   }
 
   static func receiveText(on socket: any PackSocket, timeoutNanoseconds: UInt64) async throws -> String {
+    let timeout = PackReceiveTimeout()
     do {
       return try await withThrowingTaskGroup(of: String.self) { group in
         group.addTask { try await socket.receive() }
         group.addTask {
           try await Task.sleep(nanoseconds: timeoutNanoseconds)
+          timeout.mark()
           socket.cancel()
           throw PackSyncError.timeout
         }
@@ -100,8 +110,10 @@ enum PackWire {
         group.cancelAll()
         return result
       }
-    } catch FestiCoreWebSocketError.nonTextMessage {
-      throw PackSyncError.invalidMessage
+    } catch {
+      if timeout.occurred { throw PackSyncError.timeout }
+      if case FestiCoreWebSocketError.nonTextMessage = error { throw PackSyncError.invalidMessage }
+      throw error
     }
   }
 

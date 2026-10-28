@@ -102,6 +102,21 @@ struct PackSyncTests {
     #expect(second.requests.first?["ifNoneMatch"] as? String == "\"one\"")
   }
 
+  @Test("유휴 만료로 소켓이 취소되어도 원래 타임아웃을 전달한다")
+  func receiveTimeoutWinsSocketCancelError() async throws {
+    let cancellationErrors: [any Error] = [
+      URLError(.cancelled),
+      NSError(domain: NSPOSIXErrorDomain, code: Int(ENOTCONN))
+    ]
+    for error in cancellationErrors {
+      let socket = ScriptSocket(waitUntilCancelled: true, emptyError: error) { _ in [] }
+      await #expect(throws: PackSyncError.timeout) {
+        try await PackWire.receiveText(on: socket, timeoutNanoseconds: 10_000_000)
+      }
+      #expect(socket.cancelCount > 0)
+    }
+  }
+
   @Test("첫 연결 실패는 기존 오프라인 상태를 바꾸지 않고 재시도한다")
   func firstConnectionFailureDoesNotSignalReconnect() async throws {
     let unavailable = ScriptSocket(emptyError: URLError(.notConnectedToInternet)) { _ in [] }
@@ -466,6 +481,7 @@ private final class ScriptSocket: PackSocket, @unchecked Sendable {
   private let lock = NSLock()
   private let response: ([String: Any]) -> [String]
   private let delayNanoseconds: UInt64
+  private let waitUntilCancelled: Bool
   private let emptyError: Error
   private var messages: [String] = []
   private var sent: [[String: Any]] = []
@@ -473,10 +489,12 @@ private final class ScriptSocket: PackSocket, @unchecked Sendable {
 
   init(
     delayNanoseconds: UInt64 = 0,
+    waitUntilCancelled: Bool = false,
     emptyError: Error = URLError(.networkConnectionLost),
     response: @escaping ([String: Any]) -> [String]
   ) {
     self.delayNanoseconds = delayNanoseconds
+    self.waitUntilCancelled = waitUntilCancelled
     self.emptyError = emptyError
     self.response = response
   }
@@ -495,6 +513,11 @@ private final class ScriptSocket: PackSocket, @unchecked Sendable {
 
   func receive() async throws -> String {
     if delayNanoseconds > 0 { try await Task.sleep(nanoseconds: delayNanoseconds) }
+    if waitUntilCancelled {
+      while lock.withLock({ messages.isEmpty && cancellations == 0 }) {
+        try await Task.sleep(nanoseconds: 1_000_000)
+      }
+    }
     return try lock.withLock {
       guard !messages.isEmpty else { throw emptyError }
       return messages.removeFirst()

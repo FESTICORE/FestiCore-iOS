@@ -52,6 +52,15 @@ struct FestivalCatalogTests {
       .resolve("/poster.jpg") == nil)
   }
 
+  @Test("기본 카탈로그 이미지 URL도 HTTPS만 허용한다")
+  func defaultImageURLRejectsUnsafeSchemes() {
+    let service = DefaultImageCatalogService()
+    #expect(service.imageURL(for: "https://example.com/poster.jpg") != nil)
+    #expect(service.imageURL(for: "http://example.com/poster.jpg") == nil)
+    #expect(service.imageURL(for: "file:///private/poster.jpg") == nil)
+    #expect(service.imageURL(for: "javascript:alert(1)") == nil)
+  }
+
   @Test("이전 버전 캐시의 thumbUrl을 읽어 포스터를 복구한다")
   func restoresExistingCatalogCache() async throws {
     let cacheURL = temporaryCacheURL()
@@ -73,6 +82,11 @@ struct FestivalCatalogTests {
       .appendingPathComponent("festival-catalog-tests-\(UUID().uuidString)", isDirectory: true)
       .appendingPathComponent("catalog.json")
   }
+}
+
+private struct DefaultImageCatalogService: FestivalCatalogService {
+  func cachedFestivals() async throws -> [FestivalCatalogItem] { [] }
+  func refresh() async throws -> [FestivalCatalogItem] { [] }
 }
 
 private actor ScriptClient: FestiCoreRequestClient {
