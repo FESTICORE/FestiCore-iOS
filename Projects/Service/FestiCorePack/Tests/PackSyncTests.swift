@@ -20,6 +20,33 @@ struct PackSyncTests {
     await #expect(throws: PackSyncError.unconfigured) { try await offline.sync(for: id) }
   }
 
+  @Test("오프라인 목록은 검증된 팩만 정렬해 반환한다")
+  func listsOnlyValidCachedPacks() async throws {
+    let directory = temporaryDirectory()
+    let cache = PackCache(directory: directory)
+    for festivalID in ["fst_z", "fst_a"] {
+      let pack = Data("{\"id\":\"\(festivalID)\",\"packVersion\":1}".utf8)
+      try cache.save(CachedFestivalPack(
+        festivalID: festivalID, packVersion: 1, etag: "\"one\"", pack: pack
+      ))
+    }
+    try Data("invalid".utf8).write(to: directory.appendingPathComponent("fst_corrupt.json"))
+    try Data("unrelated".utf8).write(to: directory.appendingPathComponent("readme.txt"))
+    try FileManager.default.createSymbolicLink(
+      at: directory.appendingPathComponent("fst_link.json"),
+      withDestinationURL: directory.appendingPathComponent("fst_a.json")
+    )
+
+    let offline = NetworkPackSyncService(baseURL: nil, cacheDirectory: directory)
+    #expect(try await offline.cachedPacks().map(\.festivalID) == ["fst_a", "fst_z"])
+  }
+
+  @Test("캐시 디렉터리가 없으면 오프라인 목록은 비어 있다")
+  func missingCacheDirectoryHasNoPacks() async throws {
+    let offline = NetworkPackSyncService(baseURL: nil, cacheDirectory: temporaryDirectory())
+    #expect(try await offline.cachedPacks().isEmpty)
+  }
+
   @Test("끊긴 연결 뒤 이전 ETag로 재접속해 최신 팩을 저장한다")
   func reconnectsWithStoredETag() async throws {
     let directory = temporaryDirectory()

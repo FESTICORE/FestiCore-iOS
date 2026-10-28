@@ -39,6 +39,28 @@ struct PackCache: Sendable {
     )
   }
 
+  func loadAll() throws -> [CachedFestivalPack] {
+    guard FileManager.default.fileExists(atPath: directory.path) else { return [] }
+    let files = try FileManager.default.contentsOfDirectory(
+      at: directory,
+      includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey],
+      options: [.skipsHiddenFiles]
+    )
+    var packs: [CachedFestivalPack] = []
+    for file in files where file.pathExtension == "json" {
+      guard let properties = try? file.resourceValues(forKeys: [
+        .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey
+      ]),
+        properties.isRegularFile == true,
+        properties.isSymbolicLink != true,
+        (properties.fileSize ?? Int.max) <= Self.maxBytes * 2,
+        let pack = try? load(file.deletingPathExtension().lastPathComponent)
+      else { continue }
+      packs.append(pack)
+    }
+    return packs.sorted { $0.festivalID < $1.festivalID }
+  }
+
   @discardableResult
   func save(_ value: CachedFestivalPack) throws -> CachedFestivalPack {
     guard value.pack.count <= Self.maxBytes else { throw PackSyncError.packTooLarge }

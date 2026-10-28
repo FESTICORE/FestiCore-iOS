@@ -24,6 +24,8 @@ public enum PackSyncResult: Sendable, Equatable {
 
 public protocol PackSyncService: Sendable {
   func cachedPack(for festivalID: String) async throws -> CachedFestivalPack?
+  /// 무결성 검증을 통과한 로컬 팩 목록. 네트워크에 연결하지 않는다.
+  func cachedPacks() async throws -> [CachedFestivalPack]
   func sync(for festivalID: String) async throws -> PackSyncResult
   /// 연결이 끊어지면 재접속하여 저장된 ETag로 다시 요청한다.
   func updates(for festivalID: String) -> AsyncThrowingStream<PackSyncResult, Error>
@@ -42,6 +44,10 @@ public extension DependencyValues {
 
 private struct UnimplementedPackSyncService: PackSyncService {
   func cachedPack(for _: String) async throws -> CachedFestivalPack? {
+    fatalError("packSyncService 미등록")
+  }
+
+  func cachedPacks() async throws -> [CachedFestivalPack] {
     fatalError("packSyncService 미등록")
   }
 

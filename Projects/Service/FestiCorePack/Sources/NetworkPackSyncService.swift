@@ -33,6 +33,10 @@ public actor NetworkPackSyncService: PackSyncService {
     try cache.load(festivalID)
   }
 
+  public func cachedPacks() async throws -> [CachedFestivalPack] {
+    try cache.loadAll()
+  }
+
   public func sync(for festivalID: String) async throws -> PackSyncResult {
     let socket = try socketFactory(endpoint())
     return try await withTaskCancellationHandler {
