@@ -16,6 +16,16 @@ public extension InfoPlist {
       .setFestiCoreEnvironment("$(FESTICORE_ENVIRONMENT)")
       .set("FestiCoreAPNsEnvironment", .string("$(FESTICORE_APNS_ENVIRONMENT)"))
       .setFestiCoreAPIHost("$(FESTICORE_API_HOST)")
+      .set("GIDClientID", .string("$(GOOGLE_IOS_CLIENT_ID)"))
+      .set("GIDServerClientID", .string("$(GOOGLE_CLIENT_ID)"))
+      .set("CFBundleURLTypes", .array([
+        .dictionary([
+          "CFBundleURLName": .string("google-oauth"),
+          "CFBundleURLSchemes": .array([
+            .string("$(REVERSED_CLIENT_ID)")
+          ])
+        ])
+      ]))
       .setFestiCoreMixpanelToken("$(FESTICORE_MIXPANEL_TOKEN)")
       .setFestiCoreSentryDSN("$(FESTICORE_SENTRY_DSN)")
       .set("NSSupportsLiveActivities", .boolean(true))

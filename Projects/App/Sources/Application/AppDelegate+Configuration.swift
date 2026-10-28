@@ -7,11 +7,13 @@
 
 import Foundation
 import FestiCoreAnalytics
+import FestiCoreConfig
 import FestiCoreDesignKit
 
 extension AppDelegate {
   func configure() {
     configureFonts()
+    FirebaseConfiguration.configure()
     FestiCoreAnalyticsConfiguration.configure()
   }
 
