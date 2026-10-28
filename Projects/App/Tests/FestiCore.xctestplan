@@ -17,6 +17,7 @@
     { "target": { "containerPath": "container:Projects/Core/FestiCoreLogger/FestiCoreLogger.xcodeproj", "identifier": "6587E7CD20D518868CF1C33A", "name": "FestiCoreLoggerTests" } },
     { "target": { "containerPath": "container:Projects/Core/FestiCoreNetwork/FestiCoreNetwork.xcodeproj", "identifier": "34D54AFA2FE302A132BBB075", "name": "FestiCoreNetworkTests" } },
     { "target": { "containerPath": "container:Projects/Core/FestiCoreStorage/FestiCoreStorage.xcodeproj", "identifier": "C3A7A4C878250A948210E6AB", "name": "FestiCoreStorageTests" } },
+    { "target": { "containerPath": "container:Projects/Service/FestiCoreAnalytics/FestiCoreAnalytics.xcodeproj", "identifier": "2F7655471E814E2CABCA1BCF", "name": "FestiCoreAnalyticsTests" } },
     { "target": { "containerPath": "container:Projects/Service/FestiCoreAuth/FestiCoreAuth.xcodeproj", "identifier": "CD229F4A06E3E8E646ECCE43", "name": "FestiCoreAuthTests" } },
     { "target": { "containerPath": "container:Projects/Service/FestiCoreDevice/FestiCoreDevice.xcodeproj", "identifier": "07CB41584352B22A9AF55AAC", "name": "FestiCoreDeviceTests" } },
     { "target": { "containerPath": "container:Projects/Service/ServiceAssembly/ServiceAssembly.xcodeproj", "identifier": "221DF709E8C424F75EB43F24", "name": "ServiceAssemblyTests" } },

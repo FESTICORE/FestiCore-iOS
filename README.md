@@ -45,6 +45,7 @@ Projects/
 │   └── Home/                    # Home 화면과 Reducer
 ├── Service/
 │   ├── ServiceAssembly/         # 서비스 의존성 조립
+│   ├── FestiCoreAnalytics/      # Mixpanel·Sentry 초기화
 │   ├── FestiCoreAuth/           # 인증 세션과 토큰 갱신
 │   └── FestiCoreDevice/         # 기기 등록 계약
 ├── Core/
@@ -57,6 +58,8 @@ Projects/
 │   ├── FestiCoreSharedUI/       # 공통 UI
 │   ├── FestiCoreAnimation/      # 애니메이션 표시 API
 │   └── FestiCoreLiveActivity/   # 앱·위젯 공유 ActivityKit 타입
+├── Extension/
+│   └── FestiCoreNotificationService/ # 푸시 알림 서비스 확장
 └── Widget/
     └── FestiCoreLiveActivityWidget/ # 잠금 화면·Dynamic Island 확장
 ~~~
@@ -68,6 +71,7 @@ flowchart TD
     App --> FeatureAssembly
     FeatureAssembly --> Home
     App --> ServiceAssembly
+    App --> FestiCoreAnalytics
     App --> CoreAssembly
     ServiceAssembly --> FestiCoreAuth
     ServiceAssembly --> CoreAssembly
@@ -76,6 +80,7 @@ flowchart TD
     FestiCoreAuth --> FestiCoreNetwork
     FestiCoreAuth --> FestiCoreStorage
     App --> FestiCoreLiveActivity
+    App --> FestiCoreNotificationService
     Widget --> FestiCoreLiveActivity
 ~~~
 
