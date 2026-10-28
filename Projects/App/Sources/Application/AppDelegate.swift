@@ -7,9 +7,7 @@
 
 import UIKit
 import CoreAssembly
-import Dependencies
-import FestiCoreDeviceInterface
-import FestiCoreLogger
+import ServiceAssembly
 
 class AppDelegate: UIResponder, UIApplicationDelegate {
   private let secureStorage = StorageAssembly.secureStorage()

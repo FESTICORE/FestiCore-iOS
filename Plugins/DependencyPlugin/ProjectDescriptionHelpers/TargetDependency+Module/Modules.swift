@@ -47,6 +47,7 @@ public enum ExtensionModule: String, CaseIterable {
 }
 
 public enum ServiceModule: String, CaseIterable {
+  case analytics = "FestiCoreAnalytics"
   case auth = "FestiCoreAuth"
   case device = "FestiCoreDevice"
   case pack = "FestiCorePack"
