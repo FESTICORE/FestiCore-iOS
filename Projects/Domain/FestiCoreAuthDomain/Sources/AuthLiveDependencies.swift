@@ -15,3 +15,15 @@ extension AuthRepositoryDependency: DependencyKey {
 extension AuthUseCaseDependency: DependencyKey {
   public static var liveValue: any AuthUseCase { AuthUseCaseImpl() }
 }
+
+extension GoogleOAuthRepositoryDependency: DependencyKey {
+  public static var liveValue: any GoogleOAuthRepository { GoogleOAuthRepositoryImpl() }
+}
+
+extension AppleOAuthRepositoryDependency: DependencyKey {
+  public static var liveValue: any AppleOAuthRepository { AppleOAuthRepositoryImpl() }
+}
+
+extension OAuthUseCaseDependency: DependencyKey {
+  public static var liveValue: any OAuthUseCase { OAuthUseCaseImpl() }
+}
