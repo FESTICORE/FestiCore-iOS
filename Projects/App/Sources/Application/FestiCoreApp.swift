@@ -23,6 +23,9 @@ struct FestiCoreApp: App {
       }
 
       AppCoordinatorView(store: store)
+        .onOpenURL { url in
+          FeatureOAuthURLHandler.handle(url)
+        }
     }
   }
 }
