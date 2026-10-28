@@ -10,6 +10,7 @@ public actor NetworkPackSyncService: PackSyncService {
   private let cache: PackCache
   private let client: any FestiCoreWebSocketClient
   private let responseTimeoutNanoseconds: UInt64
+  private let rejectedHandshakeRetryNanoseconds: UInt64
   private var requestGeneration: [String: Int] = [:]
   private var committedGeneration: [String: Int] = [:]
 
@@ -18,17 +19,20 @@ public actor NetworkPackSyncService: PackSyncService {
     cache = PackCache(directory: cacheDirectory)
     self.client = client
     responseTimeoutNanoseconds = 15_000_000_000
+    rejectedHandshakeRetryNanoseconds = 300_000_000_000
   }
 
   init(
     baseURL: URL?, cacheDirectory: URL,
     responseTimeoutNanoseconds: UInt64 = 15_000_000_000,
+    rejectedHandshakeRetryNanoseconds: UInt64 = 300_000_000_000,
     client: any FestiCoreWebSocketClient
   ) {
     self.baseURL = baseURL
     cache = PackCache(directory: cacheDirectory)
     self.client = client
     self.responseTimeoutNanoseconds = responseTimeoutNanoseconds
+    self.rejectedHandshakeRetryNanoseconds = rejectedHandshakeRetryNanoseconds
   }
 
   public func cachedPack(for festivalID: String) async throws -> CachedFestivalPack? {
@@ -113,8 +117,9 @@ public actor NetworkPackSyncService: PackSyncService {
         if let urlError = error as? URLError, urlError.code == .badServerResponse {
           rejectedHandshakesSinceSuccess += 1
           if rejectedHandshakesSinceSuccess >= 3 {
-            continuation.finish(throwing: error)
-            return
+            // A short server deploy must not leave a foreground watch stopped indefinitely.
+            try? await Task.sleep(nanoseconds: rejectedHandshakeRetryNanoseconds)
+            continue
           }
         }
         // Socket loss does not discard a complete cache; reconnect with its ETag.

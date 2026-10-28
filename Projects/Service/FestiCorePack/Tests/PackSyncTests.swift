@@ -117,23 +117,26 @@ struct PackSyncTests {
     #expect(reconnectCount == 0)
   }
 
-  @Test("반복해서 거부된 웹소켓 연결은 재시도를 끝내고 오류를 전달한다")
-  func repeatedRejectedHandshakesFinishStream() async throws {
-    let sockets = (0..<3).map { _ in
+  @Test("반복해서 거부된 웹소켓 연결도 느린 재시도 후 자동 복구한다")
+  func repeatedRejectedHandshakesRecover() async throws {
+    let rejected = (0..<3).map { _ in
       ScriptSocket(emptyError: URLError(.badServerResponse)) { _ in [] }
     }
-    let syncService = service(directory: temporaryDirectory(), sockets: sockets)
+    let recovered = ScriptSocket { request in [snapshot(request, version: 1, etag: "\"one\"")] }
+    let syncService = service(
+      directory: temporaryDirectory(), sockets: rejected + [recovered],
+      rejectedRetryNanoseconds: 1_000_000
+    )
     var reconnectCount = 0
-    do {
-      for try await result in syncService.updates(for: id) {
-        if case .reconnecting = result { reconnectCount += 1 }
-      }
-      Issue.record("rejected handshake error expected")
-    } catch let error as URLError {
-      #expect(error.code == .badServerResponse)
+    var receivedPack = false
+    for try await result in syncService.updates(for: id) {
+      if case .reconnecting = result { reconnectCount += 1 }
+      if case .updated = result { receivedPack = true; break }
     }
+    #expect(receivedPack)
     #expect(reconnectCount == 0)
-    #expect(sockets.allSatisfy { $0.requests.count == 1 })
+    #expect(rejected.allSatisfy { $0.requests.count == 1 })
+    #expect(recovered.requests.count == 1)
   }
 
   private func assertReconnects(after error: Error) async throws {
@@ -418,11 +421,14 @@ struct PackSyncTests {
     #expect(try await syncService.cachedPack(for: id)?.packVersion == 1)
   }
 
-  private func service(directory: URL, sockets: [ScriptSocket]) -> NetworkPackSyncService {
+  private func service(
+    directory: URL, sockets: [ScriptSocket],
+    rejectedRetryNanoseconds: UInt64 = 300_000_000_000
+  ) -> NetworkPackSyncService {
     let factory = SocketFactory(sockets)
     return NetworkPackSyncService(
       baseURL: URL(string: "https://festicore-dev.up.railway.app"), cacheDirectory: directory,
-      client: factory
+      rejectedHandshakeRetryNanoseconds: rejectedRetryNanoseconds, client: factory
     )
   }
 
