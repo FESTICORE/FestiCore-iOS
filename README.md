@@ -105,7 +105,9 @@ flowchart TD
 
 ### 의존성 주입
 
-Point-Free Dependencies를 사용합니다. `ServiceAssembly`가 네트워크·인증 세션을 같은 수명주기로 조립하고 `FestiCoreAuthDomain`은 이를 주입받습니다. 앱 시작점에 별도 전역 등록은 없습니다. 테스트에서는 의존성 값을 교체합니다. 런타임 DI 컨테이너는 사용하지 않습니다.
+Point-Free Dependencies를 사용합니다. `ServiceAssembly`가 네트워크·인증 세션을 같은 수명주기로 조립하고, 각 기능 모듈은 자신의 `DependencyKey.liveValue`를 등록합니다. `FestiCoreAuthDomain`은 공용 세션을 `@Dependency`로 받아 API를 호출합니다. 앱 시작점의 별도 전역 등록이나 런타임 DI 컨테이너는 사용하지 않습니다.
+
+화면 Reducer는 Interface만 import해 `@Dependency(\.authUseCase)`로 유스케이스를 받고, 테스트는 `TestStore`나 `withDependencies`에서 해당 값을 대역으로 교체합니다. 모듈별 경계와 테스트 규칙은 [의존성 주입 문서](docs/agent/dependency-injection.md)를 참고하세요.
 
 ## 기술 스택
 
