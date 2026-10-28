@@ -82,6 +82,12 @@ jobs:
           tuist-token: ${{ secrets.TUIST_TOKEN }}
           derived-data-directory: FestiCore-design-token-sync
 
+      - name: Restore Google service configuration
+        if: steps.source.outputs.already_current != 'true'
+        uses: ./.github/actions/restore-google-service
+        with:
+          plist-base64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
+
       - name: Generate and test full Stage plan with coverage
         if: steps.source.outputs.already_current != 'true'
         run: |

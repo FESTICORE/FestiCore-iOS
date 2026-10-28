@@ -40,6 +40,10 @@ jobs:
         with:
           tuist-token: ${{ secrets.TUIST_TOKEN }}
           derived-data-directory: FestiCore-preview
+      - name: Restore Google service configuration
+        uses: ./.github/actions/restore-google-service
+        with:
+          plist-base64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
       - name: Verify Tuist authentication
         run: test -n "$TUIST_TOKEN"
       - name: Setup Tuist cache

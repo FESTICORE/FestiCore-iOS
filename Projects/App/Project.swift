@@ -24,6 +24,7 @@ let project = Project.makeAppModule(
     .core(.assembly),
     .service(.analytics),
     .service(.assembly),
+    .service(.config),
     .service(.device, .interface),
     .widget(.liveActivity),
     .appExtension(.notificationService),

@@ -1,0 +1,18 @@
+name: Restore GoogleService-Info.plist
+description: Restore the ignored Firebase app configuration for iOS builds
+inputs:
+  plist-base64:
+    description: Base64 encoded GoogleService-Info.plist
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Write Firebase configuration
+      shell: bash
+      env:
+        GOOGLE_SERVICE_INFO_PLIST_BASE64: ${{ inputs.plist-base64 }}
+      run: |
+        test -n "$GOOGLE_SERVICE_INFO_PLIST_BASE64"
+        printf '%s' "$GOOGLE_SERVICE_INFO_PLIST_BASE64" | base64 -D > Projects/App/Resources/GoogleService-Info.plist
+        plutil -lint Projects/App/Resources/GoogleService-Info.plist
+        test "$(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' Projects/App/Resources/GoogleService-Info.plist)" = 'io.festiCore.co'
