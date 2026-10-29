@@ -100,6 +100,14 @@ struct LiveActivityIntegrationTests {
   }
 
   private func waitUntilAppIsActive() async -> Bool {
+    await MainActor.run {
+      guard UIApplication.shared.applicationState != .active else { return }
+      let request = UIApplication.shared.connectedScenes.first
+        .map { UISceneSessionActivationRequest(session: $0.session) }
+        ?? UISceneSessionActivationRequest()
+      UIApplication.shared.activateSceneSession(for: request)
+    }
+
     let deadline = Date().addingTimeInterval(8)
     while Date() < deadline {
       if await MainActor.run(body: { UIApplication.shared.applicationState == .active }) {
