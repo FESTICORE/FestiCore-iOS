@@ -163,6 +163,9 @@ jobs:
     env:
       TUIST_SHARD_INDEX: ${{ matrix.shard }}
       TUIST_SHARD_PLAN_ID: ${{ matrix.shard_plan_id }}
+      RESULT_BUNDLE: TestResults-${{ matrix.shard }}.xcresult
+      TEST_RUN_REPORT_PATH: TestRunReport-${{ matrix.shard }}.json
+      TEST_LOG_PATH: TuistTestRun-${{ matrix.shard }}.log
 
     steps:
       - uses: actions/checkout@v4
@@ -199,25 +202,7 @@ jobs:
       # 빌드 단계가 업로드한 테스트 산출물을 받아 이 shard에 배정된 테스트만 실행한다.
       # 모든 테스트를 실행하고 Test Insights에 결과를 업로드한다.
       - name: Run shard
-        run: |
-          mise exec -- tuist test run FestiCore-Stage \
-            --without-building \
-            --test-plan FestiCore \
-            --configuration Stage \
-            --no-selective-testing \
-            --skip-quarantine \
-            --shard-plan-id "$TUIST_SHARD_PLAN_ID" \
-            --shard-index "$TUIST_SHARD_INDEX" \
-            --inspect-mode remote \
-            --result-bundle-path "TestResults-${{ matrix.shard }}.xcresult" \
-            -- \
-            -destination "$SIMULATOR_DESTINATION" \
-            -derivedDataPath "$CI_DERIVED_DATA" \
-            -retry-tests-on-failure \
-            -test-iterations 3 \
-            -collect-test-diagnostics never \
-            ONLY_ACTIVE_ARCH=YES
-          ./Scripts/check-xcresult-summary.sh "TestResults-${{ matrix.shard }}.xcresult"
+        run: ./Scripts/run-isolated-module-tests.sh
 
       - name: Shut down test shard simulator
         if: always()
