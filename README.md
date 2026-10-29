@@ -119,6 +119,22 @@ flowchart TD
 
 [Excalidraw 원본](docs/architecture/module-graph.excalidraw) · [Mermaid 원본](docs/architecture/module-graph.mmd) · [갱신 방법](docs/architecture/README.md)
 
+`./make graph`와 `./make graph:prod`는 현재 Tuist 프로젝트에서 전체·제품 모듈 그래프를 다시 생성합니다.
+
+<details>
+<summary>Tuist 전체 모듈 그래프</summary>
+
+![전체 모듈 그래프](docs/architecture/module-graph-all.png)
+
+</details>
+
+<details>
+<summary>Tuist 제품 모듈 그래프</summary>
+
+![제품 모듈 그래프](docs/architecture/module-graph-prod.png)
+
+</details>
+
 ### TCA 화면 흐름
 
 ![Splash에서 Home으로 전환하는 TCA 흐름](docs/architecture/tca-flow.svg)
