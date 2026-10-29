@@ -7,7 +7,14 @@
 | Stage | `FestiCore-Stage` | `festicore-dev.up.railway.app` |
 | Prod | `FestiCore-Prod` | `festicore.up.railway.app` |
 
-`Config/Stage.xcconfig`와 `Config/Prod.xcconfig`가 환경 값과 현재 앱 버전 `1.0.0`을 정의합니다. 번들 ID는 `io.festiCore.co`입니다. Mixpanel 토큰과 Sentry DSN은 저장소에서 비워 두며 각각 `FESTICORE_MIXPANEL_TOKEN`, `FESTICORE_SENTRY_DSN` 빌드 설정으로 주입합니다. 값이 없으면 해당 SDK 초기화는 건너뜁니다. 로컬 Xcode 빌드에서는 Git 제외 대상인 `Config/Stage.local.xcconfig` 또는 `Config/Prod.local.xcconfig`에 `FESTICORE_SENTRY_DSN = <환경별 DSN>`을 적으면 각 환경 설정이 이를 포함합니다. Sentry 조직은 `festicore`, iOS 프로젝트는 `festicore-ios`입니다. iOS Preview CI는 저장소 Secret `FESTICORE_SENTRY_DSN`을 Stage 빌드에 주입합니다. App Store 빌드도 같은 이름의 환경 변수를 Fastlane에 전달해야 실제 오류가 전송됩니다. DSN이나 Wizard가 만든 `Projects/App/.sentryclirc`는 커밋하지 않습니다.
+`Config/Stage.xcconfig`와 `Config/Prod.xcconfig`가 환경 값과 현재 앱 버전 `1.0.0`을 정의합니다. 번들 ID는 `io.festiCore.co`입니다. Mixpanel 토큰과 Sentry DSN은 저장소에서 비워 두며 각각 `FESTICORE_MIXPANEL_TOKEN`, `FESTICORE_SENTRY_DSN` 빌드 설정으로 주입합니다. 값이 없으면 해당 SDK 초기화는 건너뜁니다. 로컬 Xcode 빌드에서는 Git 제외 대상인 `Config/Stage.local.xcconfig` 또는 `Config/Prod.local.xcconfig`에 환경별 DSN을 적으면 각 환경 설정이 이를 포함합니다. `.xcconfig`는 URL의 `//`를 주석으로 처리하므로 다음처럼 슬래시를 빌드 설정으로 분리합니다.
+
+```xcconfig
+SENTRY_URL_SLASH = /
+FESTICORE_SENTRY_DSN = https:$(SENTRY_URL_SLASH)/<공개 키>@<수집 호스트>/<프로젝트 ID>
+```
+
+Sentry 조직은 `festicore`, iOS 프로젝트는 `festicore-ios`입니다. iOS Preview CI는 저장소 Secret `FESTICORE_SENTRY_DSN`을 Stage 빌드에 주입합니다. App Store 빌드도 같은 이름의 환경 변수를 Fastlane에 전달해야 실제 오류가 전송됩니다. DSN이나 Wizard가 만든 `Projects/App/.sentryclirc`는 커밋하지 않습니다.
 
 Google 로그인용 공개 클라이언트 ID와 URL 스킴은 두 `xcconfig`의 `GOOGLE_CLIENT_ID`(서버), `GOOGLE_IOS_CLIENT_ID`(iOS), `REVERSED_CLIENT_ID`에서 관리합니다. 로컬 Firebase 초기화에는 발급받은 `GoogleService-Info.plist`를 `Projects/App/Resources/GoogleService-Info.plist`에 복사한 뒤 `./make generate --no-open`을 실행합니다. 이 plist는 Git에서 제외됩니다. CI에서는 저장소 Secret `GOOGLE_SERVICE_INFO_PLIST_BASE64`로 같은 경로에 복원하고 번들 ID를 확인합니다.
 
