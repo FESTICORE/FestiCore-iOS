@@ -73,13 +73,13 @@ jobs:
             -scheme FestiCore-Stage \
             -configuration Stage \
             -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "$RUNNER_TEMP/FestiCore-preview" \
+            -derivedDataPath "$CI_DERIVED_DATA" \
             CODE_SIGNING_ALLOWED=NO \
             FESTICORE_BUILD_NUMBER="$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" \
             COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
       - name: Share private Tuist preview
         run: |
-          APP_PATH="$RUNNER_TEMP/FestiCore-preview/Build/Products/Stage-iphonesimulator/FestiCore.app"
+          APP_PATH="$CI_DERIVED_DATA/Build/Products/Stage-iphonesimulator/FestiCore.app"
           test -d "$APP_PATH"
           BUNDLE_BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$APP_PATH/Info.plist")
           if [[ "$BUNDLE_BUILD_NUMBER" != "$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" ]]; then
@@ -87,6 +87,9 @@ jobs:
             exit 1
           fi
           mise exec -- tuist share "$APP_PATH" --track nightly
+      - name: Clean preview DerivedData
+        if: always()
+        run: bash Scripts/clean-ci-derived-data.sh FestiCore-preview
 
   provision-signing:
     if: ${{ github.event_name == 'workflow_dispatch' && (inputs.provision_live_activity_profile || inputs.force_regenerate_profiles) }}
@@ -111,3 +114,6 @@ jobs:
         run: bundle install
       - name: Provision Live Activity profiles
         run: bundle exec fastlane provision_live_activity_signing force:${{ inputs.force_regenerate_profiles }}
+      - name: Clean signing DerivedData
+        if: always()
+        run: bash Scripts/clean-ci-derived-data.sh FestiCore-live-activity-signing
