@@ -11,6 +11,13 @@ import FestiCoreNetworkInterface
 
 /// `FestiCoreNetworkClient` 조립 진입점. 호출부는 이 팩토리만 알면 된다.
 public enum NetworkClientFactory {
+  public static func webSocket() -> any FestiCoreWebSocketClient {
+    return URLSessionWebSocketClient(
+      configuration: SessionFactory.webSocketConfiguration,
+      monitor: WebSocketMonitor()
+    )
+  }
+
   /// Info.plist 의 `FestiCoreAPIHost`(호스트만 담긴 값)로 조립한 앱 서버 baseURL.
   /// 값이 없으면 nil 이고, 그 클라이언트의 요청은 `.request(.invalidURL)` 로 즉시 실패한다.
   public static var bundleBaseURL: URL? {

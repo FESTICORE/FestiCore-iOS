@@ -46,7 +46,7 @@ public enum NetworkContainer {
       packSyncService: NetworkPackSyncService(
         baseURL: NetworkClientFactory.bundleBaseURL,
         cacheDirectory: packCacheDirectory,
-        client: URLSessionWebSocketClient()
+        client: NetworkAssembly.webSocketClient()
       ),
       festivalCatalogService: NetworkFestivalCatalogService(
         client: NetworkAssembly.plainClient(),
