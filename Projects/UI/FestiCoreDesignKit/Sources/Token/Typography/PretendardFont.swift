@@ -24,6 +24,13 @@ public extension View {
   func pretendardFont(family: PretendardFontFamily, size: CGFloat) -> some View {
     modifier(PretendardFont(family: family, size: size))
   }
+
+  /// 타이포 토큰 하나로 폰트·자간·행간을 적용한다. 체이닝의 기본 진입점.
+  func festiCoreFont(_ style: FestiCoreTextStyle) -> some View {
+    pretendardFont(family: style.fontFamily, size: style.size)
+      .tracking(style.letterSpacing)
+      .lineSpacing(style.resolvedLineSpacing)
+  }
 }
 
 public extension UIFont {
