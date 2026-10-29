@@ -20,7 +20,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    guard TestContext.current == nil else { return true }
+    guard case .live = dependencyContext else { return true }
 
     configure()
     do {

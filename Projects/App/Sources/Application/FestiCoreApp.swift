@@ -9,19 +9,19 @@ import SwiftUI
 import ComposableArchitecture
 
 import FeatureAssembly
-import ServiceAssembly
 
 @main
 struct FestiCoreApp: App {
   @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+  @Dependency(\.context) private var dependencyContext
 
   var body: some Scene {
     WindowGroup {
-      if TestContext.current == nil {
+      if shouldStartApp {
         let store = Store(initialState: AppCoordinator.State()) {
           AppCoordinator()
         } withDependencies: {
-          ServiceDependencyAssembly.register(into: &$0)
+          $0.continuousClock = ContinuousClock()
         }
 
         AppCoordinatorView(store: store)
@@ -30,5 +30,10 @@ struct FestiCoreApp: App {
           }
       }
     }
+  }
+
+  private var shouldStartApp: Bool {
+    if case .test = dependencyContext { return false }
+    return true
   }
 }
