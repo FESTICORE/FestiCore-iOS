@@ -18,6 +18,7 @@ jobs:
       contents: read
     outputs:
       final_message: ${{ steps.run_codex.outputs.final-message }}
+      review_outcome: ${{ steps.run_codex.outcome }}
 
     steps:
       - name: Checkout PR merge commit
@@ -87,7 +88,7 @@ jobs:
 
   post_feedback:
     needs: codex_review
-    if: always() && needs.codex_review.outputs.final_message != ''
+    if: always() && needs.codex_review.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -98,15 +99,18 @@ jobs:
         uses: actions/github-script@v7
         env:
           CODEX_FINAL_MESSAGE: ${{ needs.codex_review.outputs.final_message }}
+          CODEX_REVIEW_OUTCOME: ${{ needs.codex_review.outputs.review_outcome }}
         with:
           github-token: ${{ github.token }}
           script: |
             const marker = '<!-- codex-pr-review -->';
+            const message = process.env.CODEX_FINAL_MESSAGE?.trim()
+              || `리뷰를 생성하지 못했습니다 (실행 결과: ${process.env.CODEX_REVIEW_OUTCOME || 'unknown'}). Actions의 Codex PR Review 로그에서 API 한도와 결제 상태를 확인하세요.`;
             const body = `${marker}
 
             ## Codex 자동 리뷰
 
-            ${process.env.CODEX_FINAL_MESSAGE}`;
+            ${message}`;
 
             const { owner, repo } = context.repo;
             const issue_number = context.payload.pull_request.number;
