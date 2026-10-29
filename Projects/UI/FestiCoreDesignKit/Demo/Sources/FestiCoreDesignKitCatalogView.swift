@@ -9,6 +9,11 @@ import FestiCoreDesignKit
 import SwiftUI
 
 struct FestiCoreDesignKitCatalogView: View {
+  @State private var searchText = ""
+  @State private var tabSelection = 0
+  @State private var segmentSelection = 0
+  @State private var tabBarSelection: FestiCoreTabBar.Tab = .live
+
   var body: some View {
     NavigationStack {
       ScrollView {
@@ -18,6 +23,10 @@ struct FestiCoreDesignKitCatalogView: View {
           typographySection
           FestiCoreDivider()
           buttonSection
+          FestiCoreDivider()
+          navigationSection
+          FestiCoreDivider()
+          timetableSection
         }
         .padding(FestiCoreSpacing.paddingP20)
       }
@@ -58,6 +67,57 @@ struct FestiCoreDesignKitCatalogView: View {
       sectionTitle("Button")
       FestiCorePrimaryButton("기본 버튼") {}
       FestiCorePrimaryButton("비활성 버튼", isEnabled: false) {}
+    }
+  }
+
+  private var navigationSection: some View {
+    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
+      sectionTitle("Navigation")
+      FestiCoreTopBar(.logo)
+        .showsBadge(true)
+      FestiCoreTopBar(.logoBearer)
+        .onBearer {}
+      FestiCoreTopBar(.back, title: "라인업")
+        .onBack {}
+      FestiCoreTopBar(.large, title: "타임테이블")
+      FestiCoreTopBar(.search(text: $searchText))
+        .searchPlaceholder("아티스트 검색")
+        .onCancel {}
+      FestiCoreTopBar(.backOnImage, title: "아티스트")
+        .onBack {}
+        .background(FestiCoreSemanticColor.accentPointOrange.color)
+      FestiCoreTab(selection: $tabSelection, items: ["1일차", "2일차", "3일차"])
+      FestiCoreSegmented(selection: $segmentSelection, items: ["전체", "내 일정"])
+      FestiCoreStepHeader(step: 2)
+        .onLater {}
+      FestiCoreTabBar(selection: $tabBarSelection)
+    }
+  }
+
+  private var timetableSection: some View {
+    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
+      sectionTitle("Timetable")
+      FestiCoreStageHeader(name: "메인 스테이지")
+      FestiCoreStageHeader(name: "서브 스테이지")
+        .dotColor(.accentPointOrange)
+      HStack(alignment: .top, spacing: FestiCoreSpacing.paddingP8) {
+        FestiCoreSetBlock(artist: "아티스트", time: "18:00 - 19:00")
+          .frame(height: FestiCoreSetBlock.height(minutes: 60))
+        FestiCoreSetBlock(artist: "아티스트", time: "18:00 - 19:00")
+          .state(.mine)
+          .frame(height: FestiCoreSetBlock.height(minutes: 60))
+      }
+      HStack(alignment: .top, spacing: FestiCoreSpacing.paddingP8) {
+        FestiCoreSetBlock(artist: "아티스트", time: "18:30 - 19:30")
+          .state(.changed(oldTime: "18:00", change: "30분 지연"))
+          .frame(height: FestiCoreSetBlock.height(minutes: 60))
+        FestiCoreSetBlock(artist: "아티스트", time: "18:00 - 18:20")
+          .state(.overlap())
+          .frame(height: FestiCoreSetBlock.height(minutes: 20))
+      }
+      FestiCoreNowLine(time: "18:30")
+      FestiCoreOverlapHighlight()
+        .frame(height: 40)
     }
   }
 
