@@ -93,10 +93,16 @@ flowchart TD
     Home --> PackInterface["FestiCorePack / Interface"]
     Home --> SharedUI["FestiCoreSharedUI"]
     Login --> AuthDomainInterface["AuthDomain / Interface"]
+    AuthDomain --> AuthDomainInterface
+    AuthDomain --> AuthInterface["FestiCoreAuth / Interface"]
+    AuthDomain --> APIEndpoint
+    AuthDomain --> NetworkInterface["FestiCoreNetwork / Interface"]
     ServiceAssembly --> CoreAssembly
+    ServiceAssembly --> FestivalDomainInterface
     ServiceAssembly --> Network["FestiCoreNetwork / Implementation"]
     ServiceAssembly --> Services["Auth · Device · FestivalCatalog · Pack"]
     CoreAssembly --> Core["Logger · Network · Storage"]
+    APIEndpoint --> NetworkInterface
     App -. 포함 .-> Widget["FestiCoreWidget"]
     App -. 포함 .-> Notification["FestiCoreNotificationService"]
 ~~~
