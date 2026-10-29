@@ -31,6 +31,7 @@ jobs:
       TUIST_TOKEN: ${{ secrets.TUIST_TOKEN }}
       TUIST_BUILD_TAGS: ci,develop,preview
       TUIST_BUILD_VALUE_COMMIT: ${{ github.sha }}
+      FESTICORE_SENTRY_DSN: ${{ secrets.FESTICORE_SENTRY_DSN }}
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
     steps:
@@ -76,6 +77,7 @@ jobs:
             -derivedDataPath "$CI_DERIVED_DATA" \
             CODE_SIGNING_ALLOWED=NO \
             FESTICORE_BUILD_NUMBER="$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" \
+            FESTICORE_SENTRY_DSN="$FESTICORE_SENTRY_DSN" \
             COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
       - name: Share private Tuist preview
         run: |
