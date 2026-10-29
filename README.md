@@ -51,7 +51,8 @@ Projects/
 │   ├── AuthDomain/                # 인증 Entity·Repository·UseCase
 │   └── FestivalDomain/            # 축제 목록 계약과 모델
 ├── Service/
-│   ├── API/ · APIEndpoint/        # API 경로·요청·인증 정책
+│   ├── API/                      # API 요청 인터페이스
+│   ├── APIEndpoint/              # API 경로·인증 정책
 │   ├── ServiceAssembly/           # 서비스 의존성 조립
 │   ├── FestiCoreAuth/             # 인증 세션과 토큰 갱신
 │   ├── FestiCoreAnalytics/        # Mixpanel·Sentry 초기화
