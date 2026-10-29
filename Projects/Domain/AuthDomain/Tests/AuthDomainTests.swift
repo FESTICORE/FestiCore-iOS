@@ -231,6 +231,10 @@ struct AuthDomainTests {
     try await repository.withdraw()
 
     #expect(await client.calls == 1)
+    #expect(await client.lastRequestPath == "api/v1/me")
+    #expect(await client.lastRequestMethod == "DELETE")
+    #expect(await client.lastRequestAuthorizationIsAutomatic)
+    #expect(await client.lastRequestParametersAreNil)
     #expect(await auth.isLoggedIn == false)
     #expect(await auth.signOutCalls == 1)
   }
@@ -334,6 +338,10 @@ private actor StubClient: FestiCoreNetworkClient {
   let result: Result<Data, FestiCoreNetworkError>
   let onSend: (@Sendable () async -> Void)?
   private(set) var calls = 0
+  private(set) var lastRequestPath: String?
+  private(set) var lastRequestMethod: String?
+  private(set) var lastRequestAuthorizationIsAutomatic = false
+  private(set) var lastRequestParametersAreNil = false
 
   init(result: Result<Data, FestiCoreNetworkError>, onSend: (@Sendable () async -> Void)? = nil) {
     self.result = result
@@ -344,6 +352,10 @@ private actor StubClient: FestiCoreNetworkClient {
     _ request: R, as type: T.Type
   ) async throws(FestiCoreNetworkError) -> T {
     calls += 1
+    lastRequestPath = request.path
+    lastRequestMethod = request.method.rawValue
+    lastRequestAuthorizationIsAutomatic = request.authorization == .automatic
+    lastRequestParametersAreNil = request.parameters == nil
     await onSend?()
     switch result {
     case let .success(data):

@@ -77,6 +77,21 @@ struct AuthRequestTests {
     #expect(request.url?.query == nil)
   }
 
+  @Test("회원 탈퇴는 인증된 DELETE 요청이며 본문과 재시도가 없다")
+  func withdraw() throws {
+    let endpoint = AuthRequest.withdraw
+    let request = try endpoint.asURLRequest(baseURL: baseURL)
+
+    #expect(request.url?.path == "/api/v1/me")
+    #expect(request.httpMethod == "DELETE")
+    #expect(endpoint.authorization == .automatic)
+    #expect(endpoint.maxRetryAttempts == 0)
+    #expect(endpoint.parameters == nil)
+    #expect(request.httpBody == nil)
+    #expect(request.url?.query == nil)
+    let _: AuthRequest.Response = FestiCoreEmptyResponse()
+  }
+
   private func jsonBody(_ request: URLRequest) throws -> [String: Any] {
     let data = try #require(request.httpBody)
     return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
