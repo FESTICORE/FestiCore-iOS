@@ -1,60 +1,88 @@
 flowchart LR
-  App["FestiCore App<br/>SwiftUI · TCA"]
-  Feature["FeatureAssembly"]
+  App["FestiCore App"]
+  FeatureAssembly["FeatureAssembly"]
   Home["Home"]
-  Login["Login module"]
+  Login["Login"]
   AuthDomain["AuthDomain"]
+  AuthDomainInterface["AuthDomain Interface"]
   FestivalDomain["FestivalDomain"]
-  Service["ServiceAssembly"]
+  FestivalDomainInterface["FestivalDomain Interface"]
+  ServiceAssembly["ServiceAssembly"]
   API["API"]
-  Endpoint["APIEndpoint"]
-  Config["FestiCoreConfig"]
-  Analytics["FestiCoreAnalytics"]
+  APIEndpoint["APIEndpoint"]
   Auth["FestiCoreAuth"]
+  AuthInterface["FestiCoreAuth Interface"]
   Device["FestiCoreDevice"]
+  DeviceInterface["FestiCoreDevice Interface"]
   Catalog["FestiCoreFestivalCatalog"]
   Pack["FestiCorePack"]
-  Core["CoreAssembly"]
+  PackInterface["FestiCorePack Interface"]
+  Config["FestiCoreConfig"]
+  Analytics["FestiCoreAnalytics"]
+  CoreAssembly["CoreAssembly"]
   Network["FestiCoreNetwork"]
+  NetworkInterface["FestiCoreNetwork Interface"]
   Storage["FestiCoreStorage"]
+  StorageInterface["FestiCoreStorage Interface"]
   Logger["FestiCoreLogger"]
   SharedUI["FestiCoreSharedUI"]
   Design["FestiCoreDesignKit"]
   Animation["FestiCoreAnimation"]
-  Activity["FestiCoreLiveActivity"]
+  LiveActivity["FestiCoreLiveActivity"]
   Widget["FestiCoreWidget"]
-  Notification["NotificationService"]
+  Notification["FestiCoreNotificationService"]
 
-  App --> Feature
-  App --> Service
-  App --> Core
-  App --> Design
-  App --> Animation
-  App --> Activity
+  App --> FeatureAssembly
+  App --> ServiceAssembly
+  App --> CoreAssembly
+  App --> DeviceInterface
+  App --> Logger
   App --> Config
   App --> Analytics
-  App -. embeds .-> Widget
-  App -. embeds .-> Notification
-  Feature --> Home
-  Feature --> Login
-  Feature --> AuthDomain
-  Feature --> Service
-  Home --> FestivalDomain
-  Home --> Pack
+  App --> Design
+  App --> Animation
+  App --> LiveActivity
+  App -. includes .-> Widget
+  App -. includes .-> Notification
+
+  FeatureAssembly --> Home
+  FeatureAssembly --> Login
+  FeatureAssembly --> AuthDomain
+  FeatureAssembly --> ServiceAssembly
+  Home --> FestivalDomainInterface
+  Home --> PackInterface
   Home --> SharedUI
-  Home --> Activity
-  Login --> AuthDomain
-  AuthDomain --> Endpoint
-  Endpoint --> API
-  Endpoint --> Network
-  Service --> Auth
-  Service --> Device
-  Service --> Catalog
-  Service --> Pack
-  Service --> Core
-  Core --> Network
-  Core --> Storage
-  Core --> Logger
+  Home --> LiveActivity
+  Login --> AuthDomainInterface
+  AuthDomain --> NetworkInterface
+  AuthDomain --> AuthInterface
+  AuthDomain --> APIEndpoint
+
+  ServiceAssembly --> CoreAssembly
+  ServiceAssembly --> Network
+  ServiceAssembly --> FestivalDomainInterface
+  ServiceAssembly --> Auth
+  ServiceAssembly --> Device
+  ServiceAssembly --> Catalog
+  ServiceAssembly --> Pack
+  APIEndpoint --> API
+  APIEndpoint --> NetworkInterface
+  Auth --> Logger
+  Auth --> Network
+  Auth --> StorageInterface
+  Auth --> APIEndpoint
+  Device --> NetworkInterface
+  Device --> StorageInterface
+  Catalog --> NetworkInterface
+  Catalog --> FestivalDomainInterface
+  Catalog --> FestivalDomain
+  Pack --> NetworkInterface
+  Analytics --> Logger
+
+  CoreAssembly --> Logger
+  CoreAssembly --> Network
+  CoreAssembly --> Storage
+  Network --> Logger
   SharedUI --> Design
   SharedUI --> Animation
-  Widget --> Activity
+  Widget --> LiveActivity
