@@ -86,6 +86,7 @@ struct DeviceRegistrationRequest: FestiCoreDataRequest {
 private struct DeviceRegistrationBody: Encodable, Sendable {
   let apnsEnvironment: DeviceRegistrationMetadata.APNsEnvironment
   let apnsToken: String?
+  let liveActivityPushToStartToken: String?
   let appVersion: String
   let osVersion: String
   let locale: String
@@ -94,6 +95,7 @@ private struct DeviceRegistrationBody: Encodable, Sendable {
   init(metadata: DeviceRegistrationMetadata) {
     apnsEnvironment = metadata.apnsEnvironment
     apnsToken = metadata.apnsToken
+    liveActivityPushToStartToken = metadata.liveActivityPushToStartToken
     appVersion = metadata.appVersion
     osVersion = metadata.osVersion
     locale = metadata.locale
@@ -101,7 +103,7 @@ private struct DeviceRegistrationBody: Encodable, Sendable {
   }
 
   private enum CodingKeys: String, CodingKey {
-    case apnsEnvironment, apnsToken, appVersion, osVersion, locale, timezone
+    case apnsEnvironment, apnsToken, liveActivityPushToStartToken, appVersion, osVersion, locale, timezone
   }
 
   func encode(to encoder: Encoder) throws {
@@ -111,6 +113,11 @@ private struct DeviceRegistrationBody: Encodable, Sendable {
       try container.encode(apnsToken, forKey: .apnsToken)
     } else {
       try container.encodeNil(forKey: .apnsToken)
+    }
+    if let liveActivityPushToStartToken {
+      try container.encode(liveActivityPushToStartToken, forKey: .liveActivityPushToStartToken)
+    } else {
+      try container.encodeNil(forKey: .liveActivityPushToStartToken)
     }
     try container.encode(appVersion, forKey: .appVersion)
     try container.encode(osVersion, forKey: .osVersion)

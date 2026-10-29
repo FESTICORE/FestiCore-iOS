@@ -8,16 +8,38 @@
 import UIKit
 
 import CoreAssembly
+import FestiCoreLiveActivity
 import ServiceAssembly
 
 extension AppDelegate {
   func configureDeviceRegistration() {
+    liveActivityStartToken = FestiCoreFestivalLiveActivity.pushToStartToken
+    registerDeviceWithStoredAPNsToken()
+    UIApplication.shared.registerForRemoteNotifications()
+    observeLiveActivityStartToken()
+  }
+
+  private func observeLiveActivityStartToken() {
+    liveActivityStartTokenTask?.cancel()
+    liveActivityStartTokenTask = Task { @MainActor [weak self] in
+      for await token in FestiCoreFestivalLiveActivity.pushToStartTokenUpdates() {
+        guard let self, !Task.isCancelled else { return }
+        guard liveActivityStartToken != token else { continue }
+        liveActivityStartToken = token
+        registerDeviceWithStoredAPNsToken()
+      }
+    }
+  }
+
+  private func registerDeviceWithStoredAPNsToken() {
+    let apnsToken: String?
     do {
-      registerDevice(apnsToken: try secureStorage.load(.apnsToken))
+      apnsToken = try secureStorage.load(.apnsToken)
     } catch {
       FestiCoreLogger.error("저장된 APNs 토큰 조회 실패: \(error.localizedDescription)", category: .app)
+      apnsToken = nil
     }
-    UIApplication.shared.registerForRemoteNotifications()
+    registerDevice(apnsToken: apnsToken)
   }
 
   func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
@@ -52,6 +74,7 @@ extension AppDelegate {
     let metadata = DeviceRegistrationMetadata(
       apnsEnvironment: apnsEnvironment,
       apnsToken: apnsToken,
+      liveActivityPushToStartToken: liveActivityStartToken,
       appVersion: appVersion,
       osVersion: UIDevice.current.systemVersion,
       locale: Locale.current.identifier(.bcp47),
@@ -61,8 +84,10 @@ extension AppDelegate {
     let previousRegistration = registrationTask
     registrationTask = Task {
       await previousRegistration?.value
+      guard lastRegisteredDeviceMetadata != metadata else { return }
       do {
         _ = try await deviceRegistrationService.register(metadata)
+        lastRegisteredDeviceMetadata = metadata
       } catch {
         FestiCoreLogger.error("기기 등록 실패: \(error.localizedDescription)", category: .app)
       }
