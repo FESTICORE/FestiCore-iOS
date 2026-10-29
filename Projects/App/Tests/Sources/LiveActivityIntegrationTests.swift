@@ -36,15 +36,21 @@ struct LiveActivityIntegrationTests {
     #expect(duplicateID == id)
 
     await FestiCoreFestivalLiveActivity.update(id: id, phase: .ongoing, startDate: Date())
-    #expect(FestiCoreFestivalLiveActivity.activities().contains {
-      $0.id == id && $0.phase == .ongoing
-    })
+    let updated = await waitFor {
+      FestiCoreFestivalLiveActivity.activities().contains {
+        $0.id == id && $0.phase == .ongoing
+      }
+    }
+    #expect(updated)
 
     // 위젯이 잠금 화면에 그려질 시간을 확보한다.
     try await Task.sleep(for: .seconds(10))
 
     await FestiCoreFestivalLiveActivity.end(id: id)
-    #expect(!Activity<FestiCoreFestivalActivityAttributes>.activities.contains { $0.id == id })
+    let ended = await waitFor {
+      !Activity<FestiCoreFestivalActivityAttributes>.activities.contains { $0.id == id }
+    }
+    #expect(ended)
     #expect(!FestiCoreFestivalLiveActivity.activities().contains { $0.id == id })
   }
 
