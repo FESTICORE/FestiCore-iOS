@@ -138,12 +138,7 @@ jobs:
       - name: Clean build DerivedData
         if: always()
         run: |
-          rm -rf \
-            "$CI_DERIVED_DATA/Build" \
-            "$CI_DERIVED_DATA/Index.noindex" \
-            "$CI_DERIVED_DATA/Logs" \
-            "$CI_DERIVED_DATA/SourcePackages" \
-            "$CI_DERIVED_DATA/info.plist"
+          bash Scripts/clean-ci-derived-data.sh FestiCore-develop-build
           rm -rf ShardBuildResults.xcresult BundleBuildResults.xcresult
 
   test-shards:
@@ -229,13 +224,7 @@ jobs:
 
       - name: Clean shard DerivedData
         if: always()
-        run: |
-          rm -rf \
-            "$CI_DERIVED_DATA/Build" \
-            "$CI_DERIVED_DATA/Index.noindex" \
-            "$CI_DERIVED_DATA/Logs" \
-            "$CI_DERIVED_DATA/SourcePackages" \
-            "$CI_DERIVED_DATA/info.plist"
+        run: bash Scripts/clean-ci-derived-data.sh "FestiCore-develop-shard-${{ matrix.shard }}"
 
   warm-module-cache:
     name: Warm Stage module cache
@@ -254,7 +243,7 @@ jobs:
         uses: ./.github/actions/setup-ios-runner
         with:
           tuist-token: ${{ secrets.TUIST_TOKEN }}
-          derived-data-directory: FestiCore-cache-warm
+          derived-data-directory: FestiCore-develop-cache-warm
 
       - name: Install project dependencies
         run: |
@@ -271,3 +260,7 @@ jobs:
       - name: Warm module cache
         if: steps.tuist-cache.outcome == 'success'
         run: mise exec -- tuist cache warm --configuration Stage --cache-profile only-external
+
+      - name: Clean cache warm DerivedData
+        if: always()
+        run: bash Scripts/clean-ci-derived-data.sh FestiCore-develop-cache-warm
