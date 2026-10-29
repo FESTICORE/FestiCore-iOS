@@ -11,7 +11,7 @@ import AuthDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
 
-public struct AuthRepositoryImpl: AuthRepository {
+public struct AuthRepositoryImpl: AuthInterface {
   @Dependency(\.networkClient) private var client
   @Dependency(\.authService) private var authService
 

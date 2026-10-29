@@ -11,7 +11,7 @@ import GoogleSignIn
 import UIKit
 
 @MainActor
-public final class GoogleOAuthRepositoryImpl: GoogleOAuthRepository {
+public final class GoogleOAuthRepositoryImpl: GoogleOAuthInterface {
   private let configuration: @MainActor () -> GoogleOAuthConfiguration?
   private let presentingController: @MainActor () -> UIViewController?
   private let signIn: @MainActor (GoogleOAuthConfiguration, UIViewController) async throws -> GoogleOAuthTokens

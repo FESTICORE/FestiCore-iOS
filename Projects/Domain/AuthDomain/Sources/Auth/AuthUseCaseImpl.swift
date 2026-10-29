@@ -8,7 +8,7 @@
 import Dependencies
 import AuthDomainInterface
 
-public struct AuthUseCaseImpl: AuthUseCase {
+public struct AuthUseCaseImpl: AuthUseCaseInterface {
   @Dependency(\.authRepository) private var repository
 
   public init() {}

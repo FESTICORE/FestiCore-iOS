@@ -8,6 +8,8 @@ Core 모듈의 Interface와 구현 타깃은 경계를 나눈다. `FestiCoreStor
 
 `AuthDomain`은 Network/Auth Interface와 `APIEndpoint`에 의존한다. Repository는 `@Dependency`로 공용 클라이언트와 인증 서비스를 사용하고, 도메인 모듈이 자신의 live use case를 등록한다. APIEndpoint는 Domain/Auth에 의존하지 않는다. 실제 네트워크·Keychain 세션은 계속 `ServiceAssembly`에서 조립한다.
 
+AuthDomain의 공개 계약은 `Interface/Sources`에 두고 `AuthInterface`, `AuthUseCaseInterface`, `OAuthUseCaseInterface`처럼 역할을 이름에 표시한다. 각 계약 파일에 DI 키와 접근자를 함께 두며, 구현 타깃의 `AuthLiveDependencies.swift`에서 `*Impl`을 등록한다. 테스트·프리뷰 기본 Mock은 누락된 주입을 이슈로 기록하고 오류를 반환한다. 성공 경로 테스트는 필요한 대역을 명시적으로 주입한다.
+
 의도적으로 로그아웃하는 동안 다른 인증 요청의 refresh가 401을 받으면 `festiCoreAuthSessionDidExpire` 알림이 발생할 수 있다. 후속 로그인 UI의 알림 관찰자는 로그아웃 진행 중 이 알림을 무시하거나 억제해야 한다.
 
 의존성 경계를 변경할 때는 현재 `Project.swift`의 타깃 의존성과 실제 생성 위치를 먼저 확인한다.

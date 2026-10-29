@@ -29,7 +29,7 @@
 
 ## 통신과 Domain 모듈
 
-- 새 Domain 모듈은 `Interface`와 `Sources`를 나눈다. `Interface/Entity`에는 공개 값·오류 타입, `Interface/<기능>`에는 `Sendable` Repository·UseCase 계약과 `DependencyValues` 접근자를 둔다. `Sources`에는 `Repository/*Impl`, `UseCase/*Impl`, `Model/DTO`, `Model/Mapper`, 라이브 의존성 등록을 둔다. 파일과 타입은 역할별로 분리한다.
+- 새 Domain 모듈은 `Interface`와 `Sources`를 나눈다. `Interface/Sources/Entity`에는 공개 값·오류 타입, `Interface/Sources/<기능>`에는 `Sendable` Repository·UseCase의 `*Interface` 계약과 해당 `DependencyKey`·`DependencyValues` 접근자를 둔다. `Sources/<기능>`에는 `*Impl`, `Sources/Model`에는 DTO·Mapper, `Sources`에는 라이브 의존성 등록을 둔다. 테스트·프리뷰 기본값은 명시적인 Mock을 제공하고 미주입 호출은 테스트 이슈로 기록한다.
 - Feature는 Domain UseCase Interface를 주입받고, UseCase 구현은 Repository Interface를 사용한다. Repository 구현은 공용 Network·Auth Interface를 주입받는다. 새 클라이언트나 토큰 저장소를 Domain마다 만들지 않는다. 로그인 응답을 검증한 뒤 공용 인증 세션에 저장한다.
 - API 경로는 `API`, `FestiCoreDataRequest` 요청은 `APIEndpoint`에 둔다. 요청마다 path, HTTP method, authorization, `Encodable & Sendable` body, 재시도 정책을 명시한다. DTO에서 Entity로의 변환과 도메인 값에서 요청 body로의 변환은 Domain Mapper가 담당한다. APIEndpoint는 Domain이나 Auth Service에 의존하지 않는다.
 - 공개 로그인·토큰 갱신은 `.none`, 로그아웃은 `.automatic`을 사용한다. 인증 요청은 응답 DTO를 명시해 `send(_:as:)`로 전송한다. 최종 URL이 `/api/v1/auth/` 로그 본문 보호 규칙과 일치해야 한다. 토큰·인가 코드·비밀 값은 로그와 테스트 실패 메시지에 넣지 않는다.

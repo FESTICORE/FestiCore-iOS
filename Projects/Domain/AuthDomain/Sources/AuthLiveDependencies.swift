@@ -9,21 +9,21 @@ import Dependencies
 import AuthDomainInterface
 
 extension AuthRepositoryDependency: DependencyKey {
-  public static var liveValue: any AuthRepository { AuthRepositoryImpl() }
+  public static var liveValue: any AuthInterface { AuthRepositoryImpl() }
 }
 
 extension AuthUseCaseDependency: DependencyKey {
-  public static var liveValue: any AuthUseCase { AuthUseCaseImpl() }
+  public static var liveValue: any AuthUseCaseInterface { AuthUseCaseImpl() }
 }
 
 extension GoogleOAuthRepositoryDependency: DependencyKey {
-  public static var liveValue: any GoogleOAuthRepository { GoogleOAuthRepositoryImpl() }
+  public static var liveValue: any GoogleOAuthInterface { GoogleOAuthRepositoryImpl() }
 }
 
 extension AppleOAuthRepositoryDependency: DependencyKey {
-  public static var liveValue: any AppleOAuthRepository { AppleOAuthRepositoryImpl() }
+  public static var liveValue: any AppleOAuthInterface { AppleOAuthRepositoryImpl() }
 }
 
 extension OAuthUseCaseDependency: DependencyKey {
-  public static var liveValue: any OAuthUseCase { OAuthUseCaseImpl() }
+  public static var liveValue: any OAuthUseCaseInterface { OAuthUseCaseImpl() }
 }
