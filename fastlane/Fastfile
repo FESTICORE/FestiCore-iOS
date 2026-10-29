@@ -109,7 +109,7 @@ def signed_ipa(scheme, configuration, version, build_number, api_key)
     profile_name: "match AppStore #{BUNDLE_ID}"
   )
   update_code_signing_settings(
-    path: File.join(PROJECT_ROOT, "Projects/Widget/FestiCoreLiveActivityWidget/FestiCoreLiveActivityWidget.xcodeproj"),
+    path: File.join(PROJECT_ROOT, "Projects/Widget/FestiCoreWidget/FestiCoreWidget.xcodeproj"),
     targets: [LIVE_ACTIVITY_TARGET],
     build_configurations: [configuration],
     use_automatic_signing: false,
