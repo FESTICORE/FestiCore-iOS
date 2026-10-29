@@ -62,9 +62,10 @@ run_tests() {
 
 if run_tests 2>&1 | tee "$TEST_LOG_PATH"; then
   :
-elif grep -Fq 'The test runner hung before establishing connection.' "$TEST_LOG_PATH"; then
-  # XCTest 연결 전에 멈춘 경우에만 동일 shard를 한 번 다시 실행한다.
-  echo "앱 테스트 러너 연결 실패로 동일 shard를 한 번 다시 실행합니다." | tee -a "$TEST_LOG_PATH"
+elif grep -Fq 'The test runner hung before establishing connection.' "$TEST_LOG_PATH" \
+  || grep -Fq 'did not return a process handle nor launch error.' "$TEST_LOG_PATH"; then
+  # XCTest 연결이나 테스트 호스트 앱 실행이 실패한 경우에만 동일 shard를 한 번 다시 실행한다.
+  echo "앱 테스트 러너 시작 실패로 동일 shard를 한 번 다시 실행합니다." | tee -a "$TEST_LOG_PATH"
   rm -rf "$RESULT_BUNDLE" "$TEST_RUN_REPORT_PATH"
   run_tests 2>&1 | tee -a "$TEST_LOG_PATH"
 else

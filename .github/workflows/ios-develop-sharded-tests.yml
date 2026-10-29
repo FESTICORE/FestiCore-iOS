@@ -204,6 +204,18 @@ jobs:
       - name: Run shard
         run: ./Scripts/run-isolated-module-tests.sh
 
+      - name: Upload test shard diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: develop-test-shard-${{ github.run_id }}-${{ matrix.shard }}-attempt-${{ github.run_attempt }}
+          path: |
+            TestResults-${{ matrix.shard }}.xcresult
+            TestRunReport-${{ matrix.shard }}.json
+            TuistTestRun-${{ matrix.shard }}.log
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Shut down test shard simulator
         if: always()
         run: |

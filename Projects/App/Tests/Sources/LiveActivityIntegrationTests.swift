@@ -101,11 +101,16 @@ struct LiveActivityIntegrationTests {
     let deadline = Date().addingTimeInterval(8)
     while Date() < deadline {
       if app.applicationState == .active { return true }
-      if !requested,
-         let scene = app.connectedScenes.compactMap({ $0 as? UIWindowScene })
-           .first(where: { $0.session.role == .windowApplication }) {
+      if !requested {
         requested = true
-        app.activateSceneSession(for: .init(session: scene.session)) { error in
+        let scene = app.connectedScenes.compactMap { $0 as? UIWindowScene }
+          .first(where: { $0.session.role == .windowApplication })
+        let request: UISceneSessionActivationRequest = if let scene {
+          .init(session: scene.session)
+        } else {
+          .init(role: .windowApplication)
+        }
+        app.activateSceneSession(for: request) { error in
           activationError = error.localizedDescription
         }
       }
@@ -114,7 +119,9 @@ struct LiveActivityIntegrationTests {
     }
     if app.applicationState == .active { return true }
     let scenes = app.connectedScenes.map { String(describing: $0.activationState) }.joined(separator: ", ")
-    Issue.record("Live Activity 시작 전 앱 활성화 실패: state=\(app.applicationState), sceneStates=[\(scenes)], requested=\(requested), error=\(activationError ?? "없음")")
+    let message = "Live Activity 시작 전 앱 활성화 실패: state=\(app.applicationState), sceneStates=[\(scenes)], requested=\(requested), error=\(activationError ?? "없음")"
+    print(message)
+    Issue.record("\(message)")
     return false
   }
 }
