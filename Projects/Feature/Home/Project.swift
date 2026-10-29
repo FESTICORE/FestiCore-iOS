@@ -15,6 +15,7 @@ let project = Project.makeModule(
   dependencies: [
     .domain(.festival, .interface),
     .service(.pack, .interface),
+    .ui(.liveActivity),
     .ui(.sharedUI),
     .SPM.kingfisher,
     .SPM.composableArchitecture,

@@ -5,6 +5,8 @@ struct HomeFestivalDetailView: View {
   let pack: FestivalPackDocument?
   let imageRevision: Int
   let imageURL: (String?) -> URL?
+  let liveActivityState: HomeFeature.LiveActivityControlState
+  let onLiveActivityTap: () -> Void
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
@@ -19,6 +21,15 @@ struct HomeFestivalDetailView: View {
       if let first = festival.firstDate {
         Text([first, festival.lastDate].compactMap { $0 }.joined(separator: " – "))
           .font(.subheadline)
+      }
+      Button(liveActivityState.title, action: onLiveActivityTap)
+        .buttonStyle(.borderedProminent)
+        .disabled(!liveActivityState.isEnabled)
+        .accessibilityLabel(liveActivityState.title)
+      if let message = liveActivityState.message {
+        Text(message)
+          .font(.caption)
+          .foregroundStyle(.secondary)
       }
       if let pack {
         HomePackDetailsView(pack: pack, imageRevision: imageRevision, imageURL: imageURL)

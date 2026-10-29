@@ -18,10 +18,12 @@ public struct FestiCoreFestivalActivityAttributes: ActivityAttributes {
 
     public var phase: Phase
     public var startDate: Date
+    public var endDate: Date?
 
-    public init(phase: Phase, startDate: Date) {
+    public init(phase: Phase, startDate: Date, endDate: Date? = nil) {
       self.phase = phase
       self.startDate = startDate
+      self.endDate = endDate
     }
   }
 
