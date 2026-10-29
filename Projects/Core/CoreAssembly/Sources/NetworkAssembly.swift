@@ -9,6 +9,10 @@ import FestiCoreNetwork
 import FestiCoreNetworkInterface
 
 public enum NetworkAssembly {
+  public static func webSocketClient() -> any FestiCoreWebSocketClient {
+    return NetworkClientFactory.webSocket()
+  }
+
   public static func plainClient() -> any FestiCoreNetworkClient {
     NetworkClientFactory.plain()
   }

@@ -19,6 +19,10 @@ enum SessionFactory {
     )
   }
 
+  static var webSocketConfiguration: URLSessionConfiguration {
+    return configuration
+  }
+
   /// 요청별 인증 조립용 공유 인터셉터 묶음.
   /// `AuthenticationInterceptor` 인스턴스가 하나여야 refresh single-flight 가 보장된다 —
   /// authorizing(요청 조립)과 credentials(로그인 / 로그아웃 교체)가 같은 인스턴스를 본다.
