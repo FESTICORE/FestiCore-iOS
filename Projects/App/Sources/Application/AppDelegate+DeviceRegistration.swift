@@ -84,8 +84,10 @@ extension AppDelegate {
     let previousRegistration = registrationTask
     registrationTask = Task {
       await previousRegistration?.value
+      guard lastRegisteredDeviceMetadata != metadata else { return }
       do {
         _ = try await deviceRegistrationService.register(metadata)
+        lastRegisteredDeviceMetadata = metadata
       } catch {
         FestiCoreLogger.error("기기 등록 실패: \(error.localizedDescription)", category: .app)
       }

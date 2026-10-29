@@ -7,7 +7,7 @@
 
 import Dependencies
 
-public struct DeviceRegistrationMetadata: Sendable {
+public struct DeviceRegistrationMetadata: Sendable, Equatable {
   public enum APNsEnvironment: String, Sendable, Encodable {
     case sandbox
     case production

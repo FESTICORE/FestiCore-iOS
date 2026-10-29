@@ -14,6 +14,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   let secureStorage = StorageAssembly.secureStorage()
   @Dependency(\.deviceRegistrationService) var deviceRegistrationService
   var registrationTask: Task<Void, Never>?
+  var lastRegisteredDeviceMetadata: DeviceRegistrationMetadata?
   var liveActivityStartToken: String?
   var liveActivityStartTokenTask: Task<Void, Never>?
 
