@@ -127,7 +127,7 @@ jobs:
             --no-selective-testing \
             --skip-quarantine \
             --shard-total 2 \
-            --shard-granularity suite \
+            --shard-granularity module \
             --inspect-mode remote \
             --result-bundle-path ShardBuildResults.xcresult \
             --run-report-path ShardBuildRunReport.json \
@@ -283,7 +283,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: pr-test-shard-${{ github.run_id }}-${{ matrix.shard }}
+          name: pr-test-shard-${{ github.run_id }}-${{ matrix.shard }}-attempt-${{ github.run_attempt }}
           path: |
             TestResults-${{ matrix.shard }}.xcresult
             TestRunReport-${{ matrix.shard }}.json
@@ -519,6 +519,13 @@ jobs:
           path: Artifacts/bundle
           merge-multiple: true
 
+      - name: Test PR report logic
+        id: report-tests
+        continue-on-error: true
+        run: |
+          mise install node@22.23.2
+          mise exec node@22.23.2 -- node --test Scripts/ios-test-report.test.js
+
       - name: Report to PR
         uses: actions/github-script@v7
         env:
@@ -526,6 +533,7 @@ jobs:
           REPORT_COMMENT: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
           RESULT_BUNDLE_DIR: Artifacts/tests
           COVERAGE_SHARD_IDS: ${{ join(fromJSON(needs.build-test-shards.outputs.matrix || '{"shard":[]}').shard, ',') }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
           TEST_OUTCOME: ${{ needs.build-test-shards.result == 'success' && needs.test-shards.result == 'success' && 'success' || 'failure' }}
           TEST_RUN_REPORT_PATH: Artifacts/tests
           BUILD_RUN_REPORT_PATH: Artifacts/bundle/BuildRunReport.json
@@ -536,5 +544,5 @@ jobs:
             await report({ github, context, core })
 
       - name: Fail if a required PR check failed
-        if: needs.build-test-shards.result != 'success' || needs.test-shards.result != 'success' || needs.bundle-insights.result != 'success'
+        if: needs.build-test-shards.result != 'success' || needs.test-shards.result != 'success' || needs.bundle-insights.result != 'success' || steps.report-tests.outcome != 'success'
         run: exit 1

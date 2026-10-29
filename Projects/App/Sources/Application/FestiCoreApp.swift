@@ -5,10 +5,11 @@
 //  Created by FestiCore on 10/22/26.
 //
 
+import Foundation
 import SwiftUI
+import ComposableArchitecture
 
 import FeatureAssembly
-import ServiceAssembly
 
 @main
 struct FestiCoreApp: App {
@@ -19,7 +20,8 @@ struct FestiCoreApp: App {
       let store = Store(initialState: AppCoordinator.State()) {
         AppCoordinator()
       } withDependencies: {
-        ServiceDependencyAssembly.register(into: &$0)
+        $0.continuousClock = ContinuousClock()
+        $0.date = .init { Date() }
       }
 
       AppCoordinatorView(store: store)

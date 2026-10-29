@@ -102,6 +102,37 @@ function readSummary(bundle) {
   }
 }
 
+function selectTestBundles(bundles, shardIds) {
+  const selected = [];
+  const missing = [];
+
+  for (const id of shardIds) {
+    const matches = bundles.filter((bundle) => path.basename(bundle) === `TestResults-${id}.xcresult`);
+    if (matches.length === 0) {
+      missing.push(id);
+      continue;
+    }
+    // 워크플로 재실행 시 이전 시도의 아티팩트도 내려온다. 최신 업로드만 집계한다.
+    const attempt = (bundle) => Number(/-(?:attempt|retry)-(\d+)$/.exec(path.dirname(bundle))?.[1] || 1);
+    matches.sort((a, b) => attempt(b) - attempt(a) || Number(b.includes("-retry-")) - Number(a.includes("-retry-")));
+    selected.push(matches[0]);
+  }
+
+  return { selected, missing };
+}
+
+function testResultIssues(testBundles, summaries) {
+  const issues = testBundles.missing.map((id) => `테스트 샤드 ${id} 결과 누락`);
+  for (const bundle of testBundles.selected) {
+    const summary = summaries.get(bundle);
+    if (!summary || summary.result !== "Passed" || summary.failedTests !== 0 ||
+        !Number.isInteger(summary.totalTestCount) || summary.totalTestCount < 1) {
+      issues.push(`${path.basename(bundle)} 결과 실패 또는 요약 누락`);
+    }
+  }
+  return issues;
+}
+
 function readCoverage(bundle) {
   try {
     return JSON.parse(xcrun(["xccov", "view", "--report", "--json", "--only-targets", bundle]));
@@ -571,31 +602,45 @@ function renderReport({ summary, coverage, coverageStats, buildErrors, bundleIns
 
 module.exports = async ({ github, context, core }) => {
   const bundles = findResultBundles(process.env.RESULT_BUNDLE_DIR);
-  const summaries = bundles.map(readSummary).filter(Boolean);
-  // 매트릭스가 만든 샤드 수. 여기에 못 미치면 모듈 목록이 일부만 나온 것이다.
+  const shardIds = (process.env.COVERAGE_SHARD_IDS || "").split(",").filter(Boolean);
+  const testBundles = selectTestBundles(bundles, shardIds);
+  const summariesByBundle = new Map(testBundles.selected.map((bundle) => [bundle, readSummary(bundle)]));
+  const summaries = testBundles.selected.map((bundle) => summariesByBundle.get(bundle)).filter(Boolean);
+  const issues = shardIds.length > 0
+    ? testResultIssues(testBundles, summariesByBundle)
+    : ["테스트 샤드 목록 누락"];
   const coverageStats = {
-    expected: (process.env.COVERAGE_SHARD_IDS || "").split(",").filter(Boolean).length,
+    expected: shardIds.length,
   };
-  const coverage = mergeCoverage([readMergedCoverage(bundles, coverageStats)]);
+  const coverage = mergeCoverage([readMergedCoverage(testBundles.selected, coverageStats)]);
   const buildErrors = bundles.flatMap(readBuildErrors);
   const testRunUrl = readDashboardURL(process.env.TEST_RUN_REPORT_PATH, "/tests/test-runs/");
   const buildRunUrl = readDashboardURL(process.env.BUILD_RUN_REPORT_PATH, "/builds/build-runs/");
   const bundleInsights = readBundleInsights(process.env.BUNDLE_INSPECT_REPORT_PATH);
 
-  const body = renderReport({
+  let body = renderReport({
     summary: summaries.length > 0 ? mergeSummaries(summaries) : null,
     coverage,
     coverageStats,
     buildErrors,
     bundleInsights,
-    outcome: process.env.TEST_OUTCOME || "unknown",
+    outcome: issues.length > 0 ? "failure" : process.env.TEST_OUTCOME || "unknown",
     runUrl: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
     sha: context.payload.pull_request.head.sha,
     testRunUrl,
     buildRunUrl,
   });
+  if (issues.length > 0) body += `\n\n## CI 결과 검증 실패\n\n${issues.map((issue) => `- ${issue}`).join("\n")}`;
+  const currentAttempt = Number(process.env.RUN_ATTEMPT || 1);
+  const olderBundles = testBundles.selected.filter((bundle) =>
+    Number(/-(?:attempt|retry)-(\d+)$/.exec(path.dirname(bundle))?.[1] || 1) < currentAttempt,
+  );
+  if (olderBundles.length > 0) {
+    body += `\n\n이전 실행 시도의 결과를 사용한 샤드: ${olderBundles.map((bundle) => path.basename(path.dirname(bundle))).join(", ")}`;
+  }
 
   await core.summary.addRaw(body.replace(MARKER, "")).write();
+  if (issues.length > 0) core.setFailed(issues.join("; "));
   if (process.env.REPORT_COMMENT === "false") return;
 
   const target = {
@@ -624,4 +669,6 @@ module.exports.__test__ = {
   readBundleInsights,
   readDashboardURL,
   renderBundleInsights,
+  selectTestBundles,
+  testResultIssues,
 };

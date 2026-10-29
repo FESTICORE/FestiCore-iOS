@@ -64,20 +64,4 @@ if [[ ! -s "$TEST_RUN_REPORT_PATH" ]]; then
   exit 1
 fi
 
-if [[ ! -d "$RESULT_BUNDLE" ]]; then
-  echo "테스트 결과 번들이 생성되지 않았습니다: $RESULT_BUNDLE" >&2
-  exit 1
-fi
-
-test_count="$({
-  xcrun xcresulttool get test-results summary \
-    --path "$RESULT_BUNDLE" \
-    --format json
-} | ruby -rjson -e 'puts(JSON.parse(STDIN.read).fetch("totalTestCount", 0))')"
-
-if [[ ! "$test_count" =~ ^[0-9]+$ ]] || (( test_count == 0 )); then
-  echo "실행된 테스트 케이스가 없습니다: $test_count" >&2
-  exit 1
-fi
-
-echo "이 샤드의 테스트 케이스 ${test_count}개를 $TEST_SCHEME 스킴의 $TEST_PLAN 플랜으로 실행했습니다."
+./Scripts/check-xcresult-summary.sh "$RESULT_BUNDLE"

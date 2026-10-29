@@ -2,7 +2,7 @@ import ComposableArchitecture
 import SwiftUI
 
 @ViewAction(for: HomeFeature.self)
-public struct FestiCoreHomeView: View {
+public struct HomeView: View {
   @Environment(\.scenePhase) private var scenePhase
   @Bindable public var store: StoreOf<HomeFeature>
 
