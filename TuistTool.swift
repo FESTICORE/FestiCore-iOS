@@ -229,8 +229,11 @@ private func renderGraph(production: Bool, forwardedArguments: [String]) -> Int3
   guard graphStatus == 0 else { return graphStatus }
 
   let dotURL = workDirectory.appendingPathComponent("graph.dot")
-  guard let rawGraph = try? String(contentsOf: dotURL, encoding: .utf8) else {
-    fputs("Tuist 그래프 파일을 읽지 못했습니다: \(dotURL.path)\n", stderr)
+  let rawGraph: String
+  do {
+    rawGraph = try String(contentsOf: dotURL, encoding: .utf8)
+  } catch {
+    fputs("Tuist 그래프 파일 읽기 실패 (\(dotURL.path)): \(error)\n", stderr)
     return 1
   }
 
