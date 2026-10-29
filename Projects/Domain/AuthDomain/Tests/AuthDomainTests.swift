@@ -219,6 +219,90 @@ struct AuthDomainTests {
     #expect(await auth.signOutCalls == 1)
   }
 
+  @Test("회원 탈퇴 빈 응답 성공 뒤에 로컬 세션을 삭제한다")
+  func withdraw() async throws {
+    let auth = StubAuthService(loggedIn: true)
+    let client = StubClient(result: .success(Data()))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    try await repository.withdraw()
+
+    #expect(await client.calls == 1)
+    #expect(await auth.isLoggedIn == false)
+    #expect(await auth.signOutCalls == 1)
+  }
+
+  @Test("미로그인 상태는 회원 탈퇴 요청 전에 거부한다")
+  func withdrawNotAuthenticated() async {
+    let auth = StubAuthService()
+    let client = StubClient(result: .success(Data()))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    await #expect(throws: AuthDomainError.notAuthenticated) {
+      try await repository.withdraw()
+    }
+    #expect(await client.calls == 0)
+    #expect(await auth.signOutCalls == 0)
+  }
+
+  @Test("회원 탈퇴 요청 실패는 오류를 전파하고 Repository에서 세션을 지우지 않는다", arguments: [0, 401, 500])
+  func withdrawFailure(status: Int) async {
+    let auth = StubAuthService(loggedIn: true)
+    let error: FestiCoreNetworkError = status == 0
+      ? .transport(.notConnected)
+      : .response(ResponseError(httpStatus: status))
+    let client = StubClient(result: .failure(error))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    do {
+      try await repository.withdraw()
+      Issue.record("회원 탈퇴 요청 오류가 전파되지 않음")
+    } catch let received as FestiCoreNetworkError {
+      let matchesExpectedError: Bool
+      switch (status, received) {
+      case (0, .transport(.notConnected)):
+        matchesExpectedError = true
+      case let (expectedStatus, .response(response)):
+        matchesExpectedError = response.httpStatus == expectedStatus
+      default:
+        matchesExpectedError = false
+      }
+      #expect(matchesExpectedError)
+    } catch {
+      Issue.record("네트워크 오류 타입이 유지되지 않음")
+    }
+    #expect(await client.calls == 1)
+    #expect(await auth.isLoggedIn)
+    #expect(await auth.signOutCalls == 0)
+  }
+
+  @Test("회원 탈퇴 UseCase는 저장소의 성공 결과를 전달한다")
+  func withdrawUseCase() async throws {
+    let auth = StubAuthService(loggedIn: true)
+    let client = StubClient(result: .success(Data()))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+    let useCase = withDependencies {
+      $0.authRepository = repository
+    } operation: { AuthUseCaseImpl() }
+
+    try await useCase.withdraw()
+
+    #expect(await client.calls == 1)
+    #expect(await auth.signOutCalls == 1)
+  }
+
   private var loginBody: Data {
     Data(#"{"code":"SUCCESS","data":{"accessToken":"access","refreshToken":"refresh","newUser":true,"user":{"id":"user-1","provider":"google","email":null,"nickname":null,"nicknameConfirmed":false,"termsAcceptedAt":"2026-10-29T01:02:03.123Z","termsVersion":null,"pushOptIn":false,"profileImageUrl":null}}}"#.utf8)
   }
@@ -263,6 +347,7 @@ private actor StubClient: FestiCoreNetworkClient {
     await onSend?()
     switch result {
     case let .success(data):
+      if data.isEmpty, let empty = FestiCoreEmptyResponse() as? T { return empty }
       do { return try JSONDecoder().decode(type, from: data) }
       catch { throw .decoding(.failed(error)) }
     case let .failure(error): throw error

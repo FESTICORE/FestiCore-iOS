@@ -20,4 +20,8 @@ public struct AuthUseCaseImpl: AuthUseCaseInterface {
   public func signOut() async throws {
     try await repository.signOut()
   }
+
+  public func withdraw() async throws {
+    try await repository.withdraw()
+  }
 }

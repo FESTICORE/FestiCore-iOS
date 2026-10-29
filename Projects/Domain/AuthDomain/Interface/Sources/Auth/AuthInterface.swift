@@ -10,6 +10,7 @@ import Dependencies
 public protocol AuthInterface: Sendable {
   func signIn(with credential: AuthCredential) async throws -> AuthLoginResult
   func signOut() async throws
+  func withdraw() async throws
 }
 
 public enum AuthRepositoryDependency: TestDependencyKey {
