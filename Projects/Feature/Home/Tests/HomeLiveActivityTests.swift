@@ -26,6 +26,7 @@ struct HomeLiveActivityTests {
     state.catalog = [festival(id: "festival")]
     state.selectedFestivalID = "festival"
     state.liveActivityReady = true
+    state.hasStarted = true
     state.liveActivityNow = now
     let store = TestStore(initialState: state) { HomeFeature() } withDependencies: {
       $0.date.now = now
@@ -78,6 +79,7 @@ struct HomeLiveActivityTests {
     state.catalog = [festival(id: "selected"), festival(id: "other")]
     state.selectedFestivalID = "selected"
     state.liveActivityReady = true
+    state.hasStarted = true
     state.liveActivityNow = now
     state.liveActivities["other"] = .init(
       id: "activity-other", festivalID: "other", phase: .ongoing,
@@ -157,6 +159,7 @@ struct HomeLiveActivityTests {
     ]
     state.selectedFestivalID = "selected"
     state.liveActivityReady = true
+    state.hasStarted = true
     state.liveActivityBusyFestivalID = "selected"
     state.liveActivityNow = now
     state.liveActivities["ended"] = .init(

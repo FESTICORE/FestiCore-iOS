@@ -52,7 +52,7 @@ public enum FestiCoreFestivalLiveActivity {
 
   public static func activities() -> [FestiCoreFestivalActivitySummary] {
     Activity<FestiCoreFestivalActivityAttributes>.activities.compactMap { activity in
-      guard activity.activityState == .active || activity.activityState == .stale else {
+      guard isCurrent(activity.activityState) else {
         return nil
       }
       return FestiCoreFestivalActivitySummary(
@@ -225,5 +225,11 @@ public enum FestiCoreFestivalLiveActivity {
       activityID: activity.id,
       value: data.map { String(format: "%02x", $0) }.joined()
     )
+  }
+
+  private static func isCurrent(_ state: ActivityState) -> Bool {
+    if state == .active || state == .stale { return true }
+    if #available(iOS 26.0, *) { return state == .pending }
+    return false
   }
 }
