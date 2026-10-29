@@ -92,3 +92,14 @@ private extension FestiCoreTabBar {
     static let iconSize: CGFloat = 24
   }
 }
+
+#Preview {
+  @Previewable
+  @State var selection: FestiCoreTabBar.Tab = .live
+
+  VStack {
+    Spacer()
+    FestiCoreTabBar(selection: $selection)
+  }
+  .background(FestiCoreSemanticColor.backgroundNormal.color)
+}

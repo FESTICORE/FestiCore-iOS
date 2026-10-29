@@ -85,3 +85,13 @@ private extension FestiCoreStepHeader {
     static let barRadius: CGFloat = 2
   }
 }
+
+#Preview {
+  VStack(spacing: FestiCoreSpacing.paddingP16) {
+    FestiCoreStepHeader(step: 1)
+    FestiCoreStepHeader(step: 2)
+      .onLater {}
+    FestiCoreStepHeader(step: 3)
+  }
+  .background(FestiCoreSemanticColor.backgroundNormal.color)
+}

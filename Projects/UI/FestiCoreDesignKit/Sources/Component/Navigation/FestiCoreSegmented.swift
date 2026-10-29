@@ -84,3 +84,12 @@ private extension FestiCoreSegmented {
     static let shadowRadius: CGFloat = 3
   }
 }
+
+#Preview {
+  @Previewable
+  @State var selection = 0
+
+  FestiCoreSegmented(selection: $selection, items: ["전체", "내 일정"])
+    .padding(FestiCoreSpacing.paddingP20)
+    .background(FestiCoreSemanticColor.backgroundNormal.color)
+}

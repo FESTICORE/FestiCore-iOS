@@ -213,3 +213,22 @@ private extension FestiCoreSetBlock {
     static let checkIconSize: CGFloat = 12
   }
 }
+
+#Preview {
+  VStack(spacing: FestiCoreSpacing.paddingP8) {
+    FestiCoreSetBlock(artist: "아티스트", time: "18:00 - 19:00")
+      .frame(height: FestiCoreSetBlock.height(minutes: 60))
+    FestiCoreSetBlock(artist: "아티스트", time: "18:00 - 19:00")
+      .state(.mine)
+      .frame(height: FestiCoreSetBlock.height(minutes: 60))
+    FestiCoreSetBlock(artist: "아티스트", time: "18:30 - 19:30")
+      .state(.changed(oldTime: "18:00", change: "30분 지연"))
+      .frame(height: FestiCoreSetBlock.height(minutes: 60))
+    FestiCoreSetBlock(artist: "아티스트", time: "18:00 - 18:20")
+      .state(.overlap())
+      .frame(height: FestiCoreSetBlock.height(minutes: 20))
+  }
+  .frame(width: 120)
+  .padding(FestiCoreSpacing.paddingP20)
+  .background(FestiCoreSemanticColor.backgroundNormal.color)
+}
