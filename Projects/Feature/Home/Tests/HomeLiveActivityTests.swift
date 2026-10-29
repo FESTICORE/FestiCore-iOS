@@ -114,12 +114,94 @@ struct HomeLiveActivityTests {
     await store.finish()
   }
 
-  private func festival(id: String) -> FestivalCatalogItem {
+  @Test @MainActor func staleSnapshotReloadsAfterConcurrentStateChange() async {
+    let now = Date(timeIntervalSince1970: 1_793_266_200)
+    var state = HomeFeature.State()
+    state.liveActivityReady = true
+    state.liveActivityRevision = 2
+    state.liveActivities["removed"] = .init(
+      id: "old", festivalID: "removed", phase: .upcoming,
+      startDate: now, endDate: nil
+    )
+    let store = TestStore(initialState: state) { HomeFeature() } withDependencies: {
+      $0.date.now = now
+      $0.homeLiveActivityClient = .init(
+        activities: { [] },
+        changes: { AsyncStream { $0.finish() } },
+        start: { _, _, _, _, _ in "unused" },
+        update: { _, _, _, _ in },
+        finish: { _, _ in },
+        end: { _ in }
+      )
+    }
+
+    await store.send(.inner(.liveActivitiesLoaded([], 1)))
+    await store.receive(\.inner.liveActivitiesLoaded) {
+      $0.liveActivityNow = now
+      $0.liveActivities = [:]
+    }
+    await store.finish()
+  }
+
+  @Test @MainActor func finishingOtherFestivalKeepsCurrentOperationBusy() async {
+    let now = ISO8601DateFormatter().date(from: "2026-10-29T09:30:00Z")!
+    let oldStart = ISO8601DateFormatter().date(from: "2026-10-27T09:00:00Z")!
+    let oldEnd = ISO8601DateFormatter().date(from: "2026-10-28T09:00:00Z")!
+    let activeStart = ISO8601DateFormatter().date(from: "2026-10-29T09:00:00Z")!
+    let activeEnd = ISO8601DateFormatter().date(from: "2026-10-30T09:00:00Z")!
+    let clock = TestClock()
+    var state = HomeFeature.State()
+    state.catalog = [
+      festival(id: "ended", first: "2026-10-27T09:00:00Z", last: "2026-10-28T09:00:00Z"),
+      festival(id: "selected")
+    ]
+    state.selectedFestivalID = "selected"
+    state.liveActivityReady = true
+    state.liveActivityBusyFestivalID = "selected"
+    state.liveActivityNow = now
+    state.liveActivities["ended"] = .init(
+      id: "ended-activity", festivalID: "ended", phase: .ongoing,
+      startDate: oldStart, endDate: oldEnd
+    )
+    state.liveActivities["selected"] = .init(
+      id: "selected-activity", festivalID: "selected", phase: .ongoing,
+      startDate: activeStart, endDate: activeEnd
+    )
+    let store = TestStore(initialState: state) { HomeFeature() } withDependencies: {
+      $0.date.now = now
+      $0.continuousClock = clock
+      $0.homeLiveActivityClient = .init(
+        activities: { [] },
+        changes: { AsyncStream { $0.finish() } },
+        start: { _, _, _, _, _ in "unused" },
+        update: { _, _, _, _ in },
+        finish: { id, _ in #expect(id == "ended-activity") },
+        end: { _ in }
+      )
+    }
+
+    await store.send(.inner(.liveActivityBoundary))
+    await store.receive(\.inner.liveActivityStopped) {
+      $0.liveActivityRevision = 1
+      $0.liveActivities.removeValue(forKey: "ended")
+    }
+    #expect(store.state.liveActivityBusyFestivalID == "selected")
+    await store.send(.view(.foregroundChanged(false))) {
+      $0.isForeground = false
+    }
+    await store.finish()
+  }
+
+  private func festival(
+    id: String,
+    first: String = "2026-10-29T09:00:00Z",
+    last: String = "2026-10-30T09:00:00Z"
+  ) -> FestivalCatalogItem {
     FestivalCatalogItem(
       id: id,
       name: "축제",
-      firstDate: "2026-10-29T09:00:00Z",
-      lastDate: "2026-10-30T09:00:00Z",
+      firstDate: first,
+      lastDate: last,
       packVersion: 0
     )
   }

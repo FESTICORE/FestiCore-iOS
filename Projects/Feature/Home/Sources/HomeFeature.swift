@@ -192,6 +192,9 @@ public struct HomeFeature {
             let id = try await liveActivityClient.start(
               festival.id, festival.name, schedule.startDate, schedule.endDate, schedule.phase
             )
+            await liveActivityClient.update(
+              id, schedule.phase, schedule.startDate, schedule.endDate
+            )
             await send(.inner(.liveActivityStarted(.init(
               id: id, festivalID: festival.id, phase: schedule.phase,
               startDate: schedule.startDate, endDate: schedule.endDate
@@ -319,12 +322,17 @@ public struct HomeFeature {
         return .none
 
       case let .inner(.liveActivitiesLoaded(activities, revision)):
-        guard revision == state.liveActivityRevision else { return .none }
+        guard revision == state.liveActivityRevision else {
+          return loadLiveActivities(revision: state.liveActivityRevision)
+        }
         state.liveActivityReady = true
         state.liveActivityNow = date.now
         var current: [String: HomeLiveActivityRecord] = [:]
         for activity in activities where current[activity.festivalID] == nil {
           current[activity.festivalID] = activity
+        }
+        if let busyID = state.liveActivityBusyFestivalID {
+          current[busyID] = state.liveActivities[busyID]
         }
         state.liveActivities = current
         return syncLiveActivities(state)
@@ -341,7 +349,9 @@ public struct HomeFeature {
         return .none
 
       case let .inner(.liveActivityStopped(festivalID, activityID)):
-        state.liveActivityBusyFestivalID = nil
+        if state.liveActivityBusyFestivalID == festivalID {
+          state.liveActivityBusyFestivalID = nil
+        }
         state.liveActivityRevision += 1
         if state.liveActivities[festivalID]?.id == activityID {
           state.liveActivities.removeValue(forKey: festivalID)
