@@ -218,6 +218,7 @@ jobs:
             -collect-test-diagnostics never \
             CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=YES
+          ./Scripts/check-xcresult-summary.sh "TestResults-${{ matrix.shard }}.xcresult"
 
       - name: Shut down test shard simulator
         if: always()
