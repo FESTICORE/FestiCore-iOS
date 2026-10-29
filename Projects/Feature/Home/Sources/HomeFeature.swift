@@ -9,6 +9,9 @@ public struct HomeFeature {
   @Dependency(\.festivalSelectionStore) private var selectionStore
   @Dependency(\.packSyncService) private var packService
   @Dependency(\.homeImagePrefetchClient) private var imagePrefetchClient
+  @Dependency(\.homeLiveActivityClient) private var liveActivityClient
+  @Dependency(\.date) private var date
+  @Dependency(\.continuousClock) private var clock
 
   public init() {}
 
@@ -27,6 +30,12 @@ public struct HomeFeature {
     public var isForeground = true
     public var catalogCacheReadFailed = false
     public var packCacheReadFailed = false
+    var liveActivities: [String: HomeLiveActivityRecord] = [:]
+    var liveActivityReady = false
+    var liveActivityBusyFestivalID: String?
+    var liveActivityError: String?
+    var liveActivityNow: Date = .distantPast
+    var liveActivityRevision = 0
 
     public var cacheReadFailed: Bool {
       catalogCacheReadFailed || packCacheReadFailed
@@ -48,6 +57,41 @@ public struct HomeFeature {
       festivals.first { $0.id == selectedFestivalID }
     }
 
+    var liveActivityState: LiveActivityControlState {
+      guard let festival = selectedFestival else {
+        return .init(title: "Live Activity 사용 불가", isEnabled: false, message: nil)
+      }
+      if liveActivityBusyFestivalID != nil {
+        return .init(title: "처리 중", isEnabled: false, message: nil)
+      }
+      if !liveActivityReady {
+        return .init(title: "Live Activity 준비 중", isEnabled: false, message: nil)
+      }
+      if liveActivities[festival.id] != nil {
+        return .init(title: "Live Activity 끄기", isEnabled: true, message: liveActivityError)
+      }
+      guard let schedule = FestivalLiveActivitySchedule.resolve(
+        festival: festival,
+        pack: pack(for: festival.id),
+        now: liveActivityNow
+      ) else {
+        return .init(title: "Live Activity 사용 불가", isEnabled: false, message: "축제 일정이 필요합니다.")
+      }
+      return .init(
+        title: "Live Activity 켜기",
+        isEnabled: schedule.canStart,
+        message: liveActivityError ?? (schedule.phase == .finished
+          ? "종료된 축제입니다."
+          : schedule.canStart ? nil : "축제 시작 2시간 전부터 사용할 수 있습니다.")
+      )
+    }
+
+    func pack(for festivalID: String) -> FestivalPackDocument? {
+      if selectedFestivalID == festivalID { return selectedPack }
+      guard let cached = cachedPacks[festivalID] else { return nil }
+      return try? JSONDecoder().decode(FestivalPackDocument.self, from: cached.pack)
+    }
+
     public func imageURL(for value: String?) -> URL? {
       value.flatMap { imageURLs[$0] }
     }
@@ -63,6 +107,12 @@ public struct HomeFeature {
     case unavailable
   }
 
+  struct LiveActivityControlState: Equatable {
+    let title: String
+    let isEnabled: Bool
+    let message: String?
+  }
+
   @CasePathable
   public enum Action: ViewAction, Equatable {
     case view(View)
@@ -75,6 +125,8 @@ public struct HomeFeature {
     case foregroundChanged(Bool)
     case refreshRequested
     case selectFestival(String)
+    case liveActivityOnAppear
+    case liveActivityTapped
   }
 
   @CasePathable
@@ -84,9 +136,17 @@ public struct HomeFeature {
     case catalogFailed
     case packReceived(String, PackSyncResult)
     case packFailed(String)
+    case liveActivitiesLoaded([HomeLiveActivityRecord], Int)
+    case liveActivityStarted(HomeLiveActivityRecord)
+    case liveActivityUpdated(HomeLiveActivityRecord)
+    case liveActivityStopped(String, String)
+    case liveActivityFailed(String)
+    case liveActivityBoundary
+    case liveActivityChanged
   }
 
-  private enum CancelID { case packUpdates, imagePrefetch }
+  private enum CancelID { case packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary }
+  private struct LiveActivitySyncID: Hashable { let id: String }
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -105,6 +165,42 @@ public struct HomeFeature {
           )))
         }
 
+      case .view(.liveActivityOnAppear):
+        return .merge(loadLiveActivities(revision: state.liveActivityRevision), watchLiveActivityChanges())
+
+      case .view(.liveActivityTapped):
+        guard state.liveActivityReady,
+              let festival = state.selectedFestival,
+              state.liveActivityBusyFestivalID == nil else { return .none }
+        state.liveActivityNow = date.now
+        state.liveActivityError = nil
+        if let existing = state.liveActivities[festival.id] {
+          state.liveActivityBusyFestivalID = festival.id
+          state.liveActivityRevision += 1
+          return .run { send in
+            await liveActivityClient.end(existing.id)
+            await send(.inner(.liveActivityStopped(festival.id, existing.id)))
+          }
+        }
+        guard let schedule = FestivalLiveActivitySchedule.resolve(
+          festival: festival, pack: state.pack(for: festival.id), now: state.liveActivityNow
+        ), schedule.canStart else { return .none }
+        state.liveActivityBusyFestivalID = festival.id
+        state.liveActivityRevision += 1
+        return .run { send in
+          do {
+            let id = try await liveActivityClient.start(
+              festival.id, festival.name, schedule.startDate, schedule.endDate, schedule.phase
+            )
+            await send(.inner(.liveActivityStarted(.init(
+              id: id, festivalID: festival.id, phase: schedule.phase,
+              startDate: schedule.startDate, endDate: schedule.endDate
+            ))))
+          } catch {
+            await send(.inner(.liveActivityFailed("Live Activity를 켤 수 없습니다. 설정을 확인해 주세요.")))
+          }
+        }
+
       case let .inner(.cachedLoaded(catalog, packs, savedID, catalogReadFailed, packReadFailed)):
         state.catalog = identifiedCatalog(catalog)
         state.cachedPacks = Dictionary(uniqueKeysWithValues: packs.map { ($0.festivalID, $0) })
@@ -117,7 +213,7 @@ public struct HomeFeature {
           ?? available.first?.id
         showCachedPack(in: &state)
         resolveImageURLs(in: &state)
-        return .merge(refreshCatalog(), watchSelectedPack(state), prefetchImages(state))
+        return .merge(refreshCatalog(), watchSelectedPack(state), prefetchImages(state), syncLiveActivities(state))
 
       case .view(.refreshRequested):
         state.packWatchFailed = false
@@ -130,23 +226,35 @@ public struct HomeFeature {
         }
         if isForeground {
           state.packWatchFailed = false
-          return .merge(refreshCatalog(), watchSelectedPack(state), prefetchImages(state))
+          if state.liveActivityReady { state.liveActivityNow = date.now }
+          return .merge(
+            refreshCatalog(), watchSelectedPack(state), prefetchImages(state),
+            state.liveActivityReady ? loadLiveActivities(revision: state.liveActivityRevision) : .none
+          )
         }
-        return .merge(.cancel(id: CancelID.packUpdates), prefetchImages(state))
+        return .merge(
+          .cancel(id: CancelID.packUpdates),
+          .cancel(id: CancelID.liveActivityBoundary),
+          prefetchImages(state)
+        )
 
       case let .view(.selectFestival(id)):
         guard state.festivals.contains(where: { $0.id == id }) else { return .none }
         state.selectedFestivalID = id
+        state.liveActivityError = nil
+        if state.liveActivityReady { state.liveActivityNow = date.now }
         state.packWatchFailed = false
         showCachedPack(in: &state)
         resolveImageURLs(in: &state)
         return .merge(
           .run { _ in selectionStore.save(id) },
           watchSelectedPack(state),
-          prefetchImages(state)
+          prefetchImages(state),
+          liveActivityBoundary(state)
         )
 
       case let .inner(.catalogRefreshed(catalog)):
+        if state.liveActivityReady { state.liveActivityNow = date.now }
         let previouslyAvailable = (state.selectedFestival?.packVersion ?? 0) > 0
         let restartFailedWatch = state.packWatchFailed
         state.packWatchFailed = false
@@ -157,7 +265,7 @@ public struct HomeFeature {
           state.selectedFestivalID = first.id
           showCachedPack(in: &state)
           resolveImageURLs(in: &state)
-          return .merge(watchSelectedPack(state), prefetchImages(state))
+          return .merge(watchSelectedPack(state), prefetchImages(state), syncLiveActivities(state))
         }
         resolveImageURLs(in: &state)
         if state.selectedPack == nil, state.selectedFestival?.packVersion == 0 {
@@ -165,7 +273,8 @@ public struct HomeFeature {
         }
         let prefetch = prefetchImages(state)
         return (restartFailedWatch || !previouslyAvailable) && (state.selectedFestival?.packVersion ?? 0) > 0
-          ? .merge(watchSelectedPack(state), prefetch) : prefetch
+          ? .merge(watchSelectedPack(state), prefetch, syncLiveActivities(state))
+          : .merge(prefetch, syncLiveActivities(state))
 
       case .inner(.catalogFailed):
         if state.connection != .live {
@@ -188,7 +297,9 @@ public struct HomeFeature {
             let retryPending = state.imageRetryPending
             retryImagesAfterRecovery(in: &state)
             resolveImageURLs(in: &state)
-            return previousPack != document || retryPending ? prefetchImages(state) : .none
+            return previousPack != document || retryPending
+              ? .merge(prefetchImages(state), syncLiveActivities(state))
+              : .none
           } else {
             state.connection = state.selectedPack == nil ? .unavailable : .cached
           }
@@ -206,6 +317,49 @@ public struct HomeFeature {
         state.packWatchFailed = true
         state.connection = .offline
         return .none
+
+      case let .inner(.liveActivitiesLoaded(activities, revision)):
+        guard revision == state.liveActivityRevision else { return .none }
+        state.liveActivityReady = true
+        state.liveActivityNow = date.now
+        var current: [String: HomeLiveActivityRecord] = [:]
+        for activity in activities where current[activity.festivalID] == nil {
+          current[activity.festivalID] = activity
+        }
+        state.liveActivities = current
+        return syncLiveActivities(state)
+
+      case let .inner(.liveActivityStarted(activity)):
+        state.liveActivityBusyFestivalID = nil
+        state.liveActivityRevision += 1
+        state.liveActivities[activity.festivalID] = activity
+        return liveActivityBoundary(state)
+
+      case let .inner(.liveActivityUpdated(activity)):
+        guard state.liveActivities[activity.festivalID]?.id == activity.id else { return .none }
+        state.liveActivities[activity.festivalID] = activity
+        return .none
+
+      case let .inner(.liveActivityStopped(festivalID, activityID)):
+        state.liveActivityBusyFestivalID = nil
+        state.liveActivityRevision += 1
+        if state.liveActivities[festivalID]?.id == activityID {
+          state.liveActivities.removeValue(forKey: festivalID)
+        }
+        return liveActivityBoundary(state)
+
+      case let .inner(.liveActivityFailed(message)):
+        state.liveActivityBusyFestivalID = nil
+        state.liveActivityRevision += 1
+        state.liveActivityError = message
+        return .none
+
+      case .inner(.liveActivityBoundary):
+        state.liveActivityNow = date.now
+        return syncLiveActivities(state)
+
+      case .inner(.liveActivityChanged):
+        return loadLiveActivities(revision: state.liveActivityRevision)
       }
     }
   }
@@ -215,6 +369,75 @@ public struct HomeFeature {
       do { await send(.inner(.catalogRefreshed(try await catalogService.refresh()))) }
       catch { await send(.inner(.catalogFailed)) }
     }
+  }
+
+  private func loadLiveActivities(revision: Int) -> Effect<Action> {
+    .run { send in
+      await send(.inner(.liveActivitiesLoaded(await liveActivityClient.activities(), revision)))
+    }
+  }
+
+  private func watchLiveActivityChanges() -> Effect<Action> {
+    .run { send in
+      for await _ in liveActivityClient.changes() {
+        await send(.inner(.liveActivityChanged))
+      }
+    }
+    .cancellable(id: CancelID.liveActivityChanges, cancelInFlight: true)
+  }
+
+  private func syncLiveActivities(_ state: State) -> Effect<Action> {
+    guard state.liveActivityReady, state.isForeground else { return .none }
+    let now = state.liveActivityNow
+    let festivals = Dictionary(state.festivals.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    let updates: [Effect<Action>] = state.liveActivities.values.compactMap { activity in
+      guard let festival = festivals[activity.festivalID],
+            let schedule = FestivalLiveActivitySchedule.resolve(
+              festival: festival, pack: state.pack(for: festival.id), now: now
+            ) else { return nil }
+      if schedule.phase == .finished {
+        return .run { send in
+          await liveActivityClient.finish(activity.id, schedule.startDate)
+          await send(.inner(.liveActivityStopped(activity.festivalID, activity.id)))
+        }
+        .cancellable(id: LiveActivitySyncID(id: activity.id), cancelInFlight: true)
+      }
+      guard schedule.phase != activity.phase || schedule.startDate != activity.startDate
+        || schedule.endDate != activity.endDate else { return nil }
+      return .run { send in
+        await liveActivityClient.update(
+          activity.id, schedule.phase, schedule.startDate, schedule.endDate
+        )
+        await send(.inner(.liveActivityUpdated(.init(
+          id: activity.id, festivalID: activity.festivalID, phase: schedule.phase,
+          startDate: schedule.startDate, endDate: schedule.endDate
+        ))))
+      }
+      .cancellable(id: LiveActivitySyncID(id: activity.id), cancelInFlight: true)
+    }
+    return .merge(updates + [liveActivityBoundary(state)])
+  }
+
+  private func liveActivityBoundary(_ state: State) -> Effect<Action> {
+    guard state.liveActivityReady, state.isForeground else {
+      return .cancel(id: CancelID.liveActivityBoundary)
+    }
+    let relevantIDs = Set(state.liveActivities.keys).union(state.selectedFestivalID.map { [$0] } ?? [])
+    let next = state.festivals
+      .filter { relevantIDs.contains($0.id) }
+      .compactMap { festival in
+        FestivalLiveActivitySchedule.resolve(
+          festival: festival, pack: state.pack(for: festival.id), now: state.liveActivityNow
+        )?.nextBoundary
+      }
+      .min()
+    guard let next else { return .cancel(id: CancelID.liveActivityBoundary) }
+    let delay = max(1, Int64(next.timeIntervalSince(state.liveActivityNow) * 1000))
+    return .run { send in
+      try await clock.sleep(for: .milliseconds(delay))
+      await send(.inner(.liveActivityBoundary))
+    }
+    .cancellable(id: CancelID.liveActivityBoundary, cancelInFlight: true)
   }
 
   private func prefetchImages(_ state: State) -> Effect<Action> {

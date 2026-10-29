@@ -30,8 +30,9 @@ public struct FestivalOverview: Equatable, Identifiable {
     id = pack.festivalID
     name = document.name ?? pack.festivalID
     venue = document.venue
-    firstDate = document.days?.first?.date
-    lastDate = document.days?.last?.date
+    let dateBounds = FestivalLiveActivitySchedule.packDateBounds(document.days ?? [])
+    firstDate = dateBounds?.first
+    lastDate = dateBounds?.last
     thumbnailURL = document.thumbUrl.flatMap(URL.init(string:))
     packVersion = pack.packVersion
     isCached = true

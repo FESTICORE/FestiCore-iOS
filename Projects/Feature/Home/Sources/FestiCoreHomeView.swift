@@ -21,7 +21,10 @@ public struct FestiCoreHomeView: View {
     }
     .navigationTitle("FestiCore")
     .refreshable { send(.refreshRequested) }
-    .task { send(.onAppear) }
+    .task {
+      send(.onAppear)
+      send(.liveActivityOnAppear)
+    }
     .onChange(of: scenePhase) { _, phase in
       send(.foregroundChanged(phase == .active))
     }
@@ -44,7 +47,9 @@ public struct FestiCoreHomeView: View {
         festival: festival,
         pack: store.selectedPack,
         imageRevision: store.imageRevision,
-        imageURL: imageURL
+        imageURL: imageURL,
+        liveActivityState: store.liveActivityState,
+        onLiveActivityTap: { send(.liveActivityTapped) }
       )
     }
   }
