@@ -15,6 +15,7 @@ extension AppDelegate {
     configureFonts()
     FirebaseConfiguration.configure()
     FestiCoreAnalyticsConfiguration.configure()
+    configureDeviceRegistration()
   }
 
   func configureFonts() {

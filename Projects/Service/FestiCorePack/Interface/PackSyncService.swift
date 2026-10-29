@@ -49,7 +49,7 @@ private struct UnimplementedPackSyncService: PackSyncService {
   }
 
   func cachedPacks() async throws -> [CachedFestivalPack] {
-    fatalError("packSyncService 미등록")
+    []
   }
 
   func sync(for _: String) async throws -> PackSyncResult {

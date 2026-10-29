@@ -7,6 +7,12 @@ import Testing
 @testable import Home
 
 struct HomeOfflineTests {
+  @Test func defaultCatalogKeepsHostedAppOffline() async throws {
+    let catalog = FestivalCatalogServiceDependency.testValue
+    #expect(try await catalog.cachedFestivals().isEmpty)
+    #expect(try await catalog.refresh().isEmpty)
+  }
+
   @Test func liveImagePrefetchDependencyIsRegistered() async {
     func requireLiveDependency<Key: DependencyKey>(_: Key.Type) {}
     requireLiveDependency(HomeImagePrefetchClient.self)

@@ -10,7 +10,7 @@ struct HomeCoordinatorView: View {
     TCAFlowRouter(store.scope(\.routes, action: \.router)) { screen in
       switch screen.case {
       case let .home(homeStore):
-        FestiCoreHomeView(store: homeStore)
+        HomeView(store: homeStore)
       }
     }
   }

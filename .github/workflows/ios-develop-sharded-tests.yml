@@ -96,7 +96,7 @@ jobs:
             --no-selective-testing \
             --skip-quarantine \
             --shard-total 2 \
-            --shard-granularity suite \
+            --shard-granularity module \
             --inspect-mode remote \
             --result-bundle-path ShardBuildResults.xcresult \
             -- \
@@ -105,6 +105,11 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=YES \
             COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
+
+      # 테스트 호스트에만 필요한 XCTest 주입 파일을 번들 크기 기준선에서 제외한다.
+      - name: Remove test injector from bundle baseline
+        run: |
+          rm -f "$CI_DERIVED_DATA/Build/Products/Stage-iphonesimulator/FestiCore.app/Frameworks/libXCTestBundleInject.dylib"
 
       # develop 번들을 기준선으로 저장해 PR의 크기 증감과 threshold를 비교할 수 있게 한다.
       - name: Build app for bundle insights
@@ -218,6 +223,7 @@ jobs:
             -collect-test-diagnostics never \
             CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=YES
+          ./Scripts/check-xcresult-summary.sh "TestResults-${{ matrix.shard }}.xcresult"
 
       - name: Shut down test shard simulator
         if: always()

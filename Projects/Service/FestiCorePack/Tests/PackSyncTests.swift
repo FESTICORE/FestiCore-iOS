@@ -9,6 +9,11 @@ import FestiCoreNetworkInterface
 struct PackSyncTests {
   private let id = "fst_example"
 
+  @Test("앱 테스트 호스트의 기본 팩 캐시는 비어 있다")
+  func defaultCachedPacksAreEmpty() async throws {
+    #expect(try await PackSyncServiceDependency.testValue.cachedPacks().isEmpty)
+  }
+
   @Test("완성된 팩은 새 서비스 인스턴스에서 네트워크 없이 복원한다")
   func restoresAfterRestart() async throws {
     let directory = temporaryDirectory()
