@@ -125,7 +125,7 @@ jobs:
             --no-selective-testing \
             --skip-quarantine \
             --shard-total 2 \
-            --shard-granularity suite \
+            --shard-granularity module \
             --inspect-mode remote \
             --result-bundle-path ShardBuildResults.xcresult \
             --run-report-path ShardBuildRunReport.json \
