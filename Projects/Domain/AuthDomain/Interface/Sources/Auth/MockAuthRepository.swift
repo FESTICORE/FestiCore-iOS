@@ -23,4 +23,9 @@ public struct MockAuthRepository: AuthInterface {
     reportIssue("\(dependencyName) 미등록")
     throw AuthDomainError.configurationMissing
   }
+
+  public func withdraw() async throws {
+    reportIssue("\(dependencyName) 미등록")
+    throw AuthDomainError.configurationMissing
+  }
 }

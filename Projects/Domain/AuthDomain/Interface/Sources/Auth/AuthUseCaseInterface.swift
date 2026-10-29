@@ -10,6 +10,7 @@ import Dependencies
 public protocol AuthUseCaseInterface: Sendable {
   func signIn(with credential: AuthCredential) async throws -> AuthLoginResult
   func signOut() async throws
+  func withdraw() async throws
 }
 
 extension MockAuthRepository: AuthUseCaseInterface {}

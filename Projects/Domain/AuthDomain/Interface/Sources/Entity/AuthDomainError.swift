@@ -8,6 +8,7 @@
 public enum AuthDomainError: Error, Sendable, Equatable {
   case invalidCredential
   case invalidResponse
+  case notAuthenticated
   case configurationMissing
   case missingPresentingController
   case missingIDToken

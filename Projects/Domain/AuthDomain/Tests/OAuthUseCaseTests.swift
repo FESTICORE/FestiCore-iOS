@@ -88,4 +88,5 @@ private actor RecordingAuthUseCase: AuthUseCaseInterface {
   }
 
   func signOut() async throws {}
+  func withdraw() async throws {}
 }

@@ -27,31 +27,40 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
   case login(body: AuthLoginBody)
   case refresh(refreshToken: String)
   case logout
+  case withdraw
 
-  public var path: String {
+  public var path: String { return api.path }
+
+  public var method: HTTPMethod {
     switch self {
-    case .login: AuthAPI.login.path
-    case .refresh: AuthAPI.refresh.path
-    case .logout: AuthAPI.logout.path
+    case .login, .refresh, .logout: return .post
+    case .withdraw: return .delete
     }
   }
-
-  public var method: HTTPMethod { .post }
 
   public var authorization: FestiCoreAuthorization {
     switch self {
-    case .login, .refresh: .none
-    case .logout: .automatic
+    case .login, .refresh: return .none
+    case .logout, .withdraw: return .automatic
     }
   }
 
-  public var maxRetryAttempts: Int { 0 }
+  public var maxRetryAttempts: Int { return 0 }
 
   public var parameters: (any Encodable & Sendable)? {
     switch self {
-    case let .login(body): body
-    case let .refresh(refreshToken): RefreshBody(refreshToken: refreshToken)
-    case .logout: nil
+    case let .login(body): return body
+    case let .refresh(refreshToken): return RefreshBody(refreshToken: refreshToken)
+    case .logout, .withdraw: return nil
+    }
+  }
+
+  private var api: AuthAPI {
+    switch self {
+    case .login: return .login
+    case .refresh: return .refresh
+    case .logout: return .logout
+    case .withdraw: return .withdraw
     }
   }
 }
