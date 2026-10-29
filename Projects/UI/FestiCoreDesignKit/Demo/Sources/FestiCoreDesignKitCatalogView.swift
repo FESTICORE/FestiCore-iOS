@@ -42,13 +42,13 @@ struct FestiCoreDesignKitCatalogView: View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
       sectionTitle("Typography")
       Text("FestiCore Title")
-        .festiCoreTextStyle(.baseTitle1Bold)
+        .festiCoreFont(.baseTitle1Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelStrong.color)
       Text("Pretendard 본문 텍스트")
-        .festiCoreTextStyle(.baseBodyRegular)
+        .festiCoreFont(.baseBodyRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       Text("Caption · 작은 설명")
-        .festiCoreTextStyle(.baseCaption1Regular)
+        .festiCoreFont(.baseCaption1Regular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
   }
@@ -63,7 +63,7 @@ struct FestiCoreDesignKitCatalogView: View {
 
   private func sectionTitle(_ title: String) -> some View {
     Text(title)
-      .festiCoreTextStyle(.baseHeadlineBold)
+      .festiCoreFont(.baseHeadlineBold)
       .foregroundStyle(FestiCoreSemanticColor.labelStrong.color)
   }
 
@@ -73,7 +73,7 @@ struct FestiCoreDesignKitCatalogView: View {
         .frame(height: 48)
         .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r8))
       Text(title)
-        .festiCoreTextStyle(.baseCaption2Medium)
+        .festiCoreFont(.baseCaption2Medium)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
     .frame(maxWidth: .infinity)

@@ -21,7 +21,7 @@ public struct FestiCorePrimaryButton: View {
   public var body: some View {
     Button(action: action) {
       Text(title)
-        .festiCoreTextStyle(.baseBodyBold)
+        .festiCoreFont(.baseBodyBold)
         .foregroundStyle(FestiCoreSemanticColor.primaryOnPrimary.color)
         .frame(maxWidth: .infinity)
         .padding(.vertical, FestiCoreSpacing.paddingP16)

@@ -23,7 +23,7 @@ public struct FestiCoreStageHeader: View {
         .frame(width: Metric.dotSize, height: Metric.dotSize)
         .accessibilityHidden(true)
       Text(name)
-        .festiCoreTextStyle(.baseFootnoteBold)
+        .festiCoreFont(.baseFootnoteBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .lineLimit(1)
     }

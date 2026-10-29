@@ -88,7 +88,7 @@ public struct FestiCoreSetBlock: View {
 
   private func artistText(style: FestiCoreTextStyle) -> some View {
     Text(artist)
-      .festiCoreTextStyle(style)
+      .festiCoreFont(style)
       .foregroundStyle(artistColor.color)
       .lineLimit(1)
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -100,19 +100,19 @@ public struct FestiCoreSetBlock: View {
       HStack(spacing: FestiCoreSpacing.paddingP4) {
         Text(oldTime)
           .strikethrough()
-          .festiCoreTextStyle(.baseCaption1Regular)
+          .festiCoreFont(.baseCaption1Regular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         Text("→")
-          .festiCoreTextStyle(.baseCaption1Regular)
+          .festiCoreFont(.baseCaption1Regular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         Text(time)
-          .festiCoreTextStyle(.baseCaption1Bold)
+          .festiCoreFont(.baseCaption1Bold)
           .foregroundStyle(FestiCoreSemanticColor.labelStrong.color)
       }
       .lineLimit(1)
     } else {
       Text(time)
-        .festiCoreTextStyle(.baseCaption1Regular)
+        .festiCoreFont(.baseCaption1Regular)
         .foregroundStyle(timeColor.color)
         .lineLimit(1)
     }
@@ -123,7 +123,7 @@ public struct FestiCoreSetBlock: View {
     switch state {
     case let .changed(_, change):
       Text(change)
-        .festiCoreTextStyle(.baseCaption2Bold)
+        .festiCoreFont(.baseCaption2Bold)
         .foregroundStyle(FestiCoreSemanticColor.accentForegroundOrange.color)
         .padding(.vertical, FestiCoreSpacing.marginM2)
         .padding(.horizontal, FestiCoreSpacing.marginM6)
@@ -133,7 +133,7 @@ public struct FestiCoreSetBlock: View {
         )
     case let .overlap(label):
       Text(label)
-        .festiCoreTextStyle(.baseCaption2Bold)
+        .festiCoreFont(.baseCaption2Bold)
         .foregroundStyle(FestiCoreSemanticColor.staticInk.color)
         .padding(.vertical, FestiCoreSpacing.marginM2)
         .padding(.horizontal, FestiCoreSpacing.marginM6)

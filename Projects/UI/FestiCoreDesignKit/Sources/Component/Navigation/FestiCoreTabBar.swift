@@ -70,7 +70,7 @@ public struct FestiCoreTabBar: View {
           .resizable()
           .frame(width: Metric.iconSize, height: Metric.iconSize)
         Text(tab.title)
-          .festiCoreTextStyle(isSelected ? .baseCaption2Bold : .baseCaption2Medium)
+          .festiCoreFont(isSelected ? .baseCaption2Bold : .baseCaption2Medium)
           .lineLimit(1)
       }
       .foregroundStyle(

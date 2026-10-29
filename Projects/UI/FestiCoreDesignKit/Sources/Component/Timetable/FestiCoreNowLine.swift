@@ -20,7 +20,7 @@ public struct FestiCoreNowLine: View {
       FestiCoreSemanticColor.inverseBackground.color
         .frame(height: Metric.lineHeight)
       Text(time)
-        .festiCoreTextStyle(.baseCaption2Bold)
+        .festiCoreFont(.baseCaption2Bold)
         .foregroundStyle(FestiCoreSemanticColor.inverseLabel.color)
         .padding(.vertical, FestiCoreSpacing.marginM2)
         .padding(.horizontal, FestiCoreSpacing.marginM6)

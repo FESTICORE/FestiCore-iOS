@@ -72,7 +72,7 @@ struct FestiCoreDesignKitTests {
 
   @Test @MainActor func tokensComposeWithSwiftUIModifiers() {
     let label = Text("Festival")
-      .festiCoreTextStyle(.baseBodyRegular)
+      .festiCoreFont(.baseBodyRegular)
       .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       .padding(FestiCoreSpacing.marginM12)
     let controller = UIHostingController(rootView: label)
@@ -86,10 +86,10 @@ struct FestiCoreDesignKitTests {
   @Test @MainActor func typographyModifierUsesFixedTokenSizeAcrossContentSizeCategories() {
     let style = FestiCoreTextStyle.baseBodyRegular
     let standard = UIHostingController(rootView: Text("Festival")
-      .festiCoreTextStyle(style)
+      .festiCoreFont(style)
       .environment(\.sizeCategory, .large))
     let accessibility = UIHostingController(rootView: Text("Festival")
-      .festiCoreTextStyle(style)
+      .festiCoreFont(style)
       .environment(\.sizeCategory, .accessibilityExtraExtraExtraLarge))
 
     #expect(standard.view.sizeThatFits(CGSize(width: 300, height: 300)) ==

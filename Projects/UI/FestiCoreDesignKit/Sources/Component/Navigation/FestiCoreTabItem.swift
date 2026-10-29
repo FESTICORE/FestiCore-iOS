@@ -20,7 +20,7 @@ public struct FestiCoreTabItem: View {
   public var body: some View {
     VStack(spacing: FestiCoreSpacing.paddingP8) {
       Text(label)
-        .festiCoreTextStyle(isSelected ? .baseCalloutBold : .baseCalloutMedium)
+        .festiCoreFont(isSelected ? .baseCalloutBold : .baseCalloutMedium)
         .foregroundStyle(
           isSelected
             ? FestiCoreSemanticColor.labelNormal.color

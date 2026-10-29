@@ -44,7 +44,7 @@ public struct FestiCoreSegmented: View {
       }
     } label: {
       Text(item)
-        .festiCoreTextStyle(isSelected ? .baseSubheadlineBold : .baseSubheadlineMedium)
+        .festiCoreFont(isSelected ? .baseSubheadlineBold : .baseSubheadlineMedium)
         .foregroundStyle(
           isSelected
             ? FestiCoreSemanticColor.labelNormal.color

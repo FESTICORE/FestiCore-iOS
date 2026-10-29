@@ -68,7 +68,7 @@ public struct FestiCoreTopBar: View {
       HStack(spacing: FestiCoreSpacing.paddingP16) {
         backButton
         Text(title)
-          .festiCoreTextStyle(.baseBodyBold)
+          .festiCoreFont(.baseBodyBold)
           .foregroundStyle(foregroundColor.color)
           .lineLimit(1)
           .frame(maxWidth: .infinity)
@@ -80,7 +80,7 @@ public struct FestiCoreTopBar: View {
     case .large:
       HStack(spacing: FestiCoreSpacing.paddingP16) {
         Text(title)
-          .festiCoreTextStyle(.baseTitle1Bold)
+          .festiCoreFont(.baseTitle1Bold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .lineLimit(1)
           .frame(maxWidth: .infinity, alignment: .leading)
@@ -96,7 +96,7 @@ public struct FestiCoreTopBar: View {
         if let cancelAction {
           Button(action: cancelAction) {
             Text("취소")
-              .festiCoreTextStyle(.baseCalloutMedium)
+              .festiCoreFont(.baseCalloutMedium)
               .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           }
           .buttonStyle(.plain)
@@ -166,7 +166,7 @@ public struct FestiCoreTopBar: View {
             .resizable()
             .frame(width: Metric.smallIconSize, height: Metric.smallIconSize)
           Text(bearerTitle)
-            .festiCoreTextStyle(.baseFootnoteBold)
+            .festiCoreFont(.baseFootnoteBold)
         }
         .foregroundStyle(FestiCoreSemanticColor.accentForegroundPurple.color)
         .padding(.horizontal, FestiCoreSpacing.paddingP12)
@@ -330,7 +330,7 @@ private extension FestiCoreTopBar {
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
           .accessibilityHidden(true)
         TextField(placeholder, text: $text)
-          .festiCoreTextStyle(.baseCalloutRegular)
+          .festiCoreFont(.baseCalloutRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .submitLabel(.search)
         if !text.isEmpty {

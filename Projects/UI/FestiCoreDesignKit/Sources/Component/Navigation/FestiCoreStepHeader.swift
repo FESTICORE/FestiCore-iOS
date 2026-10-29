@@ -40,7 +40,7 @@ public struct FestiCoreStepHeader: View {
       if let laterAction {
         Button(action: laterAction) {
           Text(laterTitle)
-            .festiCoreTextStyle(.baseFootnoteMedium)
+            .festiCoreFont(.baseFootnoteMedium)
             .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         }
         .buttonStyle(.plain)
