@@ -1,5 +1,5 @@
 //
-//  FestiCoreMenuItem.swift
+//  FCMenuItem.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/30/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// 드롭다운 한 줄. 선택된 항목은 굵게 표시하고 체크를 붙인다.
-public struct FestiCoreMenuItem: View {
+public struct FCMenuItem: View {
   private var label: String
   private(set) var isSelected = false
 
@@ -40,7 +40,7 @@ public struct FestiCoreMenuItem: View {
 
 // MARK: - 체이닝 설정
 
-public extension FestiCoreMenuItem {
+public extension FCMenuItem {
   /// 선택 상태를 바꾼 사본을 돌려준다.
   func isSelected(_ isSelected: Bool) -> Self {
     var copy = self
@@ -49,7 +49,7 @@ public extension FestiCoreMenuItem {
   }
 }
 
-private extension FestiCoreMenuItem {
+private extension FCMenuItem {
   enum Metric {
     static let iconSize: CGFloat = 16
   }
@@ -57,9 +57,9 @@ private extension FestiCoreMenuItem {
 
 #Preview {
   VStack(spacing: FestiCoreSpacing.paddingP8) {
-    FestiCoreMenuItem("활동 중 순")
+    FCMenuItem("활동 중 순")
       .isSelected(true)
-    FestiCoreMenuItem("활동 중 순")
+    FCMenuItem("활동 중 순")
   }
   .frame(width: 200)
   .padding(FestiCoreSpacing.paddingP20)

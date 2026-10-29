@@ -1,5 +1,5 @@
 //
-//  FestiCorePrimaryButton.swift
+//  FCPrimaryButton.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/22/26.
@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-public struct FestiCorePrimaryButton: View {
+public struct FCPrimaryButton: View {
   private let title: String
   private let isEnabled: Bool
   private let action: () -> Void

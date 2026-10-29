@@ -1,5 +1,5 @@
 //
-//  FestiCoreTab.swift
+//  FCTab.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/29/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// 상단 밑줄형 탭. 화면 폭을 칸 수로 나눈다.
-public struct FestiCoreTab: View {
+public struct FCTab: View {
   @Binding private var selection: Int
   private var items: [String]
 
@@ -21,12 +21,12 @@ public struct FestiCoreTab: View {
     if !items.isEmpty {
       HStack(spacing: .zero) {
         ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-          let isSelected = FestiCoreSelection.isSelected(index: index, selection: selection, count: items.count)
+          let isSelected = FCSelection.isSelected(index: index, selection: selection, count: items.count)
 
           Button {
             selection = index
           } label: {
-            FestiCoreTabItem(item, isSelected: isSelected)
+            FCTabItem(item, isSelected: isSelected)
               .frame(maxWidth: .infinity)
               .contentShape(Rectangle())
           }
@@ -39,7 +39,7 @@ public struct FestiCoreTab: View {
 }
 
 // MARK: - 체이닝 설정
-public extension FestiCoreTab {
+public extension FCTab {
   /// `items` 를 바꾼 사본을 돌려준다.
   func items(_ items: [String]) -> Self {
     var copy = self
@@ -52,6 +52,6 @@ public extension FestiCoreTab {
   @Previewable
   @State var selection = 0
 
-  FestiCoreTab(selection: $selection, items: ["1일차", "2일차", "3일차"])
+  FCTab(selection: $selection, items: ["1일차", "2일차", "3일차"])
     .background(FestiCoreSemanticColor.backgroundNormal.color)
 }

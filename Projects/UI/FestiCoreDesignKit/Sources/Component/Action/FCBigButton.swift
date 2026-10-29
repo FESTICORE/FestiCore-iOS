@@ -1,5 +1,5 @@
 //
-//  FestiCoreBigButton.swift
+//  FCBigButton.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/30/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// 기수 보드 전용 큰 버튼. 그리드 칸을 꽉 채우며 selected는 지금 상태(Inverse)를 나타낸다.
-public struct FestiCoreBigButton: View {
+public struct FCBigButton: View {
   private var label: String
   private var sub: String
   private var icon: ImageAsset
@@ -61,7 +61,7 @@ public struct FestiCoreBigButton: View {
 
 // MARK: - 체이닝 설정
 
-public extension FestiCoreBigButton {
+public extension FCBigButton {
   /// 선택 상태를 바꾼 사본을 돌려준다.
   func isSelected(_ isSelected: Bool) -> Self {
     var copy = self
@@ -70,7 +70,7 @@ public extension FestiCoreBigButton {
   }
 }
 
-private extension FestiCoreBigButton {
+private extension FCBigButton {
   enum Metric {
     static let iconSize: CGFloat = 24
     static let borderWidth: CGFloat = 1
@@ -79,8 +79,8 @@ private extension FestiCoreBigButton {
 
 #Preview {
   HStack(spacing: FestiCoreSpacing.paddingP16) {
-    FestiCoreBigButton("존", sub: "리벳 앞 왼쪽", icon: .locationDot) {}
-    FestiCoreBigButton("존", sub: "리벳 앞 왼쪽", icon: .locationDot) {}
+    FCBigButton("존", sub: "리벳 앞 왼쪽", icon: .locationDot) {}
+    FCBigButton("존", sub: "리벳 앞 왼쪽", icon: .locationDot) {}
       .isSelected(true)
   }
   .frame(height: 180)

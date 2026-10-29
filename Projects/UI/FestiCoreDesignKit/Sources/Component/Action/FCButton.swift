@@ -1,5 +1,5 @@
 //
-//  FestiCoreButton.swift
+//  FCButton.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/30/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// 기본 버튼. primary는 화면의 핵심 행동 1개, inverse는 카드 안·반복 버튼, secondary·ghost는 보조, accent는 브랜드 포인트에 쓴다.
-public struct FestiCoreButton: View {
+public struct FCButton: View {
   public enum Style: Sendable {
     case primary
     case secondary
@@ -83,7 +83,7 @@ public struct FestiCoreButton: View {
 
 // MARK: - 체이닝 설정
 
-public extension FestiCoreButton {
+public extension FCButton {
   /// 버튼 스타일을 바꾼 사본을 돌려준다.
   func style(_ style: Style) -> Self {
     var copy = self
@@ -106,7 +106,7 @@ public extension FestiCoreButton {
   }
 }
 
-private extension FestiCoreButton {
+private extension FCButton {
   enum Metric {
     static let largeHeight: CGFloat = 52
     static let mediumHeight: CGFloat = 40
@@ -116,14 +116,14 @@ private extension FestiCoreButton {
 
 #Preview {
   VStack(spacing: FestiCoreSpacing.paddingP12) {
-    ForEach([FestiCoreButton.Style.primary, .secondary, .ghost, .accent, .inverse], id: \.self) { style in
+    ForEach([FCButton.Style.primary, .secondary, .ghost, .accent, .inverse], id: \.self) { style in
       HStack(spacing: FestiCoreSpacing.paddingP12) {
-        FestiCoreButton("버튼") {}
+        FCButton("버튼") {}
           .style(style)
-        FestiCoreButton("버튼") {}
+        FCButton("버튼") {}
           .style(style)
           .size(.medium)
-        FestiCoreButton("버튼") {}
+        FCButton("버튼") {}
           .style(style)
           .isEnabled(false)
       }

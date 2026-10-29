@@ -1,5 +1,5 @@
 //
-//  FestiCoreStepHeader.swift
+//  FCStepHeader.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/29/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// 준비 안내 맨 위. 진행 막대 + "나중에 할게요".
-public struct FestiCoreStepHeader: View {
+public struct FCStepHeader: View {
   private var step: Int
   private var total: Int
   private(set) var laterTitle = "나중에 할게요"
@@ -60,7 +60,7 @@ public struct FestiCoreStepHeader: View {
 }
 
 // MARK: - 체이닝 설정
-public extension FestiCoreStepHeader {
+public extension FCStepHeader {
   /// `step` 을 바꾼 사본을 돌려준다.
   func step(_ step: Int) -> Self {
     var copy = self
@@ -77,7 +77,7 @@ public extension FestiCoreStepHeader {
   }
 }
 
-private extension FestiCoreStepHeader {
+private extension FCStepHeader {
   enum Metric {
     static let height: CGFloat = 44
     static let barWidth: CGFloat = 28
@@ -88,10 +88,10 @@ private extension FestiCoreStepHeader {
 
 #Preview {
   VStack(spacing: FestiCoreSpacing.paddingP16) {
-    FestiCoreStepHeader(step: 1)
-    FestiCoreStepHeader(step: 2)
+    FCStepHeader(step: 1)
+    FCStepHeader(step: 2)
       .onLater {}
-    FestiCoreStepHeader(step: 3)
+    FCStepHeader(step: 3)
   }
   .background(FestiCoreSemanticColor.backgroundNormal.color)
 }

@@ -1,5 +1,5 @@
 //
-//  FestiCoreSetBlock.swift
+//  FCSetBlock.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/29/26.
@@ -10,7 +10,7 @@ import SwiftUI
 /// 타임테이블의 셋 블록. 높이는 공연 길이(1분 2pt)이고 부모가 정한다.
 ///
 /// 블록이 짧으면 태그 → 시간 → 여백 순으로 덜어 내고, 24pt 미만이면 글자를 그리지 않는다.
-public struct FestiCoreSetBlock: View {
+public struct FCSetBlock: View {
   public enum State: Equatable, Sendable {
     case `default`
     /// 내 일정
@@ -195,7 +195,7 @@ public struct FestiCoreSetBlock: View {
 }
 
 // MARK: - 체이닝 설정
-public extension FestiCoreSetBlock {
+public extension FCSetBlock {
   /// `state` 를 바꾼 사본을 돌려준다.
   func state(_ state: State) -> Self {
     var copy = self
@@ -204,7 +204,7 @@ public extension FestiCoreSetBlock {
   }
 }
 
-private extension FestiCoreSetBlock {
+private extension FCSetBlock {
   enum Metric {
     static let pointsPerMinute: CGFloat = 2
     static let borderWidth: CGFloat = 1
@@ -216,17 +216,17 @@ private extension FestiCoreSetBlock {
 
 #Preview {
   VStack(spacing: FestiCoreSpacing.paddingP8) {
-    FestiCoreSetBlock(artist: "아티스트", time: "18:00 - 19:00")
-      .frame(height: FestiCoreSetBlock.height(minutes: 60))
-    FestiCoreSetBlock(artist: "아티스트", time: "18:00 - 19:00")
+    FCSetBlock(artist: "아티스트", time: "18:00 - 19:00")
+      .frame(height: FCSetBlock.height(minutes: 60))
+    FCSetBlock(artist: "아티스트", time: "18:00 - 19:00")
       .state(.mine)
-      .frame(height: FestiCoreSetBlock.height(minutes: 60))
-    FestiCoreSetBlock(artist: "아티스트", time: "18:30 - 19:30")
+      .frame(height: FCSetBlock.height(minutes: 60))
+    FCSetBlock(artist: "아티스트", time: "18:30 - 19:30")
       .state(.changed(oldTime: "18:00", change: "30분 지연"))
-      .frame(height: FestiCoreSetBlock.height(minutes: 60))
-    FestiCoreSetBlock(artist: "아티스트", time: "18:00 - 18:20")
+      .frame(height: FCSetBlock.height(minutes: 60))
+    FCSetBlock(artist: "아티스트", time: "18:00 - 18:20")
       .state(.overlap())
-      .frame(height: FestiCoreSetBlock.height(minutes: 20))
+      .frame(height: FCSetBlock.height(minutes: 20))
   }
   .frame(width: 120)
   .padding(FestiCoreSpacing.paddingP20)

@@ -1,5 +1,5 @@
 //
-//  FestiCoreBackPill.swift
+//  FCBackPill.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/30/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// 모드 전환·뒤로 가기 알약 버튼. 기수 보드 왼쪽 위 "관객 화면으로"에 쓴다.
-public struct FestiCoreBackPill: View {
+public struct FCBackPill: View {
   private var label: String
   private var action: () -> Void
 
@@ -39,7 +39,7 @@ public struct FestiCoreBackPill: View {
   }
 }
 
-private extension FestiCoreBackPill {
+private extension FCBackPill {
   enum Metric {
     static let iconSize: CGFloat = 16
     static let leadingPadding: CGFloat = 10
@@ -48,7 +48,7 @@ private extension FestiCoreBackPill {
 }
 
 #Preview {
-  FestiCoreBackPill("관객 화면으로") {}
+  FCBackPill("관객 화면으로") {}
     .padding(FestiCoreSpacing.paddingP20)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
 }

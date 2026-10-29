@@ -1,5 +1,5 @@
 //
-//  FestiCoreSortButton.swift
+//  FCSortButton.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/30/26.
@@ -7,8 +7,8 @@
 
 import SwiftUI
 
-/// 목록 정렬 기준 버튼. 칩과 목록 사이 오른쪽에 두고 누르면 `FestiCoreSortMenu`를 띄운다.
-public struct FestiCoreSortButton: View {
+/// 목록 정렬 기준 버튼. 칩과 목록 사이 오른쪽에 두고 누르면 `FCSortMenu`를 띄운다.
+public struct FCSortButton: View {
   private var label: String
   private var action: () -> Void
 
@@ -42,14 +42,14 @@ public struct FestiCoreSortButton: View {
   }
 }
 
-private extension FestiCoreSortButton {
+private extension FCSortButton {
   enum Metric {
     static let iconSize: CGFloat = 16
   }
 }
 
 #Preview {
-  FestiCoreSortButton("활동 중 순") {}
+  FCSortButton("활동 중 순") {}
     .padding(FestiCoreSpacing.paddingP20)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
 }

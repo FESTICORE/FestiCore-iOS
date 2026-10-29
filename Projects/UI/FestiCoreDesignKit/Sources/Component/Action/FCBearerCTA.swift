@@ -1,5 +1,5 @@
 //
-//  FestiCoreBearerCTA.swift
+//  FCBearerCTA.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/30/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// 기수 보드에서 버튼 4개 대신 보이는 큰 행동 영역. start는 시작 전, restart는 오늘 종료 후(하루 1번)이다.
-public struct FestiCoreBearerCTA: View {
+public struct FCBearerCTA: View {
   public enum State: Sendable {
     case start
     case restart
@@ -82,7 +82,7 @@ public struct FestiCoreBearerCTA: View {
   }
 }
 
-private extension FestiCoreBearerCTA {
+private extension FCBearerCTA {
   enum Metric {
     static let flagMarkSize: CGFloat = 96
     static let flagIconSize: CGFloat = 42
@@ -93,8 +93,8 @@ private extension FestiCoreBearerCTA {
 
 #Preview {
   HStack(alignment: .top, spacing: FestiCoreSpacing.paddingP24) {
-    FestiCoreBearerCTA(.start) {}
-    FestiCoreBearerCTA(.restart) {}
+    FCBearerCTA(.start) {}
+    FCBearerCTA(.restart) {}
   }
   .padding(FestiCoreSpacing.paddingP16)
   .background(FestiCoreSemanticColor.backgroundAlternative.color)

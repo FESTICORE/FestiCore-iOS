@@ -1,5 +1,5 @@
 //
-//  FestiCoreSortMenu.swift
+//  FCSortMenu.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/30/26.
@@ -7,8 +7,8 @@
 
 import SwiftUI
 
-/// 정렬 드롭다운. `FestiCoreSortButton` 아래 오른쪽 정렬로 띄우고, 바깥을 누르면 닫는 처리는 화면이 맡는다.
-public struct FestiCoreSortMenu: View {
+/// 정렬 드롭다운. `FCSortButton` 아래 오른쪽 정렬로 띄우고, 바깥을 누르면 닫는 처리는 화면이 맡는다.
+public struct FCSortMenu: View {
   @Binding private var selection: Int
   private var items: [String]
 
@@ -23,8 +23,8 @@ public struct FestiCoreSortMenu: View {
         Button {
           selection = index
         } label: {
-          FestiCoreMenuItem(item)
-            .isSelected(FestiCoreSelection.isSelected(index: index, selection: selection, count: items.count))
+          FCMenuItem(item)
+            .isSelected(FCSelection.isSelected(index: index, selection: selection, count: items.count))
         }
         .buttonStyle(.plain)
       }
@@ -47,7 +47,7 @@ public struct FestiCoreSortMenu: View {
   }
 }
 
-private extension FestiCoreSortMenu {
+private extension FCSortMenu {
   enum Metric {
     static let width: CGFloat = 200
     static let borderWidth: CGFloat = 1
@@ -62,7 +62,7 @@ private extension FestiCoreSortMenu {
   @Previewable
   @State var selection = 0
 
-  FestiCoreSortMenu(selection: $selection, items: ["활동 중 순", "팔로워 많은 순", "최근 업데이트 순", "새로 생긴 순"])
+  FCSortMenu(selection: $selection, items: ["활동 중 순", "팔로워 많은 순", "최근 업데이트 순", "새로 생긴 순"])
     .padding(FestiCoreSpacing.paddingP20)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
 }

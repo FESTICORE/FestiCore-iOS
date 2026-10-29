@@ -1,5 +1,5 @@
 //
-//  FestiCoreChip.swift
+//  FCChip.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/30/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// 필터·선택 칩. selected는 Inverse(라이트 검정, 다크 흰색)로 표시한다.
-public struct FestiCoreChip: View {
+public struct FCChip: View {
   private var label: String
   private var action: () -> Void
   private(set) var isSelected = false
@@ -44,7 +44,7 @@ public struct FestiCoreChip: View {
 
 // MARK: - 체이닝 설정
 
-public extension FestiCoreChip {
+public extension FCChip {
   /// 선택 상태를 바꾼 사본을 돌려준다.
   func isSelected(_ isSelected: Bool) -> Self {
     var copy = self
@@ -53,7 +53,7 @@ public extension FestiCoreChip {
   }
 }
 
-private extension FestiCoreChip {
+private extension FCChip {
   enum Metric {
     static let height: CGFloat = 32
     static let borderWidth: CGFloat = 1
@@ -62,9 +62,9 @@ private extension FestiCoreChip {
 
 #Preview {
   HStack(spacing: FestiCoreSpacing.paddingP12) {
-    FestiCoreChip("전체") {}
+    FCChip("전체") {}
       .isSelected(true)
-    FestiCoreChip("내 일정") {}
+    FCChip("내 일정") {}
   }
   .padding(FestiCoreSpacing.paddingP20)
   .background(FestiCoreSemanticColor.backgroundNormal.color)

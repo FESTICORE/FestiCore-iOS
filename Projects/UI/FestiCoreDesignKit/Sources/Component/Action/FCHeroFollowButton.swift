@@ -1,5 +1,5 @@
 //
-//  FestiCoreHeroFollowButton.swift
+//  FCHeroFollowButton.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/30/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// 사진 위 팔로우 버튼. follow는 흰 바탕, following은 글래스 바탕과 체크로 표시하며 모드와 관계없이 같다.
-public struct FestiCoreHeroFollowButton: View {
+public struct FCHeroFollowButton: View {
   private var isFollowing: Bool
   private var action: () -> Void
 
@@ -54,7 +54,7 @@ public struct FestiCoreHeroFollowButton: View {
 
 // MARK: - 체이닝 설정
 
-public extension FestiCoreHeroFollowButton {
+public extension FCHeroFollowButton {
   /// 팔로우 상태를 바꾼 사본을 돌려준다.
   func isFollowing(_ isFollowing: Bool) -> Self {
     var copy = self
@@ -63,7 +63,7 @@ public extension FestiCoreHeroFollowButton {
   }
 }
 
-private extension FestiCoreHeroFollowButton {
+private extension FCHeroFollowButton {
   enum Metric {
     static let height: CGFloat = 40
     static let iconSize: CGFloat = 16
@@ -73,8 +73,8 @@ private extension FestiCoreHeroFollowButton {
 
 #Preview {
   HStack(spacing: FestiCoreSpacing.paddingP16) {
-    FestiCoreHeroFollowButton(isFollowing: false) {}
-    FestiCoreHeroFollowButton(isFollowing: true) {}
+    FCHeroFollowButton(isFollowing: false) {}
+    FCHeroFollowButton(isFollowing: true) {}
   }
   .padding(FestiCoreSpacing.paddingP20)
   .background(FestiCoreSemanticColor.staticalphaBlack80.color)

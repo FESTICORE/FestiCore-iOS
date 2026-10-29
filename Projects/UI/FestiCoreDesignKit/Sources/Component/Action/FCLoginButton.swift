@@ -1,5 +1,5 @@
 //
-//  FestiCoreLoginButton.swift
+//  FCLoginButton.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/30/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// Apple·Google 로그인 버튼. 각 회사 가이드를 따라 같은 크기로 나란히 두며 Google은 모드와 관계없이 흰색이다.
-public struct FestiCoreLoginButton: View {
+public struct FCLoginButton: View {
   public enum Provider: Sendable {
     case apple
     case google
@@ -70,7 +70,7 @@ public struct FestiCoreLoginButton: View {
   }
 }
 
-private extension FestiCoreLoginButton {
+private extension FCLoginButton {
   enum Metric {
     static let height: CGFloat = 52
     static let borderWidth: CGFloat = 1
@@ -81,8 +81,8 @@ private extension FestiCoreLoginButton {
 
 #Preview {
   VStack(spacing: FestiCoreSpacing.paddingP8) {
-    FestiCoreLoginButton(.apple) {}
-    FestiCoreLoginButton(.google) {}
+    FCLoginButton(.apple) {}
+    FCLoginButton(.google) {}
   }
   .padding(FestiCoreSpacing.paddingP20)
   .background(FestiCoreSemanticColor.backgroundNormal.color)

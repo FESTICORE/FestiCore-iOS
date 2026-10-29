@@ -1,5 +1,5 @@
 //
-//  FestiCoreNowLine.swift
+//  FCNowLine.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/29/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// 현재 시각 선. Inverse 색을 쓴다.
-public struct FestiCoreNowLine: View {
+public struct FCNowLine: View {
   private var time: String
 
   public init(time: String) {
@@ -36,7 +36,7 @@ public struct FestiCoreNowLine: View {
 }
 
 // MARK: - 체이닝 설정
-public extension FestiCoreNowLine {
+public extension FCNowLine {
   /// `time` 을 바꾼 사본을 돌려준다.
   func time(_ time: String) -> Self {
     var copy = self
@@ -45,7 +45,7 @@ public extension FestiCoreNowLine {
   }
 }
 
-private extension FestiCoreNowLine {
+private extension FCNowLine {
   enum Metric {
     static let height: CGFloat = 20
     static let lineHeight: CGFloat = 2
@@ -53,7 +53,7 @@ private extension FestiCoreNowLine {
 }
 
 #Preview {
-  FestiCoreNowLine(time: "18:30")
+  FCNowLine(time: "18:30")
     .padding(FestiCoreSpacing.paddingP20)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
 }

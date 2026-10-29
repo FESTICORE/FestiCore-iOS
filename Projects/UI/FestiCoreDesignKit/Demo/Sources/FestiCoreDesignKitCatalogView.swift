@@ -12,7 +12,7 @@ struct FestiCoreDesignKitCatalogView: View {
   @State private var searchText = ""
   @State private var tabSelection = 0
   @State private var segmentSelection = 0
-  @State private var tabBarSelection: FestiCoreTabBar.Tab = .live
+  @State private var tabBarSelection: FCTabBar.Tab = .live
   @State private var isFollowing = false
   @State private var isBigButtonSelected = false
   @State private var isChipSelected = true
@@ -23,15 +23,15 @@ struct FestiCoreDesignKitCatalogView: View {
       ScrollView {
         VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
           colorSection
-          FestiCoreDivider()
+          FCDivider()
           typographySection
-          FestiCoreDivider()
+          FCDivider()
           buttonSection
-          FestiCoreDivider()
+          FCDivider()
           actionSection
-          FestiCoreDivider()
+          FCDivider()
           navigationSection
-          FestiCoreDivider()
+          FCDivider()
           timetableSection
         }
         .padding(FestiCoreSpacing.paddingP20)
@@ -71,46 +71,46 @@ struct FestiCoreDesignKitCatalogView: View {
   private var buttonSection: some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
       sectionTitle("Button")
-      FestiCorePrimaryButton("기본 버튼") {}
-      FestiCorePrimaryButton("비활성 버튼", isEnabled: false) {}
+      FCPrimaryButton("기본 버튼") {}
+      FCPrimaryButton("비활성 버튼", isEnabled: false) {}
     }
   }
 
   private var actionSection: some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
       sectionTitle("Actions")
-      ForEach([FestiCoreButton.Style.primary, .secondary, .ghost, .accent, .inverse], id: \.self) { style in
+      ForEach([FCButton.Style.primary, .secondary, .ghost, .accent, .inverse], id: \.self) { style in
         HStack(spacing: FestiCoreSpacing.paddingP12) {
-          FestiCoreButton("버튼") {}
+          FCButton("버튼") {}
             .style(style)
-          FestiCoreButton("버튼") {}
+          FCButton("버튼") {}
             .style(style)
             .size(.medium)
-          FestiCoreButton("버튼") {}
+          FCButton("버튼") {}
             .style(style)
             .isEnabled(false)
         }
       }
-      FestiCoreHeroFollowButton(isFollowing: isFollowing) { isFollowing.toggle() }
+      FCHeroFollowButton(isFollowing: isFollowing) { isFollowing.toggle() }
         .padding(FestiCoreSpacing.paddingP12)
         .background(FestiCoreSemanticColor.staticalphaBlack80.color)
-      FestiCoreBigButton("존", sub: "리벳 앞 왼쪽", icon: .locationDot) { isBigButtonSelected.toggle() }
+      FCBigButton("존", sub: "리벳 앞 왼쪽", icon: .locationDot) { isBigButtonSelected.toggle() }
         .isSelected(isBigButtonSelected)
         .frame(width: 168, height: 180)
-      FestiCoreLoginButton(.apple) {}
-      FestiCoreLoginButton(.google) {}
+      FCLoginButton(.apple) {}
+      FCLoginButton(.google) {}
       HStack(spacing: FestiCoreSpacing.paddingP12) {
-        FestiCoreChip("전체") { isChipSelected.toggle() }
+        FCChip("전체") { isChipSelected.toggle() }
           .isSelected(isChipSelected)
         Spacer()
-        FestiCoreSortButton(sortItems[sortSelection]) {}
+        FCSortButton(sortItems[sortSelection]) {}
       }
-      FestiCoreSortMenu(selection: $sortSelection, items: sortItems)
-      FestiCoreBackPill("관객 화면으로") {}
-      FestiCoreBearerPrompt {}
+      FCSortMenu(selection: $sortSelection, items: sortItems)
+      FCBackPill("관객 화면으로") {}
+      FCBearerPrompt {}
       VStack(spacing: FestiCoreSpacing.paddingP24) {
-        FestiCoreBearerCTA(.start) {}
-        FestiCoreBearerCTA(.restart) {}
+        FCBearerCTA(.start) {}
+        FCBearerCTA(.restart) {}
       }
       .padding(FestiCoreSpacing.paddingP16)
       .background(FestiCoreSemanticColor.backgroundAlternative.color)
@@ -125,50 +125,50 @@ struct FestiCoreDesignKitCatalogView: View {
   private var navigationSection: some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
       sectionTitle("Navigation")
-      FestiCoreTopBar(.logo)
+      FCTopBar(.logo)
         .showsBadge(true)
-      FestiCoreTopBar(.logoBearer)
+      FCTopBar(.logoBearer)
         .onBearer {}
-      FestiCoreTopBar(.back, title: "라인업")
+      FCTopBar(.back, title: "라인업")
         .onBack {}
-      FestiCoreTopBar(.large, title: "타임테이블")
-      FestiCoreTopBar(.search(text: $searchText))
+      FCTopBar(.large, title: "타임테이블")
+      FCTopBar(.search(text: $searchText))
         .searchPlaceholder("아티스트 검색")
         .onCancel {}
-      FestiCoreTopBar(.backOnImage, title: "아티스트")
+      FCTopBar(.backOnImage, title: "아티스트")
         .onBack {}
         .background(FestiCoreSemanticColor.accentPointOrange.color)
-      FestiCoreTab(selection: $tabSelection, items: ["1일차", "2일차", "3일차"])
-      FestiCoreSegmented(selection: $segmentSelection, items: ["전체", "내 일정"])
-      FestiCoreStepHeader(step: 2)
+      FCTab(selection: $tabSelection, items: ["1일차", "2일차", "3일차"])
+      FCSegmented(selection: $segmentSelection, items: ["전체", "내 일정"])
+      FCStepHeader(step: 2)
         .onLater {}
-      FestiCoreTabBar(selection: $tabBarSelection)
+      FCTabBar(selection: $tabBarSelection)
     }
   }
 
   private var timetableSection: some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
       sectionTitle("Timetable")
-      FestiCoreStageHeader(name: "메인 스테이지")
-      FestiCoreStageHeader(name: "서브 스테이지")
+      FCStageHeader(name: "메인 스테이지")
+      FCStageHeader(name: "서브 스테이지")
         .dotColor(.accentPointOrange)
       HStack(alignment: .top, spacing: FestiCoreSpacing.paddingP8) {
-        FestiCoreSetBlock(artist: "아티스트", time: "18:00 - 19:00")
-          .frame(height: FestiCoreSetBlock.height(minutes: 60))
-        FestiCoreSetBlock(artist: "아티스트", time: "18:00 - 19:00")
+        FCSetBlock(artist: "아티스트", time: "18:00 - 19:00")
+          .frame(height: FCSetBlock.height(minutes: 60))
+        FCSetBlock(artist: "아티스트", time: "18:00 - 19:00")
           .state(.mine)
-          .frame(height: FestiCoreSetBlock.height(minutes: 60))
+          .frame(height: FCSetBlock.height(minutes: 60))
       }
       HStack(alignment: .top, spacing: FestiCoreSpacing.paddingP8) {
-        FestiCoreSetBlock(artist: "아티스트", time: "18:30 - 19:30")
+        FCSetBlock(artist: "아티스트", time: "18:30 - 19:30")
           .state(.changed(oldTime: "18:00", change: "30분 지연"))
-          .frame(height: FestiCoreSetBlock.height(minutes: 60))
-        FestiCoreSetBlock(artist: "아티스트", time: "18:00 - 18:20")
+          .frame(height: FCSetBlock.height(minutes: 60))
+        FCSetBlock(artist: "아티스트", time: "18:00 - 18:20")
           .state(.overlap())
-          .frame(height: FestiCoreSetBlock.height(minutes: 20))
+          .frame(height: FCSetBlock.height(minutes: 20))
       }
-      FestiCoreNowLine(time: "18:30")
-      FestiCoreOverlapHighlight()
+      FCNowLine(time: "18:30")
+      FCOverlapHighlight()
         .frame(height: 40)
     }
   }
