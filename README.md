@@ -70,7 +70,7 @@ Projects/
 ├── Extension/
 │   └── FestiCoreNotificationService/ # 푸시 알림 서비스 확장
 └── Widget/
-    └── FestiCoreLiveActivityWidget/ # 잠금 화면·Dynamic Island 확장
+    └── FestiCoreWidget/ # 잠금 화면·Dynamic Island 확장
 ~~~
 
 ### 의존성 흐름
