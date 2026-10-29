@@ -39,7 +39,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           git fetch origin "$BASE_SHA" "$HEAD_SHA"
-          git -c core.quotePath=false diff "$BASE_SHA...$HEAD_SHA" -- "*.swift" > diff.txt
+          git -c core.quotePath=false diff "$BASE_SHA...$HEAD_SHA" -- '*.swift' '.github/workflows/*.yml' '.github/workflows/*.yaml' > diff.txt
           if [ ! -s diff.txt ]; then
             echo "skip_review=true" >> $GITHUB_OUTPUT
           else
@@ -236,6 +236,7 @@ jobs:
               "",
               "[Review Criteria]",
               "1. Prioritize reproducible behavior bugs: incorrect API mapping, state transitions, navigation, cancellation, authentication, crashes, and data loss. Explain the specific failing path and why the changed line causes it.",
+              "For GitHub Actions YAML changes, check trigger conditions, job outputs, permissions, secret handling, and whether review or validation is silently skipped.",
               "2. Mandatory AGENTS.md rules: Feature IO goes through a Domain UseCase Interface; DTO-to-Entity mapping stays in Domain Sources/Model; API paths live in API and requests in APIEndpoint; dependencies use Point-Free Dependencies with interfaces in their owning modules. Apply design tokens and existing SwiftUI/TCA conventions. Report a changed-line violation only when the relevant rule and consequence are clear.",
               "3. Follow the repository AGENTS.md and nearby code for View, reducer, and two-space indentation patterns. Do not demand a separate Data module or a global DI container.",
               "4. A suggestion block is optional. Include one only when its exact replacement is correct and complete; otherwise describe the minimal fix in prose.",
