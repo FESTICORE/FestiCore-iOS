@@ -157,6 +157,10 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
+      - name: Clean design token DerivedData
+        if: always()
+        run: bash Scripts/clean-ci-derived-data.sh FestiCore-design-token-sync
+
   publish:
     needs: verify
     if: needs.verify.result == 'success' && needs.verify.outputs.tree_digest != ''

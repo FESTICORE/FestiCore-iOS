@@ -97,7 +97,9 @@ jobs:
             TuistShardBuild.log
 
       - name: Test simulator selector
-        run: python3 Scripts/select-ios-simulator.test.py
+        run: |
+          python3 Scripts/select-ios-simulator.test.py
+          python3 Scripts/clean-ci-derived-data.test.py
 
       # 최신 사용 가능 iOS 런타임의 CI 전용 iPhone Duo를 선택한다. 없으면 실패한다.
       - name: Select simulator
@@ -205,12 +207,8 @@ jobs:
       - name: Clean shard build DerivedData
         if: always()
         run: |
+          bash Scripts/clean-ci-derived-data.sh FestiCore-pr-build-shards
           rm -rf \
-            "$CI_DERIVED_DATA/Build" \
-            "$CI_DERIVED_DATA/Index.noindex" \
-            "$CI_DERIVED_DATA/Logs" \
-            "$CI_DERIVED_DATA/SourcePackages" \
-            "$CI_DERIVED_DATA/info.plist" \
             ShardBuildResults.xcresult \
             ShardBuildRunReport.json \
             TuistShardBuild.log
@@ -319,12 +317,8 @@ jobs:
       - name: Clean test shard DerivedData
         if: always()
         run: |
+          bash Scripts/clean-ci-derived-data.sh "FestiCore-pr-shard-${{ matrix.shard }}"
           rm -rf \
-            "$CI_DERIVED_DATA/Build" \
-            "$CI_DERIVED_DATA/Index.noindex" \
-            "$CI_DERIVED_DATA/Logs" \
-            "$CI_DERIVED_DATA/SourcePackages" \
-            "$CI_DERIVED_DATA/info.plist" \
             "$RESULT_BUNDLE" \
             "$TEST_RUN_REPORT_PATH" \
             "$TEST_LOG_PATH" \
@@ -483,12 +477,8 @@ jobs:
       - name: Clean bundle DerivedData
         if: always()
         run: |
+          bash Scripts/clean-ci-derived-data.sh FestiCore-pr-bundle
           rm -rf \
-            "$CI_DERIVED_DATA/Build" \
-            "$CI_DERIVED_DATA/Index.noindex" \
-            "$CI_DERIVED_DATA/Logs" \
-            "$CI_DERIVED_DATA/SourcePackages" \
-            "$CI_DERIVED_DATA/info.plist" \
             BundleBuildResults.xcresult \
             "$BUILD_RUN_REPORT_PATH" \
             "$BUNDLE_INSPECT_REPORT_PATH" \

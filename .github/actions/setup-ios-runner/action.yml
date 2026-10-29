@@ -21,7 +21,7 @@ runs:
         echo "/opt/homebrew/bin" >> "$GITHUB_PATH"
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
         echo "$HOME/.local/share/mise/shims" >> "$GITHUB_PATH"
-        echo "CI_DERIVED_DATA=$HOME/ci-derived-data/$DERIVED_DATA_DIRECTORY" >> "$GITHUB_ENV"
+        echo "CI_DERIVED_DATA=$HOME/ci-derived-data/$DERIVED_DATA_DIRECTORY-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
 
     - name: Prepare FestiCore CI derived data
       shell: bash
@@ -30,13 +30,15 @@ runs:
       run: |
         set -euo pipefail
 
-        if [[ ! "$DERIVED_DATA_DIRECTORY" =~ ^FestiCore-[A-Za-z0-9_-]+$ ]]; then
+        if [[ ! "$DERIVED_DATA_DIRECTORY" =~ ^FestiCore-[A-Za-z0-9_-]+$ \
+          || ! "$GITHUB_RUN_ID" =~ ^[0-9]+$ \
+          || ! "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]]; then
           echo "::error::Invalid FestiCore derived data directory"
           exit 1
         fi
 
         derived_data_root="$HOME/ci-derived-data"
-        selected_derived_data="$derived_data_root/$DERIVED_DATA_DIRECTORY"
+        selected_derived_data="$derived_data_root/$DERIVED_DATA_DIRECTORY-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
         if [[ "${CI_DERIVED_DATA:-}" != "$selected_derived_data" \
           || -L "$derived_data_root" || -L "$selected_derived_data" \
           || ( -e "$derived_data_root" && ! -d "$derived_data_root" ) \
@@ -61,17 +63,6 @@ runs:
             "$selected_derived_data/Index.noindex" \
             "$selected_derived_data/Logs" \
             "$selected_derived_data/CompilationCache.noindex"
-        fi
-
-        # 이전 PR 워크플로가 사용하던 경로이며 현재 워크플로에서는 참조하지 않는다.
-        legacy_pr_derived_data="$derived_data_root/FestiCore-pr"
-        if [[ -L "$legacy_pr_derived_data" \
-          || ( -e "$legacy_pr_derived_data" && ! -d "$legacy_pr_derived_data" ) ]]; then
-          echo "::error::Unsafe legacy FestiCore PR derived data path"
-          exit 1
-        fi
-        if [[ -d "$legacy_pr_derived_data" ]]; then
-          rm -rf -- "$legacy_pr_derived_data"
         fi
 
         echo "Disk space after FestiCore CI cleanup:"
