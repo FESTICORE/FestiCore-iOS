@@ -11,7 +11,11 @@ import Foundation
 import Testing
 import UIKit
 
+#if targetEnvironment(simulator)
+@Suite("Live Activity 통합", .serialized, .disabled("Activity.request는 전경 앱이 필요하므로 실제 기기에서 검증합니다."))
+#else
 @Suite("Live Activity 통합", .serialized)
+#endif
 struct LiveActivityIntegrationTests {
   @Test("앱에서 Live Activity를 시작하고 종료한다")
   func startsAndEndsOnDevice() async throws {
@@ -96,30 +100,14 @@ struct LiveActivityIntegrationTests {
   @MainActor
   private func waitUntilAppIsActive() async -> Bool {
     let app = UIApplication.shared
-    var requested = false
-    var activationError: String?
     let deadline = Date().addingTimeInterval(8)
     while Date() < deadline {
       if app.applicationState == .active { return true }
-      if !requested {
-        requested = true
-        let scene = app.connectedScenes.compactMap { $0 as? UIWindowScene }
-          .first(where: { $0.session.role == .windowApplication })
-        let request: UISceneSessionActivationRequest = if let scene {
-          .init(session: scene.session)
-        } else {
-          .init(role: .windowApplication)
-        }
-        app.activateSceneSession(for: request) { error in
-          activationError = error.localizedDescription
-        }
-      }
-      if activationError != nil { break }
       try? await Task.sleep(for: .milliseconds(100))
     }
     if app.applicationState == .active { return true }
     let scenes = app.connectedScenes.map { String(describing: $0.activationState) }.joined(separator: ", ")
-    let message = "Live Activity 시작 전 앱 활성화 실패: state=\(app.applicationState), sceneStates=[\(scenes)], requested=\(requested), error=\(activationError ?? "없음")"
+    let message = "Live Activity 시작 전 앱이 전경에 있지 않습니다: state=\(app.applicationState), sceneStates=[\(scenes)]"
     print(message)
     Issue.record("\(message)")
     return false

@@ -4,6 +4,8 @@
 
 `./make test`는 `FestiCore-Stage` 스킴의 `FestiCore` 테스트 플랜을 실행합니다. `TuistTool.swift`는 `--no-selective-testing`을 사용하므로 전체 플랜을 대상으로 합니다. 새 테스트 타깃은 `Projects/App/Tests/FestiCore.xctestplan`에도 등록해야 합니다. `Scripts/select-ios-simulator.py`는 최신 사용 가능 iOS 런타임의 개인 작업용 iPhone Duo를 선택하며, 해당 런타임에 Duo가 없으면 실패합니다. 로컬 테스트는 이미 부팅된 Duo를 우선하고 CI 전용 기기는 사용하지 않습니다.
 
+`LiveActivityIntegrationTests`의 시작·종료 두 테스트는 시뮬레이터 테스트 호스트에서 건너뜁니다. ActivityKit의 앱 내 시작은 앱이 전경에 있어야 하는데, CI 단위 테스트 호스트는 백그라운드로 실행됩니다. 실제 기기에서 앱을 전경에 둔 상태의 통합 테스트와 잠금 화면 표시 확인은 [Live Activity 검증 이슈](https://github.com/FESTICORE/FestiCore-iOS/issues/105)에서 별도로 추적합니다. CI의 건너뛴 테스트를 통과한 테스트로 계산하지 않습니다.
+
 ```bash
 ./make test
 ```
