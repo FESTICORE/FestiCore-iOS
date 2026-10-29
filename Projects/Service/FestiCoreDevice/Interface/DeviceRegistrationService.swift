@@ -15,6 +15,7 @@ public struct DeviceRegistrationMetadata: Sendable {
 
   public let apnsEnvironment: APNsEnvironment
   public let apnsToken: String?
+  public let liveActivityPushToStartToken: String?
   public let appVersion: String
   public let osVersion: String
   public let locale: String
@@ -23,6 +24,7 @@ public struct DeviceRegistrationMetadata: Sendable {
   public init(
     apnsEnvironment: APNsEnvironment,
     apnsToken: String?,
+    liveActivityPushToStartToken: String? = nil,
     appVersion: String,
     osVersion: String,
     locale: String,
@@ -30,6 +32,7 @@ public struct DeviceRegistrationMetadata: Sendable {
   ) {
     self.apnsEnvironment = apnsEnvironment
     self.apnsToken = apnsToken
+    self.liveActivityPushToStartToken = liveActivityPushToStartToken
     self.appVersion = appVersion
     self.osVersion = osVersion
     self.locale = locale

@@ -8,16 +8,35 @@
 import UIKit
 
 import CoreAssembly
+import FestiCoreLiveActivity
 import ServiceAssembly
 
 extension AppDelegate {
   func configureDeviceRegistration() {
+    liveActivityStartToken = FestiCoreFestivalLiveActivity.pushToStartToken
     do {
       registerDevice(apnsToken: try secureStorage.load(.apnsToken))
     } catch {
       FestiCoreLogger.error("저장된 APNs 토큰 조회 실패: \(error.localizedDescription)", category: .app)
     }
     UIApplication.shared.registerForRemoteNotifications()
+    observeLiveActivityStartToken()
+  }
+
+  private func observeLiveActivityStartToken() {
+    liveActivityStartTokenTask?.cancel()
+    liveActivityStartTokenTask = Task { @MainActor [weak self] in
+      for await token in FestiCoreFestivalLiveActivity.pushToStartTokenUpdates() {
+        guard let self, !Task.isCancelled else { return }
+        guard liveActivityStartToken != token else { continue }
+        liveActivityStartToken = token
+        do {
+          registerDevice(apnsToken: try secureStorage.load(.apnsToken))
+        } catch {
+          FestiCoreLogger.error("Live Activity 시작 토큰 등록 준비 실패: \(error.localizedDescription)", category: .app)
+        }
+      }
+    }
   }
 
   func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
@@ -52,6 +71,7 @@ extension AppDelegate {
     let metadata = DeviceRegistrationMetadata(
       apnsEnvironment: apnsEnvironment,
       apnsToken: apnsToken,
+      liveActivityPushToStartToken: liveActivityStartToken,
       appVersion: appVersion,
       osVersion: UIDevice.current.systemVersion,
       locale: Locale.current.identifier(.bcp47),

@@ -101,6 +101,11 @@ public enum FestiCoreFestivalLiveActivity {
 
   /// 서버가 앱을 실행하지 않고 Activity를 시작할 때 사용할 토큰과 이후 교체된 토큰을 전달한다.
   /// 서버 등록 작업이 취소되면 스트림 소비 작업도 취소한다.
+  public static var pushToStartToken: String? {
+    Activity<FestiCoreFestivalActivityAttributes>.pushToStartToken?
+      .map { String(format: "%02x", $0) }.joined()
+  }
+
   public static func pushToStartTokenUpdates() -> AsyncStream<String> {
     AsyncStream { continuation in
       let task = Task {

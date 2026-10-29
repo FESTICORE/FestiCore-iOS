@@ -43,6 +43,7 @@ struct DeviceRegistrationTests {
     #expect(request.headers.value(for: "X-Device-Id") != nil)
     #expect(request.headers.value(for: "Authorization") == nil)
     #expect(fields["apnsToken"] is NSNull)
+    #expect(fields["liveActivityPushToStartToken"] is NSNull)
     #expect(fields["apnsEnvironment"] as? String == "sandbox")
     #expect(fields["appVersion"] as? String == "1.0.0")
   }
@@ -62,6 +63,25 @@ struct DeviceRegistrationTests {
     let fields = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(body)) as? [String: Any])
 
     #expect(fields["apnsToken"] as? String == "00abff")
+  }
+
+  @Test("Live Activity 원격 시작 토큰을 기기 등록 요청에 전달한다")
+  func encodesPushToStartToken() throws {
+    let metadata = DeviceRegistrationMetadata(
+      apnsEnvironment: .sandbox,
+      apnsToken: nil,
+      liveActivityPushToStartToken: "00abff",
+      appVersion: "1.0.0",
+      osVersion: "18.0",
+      locale: "ko-KR",
+      timezone: "Asia/Seoul"
+    )
+    let request = DeviceRegistrationRequest(deviceID: UUID().uuidString, bearerToken: nil, metadata: metadata)
+    let body = try #require(request.parameters)
+    let fields = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(body)) as? [String: Any])
+
+    #expect(fields["apnsToken"] is NSNull)
+    #expect(fields["liveActivityPushToStartToken"] as? String == "00abff")
   }
 
   @Test("첫 등록 토큰을 저장하고 다음 등록에 같은 기기 ID와 토큰을 사용한다")
