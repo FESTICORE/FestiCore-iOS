@@ -234,7 +234,8 @@ private func renderGraph(production: Bool, forwardedArguments: [String]) -> Int3
     return 1
   }
 
-  // Tuist에는 Demo 타깃만 제외하는 옵션이 없어 DOT의 해당 노드와 간선을 제거한다.
+  // Project+Template의 hasDemo는 타깃 이름을 "\(name)Demo"로 생성한다.
+  // 이 접미사와 단어 경계가 일치하는 DOT 노드 및 간선만 제외한다.
   let graph = rawGraph
     .split(separator: "\n", omittingEmptySubsequences: false)
     .filter { line in
