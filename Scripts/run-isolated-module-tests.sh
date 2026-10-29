@@ -55,6 +55,7 @@ run_tests() {
     CLANG_ENABLE_PROJECT_PREFIX_MAPPING=NO \
     -retry-tests-on-failure \
     -test-iterations 2 \
+    -parallel-testing-enabled NO \
     -collect-test-diagnostics never \
     ONLY_ACTIVE_ARCH=YES \
     COMPILATION_CACHE_ENABLE_CACHING="$compilation_cache_enabled"
