@@ -10,6 +10,7 @@ import FestiCoreLiveActivity
 import Foundation
 import Testing
 
+@Suite("Live Activity 통합", .serialized)
 struct LiveActivityIntegrationTests {
   @Test("앱에서 Live Activity를 시작하고 종료한다")
   func startsAndEndsOnDevice() async throws {
@@ -67,8 +68,19 @@ struct LiveActivityIntegrationTests {
 
     await FestiCoreFestivalLiveActivity.endFinished(id: id, startDate: startDate)
 
-    #expect(activity.activityState == .ended)
-    #expect(activity.content.state.phase == .finished)
+    let ended = await waitFor {
+      activity.activityState == .ended && activity.content.state.phase == .finished
+    }
+    #expect(ended)
     #expect(!FestiCoreFestivalLiveActivity.activities().contains { $0.id == id })
+  }
+
+  private func waitFor(_ condition: () -> Bool) async -> Bool {
+    let deadline = Date().addingTimeInterval(8)
+    while Date() < deadline {
+      if condition() { return true }
+      try? await Task.sleep(for: .milliseconds(100))
+    }
+    return condition()
   }
 }
