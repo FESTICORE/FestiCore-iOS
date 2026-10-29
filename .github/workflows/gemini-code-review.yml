@@ -6,7 +6,7 @@ on:
       - develop
       - main
       - master
-    types: [opened, synchronize]
+    types: [opened, ready_for_review, synchronize]
 
 concurrency:
   group: gemini-code-review-${{ github.event.pull_request.number }}
@@ -149,7 +149,7 @@ jobs:
                 if (!validLines[currentFile]) validLines[currentFile] = new Set();
                 validLines[currentFile].add(lineNum);
                 if (!lineContentMap[currentFile]) lineContentMap[currentFile] = {};
-                lineContentMap[currentFile][lineNum] = line.substring(1).trim();
+                lineContentMap[currentFile][lineNum] = line.substring(1);
                 annotatedLines.push(`[LINE ${lineNum}] ${line}`);
                 lineNum++;
               } else if (line.startsWith("-") && !line.startsWith("---")) {
@@ -343,7 +343,7 @@ jobs:
                 && validLinesMap[c.path]?.includes(c.line)
                 && typeof c.code_snippet === "string"
                 && c.code_snippet.trim().length > 0
-                && lineContentMap[c.path]?.[c.line] === c.code_snippet.trim()
+                && lineContentMap[c.path]?.[c.line]?.trim() === c.code_snippet.trim()
                 && typeof c.body === "string"
                 && /\[P[12]\]/.test(c.body);
               if (!valid && c && /\[P[12]\]/.test(String(c.body || ""))) {
