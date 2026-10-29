@@ -275,9 +275,13 @@ jobs:
           EOF
           NUMBER="$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number // empty')"
           if [[ -z "$NUMBER" ]]; then
-            gh pr create --base develop --head "$BRANCH" --title 'chore: 디자인 토큰 자동 동기화 #3' --body-file "$BODY"
+            gh pr create --base develop --head "$BRANCH" --assignee Roy-wonji --title 'chore: 디자인 토큰 자동 동기화 #3' --body-file "$BODY"
           else
-            gh pr edit "$NUMBER" --body-file "$BODY"
+            gh pr edit "$NUMBER" --add-assignee Roy-wonji --body-file "$BODY"
+          fi
+          if [[ "$(gh pr view "$BRANCH" --json assignees --jq 'any(.assignees[]; .login == "Roy-wonji")')" != true ]]; then
+            echo "Design token PR assignee is missing: Roy-wonji" >&2
+            exit 1
           fi
 
   report-verification-failure:

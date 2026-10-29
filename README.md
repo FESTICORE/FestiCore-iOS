@@ -38,76 +38,17 @@ FestiCore는 축제를 위한 iOS 앱입니다. Home에서 축제 목록을 조�
 
 SwiftUI와 The Composable Architecture를 사용하는 Tuist 멀티모듈 프로젝트입니다. `Workspace.swift`가 `Projects/**`를 모으고, AppCoordinator는 Splash에서 Home으로 전환합니다.
 
-~~~text
-Projects/
-├── App/                         # 앱 진입점, 설정, 테스트 플랜
-├── Feature/
-│   ├── FeatureAssembly/         # 화면 모듈 조립
-│   └── Home/                    # Home 화면과 Reducer
-├── Domain/
-│   ├── AuthDomain/             # 로그인·로그아웃 계약과 유스케이스
-│   └── FestivalDomain/         # 축제 목록 계약과 모델
-├── Service/
-│   ├── ServiceAssembly/         # 서비스 의존성 조립
-│   ├── API/                    # API 경로 선언
-│   ├── APIEndpoint/            # API 요청과 인증 정책
-│   ├── FestiCoreAnalytics/      # Mixpanel·Sentry 초기화
-│   ├── FestiCoreConfig/         # Firebase 앱 설정
-│   ├── FestiCoreAuth/           # 인증 세션과 토큰 갱신
-│   ├── FestiCoreDevice/         # 기기 등록 계약
-│   ├── FestiCoreFestivalCatalog/ # 공개 축제 목록과 로컬 목록 캐시
-│   └── FestiCorePack/           # 축제 팩 WebSocket 동기화와 로컬 팩 캐시
-├── Core/
-│   ├── CoreAssembly/            # Core 구현 조립
-│   ├── FestiCoreNetwork/        # HTTP 클라이언트
-│   ├── FestiCoreStorage/        # Keychain과 저장소
-│   └── FestiCoreLogger/         # 공통 로깅
-├── UI/
-│   ├── FestiCoreDesignKit/      # 디자인 토큰과 리소스
-│   ├── FestiCoreSharedUI/       # 공통 UI
-│   ├── FestiCoreAnimation/      # 애니메이션 표시 API
-│   └── FestiCoreLiveActivity/   # 앱·위젯 공유 ActivityKit 타입
-├── Extension/
-│   └── FestiCoreNotificationService/ # 푸시 알림 서비스 확장
-└── Widget/
-    └── FestiCoreWidget/ # 잠금 화면·Dynamic Island 확장
-~~~
+![현재 모듈 의존성 그래프](docs/architecture/module-graph.svg)
 
-### 의존성 흐름
+[Excalidraw 원본](docs/architecture/module-graph.excalidraw) · [Mermaid 원본](docs/architecture/module-graph.mmd) · [갱신 방법](docs/architecture/README.md)
 
-~~~mermaid
-flowchart TD
-    App --> FeatureAssembly
-    FeatureAssembly --> Home
-    FeatureAssembly --> AuthDomain
-    App --> ServiceAssembly
-    App --> FestiCoreAnalytics
-    App --> FestiCoreConfig
-    App --> CoreAssembly
-    ServiceAssembly --> FestiCoreAuth
-    ServiceAssembly --> FestiCoreFestivalCatalog
-    ServiceAssembly --> FestiCorePack
-    ServiceAssembly --> CoreAssembly
-    CoreAssembly --> FestiCoreNetwork
-    CoreAssembly --> FestiCoreStorage
-    FestiCoreAuth --> FestiCoreNetwork
-    FestiCoreAuth --> APIEndpoint
-    AuthDomain --> APIEndpoint
-    APIEndpoint --> API
-    APIEndpoint --> FestiCoreNetwork
-    FestiCoreAuth --> FestiCoreStorage
-    App --> FestiCoreLiveActivity
-    App --> FestiCoreNotificationService
-    Widget --> FestiCoreLiveActivity
-~~~
+### TCA 화면 흐름
 
-설계 원칙:
+![Splash에서 Home으로 전환하는 TCA 흐름](docs/architecture/tca-flow.svg)
 
-- App은 화면과 공통 서비스의 조립 결과를 사용합니다.
-- ServiceAssembly는 인증과 Core 구현을 연결하고, CoreAssembly는 Network·Storage 구현을 등록합니다.
-- Network·Storage는 Interface와 구현 타깃을 분리합니다.
-- 위젯은 공유 ActivityKit 타입을 사용하며 앱의 네트워크·인증 구현에 의존하지 않습니다.
-- Domain Interface는 Entity·Repository·UseCase 계약을, 구현 타깃은 DTO·Mapper·Repository 구현과 UseCase 구현을 둡니다. 인증 요청 경로와 HTTP 요청은 Service의 API·APIEndpoint 모듈이 소유합니다.
+[Excalidraw 원본](docs/architecture/tca-flow.excalidraw) · [Mermaid 원본](docs/architecture/tca-flow.mmd)
+
+현재 앱은 Splash에서 Home으로 전환합니다. Login 모듈은 의존성 그래프에 포함되지만 앱 화면 경로에는 아직 연결되지 않았습니다. 위젯과 알림 서비스 확장은 앱에 포함되는 별도 타깃입니다.
 
 ### 의존성 주입
 
