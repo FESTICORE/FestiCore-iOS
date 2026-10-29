@@ -9,12 +9,14 @@ import ActivityKit
 import FestiCoreLiveActivity
 import Foundation
 import Testing
+import UIKit
 
 @Suite("Live Activity 통합", .serialized)
 struct LiveActivityIntegrationTests {
   @Test("앱에서 Live Activity를 시작하고 종료한다")
   func startsAndEndsOnDevice() async throws {
     #expect(ActivityAuthorizationInfo().areActivitiesEnabled)
+    guard await waitUntilAppIsActive() else { return }
 
     let festivalID = UUID().uuidString
     let id = try FestiCoreFestivalLiveActivity.start(
@@ -57,6 +59,7 @@ struct LiveActivityIntegrationTests {
   @Test("축제가 끝나면 완료 상태로 종료한다")
   func endsWithFinishedContent() async throws {
     #expect(ActivityAuthorizationInfo().areActivitiesEnabled)
+    guard await waitUntilAppIsActive() else { return }
 
     let startDate = Date().addingTimeInterval(-3_600)
     let endDate = Date().addingTimeInterval(3_600)
@@ -88,5 +91,30 @@ struct LiveActivityIntegrationTests {
       try? await Task.sleep(for: .milliseconds(100))
     }
     return condition()
+  }
+
+  @MainActor
+  private func waitUntilAppIsActive() async -> Bool {
+    let app = UIApplication.shared
+    var requested = false
+    var activationError: String?
+    let deadline = Date().addingTimeInterval(8)
+    while Date() < deadline {
+      if app.applicationState == .active { return true }
+      if !requested,
+         let scene = app.connectedScenes.compactMap({ $0 as? UIWindowScene })
+           .first(where: { $0.session.role == .windowApplication }) {
+        requested = true
+        app.activateSceneSession(for: .init(session: scene.session)) { error in
+          activationError = error.localizedDescription
+        }
+      }
+      if activationError != nil { break }
+      try? await Task.sleep(for: .milliseconds(100))
+    }
+    if app.applicationState == .active { return true }
+    let scenes = app.connectedScenes.map { String(describing: $0.activationState) }.joined(separator: ", ")
+    Issue.record("Live Activity 시작 전 앱 활성화 실패: state=\(app.applicationState), sceneStates=[\(scenes)], requested=\(requested), error=\(activationError ?? "없음")")
+    return false
   }
 }
