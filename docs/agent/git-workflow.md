@@ -17,7 +17,7 @@
 
 ## PR 검증
 
-PR을 생성할 때 `gh pr create --assignee Roy-wonji`로 작성자를 담당자로 지정한다. 다른 방법으로 PR을 만들었다면 `gh pr edit <PR 번호> --add-assignee Roy-wonji`를 실행한다. 생성 직후 `gh pr view <PR 번호> --json assignees`로 할당 여부를 확인한다.
+PR을 생성할 때 `gh pr create --assignee Roy-wonji`로 작성자를 담당자로 지정한다. 다른 방법으로 PR을 만들었다면 `gh pr edit <PR 번호> --add-assignee Roy-wonji`를 실행한다. 생성 직후 `gh pr view <PR 번호> --json assignees`로 할당 여부를 확인한다. `.github/workflows/assign-pr-owner.yml`도 생성·재개·담당자 해제·새 커밋 시 누락된 할당을 복구한다.
 
 PR 본문에는 변경 범위, 테스트 명령과 결과, 실행하지 못한 검증을 구분해 쓴다. PR 라벨은 저장소에 있는 작업 유형 라벨을 사용한다. CI 성공과 로컬 테스트, 실기기 검증을 같은 결과로 표현하지 않는다. 이슈는 작업 PR이 합쳐지고 요구 사항을 확인한 뒤 닫는다.
 
