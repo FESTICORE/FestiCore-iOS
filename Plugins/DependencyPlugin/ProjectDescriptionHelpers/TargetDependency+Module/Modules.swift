@@ -10,6 +10,7 @@ import ProjectDescription
 public enum FeatureModule: String, CaseIterable {
   case assembly = "FeatureAssembly"
   case home = "Home"
+  case login = "Login"
 
   var path: Path { .relativeToFeature(rawValue) }
 }
