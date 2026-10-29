@@ -1,0 +1,27 @@
+flowchart LR
+  App["FestiCoreApp<br/>Store(initialState: AppCoordinator.State())"]
+  Coordinator["AppCoordinator<br/>State: splash | home"]
+  SplashView["SplashView<br/>onAppear"]
+  Splash["SplashFeature<br/>2-second animation gate"]
+  Delegate["delegate.presentHome"]
+  ViewAction["view.presentHome"]
+  Inner["inner.completeHomeTransition"]
+  HomeCoordinator["HomeCoordinator<br/>TCAFlow routes"]
+  Home["HomeFeature"]
+  Interfaces["FestivalDomain + Pack Interfaces<br/>Home clients"]
+  Service["Service implementation"]
+  Core["Network · Storage"]
+
+  App --> Coordinator
+  Coordinator --> SplashView
+  SplashView -->|view.onAppear| Splash
+  Splash -->|async.waitForAnimation| Splash
+  Splash -->|inner.animationFinished| Delegate
+  Delegate --> Coordinator
+  Coordinator --> ViewAction
+  ViewAction --> Inner
+  Inner -->|replace state| HomeCoordinator
+  HomeCoordinator -->|root route| Home
+  Home -->|DependencyKey| Interfaces
+  Interfaces --> Service
+  Service --> Core

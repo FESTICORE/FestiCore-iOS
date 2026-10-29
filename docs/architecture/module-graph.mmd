@@ -1,0 +1,60 @@
+flowchart LR
+  App["FestiCore App<br/>SwiftUI · TCA"]
+  Feature["FeatureAssembly"]
+  Home["Home"]
+  Login["Login module"]
+  AuthDomain["AuthDomain"]
+  FestivalDomain["FestivalDomain"]
+  Service["ServiceAssembly"]
+  API["API"]
+  Endpoint["APIEndpoint"]
+  Config["FestiCoreConfig"]
+  Analytics["FestiCoreAnalytics"]
+  Auth["FestiCoreAuth"]
+  Device["FestiCoreDevice"]
+  Catalog["FestiCoreFestivalCatalog"]
+  Pack["FestiCorePack"]
+  Core["CoreAssembly"]
+  Network["FestiCoreNetwork"]
+  Storage["FestiCoreStorage"]
+  Logger["FestiCoreLogger"]
+  SharedUI["FestiCoreSharedUI"]
+  Design["FestiCoreDesignKit"]
+  Animation["FestiCoreAnimation"]
+  Activity["FestiCoreLiveActivity"]
+  Widget["FestiCoreWidget"]
+  Notification["NotificationService"]
+
+  App --> Feature
+  App --> Service
+  App --> Core
+  App --> Design
+  App --> Animation
+  App --> Activity
+  App --> Config
+  App --> Analytics
+  App -. embeds .-> Widget
+  App -. embeds .-> Notification
+  Feature --> Home
+  Feature --> Login
+  Feature --> AuthDomain
+  Feature --> Service
+  Home --> FestivalDomain
+  Home --> Pack
+  Home --> SharedUI
+  Home --> Activity
+  Login --> AuthDomain
+  AuthDomain --> Endpoint
+  Endpoint --> API
+  Endpoint --> Network
+  Service --> Auth
+  Service --> Device
+  Service --> Catalog
+  Service --> Pack
+  Service --> Core
+  Core --> Network
+  Core --> Storage
+  Core --> Logger
+  SharedUI --> Design
+  SharedUI --> Animation
+  Widget --> Activity
