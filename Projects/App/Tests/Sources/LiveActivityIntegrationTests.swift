@@ -101,11 +101,16 @@ struct LiveActivityIntegrationTests {
     let deadline = Date().addingTimeInterval(8)
     while Date() < deadline {
       if app.applicationState == .active { return true }
-      if !requested,
-         let scene = app.connectedScenes.compactMap({ $0 as? UIWindowScene })
-           .first(where: { $0.session.role == .windowApplication }) {
+      if !requested {
         requested = true
-        app.activateSceneSession(for: .init(session: scene.session)) { error in
+        let scene = app.connectedScenes.compactMap { $0 as? UIWindowScene }
+          .first(where: { $0.session.role == .windowApplication })
+        let request: UISceneSessionActivationRequest = if let scene {
+          .init(session: scene.session)
+        } else {
+          .init(role: .windowApplication)
+        }
+        app.activateSceneSession(for: request) { error in
           activationError = error.localizedDescription
         }
       }
