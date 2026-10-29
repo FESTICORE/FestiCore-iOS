@@ -78,7 +78,7 @@ Projects/
 
 각 폴더는 추적 중인 `Project.swift` 기준입니다. 생성물과 아직 프로젝트에 등록되지 않은 실험 폴더는 제외했습니다.
 
-### 의존성 흐름
+### Mermaid 의존성 흐름
 
 ~~~mermaid
 flowchart TD
