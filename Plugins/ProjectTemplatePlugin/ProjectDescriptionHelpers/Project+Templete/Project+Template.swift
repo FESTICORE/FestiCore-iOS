@@ -44,6 +44,27 @@ public extension Project {
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .default,
         buildableFolders: ["Tests/Sources"],
+        scripts: [
+          .post(
+            script: """
+              set -euo pipefail
+              if [[ "$PLATFORM_NAME" != "iphonesimulator" ]]; then
+                exit 0
+              fi
+
+              host_app="$(dirname "$TEST_HOST")"
+              test -f "$SCRIPT_INPUT_FILE_0"
+              test -d "$host_app"
+              test "$host_app" -ef "$(dirname "$(dirname "$SCRIPT_OUTPUT_FILE_0")")"
+              mkdir -p "$host_app/Frameworks"
+              cp "$SCRIPT_INPUT_FILE_0" "$SCRIPT_OUTPUT_FILE_0"
+              """,
+            name: "Embed XCTest injector in simulator test host",
+            inputPaths: ["$(PLATFORM_DIR)/Developer/usr/lib/libXCTestBundleInject.dylib"],
+            outputPaths: ["$(BUILT_PRODUCTS_DIR)/\(name).app/Frameworks/libXCTestBundleInject.dylib"],
+            basedOnDependencyAnalysis: false
+          )
+        ],
         dependencies: [.target(name: name)]
       ))
     }
