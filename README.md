@@ -18,7 +18,7 @@
 
 ## 프로젝트
 
-FestiCore는 축제를 위한 iOS 앱입니다. Home에서 축제 목록을 조회하고, 축제를 선택하면 공개 팩을 받아 저장합니다. 저장된 목록과 팩은 앱 재시작 후 네트워크 없이 다시 볼 수 있습니다. Live Activity의 화면상 시작 동작은 아직 구현되지 않았습니다.
+FestiCore는 축제를 위한 iOS 앱입니다. Home에서 축제 목록을 조회하고, 축제를 선택하면 공개 팩을 받아 저장합니다. 저장된 목록과 팩은 앱 재시작 후 네트워크 없이 다시 볼 수 있습니다. Live Activity의 화면상 시작 동작은 구현됐으며, 잠금 화면 표시는 실제 기기에서 검증 중입니다.
 
 현재 구성:
 
@@ -77,6 +77,43 @@ Projects/
 ~~~
 
 각 폴더는 추적 중인 `Project.swift` 기준입니다. 생성물과 아직 프로젝트에 등록되지 않은 실험 폴더는 제외했습니다.
+
+### Mermaid 의존성 흐름
+
+~~~mermaid
+flowchart TD
+    App --> FeatureAssembly
+    App --> ServiceAssembly
+    App --> CoreAssembly
+    FeatureAssembly --> Home
+    FeatureAssembly --> Login
+    FeatureAssembly --> AuthDomain
+    FeatureAssembly --> ServiceAssembly
+    Home --> FestivalDomainInterface["FestivalDomain / Interface"]
+    Home --> PackInterface["FestiCorePack / Interface"]
+    Home --> SharedUI["FestiCoreSharedUI"]
+    Login --> AuthDomainInterface["AuthDomain / Interface"]
+    AuthDomain --> AuthDomainInterface
+    AuthDomain --> AuthInterface["FestiCoreAuth / Interface"]
+    AuthDomain --> APIEndpoint
+    AuthDomain --> NetworkInterface["FestiCoreNetwork / Interface"]
+    ServiceAssembly --> CoreAssembly
+    ServiceAssembly --> FestivalDomainInterface
+    ServiceAssembly --> Network["FestiCoreNetwork / Implementation"]
+    ServiceAssembly --> Services["Auth · Device · FestivalCatalog · Pack"]
+    CoreAssembly --> Core["Logger · Network · Storage"]
+    APIEndpoint --> NetworkInterface
+    App -. 포함 .-> Widget["FestiCoreWidget"]
+    App -. 포함 .-> Notification["FestiCoreNotificationService"]
+~~~
+
+- `FeatureAssembly`는 Home·Login과 인증 도메인, `ServiceAssembly`를 연결합니다.
+- 화면은 필요한 도메인·서비스의 Interface를 직접 의존하고, `ServiceAssembly`와 `CoreAssembly`가 라이브 구현을 조립합니다.
+- App은 Feature·Service·Core 조립 모듈과 앱에서 직접 사용하는 UI·설정 모듈을 참조합니다. 위젯과 알림 서비스는 앱에 포함되는 별도 타깃입니다.
+
+### 모듈 그래프
+
+현재 `Project.swift`의 주요 내부 의존성을 펼친 그래프입니다.
 
 ![현재 모듈 의존성 그래프](docs/architecture/module-graph.svg)
 
