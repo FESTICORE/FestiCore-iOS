@@ -13,6 +13,10 @@ struct FestiCoreDesignKitCatalogView: View {
   @State private var tabSelection = 0
   @State private var segmentSelection = 0
   @State private var tabBarSelection: FestiCoreTabBar.Tab = .live
+  @State private var isFollowing = false
+  @State private var isBigButtonSelected = false
+  @State private var isChipSelected = true
+  @State private var sortSelection = 0
 
   var body: some View {
     NavigationStack {
@@ -23,6 +27,8 @@ struct FestiCoreDesignKitCatalogView: View {
           typographySection
           FestiCoreDivider()
           buttonSection
+          FestiCoreDivider()
+          actionSection
           FestiCoreDivider()
           navigationSection
           FestiCoreDivider()
@@ -68,6 +74,52 @@ struct FestiCoreDesignKitCatalogView: View {
       FestiCorePrimaryButton("기본 버튼") {}
       FestiCorePrimaryButton("비활성 버튼", isEnabled: false) {}
     }
+  }
+
+  private var actionSection: some View {
+    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
+      sectionTitle("Actions")
+      ForEach([FestiCoreButton.Style.primary, .secondary, .ghost, .accent, .inverse], id: \.self) { style in
+        HStack(spacing: FestiCoreSpacing.paddingP12) {
+          FestiCoreButton("버튼") {}
+            .style(style)
+          FestiCoreButton("버튼") {}
+            .style(style)
+            .size(.medium)
+          FestiCoreButton("버튼") {}
+            .style(style)
+            .isEnabled(false)
+        }
+      }
+      FestiCoreHeroFollowButton(isFollowing: isFollowing) { isFollowing.toggle() }
+        .padding(FestiCoreSpacing.paddingP12)
+        .background(FestiCoreSemanticColor.staticalphaBlack80.color)
+      FestiCoreBigButton("존", sub: "리벳 앞 왼쪽", icon: .locationDot) { isBigButtonSelected.toggle() }
+        .isSelected(isBigButtonSelected)
+        .frame(width: 168, height: 180)
+      FestiCoreLoginButton(.apple) {}
+      FestiCoreLoginButton(.google) {}
+      HStack(spacing: FestiCoreSpacing.paddingP12) {
+        FestiCoreChip("전체") { isChipSelected.toggle() }
+          .isSelected(isChipSelected)
+        Spacer()
+        FestiCoreSortButton(sortItems[sortSelection]) {}
+      }
+      FestiCoreSortMenu(selection: $sortSelection, items: sortItems)
+      FestiCoreBackPill("관객 화면으로") {}
+      FestiCoreBearerPrompt {}
+      VStack(spacing: FestiCoreSpacing.paddingP24) {
+        FestiCoreBearerCTA(.start) {}
+        FestiCoreBearerCTA(.restart) {}
+      }
+      .padding(FestiCoreSpacing.paddingP16)
+      .background(FestiCoreSemanticColor.backgroundAlternative.color)
+      .environment(\.colorScheme, .dark)
+    }
+  }
+
+  private var sortItems: [String] {
+    ["활동 중 순", "팔로워 많은 순", "최근 업데이트 순", "새로 생긴 순"]
   }
 
   private var navigationSection: some View {
