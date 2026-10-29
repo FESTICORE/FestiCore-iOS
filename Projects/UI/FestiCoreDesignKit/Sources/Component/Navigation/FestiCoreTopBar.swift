@@ -355,3 +355,25 @@ private extension FestiCoreTopBar {
     }
   }
 }
+
+#Preview {
+  @Previewable
+  @State var searchText = ""
+
+  VStack(spacing: FestiCoreSpacing.paddingP16) {
+    FestiCoreTopBar(.logo)
+      .showsBadge(true)
+    FestiCoreTopBar(.logoBearer)
+      .onBearer {}
+    FestiCoreTopBar(.back, title: "라인업")
+      .onBack {}
+    FestiCoreTopBar(.large, title: "타임테이블")
+    FestiCoreTopBar(.search(text: $searchText))
+      .searchPlaceholder("아티스트 검색")
+      .onCancel {}
+    FestiCoreTopBar(.backOnImage, title: "아티스트")
+      .onBack {}
+      .background(FestiCoreSemanticColor.accentPointOrange.color)
+  }
+  .background(FestiCoreSemanticColor.backgroundNormal.color)
+}

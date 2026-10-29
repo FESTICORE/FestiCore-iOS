@@ -23,3 +23,10 @@ private extension FestiCoreOverlapHighlight {
     static let opacity: Double = 0.2
   }
 }
+
+#Preview {
+  FestiCoreOverlapHighlight()
+    .frame(width: 120, height: 80)
+    .padding(FestiCoreSpacing.paddingP20)
+    .background(FestiCoreSemanticColor.backgroundNormal.color)
+}

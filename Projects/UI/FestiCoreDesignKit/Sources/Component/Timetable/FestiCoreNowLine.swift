@@ -51,3 +51,9 @@ private extension FestiCoreNowLine {
     static let lineHeight: CGFloat = 2
   }
 }
+
+#Preview {
+  FestiCoreNowLine(time: "18:30")
+    .padding(FestiCoreSpacing.paddingP20)
+    .background(FestiCoreSemanticColor.backgroundNormal.color)
+}

@@ -55,3 +55,12 @@ private extension FestiCoreTabItem {
     static let indicatorRadius: CGFloat = 2
   }
 }
+
+#Preview {
+  HStack(spacing: FestiCoreSpacing.paddingP16) {
+    FestiCoreTabItem("선택됨", isSelected: true)
+    FestiCoreTabItem("기본", isSelected: false)
+  }
+  .padding(FestiCoreSpacing.paddingP20)
+  .background(FestiCoreSemanticColor.backgroundNormal.color)
+}

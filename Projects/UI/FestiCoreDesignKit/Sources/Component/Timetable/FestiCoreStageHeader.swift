@@ -49,3 +49,13 @@ private extension FestiCoreStageHeader {
     static let dotSize: CGFloat = 8
   }
 }
+
+#Preview {
+  VStack(spacing: FestiCoreSpacing.paddingP16) {
+    FestiCoreStageHeader(name: "메인 스테이지")
+    FestiCoreStageHeader(name: "서브 스테이지")
+      .dotColor(.accentPointOrange)
+  }
+  .padding(FestiCoreSpacing.paddingP20)
+  .background(FestiCoreSemanticColor.backgroundNormal.color)
+}

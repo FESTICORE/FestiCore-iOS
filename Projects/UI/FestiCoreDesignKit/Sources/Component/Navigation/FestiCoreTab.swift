@@ -47,3 +47,11 @@ public extension FestiCoreTab {
     return copy
   }
 }
+
+#Preview {
+  @Previewable
+  @State var selection = 0
+
+  FestiCoreTab(selection: $selection, items: ["1일차", "2일차", "3일차"])
+    .background(FestiCoreSemanticColor.backgroundNormal.color)
+}
