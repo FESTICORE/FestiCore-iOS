@@ -208,6 +208,59 @@ private func module(_ arguments: [String]) -> Int32 {
   return generated
 }
 
+private func renderGraph(production: Bool, forwardedArguments: [String]) -> Int32 {
+  let fileManager = FileManager.default
+  let workDirectory = fileManager.temporaryDirectory
+    .appendingPathComponent("festicore-graph-\(UUID().uuidString)")
+  do {
+    try fileManager.createDirectory(at: workDirectory, withIntermediateDirectories: true)
+  } catch {
+    fputs("그래프 작업 디렉터리 생성 실패: \(error)\n", stderr)
+    return 1
+  }
+  defer { try? fileManager.removeItem(at: workDirectory) }
+
+  var graphArguments = [
+    "graph", "--no-open", "--skip-external-dependencies",
+    "--format", "dot", "--output-path", workDirectory.path
+  ]
+  if production { graphArguments.append("--skip-test-targets") }
+  let graphStatus = tuist(graphArguments + forwardedArguments)
+  guard graphStatus == 0 else { return graphStatus }
+
+  let dotURL = workDirectory.appendingPathComponent("graph.dot")
+  guard let rawGraph = try? String(contentsOf: dotURL, encoding: .utf8) else {
+    fputs("Tuist 그래프 파일을 읽지 못했습니다: \(dotURL.path)\n", stderr)
+    return 1
+  }
+
+  // Tuist에는 Demo 타깃만 제외하는 옵션이 없어 DOT의 해당 노드와 간선을 제거한다.
+  let graph = rawGraph
+    .split(separator: "\n", omittingEmptySubsequences: false)
+    .filter { line in
+      line.range(of: #"\b[A-Za-z0-9_]+Demo\b"#, options: .regularExpression) == nil
+    }
+    .joined(separator: "\n")
+  let filteredURL = workDirectory.appendingPathComponent("filtered.dot")
+  do {
+    try graph.write(to: filteredURL, atomically: true, encoding: .utf8)
+  } catch {
+    fputs("그래프 파일 저장 실패: \(error)\n", stderr)
+    return 1
+  }
+
+  let output = production
+    ? "docs/architecture/module-graph-prod.png"
+    : "docs/architecture/module-graph-all.png"
+  let renderStatus = run("dot", ["-Tpng", filteredURL.path, "-o", output])
+  guard renderStatus == 0 else {
+    fputs("Graphviz 렌더링 실패: `brew install graphviz`를 확인하세요.\n", stderr)
+    return renderStatus
+  }
+  print("\(output) 생성 완료")
+  return 0
+}
+
 private let status: Int32
 switch command {
 case "setup":
@@ -229,6 +282,10 @@ case "clean":
   status = tuist(["clean"] + forwarded)
 case "module":
   status = module(forwarded)
+case "graph":
+  status = renderGraph(production: false, forwardedArguments: forwarded)
+case "graph:prod":
+  status = renderGraph(production: true, forwardedArguments: forwarded)
 case "help":
   print("""
   ./make setup                 mise 설치, 의존성·로컬 Tuist 캐시 준비, 프로젝트 생성
@@ -239,6 +296,8 @@ case "help":
   ./make build                 Stage 시뮬레이터 빌드
   ./make test                  Stage 플랜 전체 테스트 (선택적 테스트 비활성화)
   ./make module <Layer> <Name> Feature/Domain/Data 또는 FestiCore 접두어가 있는 Core/UI/Service 모듈 생성
+  ./make graph                 외부 패키지·Demo를 제외한 전체 모듈 그래프 생성
+  ./make graph:prod            외부 패키지·Demo·Tests를 제외한 제품 모듈 그래프 생성
   ./make clean                 Tuist 생성물 정리
   """)
   status = 0
