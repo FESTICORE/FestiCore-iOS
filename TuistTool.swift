@@ -253,6 +253,15 @@ private func renderGraph(production: Bool, forwardedArguments: [String]) -> Int3
   let output = production
     ? "docs/architecture/module-graph-prod.png"
     : "docs/architecture/module-graph-all.png"
+  do {
+    try fileManager.createDirectory(
+      atPath: (output as NSString).deletingLastPathComponent,
+      withIntermediateDirectories: true
+    )
+  } catch {
+    fputs("그래프 출력 디렉터리 생성 실패: \(error)\n", stderr)
+    return 1
+  }
   let renderStatus = run("dot", ["-Tpng", filteredURL.path, "-o", output])
   guard renderStatus == 0 else {
     fputs("Graphviz 렌더링 실패: `brew install graphviz`를 확인하세요.\n", stderr)
