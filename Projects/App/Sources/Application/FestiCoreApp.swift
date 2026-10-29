@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import ComposableArchitecture
 
 import FeatureAssembly
 import ServiceAssembly
@@ -16,16 +17,18 @@ struct FestiCoreApp: App {
 
   var body: some Scene {
     WindowGroup {
-      let store = Store(initialState: AppCoordinator.State()) {
-        AppCoordinator()
-      } withDependencies: {
-        ServiceDependencyAssembly.register(into: &$0)
-      }
-
-      AppCoordinatorView(store: store)
-        .onOpenURL { url in
-          FeatureOAuthURLHandler.handle(url)
+      if TestContext.current == nil {
+        let store = Store(initialState: AppCoordinator.State()) {
+          AppCoordinator()
+        } withDependencies: {
+          ServiceDependencyAssembly.register(into: &$0)
         }
+
+        AppCoordinatorView(store: store)
+          .onOpenURL { url in
+            FeatureOAuthURLHandler.handle(url)
+          }
+      }
     }
   }
 }
