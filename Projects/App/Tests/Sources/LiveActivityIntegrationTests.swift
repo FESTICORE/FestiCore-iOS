@@ -9,12 +9,17 @@ import ActivityKit
 import FestiCoreLiveActivity
 import Foundation
 import Testing
+import UIKit
 
 @Suite("Live Activity 통합", .serialized)
 struct LiveActivityIntegrationTests {
   @Test("앱에서 Live Activity를 시작하고 종료한다")
   func startsAndEndsOnDevice() async throws {
     #expect(ActivityAuthorizationInfo().areActivitiesEnabled)
+    guard await waitUntilAppIsActive() else {
+      Issue.record("Live Activity 시작 전에 테스트 앱이 foreground로 전환되지 않았습니다.")
+      return
+    }
 
     let festivalID = UUID().uuidString
     let id = try FestiCoreFestivalLiveActivity.start(
@@ -57,6 +62,10 @@ struct LiveActivityIntegrationTests {
   @Test("축제가 끝나면 완료 상태로 종료한다")
   func endsWithFinishedContent() async throws {
     #expect(ActivityAuthorizationInfo().areActivitiesEnabled)
+    guard await waitUntilAppIsActive() else {
+      Issue.record("Live Activity 시작 전에 테스트 앱이 foreground로 전환되지 않았습니다.")
+      return
+    }
 
     let startDate = Date().addingTimeInterval(-3_600)
     let endDate = Date().addingTimeInterval(3_600)
@@ -88,5 +97,16 @@ struct LiveActivityIntegrationTests {
       try? await Task.sleep(for: .milliseconds(100))
     }
     return condition()
+  }
+
+  private func waitUntilAppIsActive() async -> Bool {
+    let deadline = Date().addingTimeInterval(8)
+    while Date() < deadline {
+      if await MainActor.run(body: { UIApplication.shared.applicationState == .active }) {
+        return true
+      }
+      try? await Task.sleep(for: .milliseconds(100))
+    }
+    return await MainActor.run { UIApplication.shared.applicationState == .active }
   }
 }
