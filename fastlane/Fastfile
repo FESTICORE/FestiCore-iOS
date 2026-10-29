@@ -1,4 +1,5 @@
 default_platform(:ios)
+require "shellwords"
 
 APP_NAME = "FestiCore"
 BUNDLE_ID = "io.festiCore.co"
@@ -88,6 +89,8 @@ def next_build_number(api_key, version)
 end
 
 def signed_ipa(scheme, configuration, version, build_number, api_key)
+  sentry_dsn = ENV["FESTICORE_SENTRY_DSN"]
+  sentry_arg = sentry_dsn.to_s.empty? ? "" : " FESTICORE_SENTRY_DSN=#{Shellwords.escape(sentry_dsn)}"
   prepare_signing_keychain
   match(
     type: "appstore",
@@ -134,7 +137,7 @@ def signed_ipa(scheme, configuration, version, build_number, api_key)
     output_directory: "fastlane/output",
     output_name: "#{APP_NAME}.ipa",
     xcodebuild_formatter: "",
-    xcargs: "FESTICORE_VERSION=#{version} FESTICORE_BUILD_NUMBER=#{build_number} FESTICORE_APNS_ENVIRONMENT=production",
+    xcargs: "FESTICORE_VERSION=#{version} FESTICORE_BUILD_NUMBER=#{build_number} FESTICORE_APNS_ENVIRONMENT=production#{sentry_arg}",
     export_options: {
       signingStyle: "manual",
       teamID: TEAM_ID,

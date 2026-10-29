@@ -18,6 +18,10 @@ enum SentryConfiguration {
   static func options(infoDictionary: [String: Any]) -> Options? {
     guard let dsn = (infoDictionary["FestiCoreSentryDSN"] as? String)?
       .trimmingCharacters(in: .whitespacesAndNewlines), !dsn.isEmpty,
+      let components = URLComponents(string: dsn),
+      components.scheme == "https", components.host != nil,
+      components.user != nil,
+      Int(components.path.dropFirst()) != nil,
       let environment = infoDictionary["FestiCoreEnvironment"] as? String,
       environment == "stage" || environment == "production" else {
       return nil
