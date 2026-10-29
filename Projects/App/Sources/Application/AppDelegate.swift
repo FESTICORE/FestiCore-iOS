@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import ComposableArchitecture
 import CoreAssembly
 import ServiceAssembly
 
@@ -19,6 +20,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    guard TestContext.current == nil else { return true }
+
     configure()
     do {
       registerDevice(apnsToken: try secureStorage.load(.apnsToken))
