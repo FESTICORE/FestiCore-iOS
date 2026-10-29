@@ -38,6 +38,46 @@ FestiCore는 축제를 위한 iOS 앱입니다. Home에서 축제 목록을 조�
 
 SwiftUI와 The Composable Architecture를 사용하는 Tuist 멀티모듈 프로젝트입니다. `Workspace.swift`가 `Projects/**`를 모으고, AppCoordinator는 Splash에서 Home으로 전환합니다.
 
+### 폴더 구조
+
+~~~text
+Projects/
+├── App/                           # 앱 진입점, 설정, 테스트 플랜
+├── Feature/
+│   ├── FeatureAssembly/           # 화면 모듈 조립
+│   ├── Home/                      # 축제 목록·상세 화면
+│   └── Login/                     # 로그인 Feature
+├── Domain/
+│   ├── AuthDomain/                # 인증 Entity·Repository·UseCase
+│   └── FestivalDomain/            # 축제 목록 계약과 모델
+├── Service/
+│   ├── API/                      # API 요청 인터페이스
+│   ├── APIEndpoint/              # API 경로·인증 정책
+│   ├── ServiceAssembly/           # 서비스 의존성 조립
+│   ├── FestiCoreAuth/             # 인증 세션과 토큰 갱신
+│   ├── FestiCoreAnalytics/        # Mixpanel·Sentry 초기화
+│   ├── FestiCoreConfig/           # Firebase 앱 설정
+│   ├── FestiCoreDevice/           # 기기·Live Activity 등록
+│   ├── FestiCoreFestivalCatalog/  # 축제 목록과 로컬 캐시
+│   └── FestiCorePack/             # 축제 팩 동기화와 로컬 캐시
+├── Core/
+│   ├── CoreAssembly/              # Core 구현 조립
+│   ├── FestiCoreNetwork/          # HTTP 클라이언트
+│   ├── FestiCoreStorage/          # Keychain과 저장소
+│   └── FestiCoreLogger/           # 공통 로깅
+├── UI/
+│   ├── FestiCoreDesignKit/        # 디자인 토큰과 리소스
+│   ├── FestiCoreSharedUI/         # 공통 UI
+│   ├── FestiCoreAnimation/        # 애니메이션 표시 API
+│   └── FestiCoreLiveActivity/     # 앱·위젯 공유 ActivityKit 타입
+├── Extension/
+│   └── FestiCoreNotificationService/ # 푸시 알림 서비스 확장
+└── Widget/
+    └── FestiCoreWidget/           # 잠금 화면·Dynamic Island 확장
+~~~
+
+각 폴더는 추적 중인 `Project.swift` 기준입니다. 생성물과 아직 프로젝트에 등록되지 않은 실험 폴더는 제외했습니다.
+
 ![현재 모듈 의존성 그래프](docs/architecture/module-graph.svg)
 
 [Excalidraw 원본](docs/architecture/module-graph.excalidraw) · [Mermaid 원본](docs/architecture/module-graph.mmd) · [갱신 방법](docs/architecture/README.md)
