@@ -114,10 +114,7 @@ struct LiveActivityIntegrationTests {
     }
     if app.applicationState == .active { return true }
     let scenes = app.connectedScenes.map { String(describing: $0.activationState) }.joined(separator: ", ")
-    Issue.record(
-      "Live Activity 시작 전 앱 활성화 실패: state=\(app.applicationState), "
-        + "sceneStates=[\(scenes)], requested=\(requested), error=\(activationError ?? "없음")"
-    )
+    Issue.record("Live Activity 시작 전 앱 활성화 실패: state=\(app.applicationState), sceneStates=[\(scenes)], requested=\(requested), error=\(activationError ?? "없음")")
     return false
   }
 }
