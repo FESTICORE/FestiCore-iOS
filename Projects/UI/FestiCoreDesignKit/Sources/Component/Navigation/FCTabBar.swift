@@ -1,5 +1,5 @@
 //
-//  FestiCoreTabBar.swift
+//  FCTabBar.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/29/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// 하단 탭 4개(라이브·타임테이블·깃발·마이). 바탕은 하단 safe area까지 이어진다.
-public struct FestiCoreTabBar: View {
+public struct FCTabBar: View {
   public enum Tab: CaseIterable, Hashable, Sendable {
     case live
     case timetable
@@ -55,7 +55,7 @@ public struct FestiCoreTabBar: View {
         .ignoresSafeArea(edges: .bottom)
     }
     .overlay(alignment: .top) {
-      FestiCoreDivider()
+      FCDivider()
     }
   }
 
@@ -87,7 +87,7 @@ public struct FestiCoreTabBar: View {
   }
 }
 
-private extension FestiCoreTabBar {
+private extension FCTabBar {
   enum Metric {
     static let iconSize: CGFloat = 24
   }
@@ -95,11 +95,11 @@ private extension FestiCoreTabBar {
 
 #Preview {
   @Previewable
-  @State var selection: FestiCoreTabBar.Tab = .live
+  @State var selection: FCTabBar.Tab = .live
 
   VStack {
     Spacer()
-    FestiCoreTabBar(selection: $selection)
+    FCTabBar(selection: $selection)
   }
   .background(FestiCoreSemanticColor.backgroundNormal.color)
 }

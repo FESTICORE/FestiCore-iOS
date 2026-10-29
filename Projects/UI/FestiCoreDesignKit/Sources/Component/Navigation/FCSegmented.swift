@@ -1,5 +1,5 @@
 //
-//  FestiCoreSegmented.swift
+//  FCSegmented.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/29/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// 2~3개 보기 전환(날짜, 보기 방식 등). 선택 칸은 Fill/Selected.
-public struct FestiCoreSegmented: View {
+public struct FCSegmented: View {
   @Binding private var selection: Int
   private var items: [String]
 
@@ -36,7 +36,7 @@ public struct FestiCoreSegmented: View {
   }
 
   private func segment(_ item: String, index: Int) -> some View {
-    let isSelected = FestiCoreSelection.isSelected(index: index, selection: selection, count: items.count)
+    let isSelected = FCSelection.isSelected(index: index, selection: selection, count: items.count)
 
     return Button {
       withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
@@ -68,7 +68,7 @@ public struct FestiCoreSegmented: View {
 }
 
 // MARK: - 체이닝 설정
-public extension FestiCoreSegmented {
+public extension FCSegmented {
   /// `items` 를 바꾼 사본을 돌려준다.
   func items(_ items: [String]) -> Self {
     var copy = self
@@ -77,7 +77,7 @@ public extension FestiCoreSegmented {
   }
 }
 
-private extension FestiCoreSegmented {
+private extension FCSegmented {
   enum Metric {
     static let height: CGFloat = 40
     static let shadowOpacity: Double = 0.08
@@ -89,7 +89,7 @@ private extension FestiCoreSegmented {
   @Previewable
   @State var selection = 0
 
-  FestiCoreSegmented(selection: $selection, items: ["전체", "내 일정"])
+  FCSegmented(selection: $selection, items: ["전체", "내 일정"])
     .padding(FestiCoreSpacing.paddingP20)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
 }

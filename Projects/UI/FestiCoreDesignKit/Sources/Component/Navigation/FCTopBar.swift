@@ -1,5 +1,5 @@
 //
-//  FestiCoreTopBar.swift
+//  FCTopBar.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/29/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// 화면 맨 위 바. 바탕은 글래스(blur)다.
-public struct FestiCoreTopBar: View {
+public struct FCTopBar: View {
   public enum Style {
     /// 홈
     case logo
@@ -228,7 +228,7 @@ public struct FestiCoreTopBar: View {
 // MARK: - 체이닝 설정
 //
 // 값 타입 사본을 돌려주므로 호출 순서에 영향받지 않는다.
-public extension FestiCoreTopBar {
+public extension FCTopBar {
   /// 뒤로 버튼 action을 지정한 사본을 돌려준다. 지정하지 않으면 뒤로 버튼을 그리지 않는다.
   func onBack(_ action: @escaping () -> Void) -> Self {
     var copy = self
@@ -283,7 +283,7 @@ public extension FestiCoreTopBar {
   }
 }
 
-private extension FestiCoreTopBar {
+private extension FCTopBar {
   enum Metric {
     static let height: CGFloat = 52
     static let largeHeight: CGFloat = 60
@@ -361,17 +361,17 @@ private extension FestiCoreTopBar {
   @State var searchText = ""
 
   VStack(spacing: FestiCoreSpacing.paddingP16) {
-    FestiCoreTopBar(.logo)
+    FCTopBar(.logo)
       .showsBadge(true)
-    FestiCoreTopBar(.logoBearer)
+    FCTopBar(.logoBearer)
       .onBearer {}
-    FestiCoreTopBar(.back, title: "라인업")
+    FCTopBar(.back, title: "라인업")
       .onBack {}
-    FestiCoreTopBar(.large, title: "타임테이블")
-    FestiCoreTopBar(.search(text: $searchText))
+    FCTopBar(.large, title: "타임테이블")
+    FCTopBar(.search(text: $searchText))
       .searchPlaceholder("아티스트 검색")
       .onCancel {}
-    FestiCoreTopBar(.backOnImage, title: "아티스트")
+    FCTopBar(.backOnImage, title: "아티스트")
       .onBack {}
       .background(FestiCoreSemanticColor.accentPointOrange.color)
   }

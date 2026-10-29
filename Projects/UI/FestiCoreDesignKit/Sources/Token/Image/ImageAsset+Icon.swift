@@ -15,6 +15,16 @@ public extension ImageAsset {
   static let flag16 = ImageAsset(rawValue: "flag-16")
   static let magnifyingGlass = ImageAsset(rawValue: "magnifying-glass")
   static let magnifyingGlass16 = ImageAsset(rawValue: "magnifying-glass-16")
+  static let chevronLeft16 = ImageAsset(rawValue: "chevron-left-16")
+  static let chevronRight16 = ImageAsset(rawValue: "chevron-right-16")
+  static let filter16 = ImageAsset(rawValue: "filter-16")
+  static let flag = ImageAsset(rawValue: "flag")
+  static let locationDot = ImageAsset(rawValue: "location-dot")
+
+  // MARK: - 소셜 로그인
+
+  static let appleLogo = ImageAsset(rawValue: "apple-logo")
+  static let googleLogo = ImageAsset(rawValue: "google-logo")
 
   // MARK: - 탭 바
 

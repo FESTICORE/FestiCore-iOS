@@ -1,5 +1,5 @@
 //
-//  FestiCoreTabItem.swift
+//  FCTabItem.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/29/26.
@@ -7,8 +7,8 @@
 
 import SwiftUI
 
-/// `FestiCoreTab` 안의 한 칸. 선택되면 라벨 아래 밑줄을 그린다.
-public struct FestiCoreTabItem: View {
+/// `FCTab` 안의 한 칸. 선택되면 라벨 아래 밑줄을 그린다.
+public struct FCTabItem: View {
   private var label: String
   private var isSelected: Bool
 
@@ -40,7 +40,7 @@ public struct FestiCoreTabItem: View {
 }
 
 // MARK: - 체이닝 설정
-public extension FestiCoreTabItem {
+public extension FCTabItem {
   /// `isSelected` 를 바꾼 사본을 돌려준다.
   func isSelected(_ isSelected: Bool) -> Self {
     var copy = self
@@ -49,7 +49,7 @@ public extension FestiCoreTabItem {
   }
 }
 
-private extension FestiCoreTabItem {
+private extension FCTabItem {
   enum Metric {
     static let indicatorHeight: CGFloat = 2
     static let indicatorRadius: CGFloat = 2
@@ -58,8 +58,8 @@ private extension FestiCoreTabItem {
 
 #Preview {
   HStack(spacing: FestiCoreSpacing.paddingP16) {
-    FestiCoreTabItem("선택됨", isSelected: true)
-    FestiCoreTabItem("기본", isSelected: false)
+    FCTabItem("선택됨", isSelected: true)
+    FCTabItem("기본", isSelected: false)
   }
   .padding(FestiCoreSpacing.paddingP20)
   .background(FestiCoreSemanticColor.backgroundNormal.color)

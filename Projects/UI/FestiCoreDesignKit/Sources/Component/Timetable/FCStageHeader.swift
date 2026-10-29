@@ -1,5 +1,5 @@
 //
-//  FestiCoreStageHeader.swift
+//  FCStageHeader.swift
 //  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/29/26.
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// 무대 컬럼 머리. 점 색 = 무대 색.
-public struct FestiCoreStageHeader: View {
+public struct FCStageHeader: View {
   private var name: String
   private(set) var dotColor: FestiCoreSemanticColor = .accentPointLime
 
@@ -34,7 +34,7 @@ public struct FestiCoreStageHeader: View {
 }
 
 // MARK: - 체이닝 설정
-public extension FestiCoreStageHeader {
+public extension FCStageHeader {
   /// `dotColor` 를 바꾼 사본을 돌려준다.
   func dotColor(_ color: FestiCoreSemanticColor) -> Self {
     var copy = self
@@ -43,7 +43,7 @@ public extension FestiCoreStageHeader {
   }
 }
 
-private extension FestiCoreStageHeader {
+private extension FCStageHeader {
   enum Metric {
     static let height: CGFloat = 40
     static let dotSize: CGFloat = 8
@@ -52,8 +52,8 @@ private extension FestiCoreStageHeader {
 
 #Preview {
   VStack(spacing: FestiCoreSpacing.paddingP16) {
-    FestiCoreStageHeader(name: "메인 스테이지")
-    FestiCoreStageHeader(name: "서브 스테이지")
+    FCStageHeader(name: "메인 스테이지")
+    FCStageHeader(name: "서브 스테이지")
       .dotColor(.accentPointOrange)
   }
   .padding(FestiCoreSpacing.paddingP20)
