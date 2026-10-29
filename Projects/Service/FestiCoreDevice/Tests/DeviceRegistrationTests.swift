@@ -8,7 +8,7 @@
 import Foundation
 import Testing
 import Alamofire
-import FestiCoreDeviceInterface
+@testable import FestiCoreDeviceInterface
 import FestiCoreNetworkInterface
 import FestiCoreStorageInterface
 @testable import FestiCoreDevice
@@ -23,6 +23,13 @@ struct DeviceRegistrationTests {
     locale: "ko-KR",
     timezone: "Asia/Seoul"
   )
+
+  @Test("앱 테스트 호스트의 기본 기기 등록은 외부 요청 없이 오류를 반환한다")
+  func defaultRegistrationDoesNotSucceed() async {
+    await #expect(throws: TestDeviceRegistrationUnavailable.self) {
+      try await DeviceRegistrationServiceDependency.testValue.register(metadata)
+    }
+  }
 
   @Test("APNs 권한이 없어도 명시적인 null 토큰으로 등록 요청한다")
   func encodesRegistrationRequest() throws {

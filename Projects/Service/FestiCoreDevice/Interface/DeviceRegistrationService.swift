@@ -55,10 +55,12 @@ public extension DependencyValues {
 
 private struct UnimplementedDeviceRegistrationService: DeviceRegistrationService {
   func register(_: DeviceRegistrationMetadata) async throws -> DeviceAuthorization {
-    fatalError("deviceRegistrationService 미등록")
+    throw TestDeviceRegistrationUnavailable()
   }
 
   func authorization() async throws -> DeviceAuthorization? {
     fatalError("deviceRegistrationService 미등록")
   }
 }
+
+struct TestDeviceRegistrationUnavailable: Error {}

@@ -5,6 +5,7 @@
 //  Created by FestiCore on 10/22/26.
 //
 
+import Foundation
 import SwiftUI
 import ComposableArchitecture
 
@@ -20,6 +21,7 @@ struct FestiCoreApp: App {
         AppCoordinator()
       } withDependencies: {
         $0.continuousClock = ContinuousClock()
+        $0.date = .init { Date() }
       }
 
       AppCoordinatorView(store: store)
