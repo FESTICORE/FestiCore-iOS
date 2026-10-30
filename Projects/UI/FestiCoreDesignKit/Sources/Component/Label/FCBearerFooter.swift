@@ -11,6 +11,7 @@ import SwiftUI
 public struct FCBearerFooter: View {
   /// 0이면 기본 안내, 1 이상이면 전송 대기 건수를 표시한다.
   private var queuedCount: Int
+  private(set) var message: String?
 
   public init(queuedCount: Int = 0) {
     self.queuedCount = queuedCount
@@ -22,7 +23,7 @@ public struct FCBearerFooter: View {
         .resizable()
         .frame(width: Metric.iconSize, height: Metric.iconSize)
         .accessibilityHidden(true)
-      Text(isQueued ? "보내기 대기 \(queuedCount)건 · 연결되면 자동으로 보내요" : "오프라인이어도 눌러져요 · 연결되면 자동으로 보내요")
+      Text(message ?? (isQueued ? "보내기 대기 \(queuedCount)건 · 연결되면 자동으로 보내요" : "오프라인이어도 눌러져요 · 연결되면 자동으로 보내요"))
         .festiCoreFont(.baseFootnoteRegular)
     }
     .foregroundStyle(isQueued ? FestiCoreSemanticColor.labelNormal.color : FestiCoreSemanticColor.labelAssistive.color)
@@ -32,6 +33,17 @@ public struct FCBearerFooter: View {
 
   private var isQueued: Bool {
     queuedCount > 0
+  }
+}
+
+// MARK: - 체이닝 설정
+
+public extension FCBearerFooter {
+  /// 안내 문구를 바꾼 사본을 돌려준다. `nil`이면 상태별 기본 문구를 쓴다.
+  func message(_ message: String?) -> Self {
+    var copy = self
+    copy.message = message
+    return copy
   }
 }
 

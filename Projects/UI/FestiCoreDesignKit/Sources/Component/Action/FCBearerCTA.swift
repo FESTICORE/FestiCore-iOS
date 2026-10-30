@@ -14,8 +14,38 @@ public struct FCBearerCTA: View {
     case restart
   }
 
+  /// 화면에 보이는 문구. 바꾸지 않으면 상태별 Figma 기본 문구를 쓴다.
+  public struct Copy: Sendable {
+    public var title: String
+    public var buttonTitle: String
+    public var caption: String
+    public var note: String?
+
+    public init(title: String, buttonTitle: String, caption: String, note: String? = nil) {
+      self.title = title
+      self.buttonTitle = buttonTitle
+      self.caption = caption
+      self.note = note
+    }
+
+    public static func defaultValue(for state: State) -> Copy {
+      switch state {
+      case .start:
+        return Copy(title: "오늘 깃발을 올릴 준비가 됐나요?", buttonTitle: "깃발 올리기", caption: "올리면 팔로워에게 알림이 가요")
+      case .restart:
+        return Copy(
+          title: "오늘 깃발을 내렸어요",
+          buttonTitle: "다시 시작하기",
+          caption: "오늘 1번 더 시작할 수 있어요",
+          note: "종료하지 않아도 공연이 끝나고 2시간 뒤에 자동으로 내려가요"
+        )
+      }
+    }
+  }
+
   private var state: State
   private var action: () -> Void
+  private(set) var customCopy: Copy?
 
   public init(_ state: State, action: @escaping () -> Void) {
     self.state = state
@@ -25,17 +55,17 @@ public struct FCBearerCTA: View {
   public var body: some View {
     VStack(spacing: FestiCoreSpacing.paddingP16) {
       flagMark
-      Text(state == .start ? "오늘 깃발을 올릴 준비가 됐나요?" : "오늘 깃발을 내렸어요")
+      Text(copy.title)
         .festiCoreFont(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       Spacer()
         .frame(height: FestiCoreSpacing.paddingP8)
       ctaButton
-      Text(state == .start ? "올리면 팔로워에게 알림이 가요" : "오늘 1번 더 시작할 수 있어요")
+      Text(copy.caption)
         .festiCoreFont(.baseCalloutMedium)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-      if state == .restart {
-        Text("종료하지 않아도 공연이 끝나고 2시간 뒤에 자동으로 내려가요")
+      if let note = copy.note {
+        Text(note)
           .festiCoreFont(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
           .frame(maxWidth: .infinity)
@@ -62,10 +92,14 @@ public struct FCBearerCTA: View {
       .accessibilityHidden(true)
   }
 
+  private var copy: Copy {
+    customCopy ?? .defaultValue(for: state)
+  }
+
   private var ctaButton: some View {
     let shape = RoundedRectangle(cornerRadius: FestiCoreRadius.r24)
     return Button(action: action) {
-      Text(state == .start ? "깃발 올리기" : "다시 시작하기")
+      Text(copy.buttonTitle)
         .festiCoreFont(.baseTitle2Bold)
         .foregroundStyle(state == .start ? FestiCoreSemanticColor.staticInk.color : FestiCoreSemanticColor.inverseLabel.color)
         .lineLimit(1)
@@ -79,6 +113,16 @@ public struct FCBearerCTA: View {
         .contentShape(shape)
     }
     .buttonStyle(.plain)
+  }
+}
+
+// MARK: - 체이닝 설정
+public extension FCBearerCTA {
+  /// 문구를 바꾼 사본을 돌려준다. `nil`이면 상태별 기본 문구를 쓴다.
+  func copy(_ copy: Copy?) -> Self {
+    var result = self
+    result.customCopy = copy
+    return result
   }
 }
 
