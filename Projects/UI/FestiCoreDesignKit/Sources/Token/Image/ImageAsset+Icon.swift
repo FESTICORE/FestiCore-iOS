@@ -31,6 +31,8 @@ public extension ImageAsset {
   static let circleCheck16 = ImageAsset(rawValue: "circle-check-16")
   static let clock16 = ImageAsset(rawValue: "clock-16")
   static let flag20 = ImageAsset(rawValue: "flag-20")
+  static let bell16 = ImageAsset(rawValue: "bell-16")
+  static let music20 = ImageAsset(rawValue: "music-20")
 
   // MARK: - 소셜 로그인
 
