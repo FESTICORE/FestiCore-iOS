@@ -13,7 +13,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: self-hosted
-    timeout-minutes: 60
+    # 준비 15분 + 빌드·업로드 50분 + 내부 배포 45분 + 정리 여유
+    timeout-minutes: 120
     permissions:
       contents: read
     env:
@@ -52,9 +53,11 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "앱 버전: $VERSION"
       - name: Deploy to TestFlight
+        id: deploy
+        timeout-minutes: 50
         run: |
           set +e
-          bundle exec fastlane ios QA version:"${{ steps.ver.outputs.version }}" changelog:"$(git log -1 --pretty=%s)" 2>&1 | tee fastlane-qa.log
+          bundle exec fastlane ios QA version:"${{ steps.ver.outputs.version }}" 2>&1 | tee fastlane-qa.log
           DEPLOY_EXIT_CODE=${PIPESTATUS[0]}
           # 컴파일 에러는 fastlane 로그가 아니라 gym의 원본 xcodebuild 로그에 남는다.
           if [[ "$DEPLOY_EXIT_CODE" -ne 0 ]]; then
@@ -62,6 +65,14 @@ jobs:
             [[ -n "$GYM_LOG" ]] && grep -E "error:|\*\* ARCHIVE FAILED" "$GYM_LOG" | tail -40
           fi
           exit "$DEPLOY_EXIT_CODE"
+      # Apple 처리 대기는 업로드와 분리해 제한 시간을 따로 둔다. 실패해도 업로드는 이미 끝난 상태다.
+      - name: Distribute to internal TestFlight group
+        timeout-minutes: 45
+        run: >-
+          bundle exec fastlane ios distribute_internal
+          version:"${{ steps.ver.outputs.version }}"
+          build_number:"${{ steps.deploy.outputs.build_number }}"
+          changelog:"$(git log -1 --pretty=%s)"
       - name: Clean deploy DerivedData
         if: always()
         run: bash Scripts/clean-ci-derived-data.sh FestiCore-deploy

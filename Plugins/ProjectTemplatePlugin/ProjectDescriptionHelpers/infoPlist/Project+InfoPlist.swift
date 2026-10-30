@@ -30,6 +30,8 @@ public extension InfoPlist {
       .setFestiCoreMixpanelToken("$(FESTICORE_MIXPANEL_TOKEN)")
       .setFestiCoreSentryDSN("$(FESTICORE_SENTRY_DSN)")
       .set("NSSupportsLiveActivities", .boolean(true))
+      // HTTPS 등 표준 암호화만 사용한다. TestFlight 수출 규정 질문 없이 내부 배포되게 한다.
+      .set("ITSAppUsesNonExemptEncryption", .boolean(false))
       .setUILaunchScreen()
       .setUISupportedInterfaceOrientations(["UIInterfaceOrientationPortrait"])
   )

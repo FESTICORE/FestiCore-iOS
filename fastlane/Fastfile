@@ -9,6 +9,7 @@ NOTIFICATION_SERVICE_BUNDLE_ID = "#{BUNDLE_ID}.NotificationService"
 NOTIFICATION_SERVICE_TARGET = "FestiCoreNotificationServiceExtension"
 STAGE_SCHEME = "FestiCore-Stage"
 PROD_SCHEME = "FestiCore-Prod"
+TESTFLIGHT_GROUP = "FestiCore"
 TEAM_ID = "N94CS4N6VR"
 MATCH_KEYCHAIN_NAME = ENV.fetch("MATCH_KEYCHAIN_NAME", "match_keychain")
 PROJECT_ROOT = File.expand_path("..", __dir__)
@@ -86,6 +87,48 @@ def next_build_number(api_key, version)
     initial_build_number: 0
   ).to_i
   [previous + 1, Time.now.strftime("%y%m%d%H%M").to_i].max.to_s
+end
+
+# 처리 완료(VALID)만으로는 부족하다. 내부 테스트 상태가 준비돼야 그룹에 배포할 수 있다.
+def wait_for_internal_testing(app, version, build_number, timeout:)
+  ready_states = [
+    Spaceship::ConnectAPI::BuildBetaDetail::InternalState::READY_FOR_BETA_TESTING,
+    Spaceship::ConnectAPI::BuildBetaDetail::InternalState::IN_BETA_TESTING
+  ]
+  failed_states = [
+    Spaceship::ConnectAPI::BuildBetaDetail::InternalState::PROCESSING_EXCEPTION,
+    Spaceship::ConnectAPI::BuildBetaDetail::InternalState::MISSING_EXPORT_COMPLIANCE,
+    Spaceship::ConnectAPI::BuildBetaDetail::InternalState::EXPIRED
+  ]
+  deadline = Time.now + timeout
+  loop do
+    build = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: version, build_number: build_number).first
+    processing = build&.processing_state
+    if [Spaceship::ConnectAPI::Build::ProcessingState::FAILED, Spaceship::ConnectAPI::Build::ProcessingState::INVALID].include?(processing)
+      UI.user_error!("TestFlight 빌드 처리 실패: #{build_number} (#{processing})")
+    end
+    internal = build&.build_beta_detail&.internal_build_state
+    return build if processing == Spaceship::ConnectAPI::Build::ProcessingState::VALID && ready_states.include?(internal)
+    UI.user_error!("TestFlight 내부 테스트 불가: #{build_number} (#{internal})") if failed_states.include?(internal)
+    state = "#{processing || '미등록'}/#{internal || '-'}"
+    UI.user_error!("TestFlight 빌드 대기 시간 초과: #{build_number} (#{state})") if Time.now > deadline
+    UI.message("TestFlight 빌드 대기 중: #{build_number} (#{state})")
+    sleep(30)
+  end
+end
+
+# 테스터에게 보이는 "테스트할 사항"을 한국어로 넣는다.
+def update_test_notes(build, notes)
+  # pilot과 같은 규칙(이모지·'<' 제거, 4000바이트)으로 정리해야 Apple이 거부하지 않는다.
+  # 이 레인은 upload_to_testflight를 부르지 않아 pilot이 로드되지 않으므로 직접 불러온다.
+  require "pilot"
+  notes = Pilot::BuildManager.sanitize_changelog(notes.dup)
+  localization = build.get_beta_build_localizations.find { |candidate| candidate.locale == "ko" }
+  if localization
+    Spaceship::ConnectAPI.patch_beta_build_localizations(localization_id: localization.id, attributes: { whatsNew: notes })
+  else
+    Spaceship::ConnectAPI.post_beta_build_localizations(build_id: build.id, attributes: { locale: "ko", whatsNew: notes })
+  end
 end
 
 def signed_ipa(scheme, configuration, version, build_number, api_key)
@@ -227,12 +270,40 @@ platform :ios do
     api_key = connect_api_key
     build_number = next_build_number(api_key, version)
     ipa = signed_ipa(STAGE_SCHEME, "Stage", version, build_number, api_key)
+    # changelog를 넘기면 pilot이 제한 없이 빌드 등록을 기다리므로 업로드만 한다.
     upload_to_testflight(
       api_key: api_key,
       ipa: ipa,
-      changelog: options[:changelog] || "FestiCore QA 빌드 #{build_number}",
       skip_waiting_for_build_processing: true
     )
+    # 처리 대기·테스트 안내·그룹 배포는 CI의 다음 단계(distribute_internal)가 별도 제한 시간으로 맡는다.
+    File.open(ENV["GITHUB_OUTPUT"], "a") { |file| file.puts("build_number=#{build_number}") } if ENV["GITHUB_OUTPUT"]
+  end
+
+  desc "업로드한 빌드의 처리 완료를 기다린 뒤 FestiCore 내부 테스트 그룹에 배포"
+  lane :distribute_internal do |options|
+    version = options[:version].to_s
+    build_number = options[:build_number].to_s
+    UI.user_error!("version, build_number 옵션이 필요합니다.") if version.empty? || build_number.empty?
+    connect_api_key
+    app = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
+    UI.user_error!("App Store Connect 앱을 찾을 수 없습니다: #{BUNDLE_ID}") if app.nil?
+    group = app.get_beta_groups(filter: { name: TESTFLIGHT_GROUP }).find { |candidate| candidate.name == TESTFLIGHT_GROUP }
+    UI.user_error!("TestFlight 그룹이 없습니다: #{TESTFLIGHT_GROUP}") if group.nil?
+    UI.user_error!("#{TESTFLIGHT_GROUP}은 내부 테스트 그룹이 아닙니다.") unless group.is_internal_group
+
+    build = wait_for_internal_testing(app, version, build_number, timeout: 40 * 60)
+    update_test_notes(build, options[:changelog] || "FestiCore QA 빌드 #{build_number}")
+    if group.has_access_to_all_builds
+      UI.success("#{TESTFLIGHT_GROUP} 그룹은 모든 빌드를 자동으로 받습니다: #{version} (#{build_number})")
+      next
+    end
+    build.add_beta_groups(beta_groups: [group])
+    assigned = Spaceship::ConnectAPI.get_builds(
+      filter: { app: app.id, version: build_number, betaGroups: group.id }
+    ).to_models.any? { |candidate| candidate.id == build.id }
+    UI.user_error!("#{TESTFLIGHT_GROUP} 그룹에 빌드가 연결되지 않았습니다: #{build_number}") unless assigned
+    UI.success("#{TESTFLIGHT_GROUP} 내부 테스트 그룹에 배포 완료: #{version} (#{build_number})")
   end
 
   desc "Prod 빌드를 TestFlight에 업로드하고 App Store 버전을 준비"
