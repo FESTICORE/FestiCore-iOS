@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img width="150" alt="FestiCore Logo" src="https://avatars.githubusercontent.com/u/345318911?v=4">
+<img width="150" alt="FestiCore 앱 아이콘" src="Projects/App/Resources/Assets.xcassets/AppIcon.appiconset/FestiCore-AppIcon-1024.png">
 
 **축제를 위한 FestiCore iOS 앱**
 
