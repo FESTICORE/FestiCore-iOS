@@ -21,6 +21,7 @@ public enum CoreModule: String, CaseIterable {
   case logger = "FestiCoreLogger"
   case network = "FestiCoreNetwork"
   case storage = "FestiCoreStorage"
+  case utility = "FestiCoreUtility"
 
   var path: Path { .relativeToCore(rawValue) }
 }

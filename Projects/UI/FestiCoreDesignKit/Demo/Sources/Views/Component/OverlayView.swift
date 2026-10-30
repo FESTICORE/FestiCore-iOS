@@ -6,6 +6,7 @@
 //
 
 import FestiCoreDesignKit
+import FestiCoreSharedUI
 import SwiftUI
 
 struct OverlayView: View {

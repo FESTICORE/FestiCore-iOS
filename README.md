@@ -45,7 +45,7 @@ Projects/
 ├── App/                           # 앱 진입점, 설정, 테스트 플랜
 ├── Feature/
 │   ├── FeatureAssembly/           # 화면 모듈 조립
-│   ├── Festival/                  # 축제 목록·라이브 보드, Client·Store·UseCase
+│   ├── Festival/                  # FestivalList·LiveBoard와 공유 컴포넌트
 │   ├── Login/                     # 로그인 Feature
 │   └── Timetable/                 # 선택한 축제의 공연 시간표
 ├── Domain/
@@ -65,7 +65,8 @@ Projects/
 │   ├── CoreAssembly/              # Core 구현 조립
 │   ├── FestiCoreNetwork/          # HTTP 클라이언트
 │   ├── FestiCoreStorage/          # Keychain과 저장소
-│   └── FestiCoreLogger/           # 공통 로깅
+│   ├── FestiCoreLogger/           # 공통 로깅
+│   └── FestiCoreUtility/          # 날짜 파싱·표시
 ├── UI/
 │   ├── FestiCoreDesignKit/        # 디자인 토큰과 리소스
 │   ├── FestiCoreSharedUI/         # 공통 UI
@@ -93,6 +94,7 @@ flowchart TD
     FeatureAssembly --> ServiceAssembly
     Festival --> FestivalDomainInterface["FestivalDomain / Interface"]
     Festival --> PackInterface["FestiCorePack / Interface"]
+    Festival --> Utility["FestiCoreUtility"]
     Festival --> SharedUI["FestiCoreSharedUI"]
     Login --> AuthDomainInterface["AuthDomain / Interface"]
     AuthDomain --> AuthDomainInterface
@@ -121,7 +123,7 @@ flowchart TD
 
 `AppCoordinator`는 Splash가 끝나면 `MainTabCoordinator`를 표시합니다. `FestivalCoordinator`의 첫 경로는 축제 목록이며, 축제를 선택하면 라이브 보드 경로를 추가합니다. 목록과 라이브 보드의 상태는 `FestivalFeature`가 관리합니다. `MainTabCoordinator`는 선택한 축제 팩의 시간표를 Timetable 탭에 전달합니다.
 
-`FestivalFeature.State.catalog`는 `IdentifiedArrayOf<FestivalCatalogItem>`을 사용합니다. `FestivalCatalogUseCase`는 중복 축제와 초기 선택을 처리하고, `FestivalImageUseCase`는 이미지 수집·프리페치 대상을 정리합니다. 두 유스케이스는 `Projects/Feature/Festival/Sources/Common/UseCase/`에 있습니다.
+`FestivalFeature.State.catalog`는 `IdentifiedArrayOf<FestivalCatalogItem>`을 사용합니다. `FestivalCatalogUseCase`는 중복 축제와 초기 선택을 처리하고, `FestivalImageUseCase`는 이미지 수집·프리페치 대상을 정리합니다. 두 유스케이스는 `Projects/Feature/Festival/Sources/FestivalList/UseCase/`에 있습니다. 날짜 포맷은 `FestiCoreUtility`, 라이브 보드 모델과 클라이언트는 `Festival/Sources/LiveBoard/`에 있습니다.
 
 라이브 보드는 `FestivalLiveBoardService` 계약을 Domain에 두고, Service의 `NetworkFestivalLiveBoardService`가 축제별 라이브 상태와 공개 깃발 프로필을 조회합니다. 화면이 열려 있고 앱이 활성 상태일 때 35초 간격으로 갱신하며, 화면을 닫거나 앱이 백그라운드로 가면 갱신을 중단합니다. 기기 등록 ID는 기존 `DeviceRegistrationService`에서 읽습니다.
 

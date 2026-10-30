@@ -1,10 +1,11 @@
 //
 //  FCBearerChoiceSheet.swift
-//  FestiCoreDesignKit
+//  FestiCoreSharedUI
 //
 //  Created by FestiCore on 10/30/26.
 //
 
+import FestiCoreDesignKit
 import SwiftUI
 
 /// 기수 보드에서 존·활동을 고르는 바텀시트 내용. 누르면 바로 반영한다.

@@ -1,5 +1,6 @@
 import FestiCoreDesignKit
 import FestiCoreSharedUI
+import FestiCoreUtility
 import FestivalDomainInterface
 import SwiftUI
 
@@ -72,6 +73,8 @@ struct FestivalLiveBoardScreen: View {
       Text(festival.name)
         .festiCoreFont(.baseTitle1Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+        .lineLimit(2)
+        .fixedSize(horizontal: false, vertical: true)
       if let dayLabel, let dateLabel {
         Text("\(dayLabel) · \(dateLabel)")
           .festiCoreFont(.baseSubheadlineRegular)
@@ -90,7 +93,7 @@ struct FestivalLiveBoardScreen: View {
       if let next {
         FCNextSetCard(
           artist: next.1.artist,
-          meta: "\(next.0) · \(FestivalDateFormat.time(from: next.1.startsAt))",
+          meta: "\(next.0) · \(next.1.startsAt.formatted(.time))",
           remain: remainingTime(until: next.1.startsAt, now: now),
           updated: "시간표 기준",
           progress: 0
@@ -217,15 +220,15 @@ struct FestivalLiveBoardScreen: View {
   }
 
   private var dates: [String] {
-    let packDays = (pack?.days ?? []).compactMap(\.date).filter { FestivalDateFormat.day(from: $0) != nil }
+    let packDays = (pack?.days ?? []).compactMap(\.date).filter { $0.date(as: .day) != nil }
     if !packDays.isEmpty { return Array(Set(packDays)).sorted() }
     return [festival.firstDate, festival.lastDate].compactMap { $0 }
-      .filter { FestivalDateFormat.day(from: $0) != nil }
+      .filter { $0.date(as: .day) != nil }
   }
 
   private var selectedDate: String? {
     let today = FestivalDateFormat.calendar.startOfDay(for: .now)
-    return dates.first { FestivalDateFormat.day(from: $0) == today } ?? dates.first
+    return dates.first { $0.date(as: .day) == today } ?? dates.first
   }
 
   private var dayLabel: String? {
@@ -235,6 +238,6 @@ struct FestivalLiveBoardScreen: View {
 
   private var dateLabel: String? {
     guard let selectedDate else { return nil }
-    return FestivalDateFormat.festivalDay(from: selectedDate)
+    return selectedDate.date(as: .day)?.formatted(.festivalDay)
   }
 }

@@ -1,4 +1,5 @@
 import FestiCoreDesignKit
+import FestiCoreUtility
 import SwiftUI
 
 struct FestivalLiveBoardView: View {
@@ -60,7 +61,7 @@ struct FestivalLiveBoardView: View {
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .lineLimit(1)
       Spacer(minLength: FestiCoreSpacing.paddingP4)
-      Text(FestivalDateFormat.time(from: slot.startsAt))
+      Text(slot.startsAt.formatted(.time))
         .festiCoreFont(.baseCaption1Medium)
         .monospacedDigit()
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)

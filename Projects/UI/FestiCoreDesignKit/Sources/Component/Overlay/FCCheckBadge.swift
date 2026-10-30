@@ -8,8 +8,10 @@
 import SwiftUI
 
 /// 완료·확인 화면에 쓰는 라임 원 + 체크 표시
-struct FCCheckBadge: View {
-  var body: some View {
+public struct FCCheckBadge: View {
+  public init() {}
+
+  public var body: some View {
     CheckMark()
       .stroke(
         FestiCoreSemanticColor.staticInk.color,
