@@ -29,6 +29,7 @@ public struct FCButton: View {
   private(set) var style: Style = .primary
   private(set) var size: Size = .large
   private(set) var isEnabled = true
+  private(set) var isFullWidth = false
 
   public init(
     _ title: String,
@@ -45,6 +46,7 @@ public struct FCButton: View {
         .foregroundStyle(foregroundColor.color)
         .lineLimit(1)
         .padding(.horizontal, size == .large ? FestiCoreSpacing.paddingP20 : FestiCoreSpacing.paddingP16)
+        .frame(maxWidth: isFullWidth ? .infinity : nil)
         .frame(height: size == .large ? Metric.largeHeight : Metric.mediumHeight)
         .background(backgroundColor, in: shape)
         .overlay {
@@ -105,6 +107,13 @@ public extension FCButton {
   func isEnabled(_ isEnabled: Bool) -> Self {
     var copy = self
     copy.isEnabled = isEnabled
+    return copy
+  }
+
+  /// 가로를 꽉 채울지 바꾼 사본을 돌려준다.
+  func isFullWidth(_ isFullWidth: Bool) -> Self {
+    var copy = self
+    copy.isFullWidth = isFullWidth
     return copy
   }
 }

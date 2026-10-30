@@ -33,6 +33,12 @@ public extension ImageAsset {
   static let flag20 = ImageAsset(rawValue: "flag-20")
   static let bell16 = ImageAsset(rawValue: "bell-16")
   static let music20 = ImageAsset(rawValue: "music-20")
+  static let music24 = ImageAsset(rawValue: "music-24")
+  static let bookmark20 = ImageAsset(rawValue: "bookmark-20")
+  static let arrowUpRightFromSquare16 = ImageAsset(rawValue: "arrow-up-right-from-square-16")
+  static let circleInfo20 = ImageAsset(rawValue: "circle-info-20")
+  static let route16 = ImageAsset(rawValue: "route-16")
+  static let users24 = ImageAsset(rawValue: "users-24")
 
   // MARK: - 소셜 로그인
 
