@@ -77,7 +77,13 @@ struct OverlayView: View {
         )
       }
     }
-    .fcDialog(item: $dialog)
+    .overlay {
+      if let dialog {
+        FCDialog(dialog) { self.dialog = nil }
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .background(FestiCoreSemanticColor.materialDimmer.color)
+      }
+    }
     .fcToast(item: $toast)
   }
 }

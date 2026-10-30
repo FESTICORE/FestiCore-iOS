@@ -87,28 +87,8 @@ public struct FCDialog: View {
   }
 }
 
-public extension View {
-  /// `item`이 있으면 가운데 확인 다이얼로그를 띄운다. 버튼을 누르면 `item`을 비운다.
-  func fcDialog(item: Binding<FCDialogItem?>) -> some View {
-    overlay {
-      if let current = item.wrappedValue {
-        ZStack {
-          FestiCoreSemanticColor.materialDimmer.color
-            .ignoresSafeArea()
-          FCDialog(current) { item.wrappedValue = nil }
-            .transition(.scale(scale: Metric.appearScale).combined(with: .opacity))
-        }
-        .transition(.opacity)
-      }
-    }
-    .animation(.easeOut(duration: Metric.duration), value: item.wrappedValue)
-  }
-}
-
 private enum Metric {
   static let width: CGFloat = 311
-  static let appearScale: CGFloat = 0.95
-  static let duration: Double = 0.2
 }
 
 #Preview {
