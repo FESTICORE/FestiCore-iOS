@@ -25,7 +25,7 @@ struct MainTabCoordinator {
     var shouldHideTabBar: Bool {
       switch selectedTab {
       case .live:
-        return homeState.routes.count > 1
+        return homeState.routes.count == 1
       case .timetable, .flag, .my:
         return false
       }
@@ -71,9 +71,7 @@ struct MainTabCoordinator {
         return .none
 
       case let .tabReselected(tab):
-        if tab == .live {
-          state.homeState.routes.goBackToRoot()
-        }
+        _ = tab
         return .none
 
       case .home, .timetable:

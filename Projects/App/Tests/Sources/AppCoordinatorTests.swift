@@ -58,6 +58,17 @@ struct AppCoordinatorTests {
     #expect(coordinator.routes.count == 1)
     #expect(coordinator.routes.first?.screen.home != nil)
   }
+
+  @Test func bottomTabsAppearOnFestivalLiveBoard() {
+    var state = MainTabCoordinator.State()
+    #expect(state.shouldHideTabBar)
+
+    state.homeState.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
+    #expect(!state.shouldHideTabBar)
+
+    state.homeState.routes.goBack()
+    #expect(state.shouldHideTabBar)
+  }
 }
 
 private struct EmptyFestivalCatalogService: FestivalCatalogService {

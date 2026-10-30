@@ -43,7 +43,9 @@ public struct HomeFeature {
       catalogCacheReadFailed || packCacheReadFailed
     }
 
-    public init() {}
+    public init(selectedFestivalID: String? = nil) {
+      self.selectedFestivalID = selectedFestivalID
+    }
 
     public var festivals: [FestivalOverview] {
       var result = catalog.map { FestivalOverview(item: $0, isCached: cachedPacks[$0.id] != nil) }
@@ -127,6 +129,7 @@ public struct HomeFeature {
     case foregroundChanged(Bool)
     case refreshRequested
     case selectFestival(String)
+    case backToFestivalList
     case toggleBookedFestival(String)
     case liveActivityOnAppear
     case liveActivityTapped
@@ -214,7 +217,8 @@ public struct HomeFeature {
         state.catalogCacheReadFailed = catalogReadFailed
         state.packCacheReadFailed = packReadFailed
         let available = state.festivals
-        state.selectedFestivalID = available.first { $0.id == savedID }?.id
+        state.selectedFestivalID = available.first { $0.id == state.selectedFestivalID }?.id
+          ?? available.first { $0.id == savedID }?.id
           ?? available.first { $0.isCached }?.id
           ?? available.first { $0.packVersion > 0 }?.id
           ?? available.first?.id
@@ -259,6 +263,9 @@ public struct HomeFeature {
           prefetchImages(state),
           liveActivityBoundary(state)
         )
+
+      case .view(.backToFestivalList):
+        return .none
 
       case let .view(.toggleBookedFestival(id)):
         guard state.festivals.contains(where: { $0.id == id }) else { return .none }
