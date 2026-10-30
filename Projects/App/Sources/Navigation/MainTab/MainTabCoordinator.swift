@@ -33,12 +33,24 @@ struct MainTabCoordinator {
     var loginState = LoginFeature.State()
     var authFlow = AppCoordinator.AuthFlow()
 
-    /// 목록에서는 탭바를 숨기고, 선택한 축제의 라이브 보드에서는 표시한다.
+    /// 모달이 열려도 기존 탭바 공간은 유지해 뒤 화면이 이동하지 않게 한다.
+    var shouldReserveTabBarSpace: Bool {
+      selectedTab != .live || festivalState.routes.count != 1
+    }
+
     var shouldHideTabBar: Bool {
+      if authFlow.presentation != nil { return true }
       switch selectedTab {
       case .live:
         return festivalState.routes.count == 1
-      case .timetable, .flag, .my:
+      case .timetable:
+        return timetableState.selectedSetID != nil
+      case .my:
+        return profileState.isAccountPresented
+          || profileState.isLogoutConfirmationPresented
+          || profileState.isWithdrawalConfirmationPresented
+          || profileState.isLegalLinkUnavailablePresented
+      case .flag:
         return false
       }
     }

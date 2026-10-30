@@ -78,22 +78,27 @@ public struct ProfileView: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
-    .presentFCSheet(item: accountItem) { _ in
-      ProfileAccountSheet(
-        profile: profile,
-        isLoading: isLoading,
-        message: message,
-        onRefresh: { store.send(.view(.refreshTapped)) },
-        onLogout: { store.send(.view(.logoutTapped)) },
-        onWithdraw: { store.send(.view(.withdrawTapped)) }
-      )
-    }
-    .overlay { confirmationOverlay }
     .onChange(of: hasSession) { wasSignedIn, isSignedIn in
       if wasSignedIn && !isSignedIn && store.isAccountPresented {
         store.send(.view(.accountDismissed))
       }
     }
+  }
+
+  /// 탭 화면 전체 위에 올려 탭바 영역까지 시트와 확인창이 덮도록 한다.
+  public var modalOverlay: some View {
+    Color.clear
+      .presentFCSheet(item: accountItem) { _ in
+        ProfileAccountSheet(
+          profile: profile,
+          isLoading: isLoading,
+          message: message,
+          onRefresh: { store.send(.view(.refreshTapped)) },
+          onLogout: { store.send(.view(.logoutTapped)) },
+          onWithdraw: { store.send(.view(.withdrawTapped)) }
+        )
+      }
+      .overlay { confirmationOverlay }
   }
 }
 

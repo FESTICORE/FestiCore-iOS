@@ -18,16 +18,29 @@ struct MainTabView: View {
     tabContent
       .frame(maxWidth: .infinity, maxHeight: .infinity)
       .safeAreaInset(edge: .bottom, spacing: .zero) {
-        if !store.shouldHideTabBar {
+        if store.shouldReserveTabBarSpace {
           FCTabBar(
             selection: Binding(
               get: { store.selectedTab },
               set: { store.send(.tabTapped($0)) }
             )
           )
+          .opacity(store.shouldHideTabBar ? 0 : 1)
+          .allowsHitTesting(!store.shouldHideTabBar)
         }
       }
       .background(FestiCoreSemanticColor.backgroundNormal.color)
+      .overlay {
+        if store.selectedTab == .timetable, store.timetableState.selectedSetID != nil {
+          timetableView.modalOverlay
+        } else if store.selectedTab == .my,
+                  store.profileState.isAccountPresented
+                    || store.profileState.isLogoutConfirmationPresented
+                    || store.profileState.isWithdrawalConfirmationPresented
+                    || store.profileState.isLegalLinkUnavailablePresented {
+          profileView.modalOverlay
+        }
+      }
   }
 }
 
@@ -45,12 +58,7 @@ private extension MainTabView {
       )
 
     case .timetable:
-      TimetableView(
-        store: store.scope(
-          state: \.timetableState,
-          action: \.timetable
-        )
-      )
+      timetableView
 
     case .flag:
       FestivalFlagView(
@@ -58,14 +66,24 @@ private extension MainTabView {
       )
 
     case .my:
-      ProfileView(
-        store: store.scope(state: \.profileState, action: \.profile),
-        profile: store.authFlow.profile,
-        hasSession: store.authFlow.hasSession,
-        isLoading: store.authFlow.isLoading,
-        message: store.authFlow.message
-      )
+      profileView
     }
+  }
+
+  var profileView: ProfileView {
+    ProfileView(
+      store: store.scope(state: \.profileState, action: \.profile),
+      profile: store.authFlow.profile,
+      hasSession: store.authFlow.hasSession,
+      isLoading: store.authFlow.isLoading,
+      message: store.authFlow.message
+    )
+  }
+
+  var timetableView: TimetableView {
+    TimetableView(
+      store: store.scope(state: \.timetableState, action: \.timetable)
+    )
   }
 }
 

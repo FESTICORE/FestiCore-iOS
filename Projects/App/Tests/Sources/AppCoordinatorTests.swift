@@ -462,11 +462,75 @@ struct AppCoordinatorTests {
   @Test func bottomTabsAppearOnFestivalLiveBoard() {
     var state = MainTabCoordinator.State()
     #expect(state.shouldHideTabBar)
+    #expect(!state.shouldReserveTabBarSpace)
 
     state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
     #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
 
     state.festivalState.routes.goBack()
+    #expect(state.shouldHideTabBar)
+    #expect(!state.shouldReserveTabBarSpace)
+  }
+
+  @Test func myModalHidesBottomTabsUntilDismissed() async {
+    var state = MainTabCoordinator.State(selectedTab: .my)
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+
+    let store = TestStore(initialState: state) { MainTabCoordinator() }
+    await store.send(.profile(.view(.accountTapped(isSignedIn: true)))) {
+      $0.profileState.isAccountPresented = true
+    }
+    #expect(store.state.shouldHideTabBar)
+    #expect(store.state.shouldReserveTabBarSpace)
+    await store.send(.profile(.view(.accountDismissed))) {
+      $0.profileState.isAccountPresented = false
+    }
+    #expect(!store.state.shouldHideTabBar)
+    #expect(store.state.shouldReserveTabBarSpace)
+
+    state.authFlow.presentation = .login
+    #expect(state.shouldHideTabBar)
+    state.authFlow.presentation = nil
+    #expect(!state.shouldHideTabBar)
+
+    state.profileState.isLegalLinkUnavailablePresented = true
+    #expect(state.shouldHideTabBar)
+    state.profileState.isLegalLinkUnavailablePresented = false
+    #expect(!state.shouldHideTabBar)
+
+    state.profileState.isLogoutConfirmationPresented = true
+    #expect(state.shouldHideTabBar)
+    state.profileState.isLogoutConfirmationPresented = false
+    state.profileState.isWithdrawalConfirmationPresented = true
+    #expect(state.shouldHideTabBar)
+    state.profileState.isWithdrawalConfirmationPresented = false
+    #expect(!state.shouldHideTabBar)
+  }
+
+  @Test func timetableAndAuthModalsKeepTabBarSpace() {
+    var state = MainTabCoordinator.State(selectedTab: .timetable)
+    #expect(state.shouldReserveTabBarSpace)
+    #expect(!state.shouldHideTabBar)
+
+    state.timetableState.selectedSetID = "set-1"
+    #expect(state.shouldReserveTabBarSpace)
+    #expect(state.shouldHideTabBar)
+    state.timetableState.selectedSetID = nil
+    #expect(!state.shouldHideTabBar)
+
+    state.selectedTab = .flag
+    state.authFlow.presentation = .login
+    #expect(state.shouldReserveTabBarSpace)
+    #expect(state.shouldHideTabBar)
+    state.authFlow.presentation = nil
+    #expect(!state.shouldHideTabBar)
+
+    state.selectedTab = .live
+    state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
+    state.authFlow.presentation = .onboarding
+    #expect(state.shouldReserveTabBarSpace)
     #expect(state.shouldHideTabBar)
   }
 
