@@ -20,6 +20,7 @@ let project = Project.makeModule(
   hasTests: true,
   hasInterface: true,
   interfaceDependencies: [
+    .domain(.auth, .interface),
     .SPM.composableArchitecture
   ]
 )

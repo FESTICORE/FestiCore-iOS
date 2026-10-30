@@ -33,6 +33,7 @@ public struct FestivalFeature {
     public var packWatchFailed = false
     public var selectedFestivalID: String?
     public var bookedFestivalIDs: Set<String> = []
+    public var bookedUserID: String?
     public var selectedPack: FestivalPackDocument?
     public var liveBoard: FestivalLiveBoardSnapshot?
     public var liveBoardUnavailable = false
@@ -131,6 +132,13 @@ public struct FestivalFeature {
   public enum Action: ViewAction, Equatable {
     case view(View)
     case inner(InnerAction)
+    case delegate(Delegate)
+    case reloadBookmarks(userID: String?)
+  }
+
+  @CasePathable
+  public enum Delegate: Equatable {
+    case bookmarkRequested(String)
   }
 
   @CasePathable
@@ -172,9 +180,9 @@ public struct FestivalFeature {
     Reduce { state, action in
       switch action {
       case .view(.onAppear):
+        state.bookedFestivalIDs = state.bookedUserID.map { bookedStore.load(for: $0) } ?? []
         guard !state.hasStarted else { return .none }
         state.hasStarted = true
-        state.bookedFestivalIDs = bookedStore.load()
         return .run { send in
           async let catalog = try? catalogService.cachedFestivals()
           async let packs = try? packService.cachedPacks()
@@ -254,6 +262,9 @@ public struct FestivalFeature {
 
       case let .view(.foregroundChanged(isForeground)):
         state.isForeground = isForeground
+        if isForeground {
+          state.bookedFestivalIDs = state.bookedUserID.map { bookedStore.load(for: $0) } ?? []
+        }
         guard state.hasStarted else {
           return isForeground ? .send(.view(.onAppear)) : prefetchImages(state)
         }
@@ -308,11 +319,15 @@ public struct FestivalFeature {
 
       case let .view(.toggleBookedFestival(id)):
         guard state.festivals.contains(where: { $0.id == id }) else { return .none }
-        if !state.bookedFestivalIDs.insert(id).inserted {
-          state.bookedFestivalIDs.remove(id)
-        }
-        let ids = state.bookedFestivalIDs
-        return .run { _ in bookedStore.save(ids) }
+        return .send(.delegate(.bookmarkRequested(id)))
+
+      case let .reloadBookmarks(userID):
+        state.bookedUserID = userID
+        state.bookedFestivalIDs = userID.map { bookedStore.load(for: $0) } ?? []
+        return .none
+
+      case .delegate:
+        return .none
 
       case let .inner(.catalogRefreshed(catalog)):
         state.viewState = .loaded

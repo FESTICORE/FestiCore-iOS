@@ -92,6 +92,33 @@ struct AuthRequestTests {
     let _: AuthRequest.Response = FestiCoreEmptyResponse()
   }
 
+  @Test("내 프로필은 인증된 GET 요청이다")
+  func me() throws {
+    let endpoint = AuthRequest.me
+    let request = try endpoint.asURLRequest(baseURL: baseURL)
+    #expect(request.url?.path == "/api/v1/me")
+    #expect(request.httpMethod == "GET")
+    #expect(endpoint.authorization == .automatic)
+    #expect(endpoint.maxRetryAttempts == 0)
+    #expect(request.httpBody == nil)
+  }
+
+  @Test("프로필 수정은 약관 버전과 선택 동의를 PATCH 본문에 보낸다")
+  func updateMe() throws {
+    let endpoint = AuthRequest.updateMe(body: AuthProfileUpdateBody(
+      nickname: "축제관객", termsVersion: "2026-10", pushOptIn: false
+    ))
+    let request = try endpoint.asURLRequest(baseURL: baseURL)
+    #expect(request.url?.path == "/api/v1/me")
+    #expect(request.httpMethod == "PATCH")
+    #expect(endpoint.authorization == .automatic)
+    #expect(endpoint.maxRetryAttempts == 0)
+    let body = try jsonBody(request)
+    #expect(body["nickname"] as? String == "축제관객")
+    #expect((body["acceptTerms"] as? [String: String])?["version"] == "2026-10")
+    #expect(body["pushOptIn"] as? Bool == false)
+  }
+
   private func jsonBody(_ request: URLRequest) throws -> [String: Any] {
     let data = try #require(request.httpBody)
     return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])

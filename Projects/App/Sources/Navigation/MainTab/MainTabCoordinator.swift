@@ -13,6 +13,7 @@ import Foundation
 @Reducer
 struct MainTabCoordinator {
   typealias Tab = FCTabBar.Tab
+  @Dependency(\.festivalBookedStore) private var bookedStore
 
   @ObservableState
   struct State: Equatable {
@@ -20,6 +21,8 @@ struct MainTabCoordinator {
     var previousTab: Tab = .live
     var festivalState: FestivalCoordinator.State
     var timetableState: TimetableFeature.State
+    var loginState = LoginFeature.State()
+    var authFlow = AppCoordinator.AuthFlow()
 
     /// 목록에서는 탭바를 숨기고, 선택한 축제의 라이브 보드에서는 표시한다.
     var shouldHideTabBar: Bool {
@@ -48,6 +51,8 @@ struct MainTabCoordinator {
     case tabReselected(Tab)
     case festival(FestivalCoordinator.Action)
     case timetable(TimetableFeature.Action)
+    case login(LoginFeature.Action)
+    case completePendingBookmark(id: String, userID: String, shouldBeBooked: Bool)
   }
 
   var body: some ReducerOf<Self> {
@@ -56,6 +61,9 @@ struct MainTabCoordinator {
     }
     Scope(state: \.timetableState, action: \.timetable) {
       TimetableFeature()
+    }
+    Scope(state: \.loginState, action: \.login) {
+      LoginFeature()
     }
 
     Reduce { state, action in
@@ -85,6 +93,15 @@ struct MainTabCoordinator {
 
       case .timetable:
         return .none
+
+      case .login:
+        return .none
+
+      case let .completePendingBookmark(id, userID, shouldBeBooked):
+        guard state.authFlow.verifiedUserID == userID,
+              state.authFlow.profile?.isEligible == true else { return .none }
+        bookedStore.setBookmark(id, booked: shouldBeBooked, for: userID)
+        return .send(.festival(.reloadBookmarks(userID: userID)))
       }
     }
   }

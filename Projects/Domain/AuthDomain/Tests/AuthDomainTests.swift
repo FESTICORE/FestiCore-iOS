@@ -48,6 +48,96 @@ struct AuthDomainTests {
     #expect(response.data.result.user.profileImageURL == nil)
   }
 
+  @Test("현재 약관 버전이 일치해야 프로필이 완료된다")
+  func profileEligibility() throws {
+    let response = try JSONDecoder().decode(AuthProfileResponseDTO.self, from: profileBody)
+    #expect(response.data.profile.user.id == "user-1")
+    #expect(response.data.profile.isEligible)
+    let stale = AuthProfile(user: response.data.profile.user, currentTermsVersion: "2026-11")
+    #expect(!stale.isEligible)
+  }
+
+  @Test("GET me가 현재 약관 버전을 누락하면 실패한다")
+  func missingTermsVersion() async {
+    let auth = StubAuthService(loggedIn: true)
+    let body = Data(#"{"code":"SUCCESS","data":{"id":"user-1","provider":"google","nicknameConfirmed":true,"termsAcceptedAt":"2026-10-30T00:00:00Z","termsVersion":"2026-10","pushOptIn":false}}"#.utf8)
+    let client = StubClient(result: .success(body))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+    await #expect(throws: FestiCoreNetworkError.self) { try await repository.fetchProfile() }
+  }
+
+  @Test("인증된 프로필을 GET me에서 조회한다")
+  func fetchProfile() async throws {
+    let client = StubClient(result: .success(profileBody))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = StubAuthService(loggedIn: true)
+    } operation: { AuthRepositoryImpl() }
+    let profile = try await repository.fetchProfile()
+    #expect(profile.isEligible)
+    #expect(await client.lastRequestPath == "api/v1/me")
+    #expect(await client.lastRequestMethod == "GET")
+    #expect(await client.lastRequestAuthorizationIsAutomatic)
+  }
+
+  @Test("프로필 수정은 인증된 PATCH me 응답을 반환한다")
+  func updateProfile() async throws {
+    let body = Data(#"{"code":"SUCCESS","data":{"id":"user-1","provider":"google","nickname":"축제관객","nicknameConfirmed":true,"termsAcceptedAt":"2026-10-30T00:00:00Z","termsVersion":"2026-10","pushOptIn":false}}"#.utf8)
+    let client = StubClient(result: .success(body))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = StubAuthService(loggedIn: true)
+    } operation: { AuthRepositoryImpl() }
+    let user = try await repository.updateProfile(nickname: "축제관객", termsVersion: "2026-10", pushOptIn: false)
+    #expect(user.nicknameConfirmed)
+    #expect(await client.lastRequestMethod == "PATCH")
+    #expect(await client.lastRequestAuthorizationIsAutomatic)
+  }
+
+  @Test("프로필 조회 실패는 전파하고 401에서만 세션을 지운다", arguments: [0, 401, 500])
+  func profileFailure(status: Int) async {
+    let auth = StubAuthService(loggedIn: true)
+    let error: FestiCoreNetworkError = status == 0
+      ? .transport(.notConnected)
+      : .response(ResponseError(httpStatus: status))
+    let client = StubClient(result: .failure(error))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+    await #expect(throws: FestiCoreNetworkError.self) { try await repository.fetchProfile() }
+    #expect(await auth.signOutCalls == (status == 401 ? 1 : 0))
+  }
+
+  @Test("미로그인 프로필 요청은 네트워크 전에 거부한다")
+  func profileNotAuthenticated() async {
+    let client = StubClient(result: .success(profileBody))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = StubAuthService()
+    } operation: { AuthRepositoryImpl() }
+    await #expect(throws: AuthDomainError.notAuthenticated) { try await repository.fetchProfile() }
+    #expect(await client.calls == 0)
+  }
+
+  @Test("프로필 수정의 약관 만료 오류는 세션을 유지하고 전파한다")
+  func updateProfileOutdatedTerms() async {
+    let auth = StubAuthService(loggedIn: true)
+    let client = StubClient(result: .failure(.response(ResponseError(httpStatus: 422))))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+    await #expect(throws: FestiCoreNetworkError.self) {
+      try await repository.updateProfile(nickname: "축제관객", termsVersion: "2026-09", pushOptIn: false)
+    }
+    #expect(await client.calls == 1)
+    #expect(await auth.isLoggedIn)
+  }
+
   @Test("로그인은 응답 토큰을 기존 인증 세션에 저장한다")
   func signIn() async throws {
     let auth = StubAuthService()
@@ -309,6 +399,10 @@ struct AuthDomainTests {
 
   private var loginBody: Data {
     Data(#"{"code":"SUCCESS","data":{"accessToken":"access","refreshToken":"refresh","newUser":true,"user":{"id":"user-1","provider":"google","email":null,"nickname":null,"nicknameConfirmed":false,"termsAcceptedAt":"2026-10-29T01:02:03.123Z","termsVersion":null,"pushOptIn":false,"profileImageUrl":null}}}"#.utf8)
+  }
+
+  private var profileBody: Data {
+    Data(#"{"code":"SUCCESS","data":{"id":"user-1","provider":"google","email":null,"nickname":"축제관객","nicknameConfirmed":true,"termsAcceptedAt":"2026-10-30T00:00:00Z","termsVersion":"2026-10","pushOptIn":false,"profileImageUrl":null,"currentTermsVersion":"2026-10","admin":null}}"#.utf8)
   }
 }
 

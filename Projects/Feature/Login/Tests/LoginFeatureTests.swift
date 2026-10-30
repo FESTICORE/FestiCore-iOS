@@ -11,7 +11,7 @@ import Testing
 @testable import Login
 
 struct LoginFeatureTests {
-  @Test @MainActor func successfulLoginReportsNewUserOnly() async {
+  @Test @MainActor func successfulLoginReportsUser() async {
     let store = TestStore(initialState: LoginFeature.State()) {
       LoginFeature()
     } withDependencies: {
@@ -20,7 +20,7 @@ struct LoginFeatureTests {
 
     await store.send(.view(.signIn(.google))) { $0.isSigningIn = true }
     await store.receive(\.inner.signInSucceeded) { $0.isSigningIn = false }
-    await store.receive(.delegate(.signedIn(isNewUser: true)))
+    await store.receive(.delegate(.signedIn(loginResult(newUser: true))))
   }
 
   @Test @MainActor func secondTapDoesNotStartAnotherRequest() async {
@@ -38,7 +38,7 @@ struct LoginFeatureTests {
 
     await oauth.complete(with: loginResult(newUser: false))
     await store.receive(\.inner.signInSucceeded) { $0.isSigningIn = false }
-    await store.receive(.delegate(.signedIn(isNewUser: false)))
+    await store.receive(.delegate(.signedIn(loginResult(newUser: false))))
   }
 
   @Test @MainActor func ordinaryFailureShowsSafeMessage() async {
