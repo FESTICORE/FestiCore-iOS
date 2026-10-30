@@ -59,6 +59,8 @@ private struct FCRemoteImageContent: View {
         KFImage(url)
           .fade(duration: 0.2)
           .placeholder { FCSkeletonView(.rect) }
+          .setProcessor(SVGProcessor())
+          .serialize(by: SVGCacheSerializer())
           .onSuccess { _ in loadState = .success }
           .onFailure { _ in loadState = .failure }
           .resizable()

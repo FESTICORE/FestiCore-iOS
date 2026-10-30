@@ -36,4 +36,16 @@ struct FestiCoreSharedUITests {
 
     #expect(controller.sizeThatFits(in: CGSize(width: 200, height: 200)) == CGSize(width: 120, height: 80))
   }
+
+
+  @Test func svgDataBecomesImage() throws {
+    let svg = #"<svg xmlns="http://www.w3.org/2000/svg" width="24" height="16"><rect width="24" height="16" fill="black"/></svg>"#
+    let image = try #require(makeSVGImage(from: Data(svg.utf8)))
+
+    #expect(image.size == CGSize(width: 24, height: 16))
+  }
+
+  @Test func nonSVGDataIsLeftToDefaultProcessor() {
+    #expect(makeSVGImage(from: Data([0x89, 0x50, 0x4E, 0x47])) == nil)
+  }
 }
