@@ -470,7 +470,8 @@ private struct NoSocketPackService: PackSyncService {
   func cachedPacks() async throws -> [CachedFestivalPack] { [] }
   func sync(for _: String) async throws -> PackSyncResult { throw OfflineCatalog.NetworkUnavailable() }
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
-    fatalError("Background cache load must not open a WebSocket")
+    Issue.record("Background cache load must not open a WebSocket")
+    return AsyncThrowingStream { $0.finish(throwing: OfflineCatalog.NetworkUnavailable()) }
   }
 }
 

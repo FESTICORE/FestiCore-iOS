@@ -374,14 +374,17 @@ private actor StubClient: FestiCoreNetworkClient {
   func sendResponse<R: FestiCoreDataRequest>(
     _ request: R
   ) async throws(FestiCoreNetworkError) -> FestiCoreHTTPResponse {
-    fatalError("사용하지 않는 요청")
+    Issue.record("사용하지 않는 요청")
+    throw .request(.invalidURL)
   }
 
   func upload<R: FestiCoreUploadRequest>(_ request: R) async throws(FestiCoreNetworkError) -> R.Response {
-    fatalError("사용하지 않는 요청")
+    Issue.record("사용하지 않는 요청")
+    throw .request(.invalidURL)
   }
 
   func upload(_ request: some FestiCoreFileUploadRequest) async throws(FestiCoreNetworkError) {
-    fatalError("사용하지 않는 요청")
+    Issue.record("사용하지 않는 요청")
+    throw .request(.invalidURL)
   }
 }

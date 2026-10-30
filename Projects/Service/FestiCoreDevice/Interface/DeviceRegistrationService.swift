@@ -46,12 +46,16 @@ public protocol DeviceRegistrationService: Sendable {
 }
 
 public enum DeviceRegistrationServiceDependency: TestDependencyKey {
-  public static var testValue: any DeviceRegistrationService { UnimplementedDeviceRegistrationService() }
+  public static var testValue: any DeviceRegistrationService {
+    return UnimplementedDeviceRegistrationService()
+  }
 }
 
 public extension DependencyValues {
   var deviceRegistrationService: any DeviceRegistrationService {
-    get { self[DeviceRegistrationServiceDependency.self] }
+    get {
+      return self[DeviceRegistrationServiceDependency.self]
+    }
     set { self[DeviceRegistrationServiceDependency.self] = newValue }
   }
 }
@@ -62,7 +66,7 @@ private struct UnimplementedDeviceRegistrationService: DeviceRegistrationService
   }
 
   func authorization() async throws -> DeviceAuthorization? {
-    fatalError("deviceRegistrationService 미등록")
+    throw TestDeviceRegistrationUnavailable()
   }
 }
 

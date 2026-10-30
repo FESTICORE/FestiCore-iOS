@@ -97,19 +97,28 @@ private actor ScriptClient: FestiCoreRequestClient {
   func send<R: FestiCoreDataRequest, T: Decodable & Sendable>(
     _ request: R, as type: T.Type
   ) async throws(FestiCoreNetworkError) -> T {
-    fatalError("사용하지 않는 요청")
+    Issue.record("사용하지 않는 요청")
+    throw .request(.invalidURL)
   }
 
   func send<R: FestiCoreDataRequest>(_ request: R) async throws(FestiCoreNetworkError) -> R.Response {
-    guard !pages.isEmpty else { fatalError("예상하지 않은 페이지 요청") }
+    guard !pages.isEmpty else {
+      Issue.record("예상하지 않은 페이지 요청")
+      throw .request(.invalidURL)
+    }
     let data = pages.removeFirst()
-    do { return try JSONDecoder().decode(R.Response.self, from: data) }
-    catch { fatalError("잘못된 테스트 데이터: \(error)") }
+    do {
+      return try JSONDecoder().decode(R.Response.self, from: data)
+    } catch {
+      Issue.record("잘못된 테스트 데이터: \(error)")
+      throw .decoding(.failed(error))
+    }
   }
 
   func sendResponse<R: FestiCoreDataRequest>(
     _ request: R
   ) async throws(FestiCoreNetworkError) -> FestiCoreHTTPResponse {
-    fatalError("사용하지 않는 요청")
+    Issue.record("사용하지 않는 요청")
+    throw .request(.invalidURL)
   }
 }
