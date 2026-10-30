@@ -22,6 +22,7 @@ struct ContentView: View {
           NavigationLink("07 Timetable") { TimetableView() }
           NavigationLink("09 Media & Brand") { MediaBrandView() }
           NavigationLink("Primary Button") { PrimaryButtonView() }
+          NavigationLink("Skeleton") { SkeletonView() }
         }
 
         Section("Design Token") {
