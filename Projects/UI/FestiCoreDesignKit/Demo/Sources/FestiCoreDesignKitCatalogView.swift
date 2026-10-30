@@ -41,6 +41,8 @@ struct FestiCoreDesignKitCatalogView: View {
           FCDivider()
           labelSection
           FCDivider()
+          mediaSection
+          FCDivider()
           navigationSection
           FCDivider()
           timetableSection
@@ -198,6 +200,27 @@ struct FestiCoreDesignKitCatalogView: View {
       FCBearerFooter()
       FCBearerFooter(queuedCount: 1)
       FCChecklistProgress(checked: 3, total: 7)
+    }
+  }
+
+  private var mediaSection: some View {
+    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
+      sectionTitle("Media & Brand")
+      ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: FestiCoreSpacing.paddingP12) {
+          ForEach(FCAvatar.Tint.allCases, id: \.self) { tint in
+            FCAvatar("민").tint(tint)
+          }
+        }
+      }
+      HStack(spacing: FestiCoreSpacing.paddingP16) {
+        FCThumbnail(nil)
+        FCThumbnail(Image(systemName: "photo"))
+        Image(asset: .logo)
+          .resizable()
+          .scaledToFit()
+          .frame(height: 24)
+      }
     }
   }
 
