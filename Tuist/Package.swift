@@ -46,12 +46,15 @@ let packageSettings = PackageSettings(
     "FirebaseCore": .framework,
     "FirebaseCrashlytics": .framework,
     "Kingfisher": .framework,
+    "SVGKit": .framework,
     "Mixpanel": .framework,
     "Sentry-Static": .staticFramework
   ],
   baseSettings: packageBaseSettings,
   targetSettings: [
-    "Sharing": .settings(base: ["PRODUCT_NAME": "FestiCorePointFreeSharing"])
+    "Sharing": .settings(base: ["PRODUCT_NAME": "FestiCorePointFreeSharing"]),
+    // SVGKit은 모르는 기기(arm64 시뮬레이터·신형 iPhone)의 PPI를 NSAssert로 막아 SVG 파싱이 실패한다.
+    "SVGKit": .settings(base: ["ENABLE_NS_ASSERTIONS": "NO"])
   ]
 )
 #endif
@@ -70,6 +73,7 @@ let package = Package(
     .package(url: "https://github.com/openid/AppAuth-iOS.git", exact: "2.1.0"),
     .package(url: "https://github.com/Alamofire/Alamofire", exact: "5.12.0"),
     .package(url: "https://github.com/onevcat/Kingfisher.git", exact: "8.14.0"),
+    .package(url: "https://github.com/SVGKit/SVGKit.git", exact: "3.0.0"),
     .package(url: "https://github.com/airbnb/lottie-spm.git", exact: "4.5.2"),
     .package(url: "https://github.com/mixpanel/mixpanel-swift.git", exact: "7.0.0"),
     .package(url: "https://github.com/getsentry/sentry-apple-binaries.git", exact: "9.30.1")
