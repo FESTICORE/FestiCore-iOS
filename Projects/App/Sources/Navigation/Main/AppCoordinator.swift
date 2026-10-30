@@ -292,7 +292,7 @@ private extension AppCoordinator {
         home.authFlow.pendingOwnerID = nil
       }
       home.authFlow.verifiedUserID = eligibleID
-      if let userID { home.authFlow.lastVerifiedUserID = userID }
+      home.authFlow.lastVerifiedUserID = userID
       state = .home(home)
       return .send(.scope(.home(.festival(.reloadBookmarks(userID: eligibleID)))))
 
@@ -341,6 +341,7 @@ private extension AppCoordinator {
 
       case .failure(.unauthenticated):
         home.authFlow.verifiedUserID = nil
+        home.authFlow.lastVerifiedUserID = nil
         home.authFlow.profile = nil
         home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .login
         state = .home(home)
@@ -534,7 +535,7 @@ private extension AppCoordinator {
     operation: MyAccountOperation
   ) -> Effect<Action> {
     guard case var .home(home) = state,
-          home.authFlow.profile != nil,
+          home.authFlow.profile != nil || home.authFlow.lastVerifiedUserID != nil,
           !home.authFlow.isLoading else { return .none }
     home.authFlow.generation += 1
     home.authFlow.isLoading = true

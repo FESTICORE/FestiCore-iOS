@@ -128,6 +128,7 @@ struct AppCoordinatorTests {
     await store.send(.inner(.sessionRestored(generation: 1, userID: nil)))
     guard case let .home(signedOut) = store.state else { return }
     #expect(signedOut.authFlow.verifiedUserID == nil)
+    #expect(signedOut.authFlow.lastVerifiedUserID == nil)
     #expect(box.ids == ["saved-a"])
   }
 
@@ -584,6 +585,35 @@ struct AppCoordinatorTests {
     }
     guard case let .home(unchanged) = store.state else { return }
     #expect(unchanged.authFlow.profile?.user.id == "user-a")
+  }
+
+  @Test func myLogoutWorksWhenProfileFetchFailedButSessionRemains() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.lastVerifiedUserID = "user-a"
+    home.authFlow.message = "회원 정보를 확인할 수 없어요. 다시 시도해 주세요."
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.delegate(.myLogoutRequested)))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 1
+      home.authFlow.isLoading = true
+      home.authFlow.message = nil
+      $0 = .home(home)
+    }
+    await store.receive(\.inner.myAccountFinished) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow = .init()
+      home.authFlow.generation = 1
+      $0 = .home(home)
+    }
+    guard case let .home(signedOut) = store.state else { return }
+    #expect(signedOut.authFlow.lastVerifiedUserID == nil)
   }
 }
 

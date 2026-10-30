@@ -23,12 +23,6 @@ struct MyTabView: View {
 
         if let profile {
           account(profile)
-          Button("로그아웃", action: onLogout)
-            .disabled(isLoading)
-          Button("회원 탈퇴", role: .destructive) {
-            isWithdrawalConfirmationPresented = true
-          }
-          .disabled(isLoading)
         } else if isLoading {
           ProgressView("계정 정보를 확인하는 중입니다")
             .frame(maxWidth: .infinity, minHeight: 180)
@@ -44,6 +38,15 @@ struct MyTabView: View {
               .buttonStyle(.borderedProminent)
           }
           Button("계정 정보 다시 확인", action: onRefresh)
+        }
+
+        if profile != nil || hasSession {
+          Button("로그아웃", action: onLogout)
+            .disabled(isLoading)
+          Button("회원 탈퇴", role: .destructive) {
+            isWithdrawalConfirmationPresented = true
+          }
+          .disabled(isLoading)
         }
 
         if let message {

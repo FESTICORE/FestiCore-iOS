@@ -53,21 +53,33 @@ struct FestivalFlagFeatureTests {
       state.viewState = .loaded
       return state
     }()) { FestivalFlagFeature() } withDependencies: {
-      $0.festivalLiveBoardService = StubLiveBoardService(result: .failure(FetchError()))
+      $0.festivalLiveBoardService = StubLiveBoardService(result: .failure(.invalidResponse))
     }
 
     await store.send(.refresh) { $0.viewState = .loading }
     await store.receive(\.failed) { $0.viewState = .failed }
     #expect(store.state.snapshot == cached)
   }
+
+  @Test func missingDeviceRegistrationShowsRecoveryState() async {
+    let store = TestStore(initialState: FestivalFlagFeature.State(festivalID: "festival")) {
+      FestivalFlagFeature()
+    } withDependencies: {
+      $0.festivalLiveBoardService = StubLiveBoardService(result: .failure(.deviceNotRegistered))
+    }
+
+    await store.send(.appeared) {
+      $0.isVisible = true
+      $0.viewState = .loading
+    }
+    await store.receive(\.failed) { $0.viewState = .deviceNotRegistered }
+  }
 }
 
 private struct StubLiveBoardService: FestivalLiveBoardService {
-  let result: Result<FestivalLiveBoardSnapshot, FetchError>
+  let result: Result<FestivalLiveBoardSnapshot, FestivalLiveBoardError>
 
   func refresh(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
     try result.get()
   }
 }
-
-private struct FetchError: Error {}

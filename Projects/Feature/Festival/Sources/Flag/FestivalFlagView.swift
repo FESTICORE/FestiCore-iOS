@@ -40,6 +40,8 @@ public struct FestivalFlagView: View {
     if let snapshot = store.snapshot {
       if store.viewState == .failed {
         FCEmptyCard(title: "새 정보를 불러오지 못했습니다", message: "이전에 받은 깃발을 표시합니다. 아래로 당겨 다시 시도해 주세요.")
+      } else if store.viewState == .deviceNotRegistered {
+        FCEmptyCard(title: "기기 등록이 필요합니다", message: "앱을 다시 실행해 기기를 등록한 뒤 새로고침해 주세요. 이전 깃발을 표시합니다.")
       }
       flagSection(title: "팔로우한 깃발", flags: snapshot.followedFlags)
       flagSection(title: "활성 깃발", flags: snapshot.activeFlags)
@@ -50,6 +52,8 @@ public struct FestivalFlagView: View {
           .frame(maxWidth: .infinity, minHeight: 180)
       case .failed:
         FCEmptyCard(title: "깃발을 불러오지 못했습니다", message: "네트워크 연결을 확인하고 아래로 당겨 다시 시도해 주세요.")
+      case .deviceNotRegistered:
+        FCEmptyCard(title: "기기 등록이 필요합니다", message: "앱을 다시 실행해 기기를 등록한 뒤 새로고침해 주세요.")
       case .loaded:
         FCEmptyCard(title: "깃발이 없습니다", message: "이 축제에 등록된 깃발이 없습니다.")
       }
