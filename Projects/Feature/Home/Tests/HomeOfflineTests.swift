@@ -471,7 +471,7 @@ private struct NoSocketPackService: PackSyncService {
   func sync(for _: String) async throws -> PackSyncResult { throw OfflineCatalog.NetworkUnavailable() }
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
     Issue.record("Background cache load must not open a WebSocket")
-    return AsyncThrowingStream { $0.finish() }
+    return AsyncThrowingStream { $0.finish(throwing: OfflineCatalog.NetworkUnavailable()) }
   }
 }
 
