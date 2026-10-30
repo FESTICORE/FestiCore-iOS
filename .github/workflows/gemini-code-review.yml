@@ -222,7 +222,7 @@ jobs:
               "- Each diff line is annotated with [LINE N] for added lines or [CTX N] for context lines.",
               "- You MUST only comment on [LINE N] lines (added/modified code). NEVER comment on [CTX] or [DEL] lines.",
               "- Use the EXACT number N shown in the [LINE N] annotation. Do NOT compute line numbers yourself.",
-              "- The \"code_snippet\" field must contain the actual code from that [LINE N] line.",
+              "- The \"code_snippet\" field must contain the exact code from that [LINE N] line, including leading and trailing whitespace.",
               "",
               "[PR Context]",
               "Title: " + pr_title,
@@ -343,7 +343,7 @@ jobs:
                 && validLinesMap[c.path]?.includes(c.line)
                 && typeof c.code_snippet === "string"
                 && c.code_snippet.trim().length > 0
-                && lineContentMap[c.path]?.[c.line]?.trim() === c.code_snippet.trim()
+                && lineContentMap[c.path]?.[c.line] === c.code_snippet
                 && typeof c.body === "string"
                 && /\[P[12]\]/.test(c.body);
               if (!valid && c && /\[P[12]\]/.test(String(c.body || ""))) {
