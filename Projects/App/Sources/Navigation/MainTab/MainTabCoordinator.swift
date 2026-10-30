@@ -18,14 +18,14 @@ struct MainTabCoordinator {
   struct State: Equatable {
     var selectedTab: Tab
     var previousTab: Tab = .live
-    var homeState: HomeCoordinator.State
+    var festivalState: FestivalCoordinator.State
     var timetableState: TimetableFeature.State
 
     /// 목록에서는 탭바를 숨기고, 선택한 축제의 라이브 보드에서는 표시한다.
     var shouldHideTabBar: Bool {
       switch selectedTab {
       case .live:
-        return homeState.routes.count == 1
+        return festivalState.routes.count == 1
       case .timetable, .flag, .my:
         return false
       }
@@ -33,7 +33,7 @@ struct MainTabCoordinator {
 
     init(selectedTab: Tab = .live) {
       self.selectedTab = selectedTab
-      homeState = .init()
+      festivalState = .init()
       timetableState = .init(
         days: [],
         source: ""
@@ -46,13 +46,13 @@ struct MainTabCoordinator {
     case tabTapped(Tab)
     case selectTab(Tab)
     case tabReselected(Tab)
-    case home(HomeCoordinator.Action)
+    case festival(FestivalCoordinator.Action)
     case timetable(TimetableFeature.Action)
   }
 
   var body: some ReducerOf<Self> {
-    Scope(state: \.homeState, action: \.home) {
-      HomeCoordinator()
+    Scope(state: \.festivalState, action: \.festival) {
+      FestivalCoordinator()
     }
     Scope(state: \.timetableState, action: \.timetable) {
       TimetableFeature()
@@ -77,7 +77,7 @@ struct MainTabCoordinator {
         _ = tab
         return .none
 
-      case .home:
+      case .festival:
         if state.selectedTab == .timetable {
           syncTimetable(state: &state)
         }
@@ -90,7 +90,7 @@ struct MainTabCoordinator {
   }
 
   private func syncTimetable(state: inout State) {
-    guard let screen = state.homeState.routes.last?.screen,
+    guard let screen = state.festivalState.routes.last?.screen,
           case let .liveBoard(home) = screen,
           let pack = home.selectedPack else { return }
     let days = FestivalPackTimetableMapper.days(from: pack)

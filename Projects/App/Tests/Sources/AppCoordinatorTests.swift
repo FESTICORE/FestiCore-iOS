@@ -55,28 +55,28 @@ struct AppCoordinatorTests {
     await store.receive(\.tabReselected)
   }
 
-  @Test func homeCoordinatorStartsWithHomeFeatureRoute() {
-    let coordinator = HomeCoordinator.State()
+  @Test func homeCoordinatorStartsWithFestivalFeatureRoute() {
+    let coordinator = FestivalCoordinator.State()
     #expect(coordinator.routes.count == 1)
-    #expect(coordinator.routes.first?.screen.home != nil)
+    #expect(coordinator.routes.first?.screen.festivalList != nil)
   }
 
   @Test func bottomTabsAppearOnFestivalLiveBoard() {
     var state = MainTabCoordinator.State()
     #expect(state.shouldHideTabBar)
 
-    state.homeState.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
+    state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
     #expect(!state.shouldHideTabBar)
 
-    state.homeState.routes.goBack()
+    state.festivalState.routes.goBack()
     #expect(state.shouldHideTabBar)
   }
 
   @Test func swipingBackFromLiveBoardReturnsToFestivalList() async {
-    var state = HomeCoordinator.State()
+    var state = FestivalCoordinator.State()
     state.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
     let store = TestStore(initialState: state) {
-      HomeCoordinator()
+      FestivalCoordinator()
     }
 
     await store.send(.router(.routeAction(id: 1, action: .liveBoard(.view(.backToFestivalList))))) {

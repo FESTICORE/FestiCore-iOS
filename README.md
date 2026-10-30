@@ -18,11 +18,11 @@
 
 ## 프로젝트
 
-FestiCore는 축제를 위한 iOS 앱입니다. Home에서 축제 목록을 조회하고, 축제를 선택하면 공개 팩을 받아 저장합니다. 저장된 목록과 팩은 앱 재시작 후 네트워크 없이 다시 볼 수 있습니다. Live Activity의 화면상 시작 동작은 구현됐으며, 잠금 화면 표시는 실제 기기에서 검증 중입니다.
+FestiCore는 축제를 위한 iOS 앱입니다. Festival 모듈에서 축제 목록을 조회하고, 축제를 선택하면 공개 팩을 받아 저장합니다. 저장된 목록과 팩은 앱 재시작 후 네트워크 없이 다시 볼 수 있습니다. Live Activity의 화면상 시작 동작은 구현됐으며, 잠금 화면 표시는 실제 기기에서 검증 중입니다.
 
 현재 구성:
 
-- Stage·Prod 앱, Splash에서 Home으로 이어지는 TCA 화면 전환
+- Stage·Prod 앱, Splash에서 탭과 축제 목록·라이브 보드로 이어지는 TCA 화면 전환
 - 네트워크·인증·저장소·로깅의 모듈 경계와 의존성 조립
 - APNs 토큰의 Keychain 보관과 앱 실행 시 기기 등록
 - 공개 축제 목록의 마지막 정상 응답 저장, 팩 WebSocket 동기화와 오프라인 복구
@@ -36,7 +36,7 @@ FestiCore는 축제를 위한 iOS 앱입니다. Home에서 축제 목록을 조�
 
 ## 아키텍처
 
-SwiftUI와 The Composable Architecture를 사용하는 Tuist 멀티모듈 프로젝트입니다. `Workspace.swift`가 `Projects/**`를 모으고, AppCoordinator는 Splash에서 Home으로 전환합니다.
+SwiftUI와 The Composable Architecture를 사용하는 Tuist 멀티모듈 프로젝트입니다. `Workspace.swift`가 `Projects/**`를 모으고, `AppCoordinator`는 Splash에서 `MainTabCoordinator`로 전환합니다. 축제 목록과 라이브 보드는 `FestivalCoordinator`가 TCAFlow 경로로 관리합니다.
 
 ### 폴더 구조
 
@@ -45,8 +45,9 @@ Projects/
 ├── App/                           # 앱 진입점, 설정, 테스트 플랜
 ├── Feature/
 │   ├── FeatureAssembly/           # 화면 모듈 조립
-│   ├── Home/                      # 축제 목록·상세 화면
-│   └── Login/                     # 로그인 Feature
+│   ├── Festival/                  # 축제 목록·라이브 보드, Client·Store·UseCase
+│   ├── Login/                     # 로그인 Feature
+│   └── Timetable/                 # 선택한 축제의 공연 시간표
 ├── Domain/
 │   ├── AuthDomain/                # 인증 Entity·Repository·UseCase
 │   └── FestivalDomain/            # 축제 목록 계약과 모델
@@ -85,13 +86,14 @@ flowchart TD
     App --> FeatureAssembly
     App --> ServiceAssembly
     App --> CoreAssembly
-    FeatureAssembly --> Home
+    FeatureAssembly --> Festival
     FeatureAssembly --> Login
+    FeatureAssembly --> Timetable
     FeatureAssembly --> AuthDomain
     FeatureAssembly --> ServiceAssembly
-    Home --> FestivalDomainInterface["FestivalDomain / Interface"]
-    Home --> PackInterface["FestiCorePack / Interface"]
-    Home --> SharedUI["FestiCoreSharedUI"]
+    Festival --> FestivalDomainInterface["FestivalDomain / Interface"]
+    Festival --> PackInterface["FestiCorePack / Interface"]
+    Festival --> SharedUI["FestiCoreSharedUI"]
     Login --> AuthDomainInterface["AuthDomain / Interface"]
     AuthDomain --> AuthDomainInterface
     AuthDomain --> AuthInterface["FestiCoreAuth / Interface"]
@@ -107,41 +109,19 @@ flowchart TD
     App -. 포함 .-> Notification["FestiCoreNotificationService"]
 ~~~
 
-- `FeatureAssembly`는 Home·Login과 인증 도메인, `ServiceAssembly`를 연결합니다.
+- `FeatureAssembly`는 Festival·Login·Timetable과 인증 도메인, `ServiceAssembly`를 연결합니다.
 - 화면은 필요한 도메인·서비스의 Interface를 직접 의존하고, `ServiceAssembly`와 `CoreAssembly`가 라이브 구현을 조립합니다.
 - App은 Feature·Service·Core 조립 모듈과 앱에서 직접 사용하는 UI·설정 모듈을 참조합니다. 위젯과 알림 서비스는 앱에 포함되는 별도 타깃입니다.
 
 ### 모듈 그래프
 
-현재 `Project.swift`의 주요 내부 의존성을 펼친 그래프입니다.
-
-![현재 모듈 의존성 그래프](docs/architecture/module-graph.svg)
-
-[Excalidraw 원본](docs/architecture/module-graph.excalidraw) · [Mermaid 원본](docs/architecture/module-graph.mmd) · [갱신 방법](docs/architecture/README.md)
-
-`./make graph`와 `./make graph:prod`는 현재 Tuist 프로젝트에서 전체·제품 모듈 그래프를 다시 생성합니다.
-
-<details>
-<summary>Tuist 전체 모듈 그래프</summary>
-
-![전체 모듈 그래프](docs/architecture/module-graph-all.png)
-
-</details>
-
-<details>
-<summary>Tuist 제품 모듈 그래프</summary>
-
-![제품 모듈 그래프](docs/architecture/module-graph-prod.png)
-
-</details>
+`./make graph`와 `./make graph:prod`는 현재 Tuist 프로젝트에서 전체·제품 모듈 그래프를 생성합니다. 생성 방법은 [아키텍처 문서](docs/architecture/README.md)를 참고하세요.
 
 ### TCA 화면 흐름
 
-![Splash에서 Home으로 전환하는 TCA 흐름](docs/architecture/tca-flow.svg)
+`AppCoordinator`는 Splash가 끝나면 `MainTabCoordinator`를 표시합니다. `FestivalCoordinator`의 첫 경로는 축제 목록이며, 축제를 선택하면 라이브 보드 경로를 추가합니다. 목록과 라이브 보드의 상태는 `FestivalFeature`가 관리합니다. `MainTabCoordinator`는 선택한 축제 팩의 시간표를 Timetable 탭에 전달합니다.
 
-[Excalidraw 원본](docs/architecture/tca-flow.excalidraw) · [Mermaid 원본](docs/architecture/tca-flow.mmd)
-
-현재 앱은 Splash에서 Home으로 전환합니다. Login 모듈은 의존성 그래프에 포함되지만 앱 화면 경로에는 아직 연결되지 않았습니다. 위젯과 알림 서비스 확장은 앱에 포함되는 별도 타깃입니다.
+`FestivalFeature.State.catalog`는 `IdentifiedArrayOf<FestivalCatalogItem>`을 사용합니다. `FestivalCatalogUseCase`는 중복 축제와 초기 선택을 처리하고, `FestivalImageUseCase`는 이미지 수집·프리페치 대상을 정리합니다. 두 유스케이스는 `Projects/Feature/Festival/Sources/Common/UseCase/`에 있습니다.
 
 ### 의존성 주입
 
@@ -154,7 +134,7 @@ Point-Free Dependencies를 사용합니다. `ServiceAssembly`가 네트워크·�
 | 영역 | 기술 |
 | --- | --- |
 | 언어·UI | Swift 6, SwiftUI |
-| 상태 관리·내비게이션 | The Composable Architecture, TCAFlow 패키지 준비 |
+| 상태 관리·내비게이션 | The Composable Architecture, TCAFlow |
 | 프로젝트 | Tuist 4.206.0, Mise |
 | 의존성 주입 | Point-Free Dependencies |
 | 네트워크·저장소 | Alamofire, Keychain |
@@ -196,7 +176,7 @@ open FestiCore.xcworkspace
 ./make module Feature NewFeature  # 새 Feature 모듈 생성 예시
 ~~~
 
-전체 명령과 모듈 이름 규칙은 [개발 환경](docs/development.md)을 따릅니다.
+Festival 모듈의 파일을 추가하거나 이동한 뒤에는 `./make generate`로 워크스페이스를 다시 생성합니다. `./make build`는 Stage 시뮬레이터 빌드, `./make test`는 Stage 테스트 플랜 전체 실행입니다. 전체 명령과 모듈 이름 규칙은 [개발 환경](docs/development.md)을 따릅니다.
 
 ## 테스트와 CI
 

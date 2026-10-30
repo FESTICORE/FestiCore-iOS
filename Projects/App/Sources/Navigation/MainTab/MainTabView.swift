@@ -35,10 +35,10 @@ struct MainTabView: View {
   private var tabContent: some View {
     switch store.selectedTab {
     case .live:
-      HomeCoordinatorView(
+      FestivalCoordinatorView(
         store: store.scope(
-          state: \.homeState,
-          action: \.home
+          state: \.festivalState,
+          action: \.festival
         )
       )
 
