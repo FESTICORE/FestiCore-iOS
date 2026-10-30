@@ -63,10 +63,12 @@ public struct ProfileView: View {
           settings
           information
 
-          Text("FESTICORE v\(appVersion)")
-            .festiCoreFont(.baseCaption1Regular)
-            .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
-            .frame(maxWidth: .infinity)
+          if let appVersion {
+            Text("FESTICORE v\(appVersion)")
+              .festiCoreFont(.baseCaption1Regular)
+              .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+              .frame(maxWidth: .infinity)
+          }
         }
         .padding(.horizontal, FestiCoreSpacing.paddingP16)
         .padding(.top, FestiCoreSpacing.paddingP8)
@@ -264,7 +266,7 @@ private extension ProfileView {
       .padding(.leading, FestiCoreSpacing.paddingP16)
   }
 
-  var appVersion: String {
-    Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0"
+  var appVersion: String? {
+    Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
   }
 }
