@@ -520,6 +520,81 @@ struct AppCoordinatorTests {
     #expect(days.first?.sets.first?.start == 720)
     #expect(days.first?.sets.first?.end == 780)
   }
+
+  @Test func flagTabFollowsSelectedFestival() async {
+    var state = MainTabCoordinator.State()
+    state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival-a")))
+    let store = TestStore(initialState: state) { MainTabCoordinator() }
+
+    await store.send(.tabTapped(.flag))
+    await store.receive(\.selectTab) { $0.selectedTab = .flag }
+    await store.receive(\.flag.festivalChanged) { $0.flagState.festivalID = "festival-a" }
+  }
+
+  @Test func myLogoutClearsVisibleAccountOnlyAfterSuccess() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.verifiedUserID = "user-a"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.delegate(.myLogoutRequested)))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 1
+      home.authFlow.isLoading = true
+      $0 = .home(home)
+    }
+    guard case let .home(loading) = store.state else { return }
+    #expect(loading.authFlow.profile?.user.id == "user-a")
+    await store.receive(\.inner.myAccountFinished) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow = .init()
+      home.authFlow.generation = 1
+      $0 = .home(home)
+    }
+    guard case let .home(signedOut) = store.state else { return }
+    #expect(signedOut.authFlow.profile == nil)
+  }
+
+  @Test func myWithdrawalFailureRetainsAccount() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.authUseCase = FailingMyAuthUseCase()
+    }
+
+    await store.send(.scope(.home(.delegate(.myWithdrawRequested)))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 1
+      home.authFlow.isLoading = true
+      $0 = .home(home)
+    }
+    await store.receive(\.inner.myAccountFinished) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.isLoading = false
+      home.authFlow.message = "회원 탈퇴에 실패했습니다. 다시 시도해 주세요."
+      $0 = .home(home)
+    }
+    guard case let .home(unchanged) = store.state else { return }
+    #expect(unchanged.authFlow.profile?.user.id == "user-a")
+  }
+}
+
+private struct FailingMyAuthUseCase: AuthUseCaseInterface {
+  func signIn(with credential: AuthCredential) async throws -> AuthLoginResult { throw AuthDomainError.notAuthenticated }
+  func fetchProfile() async throws -> AuthProfile { throw AuthDomainError.notAuthenticated }
+  func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser {
+    throw AuthDomainError.notAuthenticated
+  }
+  func signOut() async throws { throw AuthDomainError.notAuthenticated }
+  func withdraw() async throws { throw AuthDomainError.notAuthenticated }
 }
 
 private struct UnauthenticatedAuthUseCase: AuthUseCaseInterface {

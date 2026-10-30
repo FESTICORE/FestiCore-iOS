@@ -125,7 +125,7 @@ struct AppCoordinator {
     }
   }
 
-  enum MyAccountOperation: Equatable {
+  enum MyAccountOperation: Equatable, Sendable {
     case signOut
     case withdraw
   }

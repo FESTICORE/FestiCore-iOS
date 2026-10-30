@@ -26,6 +26,7 @@ public struct FestivalFlagFeature {
     }
   }
 
+  @CasePathable
   public enum Action: Equatable {
     case appeared
     case disappeared
