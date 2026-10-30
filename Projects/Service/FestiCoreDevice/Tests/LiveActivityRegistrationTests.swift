@@ -16,6 +16,18 @@ import FestiCoreNetworkInterface
 struct LiveActivityRegistrationTests {
   private let credentials = DeviceAuthorization(deviceID: "device-id", bearerToken: "device-token")
 
+  @Test("기본 등록 서비스는 프로세스 종료 대신 오류를 반환한다")
+  func unimplementedServiceFailsWithError() async {
+    let registration = LiveActivityRegistration(
+      festivalID: "fst_abc", activityID: "activity-id", pushToken: "a1b2"
+    )
+    await #expect(throws: FestiCoreNetworkError.self) {
+      try await LiveActivityRegistrationServiceDependency.testValue.register(
+        registration, authorization: credentials
+      )
+    }
+  }
+
   @Test("등록은 기기 인증 헤더와 서버 필드명으로 PUT 요청한다")
   func registerRequest() throws {
     let request = LiveActivityRegistrationRequest(

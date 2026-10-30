@@ -150,6 +150,13 @@ struct NetworkClientTests {
     }
   }
 
+  @Test("기본 클라이언트는 미등록 요청을 프로세스 종료 대신 오류로 반환한다")
+  func unimplementedClientFailsWithError() async {
+    await #expect(throws: FestiCoreNetworkError.self) {
+      _ = try await NetworkClientDependency.testValue.send(UserRequest())
+    }
+  }
+
   @Test("명시한 응답 타입으로 디코딩하는 send 오버로드도 같은 요청을 보낸다")
   func explicitResponseType() async throws {
     URLProtocolStub.set(statusCode: 200, body: json(#"{"id":8,"name":"운영진"}"#))

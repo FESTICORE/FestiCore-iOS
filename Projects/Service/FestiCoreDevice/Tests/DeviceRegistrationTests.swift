@@ -31,6 +31,13 @@ struct DeviceRegistrationTests {
     }
   }
 
+  @Test("기본 기기 인증 조회는 미등록 오류를 반환한다")
+  func defaultAuthorizationDoesNotSucceed() async {
+    await #expect(throws: TestDeviceRegistrationUnavailable.self) {
+      _ = try await DeviceRegistrationServiceDependency.testValue.authorization()
+    }
+  }
+
   @Test("APNs 권한이 없어도 명시적인 null 토큰으로 등록 요청한다")
   func encodesRegistrationRequest() throws {
     let request = DeviceRegistrationRequest(deviceID: UUID().uuidString, bearerToken: nil, metadata: metadata)

@@ -14,6 +14,18 @@ struct PackSyncTests {
     #expect(try await PackSyncServiceDependency.testValue.cachedPacks().isEmpty)
   }
 
+  @Test("기본 팩 동기화는 프로세스 종료 대신 오류를 반환한다")
+  func unimplementedSyncFailsWithError() async {
+    let failed: Bool
+    do {
+      _ = try await PackSyncServiceDependency.testValue.sync(for: id)
+      failed = false
+    } catch {
+      failed = true
+    }
+    #expect(failed)
+  }
+
   @Test("완성된 팩은 새 서비스 인스턴스에서 네트워크 없이 복원한다")
   func restoresAfterRestart() async throws {
     let directory = temporaryDirectory()
