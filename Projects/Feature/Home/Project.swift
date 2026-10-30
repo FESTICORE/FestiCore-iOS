@@ -16,6 +16,7 @@ let project = Project.makeModule(
     .domain(.festival, .interface),
     .service(.pack, .interface),
     .ui(.liveActivity),
+    .ui(.designSystem),
     .ui(.sharedUI),
     .SPM.kingfisher,
     .SPM.composableArchitecture,
