@@ -38,6 +38,7 @@ public extension InfoPlist {
 
   static let liveActivityWidgetInfoPlist: Self = .extendingDefault(
     with: InfoPlistDictionary()
+      .set("CFBundleDisplayName", .string("FestiCore"))
       .setCFBundleShortVersionString("$(FESTICORE_VERSION)")
       .setCFBundleVersion("$(FESTICORE_BUILD_NUMBER)")
       .setNSExtension(pointIdentifier: "com.apple.widgetkit-extension")
