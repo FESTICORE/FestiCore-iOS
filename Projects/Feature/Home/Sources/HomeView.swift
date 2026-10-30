@@ -15,10 +15,14 @@ public struct HomeView: View {
       LazyVStack(alignment: .leading, spacing: 24) {
         status
         festivalList
+        if let pack = store.selectedPack {
+          HomeLiveBoardView(pack: pack)
+        }
         festivalDetail
       }
       .padding(20)
     }
+    .scrollIndicators(.hidden)
     .navigationTitle("FestiCore")
     .refreshable { send(.refreshRequested) }
     .task {
