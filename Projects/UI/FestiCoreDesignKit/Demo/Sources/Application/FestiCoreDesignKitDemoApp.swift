@@ -16,7 +16,7 @@ struct FestiCoreDesignKitDemoApp: App {
 
   var body: some Scene {
     WindowGroup {
-      FestiCoreDesignKitCatalogView()
+      ContentView()
     }
   }
 }
