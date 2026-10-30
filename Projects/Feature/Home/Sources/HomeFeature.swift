@@ -7,6 +7,7 @@ import Foundation
 public struct HomeFeature {
   @Dependency(\.festivalCatalogService) private var catalogService
   @Dependency(\.festivalSelectionStore) private var selectionStore
+  @Dependency(\.festivalBookedStore) private var bookedStore
   @Dependency(\.packSyncService) private var packService
   @Dependency(\.homeImagePrefetchClient) private var imagePrefetchClient
   @Dependency(\.homeLiveActivityClient) private var liveActivityClient
@@ -24,6 +25,7 @@ public struct HomeFeature {
     public var imageRetryPending = false
     public var packWatchFailed = false
     public var selectedFestivalID: String?
+    public var bookedFestivalIDs: Set<String> = []
     public var selectedPack: FestivalPackDocument?
     public var connection: Connection = .loading
     public var hasStarted = false
@@ -125,6 +127,7 @@ public struct HomeFeature {
     case foregroundChanged(Bool)
     case refreshRequested
     case selectFestival(String)
+    case toggleBookedFestival(String)
     case liveActivityOnAppear
     case liveActivityTapped
   }
@@ -154,6 +157,7 @@ public struct HomeFeature {
       case .view(.onAppear):
         guard !state.hasStarted else { return .none }
         state.hasStarted = true
+        state.bookedFestivalIDs = bookedStore.load()
         return .run { send in
           async let catalog = try? catalogService.cachedFestivals()
           async let packs = try? packService.cachedPacks()
@@ -255,6 +259,14 @@ public struct HomeFeature {
           prefetchImages(state),
           liveActivityBoundary(state)
         )
+
+      case let .view(.toggleBookedFestival(id)):
+        guard state.festivals.contains(where: { $0.id == id }) else { return .none }
+        if !state.bookedFestivalIDs.insert(id).inserted {
+          state.bookedFestivalIDs.remove(id)
+        }
+        let ids = state.bookedFestivalIDs
+        return .run { _ in bookedStore.save(ids) }
 
       case let .inner(.catalogRefreshed(catalog)):
         if state.liveActivityReady { state.liveActivityNow = date.now }

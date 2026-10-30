@@ -24,6 +24,13 @@ enum HomeDateFormat {
     makeFormatter("HH:mm").string(from: date)
   }
 
+  static func festivalDay(from value: String?) -> String? {
+    guard let date = day(from: value) else { return nil }
+    let formatter = makeFormatter("M/d(E)")
+    formatter.locale = Locale(identifier: "ko_KR")
+    return formatter.string(from: date)
+  }
+
   private static func makeFormatter(_ format: String) -> DateFormatter {
     let formatter = DateFormatter()
     formatter.locale = locale
