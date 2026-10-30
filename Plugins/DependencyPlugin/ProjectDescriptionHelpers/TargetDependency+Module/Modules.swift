@@ -9,7 +9,7 @@ import ProjectDescription
 
 public enum FeatureModule: String, CaseIterable {
   case assembly = "FeatureAssembly"
-  case home = "Home"
+  case festival = "Festival"
   case login = "Login"
   case timetable = "Timetable"
 

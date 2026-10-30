@@ -13,7 +13,7 @@ import ProjectTemplatePlugin
 let project = Project.makeModule(
   name: "FeatureAssembly",
   dependencies: [
-    .feature(.home),
+    .feature(.festival),
     .feature(.login),
     .feature(.timetable),
     .domain(.auth),
