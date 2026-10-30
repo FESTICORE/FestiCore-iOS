@@ -9,6 +9,28 @@ import FestiCoreStorageInterface
 
 @MainActor
 struct NotificationPermissionTests {
+  @Test("거부 안내는 세션에서 한 번만 표시한다")
+  func settingsAlertShowsOnce() {
+    var gate = NotificationSettingsAlertGate()
+
+    let firstDenial = gate.shouldShow(for: .denied)
+    let repeatedDenial = gate.shouldShow(for: .denied)
+    #expect(firstDenial)
+    #expect(!repeatedDenial)
+  }
+
+  @Test("허용 또는 권한 조회 실패는 안내 횟수를 소모하지 않는다")
+  func settingsAlertIgnoresOtherResults() {
+    var gate = NotificationSettingsAlertGate()
+
+    let authorized = gate.shouldShow(for: .authorized)
+    let unavailable = gate.shouldShow(for: .unavailable)
+    let denied = gate.shouldShow(for: .denied)
+    #expect(!authorized)
+    #expect(!unavailable)
+    #expect(denied)
+  }
+
   @Test("앱 시작 시 저장된 APNs 토큰을 서버 등록에 전달한다")
   func registersStoredTokenOnLaunch() async {
     let service = RecordingDeviceRegistrationService()
