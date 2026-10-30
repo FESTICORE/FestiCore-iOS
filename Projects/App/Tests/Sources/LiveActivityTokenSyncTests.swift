@@ -41,16 +41,39 @@ struct LiveActivityTokenSyncTests {
       summary(id: "activity-a", festivalID: "festival-a")
     ]
     source.emitChange()
-    #expect(await waitFor { source.isObserving("activity-a") })
-    #expect(!source.isObserving("activity-b"))
-    source.emitToken(id: "activity-a", festivalID: "festival-a", value: "token-a")
-    #expect(await waitFor { await service.operations.contains(.register("activity-a", "token-a")) })
+    #expect(await waitFor { source.isObserving("activity-b") })
+    #expect(!source.isObserving("activity-a"))
+    source.emitToken(id: "activity-b", festivalID: "festival-b", value: "token-b")
+    #expect(await waitFor { await service.operations.contains(.register("activity-b", "token-b")) })
 
-    source.summaries.removeAll { $0.id == "activity-a" }
+    source.summaries.removeAll { $0.id == "activity-b" }
+    source.emitChange()
+    #expect(await waitFor { source.isObserving("activity-a") })
+    source.emitToken(id: "activity-a", festivalID: "festival-a", value: "token-a")
+    #expect(await waitFor { await service.operations.last == .register("activity-a", "token-a") })
+  }
+
+  @Test("기존 stale Activity 대신 새 active Activity의 업데이트 토큰을 등록한다")
+  func selectsActiveOverStaleActivity() async {
+    let source = TestActivitySource(summaries: [
+      summary(id: "activity-a", festivalID: "festival-a", state: .stale)
+    ])
+    let service = RecordingLiveActivityService()
+    let sync = makeSync(source: source, service: service)
+    sync.start()
+    defer { sync.stop() }
+
+    #expect(await waitFor { source.isObserving("activity-a") })
+    source.emitToken(id: "activity-a", festivalID: "festival-a", value: "stale-token")
+    #expect(await waitFor { await service.operations.last == .register("activity-a", "stale-token") })
+
+    source.summaries.append(summary(id: "activity-b", festivalID: "festival-b", startOffset: 60))
     source.emitChange()
     #expect(await waitFor { source.isObserving("activity-b") })
-    source.emitToken(id: "activity-b", festivalID: "festival-b", value: "token-b")
-    #expect(await waitFor { await service.operations.last == .register("activity-b", "token-b") })
+    source.emitToken(id: "activity-a", festivalID: "festival-a", value: "ignored-token")
+    source.emitToken(id: "activity-b", festivalID: "festival-b", value: "active-token")
+    #expect(await waitFor { await service.operations.last == .register("activity-b", "active-token") })
+    #expect(!(await service.operations).contains(.register("activity-a", "ignored-token")))
   }
 
   @Test("일시적인 등록 실패 후 같은 토큰을 재시도한다")
@@ -81,12 +104,13 @@ struct LiveActivityTokenSyncTests {
   private func summary(
     id: String,
     festivalID: String,
+    state: ActivityState = .active,
     startOffset: TimeInterval = 0
   ) -> FestiCoreFestivalActivitySummary {
     FestiCoreFestivalActivitySummary(
       id: id,
       festivalID: festivalID,
-      state: .active,
+      state: state,
       phase: .upcoming,
       startDate: Date(timeIntervalSince1970: 1_000 + startOffset),
       endDate: nil

@@ -1,3 +1,4 @@
+import ActivityKit
 import CoreAssembly
 import FestiCoreDeviceInterface
 import FestiCoreLiveActivity
@@ -62,11 +63,13 @@ final class LiveActivityTokenSync {
 
   private func refresh() {
     let activities = source.activities()
-    let selected = activities.first { $0.id == selectedActivityID }
-      ?? activities.sorted {
-        if $0.startDate != $1.startDate { return $0.startDate < $1.startDate }
-        return $0.id < $1.id
-      }.first
+    let selected = activities.sorted {
+      let leftPriority = priority($0.state)
+      let rightPriority = priority($1.state)
+      if leftPriority != rightPriority { return leftPriority < rightPriority }
+      if $0.startDate != $1.startDate { return $0.startDate > $1.startDate }
+      return $0.id < $1.id
+    }.first
     if !hasRefreshed {
       hasRefreshed = true
       needsRemoval = selected == nil
@@ -90,6 +93,12 @@ final class LiveActivityTokenSync {
         self?.receive(token)
       }
     }
+  }
+
+  private func priority(_ state: ActivityState) -> Int {
+    if state == .active { return 0 }
+    if state == .stale { return 2 }
+    return 1
   }
 
   private func receive(_ token: FestiCoreFestivalPushToken) {
