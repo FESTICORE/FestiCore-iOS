@@ -26,6 +26,10 @@ public extension ImageAsset {
   static let trashCan20 = ImageAsset(rawValue: "trash-can-20")
   static let camera = ImageAsset(rawValue: "camera")
   static let triangleExclamation16 = ImageAsset(rawValue: "triangle-exclamation-16")
+  static let locationDot16 = ImageAsset(rawValue: "location-dot-16")
+  static let circleInfo16 = ImageAsset(rawValue: "circle-info-16")
+  static let circleCheck16 = ImageAsset(rawValue: "circle-check-16")
+  static let clock16 = ImageAsset(rawValue: "clock-16")
 
   // MARK: - 소셜 로그인
 
