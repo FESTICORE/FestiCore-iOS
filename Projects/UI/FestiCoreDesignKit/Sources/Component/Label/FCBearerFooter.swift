@@ -31,7 +31,10 @@ public struct FCBearerFooter: View {
     .padding(.horizontal, FestiCoreSpacing.paddingP16)
   }
 
-  private var isQueued: Bool {
+}
+
+private extension FCBearerFooter {
+  var isQueued: Bool {
     queuedCount > 0
   }
 }

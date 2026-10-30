@@ -82,7 +82,10 @@ public struct FCSetSheet: View {
     .padding(.bottom, FestiCoreSpacing.paddingP20)
   }
 
-  private var isEnded: Bool {
+}
+
+private extension FCSetSheet {
+  var isEnded: Bool {
     state == .ended
   }
 

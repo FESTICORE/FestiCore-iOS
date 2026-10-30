@@ -23,9 +23,16 @@
 ## TCA와 의존성 주입
 
 - 앱은 `FestiCoreApp`에서 `AppCoordinator` Store를 만들고 `AppCoordinatorView`를 표시한다. 루트 화면 전환은 `AppCoordinator.State`의 enum case와 `store.state` 분기가 담당한다.
+- 앱 호스팅 단위 테스트에서는 루트 Store의 자동 시작 효과를 실행하지 않는다. 테스트 기본 Mock의 미등록 이슈를 무음 처리해 실패를 숨기지 말고, 개별 테스트에 필요한 의존성을 명시적으로 주입한다.
 - Feature는 `@Reducer`로 상태와 동작을 정의하고 View에는 `StoreOf<Feature>`를 전달한다. 앱이 개별 Feature 구현을 직접 import하지 않도록 `FeatureAssembly`에서 공개한다.
 - Point-Free Dependencies를 사용한다. 의존성 인터페이스는 해당 Core·Service·Domain 모듈의 Interface 타깃에, 라이브 구현의 `DependencyKey.liveValue`는 구현 또는 조립 모듈에 둔다. 앱 시작점에서 전역 등록하지 않으며 별도 런타임 DI 컨테이너는 만들지 않는다.
 - Feature는 `@Dependency`로 필요한 인터페이스를 사용하고 테스트에서 결정적인 대역을 주입한다. 테스트나 별도 `DependencyValues` 범위에서는 필요한 `register(into:)`를 명시적으로 호출한다. WeaveDI는 사용하지 않는다.
+
+## SwiftUI View 구성
+
+- 앱·Feature·Widget·DesignKit·SharedUI의 SwiftUI View에 같은 규칙을 적용한다. Attendance의 View 구성처럼 타입 본문에는 저장 속성, 초기화, `body`를 두고, 화면 섹션·하위 뷰 빌더·UI 전용 헬퍼는 같은 파일의 `private extension <View이름>`으로 분리한다. 테스트에서 접근하는 내부 헬퍼가 함께 있으면 일반 `extension`에서 각 비공개 멤버에 `private`를 붙인다. 외부에서 호출하는 체이닝 설정은 기존 `public extension`에 둔다. 분리할 내용이 없는 작은 View에 빈 extension을 만들지 않는다.
+- View 분리는 상태 전환, TCA 액션, 접근성, 다크 모드와 화면 동작을 바꾸지 않는 범위에서 한다. 여러 화면이 실제로 공유하는 컴포넌트만 공용 UI 모듈로 이동한다.
+- 비동기 데이터를 기다리는 화면은 로딩·실패·빈 상태를 구분하고 공용 Skeleton을 사용한다. 데이터가 비었다는 이유만으로 로딩을 계속 표시하지 않는다.
 
 ## 통신과 Domain 모듈
 

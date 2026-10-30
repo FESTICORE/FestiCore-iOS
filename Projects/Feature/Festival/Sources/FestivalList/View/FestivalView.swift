@@ -23,8 +23,10 @@ public struct FestivalView: View {
       send(.foregroundChanged(phase == .active))
     }
   }
+}
 
-  private var festivalListScreen: some View {
+private extension FestivalView {
+  var festivalListScreen: some View {
     VStack(spacing: .zero) {
       if (store.connection != .live && store.connection != .unavailable) || store.cacheReadFailed {
         status
@@ -34,7 +36,7 @@ public struct FestivalView: View {
     }
   }
 
-  private var festivalList: some View {
+  var festivalList: some View {
     FestivalListView(
       festivals: store.festivals,
       bookedFestivalIDs: store.bookedFestivalIDs,
@@ -48,11 +50,11 @@ public struct FestivalView: View {
   }
 
 
-  private func imageURL(_ value: String?) -> URL? {
+  func imageURL(_ value: String?) -> URL? {
     store.state.imageURL(for: value)
   }
 
-  private var status: some View {
+  var status: some View {
     HStack(spacing: 8) {
       Image(systemName: store.connection == .live ? "wifi" : "square.and.arrow.down")
       Text(statusText)
@@ -63,7 +65,7 @@ public struct FestivalView: View {
     .accessibilityLabel(statusText)
   }
 
-  private var statusText: String {
+  var statusText: String {
     if store.cacheReadFailed {
       return store.selectedPack == nil
         ? "저장된 정보를 읽지 못했습니다 · 연결 후 다시 시도해 주세요"

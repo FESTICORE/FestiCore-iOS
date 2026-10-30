@@ -1,10 +1,10 @@
-# SwiftUI 패턴
+# SwiftUI View 패턴
 
-현재 화면은 `Projects/Feature/Home/Sources/HomeView.swift`에 있다. `StoreOf<HomeFeature>`를 초기화 인자로 받고 `body`는 상태 표시와 액션 전달에 집중한다.
+Attendance의 `AttendanceCheckView`처럼 타입 본문은 저장 속성, 초기화, `body`에 집중한다. 화면 섹션, 하위 뷰 빌더, UI 전용 계산 값과 액션 헬퍼는 같은 파일의 `private extension`으로 내린다. 실제 구조는 `Projects/Feature/Timetable/Sources/TimetableView.swift`의 `TimetableView`와 `private extension TimetableView`를 참고한다. Attendance의 `ProfileView`처럼 기존 테스트가 접근하는 내부 헬퍼가 있으면 일반 `extension`을 쓰고 비공개 멤버에 각각 `private`를 붙인다.
 
-- 복잡한 화면에서는 의미 있는 하위 View로 분리한다. 추상화는 실제 재사용이 있을 때 추가한다.
-- 접근성 레이블과 Dynamic Type, 다크 모드를 실제 화면에서 확인한다.
-- 공통 색·서체·치수는 DesignSystem 토큰을 소스로 사용한다. 생성물이 준비되기 전에는 토큰 이름이나 수치를 임의로 문서화하지 않는다.
-- 로딩·오류·빈 상태는 기능 요구 사항에 맞게 드러낸다.
+이 규칙은 앱·Feature·Widget 화면과 DesignKit·SharedUI 컴포넌트에 함께 적용한다. 외부에서 호출하는 체이닝 설정은 `public extension`에 유지한다.
 
-화면별 View extension, Skeleton과 스타일 값은 실제 구현이 생긴 뒤 문서화한다.
+- 한 번만 쓰는 화면 섹션은 같은 파일의 extension에 둔다. 별도 View 타입은 독립 상태·프리뷰가 있거나 화면 경계가 분명할 때 만든다. 여러 화면에서 실제로 재사용할 때만 공용 UI 모듈로 옮긴다.
+- 단순한 View에는 빈 extension을 만들지 않는다. View 분리만 하는 PR은 상태 전환, TCA 액션, 레이아웃, 접근성 동작을 바꾸지 않는다.
+- 공통 색·서체·치수는 DesignKit 토큰을 쓴다. 라이트·다크, Dynamic Type, 화면 너비 변화를 실제 화면에서 확인한다.
+- 비동기 로딩은 공용 `FCSkeletonView`와 관련 화면의 Skeleton 컴포넌트로 표시한다. 실패와 빈 상태는 별도 메시지·재시도 동작으로 구분한다. 로딩이 아닌 nil 값을 무한 Skeleton으로 표시하지 않는다.

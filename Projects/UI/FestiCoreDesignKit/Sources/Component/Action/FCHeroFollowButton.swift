@@ -52,7 +52,10 @@ public struct FCHeroFollowButton: View {
     .accessibilityAddTraits(isFollowing ? .isSelected : [])
   }
 
-  private var shape: RoundedRectangle {
+}
+
+private extension FCHeroFollowButton {
+  var shape: RoundedRectangle {
     RoundedRectangle(cornerRadius: FestiCoreRadius.r8)
   }
 }

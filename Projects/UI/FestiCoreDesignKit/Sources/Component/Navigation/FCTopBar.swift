@@ -55,6 +55,9 @@ public struct FCTopBar: View {
       .background { background.ignoresSafeArea(edges: .top) }
   }
 
+}
+
+extension FCTopBar {
   @ViewBuilder
   private var content: some View {
     switch style {

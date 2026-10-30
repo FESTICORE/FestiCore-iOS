@@ -21,8 +21,10 @@ struct ColorView: View {
       }
     }
   }
+}
 
-  private func swatch(
+private extension ColorView {
+  func swatch(
     _ title: String,
     color: FestiCoreSemanticColor
   ) -> some View {
