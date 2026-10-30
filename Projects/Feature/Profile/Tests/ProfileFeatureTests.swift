@@ -36,4 +36,15 @@ struct ProfileFeatureTests {
     await store.send(.view(.packTapped("pack-1")))
     await store.receive(\.delegate.packRequested)
   }
+
+  @Test func dismissingAccountAlsoClosesPendingConfirmation() async {
+    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
+
+    await store.send(.view(.accountTapped(isSignedIn: true))) { $0.isAccountPresented = true }
+    await store.send(.view(.withdrawTapped)) { $0.isWithdrawalConfirmationPresented = true }
+    await store.send(.view(.accountDismissed)) {
+      $0.isAccountPresented = false
+      $0.isWithdrawalConfirmationPresented = false
+    }
+  }
 }

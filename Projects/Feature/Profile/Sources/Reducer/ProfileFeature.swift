@@ -96,6 +96,8 @@ public struct ProfileFeature {
         return .send(.delegate(.loginRequested))
       case .view(.accountDismissed):
         state.isAccountPresented = false
+        state.isLogoutConfirmationPresented = false
+        state.isWithdrawalConfirmationPresented = false
         return .none
       case .view(.refreshTapped): return .send(.delegate(.profileRefreshRequested))
       case .view(.logoutTapped):

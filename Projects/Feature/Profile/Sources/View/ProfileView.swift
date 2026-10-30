@@ -75,13 +75,17 @@ public struct ProfileView: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
-    .sheet(isPresented: Binding(
-      get: { store.isAccountPresented },
-      set: { if !$0 { store.send(.view(.accountDismissed)) } }
-    )) {
-      accountSheet
-        .presentationDetents([.medium])
+    .presentFCSheet(item: accountItem) { _ in
+      ProfileAccountSheet(
+        profile: profile,
+        isLoading: isLoading,
+        message: message,
+        onRefresh: { store.send(.view(.refreshTapped)) },
+        onLogout: { store.send(.view(.logoutTapped)) },
+        onWithdraw: { store.send(.view(.withdrawTapped)) }
+      )
     }
+    .overlay { confirmationOverlay }
   }
 
   @ViewBuilder
@@ -158,62 +162,61 @@ public struct ProfileView: View {
     }
   }
 
-  private var accountSheet: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
-      Text("계정")
-        .festiCoreFont(.baseTitle2Bold)
+  private enum AccountSheet: String, Identifiable {
+    case account
 
-      if let profile {
-        Text(profile.user.nickname ?? profile.user.email ?? "내 계정")
-          .festiCoreFont(.baseBodyBold)
-        if let email = profile.user.email {
-          Text(email)
-            .festiCoreFont(.baseSubheadlineRegular)
-            .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-        }
-      } else if isLoading {
-        ProgressView("계정 정보를 확인하는 중입니다")
-      } else {
-        Text(message ?? "계정 정보를 확인할 수 없습니다")
-          .festiCoreFont(.baseSubheadlineRegular)
-        Button("계정 정보 다시 확인") { store.send(.view(.refreshTapped)) }
-      }
+    var id: String { rawValue }
+  }
 
-      Spacer(minLength: .zero)
+  private var accountItem: Binding<AccountSheet?> {
+    Binding(
+      get: { store.isAccountPresented ? .account : nil },
+      set: { if $0 == nil { store.send(.view(.accountDismissed)) } }
+    )
+  }
 
-      Button("로그아웃") {
-        store.send(.view(.logoutTapped))
-      }
-      .disabled(isLoading)
-      Button("회원 탈퇴", role: .destructive) {
-        store.send(.view(.withdrawTapped))
-      }
-      .disabled(isLoading)
+  @ViewBuilder
+  private var confirmationOverlay: some View {
+    if store.isWithdrawalConfirmationPresented {
+      confirmation(
+        title: "회원 탈퇴",
+        message: "계정과 로그인 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+        confirmTitle: "탈퇴",
+        onConfirm: { store.send(.view(.confirmWithdrawTapped)) },
+        onDismiss: { store.send(.view(.withdrawalConfirmationDismissed)) }
+      )
+    } else if store.isLogoutConfirmationPresented {
+      confirmation(
+        title: "로그아웃",
+        message: "이 기기에서 로그아웃하시겠습니까?",
+        confirmTitle: "로그아웃",
+        onConfirm: { store.send(.view(.confirmLogoutTapped)) },
+        onDismiss: { store.send(.view(.logoutConfirmationDismissed)) }
+      )
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-    .padding(FestiCoreSpacing.paddingP24)
-    .background(FestiCoreSemanticColor.backgroundNormal.color)
-    .confirmationDialog("로그아웃", isPresented: Binding(
-      get: { store.isLogoutConfirmationPresented },
-      set: { if !$0 { store.send(.view(.logoutConfirmationDismissed)) } }
-    )) {
-      Button("로그아웃", role: .destructive) {
-        store.send(.view(.confirmLogoutTapped))
-      }
-    } message: {
-      Text("이 기기에서 로그아웃하시겠습니까?")
-    }
-    .alert("회원 탈퇴", isPresented: Binding(
-      get: { store.isWithdrawalConfirmationPresented },
-      set: { if !$0 { store.send(.view(.withdrawalConfirmationDismissed)) } }
-    )) {
-      Button("탈퇴", role: .destructive) {
-        store.send(.view(.confirmWithdrawTapped))
-      }
-      Button("취소", role: .cancel) {}
-    } message: {
-      Text("계정과 로그인 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
+  }
+
+  private func confirmation(
+    title: String,
+    message: String,
+    confirmTitle: String,
+    onConfirm: @escaping () -> Void,
+    onDismiss: @escaping () -> Void
+  ) -> some View {
+    ZStack {
+      FestiCoreSemanticColor.materialDimmer.color
+        .ignoresSafeArea()
+        .onTapGesture(perform: onDismiss)
+      FCDialog(
+        FCDialogItem(
+          title: title,
+          message: message,
+          confirmTitle: confirmTitle,
+          onConfirm: onConfirm,
+          onCancel: {}
+        ),
+        onDismiss: onDismiss
+      )
     }
   }
 
