@@ -37,6 +37,7 @@ struct HomeOfflineTests {
 
     await store.send(.view(.onAppear)) { $0.hasStarted = true }
     await store.receive(\.inner.cachedLoaded) {
+      $0.viewState = .loaded
       $0.cachedPacks = [pack.festivalID: pack]
       $0.selectedFestivalID = pack.festivalID
       $0.selectedPack = try? JSONDecoder().decode(FestivalPackDocument.self, from: pack.pack)
@@ -65,6 +66,7 @@ struct HomeOfflineTests {
       $0.connection = .connecting
     }
     await store.receive(\.inner.catalogFailed) {
+      $0.viewState = .loaded
       $0.connection = .offline
       $0.imageRetryPending = true
     }
@@ -87,6 +89,7 @@ struct HomeOfflineTests {
 
     await store.send(.view(.foregroundChanged(false))) { $0.isForeground = false }
     await store.send(.inner(.cachedLoaded([], [pack], "fst_cached", false, false))) {
+      $0.viewState = .loaded
       $0.cachedPacks = [pack.festivalID: pack]
       $0.selectedFestivalID = pack.festivalID
       $0.selectedPack = try? JSONDecoder().decode(FestivalPackDocument.self, from: pack.pack)
@@ -108,6 +111,7 @@ struct HomeOfflineTests {
     let store = TestStore(initialState: initialState) { FestivalFeature() }
 
     await store.send(.inner(.catalogRefreshed([item]))) {
+      $0.viewState = .loaded
       $0.catalog = [item]
       $0.catalogCacheReadFailed = false
       $0.selectedFestivalID = item.id
@@ -137,6 +141,7 @@ struct HomeOfflineTests {
       $0.connection = .offline
     }
     await store.send(.inner(.catalogRefreshed([]))) {
+      $0.viewState = .loaded
       $0.packWatchFailed = false
       $0.imageRetryPending = false
       $0.imageRevision = 1
@@ -155,6 +160,7 @@ struct HomeOfflineTests {
     let store = TestStore(initialState: initialState) { FestivalFeature() }
 
     await store.send(.inner(.catalogRefreshed([item]))) {
+      $0.viewState = .loaded
       $0.catalog = [item]
       $0.selectedFestivalID = item.id
       $0.connection = .unavailable
@@ -227,6 +233,7 @@ struct HomeOfflineTests {
     let store = TestStore(initialState: FestivalFeature.State()) { FestivalFeature() }
 
     await store.send(.inner(.catalogRefreshed([first, duplicate, other]))) {
+      $0.viewState = .loaded
       $0.catalog = [first, other]
       $0.selectedFestivalID = first.id
       $0.connection = .unavailable
@@ -254,6 +261,7 @@ struct HomeOfflineTests {
     }
 
     await store.send(.inner(.catalogRefreshed([item]))) {
+      $0.viewState = .loaded
       $0.imageURLs = [item.thumbnailURL!.absoluteString: item.thumbnailURL!]
       $0.connection = .unavailable
     }
@@ -285,6 +293,7 @@ struct HomeOfflineTests {
     }
 
     await store.send(.inner(.catalogRefreshed([]))) {
+      $0.viewState = .loaded
       $0.imageURLs = [
         "https://example.com/selected.webp": URL(string: "https://example.com/selected.webp")!,
         "https://example.com/unselected.webp": URL(string: "https://example.com/unselected.webp")!
@@ -311,6 +320,7 @@ struct HomeOfflineTests {
     }
 
     await store.send(.inner(.catalogFailed)) {
+      $0.viewState = .loaded
       $0.connection = .offline
       $0.imageRetryPending = true
     }
@@ -360,7 +370,7 @@ struct HomeOfflineTests {
     #expect(store.state.imageRevision == 0)
     #expect(await recorder.startCount() == 1)
 
-    await store.send(.inner(.catalogFailed))
+    await store.send(.inner(.catalogFailed)) { $0.viewState = .loaded }
     await store.send(.inner(.packReceived(pack.festivalID, .notModified(pack))))
     await store.finish()
     #expect(store.state.imageRevision == 0)
@@ -415,6 +425,7 @@ struct HomeOfflineTests {
       $0.connection = .live
     }
     await store.send(.inner(.catalogRefreshed(items))) {
+      $0.viewState = .loaded
       $0.catalog = IdentifiedArray(uniqueElements: items)
       for item in items {
         $0.imageURLs[item.thumbnailURL!.absoluteString] = item.thumbnailURL!
