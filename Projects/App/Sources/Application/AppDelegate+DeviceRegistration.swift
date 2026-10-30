@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import UserNotifications
 
 import CoreAssembly
 import FestiCoreLiveActivity
@@ -15,8 +16,50 @@ extension AppDelegate {
   func configureDeviceRegistration() {
     liveActivityStartToken = FestiCoreFestivalLiveActivity.pushToStartToken
     registerDeviceWithStoredAPNsToken()
-    UIApplication.shared.registerForRemoteNotifications()
+    registerForRemoteNotificationsIfNeeded()
     observeLiveActivityStartToken()
+  }
+
+  func requestNotificationPermission() async -> NotificationPermissionResult {
+    if let notificationAuthorizationTask {
+      return await notificationAuthorizationTask.value
+    }
+    let task = Task { @MainActor in
+      await resolveNotificationPermission()
+    }
+    notificationAuthorizationTask = task
+    let result = await task.value
+    notificationAuthorizationTask = nil
+    return result
+  }
+
+  private func resolveNotificationPermission() async -> NotificationPermissionResult {
+    let status = await notificationAuthorizationClient.authorizationStatus()
+    let result: NotificationPermissionResult
+    switch status {
+    case .notDetermined:
+      do {
+        result = try await notificationAuthorizationClient.requestAuthorization() ? .authorized : .denied
+      } catch {
+        FestiCoreLogger.error("알림 권한 요청 실패: \(error.localizedDescription)", category: .app)
+        result = .unavailable
+      }
+    case .authorized, .provisional, .ephemeral:
+      result = .authorized
+    case .denied:
+      result = .denied
+    @unknown default:
+      result = .unavailable
+    }
+
+    registerForRemoteNotificationsIfNeeded()
+    return result
+  }
+
+  private func registerForRemoteNotificationsIfNeeded() {
+    guard !hasRequestedAPNsRegistration else { return }
+    hasRequestedAPNsRegistration = true
+    notificationAuthorizationClient.registerForRemoteNotifications()
   }
 
   private func observeLiveActivityStartToken() {
@@ -53,6 +96,7 @@ extension AppDelegate {
   }
 
   func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    hasRequestedAPNsRegistration = false
     FestiCoreLogger.error("APNs 토큰 등록 실패: \(error.localizedDescription)", category: .app)
   }
 
@@ -93,4 +137,29 @@ extension AppDelegate {
       }
     }
   }
+}
+
+enum NotificationPermissionResult: Equatable, Sendable {
+  case authorized
+  case denied
+  case unavailable
+}
+
+@MainActor
+struct NotificationAuthorizationClient {
+  var authorizationStatus: () async -> UNAuthorizationStatus
+  var requestAuthorization: () async throws -> Bool
+  var registerForRemoteNotifications: () -> Void
+
+  static let live = Self(
+    authorizationStatus: {
+      await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    },
+    requestAuthorization: {
+      try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
+    },
+    registerForRemoteNotifications: {
+      UIApplication.shared.registerForRemoteNotifications()
+    }
+  )
 }
