@@ -15,6 +15,7 @@ let project = Project.makeModule(
   dependencies: [
     .feature(.festival),
     .feature(.login),
+    .feature(.profile),
     .feature(.timetable),
     .domain(.auth),
     .service(.assembly),

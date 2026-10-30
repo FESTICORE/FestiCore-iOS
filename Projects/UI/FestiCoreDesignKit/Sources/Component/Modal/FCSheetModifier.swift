@@ -70,6 +70,9 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
     .ignoresSafeArea(.keyboard, edges: .bottom)
   }
 
+}
+
+extension FCSheetModifier {
   @ViewBuilder
   private func sheet(geometry: GeometryProxy) -> some View {
     if let currentItem = item {
@@ -93,7 +96,6 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
       .animation(isDragging ? nil : .easeOut(duration: Metric.shortDuration), value: dragOffset)
       .gesture(dragGesture)
       .ignoresSafeArea(edges: .bottom)
-      .transition(.move(edge: .bottom))
       .onAppear {
         dismissOffset = Metric.slideDistance
         withAnimation(.easeOut(duration: Metric.longDuration)) {

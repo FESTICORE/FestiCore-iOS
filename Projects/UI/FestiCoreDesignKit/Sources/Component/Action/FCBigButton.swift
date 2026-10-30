@@ -59,7 +59,10 @@ public struct FCBigButton: View {
     .accessibilityAddTraits(isSelected ? .isSelected : [])
   }
 
-  private var shape: RoundedRectangle {
+}
+
+private extension FCBigButton {
+  var shape: RoundedRectangle {
     RoundedRectangle(cornerRadius: FestiCoreRadius.r24)
   }
 }

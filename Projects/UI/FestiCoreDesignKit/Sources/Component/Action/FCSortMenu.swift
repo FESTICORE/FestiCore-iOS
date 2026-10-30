@@ -45,7 +45,10 @@ public struct FCSortMenu: View {
     )
   }
 
-  private var shape: RoundedRectangle {
+}
+
+private extension FCSortMenu {
+  var shape: RoundedRectangle {
     RoundedRectangle(cornerRadius: FestiCoreRadius.r12)
   }
 }

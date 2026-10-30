@@ -12,12 +12,12 @@ let exporting = false;
 figma.ui.onmessage = async (message) => {
   if (!message || message.type !== 'export' || exporting) return;
   exporting = true;
-  figma.ui.postMessage({ type: 'progress', text: '선택 프레임을 읽는 중…' });
+  figma.ui.postMessage({ type: 'progress', text: '선택한 프레임 또는 섹션을 읽는 중…' });
 
   try {
     const selection = figma.currentPage.selection;
-    if (selection.length !== 1 || selection[0].type !== 'FRAME') {
-      throw new Error('프레임 하나만 선택한 뒤 다시 실행하세요.');
+    if (selection.length !== 1 || !['FRAME', 'SECTION'].includes(selection[0].type)) {
+      throw new Error('프레임 또는 섹션 하나만 선택한 뒤 다시 실행하세요.');
     }
 
     const frame = selection[0];

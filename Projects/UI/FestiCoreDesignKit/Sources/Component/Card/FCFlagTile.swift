@@ -65,7 +65,10 @@ public struct FCFlagTile: View {
     .buttonStyle(.plain)
   }
 
-  private var thumbnail: some View {
+}
+
+private extension FCFlagTile {
+  var thumbnail: some View {
     Group {
       if let image {
         image

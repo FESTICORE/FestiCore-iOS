@@ -35,8 +35,10 @@ struct TimetableUnpublishedView: View {
       .padding(FestiCoreSpacing.paddingP16)
     }
   }
+}
 
-  private func section(_ day: TimetableLineupDay) -> some View {
+private extension TimetableUnpublishedView {
+  func section(_ day: TimetableLineupDay) -> some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
       Text(day.title)
         .festiCoreFont(.baseFootnoteBold)

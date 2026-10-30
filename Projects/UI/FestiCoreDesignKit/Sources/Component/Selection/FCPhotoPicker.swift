@@ -52,8 +52,11 @@ public struct FCPhotoPicker: View {
     }
   }
 
+}
+
+private extension FCPhotoPicker {
   @ViewBuilder
-  private var photo: some View {
+  var photo: some View {
     let shape = RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
     switch state {
     case .empty:

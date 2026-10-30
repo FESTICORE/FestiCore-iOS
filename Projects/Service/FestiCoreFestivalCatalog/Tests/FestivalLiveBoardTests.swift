@@ -1,5 +1,6 @@
 import FestiCoreDeviceInterface
 import FestiCoreNetworkInterface
+import FestivalDomainInterface
 import Foundation
 import Testing
 @testable import FestiCoreFestivalCatalog

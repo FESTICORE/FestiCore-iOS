@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-/// 화면 맨 위 바. 바탕은 글래스(blur)다.
+/// 화면 맨 위 바. 큰 제목은 화면 배경색, 그 외 스타일은 글래스 배경을 쓴다.
 public struct FCTopBar: View {
   public enum Style {
     /// 홈
@@ -55,6 +55,9 @@ public struct FCTopBar: View {
       .background { background.ignoresSafeArea(edges: .top) }
   }
 
+}
+
+extension FCTopBar {
   @ViewBuilder
   private var content: some View {
     switch style {
@@ -182,12 +185,15 @@ public struct FCTopBar: View {
 
   @ViewBuilder
   private var background: some View {
-    if case .backOnImage = style {
+    switch style {
+    case .backOnImage:
       Rectangle()
         .fill(.ultraThinMaterial)
         .environment(\.colorScheme, .dark)
         .overlay(FestiCoreSemanticColor.staticalphaBlack20.color)
-    } else {
+    case .large:
+      FestiCoreSemanticColor.backgroundNormal.color
+    default:
       Rectangle()
         .fill(.ultraThinMaterial)
         .overlay(FestiCoreSemanticColor.materialGlass.color)

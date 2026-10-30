@@ -59,7 +59,10 @@ public struct FCTabBar: View {
     }
   }
 
-  private func tabButton(_ tab: Tab) -> some View {
+}
+
+private extension FCTabBar {
+  func tabButton(_ tab: Tab) -> some View {
     let isSelected = selection == tab
 
     return Button {

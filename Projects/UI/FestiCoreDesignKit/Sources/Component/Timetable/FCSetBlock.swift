@@ -76,6 +76,9 @@ public struct FCSetBlock: View {
     .accessibilityValue(accessibilityValue)
   }
 
+}
+
+extension FCSetBlock {
   private func content(
     showsTime: Bool,
     showsTag: Bool

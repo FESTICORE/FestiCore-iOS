@@ -18,21 +18,36 @@ struct MainTabView: View {
     tabContent
       .frame(maxWidth: .infinity, maxHeight: .infinity)
       .safeAreaInset(edge: .bottom, spacing: .zero) {
-        if !store.shouldHideTabBar {
+        if store.shouldReserveTabBarSpace {
           FCTabBar(
             selection: Binding(
               get: { store.selectedTab },
               set: { store.send(.tabTapped($0)) }
             )
           )
+          .opacity(store.shouldHideTabBar ? 0 : 1)
+          .allowsHitTesting(!store.shouldHideTabBar)
         }
       }
       .background(FestiCoreSemanticColor.backgroundNormal.color)
+      .overlay {
+        if store.selectedTab == .timetable, store.timetableState.selectedSetID != nil {
+          timetableView.modalOverlay
+        } else if store.selectedTab == .my,
+                  store.profileState.isAccountPresented
+                    || store.profileState.isLogoutConfirmationPresented
+                    || store.profileState.isWithdrawalConfirmationPresented
+                    || store.profileState.isLegalLinkUnavailablePresented {
+          profileView.modalOverlay
+        }
+      }
   }
+}
 
+private extension MainTabView {
   /// 선택한 탭의 화면만 만든다. 탭 상태는 스토어에 남아 있어 다시 돌아와도 유지된다.
   @ViewBuilder
-  private var tabContent: some View {
+  var tabContent: some View {
     switch store.selectedTab {
     case .live:
       FestivalCoordinatorView(
@@ -43,16 +58,32 @@ struct MainTabView: View {
       )
 
     case .timetable:
-      TimetableView(
-        store: store.scope(
-          state: \.timetableState,
-          action: \.timetable
-        )
+      timetableView
+
+    case .flag:
+      FestivalFlagView(
+        store: store.scope(state: \.flagState, action: \.flag)
       )
 
-    case .flag, .my:
-      Color.clear
+    case .my:
+      profileView
     }
+  }
+
+  var profileView: ProfileView {
+    ProfileView(
+      store: store.scope(state: \.profileState, action: \.profile),
+      profile: store.authFlow.profile,
+      hasSession: store.authFlow.hasSession,
+      isLoading: store.authFlow.isLoading,
+      message: store.authFlow.message
+    )
+  }
+
+  var timetableView: TimetableView {
+    TimetableView(
+      store: store.scope(state: \.timetableState, action: \.timetable)
+    )
   }
 }
 

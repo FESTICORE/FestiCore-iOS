@@ -39,7 +39,10 @@ public struct FCSectionHeader: View {
     .frame(minHeight: Metric.height)
   }
 
-  private func actionText(_ text: String) -> some View {
+}
+
+private extension FCSectionHeader {
+  func actionText(_ text: String) -> some View {
     Text(text)
       .festiCoreFont(.baseFootnoteMedium)
       .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)

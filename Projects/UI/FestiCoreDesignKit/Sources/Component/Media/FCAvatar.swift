@@ -38,7 +38,10 @@ public struct FCAvatar: View {
       .accessibilityHidden(true)
   }
 
-  private var colors: (background: FestiCoreSemanticColor, foreground: FestiCoreSemanticColor) {
+}
+
+private extension FCAvatar {
+  var colors: (background: FestiCoreSemanticColor, foreground: FestiCoreSemanticColor) {
     switch tint {
     case .gray: return (.fillStrong, .labelNeutral)
     case .lime: return (.accentBackgroundLime, .accentForegroundLime)

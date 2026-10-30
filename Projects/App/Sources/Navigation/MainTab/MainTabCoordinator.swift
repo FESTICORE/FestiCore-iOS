@@ -14,6 +14,13 @@ import Foundation
 struct MainTabCoordinator {
   typealias Tab = FCTabBar.Tab
   @Dependency(\.festivalBookedStore) private var bookedStore
+  private let legalBaseURL: URL?
+
+  init(legalBaseURL: URL? = AppCoordinatorView.legalBaseURL(
+    host: Bundle.main.object(forInfoDictionaryKey: "FestiCoreAPIHost") as? String
+  )) {
+    self.legalBaseURL = legalBaseURL
+  }
 
   @ObservableState
   struct State: Equatable {
@@ -21,15 +28,29 @@ struct MainTabCoordinator {
     var previousTab: Tab = .live
     var festivalState: FestivalCoordinator.State
     var timetableState: TimetableFeature.State
+    var flagState = FestivalFlagFeature.State()
+    var profileState = ProfileFeature.State()
     var loginState = LoginFeature.State()
     var authFlow = AppCoordinator.AuthFlow()
 
-    /// 목록에서는 탭바를 숨기고, 선택한 축제의 라이브 보드에서는 표시한다.
+    /// 모달이 열려도 기존 탭바 공간은 유지해 뒤 화면이 이동하지 않게 한다.
+    var shouldReserveTabBarSpace: Bool {
+      selectedTab != .live || festivalState.routes.count != 1
+    }
+
     var shouldHideTabBar: Bool {
+      if authFlow.presentation != nil { return true }
       switch selectedTab {
       case .live:
         return festivalState.routes.count == 1
-      case .timetable, .flag, .my:
+      case .timetable:
+        return timetableState.selectedSetID != nil
+      case .my:
+        return profileState.isAccountPresented
+          || profileState.isLogoutConfirmationPresented
+          || profileState.isWithdrawalConfirmationPresented
+          || profileState.isLegalLinkUnavailablePresented
+      case .flag:
         return false
       }
     }
@@ -51,8 +72,18 @@ struct MainTabCoordinator {
     case tabReselected(Tab)
     case festival(FestivalCoordinator.Action)
     case timetable(TimetableFeature.Action)
+    case flag(FestivalFlagFeature.Action)
+    case profile(ProfileFeature.Action)
     case login(LoginFeature.Action)
+    case delegate(Delegate)
     case completePendingBookmark(id: String, userID: String, shouldBeBooked: Bool)
+  }
+
+  enum Delegate {
+    case myLoginRequested
+    case myLogoutRequested
+    case myWithdrawRequested
+    case myProfileRefreshRequested
   }
 
   var body: some ReducerOf<Self> {
@@ -61,6 +92,12 @@ struct MainTabCoordinator {
     }
     Scope(state: \.timetableState, action: \.timetable) {
       TimetableFeature()
+    }
+    Scope(state: \.flagState, action: \.flag) {
+      FestivalFlagFeature()
+    }
+    Scope(state: \.profileState, action: \.profile) {
+      ProfileFeature(legalBaseURL: legalBaseURL)
     }
     Scope(state: \.loginState, action: \.login) {
       LoginFeature()
@@ -76,18 +113,41 @@ struct MainTabCoordinator {
           state.previousTab = state.selectedTab
         }
         state.selectedTab = tab
-        guard tab == .timetable else { return .none }
-        return syncTimetable(state: &state, appearing: true)
+        switch tab {
+        case .timetable:
+          return syncTimetable(state: &state, appearing: true)
+        case .flag:
+          return syncFlag(state: &state)
+        case .live, .my:
+          return .none
+        }
 
       case let .tabReselected(tab):
         _ = tab
         return .none
 
       case .festival:
-        guard state.selectedTab == .timetable else { return .none }
-        return syncTimetable(state: &state, appearing: false)
+        switch state.selectedTab {
+        case .timetable: return syncTimetable(state: &state, appearing: false)
+        case .flag: return syncFlag(state: &state)
+        case .live, .my: return .none
+        }
 
       case .timetable:
+        return .none
+
+      case .flag, .delegate:
+        return .none
+
+      case .profile(.delegate(.loginRequested)):
+        return .send(.delegate(.myLoginRequested))
+      case .profile(.delegate(.profileRefreshRequested)):
+        return .send(.delegate(.myProfileRefreshRequested))
+      case .profile(.delegate(.logoutRequested)):
+        return .send(.delegate(.myLogoutRequested))
+      case .profile(.delegate(.withdrawRequested)):
+        return .send(.delegate(.myWithdrawRequested))
+      case .profile:
         return .none
 
       case .login:
@@ -101,6 +161,20 @@ struct MainTabCoordinator {
         return .send(.festival(.reloadBookmarks(userID: userID)))
       }
     }
+  }
+
+  private func syncFlag(state: inout State) -> Effect<Action> {
+    let selectedID: String?
+    if let screen = state.festivalState.routes.last?.screen {
+      switch screen {
+      case let .festivalList(festival): selectedID = festival.selectedFestivalID
+      case let .liveBoard(festival): selectedID = festival.selectedFestivalID
+      }
+    } else {
+      selectedID = nil
+    }
+    return selectedID == state.flagState.festivalID
+      ? .none : .send(.flag(.festivalChanged(selectedID)))
   }
 
   /// 라이브 보드에서 고른 축제의 팩을 타임테이블에 옮긴다.

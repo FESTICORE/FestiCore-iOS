@@ -12,6 +12,7 @@ import ComposableArchitecture
 import AuthDomainInterface
 import FeatureAssembly
 import FestivalDomainInterface
+import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
 import TCAFlow
 @testable import FestiCore
@@ -37,6 +38,7 @@ struct AppCoordinatorTests {
     } withDependencies: {
       $0.festivalCatalogService = EmptyFestivalCatalogService()
       $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.authService = StubAuthService(loggedIn: false, userID: nil)
     }
     store.exhaustivity = .off
     await store.send(.scope(.splash(.delegate(.presentHome))))
@@ -60,6 +62,7 @@ struct AppCoordinatorTests {
       AppCoordinator()
     } withDependencies: {
       $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.authService = StubAuthService(loggedIn: false, userID: nil)
     }
     store.exhaustivity = .off
 
@@ -94,7 +97,7 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-a")))
+    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-a", isLoggedIn: true)))
     await store.send(.inner(.profileLoaded(generation: 1, .failure(.offline))))
     await store.receive(\.scope.home.completePendingBookmark)
     #expect(box.ids == ["saved", "new"])
@@ -118,16 +121,17 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-b")))
+    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-b", isLoggedIn: true)))
     await store.send(.inner(.profileLoaded(generation: 1, .failure(.offline))))
     guard case let .home(switched) = store.state else { return }
     #expect(switched.authFlow.pendingFestivalID == nil)
     #expect(switched.authFlow.verifiedUserID == "user-b")
     #expect(box.ids == ["saved-a"])
 
-    await store.send(.inner(.sessionRestored(generation: 1, userID: nil)))
+    await store.send(.inner(.sessionRestored(generation: 1, userID: nil, isLoggedIn: false)))
     guard case let .home(signedOut) = store.state else { return }
     #expect(signedOut.authFlow.verifiedUserID == nil)
+    #expect(signedOut.authFlow.lastVerifiedUserID == nil)
     #expect(box.ids == ["saved-a"])
   }
 
@@ -142,6 +146,7 @@ struct AppCoordinatorTests {
       AppCoordinator()
     } withDependencies: {
       $0.authUseCase = FailingProfileAuthUseCase(failure: failure)
+      $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
       $0.festivalBookedStore = FestivalBookedStore(
         load: { _ in box.ids },
         save: { ids, _ in box.ids = ids }
@@ -192,6 +197,7 @@ struct AppCoordinatorTests {
       AppCoordinator()
     } withDependencies: {
       $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-b"))
+      $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
       $0.festivalBookedStore = FestivalBookedStore(
         load: { _ in box.ids },
         save: { ids, _ in box.ids = ids }
@@ -271,6 +277,7 @@ struct AppCoordinatorTests {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       home.authFlow.verifiedUserID = nil
+      home.authFlow.lastVerifiedUserID = nil
       home.authFlow.profile = nil
       home.authFlow.presentation = .login
       $0 = .home(home)
@@ -331,6 +338,7 @@ struct AppCoordinatorTests {
       $0.authUseCase = OutdatedTermsAuthUseCase(
         profile: AuthProfile(user: user, currentTermsVersion: "2026-10")
       )
+      $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
     }
     store.exhaustivity = .off
 
@@ -379,6 +387,7 @@ struct AppCoordinatorTests {
       AppCoordinator()
     } withDependencies: {
       $0.authUseCase = ReturningProfileAuthUseCase(profile: profile)
+      $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
     }
     store.exhaustivity = .off
 
@@ -453,11 +462,75 @@ struct AppCoordinatorTests {
   @Test func bottomTabsAppearOnFestivalLiveBoard() {
     var state = MainTabCoordinator.State()
     #expect(state.shouldHideTabBar)
+    #expect(!state.shouldReserveTabBarSpace)
 
     state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
     #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
 
     state.festivalState.routes.goBack()
+    #expect(state.shouldHideTabBar)
+    #expect(!state.shouldReserveTabBarSpace)
+  }
+
+  @Test func myModalHidesBottomTabsUntilDismissed() async {
+    var state = MainTabCoordinator.State(selectedTab: .my)
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+
+    let store = TestStore(initialState: state) { MainTabCoordinator() }
+    await store.send(.profile(.view(.accountTapped(isSignedIn: true)))) {
+      $0.profileState.isAccountPresented = true
+    }
+    #expect(store.state.shouldHideTabBar)
+    #expect(store.state.shouldReserveTabBarSpace)
+    await store.send(.profile(.view(.accountDismissed))) {
+      $0.profileState.isAccountPresented = false
+    }
+    #expect(!store.state.shouldHideTabBar)
+    #expect(store.state.shouldReserveTabBarSpace)
+
+    state.authFlow.presentation = .login
+    #expect(state.shouldHideTabBar)
+    state.authFlow.presentation = nil
+    #expect(!state.shouldHideTabBar)
+
+    state.profileState.isLegalLinkUnavailablePresented = true
+    #expect(state.shouldHideTabBar)
+    state.profileState.isLegalLinkUnavailablePresented = false
+    #expect(!state.shouldHideTabBar)
+
+    state.profileState.isLogoutConfirmationPresented = true
+    #expect(state.shouldHideTabBar)
+    state.profileState.isLogoutConfirmationPresented = false
+    state.profileState.isWithdrawalConfirmationPresented = true
+    #expect(state.shouldHideTabBar)
+    state.profileState.isWithdrawalConfirmationPresented = false
+    #expect(!state.shouldHideTabBar)
+  }
+
+  @Test func timetableAndAuthModalsKeepTabBarSpace() {
+    var state = MainTabCoordinator.State(selectedTab: .timetable)
+    #expect(state.shouldReserveTabBarSpace)
+    #expect(!state.shouldHideTabBar)
+
+    state.timetableState.selectedSetID = "set-1"
+    #expect(state.shouldReserveTabBarSpace)
+    #expect(state.shouldHideTabBar)
+    state.timetableState.selectedSetID = nil
+    #expect(!state.shouldHideTabBar)
+
+    state.selectedTab = .flag
+    state.authFlow.presentation = .login
+    #expect(state.shouldReserveTabBarSpace)
+    #expect(state.shouldHideTabBar)
+    state.authFlow.presentation = nil
+    #expect(!state.shouldHideTabBar)
+
+    state.selectedTab = .live
+    state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
+    state.authFlow.presentation = .onboarding
+    #expect(state.shouldReserveTabBarSpace)
     #expect(state.shouldHideTabBar)
   }
 
@@ -548,6 +621,359 @@ struct AppCoordinatorTests {
     #expect(days.first?.sets.first?.start == 720)
     #expect(days.first?.sets.first?.end == 780)
   }
+
+  @Test func flagTabFollowsSelectedFestival() async {
+    var state = MainTabCoordinator.State()
+    state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival-a")))
+    let store = TestStore(initialState: state) { MainTabCoordinator() }
+
+    await store.send(.tabTapped(.flag))
+    await store.receive(\.selectTab) { $0.selectedTab = .flag }
+    await store.receive(\.flag.festivalChanged) { $0.flagState.festivalID = "festival-a" }
+  }
+
+  @Test func myLogoutClearsVisibleAccountOnlyAfterSuccess() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.verifiedUserID = "user-a"
+    home.authFlow.hasSession = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.delegate(.myLogoutRequested)))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 1
+      home.authFlow.accountOperationGeneration = 1
+      home.authFlow.isLoading = true
+      $0 = .home(home)
+    }
+    guard case let .home(loading) = store.state else { return }
+    #expect(loading.authFlow.profile?.user.id == "user-a")
+    await store.receive(\.inner.myAccountFinished) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow = .init()
+      home.authFlow.generation = 1
+      $0 = .home(home)
+    }
+    guard case let .home(signedOut) = store.state else { return }
+    #expect(signedOut.authFlow.profile == nil)
+  }
+
+  @Test func completedAccountOperationClosesSheetAfterSwitchingTabs() async {
+    var home = MainTabCoordinator.State(selectedTab: .flag)
+    home.authFlow.generation = 1
+    home.authFlow.accountOperationGeneration = 1
+    home.authFlow.hasSession = true
+    home.profileState.isAccountPresented = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.myAccountFinished(
+      generation: 1,
+      operation: .signOut,
+      result: .success(())
+    ))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow = .init()
+      home.authFlow.generation = 1
+      home.profileState = .init()
+      $0 = .home(home)
+    }
+    guard case let .home(signedOut) = store.state else { return }
+    #expect(signedOut.selectedTab == .flag)
+    #expect(!signedOut.profileState.isAccountPresented)
+  }
+
+  @Test func myWithdrawalFailureRetainsAccount() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.hasSession = true
+    home.profileState.isAccountPresented = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.authUseCase = FailingMyAuthUseCase()
+    }
+
+    await store.send(.scope(.home(.delegate(.myWithdrawRequested)))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 1
+      home.authFlow.accountOperationGeneration = 1
+      home.authFlow.isLoading = true
+      $0 = .home(home)
+    }
+    await store.receive(\.inner.myAccountFinished) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.accountOperationGeneration = nil
+      home.authFlow.isLoading = false
+      home.authFlow.message = "회원 탈퇴에 실패했습니다. 다시 시도해 주세요."
+      $0 = .home(home)
+    }
+    guard case let .home(unchanged) = store.state else { return }
+    #expect(unchanged.authFlow.profile?.user.id == "user-a")
+    #expect(unchanged.profileState.isAccountPresented)
+  }
+
+  @Test func unauthenticatedWithdrawalClearsAccount() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.generation = 1
+    home.authFlow.accountOperationGeneration = 1
+    home.authFlow.isLoading = true
+    home.authFlow.hasSession = true
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.verifiedUserID = "user-a"
+    home.profileState.isAccountPresented = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.myAccountFinished(
+      generation: 1,
+      operation: .withdraw,
+      result: .failure(.unauthenticated)
+    ))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow = .init()
+      home.authFlow.generation = 1
+      home.profileState = .init()
+      $0 = .home(home)
+    }
+    guard case let .home(signedOut) = store.state else { return }
+    #expect(!signedOut.authFlow.hasSession)
+    #expect(signedOut.authFlow.profile == nil)
+    #expect(signedOut.authFlow.verifiedUserID == nil)
+    #expect(!signedOut.profileState.isAccountPresented)
+  }
+
+  @Test func dismissingRetryWhileLoadingAllowsForegroundRefresh() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.generation = 1
+    home.authFlow.isLoading = true
+    home.authFlow.presentation = .retry
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.authService = StubAuthService(loggedIn: false, userID: nil)
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.view(.dismissFlow)) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 2
+      home.authFlow.isLoading = false
+      home.authFlow.presentation = nil
+      $0 = .home(home)
+    }
+    await store.send(.inner(.profileLoaded(generation: 1, .failure(.offline))))
+    await store.send(.view(.foregrounded)) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 3
+      home.authFlow.isLoading = true
+      $0 = .home(home)
+    }
+  }
+
+  @Test func dismissingOnboardingWhileSavingAllowsLogout() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.generation = 1
+    home.authFlow.isLoading = true
+    home.authFlow.hasSession = true
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.presentation = .onboarding
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.view(.dismissFlow)) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 2
+      home.authFlow.isLoading = false
+      home.authFlow.presentation = nil
+      $0 = .home(home)
+    }
+    let previous = eligibleProfile(id: "user-a").user
+    await store.send(.inner(.profileUpdated(generation: 1, .success(previous))))
+    await store.send(.scope(.home(.delegate(.myLogoutRequested)))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 3
+      home.authFlow.accountOperationGeneration = 3
+      home.authFlow.isLoading = true
+      $0 = .home(home)
+    }
+  }
+
+  @Test func myLogoutWorksWhenSessionHasNoUserIDAndProfileFetchFailed() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.message = "회원 정보를 확인할 수 없어요. 다시 시도해 주세요."
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.sessionRestored(generation: 0, userID: nil, isLoggedIn: true))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.hasSession = true
+      $0 = .home(home)
+    }
+
+    await store.send(.scope(.home(.delegate(.myLogoutRequested)))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 1
+      home.authFlow.accountOperationGeneration = 1
+      home.authFlow.isLoading = true
+      home.authFlow.message = nil
+      $0 = .home(home)
+    }
+    await store.receive(\.inner.myAccountFinished) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow = .init()
+      home.authFlow.generation = 1
+      $0 = .home(home)
+    }
+    guard case let .home(signedOut) = store.state else { return }
+    #expect(signedOut.authFlow.hasSession == false)
+  }
+
+  @Test func bookmarkCannotInvalidatePendingAccountOperation() async {
+    var home = MainTabCoordinator.State(selectedTab: .flag)
+    home.authFlow.generation = 1
+    home.authFlow.accountOperationGeneration = 1
+    home.authFlow.isLoading = true
+    home.authFlow.hasSession = true
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival"))))))
+    await store.send(.inner(.myAccountFinished(
+      generation: 1,
+      operation: .signOut,
+      result: .success(())
+    ))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow = .init()
+      home.authFlow.generation = 1
+      $0 = .home(home)
+    }
+    guard case let .home(signedOut) = store.state else { return }
+    #expect(!signedOut.authFlow.hasSession)
+    #expect(signedOut.authFlow.profile == nil)
+  }
+
+  @Test func bookmarkDuringProfileRefreshStartsNewRequest() async {
+    var home = MainTabCoordinator.State(selectedTab: .flag)
+    home.authFlow.generation = 1
+    home.authFlow.isLoading = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.authService = StubAuthService(loggedIn: false, userID: nil)
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival")))))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 2
+      home.authFlow.pendingFestivalID = "festival"
+      $0 = .home(home)
+    }
+    await store.receive(\.inner.profileLoaded) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.isLoading = false
+      home.authFlow.presentation = .login
+      $0 = .home(home)
+    }
+  }
+
+  @Test func accountOperationFinishesAfterFlowDismissChangesGeneration() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.generation = 1
+    home.authFlow.accountOperationGeneration = 1
+    home.authFlow.isLoading = true
+    home.authFlow.hasSession = true
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.presentation = .onboarding
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.view(.dismissFlow)) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 2
+      home.authFlow.presentation = nil
+      $0 = .home(home)
+    }
+    await store.send(.inner(.myAccountFinished(
+      generation: 1,
+      operation: .withdraw,
+      result: .success(())
+    ))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow = .init()
+      home.authFlow.generation = 2
+      $0 = .home(home)
+    }
+    guard case let .home(withdrawn) = store.state else { return }
+    #expect(!withdrawn.authFlow.hasSession)
+    #expect(withdrawn.authFlow.profile == nil)
+  }
+
+  @Test func profileUpdateOfflineFailureKeepsAccount() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.hasSession = true
+    home.authFlow.generation = 1
+    home.authFlow.isLoading = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+
+    await store.send(.inner(.profileUpdated(generation: 1, .failure(.offline)))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.isLoading = false
+      home.authFlow.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
+      $0 = .home(home)
+    }
+    guard case let .home(unchanged) = store.state else { return }
+    #expect(unchanged.authFlow.profile?.user.id == "user-a")
+  }
+}
+
+private struct FailingMyAuthUseCase: AuthUseCaseInterface {
+  func signIn(with credential: AuthCredential) async throws -> AuthLoginResult { throw AuthDomainError.notAuthenticated }
+  func fetchProfile() async throws -> AuthProfile { throw AuthDomainError.notAuthenticated }
+  func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser {
+    throw AuthDomainError.notAuthenticated
+  }
+  func signOut() async throws { throw FestiCoreNetworkError.response(ResponseError(httpStatus: 503)) }
+  func withdraw() async throws { throw FestiCoreNetworkError.response(ResponseError(httpStatus: 503)) }
 }
 
 private struct UnauthenticatedAuthUseCase: AuthUseCaseInterface {
@@ -610,6 +1036,32 @@ private struct OutdatedTermsAuthUseCase: AuthUseCaseInterface {
   }
   func signOut() async throws {}
   func withdraw() async throws {}
+}
+
+private struct StubAuthService: AuthService {
+  let loggedIn: Bool
+  let userID: String?
+
+  var isLoggedIn: Bool { get async { loggedIn } }
+  var currentUserID: String? { get async { userID } }
+  var refreshToken: String? {
+    get async {
+      Issue.record("테스트에서 refreshToken 조회를 예상하지 않았어요")
+      return nil
+    }
+  }
+
+  func signIn(accessToken: String, refreshToken: String) async {
+    Issue.record("테스트에서 signIn 호출을 예상하지 않았어요")
+  }
+
+  func rememberUserID(_ userID: String) async {
+    Issue.record("테스트에서 rememberUserID 호출을 예상하지 않았어요")
+  }
+
+  func signOut() async {
+    Issue.record("테스트에서 signOut 호출을 예상하지 않았어요")
+  }
 }
 
 private func eligibleProfile(id: String) -> AuthProfile {

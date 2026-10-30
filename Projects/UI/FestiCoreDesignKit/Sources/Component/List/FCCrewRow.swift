@@ -66,7 +66,10 @@ public struct FCCrewRow: View {
     .opacity(isStale ? Metric.staleOpacity : 1)
   }
 
-  private var primaryColor: FestiCoreSemanticColor {
+}
+
+private extension FCCrewRow {
+  var primaryColor: FestiCoreSemanticColor {
     isStale ? .labelAssistive : .labelNormal
   }
 }

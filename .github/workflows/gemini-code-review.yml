@@ -172,6 +172,7 @@ jobs:
 
       - name: Run Gemini Review
         if: steps.get_diff.outputs.skip_review == 'false' && steps.existing_review.outputs.already_reviewed != 'true'
+        id: gemini_review
         uses: actions/github-script@v7
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -284,6 +285,18 @@ jobs:
                   break;
                 } catch (error) {
                   const status = Number(error.status);
+                  const dailyQuotaExceeded = status === 429 && error.errorDetails?.some((detail) =>
+                    detail.violations?.some((violation) =>
+                      violation.quotaMetric?.endsWith("/generate_content_free_tier_requests")
+                    )
+                  );
+                  if (dailyQuotaExceeded) {
+                    const headSHA = context.payload.pull_request.head.sha;
+                    core.setOutput("review_unavailable", "true");
+                    core.warning(`Gemini daily quota exhausted; review unavailable for ${headSHA}`);
+                    await core.summary.addRaw(`Gemini 리뷰 미완료: 일일 요청 한도 초과 (${headSHA}). 이 커밋의 Gemini 리뷰는 게시되지 않았습니다.`).write();
+                    return;
+                  }
                   if (![429, 500, 502, 503, 504].includes(status) || requestAttempt === 2) {
                     throw error;
                   }
@@ -315,7 +328,7 @@ jobs:
             throw new Error(`Gemini did not produce valid review JSON after two attempts: ${lastFailure}`);
 
       - name: Post Inline Review Comments
-        if: steps.get_diff.outputs.skip_review == 'false' && steps.existing_review.outputs.already_reviewed != 'true'
+        if: steps.get_diff.outputs.skip_review == 'false' && steps.existing_review.outputs.already_reviewed != 'true' && steps.gemini_review.outputs.review_unavailable != 'true'
         uses: actions/github-script@v7
         with:
           script: |

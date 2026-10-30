@@ -11,6 +11,7 @@ public enum FeatureModule: String, CaseIterable {
   case assembly = "FeatureAssembly"
   case festival = "Festival"
   case login = "Login"
+  case profile = "Profile"
   case timetable = "Timetable"
 
   var path: Path { .relativeToFeature(rawValue) }

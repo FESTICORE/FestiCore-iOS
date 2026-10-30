@@ -34,7 +34,10 @@ public struct FCTag: View {
       .background(backgroundColor.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r4))
   }
 
-  private var backgroundColor: FestiCoreSemanticColor {
+}
+
+private extension FCTag {
+  var backgroundColor: FestiCoreSemanticColor {
     switch tone {
     case .neutral: return .fillNormal
     case .secondary: return .accentBackgroundPurple
