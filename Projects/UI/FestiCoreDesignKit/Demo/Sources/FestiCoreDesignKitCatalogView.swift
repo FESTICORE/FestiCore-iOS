@@ -39,6 +39,8 @@ struct FestiCoreDesignKitCatalogView: View {
           FCDivider()
           selectionSection
           FCDivider()
+          labelSection
+          FCDivider()
           navigationSection
           FCDivider()
           timetableSection
@@ -165,6 +167,37 @@ struct FestiCoreDesignKitCatalogView: View {
       }
       .background(FestiCoreSemanticColor.backgroundElevated.color)
       FCPhotoPicker(.empty) {}
+    }
+  }
+
+  private var labelSection: some View {
+    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
+      sectionTitle("Labels & Status")
+      HStack(spacing: FestiCoreSpacing.paddingP8) {
+        FCTag("슬램")
+        FCTag("슬램").tone(.secondary)
+        FCTag("슬램").tone(.lime)
+        FCTag("슬램").tone(.warning)
+      }
+      HStack(spacing: FestiCoreSpacing.paddingP8) {
+        FCStatusChip(.active)
+        FCStatusChip(.resting)
+        FCStatusChip(.scheduled)
+        FCStatusChip(.endedToday)
+      }
+      HStack(spacing: FestiCoreSpacing.paddingP12) {
+        FCZoneChip("리벳 앞 왼쪽") {}
+        FCLiveBadge(.now)
+        FCLiveBadge(.next)
+        FCLivePulse()
+        FCBadge(count: 3)
+        FCBadge(count: 12)
+      }
+      FCOfflineBadge("오프라인 · 3분 전 정보")
+      FCSourceLine("출처: 주최측 공지 · 확인 10/16 14:00")
+      FCBearerFooter()
+      FCBearerFooter(queuedCount: 1)
+      FCChecklistProgress(checked: 3, total: 7)
     }
   }
 
