@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCoreDesignKit
 import SwiftUI
 
 @ViewAction(for: HomeFeature.self)
@@ -12,7 +13,7 @@ public struct HomeView: View {
 
   public var body: some View {
     ScrollView {
-      LazyVStack(alignment: .leading, spacing: 24) {
+      LazyVStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
         status
         festivalList
         if let pack = store.selectedPack {
@@ -20,10 +21,11 @@ public struct HomeView: View {
         }
         festivalDetail
       }
-      .padding(20)
+      .padding(FestiCoreSpacing.paddingP16)
     }
     .scrollIndicators(.hidden)
-    .navigationTitle("FestiCore")
+    .background(FestiCoreSemanticColor.backgroundNormal.color)
+    .toolbar(.hidden, for: .navigationBar)
     .refreshable { send(.refreshRequested) }
     .task {
       send(.onAppear)
@@ -38,9 +40,11 @@ public struct HomeView: View {
     HomeFestivalListView(
       festivals: store.festivals,
       selectedFestivalID: store.selectedFestivalID,
+      bookedFestivalIDs: store.bookedFestivalIDs,
       imageRevision: store.imageRevision,
       imageURL: imageURL,
-      onSelect: { send(.selectFestival($0)) }
+      onSelect: { send(.selectFestival($0)) },
+      onToggleBooked: { send(.toggleBookedFestival($0)) }
     )
   }
 

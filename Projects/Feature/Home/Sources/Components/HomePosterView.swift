@@ -6,9 +6,13 @@ struct HomePosterView: View {
   let imageRevision: Int
 
   var body: some View {
-    FCRemoteImage(url: url)
-      .content(.fill)
-      .clipShape(RoundedRectangle(cornerRadius: 8))
-      .id("\(url?.absoluteString ?? "")-\(imageRevision)")
+    GeometryReader { geometry in
+      FCRemoteImage(url: url)
+        .content(.fill)
+        .frame(width: geometry.size.width, height: geometry.size.height)
+        .clipped()
+        .id("\(url?.absoluteString ?? "")-\(imageRevision)")
+    }
+    .clipShape(RoundedRectangle(cornerRadius: 8))
   }
 }
