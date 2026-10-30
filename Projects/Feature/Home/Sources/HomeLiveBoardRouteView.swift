@@ -17,11 +17,8 @@ public struct HomeLiveBoardRouteView: View {
         HomeLiveBoardScreen(
           festival: festival,
           pack: store.selectedPack,
-          imageRevision: store.imageRevision,
-          imageURL: { store.state.imageURL(for: $0) },
           liveActivityState: store.liveActivityState,
-          onLiveActivityTap: { send(.liveActivityTapped) },
-          onBack: { send(.backToFestivalList) }
+          onLiveActivityTap: { send(.liveActivityTapped) }
         )
       } else {
         ProgressView("페스티벌 정보를 불러오는 중")

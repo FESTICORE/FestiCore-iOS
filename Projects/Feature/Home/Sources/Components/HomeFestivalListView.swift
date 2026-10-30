@@ -6,9 +6,11 @@ struct HomeFestivalListView: View {
   let selectedFestivalID: String?
   let bookedFestivalIDs: Set<String>
   let imageRevision: Int
+  let isLoading: Bool
   let imageURL: (String?) -> URL?
   let onSelect: (String) -> Void
   let onToggleBooked: (String) -> Void
+  let onRefresh: () -> Void
 
   @State private var selectedFilter = 0
   @State private var isSearching = false
@@ -21,7 +23,7 @@ struct HomeFestivalListView: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
+    VStack(alignment: .leading, spacing: .zero) {
       HStack {
         Text("페스티벌")
           .font(.title2.bold())
@@ -37,6 +39,8 @@ struct HomeFestivalListView: View {
         }
         .accessibilityLabel(isSearching ? "검색 닫기" : "페스티벌 검색")
       }
+      .padding(.horizontal, FestiCoreSpacing.paddingP16)
+      .padding(.top, FestiCoreSpacing.paddingP16)
 
       if isSearching {
         TextField("페스티벌 또는 장소 검색", text: $query)
@@ -46,20 +50,38 @@ struct HomeFestivalListView: View {
           .background(FestiCoreSemanticColor.backgroundElevated.color,
                       in: RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
           .accessibilityIdentifier("festivalSearchField")
+          .padding(.horizontal, FestiCoreSpacing.paddingP16)
       }
 
       HStack(spacing: 0) {
         filterTab("전체", index: 0)
         filterTab("예매 완료", index: 1)
       }
+      .padding(.top, FestiCoreSpacing.paddingP16)
 
+      ScrollView {
+        LazyVStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
+          listContent
+        }
+        .padding(FestiCoreSpacing.paddingP16)
+      }
+      .scrollIndicators(.hidden)
+      .refreshable { onRefresh() }
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+  }
+
+  @ViewBuilder
+  private var listContent: some View {
       Text(selectedFilter == 0
         ? "가고 싶은 페스티벌을 찾아보세요. 이미 예매한 페스티벌은 북마크해서 바로 확인할 수 있어요."
         : "북마크한 페스티벌을 모아 봅니다.")
         .font(.caption)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
 
-      if visibleFestivals.isEmpty {
+      if isLoading {
+        HomeFestivalListSkeletonView()
+      } else if visibleFestivals.isEmpty {
         ContentUnavailableView(
           festivals.isEmpty ? "불러온 페스티벌이 없습니다" : "조건에 맞는 페스티벌이 없습니다",
           systemImage: "calendar",
@@ -70,8 +92,6 @@ struct HomeFestivalListView: View {
       } else {
         ForEach(visibleFestivals) { festival in festivalCard(festival) }
       }
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
   }
 
   private func filterTab(_ title: String, index: Int) -> some View {

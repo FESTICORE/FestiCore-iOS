@@ -15,7 +15,6 @@ public struct HomeView: View {
     festivalListScreen
     .background(FestiCoreSemanticColor.backgroundNormal.color)
     .toolbar(.hidden, for: .navigationBar)
-    .refreshable { send(.refreshRequested) }
     .task {
       send(.onAppear)
       send(.liveActivityOnAppear)
@@ -26,16 +25,13 @@ public struct HomeView: View {
   }
 
   private var festivalListScreen: some View {
-    ScrollView {
-      LazyVStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
-        if (store.connection != .live && store.connection != .unavailable) || store.cacheReadFailed {
-          status
-        }
-        festivalList
+    VStack(spacing: .zero) {
+      if (store.connection != .live && store.connection != .unavailable) || store.cacheReadFailed {
+        status
+          .padding(.horizontal, FestiCoreSpacing.paddingP16)
       }
-      .padding(FestiCoreSpacing.paddingP16)
+      festivalList
     }
-    .scrollIndicators(.hidden)
   }
 
   private var festivalList: some View {
@@ -44,11 +40,14 @@ public struct HomeView: View {
       selectedFestivalID: store.selectedFestivalID,
       bookedFestivalIDs: store.bookedFestivalIDs,
       imageRevision: store.imageRevision,
+      isLoading: store.festivals.isEmpty && store.viewState == .loading,
       imageURL: imageURL,
       onSelect: { send(.selectFestival($0)) },
-      onToggleBooked: { send(.toggleBookedFestival($0)) }
+      onToggleBooked: { send(.toggleBookedFestival($0)) },
+      onRefresh: { send(.refreshRequested) }
     )
   }
+
 
   private func imageURL(_ value: String?) -> URL? {
     store.state.imageURL(for: value)

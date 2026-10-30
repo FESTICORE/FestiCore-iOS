@@ -24,10 +24,6 @@ struct HomeCoordinator {
       state.routes.push(.liveBoard(.init(selectedFestivalID: festivalID)))
       return .none
 
-    case .router(.routeAction(id: _, action: .liveBoard(.view(.backToFestivalList)))):
-      state.routes.goBack()
-      return .none
-
     case .router:
       return .none
     }

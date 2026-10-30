@@ -7,8 +7,10 @@
 
 import Foundation
 import Testing
+import UIKit
 
 import ComposableArchitecture
+import FeatureAssembly
 import FestivalDomainInterface
 @testable import FestiCore
 
@@ -68,6 +70,27 @@ struct AppCoordinatorTests {
 
     state.homeState.routes.goBack()
     #expect(state.shouldHideTabBar)
+  }
+
+  @Test func swipeBackOnlyStartsWithPreviousScreen() {
+    let navigationController = UINavigationController(rootViewController: UIViewController())
+    #expect(!navigationController.canSwipeBack)
+
+    navigationController.pushViewController(UIViewController(), animated: false)
+    #expect(navigationController.canSwipeBack)
+  }
+
+  @Test func timetableUsesSelectedFestivalPackTimes() throws {
+    let payload = #"{"id":"festival","stages":[{"id":"main","name":"메인 무대"}],"sets":[{"id":"set-1","artist":"가수","stageId":"main","startsAt":"2026-10-30T12:00:00+09:00","endsAt":"2026-10-30T13:00:00+09:00"}]}"#
+    let pack = try JSONDecoder().decode(FestivalPackDocument.self, from: Data(payload.utf8))
+
+    let days = FestivalPackTimetableMapper.days(from: pack)
+
+    #expect(days.count == 1)
+    #expect(days.first?.id == "2026-10-30")
+    #expect(days.first?.stages.first?.name == "메인 무대")
+    #expect(days.first?.sets.first?.start == 720)
+    #expect(days.first?.sets.first?.end == 780)
   }
 }
 

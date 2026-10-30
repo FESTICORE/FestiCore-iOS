@@ -18,6 +18,12 @@ public struct HomeFeature {
 
   @ObservableState
   public struct State: Equatable {
+    public enum ViewState: Equatable {
+      case loading
+      case loaded
+    }
+
+    public var viewState: ViewState = .loading
     public var catalog: IdentifiedArrayOf<FestivalCatalogItem> = []
     public var cachedPacks: [String: CachedFestivalPack] = [:]
     public var imageURLs: [String: URL] = [:]
@@ -129,7 +135,6 @@ public struct HomeFeature {
     case foregroundChanged(Bool)
     case refreshRequested
     case selectFestival(String)
-    case backToFestivalList
     case toggleBookedFestival(String)
     case liveActivityOnAppear
     case liveActivityTapped
@@ -214,6 +219,7 @@ public struct HomeFeature {
       case let .inner(.cachedLoaded(catalog, packs, savedID, catalogReadFailed, packReadFailed)):
         state.catalog = identifiedCatalog(catalog)
         state.cachedPacks = Dictionary(uniqueKeysWithValues: packs.map { ($0.festivalID, $0) })
+        if !state.festivals.isEmpty { state.viewState = .loaded }
         state.catalogCacheReadFailed = catalogReadFailed
         state.packCacheReadFailed = packReadFailed
         let available = state.festivals
@@ -264,8 +270,6 @@ public struct HomeFeature {
           liveActivityBoundary(state)
         )
 
-      case .view(.backToFestivalList):
-        return .none
 
       case let .view(.toggleBookedFestival(id)):
         guard state.festivals.contains(where: { $0.id == id }) else { return .none }
@@ -276,6 +280,7 @@ public struct HomeFeature {
         return .run { _ in bookedStore.save(ids) }
 
       case let .inner(.catalogRefreshed(catalog)):
+        state.viewState = .loaded
         if state.liveActivityReady { state.liveActivityNow = date.now }
         let previouslyAvailable = (state.selectedFestival?.packVersion ?? 0) > 0
         let restartFailedWatch = state.packWatchFailed
@@ -299,6 +304,7 @@ public struct HomeFeature {
           : .merge(prefetch, syncLiveActivities(state))
 
       case .inner(.catalogFailed):
+        state.viewState = .loaded
         if state.connection != .live {
           state.imageRetryPending = true
           state.connection = .offline

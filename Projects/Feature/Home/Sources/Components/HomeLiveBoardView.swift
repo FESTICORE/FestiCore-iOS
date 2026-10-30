@@ -9,7 +9,7 @@ struct HomeLiveBoardView: View {
       let stages = HomeLiveBoardSchedule.resolve(pack: pack, now: timeline.date)
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
         HStack {
-          Text("지금 무대")
+          Text("지금 / 다음 무대")
             .festiCoreFont(.baseTitle3Bold)
           Spacer()
           if stages.contains(where: { $0.current != nil }) {

@@ -13,6 +13,7 @@ struct HomeCoordinatorView: View {
         HomeView(store: homeStore)
       case let .liveBoard(liveBoardStore):
         HomeLiveBoardRouteView(store: liveBoardStore)
+          .navigationBarBackButtonHidden()
       }
     }
   }
