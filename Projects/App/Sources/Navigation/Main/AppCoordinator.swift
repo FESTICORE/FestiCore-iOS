@@ -30,6 +30,7 @@ struct AppCoordinator {
     var pendingShouldBeBooked = true
     var pendingOwnerID: String?
     var generation = 0
+    var accountOperationGeneration: Int?
     var loginAttemptGeneration: Int?
     var verifiedUserID: String?
     var lastVerifiedUserID: String?
@@ -447,12 +448,13 @@ private extension AppCoordinator {
 
     case let .myAccountFinished(generation, operation, result):
       guard case var .home(home) = state,
-            home.authFlow.generation == generation else { return .none }
+            home.authFlow.accountOperationGeneration == generation else { return .none }
+      home.authFlow.accountOperationGeneration = nil
       home.authFlow.isLoading = false
       switch result {
       case .success:
         var cleared = AuthFlow()
-        cleared.generation = generation
+        cleared.generation = max(home.authFlow.generation, generation)
         home.authFlow = cleared
         home.profileState = .init()
         state = .home(home)
@@ -473,7 +475,8 @@ private extension AppCoordinator {
       return .send(.view(.presentHome))
 
     case let .home(.festival(.delegate(.bookmarkRequested(id)))):
-      guard case var .home(home) = state else { return .none }
+      guard case var .home(home) = state,
+            home.authFlow.accountOperationGeneration == nil else { return .none }
       home.authFlow.generation += 1
       home.authFlow.pendingFestivalID = id
       if let userID = home.authFlow.verifiedUserID,
@@ -551,6 +554,7 @@ private extension AppCoordinator {
           home.authFlow.hasSession,
           !home.authFlow.isLoading else { return .none }
     home.authFlow.generation += 1
+    home.authFlow.accountOperationGeneration = home.authFlow.generation
     home.authFlow.isLoading = true
     home.authFlow.message = nil
     let generation = home.authFlow.generation
