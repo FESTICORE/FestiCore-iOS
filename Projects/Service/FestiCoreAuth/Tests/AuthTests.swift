@@ -85,20 +85,20 @@ struct AuthTests {
     let client = auth.authenticatedClient
     #expect((client as AnyObject) === (auth.authenticatedClient as AnyObject))
 
-    await auth.signIn(accessToken: "old", refreshToken: "old-refresh")
+    await auth.signIn(accessToken: jwt(subject: "user-a"), refreshToken: "old-refresh")
     await auth.rememberUserID("user-a")
     #expect(await auth.currentUserID == "user-a")
-    #expect(storage.load(.accessToken) == "old")
+    #expect(storage.load(.accessToken) == jwt(subject: "user-a"))
     #expect(storage.load(.refreshToken) == "old-refresh")
 
     let restored = AuthFactory.make(refreshClient: refreshClient, storage: storage)
     #expect(await restored.currentUserID == "user-a")
 
-    await auth.signIn(accessToken: "new", refreshToken: "new-refresh")
+    await auth.signIn(accessToken: jwt(subject: "user-b"), refreshToken: "new-refresh")
     #expect(await auth.currentUserID == nil)
     await auth.rememberUserID("user-b")
     #expect(await auth.currentUserID == "user-b")
-    #expect(storage.load(.accessToken) == "new")
+    #expect(storage.load(.accessToken) == jwt(subject: "user-b"))
     #expect(storage.load(.refreshToken) == "new-refresh")
 
     await auth.signOut()
@@ -107,6 +107,54 @@ struct AuthTests {
     #expect(storage.load(.refreshToken) == nil)
     #expect(storage.load(.sessionUserID) == nil)
     #expect(await auth.currentUserID == nil)
+  }
+
+  @Test("이전 사용자 ID 삭제 실패와 새 ID 저장 실패 시 다른 계정의 찜을 보여주지 않는다")
+  func failedIdentityWritesDoNotExposePreviousAccount() async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage)
+
+    await auth.signIn(accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
+    await auth.rememberUserID("user-a")
+    #expect(await auth.currentUserID == "user-a")
+
+    storage.failIdentityRemoval = true
+    storage.failIdentitySave = true
+    await auth.signIn(accessToken: jwt(subject: "user-b"), refreshToken: "refresh-b")
+    #expect(storage.load(.sessionUserID) == "user-a")
+    #expect(await auth.currentUserID == nil)
+    await auth.rememberUserID("user-b")
+    #expect(await auth.currentUserID == nil)
+
+    storage.failIdentitySave = false
+    await auth.rememberUserID("user-b")
+    #expect(await auth.currentUserID == "user-b")
+    await auth.signOut()
+    #expect(await auth.currentUserID == nil)
+  }
+
+  @Test("정상 토큰 갱신 뒤에도 검증된 계정 ID를 복구한다")
+  func refreshedTokenKeepsVerifiedIdentity() async throws {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage)
+    let oldToken = jwt(subject: "user-a")
+    let newToken = jwt(subject: "user-a", suffix: "renewed")
+    await auth.signIn(accessToken: oldToken, refreshToken: "refresh-a")
+    await auth.rememberUserID("user-a")
+
+    let credentialStore = KeychainCredentialStore(storage: storage)
+    let oldCredential = try #require(credentialStore.load())
+    let revision = try #require(credentialStore.revision(matching: oldCredential))
+    #expect(credentialStore.replace(
+      FestiCoreCredential(accessToken: newToken, refreshToken: "refresh-a-rotated"),
+      ifCurrent: oldCredential,
+      revision: revision
+    ))
+    #expect(await auth.currentUserID == "user-a")
+    let restored = AuthFactory.make(refreshClient: client, storage: storage)
+    #expect(await restored.currentUserID == "user-a")
   }
 
   @Test("로그아웃 뒤 늦게 도착한 갱신 결과를 저장하지 않는다")
@@ -178,11 +226,38 @@ private actor FailureRecorder {
 private final class MemorySecureStorage: SecureStorage, @unchecked Sendable {
   private let values = NSLock()
   private var stored: [SecureStorageKey: String] = [:]
+  private var failsIdentityRemoval = false
+  private var failsIdentitySave = false
 
-  func save(_ value: String, for key: SecureStorageKey) { values.withLock { stored[key] = value } }
+  var failIdentityRemoval: Bool {
+    get { values.withLock { failsIdentityRemoval } }
+    set { values.withLock { failsIdentityRemoval = newValue } }
+  }
+
+  var failIdentitySave: Bool {
+    get { values.withLock { failsIdentitySave } }
+    set { values.withLock { failsIdentitySave = newValue } }
+  }
+
+  func save(_ value: String, for key: SecureStorageKey) throws(SecureStorageError) {
+    try values.withLock {
+      if key == .sessionUserID, failsIdentitySave { throw SecureStorageError.invalidData }
+      stored[key] = value
+    }
+  }
   func load(_ key: SecureStorageKey) -> String? { values.withLock { stored[key] } }
-  func remove(_ key: SecureStorageKey) { values.withLock { stored.removeValue(forKey: key) } }
+  func remove(_ key: SecureStorageKey) throws(SecureStorageError) {
+    try values.withLock {
+      if key == .sessionUserID, failsIdentityRemoval { throw SecureStorageError.invalidData }
+      stored.removeValue(forKey: key)
+    }
+  }
   func removeAll() { values.withLock { stored.removeAll() } }
+}
+
+private func jwt(subject: String, suffix: String = "signature") -> String {
+  let payload = Data("{\"sub\":\"\(subject)\"}".utf8).base64EncodedString()
+  return "header.\(payload).\(suffix)"
 }
 
 private final class StubRefreshClient: FestiCoreRequestClient, @unchecked Sendable {

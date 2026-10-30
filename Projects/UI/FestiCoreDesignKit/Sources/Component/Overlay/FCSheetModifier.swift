@@ -123,14 +123,20 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
   }
 
   private func dismiss() {
+    guard let dismissedItem = item else { return }
     withAnimation(.easeOut(duration: Metric.mediumDuration)) {
       dismissOffset = Metric.slideDistance
     }
     dragOffset = 0
     DispatchQueue.main.asyncAfter(deadline: .now() + Metric.mediumDuration) {
-      item = nil
+      Self.completeDismissal(of: dismissedItem, item: $item)
       dismissOffset = 0
     }
+  }
+
+  static func completeDismissal(of dismissedItem: Item, item: Binding<Item?>) {
+    guard item.wrappedValue == dismissedItem else { return }
+    item.wrappedValue = nil
   }
 
   private func heightValue(for geometry: GeometryProxy) -> CGFloat? {
