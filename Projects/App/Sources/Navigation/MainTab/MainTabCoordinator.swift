@@ -14,6 +14,13 @@ import Foundation
 struct MainTabCoordinator {
   typealias Tab = FCTabBar.Tab
   @Dependency(\.festivalBookedStore) private var bookedStore
+  private let legalBaseURL: URL?
+
+  init(legalBaseURL: URL? = AppCoordinatorView.legalBaseURL(
+    host: Bundle.main.object(forInfoDictionaryKey: "FestiCoreAPIHost") as? String
+  )) {
+    self.legalBaseURL = legalBaseURL
+  }
 
   @ObservableState
   struct State: Equatable {
@@ -78,7 +85,7 @@ struct MainTabCoordinator {
       FestivalFlagFeature()
     }
     Scope(state: \.profileState, action: \.profile) {
-      ProfileFeature()
+      ProfileFeature(legalBaseURL: legalBaseURL)
     }
     Scope(state: \.loginState, action: \.login) {
       LoginFeature()

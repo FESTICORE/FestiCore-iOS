@@ -6,6 +6,7 @@
 //
 
 import ComposableArchitecture
+import Foundation
 import Testing
 @testable import Profile
 
@@ -58,5 +59,15 @@ struct ProfileFeatureTests {
     await store.receive(\.delegate.withdrawRequested)
     #expect(store.state.isAccountPresented)
     await store.send(.view(.withdrawTapped)) { $0.isWithdrawalConfirmationPresented = true }
+  }
+
+  @Test func missingLegalConfigurationShowsDismissibleError() async {
+    let store = TestStore(initialState: ProfileFeature.State()) {
+      ProfileFeature(legalBaseURL: nil)
+    }
+
+    await store.send(.view(.termsTapped)) { $0.isLegalLinkUnavailablePresented = true }
+    await store.send(.view(.legalLinkUnavailableDismissed)) { $0.isLegalLinkUnavailablePresented = false }
+    await store.send(.view(.privacyTapped)) { $0.isLegalLinkUnavailablePresented = true }
   }
 }

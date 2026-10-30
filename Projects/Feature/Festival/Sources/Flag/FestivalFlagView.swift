@@ -1,3 +1,10 @@
+//
+//  FestivalFlagView.swift
+//  Festival
+//
+//  Created by FestiCore on 10/31/26.
+//
+
 import ComposableArchitecture
 import FestiCoreDesignKit
 import FestiCoreSharedUI
@@ -34,9 +41,11 @@ public struct FestivalFlagView: View {
     .onAppear { store.send(.appeared) }
     .onDisappear { store.send(.disappeared) }
   }
+}
 
+private extension FestivalFlagView {
   @ViewBuilder
-  private var content: some View {
+  var content: some View {
     if let snapshot = store.snapshot {
       if store.viewState == .failed {
         FCEmptyCard(title: "새 정보를 불러오지 못했습니다", message: "이전에 받은 깃발을 표시합니다. 아래로 당겨 다시 시도해 주세요.")
@@ -52,8 +61,7 @@ public struct FestivalFlagView: View {
     } else {
       switch store.viewState {
       case .idle, .loading:
-        ProgressView("깃발을 불러오는 중입니다")
-          .frame(maxWidth: .infinity, minHeight: 180)
+        loadingContent
       case .failed:
         FCEmptyCard(title: "깃발을 불러오지 못했습니다", message: "네트워크 연결을 확인하고 아래로 당겨 다시 시도해 주세요.")
       case .deviceNotRegistered:
@@ -68,7 +76,27 @@ public struct FestivalFlagView: View {
     }
   }
 
-  private func flagSection(title: String, flags: [FestivalLiveBoardSnapshot.Flag]) -> some View {
+  var loadingContent: some View {
+    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
+      FCSkeletonView(.round())
+        .frame(width: 120, height: 24)
+      ForEach(0..<3, id: \.self) { _ in
+        HStack(spacing: FestiCoreSpacing.paddingP12) {
+          FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r12))
+            .frame(width: 48, height: 48)
+          VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
+            FCSkeletonView(.round()).frame(width: 140, height: 20)
+            FCSkeletonView(.round()).frame(width: 100, height: 16)
+          }
+          Spacer(minLength: 0)
+        }
+        .padding(FestiCoreSpacing.paddingP12)
+      }
+    }
+    .accessibilityLabel("깃발을 불러오는 중입니다")
+  }
+
+  func flagSection(title: String, flags: [FestivalLiveBoardSnapshot.Flag]) -> some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
       Text(title)
         .festiCoreFont(.baseTitle3Bold)
@@ -100,7 +128,7 @@ public struct FestivalFlagView: View {
     }
   }
 
-  private func statusLabel(_ status: String) -> String? {
+  func statusLabel(_ status: String) -> String? {
     switch status {
     case "active": "활동 중"
     case "resting": "휴식 중"

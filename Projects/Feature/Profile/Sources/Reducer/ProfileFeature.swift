@@ -28,13 +28,18 @@ public struct ProfileReceivedPack: Equatable, Identifiable {
 
 @Reducer
 public struct ProfileFeature {
-  public init() {}
+  private let legalBaseURL: URL?
+
+  public init(legalBaseURL: URL? = nil) {
+    self.legalBaseURL = legalBaseURL
+  }
 
   @ObservableState
   public struct State: Equatable {
     public var isAccountPresented = false
     public var isLogoutConfirmationPresented = false
     public var isWithdrawalConfirmationPresented = false
+    public var isLegalLinkUnavailablePresented = false
 
     public init() {}
   }
@@ -64,6 +69,7 @@ public struct ProfileFeature {
     case noticeTapped
     case termsTapped
     case privacyTapped
+    case legalLinkUnavailableDismissed
   }
 
   @CasePathable
@@ -119,20 +125,24 @@ public struct ProfileFeature {
         state.isWithdrawalConfirmationPresented = false
         return .send(.delegate(.withdrawRequested))
       case .view(.noticeTapped): return .send(.delegate(.noticeRequested))
-      case .view(.termsTapped): return open(legalURL(path: "terms"))
-      case .view(.privacyTapped): return open(legalURL(path: "privacy"))
+      case .view(.termsTapped):
+        return openLegalURL(path: "terms", state: &state)
+      case .view(.privacyTapped):
+        return openLegalURL(path: "privacy", state: &state)
+      case .view(.legalLinkUnavailableDismissed):
+        state.isLegalLinkUnavailablePresented = false
+        return .none
       case .delegate: return .none
       }
     }
   }
 
-  private func legalURL(path: String) -> URL? {
-    guard
-      let host = Bundle.main.object(forInfoDictionaryKey: "FestiCoreAPIHost") as? String,
-      !host.isEmpty,
-      !host.contains("/")
-    else { return nil }
-    return URL(string: "https://\(host)/api/v1/legal/\(path)")
+  private func openLegalURL(path: String, state: inout State) -> Effect<Action> {
+    guard let legalBaseURL else {
+      state.isLegalLinkUnavailablePresented = true
+      return .none
+    }
+    return open(legalBaseURL.appending(path: path))
   }
 
   private func open(_ url: URL?) -> Effect<Action> {

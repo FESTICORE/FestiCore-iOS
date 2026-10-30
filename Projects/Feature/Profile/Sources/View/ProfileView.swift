@@ -185,7 +185,15 @@ private extension ProfileView {
 
   @ViewBuilder
   var confirmationOverlay: some View {
-    if store.isWithdrawalConfirmationPresented {
+    if store.isLegalLinkUnavailablePresented {
+      confirmation(
+        title: "문서를 열 수 없어요",
+        message: "잠시 후 다시 시도해 주세요.",
+        confirmTitle: "확인",
+        onConfirm: { store.send(.view(.legalLinkUnavailableDismissed)) },
+        onDismiss: { store.send(.view(.legalLinkUnavailableDismissed)) }
+      )
+    } else if store.isWithdrawalConfirmationPresented {
       confirmation(
         title: "회원 탈퇴",
         message: "계정과 로그인 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
