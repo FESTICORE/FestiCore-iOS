@@ -38,6 +38,11 @@ struct FestivalListPresentationTests {
     ) == .ended)
   }
 
+  @Test func listDateUsesKoreanDayAndRejectsInvalidServerDate() {
+    #expect(HomeDateFormat.festivalDay(from: "2026-10-30") == "10/30(금)")
+    #expect(HomeDateFormat.festivalDay(from: "2026-02-30") == nil)
+  }
+
   private func festival(
     id: String, name: String, venue: String?,
     firstDate: String? = nil, lastDate: String? = nil

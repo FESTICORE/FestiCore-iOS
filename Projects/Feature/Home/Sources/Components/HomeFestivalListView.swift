@@ -101,7 +101,9 @@ struct HomeFestivalListView: View {
     case .ended: .ended("종료")
     case .undated: .upcoming("일정 확인")
     }
-    let dates = [festival.firstDate, festival.lastDate].compactMap { $0 }.joined(separator: " – ")
+    let dates = [festival.firstDate, festival.lastDate]
+      .compactMap(HomeDateFormat.festivalDay(from:))
+      .joined(separator: " – ")
     let meta = [festival.venue, dates.isEmpty ? nil : dates].compactMap { $0 }.joined(separator: " · ")
 
     return FCFestivalCard(title: festival.name, meta: meta, status: status) {
