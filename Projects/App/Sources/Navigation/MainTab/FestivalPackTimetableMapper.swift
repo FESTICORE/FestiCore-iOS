@@ -40,6 +40,7 @@ enum FestivalPackTimetableMapper {
       return TimetableDay(
         id: dayID(dayStart, calendar: calendar),
         title: dateFormatter.string(from: dayStart),
+        date: dayStart,
         stages: stages,
         sets: sets
       )

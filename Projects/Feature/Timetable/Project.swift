@@ -13,6 +13,7 @@ import ProjectTemplatePlugin
 let project = Project.makeModule(
   name: "Timetable",
   dependencies: [
+    .domain(.festival, .interface),
     .ui(.designSystem),
     .SPM.composableArchitecture
   ],
