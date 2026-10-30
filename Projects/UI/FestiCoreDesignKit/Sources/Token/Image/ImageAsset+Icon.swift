@@ -40,6 +40,10 @@ public extension ImageAsset {
   static let route16 = ImageAsset(rawValue: "route-16")
   static let users24 = ImageAsset(rawValue: "users-24")
   static let bookmark16 = ImageAsset(rawValue: "bookmark-16")
+  static let locationDot20 = ImageAsset(rawValue: "location-dot-20")
+  static let clock20 = ImageAsset(rawValue: "clock-20")
+  static let route24 = ImageAsset(rawValue: "route-24")
+  static let user24 = ImageAsset(rawValue: "user-24")
 
   // MARK: - 소셜 로그인
 
