@@ -614,6 +614,30 @@ struct AppCoordinatorTests {
     }
   }
 
+  @Test func accountChangeReloadsVisiblePushedLiveBoardBehindHiddenList() async {
+    let current = FestivalLiveBoardSnapshot(festivalID: "festival", activeFlags: [], followedFlags: [], crew: nil)
+    var board = FestivalFeature.State(selectedFestivalID: "festival")
+    board.isLiveBoardVisible = true
+    var state = FestivalCoordinator.State()
+    state.routes.push(.liveBoard(board))
+    let clock = TestClock()
+    let store = TestStore(initialState: state) {
+      FestivalCoordinator()
+    } withDependencies: {
+      $0.continuousClock = clock
+      $0.festivalLiveBoardService = FixedLiveBoardService(snapshot: current)
+    }
+    store.exhaustivity = .off
+
+    await store.send(.accountChanged)
+    await store.receive {
+      guard case .router(.routeAction(id: 1, action: .liveBoard(.inner(.liveBoardLoaded)))) = $0 else { return false }
+      return true
+    }
+    #expect(store.state.routes.last?.screen.liveBoard?.liveBoard == current)
+    await store.send(.router(.routeAction(id: 1, action: .liveBoard(.view(.liveBoardOnDisappear)))))
+  }
+
   @Test func openingLiveBoardCarriesVerifiedBookmarkAccount() {
     var list = FestivalFeature.State()
     list.bookedUserID = "user-a"
@@ -1163,5 +1187,13 @@ private final class BookmarkBox: @unchecked Sendable {
       defer { lock.unlock() }
       storedIDs = newValue
     }
+  }
+}
+
+private struct FixedLiveBoardService: FestivalLiveBoardService {
+  let snapshot: FestivalLiveBoardSnapshot
+
+  func refresh(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
+    snapshot
   }
 }

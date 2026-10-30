@@ -121,6 +121,8 @@ struct FestivalFlagFeatureTests {
     let store = TestStore(initialState: {
       var state = FestivalFlagFeature.State(festivalID: "festival")
       state.isVisible = true
+      state.snapshot = previous
+      state.viewState = .loaded
       return state
     }()) { FestivalFlagFeature() } withDependencies: {
       $0.festivalLiveBoardService = ClosureLiveBoardService { _ in
@@ -134,7 +136,7 @@ struct FestivalFlagFeatureTests {
     await store.send(.refresh) { $0.viewState = .loading }
     while !started.value { await Task.yield() }
     signedIn.setValue(false)
-    await store.send(.accountChanged)
+    await store.send(.accountChanged) { $0.snapshot = nil }
     await store.receive(\.loaded) {
       $0.snapshot = current
       $0.viewState = .loaded

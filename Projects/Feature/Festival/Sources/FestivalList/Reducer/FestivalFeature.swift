@@ -337,7 +337,7 @@ public struct FestivalFeature {
 
       case .accountChanged:
         state.clearAccountData()
-        return watchLiveBoard(state)
+        return state.isLiveBoardVisible ? watchLiveBoard(state) : .none
 
       case .delegate:
         return .none

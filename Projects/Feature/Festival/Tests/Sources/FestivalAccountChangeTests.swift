@@ -49,9 +49,9 @@ struct FestivalAccountChangeTests {
     signedIn.setValue(false)
     await store.send(.accountChanged) { $0.liveBoard = nil }
     await store.receive(\.inner.liveBoardLoaded) { $0.liveBoard = current }
-    await store.send(.view(.liveBoardOnDisappear)) { $0.isLiveBoardVisible = false }
-    await clock.run()
+    await clock.advance(by: .seconds(1))
     #expect(store.state.liveBoard == current)
+    await store.send(.view(.liveBoardOnDisappear)) { $0.isLiveBoardVisible = false }
   }
 }
 
