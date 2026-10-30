@@ -19,8 +19,13 @@ public struct FCPhotoPicker: View {
   private var state: State
   private var action: () -> Void
   private(set) var title = "깃발 사진"
+  private(set) var customDescription: String?
+  private(set) var customButtonTitle: String?
 
-  public init(_ state: State, action: @escaping () -> Void) {
+  public init(
+    _ state: State,
+    action: @escaping () -> Void
+  ) {
     self.state = state
     self.action = action
   }
@@ -32,10 +37,13 @@ public struct FCPhotoPicker: View {
         Text(title)
           .festiCoreFont(.baseBodyBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-        Text(description)
+        Text(customDescription ?? description)
           .festiCoreFont(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
-        FCButton(buttonTitle, action: action)
+        FCButton(
+          customButtonTitle ?? buttonTitle,
+          action: action
+        )
           .style(.secondary)
           .size(.medium)
           .padding(.top, FestiCoreSpacing.paddingP4)
@@ -121,6 +129,20 @@ public extension FCPhotoPicker {
   func title(_ title: String) -> Self {
     var copy = self
     copy.title = title
+    return copy
+  }
+
+  /// 설명 문구를 바꾼 사본을 돌려준다. `nil`이면 상태별 기본 문구를 쓴다.
+  func description(_ description: String?) -> Self {
+    var copy = self
+    copy.customDescription = description
+    return copy
+  }
+
+  /// 버튼 글자를 바꾼 사본을 돌려준다. `nil`이면 상태별 기본 글자를 쓴다.
+  func buttonTitle(_ buttonTitle: String?) -> Self {
+    var copy = self
+    copy.customButtonTitle = buttonTitle
     return copy
   }
 }

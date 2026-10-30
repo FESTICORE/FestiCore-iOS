@@ -13,7 +13,10 @@ public struct FCSearchField: View {
   private var placeholder: String
   private(set) var onSubmit: () -> Void = {}
 
-  public init(text: Binding<String>, placeholder: String = "페스티벌, 아티스트, 장소 검색") {
+  public init(
+    text: Binding<String>,
+    placeholder: String = "페스티벌, 아티스트, 장소 검색"
+  ) {
     _text = text
     self.placeholder = placeholder
   }

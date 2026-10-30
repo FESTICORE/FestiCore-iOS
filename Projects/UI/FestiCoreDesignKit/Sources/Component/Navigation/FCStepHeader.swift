@@ -14,7 +14,10 @@ public struct FCStepHeader: View {
   private(set) var laterTitle = "나중에 할게요"
   private(set) var laterAction: (() -> Void)?
 
-  public init(step: Int, total: Int = 3) {
+  public init(
+    step: Int,
+    total: Int = 3
+  ) {
     self.step = step
     self.total = total
   }
@@ -69,7 +72,10 @@ public extension FCStepHeader {
   }
 
   /// "나중에 할게요" 버튼을 지정한 사본을 돌려준다. 지정하지 않으면 버튼을 그리지 않는다.
-  func onLater(title: String = "나중에 할게요", _ action: @escaping () -> Void) -> Self {
+  func onLater(
+    title: String = "나중에 할게요",
+    _ action: @escaping () -> Void
+  ) -> Self {
     var copy = self
     copy.laterTitle = title
     copy.laterAction = action

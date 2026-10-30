@@ -13,7 +13,11 @@ public struct FCConsentAll: View {
   private var isChecked: Bool
   private var action: () -> Void
 
-  public init(_ label: String = "전체 동의", isChecked: Bool, action: @escaping () -> Void) {
+  public init(
+    _ label: String = "전체 동의",
+    isChecked: Bool,
+    action: @escaping () -> Void
+  ) {
     self.label = label
     self.isChecked = isChecked
     self.action = action

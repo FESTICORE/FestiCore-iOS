@@ -12,7 +12,11 @@ public struct FCPrimaryButton: View {
   private let isEnabled: Bool
   private let action: () -> Void
 
-  public init(_ title: String, isEnabled: Bool = true, action: @escaping () -> Void) {
+  public init(
+    _ title: String,
+    isEnabled: Bool = true,
+    action: @escaping () -> Void
+  ) {
     self.title = title
     self.isEnabled = isEnabled
     self.action = action

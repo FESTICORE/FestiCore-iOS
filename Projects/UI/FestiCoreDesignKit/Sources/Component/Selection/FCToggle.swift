@@ -12,7 +12,10 @@ public struct FCToggle: View {
   @Binding private var isOn: Bool
   private var accessibilityLabel: String
 
-  public init(isOn: Binding<Bool>, accessibilityLabel: String) {
+  public init(
+    isOn: Binding<Bool>,
+    accessibilityLabel: String
+  ) {
     _isOn = isOn
     self.accessibilityLabel = accessibilityLabel
   }
@@ -71,8 +74,14 @@ private extension FCToggle {
   @State var isOn = true
 
   HStack(spacing: FestiCoreSpacing.paddingP16) {
-    FCToggle(isOn: $isOn, accessibilityLabel: "알림")
-    FCToggle(isOn: .constant(false), accessibilityLabel: "잠금화면 표시")
+    FCToggle(
+      isOn: $isOn,
+      accessibilityLabel: "알림"
+    )
+    FCToggle(
+      isOn: .constant(false),
+      accessibilityLabel: "잠금화면 표시"
+    )
   }
   .padding(FestiCoreSpacing.paddingP20)
   .background(FestiCoreSemanticColor.backgroundNormal.color)

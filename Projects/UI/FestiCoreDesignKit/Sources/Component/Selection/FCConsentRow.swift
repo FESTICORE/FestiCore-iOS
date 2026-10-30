@@ -16,7 +16,11 @@ public struct FCConsentRow: View {
   private(set) var sub: String?
   private(set) var onDetail: (() -> Void)?
 
-  public init(_ label: String, isChecked: Bool, action: @escaping () -> Void) {
+  public init(
+    _ label: String,
+    isChecked: Bool,
+    action: @escaping () -> Void
+  ) {
     self.label = label
     self.isChecked = isChecked
     self.action = action
@@ -105,10 +109,16 @@ private extension FCConsentRow {
 
 #Preview {
   VStack(spacing: 0) {
-    FCConsentRow("서비스 이용약관", isChecked: true) {}
+    FCConsentRow(
+      "서비스 이용약관",
+      isChecked: true
+    ) {}
       .tag("필수")
       .onDetail {}
-    FCConsentRow("마케팅 알림 받기", isChecked: false) {}
+    FCConsentRow(
+      "마케팅 알림 받기",
+      isChecked: false
+    ) {}
       .tag("선택")
       .sub("공연 10분 전 · 팔로우한 깃발 · 크루 소식")
   }

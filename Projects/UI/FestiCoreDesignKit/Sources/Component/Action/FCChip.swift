@@ -13,7 +13,10 @@ public struct FCChip: View {
   private var action: () -> Void
   private(set) var isSelected = false
 
-  public init(_ label: String, action: @escaping () -> Void) {
+  public init(
+    _ label: String,
+    action: @escaping () -> Void
+  ) {
     self.label = label
     self.action = action
   }

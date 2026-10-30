@@ -40,7 +40,10 @@ public struct FCTopBar: View {
   private(set) var cancelAction: (() -> Void)?
   private(set) var searchPlaceholder = ""
 
-  public init(_ style: Style, title: String = "") {
+  public init(
+    _ style: Style,
+    title: String = ""
+  ) {
     self.style = style
     self.title = title
   }
@@ -261,7 +264,10 @@ public extension FCTopBar {
   }
 
   /// logoBearer 스타일의 기수 버튼을 지정한 사본을 돌려준다.
-  func onBearer(title: String = "기수", _ action: @escaping () -> Void) -> Self {
+  func onBearer(
+    title: String = "기수",
+    _ action: @escaping () -> Void
+  ) -> Self {
     var copy = self
     copy.bearerTitle = title
     copy.bearerAction = action
@@ -365,13 +371,22 @@ private extension FCTopBar {
       .showsBadge(true)
     FCTopBar(.logoBearer)
       .onBearer {}
-    FCTopBar(.back, title: "라인업")
+    FCTopBar(
+      .back,
+      title: "라인업"
+    )
       .onBack {}
-    FCTopBar(.large, title: "타임테이블")
+    FCTopBar(
+      .large,
+      title: "타임테이블"
+    )
     FCTopBar(.search(text: $searchText))
       .searchPlaceholder("아티스트 검색")
       .onCancel {}
-    FCTopBar(.backOnImage, title: "아티스트")
+    FCTopBar(
+      .backOnImage,
+      title: "아티스트"
+    )
       .onBack {}
       .background(FestiCoreSemanticColor.accentPointOrange.color)
   }

@@ -12,7 +12,10 @@ public struct FCTabItem: View {
   private var label: String
   private var isSelected: Bool
 
-  public init(_ label: String, isSelected: Bool) {
+  public init(
+    _ label: String,
+    isSelected: Bool
+  ) {
     self.label = label
     self.isSelected = isSelected
   }
@@ -58,8 +61,14 @@ private extension FCTabItem {
 
 #Preview {
   HStack(spacing: FestiCoreSpacing.paddingP16) {
-    FCTabItem("선택됨", isSelected: true)
-    FCTabItem("기본", isSelected: false)
+    FCTabItem(
+      "선택됨",
+      isSelected: true
+    )
+    FCTabItem(
+      "기본",
+      isSelected: false
+    )
   }
   .padding(FestiCoreSpacing.paddingP20)
   .background(FestiCoreSemanticColor.backgroundNormal.color)

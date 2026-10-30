@@ -17,7 +17,10 @@ public struct FCLoginButton: View {
   private var provider: Provider
   private var action: () -> Void
 
-  public init(_ provider: Provider, action: @escaping () -> Void) {
+  public init(
+    _ provider: Provider,
+    action: @escaping () -> Void
+  ) {
     self.provider = provider
     self.action = action
   }

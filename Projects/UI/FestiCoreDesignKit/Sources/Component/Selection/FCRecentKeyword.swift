@@ -13,7 +13,11 @@ public struct FCRecentKeyword: View {
   private var onSelect: () -> Void
   private var onDelete: () -> Void
 
-  public init(_ keyword: String, onSelect: @escaping () -> Void, onDelete: @escaping () -> Void) {
+  public init(
+    _ keyword: String,
+    onSelect: @escaping () -> Void,
+    onDelete: @escaping () -> Void
+  ) {
     self.keyword = keyword
     self.onSelect = onSelect
     self.onDelete = onDelete
@@ -51,7 +55,11 @@ private extension FCRecentKeyword {
 }
 
 #Preview {
-  FCRecentKeyword("펜타포트", onSelect: {}, onDelete: {})
+  FCRecentKeyword(
+    "펜타포트",
+    onSelect: {},
+    onDelete: {}
+  )
     .padding(FestiCoreSpacing.paddingP20)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
 }

@@ -17,7 +17,10 @@ public struct FCTextField: View {
   private(set) var error: String?
   @FocusState private var isFocused: Bool
 
-  public init(text: Binding<String>, placeholder: String) {
+  public init(
+    text: Binding<String>,
+    placeholder: String
+  ) {
     _text = text
     self.placeholder = placeholder
   }
@@ -131,15 +134,24 @@ private extension FCTextField {
   @State var nickname = "민지"
 
   VStack(spacing: FestiCoreSpacing.paddingP16) {
-    FCTextField(text: .constant(""), placeholder: "닉네임을 입력해 주세요")
+    FCTextField(
+      text: .constant(""),
+      placeholder: "닉네임을 입력해 주세요"
+    )
       .label("닉네임")
       .maxLength(12)
       .helper("크루원과 깃발에 보이는 이름이에요. 나중에 마이에서 바꿀 수 있어요.")
-    FCTextField(text: $nickname, placeholder: "닉네임을 입력해 주세요")
+    FCTextField(
+      text: $nickname,
+      placeholder: "닉네임을 입력해 주세요"
+    )
       .label("닉네임")
       .maxLength(12)
       .helper("크루원과 깃발에 보이는 이름이에요. 나중에 마이에서 바꿀 수 있어요.")
-    FCTextField(text: $nickname, placeholder: "닉네임을 입력해 주세요")
+    FCTextField(
+      text: $nickname,
+      placeholder: "닉네임을 입력해 주세요"
+    )
       .label("닉네임")
       .maxLength(12)
       .error("이미 쓰고 있는 닉네임이에요. 다른 이름을 지어주세요.")

@@ -14,7 +14,10 @@ public struct FCSegmented: View {
 
   @Namespace private var selectionNamespace
 
-  public init(selection: Binding<Int>, items: [String]) {
+  public init(
+    selection: Binding<Int>,
+    items: [String]
+  ) {
     self._selection = selection
     self.items = items
   }
@@ -35,7 +38,10 @@ public struct FCSegmented: View {
     }
   }
 
-  private func segment(_ item: String, index: Int) -> some View {
+  private func segment(
+    _ item: String,
+    index: Int
+  ) -> some View {
     let isSelected = FCSelection.isSelected(index: index, selection: selection, count: items.count)
 
     return Button {
@@ -89,7 +95,10 @@ private extension FCSegmented {
   @Previewable
   @State var selection = 0
 
-  FCSegmented(selection: $selection, items: ["전체", "내 일정"])
+  FCSegmented(
+    selection: $selection,
+    items: ["전체", "내 일정"]
+  )
     .padding(FestiCoreSpacing.paddingP20)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
 }
