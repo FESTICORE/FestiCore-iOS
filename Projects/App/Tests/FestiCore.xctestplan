@@ -20,6 +20,7 @@
     { "target": { "containerPath": "container:Projects/Domain/AuthDomain/AuthDomain.xcodeproj", "identifier": "92D89059A9988A659FDC727D", "name": "AuthDomainTests" } },
     { "target": { "containerPath": "container:Projects/Feature/Home/Home.xcodeproj", "identifier": "AF31213DA71B06E9B09EA3F0", "name": "HomeTests" } },
     { "target": { "containerPath": "container:Projects/Feature/Login/Login.xcodeproj", "identifier": "8EC12D40A59F4E845C71699F", "name": "LoginTests" } },
+    { "target": { "containerPath": "container:Projects/Feature/Timetable/Timetable.xcodeproj", "identifier": "CC5B22DA2F1C1E33014D1C02", "name": "TimetableTests" } },
     { "target": { "containerPath": "container:Projects/Service/FestiCoreAnalytics/FestiCoreAnalytics.xcodeproj", "identifier": "2F7655471E814E2CABCA1BCF", "name": "FestiCoreAnalyticsTests" } },
     { "target": { "containerPath": "container:Projects/Service/API/API.xcodeproj", "identifier": "FD9B4FE2EA3923F7DD822AD4", "name": "APITests" } },
     { "target": { "containerPath": "container:Projects/Service/APIEndpoint/APIEndpoint.xcodeproj", "identifier": "9F29EBA035376AB47820DAD4", "name": "APIEndpointTests" } },
