@@ -13,6 +13,7 @@ import ProjectTemplatePlugin
 let project = Project.makeModule(
   name: "Festival",
   dependencies: [
+    .core(.utility),
     .domain(.festival, .interface),
     .service(.pack, .interface),
     .ui(.liveActivity),

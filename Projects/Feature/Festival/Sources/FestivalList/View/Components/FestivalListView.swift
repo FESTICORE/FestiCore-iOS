@@ -1,4 +1,5 @@
 import FestiCoreDesignKit
+import FestiCoreUtility
 import SwiftUI
 
 struct FestivalListView: View {
@@ -14,12 +15,6 @@ struct FestivalListView: View {
   @State private var selectedFilter = 0
   @State private var isSearching = false
   @State private var query = ""
-
-  private var visibleFestivals: [FestivalOverview] {
-    FestivalListPresentation.visible(
-      festivals, query: query, bookedIDs: bookedFestivalIDs, onlyBooked: selectedFilter == 1
-    )
-  }
 
   var body: some View {
     VStack(alignment: .leading, spacing: .zero) {
@@ -80,9 +75,17 @@ struct FestivalListView: View {
         }
     )
   }
+}
+
+private extension FestivalListView {
+  var visibleFestivals: [FestivalOverview] {
+    FestivalListPresentation.visible(
+      festivals, query: query, bookedIDs: bookedFestivalIDs, onlyBooked: selectedFilter == 1
+    )
+  }
 
   @ViewBuilder
-  private var listContent: some View {
+  var listContent: some View {
       Text(selectedFilter == 0
         ? "가고 싶은 페스티벌을 찾아보세요. 이미 예매한 페스티벌은 북마크해서 바로 확인할 수 있어요."
         : "북마크한 페스티벌을 모아 봅니다.")
@@ -104,7 +107,7 @@ struct FestivalListView: View {
       }
   }
 
-  private func filterTab(_ title: String, index: Int) -> some View {
+  func filterTab(_ title: String, index: Int) -> some View {
     Button { selectedFilter = index } label: {
       VStack(spacing: FestiCoreSpacing.paddingP8) {
         Text(title)
@@ -123,7 +126,7 @@ struct FestivalListView: View {
     .accessibilityAddTraits(selectedFilter == index ? .isSelected : [])
   }
 
-  private func festivalCard(_ festival: FestivalOverview) -> some View {
+  func festivalCard(_ festival: FestivalOverview) -> some View {
     let status: FCFestivalCard<FestivalPosterView>.Status = switch FestivalListPresentation.timing(
       for: festival, now: .now
     ) {
@@ -133,7 +136,7 @@ struct FestivalListView: View {
     case .undated: .upcoming("일정 확인")
     }
     let dates = [festival.firstDate, festival.lastDate]
-      .compactMap(FestivalDateFormat.festivalDay(from:))
+      .compactMap { $0?.date(as: .day)?.formatted(.festivalDay) }
       .joined(separator: " – ")
     let meta = [festival.venue, dates.isEmpty ? nil : dates].compactMap { $0 }.joined(separator: " · ")
 

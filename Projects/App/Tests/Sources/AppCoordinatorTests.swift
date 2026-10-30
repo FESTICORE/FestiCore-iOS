@@ -283,6 +283,33 @@ struct AppCoordinatorTests {
     #expect(current.authFlow.pendingOwnerID == "user-a")
   }
 
+  @Test func offlineProfileUpdateKeepsPendingActionForRetry() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.pendingFestivalID = "festival"
+    home.authFlow.pendingOwnerID = "user-a"
+    home.authFlow.generation = 1
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.verifiedUserID = "user-a"
+    home.authFlow.presentation = .onboarding
+    home.authFlow.isLoading = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    }
+
+    await store.send(.inner(.profileUpdated(generation: 1, .failure(.offline)))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.isLoading = false
+      home.authFlow.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
+      $0 = .home(home)
+    }
+    guard case let .home(current) = store.state else {
+      Issue.record("홈 상태가 아니에요")
+      return
+    }
+    #expect(current.authFlow.pendingFestivalID == "festival")
+    #expect(current.authFlow.pendingOwnerID == "user-a")
+  }
+
   @Test func outdatedTermsRequiresRefetchAndFreshConsent() async {
     let user = AuthUser(
       id: "user-a", provider: "apple", email: nil, nickname: "테스터",
@@ -412,6 +439,7 @@ struct AppCoordinatorTests {
       $0.selectedTab = .timetable
       $0.previousTab = .live
     }
+    await store.receive(\.timetable.timetableAppeared)
     await store.send(.tabTapped(.timetable))
     await store.receive(\.tabReselected)
   }

@@ -1,5 +1,6 @@
 import FestiCoreDesignKit
 import FestiCoreSharedUI
+import FestiCoreUtility
 import FestivalDomainInterface
 import SwiftUI
 
@@ -53,8 +54,10 @@ struct FestivalLiveBoardScreen: View {
         .accessibilityHidden(true)
     }
   }
+}
 
-  private var header: some View {
+private extension FestivalLiveBoardScreen {
+  var header: some View {
     HStack(spacing: FestiCoreSpacing.paddingP12) {
       Text("FESTICORE")
         .festiCoreFont(.baseTitle3Bold)
@@ -67,11 +70,13 @@ struct FestivalLiveBoardScreen: View {
     .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
   }
 
-  private var festivalHeader: some View {
+  var festivalHeader: some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
       Text(festival.name)
         .festiCoreFont(.baseTitle1Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+        .lineLimit(2)
+        .fixedSize(horizontal: false, vertical: true)
       if let dayLabel, let dateLabel {
         Text("\(dayLabel) · \(dateLabel)")
           .festiCoreFont(.baseSubheadlineRegular)
@@ -81,7 +86,7 @@ struct FestivalLiveBoardScreen: View {
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 
-  private func nextSchedule(stages: [FestivalLiveBoardSchedule.Stage], now: Date) -> some View {
+  func nextSchedule(stages: [FestivalLiveBoardSchedule.Stage], now: Date) -> some View {
     let next = stages.compactMap { stage -> (String, FestivalLiveBoardSchedule.Slot)? in
       stage.next.map { (stage.name, $0) }
     }.min { $0.1.startsAt < $1.1.startsAt }
@@ -90,7 +95,7 @@ struct FestivalLiveBoardScreen: View {
       if let next {
         FCNextSetCard(
           artist: next.1.artist,
-          meta: "\(next.0) · \(FestivalDateFormat.time(from: next.1.startsAt))",
+          meta: "\(next.0) · \(next.1.startsAt.formatted(.time))",
           remain: remainingTime(until: next.1.startsAt, now: now),
           updated: "시간표 기준",
           progress: 0
@@ -105,14 +110,14 @@ struct FestivalLiveBoardScreen: View {
     }
   }
 
-  private func remainingTime(until date: Date, now: Date) -> String {
+  func remainingTime(until date: Date, now: Date) -> String {
     let minutes = max(0, Int(date.timeIntervalSince(now) / 60))
     if minutes < 60 { return "\(minutes)분 후" }
     let hours = minutes / 60
     return hours < 24 ? "\(hours)시간 후" : "\(hours / 24)일 후"
   }
 
-  private func emptySection(title: String, message: String) -> some View {
+  func emptySection(title: String, message: String) -> some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
       Text(title)
         .festiCoreFont(.baseTitle3Bold)
@@ -121,7 +126,7 @@ struct FestivalLiveBoardScreen: View {
     }
   }
 
-  private var crewSection: some View {
+  var crewSection: some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
       Text("내 크루 · 확인이들")
         .festiCoreFont(.baseTitle3Bold)
@@ -151,7 +156,7 @@ struct FestivalLiveBoardScreen: View {
     .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
   }
 
-  private func flagSection(title: String, flags: [FestivalLiveBoardSnapshot.Flag]) -> some View {
+  func flagSection(title: String, flags: [FestivalLiveBoardSnapshot.Flag]) -> some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
       Text(title)
         .festiCoreFont(.baseTitle3Bold)
@@ -183,12 +188,12 @@ struct FestivalLiveBoardScreen: View {
     }
   }
 
-  private func liveBoardMessage(empty: String) -> String {
+  func liveBoardMessage(empty: String) -> String {
     guard liveBoard == nil else { return empty }
     return liveBoardUnavailable ? "실시간 정보를 불러올 수 없습니다. 잠시 후 다시 시도합니다." : "실시간 정보를 불러오는 중입니다."
   }
 
-  private func flagStatus(_ status: String) -> String? {
+  func flagStatus(_ status: String) -> String? {
     switch status {
     case "active": "활동 중"
     case "resting": "휴식 중"
@@ -197,7 +202,7 @@ struct FestivalLiveBoardScreen: View {
     }
   }
 
-  private var liveActivityControl: some View {
+  var liveActivityControl: some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
       Button(liveActivityState.title, action: onLiveActivityTap)
         .festiCoreFont(.baseBodyBold)
@@ -216,25 +221,25 @@ struct FestivalLiveBoardScreen: View {
     }
   }
 
-  private var dates: [String] {
-    let packDays = (pack?.days ?? []).compactMap(\.date).filter { FestivalDateFormat.day(from: $0) != nil }
+  var dates: [String] {
+    let packDays = (pack?.days ?? []).compactMap(\.date).filter { $0.date(as: .day) != nil }
     if !packDays.isEmpty { return Array(Set(packDays)).sorted() }
     return [festival.firstDate, festival.lastDate].compactMap { $0 }
-      .filter { FestivalDateFormat.day(from: $0) != nil }
+      .filter { $0.date(as: .day) != nil }
   }
 
-  private var selectedDate: String? {
+  var selectedDate: String? {
     let today = FestivalDateFormat.calendar.startOfDay(for: .now)
-    return dates.first { FestivalDateFormat.day(from: $0) == today } ?? dates.first
+    return dates.first { $0.date(as: .day) == today } ?? dates.first
   }
 
-  private var dayLabel: String? {
+  var dayLabel: String? {
     guard let selectedDate, let index = dates.firstIndex(of: selectedDate) else { return nil }
     return "DAY \(index + 1)"
   }
 
-  private var dateLabel: String? {
+  var dateLabel: String? {
     guard let selectedDate else { return nil }
-    return FestivalDateFormat.festivalDay(from: selectedDate)
+    return selectedDate.date(as: .day)?.formatted(.festivalDay)
   }
 }

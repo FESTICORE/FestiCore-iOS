@@ -59,7 +59,10 @@ public struct FCTabBar: View {
     }
   }
 
-  private func tabButton(_ tab: Tab) -> some View {
+}
+
+private extension FCTabBar {
+  func tabButton(_ tab: Tab) -> some View {
     let isSelected = selection == tab
 
     return Button {
@@ -67,6 +70,7 @@ public struct FCTabBar: View {
     } label: {
       VStack(spacing: FestiCoreSpacing.paddingP8) {
         Image(asset: tab.icon(isSelected: isSelected))
+          .renderingMode(.template)
           .resizable()
           .frame(width: Metric.iconSize, height: Metric.iconSize)
         Text(tab.title)
@@ -75,7 +79,7 @@ public struct FCTabBar: View {
       }
       .foregroundStyle(
         isSelected
-          ? FestiCoreSemanticColor.labelNormal.color
+          ? FestiCoreSemanticColor.primaryNormal.color
           : FestiCoreSemanticColor.labelAssistive.color
       )
       .frame(maxWidth: .infinity)

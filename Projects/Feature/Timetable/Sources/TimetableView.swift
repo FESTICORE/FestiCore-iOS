@@ -7,6 +7,7 @@
 
 import ComposableArchitecture
 import FestiCoreDesignKit
+import FestiCoreSharedUI
 import SwiftUI
 
 @ViewAction(for: TimetableFeature.self)
@@ -60,8 +61,10 @@ public struct TimetableView: View {
       }
     }
   }
+}
 
-  private func setSheet(_ detail: TimetableSetDetail) -> some View {
+private extension TimetableView {
+  func setSheet(_ detail: TimetableSetDetail) -> some View {
     FCSetSheet(
       artist: detail.artist,
       stage: detail.stage,
@@ -80,7 +83,7 @@ public struct TimetableView: View {
     .scheduleDisabled(store.scheduleSync == .loading)
   }
 
-  private func sheetState(_ detail: TimetableSetDetail) -> FCSetSheet.State {
+  func sheetState(_ detail: TimetableSetDetail) -> FCSetSheet.State {
     if detail.status == .ended {
       return .ended
     }
@@ -94,7 +97,7 @@ public struct TimetableView: View {
   }
 
   /// 알림 기능 전까지는 저장된다는 사실만 안내한다.
-  private var scheduleHelper: String {
+  var scheduleHelper: String {
     if store.scheduleSync == .loading {
       return "내 일정을 불러오는 중이에요"
     }
@@ -104,7 +107,7 @@ public struct TimetableView: View {
     return "내 일정에 저장돼요"
   }
 
-  private var header: some View {
+  var header: some View {
     VStack(spacing: .zero) {
       FCTopBar(
         .large,
@@ -126,7 +129,7 @@ public struct TimetableView: View {
     }
   }
 
-  private var filter: some View {
+  var filter: some View {
     HStack {
       FCChip("내 일정만") {
         send(.mineOnlyToggled)

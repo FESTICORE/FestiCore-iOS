@@ -1,10 +1,11 @@
 //
 //  FCSheetModifier.swift
-//  FestiCoreDesignKit
+//  FestiCoreSharedUI
 //
 //  Created by FestiCore on 10/30/26.
 //
 
+import FestiCoreDesignKit
 import SwiftUI
 
 /// 시트 안에서 닫기를 요청할 때 쓰는 동작.
@@ -70,6 +71,9 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
     .ignoresSafeArea(.keyboard, edges: .bottom)
   }
 
+}
+
+extension FCSheetModifier {
   @ViewBuilder
   private func sheet(geometry: GeometryProxy) -> some View {
     if let currentItem = item {

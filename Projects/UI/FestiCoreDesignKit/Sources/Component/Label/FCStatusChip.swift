@@ -44,8 +44,11 @@ public struct FCStatusChip: View {
     .background(backgroundColor.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r8))
   }
 
+}
+
+private extension FCStatusChip {
   @ViewBuilder
-  private var dot: some View {
+  var dot: some View {
     if status == .scheduled {
       Circle()
         .strokeBorder(FestiCoreSemanticColor.accentForegroundOrange.color, lineWidth: Metric.dotBorderWidth)

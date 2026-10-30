@@ -14,23 +14,6 @@ struct TimetableBoard: View {
   let day: TimetableDay
   let onSetTap: (String) -> Void
 
-  private var isWide: Bool {
-    day.stages.count > Metric.fillingStageCount
-  }
-
-  private var startHour: Int {
-    (day.sets.map(\.start).min() ?? Metric.defaultStart) / 60
-  }
-
-  private var endHour: Int {
-    let end = day.sets.map(\.end).max() ?? Metric.defaultEnd
-    return max(startHour + 1, Int((Double(end) / 60).rounded(.up)))
-  }
-
-  private var gridHeight: CGFloat {
-    y(endHour * 60)
-  }
-
   var body: some View {
     ScrollView(isWide ? [.horizontal, .vertical] : .vertical) {
       LazyVStack(spacing: .zero, pinnedViews: .sectionHeaders) {
@@ -44,7 +27,27 @@ struct TimetableBoard: View {
     }
   }
 
-  private var wideWidth: CGFloat {
+}
+
+private extension TimetableBoard {
+  var isWide: Bool {
+    day.stages.count > Metric.fillingStageCount
+  }
+
+  var startHour: Int {
+    (day.sets.map(\.start).min() ?? Metric.defaultStart) / 60
+  }
+
+  var endHour: Int {
+    let end = day.sets.map(\.end).max() ?? Metric.defaultEnd
+    return max(startHour + 1, Int((Double(end) / 60).rounded(.up)))
+  }
+
+  var gridHeight: CGFloat {
+    y(endHour * 60)
+  }
+
+  var wideWidth: CGFloat {
     let count = CGFloat(day.stages.count)
     return Metric.leadingInset + Metric.wideColumnWidth * count
       + FestiCoreSpacing.paddingP8 * (count - 1) + FestiCoreSpacing.paddingP16

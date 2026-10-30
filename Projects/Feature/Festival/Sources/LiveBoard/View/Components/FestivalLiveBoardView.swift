@@ -1,4 +1,5 @@
 import FestiCoreDesignKit
+import FestiCoreUtility
 import SwiftUI
 
 struct FestivalLiveBoardView: View {
@@ -51,8 +52,10 @@ struct FestivalLiveBoardView: View {
       }
     }
   }
+}
 
-  private func performance(_ slot: FestivalLiveBoardSchedule.Slot, kind: FCLiveBadge.Kind) -> some View {
+private extension FestivalLiveBoardView {
+  func performance(_ slot: FestivalLiveBoardSchedule.Slot, kind: FCLiveBadge.Kind) -> some View {
     HStack(spacing: FestiCoreSpacing.paddingP12) {
       FCLiveBadge(kind)
       Text(slot.artist)
@@ -60,7 +63,7 @@ struct FestivalLiveBoardView: View {
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .lineLimit(1)
       Spacer(minLength: FestiCoreSpacing.paddingP4)
-      Text(FestivalDateFormat.time(from: slot.startsAt))
+      Text(slot.startsAt.formatted(.time))
         .festiCoreFont(.baseCaption1Medium)
         .monospacedDigit()
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)

@@ -66,7 +66,10 @@ public struct FCListRow: View {
     }
   }
 
-  private func content(@ViewBuilder trailing: () -> some View) -> some View {
+}
+
+private extension FCListRow {
+  func content(@ViewBuilder trailing: () -> some View) -> some View {
     HStack(spacing: FestiCoreSpacing.paddingP16) {
       Text(label)
         .festiCoreFont(.baseBodyRegular)

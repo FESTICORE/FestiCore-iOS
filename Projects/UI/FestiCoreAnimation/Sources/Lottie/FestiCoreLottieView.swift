@@ -91,7 +91,9 @@ public struct FestiCoreLottieView: View {
       .task(id: taskID(url: url, format: format)) { await load(url: url, format: format) }
     }
   }
+}
 
+extension FestiCoreLottieView {
   private var failureView: some View {
     Image(systemName: "exclamationmark.triangle")
       .foregroundStyle(.secondary)

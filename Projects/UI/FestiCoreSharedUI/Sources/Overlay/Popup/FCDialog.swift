@@ -1,10 +1,11 @@
 //
 //  FCDialog.swift
-//  FestiCoreDesignKit
+//  FestiCoreSharedUI
 //
 //  Created by FestiCore on 10/30/26.
 //
 
+import FestiCoreDesignKit
 import SwiftUI
 
 /// 확인 다이얼로그에 띄울 내용. 되돌리기 어려운 동작 전에 띄우고 되돌리는 방법을 함께 적는다.

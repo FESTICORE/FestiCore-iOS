@@ -50,8 +50,11 @@ public struct FCLoginButton: View {
     .buttonStyle(.plain)
   }
 
+}
+
+private extension FCLoginButton {
   @ViewBuilder
-  private var logo: some View {
+  var logo: some View {
     switch provider {
     case .apple:
       Image(asset: .appleLogo)

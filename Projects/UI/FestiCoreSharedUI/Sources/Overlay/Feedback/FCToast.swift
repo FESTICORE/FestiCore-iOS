@@ -1,10 +1,11 @@
 //
 //  FCToast.swift
-//  FestiCoreDesignKit
+//  FestiCoreSharedUI
 //
 //  Created by FestiCore on 10/30/26.
 //
 
+import FestiCoreDesignKit
 import SwiftUI
 
 /// 하단 짧은 알림. 탭 바 위에 2초 동안 보인다.

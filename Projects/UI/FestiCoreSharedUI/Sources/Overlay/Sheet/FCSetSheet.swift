@@ -1,10 +1,11 @@
 //
 //  FCSetSheet.swift
-//  FestiCoreDesignKit
+//  FestiCoreSharedUI
 //
 //  Created by FestiCore on 10/30/26.
 //
 
+import FestiCoreDesignKit
 import SwiftUI
 
 /// 셋 상세 바텀시트 내용. `presentFCSheet`로 띄운다.
@@ -81,7 +82,10 @@ public struct FCSetSheet: View {
     .padding(.bottom, FestiCoreSpacing.paddingP20)
   }
 
-  private var isEnded: Bool {
+}
+
+private extension FCSetSheet {
+  var isEnded: Bool {
     state == .ended
   }
 

@@ -14,6 +14,8 @@ struct FestivalDetailView: View {
         .font(.title2.bold())
       Text(festival.name)
         .font(.title3.bold())
+        .lineLimit(2)
+        .fixedSize(horizontal: false, vertical: true)
       if let venue = festival.venue {
         Label(venue, systemImage: "mappin.and.ellipse")
           .font(.subheadline)
