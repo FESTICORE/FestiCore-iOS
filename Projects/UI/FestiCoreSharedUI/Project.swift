@@ -12,6 +12,6 @@ import DependencyPackagePlugin
 
 let project = Project.makeModule(
   name: "FestiCoreSharedUI",
-  dependencies: [.ui(.animation), .ui(.designSystem), .SPM.kingfisher],
+  dependencies: [.ui(.animation), .ui(.designSystem), .SPM.kingfisher, .SPM.composableArchitecture],
   hasTests: true
 )
