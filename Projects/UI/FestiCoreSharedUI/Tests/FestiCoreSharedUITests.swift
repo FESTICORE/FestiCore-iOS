@@ -12,7 +12,7 @@ struct FestiCoreSharedUITests {
   }
 
   @Test @MainActor func remoteImageCopiesContentModeWithoutChangingOriginal() {
-    let original = FestiCoreRemoteImage(url: nil)
+    let original = FCRemoteImage(url: nil)
     let fitted = original.content(.fit)
 
     #expect(original.contentMode == .fill)
@@ -21,7 +21,7 @@ struct FestiCoreSharedUITests {
   }
 
   @Test @MainActor func missingImageKeepsRequestedFrame() {
-    let image = FestiCoreRemoteImage(url: nil)
+    let image = FCRemoteImage(url: nil)
       .frame(width: 84, height: 50)
     let controller = UIHostingController(rootView: image)
 
@@ -29,7 +29,7 @@ struct FestiCoreSharedUITests {
   }
 
   @Test @MainActor func fittedRemoteImageKeepsCallerFrame() {
-    let image = FestiCoreRemoteImage(url: nil)
+    let image = FCRemoteImage(url: nil)
       .content(.fit)
       .frame(width: 120, height: 80)
     let controller = UIHostingController(rootView: image)

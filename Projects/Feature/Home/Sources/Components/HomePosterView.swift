@@ -6,7 +6,7 @@ struct HomePosterView: View {
   let imageRevision: Int
 
   var body: some View {
-    FestiCoreRemoteImage(url: url)
+    FCRemoteImage(url: url)
       .content(.fill)
       .clipShape(RoundedRectangle(cornerRadius: 8))
       .id("\(url?.absoluteString ?? "")-\(imageRevision)")
