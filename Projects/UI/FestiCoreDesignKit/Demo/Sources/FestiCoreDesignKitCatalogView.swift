@@ -17,6 +17,13 @@ struct FestiCoreDesignKitCatalogView: View {
   @State private var isBigButtonSelected = false
   @State private var isChipSelected = true
   @State private var sortSelection = 0
+  @State private var isToggleOn = true
+  @State private var nickname = "민지"
+  @State private var keyword = ""
+  @State private var isConsentChecked = false
+  @State private var isChecklistChecked = false
+  @State private var isSetSelected = false
+  @State private var newItem = ""
 
   var body: some View {
     NavigationStack {
@@ -29,6 +36,8 @@ struct FestiCoreDesignKitCatalogView: View {
           buttonSection
           FCDivider()
           actionSection
+          FCDivider()
+          selectionSection
           FCDivider()
           navigationSection
           FCDivider()
@@ -115,6 +124,47 @@ struct FestiCoreDesignKitCatalogView: View {
       .padding(FestiCoreSpacing.paddingP16)
       .background(FestiCoreSemanticColor.backgroundAlternative.color)
       .environment(\.colorScheme, .dark)
+    }
+  }
+
+  private var selectionSection: some View {
+    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
+      sectionTitle("Selection & Input")
+      HStack(spacing: FestiCoreSpacing.paddingP12) {
+        FCToggle(isOn: $isToggleOn, accessibilityLabel: "알림")
+        FCCheckCircle(isChecked: true)
+        FCCheckCircle(isChecked: false)
+        FCTag("필수")
+        FCTag("내 일정").tone(.lime)
+      }
+      FCTextField(text: $nickname, placeholder: "닉네임을 입력해 주세요")
+        .label("닉네임")
+        .maxLength(12)
+        .helper("크루원과 깃발에 보이는 이름이에요. 나중에 마이에서 바꿀 수 있어요.")
+      FCSearchField(text: $keyword)
+      FCRecentKeyword("펜타포트", onSelect: {}, onDelete: {})
+      FCFieldLabel("성향 태그")
+        .counter("0 / 3")
+      VStack(spacing: 0) {
+        FCConsentAll(isChecked: isConsentChecked) { isConsentChecked.toggle() }
+        FCConsentRow("서비스 이용약관", isChecked: isConsentChecked) { isConsentChecked.toggle() }
+          .tag("필수")
+          .onDetail {}
+      }
+      .background(FestiCoreSemanticColor.backgroundElevated.color)
+      FCChecklistRow("보조배터리", isChecked: isChecklistChecked) { isChecklistChecked.toggle() }
+      FCSetSelectRow(artist: "coldrain", stage: "WONDER STAGE", start: "16:40", end: "17:30", isSelected: isSetSelected) {
+        isSetSelected.toggle()
+      }
+      .overlapText(isSetSelected ? "SPYAIR와 20분 겹쳐요" : nil)
+      VStack(spacing: 0) {
+        FCChecklistEditRow("귀마개")
+          .onDelete {}
+        FCChecklistEditRow("티켓")
+        FCAddItemRow(text: $newItem) { newItem = "" }
+      }
+      .background(FestiCoreSemanticColor.backgroundElevated.color)
+      FCPhotoPicker(.empty) {}
     }
   }
 
