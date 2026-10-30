@@ -439,6 +439,7 @@ struct AppCoordinatorTests {
       $0.selectedTab = .timetable
       $0.previousTab = .live
     }
+    await store.receive(\.timetable.timetableAppeared)
     await store.send(.tabTapped(.timetable))
     await store.receive(\.tabReselected)
   }
