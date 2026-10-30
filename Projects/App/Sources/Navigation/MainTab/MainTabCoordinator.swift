@@ -21,6 +21,7 @@ struct MainTabCoordinator {
     var previousTab: Tab = .live
     var festivalState: FestivalCoordinator.State
     var timetableState: TimetableFeature.State
+    var flagState = FestivalFlagFeature.State()
     var loginState = LoginFeature.State()
     var authFlow = AppCoordinator.AuthFlow()
 
@@ -51,8 +52,17 @@ struct MainTabCoordinator {
     case tabReselected(Tab)
     case festival(FestivalCoordinator.Action)
     case timetable(TimetableFeature.Action)
+    case flag(FestivalFlagFeature.Action)
     case login(LoginFeature.Action)
+    case delegate(Delegate)
     case completePendingBookmark(id: String, userID: String, shouldBeBooked: Bool)
+  }
+
+  enum Delegate {
+    case myLoginRequested
+    case myLogoutRequested
+    case myWithdrawRequested
+    case myProfileRefreshRequested
   }
 
   var body: some ReducerOf<Self> {
@@ -61,6 +71,9 @@ struct MainTabCoordinator {
     }
     Scope(state: \.timetableState, action: \.timetable) {
       TimetableFeature()
+    }
+    Scope(state: \.flagState, action: \.flag) {
+      FestivalFlagFeature()
     }
     Scope(state: \.loginState, action: \.login) {
       LoginFeature()
@@ -76,18 +89,30 @@ struct MainTabCoordinator {
           state.previousTab = state.selectedTab
         }
         state.selectedTab = tab
-        guard tab == .timetable else { return .none }
-        return syncTimetable(state: &state, appearing: true)
+        switch tab {
+        case .timetable:
+          return syncTimetable(state: &state, appearing: true)
+        case .flag:
+          return syncFlag(state: &state)
+        case .live, .my:
+          return .none
+        }
 
       case let .tabReselected(tab):
         _ = tab
         return .none
 
       case .festival:
-        guard state.selectedTab == .timetable else { return .none }
-        return syncTimetable(state: &state, appearing: false)
+        switch state.selectedTab {
+        case .timetable: return syncTimetable(state: &state, appearing: false)
+        case .flag: return syncFlag(state: &state)
+        case .live, .my: return .none
+        }
 
       case .timetable:
+        return .none
+
+      case .flag, .delegate:
         return .none
 
       case .login:
@@ -101,6 +126,20 @@ struct MainTabCoordinator {
         return .send(.festival(.reloadBookmarks(userID: userID)))
       }
     }
+  }
+
+  private func syncFlag(state: inout State) -> Effect<Action> {
+    let selectedID: String?
+    if let screen = state.festivalState.routes.last?.screen {
+      switch screen {
+      case let .festivalList(festival): selectedID = festival.selectedFestivalID
+      case let .liveBoard(festival): selectedID = festival.selectedFestivalID
+      }
+    } else {
+      selectedID = nil
+    }
+    return selectedID == state.flagState.festivalID
+      ? .none : .send(.flag(.festivalChanged(selectedID)))
   }
 
   /// 라이브 보드에서 고른 축제의 팩을 타임테이블에 옮긴다.

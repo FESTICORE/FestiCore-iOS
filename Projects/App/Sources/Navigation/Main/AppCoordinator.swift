@@ -86,6 +86,7 @@ struct AppCoordinator {
     case sessionRestored(generation: Int, userID: String?)
     case profileLoaded(generation: Int, Result<AuthProfile, ProfileFailure>)
     case profileUpdated(generation: Int, Result<AuthUser, ProfileFailure>)
+    case myAccountFinished(generation: Int, operation: MyAccountOperation, result: Result<Void, ProfileFailure>)
   }
 
   @CasePathable
@@ -122,6 +123,11 @@ struct AppCoordinator {
         self = .unavailable
       }
     }
+  }
+
+  enum MyAccountOperation: Equatable {
+    case signOut
+    case withdraw
   }
 
   var body: some ReducerOf<Self> {
@@ -264,6 +270,7 @@ private extension AppCoordinator {
       state = .home(home)
       return pending.map { .send(.scope(.home(.completePendingBookmark(id: $0, userID: userID, shouldBeBooked: shouldBeBooked)))) }
         ?? .send(.scope(.home(.festival(.reloadBookmarks(userID: userID)))))
+
     }
   }
 
@@ -425,6 +432,25 @@ private extension AppCoordinator {
         state = .home(home)
         return .none
       }
+
+    case let .myAccountFinished(generation, operation, result):
+      guard case var .home(home) = state,
+            home.authFlow.generation == generation else { return .none }
+      home.authFlow.isLoading = false
+      switch result {
+      case .success:
+        var cleared = AuthFlow()
+        cleared.generation = generation
+        home.authFlow = cleared
+        state = .home(home)
+        return .send(.scope(.home(.festival(.reloadBookmarks(userID: nil)))))
+      case .failure:
+        home.authFlow.message = operation == .withdraw
+          ? "회원 탈퇴에 실패했습니다. 다시 시도해 주세요."
+          : "로그아웃에 실패했습니다. 다시 시도해 주세요."
+        state = .home(home)
+        return .none
+      }
     }
   }
 
@@ -478,8 +504,55 @@ private extension AppCoordinator {
       state = .home(home)
       return fetchProfile(generation: generation)
 
+    case .home(.delegate(.myLoginRequested)):
+      guard case var .home(home) = state,
+            !home.authFlow.isLoading else { return .none }
+      home.authFlow.generation += 1
+      home.authFlow.pendingFestivalID = nil
+      home.authFlow.pendingOwnerID = nil
+      home.authFlow.message = nil
+      home.authFlow.presentation = .login
+      state = .home(home)
+      return .none
+
+    case .home(.delegate(.myProfileRefreshRequested)):
+      return .send(.view(.retryProfile))
+
+    case .home(.delegate(.myLogoutRequested)):
+      return myAccountOperation(state: &state, operation: .signOut)
+
+    case .home(.delegate(.myWithdrawRequested)):
+      return myAccountOperation(state: &state, operation: .withdraw)
+
     default:
       return .none
+    }
+  }
+
+  func myAccountOperation(
+    state: inout State,
+    operation: MyAccountOperation
+  ) -> Effect<Action> {
+    guard case var .home(home) = state,
+          home.authFlow.profile != nil,
+          !home.authFlow.isLoading else { return .none }
+    home.authFlow.generation += 1
+    home.authFlow.isLoading = true
+    home.authFlow.message = nil
+    let generation = home.authFlow.generation
+    state = .home(home)
+    return .run { send in
+      do {
+        switch operation {
+        case .signOut: try await authUseCase.signOut()
+        case .withdraw: try await authUseCase.withdraw()
+        }
+        await send(.inner(.myAccountFinished(generation: generation, operation: operation, result: .success(()))))
+      } catch {
+        await send(.inner(.myAccountFinished(
+          generation: generation, operation: operation, result: .failure(ProfileFailure(error))
+        )))
+      }
     }
   }
 

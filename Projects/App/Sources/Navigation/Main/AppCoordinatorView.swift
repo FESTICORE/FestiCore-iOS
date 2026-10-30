@@ -87,8 +87,8 @@ struct AppCoordinatorView: View {
   private var loginSheet: some View {
     VStack {
       FCLoginSheet(
-        title: "축제를 저장하려면 로그인이 필요해요",
-        message: "로그인 후 선택한 축제를 저장할 수 있어요.",
+        title: currentTabIsMy ? "계정 정보를 보려면 로그인이 필요해요" : "축제를 저장하려면 로그인이 필요해요",
+        message: currentTabIsMy ? "로그인 후 프로필을 확인할 수 있어요." : "로그인 후 선택한 축제를 저장할 수 있어요.",
         onApple: { store.send(.view(.startLogin(.apple))) },
         onGoogle: { store.send(.view(.startLogin(.google))) }
       )
@@ -183,6 +183,11 @@ struct AppCoordinatorView: View {
   private var currentFlow: AppCoordinator.AuthFlow? {
     guard case let .home(home) = store.state else { return nil }
     return home.authFlow
+  }
+
+  private var currentTabIsMy: Bool {
+    guard case let .home(home) = store.state else { return false }
+    return home.selectedTab == .my
   }
 
   private var legalBaseURL: URL? {

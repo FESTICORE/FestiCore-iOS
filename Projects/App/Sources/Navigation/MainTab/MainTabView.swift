@@ -50,8 +50,22 @@ struct MainTabView: View {
         )
       )
 
-    case .flag, .my:
-      Color.clear
+    case .flag:
+      FestivalFlagView(
+        store: store.scope(state: \.flagState, action: \.flag)
+      )
+
+    case .my:
+      MyTabView(
+        profile: store.authFlow.profile,
+        hasSession: store.authFlow.lastVerifiedUserID != nil,
+        isLoading: store.authFlow.isLoading,
+        message: store.authFlow.message,
+        onLogin: { store.send(.delegate(.myLoginRequested)) },
+        onRefresh: { store.send(.delegate(.myProfileRefreshRequested)) },
+        onLogout: { store.send(.delegate(.myLogoutRequested)) },
+        onWithdraw: { store.send(.delegate(.myWithdrawRequested)) }
+      )
     }
   }
 }
