@@ -491,7 +491,7 @@ jobs:
 
   pr-report:
     name: PR report
-    if: always() && github.event.pull_request.head.repo.full_name == github.repository && needs.build-test-shards.result != 'cancelled'
+    if: ${{ !cancelled() && github.event.pull_request.head.repo.full_name == github.repository && needs.build-test-shards.result != 'cancelled' }}
     needs: [build-test-shards, test-shards, bundle-insights]
     runs-on: self-hosted
     timeout-minutes: 10
