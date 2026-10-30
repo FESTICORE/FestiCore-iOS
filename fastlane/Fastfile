@@ -143,6 +143,8 @@ def signed_ipa(scheme, configuration, version, build_number, api_key)
       output_directory: "fastlane/output",
       output_name: "#{APP_NAME}.ipa",
       clean: false,
+      # CI에서는 실행별 DerivedData를 써야 Clean deploy DerivedData 단계가 정리한다. 로컬은 기본 경로.
+      derived_data_path: ENV["CI_DERIVED_DATA"],
       xcodebuild_formatter: "",
       xcargs: "FESTICORE_VERSION=#{version} FESTICORE_BUILD_NUMBER=#{build_number} FESTICORE_APNS_ENVIRONMENT=production#{sentry_arg}",
       export_options: {
