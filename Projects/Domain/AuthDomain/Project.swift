@@ -22,5 +22,8 @@ let project = Project.makeModule(
   ],
   hasTests: true,
   hasInterface: true,
-  interfaceDependencies: [.SPM.dependencies, .external(name: "IssueReporting")]
+  interfaceDependencies: [
+    .SPM.dependencies,
+    .external(name: "IssueReporting")
+  ]
 )

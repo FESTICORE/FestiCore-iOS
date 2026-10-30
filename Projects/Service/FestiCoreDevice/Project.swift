@@ -20,5 +20,8 @@ let project = Project.makeModule(
   ],
   hasTests: true,
   hasInterface: true,
-  interfaceDependencies: [.core(.network, .interface), .SPM.dependencies]
+  interfaceDependencies: [
+    .core(.network, .interface),
+    .SPM.dependencies
+  ]
 )
