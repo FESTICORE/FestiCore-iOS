@@ -69,7 +69,7 @@ struct AppCoordinatorView: View {
 }
 
 private extension AppCoordinatorView {
-  var sheet: Binding<AuthSheet?> {
+  private var sheet: Binding<AuthSheet?> {
     Binding(
       get: {
         guard case let .home(home) = store.state else { return nil }
