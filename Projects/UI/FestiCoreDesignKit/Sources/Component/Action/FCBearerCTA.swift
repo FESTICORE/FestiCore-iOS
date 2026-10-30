@@ -86,7 +86,10 @@ public struct FCBearerCTA: View {
     .multilineTextAlignment(.center)
   }
 
-  private var flagMark: some View {
+}
+
+private extension FCBearerCTA {
+  var flagMark: some View {
     Image(asset: .flag)
       .resizable()
       .frame(width: Metric.flagIconSize, height: Metric.flagIconSize)

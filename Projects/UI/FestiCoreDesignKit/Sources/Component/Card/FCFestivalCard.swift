@@ -89,8 +89,11 @@ public struct FCFestivalCard<Media: View>: View {
     .overlay { shape.strokeBorder(FestiCoreSemanticColor.lineNormal.color, lineWidth: Metric.borderWidth) }
   }
 
+}
+
+private extension FCFestivalCard {
   @ViewBuilder
-  private var bookmarkButton: some View {
+  var bookmarkButton: some View {
     if let onBookmark {
       Button(action: onBookmark) {
         Image(asset: .bookmark20)

@@ -42,7 +42,10 @@ public struct FCChecklistProgress: View {
     .accessibilityElement(children: .combine)
   }
 
-  private var ratio: CGFloat {
+}
+
+private extension FCChecklistProgress {
+  var ratio: CGFloat {
     guard total > 0 else { return 0 }
     return CGFloat(min(max(checked, 0), total)) / CGFloat(total)
   }

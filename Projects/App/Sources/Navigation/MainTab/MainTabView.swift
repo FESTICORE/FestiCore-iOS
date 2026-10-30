@@ -29,10 +29,12 @@ struct MainTabView: View {
       }
       .background(FestiCoreSemanticColor.backgroundNormal.color)
   }
+}
 
+private extension MainTabView {
   /// 선택한 탭의 화면만 만든다. 탭 상태는 스토어에 남아 있어 다시 돌아와도 유지된다.
   @ViewBuilder
-  private var tabContent: some View {
+  var tabContent: some View {
     switch store.selectedTab {
     case .live:
       FestivalCoordinatorView(

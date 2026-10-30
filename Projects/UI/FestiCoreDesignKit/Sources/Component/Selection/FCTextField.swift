@@ -46,7 +46,10 @@ public struct FCTextField: View {
     }
   }
 
-  private var field: some View {
+}
+
+private extension FCTextField {
+  var field: some View {
     let shape = RoundedRectangle(cornerRadius: FestiCoreRadius.r12)
     return HStack(spacing: FestiCoreSpacing.paddingP8) {
       TextField(

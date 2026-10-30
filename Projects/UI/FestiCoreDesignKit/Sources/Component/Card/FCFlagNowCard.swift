@@ -54,8 +54,11 @@ public struct FCFlagNowCard: View {
     .background(FestiCoreSemanticColor.backgroundElevated.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
   }
 
+}
+
+private extension FCFlagNowCard {
   @ViewBuilder
-  private func content(
+  func content(
     zone: String,
     activity: String,
     source: String,

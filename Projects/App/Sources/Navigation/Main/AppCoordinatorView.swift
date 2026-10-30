@@ -21,24 +21,6 @@ struct AppCoordinatorView: View {
     var id: String { rawValue }
   }
 
-  private var sheet: Binding<AuthSheet?> {
-    Binding(
-      get: {
-        guard case let .home(home) = store.state else { return nil }
-        switch home.authFlow.presentation {
-        case .login: return .login
-        case .onboarding: return .onboarding
-        case .migration: return .migration
-        case .retry: return .retry
-        case nil: return nil
-        }
-      },
-      set: { value in
-        if value == nil { store.send(.view(.dismissFlow)) }
-      }
-    )
-  }
-
   var body: some View {
     ZStack(alignment: .topLeading) {
       Color.backgroundNormal
@@ -84,8 +66,28 @@ struct AppCoordinatorView: View {
       keyboardInset = 0
     }
   }
+}
 
-  private var loginSheet: some View {
+private extension AppCoordinatorView {
+  var sheet: Binding<AuthSheet?> {
+    Binding(
+      get: {
+        guard case let .home(home) = store.state else { return nil }
+        switch home.authFlow.presentation {
+        case .login: return .login
+        case .onboarding: return .onboarding
+        case .migration: return .migration
+        case .retry: return .retry
+        case nil: return nil
+        }
+      },
+      set: { value in
+        if value == nil { store.send(.view(.dismissFlow)) }
+      }
+    )
+  }
+
+  var loginSheet: some View {
     VStack {
       FCLoginSheet(
         title: "축제를 저장하려면 로그인이 필요해요",
@@ -102,7 +104,7 @@ struct AppCoordinatorView: View {
     }
   }
 
-  private var onboardingSheet: some View {
+  var onboardingSheet: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 16) {
         Text("가입을 완료해 주세요")
@@ -156,7 +158,7 @@ struct AppCoordinatorView: View {
     .scrollDismissesKeyboard(.interactively)
   }
 
-  private var migrationSheet: some View {
+  var migrationSheet: some View {
     VStack(alignment: .leading, spacing: 16) {
       Text("기존 축제 저장 목록")
         .font(.title2.bold())
@@ -169,7 +171,7 @@ struct AppCoordinatorView: View {
     .padding(24)
   }
 
-  private var retrySheet: some View {
+  var retrySheet: some View {
     VStack(alignment: .leading, spacing: 16) {
       Text(currentFlow?.message ?? "회원 정보를 확인할 수 없어요.")
       Button("다시 시도") { store.send(.view(.retryProfile)) }
@@ -181,15 +183,17 @@ struct AppCoordinatorView: View {
     .padding(24)
   }
 
-  private var currentFlow: AppCoordinator.AuthFlow? {
+  var currentFlow: AppCoordinator.AuthFlow? {
     guard case let .home(home) = store.state else { return nil }
     return home.authFlow
   }
 
-  private var legalBaseURL: URL? {
+  var legalBaseURL: URL? {
     Self.legalBaseURL(host: Bundle.main.object(forInfoDictionaryKey: "FestiCoreAPIHost") as? String)
   }
+}
 
+extension AppCoordinatorView {
   static func legalBaseURL(host: String?) -> URL? {
     guard let host, !host.isEmpty else { return nil }
     return URL(string: "https://\(host)/api/v1/legal/")

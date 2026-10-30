@@ -38,7 +38,10 @@ public struct FCSegmented: View {
     }
   }
 
-  private func segment(
+}
+
+private extension FCSegmented {
+  func segment(
     _ item: String,
     index: Int
   ) -> some View {
