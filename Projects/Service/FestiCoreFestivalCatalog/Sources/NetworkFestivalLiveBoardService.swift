@@ -1,5 +1,6 @@
 import Alamofire
 import FestiCoreDeviceInterface
+import FestivalDomain
 import FestivalDomainInterface
 import FestiCoreNetworkInterface
 import Foundation
@@ -41,46 +42,12 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
           boardResponse.data.festivalId == festivalID else {
       throw FestivalLiveBoardError.invalidResponse
     }
-    let profileByID = Dictionary(
-      profilesResponse.data.items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }
-    )
-    let activeFlags = boardResponse.data.activeFlags.map { flag in
-      makeFlag(flag, profile: profileByID[flag.flagId])
-    }
-    let activeByID = Dictionary(activeFlags.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-    let followedFlags = (boardResponse.data.me?.following ?? []).map { id in
-      activeByID[id] ?? makeFlag(nil, id: id, profile: profileByID[id])
-    }
-    let crew = boardResponse.data.me?.crew.map { crew in
-      FestivalLiveBoardSnapshot.Crew(
-        id: crew.id,
-        name: crew.name,
-        members: crew.members.map {
-          .init(id: $0.userId, nickname: $0.nickname, state: $0.state, zoneID: $0.zoneId)
-        }
-      )
-    }
-    return .init(festivalID: festivalID, activeFlags: activeFlags, followedFlags: followedFlags, crew: crew)
-  }
-
-  private func makeFlag(
-    _ status: LiveBoardResponse.Data.Flag?,
-    id: String? = nil,
-    profile: FlagsResponse.Data.Flag?
-  ) -> FestivalLiveBoardSnapshot.Flag {
-    .init(
-      id: status?.flagId ?? id ?? "",
-      name: profile?.name ?? status?.flagId ?? id ?? "깃발",
-      status: status?.status ?? "unknown",
-      zoneID: status?.zoneId,
-      activity: status?.activity,
-      thumbnailURL: imageResolver.resolve(profile?.thumbUrl)
-    )
+    return boardResponse.toEntity(profiles: profilesResponse, imageURL: imageResolver.resolve)
   }
 }
 
 private struct FestivalLiveRequest: FestiCoreDataRequest {
-  typealias Response = LiveBoardResponse
+  typealias Response = FestivalLiveBoardResponseDTO
   let festivalID: String
   let deviceID: String
 
@@ -92,62 +59,11 @@ private struct FestivalLiveRequest: FestiCoreDataRequest {
 }
 
 private struct FestivalFlagsRequest: FestiCoreDataRequest {
-  typealias Response = FlagsResponse
+  typealias Response = FestivalFlagsResponseDTO
   let festivalID: String
 
   var path: String { "api/v1/festivals/\(festivalID)/flags" }
   var method: HTTPMethod { .get }
   var authorization: FestiCoreAuthorization { .none }
   var parameters: (any Encodable & Sendable)? { nil }
-}
-
-private struct LiveBoardResponse: Decodable, Sendable {
-  let code: String
-  let data: Data
-
-  struct Data: Decodable, Sendable {
-    let festivalId: String
-    let activeFlags: [Flag]
-    let me: Me?
-
-    struct Flag: Decodable, Sendable {
-      let flagId: String
-      let status: String
-      let zoneId: String?
-      let activity: String?
-    }
-
-    struct Me: Decodable, Sendable {
-      let following: [String]
-      let crew: Crew?
-    }
-
-    struct Crew: Decodable, Sendable {
-      let id: String
-      let name: String
-      let members: [Member]
-    }
-
-    struct Member: Decodable, Sendable {
-      let userId: String
-      let nickname: String
-      let state: String
-      let zoneId: String?
-    }
-  }
-}
-
-private struct FlagsResponse: Decodable, Sendable {
-  let code: String
-  let data: Data
-
-  struct Data: Decodable, Sendable {
-    let items: [Flag]
-
-    struct Flag: Decodable, Sendable {
-      let id: String
-      let name: String
-      let thumbUrl: String?
-    }
-  }
 }
