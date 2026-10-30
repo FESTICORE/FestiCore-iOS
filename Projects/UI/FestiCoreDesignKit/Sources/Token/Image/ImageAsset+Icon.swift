@@ -39,6 +39,7 @@ public extension ImageAsset {
   static let circleInfo20 = ImageAsset(rawValue: "circle-info-20")
   static let route16 = ImageAsset(rawValue: "route-16")
   static let users24 = ImageAsset(rawValue: "users-24")
+  static let bookmark16 = ImageAsset(rawValue: "bookmark-16")
 
   // MARK: - 소셜 로그인
 
