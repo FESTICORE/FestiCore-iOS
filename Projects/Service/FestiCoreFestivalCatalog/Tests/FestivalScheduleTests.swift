@@ -36,6 +36,7 @@ struct FestivalScheduleTests {
   @Test(arguments: [
     (FestiCoreNetworkError.response(ResponseError(httpStatus: 401)), FestivalScheduleError.unauthorized),
     (.response(ResponseError(httpStatus: 400, code: "VALIDATION")), .rejected),
+    (.response(ResponseError(httpStatus: 429)), .unavailable),
     (.response(ResponseError(httpStatus: 503)), .unavailable),
     (.request(.invalidURL), .unavailable),
   ])

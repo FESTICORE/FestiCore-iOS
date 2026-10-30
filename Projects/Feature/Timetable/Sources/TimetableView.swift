@@ -77,6 +77,7 @@ public struct TimetableView: View {
       title: "내 일정에 넣기",
       helper: scheduleHelper
     )
+    .scheduleDisabled(store.scheduleSync == .loading)
   }
 
   private func sheetState(_ detail: TimetableSetDetail) -> FCSetSheet.State {

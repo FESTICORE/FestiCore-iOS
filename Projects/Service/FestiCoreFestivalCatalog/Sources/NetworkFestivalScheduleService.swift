@@ -86,7 +86,8 @@ private extension NetworkFestivalScheduleService {
     if responseError.isUnauthorized {
       return .unauthorized
     }
-    if (400 ..< 500).contains(responseError.httpStatus) {
+    // 검증 실패만 거부로 본다. 429 등은 저장 여부를 알 수 없는 실패로 둔다.
+    if responseError.httpStatus == 400 {
       return .rejected
     }
     return .unavailable
