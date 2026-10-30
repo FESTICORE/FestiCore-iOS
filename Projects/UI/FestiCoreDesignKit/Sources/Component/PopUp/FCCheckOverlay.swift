@@ -1,11 +1,10 @@
 //
 //  FCCheckOverlay.swift
-//  FestiCoreSharedUI
+//  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/30/26.
 //
 
-import FestiCoreDesignKit
 import SwiftUI
 
 /// 버튼을 누른 직후 잠깐 보이는 전체 화면 확인
