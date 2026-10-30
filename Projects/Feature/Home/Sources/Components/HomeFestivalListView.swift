@@ -3,7 +3,6 @@ import SwiftUI
 
 struct HomeFestivalListView: View {
   let festivals: [FestivalOverview]
-  let selectedFestivalID: String?
   let bookedFestivalIDs: Set<String>
   let imageRevision: Int
   let isLoading: Bool
@@ -69,6 +68,17 @@ struct HomeFestivalListView: View {
       .refreshable { onRefresh() }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    .simultaneousGesture(
+      DragGesture(minimumDistance: 30)
+        .onEnded { value in
+          let horizontal = value.translation.width
+          let vertical = value.translation.height
+          guard abs(horizontal) > 80, abs(horizontal) > abs(vertical) * 1.5 else { return }
+          withAnimation(.easeInOut(duration: 0.2)) {
+            selectedFilter = horizontal < 0 ? 1 : 0
+          }
+        }
+    )
   }
 
   @ViewBuilder
@@ -138,13 +148,5 @@ struct HomeFestivalListView: View {
     .booked(bookedFestivalIDs.contains(festival.id), onToggle: { onToggleBooked(festival.id) })
     .onTapGesture { onSelect(festival.id) }
     .accessibilityIdentifier("festivalCard_\(festival.id)")
-    .overlay(alignment: .bottomTrailing) {
-      if selectedFestivalID == festival.id {
-        Image(systemName: "checkmark.circle.fill")
-          .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-          .padding(FestiCoreSpacing.paddingP8)
-          .accessibilityLabel("선택됨")
-      }
-    }
   }
 }

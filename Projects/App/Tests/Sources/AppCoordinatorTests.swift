@@ -7,11 +7,11 @@
 
 import Foundation
 import Testing
-import UIKit
 
 import ComposableArchitecture
 import FeatureAssembly
 import FestivalDomainInterface
+import TCAFlow
 @testable import FestiCore
 
 @MainActor
@@ -72,12 +72,16 @@ struct AppCoordinatorTests {
     #expect(state.shouldHideTabBar)
   }
 
-  @Test func swipeBackOnlyStartsWithPreviousScreen() {
-    let navigationController = UINavigationController(rootViewController: UIViewController())
-    #expect(!navigationController.canSwipeBack)
+  @Test func swipingBackFromLiveBoardReturnsToFestivalList() async {
+    var state = HomeCoordinator.State()
+    state.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
+    let store = TestStore(initialState: state) {
+      HomeCoordinator()
+    }
 
-    navigationController.pushViewController(UIViewController(), animated: false)
-    #expect(navigationController.canSwipeBack)
+    await store.send(.router(.routeAction(id: 1, action: .liveBoard(.view(.backToFestivalList))))) {
+      $0.routes.goBack()
+    }
   }
 
   @Test func timetableUsesSelectedFestivalPackTimes() throws {

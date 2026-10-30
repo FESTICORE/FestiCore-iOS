@@ -6,6 +6,7 @@ struct HomeLiveBoardScreen: View {
   let pack: FestivalPackDocument?
   let liveActivityState: HomeFeature.LiveActivityControlState
   let onLiveActivityTap: () -> Void
+  let onSwipeBack: () -> Void
 
   var body: some View {
     ScrollView {
@@ -33,6 +34,20 @@ struct HomeLiveBoardScreen: View {
     .scrollIndicators(.hidden)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
     .toolbar(.hidden, for: .navigationBar)
+    .overlay(alignment: .leading) {
+      Color.clear
+        .contentShape(Rectangle())
+        .frame(width: 24)
+        .gesture(
+          DragGesture(minimumDistance: 25)
+            .onEnded { value in
+              guard value.translation.width > 80,
+                    value.translation.width > abs(value.translation.height) * 1.5 else { return }
+              onSwipeBack()
+            }
+        )
+        .accessibilityHidden(true)
+    }
   }
 
   private var header: some View {

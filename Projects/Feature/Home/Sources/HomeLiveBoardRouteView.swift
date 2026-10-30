@@ -18,7 +18,8 @@ public struct HomeLiveBoardRouteView: View {
           festival: festival,
           pack: store.selectedPack,
           liveActivityState: store.liveActivityState,
-          onLiveActivityTap: { send(.liveActivityTapped) }
+          onLiveActivityTap: { send(.liveActivityTapped) },
+          onSwipeBack: { send(.backToFestivalList) }
         )
       } else {
         ProgressView("페스티벌 정보를 불러오는 중")

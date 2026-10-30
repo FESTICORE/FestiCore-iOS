@@ -135,6 +135,7 @@ public struct HomeFeature {
     case foregroundChanged(Bool)
     case refreshRequested
     case selectFestival(String)
+    case backToFestivalList
     case toggleBookedFestival(String)
     case liveActivityOnAppear
     case liveActivityTapped
@@ -269,6 +270,9 @@ public struct HomeFeature {
           prefetchImages(state),
           liveActivityBoundary(state)
         )
+
+      case .view(.backToFestivalList):
+        return .none
 
 
       case let .view(.toggleBookedFestival(id)):

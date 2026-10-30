@@ -37,7 +37,6 @@ public struct HomeView: View {
   private var festivalList: some View {
     HomeFestivalListView(
       festivals: store.festivals,
-      selectedFestivalID: store.selectedFestivalID,
       bookedFestivalIDs: store.bookedFestivalIDs,
       imageRevision: store.imageRevision,
       isLoading: store.festivals.isEmpty && store.viewState == .loading,
