@@ -14,4 +14,8 @@ FCRemoteImage(url: imageURL)
 
 ## 확인 다이얼로그
 
-Feature 상태에 `@Presents var alert: FCAlertState<FCAlertAction>?`를 두고 리듀서에서 `.ifLet(\.$alert, action: \.alert) { FCConfirmAlert() }`로 연결합니다. 화면에서는 `.fcAlert($store.scope(\.alert, action: \.alert))`로 띄웁니다. 클로저로 처리하는 단순한 경우는 DesignKit `FCDialogItem`과 `.fcDialog(item:)`을 사용합니다. 바텀시트는 DesignKit `presentFCSheet(item:)`을 사용합니다.
+Feature 상태에 `@Presents var alert: FCAlertState<FCAlertAction>?`를 두고 리듀서에서 `.ifLet(\.$alert, action: \.alert) { FCConfirmAlert() }`로 연결합니다. 화면에서는 `.fcAlert($store.scope(\.alert, action: \.alert))`로 띄웁니다. 클로저로 처리하는 단순한 경우는 `FCDialogItem`과 `.fcDialog(item:)`을 사용합니다.
+
+## 시트와 팝업
+
+공통 바텀시트는 `presentFCSheet(item:)`으로 띄웁니다. 로그인·신고·셋 상세·기수 선택 시트와 확인 팝업, 완료 팝업, 토스트가 이 모듈에 있습니다. 색상·서체·버튼은 DesignKit 토큰과 컴포넌트를 사용합니다.

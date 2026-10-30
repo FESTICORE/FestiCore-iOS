@@ -1,10 +1,11 @@
 //
 //  FCReportSheet.swift
-//  FestiCoreDesignKit
+//  FestiCoreSharedUI
 //
 //  Created by FestiCore on 10/30/26.
 //
 
+import FestiCoreDesignKit
 import SwiftUI
 
 /// 신고 사유 선택 바텀시트 내용. 사유를 고르기 전에는 신고 버튼이 비활성이다.
