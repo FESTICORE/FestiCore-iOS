@@ -12,7 +12,10 @@ import DependencyPackagePlugin
 let project = Project.makeModule(
   name: "FestiCoreAnimation",
   product: .framework,
-  dependencies: [.SPM.sdwebImage, .SPM.lottie],
+  dependencies: [
+    .SPM.sdwebImage,
+    .SPM.lottie
+  ],
   resources: ["Resources/**"],
   hasTests: true
 )

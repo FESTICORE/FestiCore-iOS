@@ -14,5 +14,7 @@ let project = Project.makeAppExtensionModule(
   targetName: "FestiCoreLiveActivityExtension",
   bundleId: "\(Project.Environment.mainBundleId).LiveActivity",
   infoPlist: .liveActivityWidgetInfoPlist,
-  dependencies: [.ui(.liveActivity)]
+  dependencies: [
+    .ui(.liveActivity)
+  ]
 )

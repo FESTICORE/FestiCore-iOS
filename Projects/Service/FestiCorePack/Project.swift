@@ -6,8 +6,12 @@ import DependencyPackagePlugin
 let project = Project.makeModule(
   name: "FestiCorePack",
   product: .framework,
-  dependencies: [.core(.network, .interface)],
+  dependencies: [
+    .core(.network, .interface)
+  ],
   hasTests: true,
   hasInterface: true,
-  interfaceDependencies: [.SPM.dependencies]
+  interfaceDependencies: [
+    .SPM.dependencies
+  ]
 )

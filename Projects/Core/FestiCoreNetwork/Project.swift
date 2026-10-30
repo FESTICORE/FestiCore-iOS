@@ -13,8 +13,14 @@ import DependencyPackagePlugin
 let project = Project.makeModule(
   name: "FestiCoreNetwork",
   product: .framework,
-  dependencies: [.core(.logger), .SPM.alamofire],
+  dependencies: [
+    .core(.logger),
+    .SPM.alamofire
+  ],
   hasTests: true,
   hasInterface: true,
-  interfaceDependencies: [.SPM.alamofire, .SPM.dependencies]
+  interfaceDependencies: [
+    .SPM.alamofire,
+    .SPM.dependencies
+  ]
 )

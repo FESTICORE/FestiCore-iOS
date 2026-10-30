@@ -8,5 +8,7 @@ let project = Project.makeModule(
   product: .framework,
   dependencies: [],
   hasInterface: true,
-  interfaceDependencies: [.SPM.dependencies]
+  interfaceDependencies: [
+    .SPM.dependencies
+  ]
 )

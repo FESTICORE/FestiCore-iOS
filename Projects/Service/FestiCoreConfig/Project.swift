@@ -12,5 +12,7 @@ import ProjectTemplatePlugin
 let project = Project.makeModule(
   name: "FestiCoreConfig",
   product: .framework,
-  dependencies: [.SPM.firebaseCore]
+  dependencies: [
+    .SPM.firebaseCore
+  ]
 )
