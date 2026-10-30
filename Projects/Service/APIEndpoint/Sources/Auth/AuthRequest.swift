@@ -23,10 +23,28 @@ public struct AuthLoginBody: Encodable, Sendable {
   }
 }
 
+public struct AuthProfileUpdateBody: Encodable, Sendable {
+  public let nickname: String
+  public let acceptTerms: AcceptTerms
+  public let pushOptIn: Bool
+
+  public init(nickname: String, termsVersion: String, pushOptIn: Bool) {
+    self.nickname = nickname
+    self.acceptTerms = AcceptTerms(version: termsVersion)
+    self.pushOptIn = pushOptIn
+  }
+
+  public struct AcceptTerms: Encodable, Sendable {
+    public let version: String
+  }
+}
+
 public enum AuthRequest: FestiCoreDataRequest, Sendable {
   case login(body: AuthLoginBody)
   case refresh(refreshToken: String)
   case logout
+  case me
+  case updateMe(body: AuthProfileUpdateBody)
   case withdraw
 
   public var path: String { return api.path }
@@ -34,6 +52,8 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
   public var method: HTTPMethod {
     switch self {
     case .login, .refresh, .logout: return .post
+    case .me: return .get
+    case .updateMe: return .patch
     case .withdraw: return .delete
     }
   }
@@ -41,7 +61,7 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
   public var authorization: FestiCoreAuthorization {
     switch self {
     case .login, .refresh: return .none
-    case .logout, .withdraw: return .automatic
+    case .logout, .me, .updateMe, .withdraw: return .automatic
     }
   }
 
@@ -51,7 +71,8 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
     switch self {
     case let .login(body): return body
     case let .refresh(refreshToken): return RefreshBody(refreshToken: refreshToken)
-    case .logout, .withdraw: return nil
+    case let .updateMe(body): return body
+    case .logout, .me, .withdraw: return nil
     }
   }
 
@@ -60,6 +81,7 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
     case .login: return .login
     case .refresh: return .refresh
     case .logout: return .logout
+    case .me, .updateMe: return .me
     case .withdraw: return .withdraw
     }
   }

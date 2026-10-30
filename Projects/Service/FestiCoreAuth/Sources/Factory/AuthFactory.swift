@@ -30,7 +30,8 @@ public enum AuthFactory {
     let auth = FestiCoreAuth(
       authenticatedClient: authenticated.client,
       store: store,
-      credentials: authenticated.credentials
+      credentials: authenticated.credentials,
+      identityStorage: storage
     )
     relay.set { [weak auth] credential in
       await auth?.handleAuthFailure(for: credential)

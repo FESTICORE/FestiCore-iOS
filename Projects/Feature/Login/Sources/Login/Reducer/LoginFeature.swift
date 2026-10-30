@@ -37,7 +37,7 @@ public struct LoginFeature {
 
   @CasePathable
   public enum InnerAction: Equatable {
-    case signInSucceeded(isNewUser: Bool)
+    case signInSucceeded(AuthLoginResult)
     case signInFailed(AuthDomainError)
   }
 
@@ -51,7 +51,7 @@ public struct LoginFeature {
         return .run { send in
           do {
             let result = try await oauthUseCase.signIn(provider: provider)
-            await send(.inner(.signInSucceeded(isNewUser: result.newUser)))
+            await send(.inner(.signInSucceeded(result)))
           } catch let error as AuthDomainError {
             await send(.inner(.signInFailed(error)))
           } catch {
@@ -59,10 +59,10 @@ public struct LoginFeature {
           }
         }
 
-      case let .inner(.signInSucceeded(isNewUser)):
+      case let .inner(.signInSucceeded(result)):
         guard state.isSigningIn else { return .none }
         state.isSigningIn = false
-        return .send(.delegate(.signedIn(isNewUser: isNewUser)))
+        return .send(.delegate(.signedIn(result)))
 
       case let .inner(.signInFailed(error)):
         guard state.isSigningIn else { return .none }

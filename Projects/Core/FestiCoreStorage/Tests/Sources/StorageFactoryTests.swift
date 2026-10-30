@@ -28,6 +28,6 @@ struct SecureStorageKeyTests {
     #expect(SecureStorageKey.refreshToken.rawValue == "REFRESH_TOKEN")
     #expect(SecureStorageKey.apnsToken.rawValue == "APNS_DEVICE_TOKEN")
     #expect(!SecureStorageKey.all.contains(.apnsToken))
-    #expect(Set(SecureStorageKey.all) == [.accessToken, .refreshToken])
+    #expect(Set(SecureStorageKey.all) == [.accessToken, .refreshToken, .sessionUserID])
   }
 }

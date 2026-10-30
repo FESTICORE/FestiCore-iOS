@@ -9,6 +9,8 @@ import Dependencies
 
 public protocol AuthUseCaseInterface: Sendable {
   func signIn(with credential: AuthCredential) async throws -> AuthLoginResult
+  func fetchProfile() async throws -> AuthProfile
+  func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser
   func signOut() async throws
   func withdraw() async throws
 }

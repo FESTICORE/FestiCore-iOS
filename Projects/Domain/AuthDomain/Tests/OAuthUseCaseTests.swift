@@ -88,5 +88,9 @@ private actor RecordingAuthUseCase: AuthUseCaseInterface {
   }
 
   func signOut() async throws {}
+  func fetchProfile() async throws -> AuthProfile { throw AuthDomainError.configurationMissing }
+  func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser {
+    throw AuthDomainError.configurationMissing
+  }
   func withdraw() async throws {}
 }

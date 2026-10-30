@@ -10,6 +10,7 @@ import APIEndpoint
 import AuthDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
+import Foundation
 
 public struct AuthRepositoryImpl: AuthInterface {
   @Dependency(\.networkClient) private var client
@@ -39,7 +40,49 @@ public struct AuthRepositoryImpl: AuthInterface {
       accessToken: response.data.accessToken,
       refreshToken: response.data.refreshToken
     )
+    await authService.rememberUserID(response.data.user.id)
     return response.data.result
+  }
+
+  public func fetchProfile() async throws -> AuthProfile {
+    guard await authService.isLoggedIn else { throw AuthDomainError.notAuthenticated }
+    do {
+      let response = try await client.send(AuthRequest.me, as: AuthProfileResponseDTO.self)
+      guard response.code == "SUCCESS", !response.data.currentTermsVersion.isEmpty else {
+        throw AuthDomainError.invalidResponse
+      }
+      return response.data.profile
+    } catch {
+      await clearUnauthorizedSession(error)
+      throw error
+    }
+  }
+
+  public func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser {
+    guard await authService.isLoggedIn else { throw AuthDomainError.notAuthenticated }
+    guard !nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+          !termsVersion.isEmpty else { throw AuthDomainError.invalidResponse }
+    do {
+      let response = try await client.send(
+        AuthRequest.updateMe(body: AuthProfileUpdateBody(
+          nickname: nickname, termsVersion: termsVersion, pushOptIn: pushOptIn
+        )),
+        as: AuthProfileUpdateResponseDTO.self
+      )
+      guard response.code == "SUCCESS" else { throw AuthDomainError.invalidResponse }
+      return response.data.entity
+    } catch {
+      await clearUnauthorizedSession(error)
+      throw error
+    }
+  }
+
+  private func clearUnauthorizedSession(_ error: any Error) async {
+    if let networkError = error as? FestiCoreNetworkError,
+       case let .response(response) = networkError,
+       response.isUnauthorized {
+      await authService.signOut()
+    }
   }
 
   public func signOut() async throws {

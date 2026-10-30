@@ -19,6 +19,16 @@ public struct MockAuthRepository: AuthInterface {
     throw AuthDomainError.configurationMissing
   }
 
+  public func fetchProfile() async throws -> AuthProfile {
+    reportIssue("\(dependencyName) 미등록")
+    throw AuthDomainError.configurationMissing
+  }
+
+  public func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser {
+    reportIssue("\(dependencyName) 미등록")
+    throw AuthDomainError.configurationMissing
+  }
+
   public func signOut() async throws {
     reportIssue("\(dependencyName) 미등록")
     throw AuthDomainError.configurationMissing

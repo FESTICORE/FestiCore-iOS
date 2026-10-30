@@ -10,7 +10,9 @@ import Foundation
 public protocol AuthService: Sendable {
   var isLoggedIn: Bool { get async }
   var refreshToken: String? { get async }
+  var currentUserID: String? { get async }
   func signIn(accessToken: String, refreshToken: String) async
+  func rememberUserID(_ userID: String) async
   func signOut() async
 }
 
