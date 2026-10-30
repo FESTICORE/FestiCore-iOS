@@ -54,6 +54,16 @@ struct NavigationComponentView: View {
         FCStepHeader(step: 2)
           .onLater {}
       }
+      DemoSection("Pagination (다크 배경 전용)") {
+        VStack(spacing: FestiCoreSpacing.paddingP16) {
+          ForEach(1...4, id: \.self) { page in
+            FCPagination(current: page)
+          }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(FestiCoreSpacing.paddingP24)
+        .background(FestiCoreSemanticColor.staticInk.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
+      }
       DemoSection("Tab Bar") {
         FCTabBar(selection: $tabBarSelection)
       }
