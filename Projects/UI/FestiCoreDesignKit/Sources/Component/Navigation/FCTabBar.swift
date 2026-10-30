@@ -76,7 +76,7 @@ public struct FCTabBar: View {
       }
       .foregroundStyle(
         isSelected
-          ? FestiCoreSemanticColor.accentPointLime.color
+          ? FestiCoreSemanticColor.primaryNormal.color
           : FestiCoreSemanticColor.labelAssistive.color
       )
       .frame(maxWidth: .infinity)
