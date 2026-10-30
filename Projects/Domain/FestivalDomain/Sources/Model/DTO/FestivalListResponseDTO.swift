@@ -1,9 +1,7 @@
+import FestiCoreNetworkInterface
 import Foundation
 
-public struct FestivalListResponseDTO: Decodable, Sendable {
-  public let code: String
-  public let data: FestivalListDataDTO
-}
+public typealias FestivalListResponseDTO = BaseResponseDTO<FestivalListDataDTO>
 
 public struct FestivalListDataDTO: Decodable, Sendable {
   public let items: [FestivalItemDTO]

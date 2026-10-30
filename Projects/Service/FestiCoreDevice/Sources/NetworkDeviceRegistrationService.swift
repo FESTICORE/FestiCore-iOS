@@ -126,10 +126,7 @@ private struct DeviceRegistrationBody: Encodable, Sendable {
   }
 }
 
-struct DeviceRegistrationEnvelope: Decodable, Sendable {
-  let code: String
-  let data: DeviceRegistrationResult
-}
+typealias DeviceRegistrationEnvelope = BaseResponseDTO<DeviceRegistrationResult>
 
 struct DeviceRegistrationResult: Decodable, Sendable {
   let deviceId: String

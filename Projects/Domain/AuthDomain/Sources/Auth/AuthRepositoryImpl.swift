@@ -41,7 +41,7 @@ public struct AuthRepositoryImpl: AuthInterface {
       refreshToken: response.data.refreshToken
     )
     await authService.rememberUserID(response.data.user.id)
-    return response.data.result
+    return response.data.toDomain()
   }
 
   public func fetchProfile() async throws -> AuthProfile {
@@ -51,7 +51,7 @@ public struct AuthRepositoryImpl: AuthInterface {
       guard response.code == "SUCCESS", !response.data.currentTermsVersion.isEmpty else {
         throw AuthDomainError.invalidResponse
       }
-      return response.data.profile
+      return response.data.toDomain()
     } catch {
       await clearUnauthorizedSession(error)
       throw error
@@ -70,7 +70,7 @@ public struct AuthRepositoryImpl: AuthInterface {
         as: AuthProfileUpdateResponseDTO.self
       )
       guard response.code == "SUCCESS" else { throw AuthDomainError.invalidResponse }
-      return response.data.entity
+      return response.data.toDomain()
     } catch {
       await clearUnauthorizedSession(error)
       throw error

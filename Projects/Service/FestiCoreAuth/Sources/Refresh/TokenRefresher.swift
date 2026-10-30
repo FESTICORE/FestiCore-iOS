@@ -45,11 +45,7 @@ struct TokenRefresher: TokenRefreshing {
   }
 }
 
-private struct RefreshEnvelope: Decodable, Sendable {
-  let code: String
-  let data: TokenPair
-  let message: String
-}
+private typealias RefreshEnvelope = BaseResponseDTO<TokenPair>
 
 private struct TokenPair: Decodable, Sendable {
   let accessToken: String

@@ -5,10 +5,9 @@
 //  Created by FestiCore on 10/29/26.
 //
 
-struct AuthLogoutResponseDTO: Decodable, Sendable {
-  let code: String
-  let data: AuthLogoutDataDTO
-}
+import FestiCoreNetworkInterface
+
+typealias AuthLogoutResponseDTO = BaseResponseDTO<AuthLogoutDataDTO>
 
 struct AuthLogoutDataDTO: Decodable, Sendable {
   let success: Bool

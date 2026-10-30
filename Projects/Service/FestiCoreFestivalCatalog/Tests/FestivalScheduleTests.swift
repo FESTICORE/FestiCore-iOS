@@ -7,7 +7,7 @@ import Testing
 struct FestivalScheduleTests {
   @Test
   func replaceSendsWholeScheduleWithMillisecondClientAt() async throws {
-    let client = ScheduleStubClient(put: .success(#"{"code":"SUCCESS","data":{"setIds":["set_1"]}}"#))
+    let client = ScheduleStubClient(put: .success(#"{"code":"SUCCESS","message":"OK","data":{"setIds":["set_1"]}}"#))
     let service = NetworkFestivalScheduleService(client: client)
     // 2026-08-07 10:00:00.250 KST
     let clientAt = Date(timeIntervalSince1970: 1_786_064_400.25)
@@ -23,7 +23,7 @@ struct FestivalScheduleTests {
   func staleReplaceReturnsCurrentServerSchedule() async throws {
     let client = ScheduleStubClient(
       put: .failure(.response(ResponseError(httpStatus: 409, code: "STATUS_STALE"))),
-      get: .success(#"{"code":"SUCCESS","data":{"setIds":["set_2"],"updatedAt":null}}"#)
+      get: .success(#"{"code":"SUCCESS","message":"OK","data":{"setIds":["set_2"],"updatedAt":null}}"#)
     )
     let service = NetworkFestivalScheduleService(client: client)
 
@@ -31,6 +31,16 @@ struct FestivalScheduleTests {
       try await service.replace(festivalID: "fst_a", setIDs: ["set_1"], clientAt: Date())
     }
     #expect(await client.paths == ["PUT api/v1/me/schedule/fst_a", "GET api/v1/me/schedule/fst_a"])
+  }
+
+  @Test("HTTP 200이어도 비성공 응답 코드는 사용할 수 없음으로 처리한다")
+  func nonSuccessCodeIsUnavailable() async {
+    let client = ScheduleStubClient(get: .success(#"{"code":"UNAVAILABLE","message":"No schedule","data":{"setIds":["set_1"]}}"#))
+    let service = NetworkFestivalScheduleService(client: client)
+
+    await #expect(throws: FestivalScheduleError.unavailable) {
+      try await service.fetch(festivalID: "fst_a")
+    }
   }
 
   @Test(arguments: [

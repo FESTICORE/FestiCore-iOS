@@ -1,22 +1,22 @@
 import FestivalDomainInterface
 import Foundation
 
-public extension FestivalLiveBoardResponseDTO {
-  func toEntity(
-    profiles: FestivalFlagsResponseDTO,
+public extension FestivalLiveBoardDataDTO {
+  func toDomain(
+    profiles: FestivalFlagsDataDTO,
     imageURL: (String?) -> URL?
   ) -> FestivalLiveBoardSnapshot {
     let profileByID = Dictionary(
-      profiles.data.items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }
+      profiles.items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }
     )
-    let activeFlags = data.activeFlags.map { flag in
+    let activeFlags = self.activeFlags.map { flag in
       makeFlag(flag, profile: profileByID[flag.flagId], imageURL: imageURL)
     }
     let activeByID = Dictionary(activeFlags.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-    let followedFlags = (data.me?.following ?? []).map { id in
+    let followedFlags = (me?.following ?? []).map { id in
       activeByID[id] ?? makeFlag(nil, id: id, profile: profileByID[id], imageURL: imageURL)
     }
-    let crew = data.me?.crew.map { crew in
+    let crew = me?.crew.map { crew in
       FestivalLiveBoardSnapshot.Crew(
         id: crew.id,
         name: crew.name,
@@ -25,13 +25,13 @@ public extension FestivalLiveBoardResponseDTO {
         }
       )
     }
-    return .init(festivalID: data.festivalId, activeFlags: activeFlags, followedFlags: followedFlags, crew: crew)
+    return .init(festivalID: festivalId, activeFlags: activeFlags, followedFlags: followedFlags, crew: crew)
   }
 
   private func makeFlag(
-    _ status: Data.Flag?,
+    _ status: FestivalLiveBoardFlagDTO?,
     id: String? = nil,
-    profile: FestivalFlagsResponseDTO.Data.Flag?,
+    profile: FestivalFlagsFlagDTO?,
     imageURL: (String?) -> URL?
   ) -> FestivalLiveBoardSnapshot.Flag {
     .init(

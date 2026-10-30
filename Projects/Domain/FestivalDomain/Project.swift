@@ -6,7 +6,9 @@ import DependencyPackagePlugin
 let project = Project.makeModule(
   name: "FestivalDomain",
   product: .framework,
-  dependencies: [],
+  dependencies: [
+    .core(.network, .interface),
+  ],
   hasInterface: true,
   interfaceDependencies: [
     .SPM.dependencies
