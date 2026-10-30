@@ -12,6 +12,9 @@ struct OverlayView: View {
   private enum Sheet: String, Identifiable {
     case login
     case report
+    case set
+    case zone
+    case activity
 
     var id: String {
       rawValue
@@ -22,6 +25,10 @@ struct OverlayView: View {
   @State private var dialog: FCDialogItem?
   @State private var toast: FCToast.Item?
   @State private var reportSelection: Int?
+  @State private var checkOverlay: FCCheckOverlay.Item?
+  @State private var isScheduled = false
+  @State private var zoneID: String?
+  @State private var activityID: String?
 
   var body: some View {
     DemoPage("08 Feedback & Overlay 검증") {
@@ -59,6 +66,36 @@ struct OverlayView: View {
           .style(.secondary)
           .isFullWidth(true)
       }
+      DemoSection("Set Sheet · Bearer Choice Sheet") {
+        FCButton("셋 상세 시트") { sheet = .set }
+          .style(.secondary)
+          .isFullWidth(true)
+        FCButton("존 선택 시트") { sheet = .zone }
+          .style(.secondary)
+          .isFullWidth(true)
+        FCButton("활동 선택 시트") { sheet = .activity }
+          .style(.secondary)
+          .isFullWidth(true)
+      }
+      DemoSection("Check Overlay (누르면 1초 표시)") {
+        FCButton("존 바꾸기") {
+          checkOverlay = FCCheckOverlay.Item(
+            title: "리벳 스테이지 중앙으로 바꿨어요",
+            message: "팔로워에게 알렸어요"
+          )
+        }
+        .style(.secondary)
+        .isFullWidth(true)
+      }
+      DemoSection("Search Empty") {
+        FCSearchEmpty(query: "락페")
+      }
+      DemoSection("Done Hero") {
+        FCDoneHero(
+          title: "깃발이 준비됐어요",
+          message: "공연 당일 기수 보드에서 깃발을 올리면\n팔로워에게 알림이 가요."
+        )
+      }
     }
     .presentFCSheet(item: $sheet) { sheet in
       switch sheet {
@@ -75,6 +112,30 @@ struct OverlayView: View {
           options: ["가짜 깃발이에요", "부적절한 사진이나 소개예요", "기타"],
           onSubmit: { _ in self.sheet = nil }
         )
+      case .set:
+        FCSetSheet(
+          artist: "라임플래그스",
+          stage: "리벳 스테이지",
+          time: "17:00–17:50 · 50분",
+          relativeTime: "1시간 32분 후",
+          isScheduled: $isScheduled
+        )
+        .memo("앵콜 없이 정시에 끝나요. 리벳 앞 왼쪽이 덜 붐벼요.")
+        .source("출처: 주최측 공지 · 확인 10/16 14:00")
+      case .zone:
+        FCBearerChoiceSheet(
+          .zone,
+          options: Self.zones,
+          selectedID: zoneID,
+          onSelect: { zoneID = $0.id }
+        )
+      case .activity:
+        FCBearerChoiceSheet(
+          .activity,
+          options: Self.activities,
+          selectedID: activityID,
+          onSelect: { activityID = $0.id }
+        )
       }
     }
     .overlay {
@@ -85,7 +146,42 @@ struct OverlayView: View {
       }
     }
     .fcToast(item: $toast)
+    .fcCheckOverlay(item: $checkOverlay)
   }
+}
+
+private extension OverlayView {
+  static let zones = ["리벳 스테이지 앞 왼쪽", "리벳 스테이지 중앙", "리벳 스테이지 뒤", "원더 스테이지 앞", "TENT 앞", "슬램 존"]
+    .map {
+      FCBearerChoiceSheet.Option(
+        id: $0,
+        title: $0,
+        icon: .locationDot16
+      )
+    }
+
+  static let activities = [
+    FCBearerChoiceSheet.Option(
+      id: "slam",
+      title: "슬램",
+      icon: .users24
+    ),
+    FCBearerChoiceSheet.Option(
+      id: "singalong",
+      title: "떼창",
+      icon: .music24
+    ),
+    FCBearerChoiceSheet.Option(
+      id: "train",
+      title: "기차놀이",
+      icon: .route24
+    ),
+    FCBearerChoiceSheet.Option(
+      id: "calm",
+      title: "차분",
+      icon: .user24
+    )
+  ]
 }
 
 #Preview {
