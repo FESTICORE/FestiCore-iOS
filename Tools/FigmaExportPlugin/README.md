@@ -1,14 +1,15 @@
 # FestiCore Design Export
 
-선택한 Figma 프레임을 Codex 또는 Claude가 읽을 수 있는 로컬 파일로 추출하는 개발용 플러그인입니다. 계정 토큰, 서버, 빌드 도구가 필요하지 않습니다.
+선택한 Figma 프레임 또는 섹션을 Codex 또는 Claude가 읽을 수 있는 로컬 파일로 추출하는 개발용 플러그인입니다. 계정 토큰, 서버, 빌드 도구가 필요하지 않습니다.
 
 ## 설치와 실행
 
 1. [FESTICORE 디자인 파일](https://www.figma.com/design/VPZzKIKZKruAKvKQTiQACx/FESTICORE?node-id=13-2340)을 Figma 데스크톱 앱에서 엽니다.
 2. Figma 메뉴에서 **Plugins → Development → Import plugin from manifest...**를 선택하고 이 폴더의 `manifest.json`을 지정합니다.
-3. 추출할 **FRAME 하나**를 선택합니다. 링크의 `node-id=13-2340`은 Figma API 노드 ID `13:2340`에 해당합니다. 해당 노드가 프레임이 아니라면 안쪽의 필요한 프레임을 선택합니다.
-4. **Plugins → Development → FestiCore Design Export**를 실행하고 **선택 프레임 추출**을 누릅니다.
-5. **디자인 JSON 저장**과 **미리보기 PNG 저장**을 각각 누릅니다. 브라우저에서 실행했다면 다운로드 허용이 필요할 수 있습니다.
+3. 원본이 보기 전용이면 Figma의 **파일 → 초안으로 복제**로 현재 원본을 복제합니다. 이전에 만든 복제본은 최신 디자인과 다를 수 있습니다.
+4. 추출할 **FRAME 또는 SECTION 하나**를 선택합니다. 링크의 `node-id=13-2340`은 Figma API 노드 ID `13:2340`에 해당합니다. 해당 노드가 페이지라면 안쪽의 필요한 프레임이나 섹션을 선택합니다.
+5. **Plugins → Development → FestiCore Design Export**를 실행하고 **선택 영역 추출**을 누릅니다.
+6. **디자인 JSON 저장**과 **미리보기 PNG 저장**을 각각 누릅니다. 브라우저에서 실행했다면 다운로드 허용이 필요할 수 있습니다.
 
 저장한 두 파일을 작업 저장소에 놓거나 Codex/Claude 대화에 첨부한 뒤, 대상 화면 구현 또는 디자인 검토를 요청하면 됩니다. 플러그인이 Codex/Claude에 직접 접속하거나 파일을 자동 전송하지는 않습니다. 민감한 디자인이라면 파일을 공유하기 전에 내용을 확인하세요.
 

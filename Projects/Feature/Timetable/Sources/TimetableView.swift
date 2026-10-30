@@ -47,7 +47,11 @@ public struct TimetableView: View {
     }
     .frame(maxHeight: .infinity, alignment: .top)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
-    .presentFCSheet(
+  }
+
+  /// 탭바까지 포함한 상위 화면에서 시트를 표시한다.
+  public var modalOverlay: some View {
+    Color.clear.presentFCSheet(
       item: Binding(
         get: { store.selectedSetID.map(SelectedSet.init) },
         set: { if $0 == nil { send(.setDetailDismissed) } }

@@ -30,9 +30,11 @@ struct AppCoordinator {
     var pendingShouldBeBooked = true
     var pendingOwnerID: String?
     var generation = 0
+    var accountOperationGeneration: Int?
     var loginAttemptGeneration: Int?
     var verifiedUserID: String?
     var lastVerifiedUserID: String?
+    var hasSession = false
     var profile: AuthProfile?
     var presentation: Presentation?
     var nickname = ""
@@ -83,9 +85,10 @@ struct AppCoordinator {
   @CasePathable
   enum InnerAction {
     case completeHomeTransition
-    case sessionRestored(generation: Int, userID: String?)
+    case sessionRestored(generation: Int, userID: String?, isLoggedIn: Bool)
     case profileLoaded(generation: Int, Result<AuthProfile, ProfileFailure>)
     case profileUpdated(generation: Int, Result<AuthUser, ProfileFailure>)
+    case myAccountFinished(generation: Int, operation: MyAccountOperation, result: Result<Void, ProfileFailure>)
   }
 
   @CasePathable
@@ -122,6 +125,11 @@ struct AppCoordinator {
         self = .unavailable
       }
     }
+  }
+
+  enum MyAccountOperation: Equatable, Sendable {
+    case signOut
+    case withdraw
   }
 
   var body: some ReducerOf<Self> {
@@ -175,6 +183,9 @@ private extension AppCoordinator {
       home.authFlow.pendingFestivalID = nil
       home.authFlow.pendingOwnerID = nil
       home.authFlow.generation += 1
+      if home.authFlow.accountOperationGeneration == nil {
+        home.authFlow.isLoading = false
+      }
       home.authFlow.loginAttemptGeneration = nil
       home.authFlow.presentation = nil
       home.authFlow.message = nil
@@ -264,6 +275,7 @@ private extension AppCoordinator {
       state = .home(home)
       return pending.map { .send(.scope(.home(.completePendingBookmark(id: $0, userID: userID, shouldBeBooked: shouldBeBooked)))) }
         ?? .send(.scope(.home(.festival(.reloadBookmarks(userID: userID)))))
+
     }
   }
 
@@ -274,7 +286,7 @@ private extension AppCoordinator {
       state = .home(.init())
       return .send(.view(.foregrounded))
 
-    case let .sessionRestored(generation, userID):
+    case let .sessionRestored(generation, userID, isLoggedIn):
       guard case var .home(home) = state,
             home.authFlow.generation == generation else { return .none }
       let eligibleID = userID.flatMap { bookedStore.offlineEligible($0) ? $0 : nil }
@@ -285,7 +297,8 @@ private extension AppCoordinator {
         home.authFlow.pendingOwnerID = nil
       }
       home.authFlow.verifiedUserID = eligibleID
-      if let userID { home.authFlow.lastVerifiedUserID = userID }
+      home.authFlow.lastVerifiedUserID = userID
+      home.authFlow.hasSession = isLoggedIn
       state = .home(home)
       return .send(.scope(.home(.festival(.reloadBookmarks(userID: eligibleID)))))
 
@@ -317,6 +330,7 @@ private extension AppCoordinator {
         home.authFlow.profile = profile
         home.authFlow.verifiedUserID = profile.user.id
         home.authFlow.lastVerifiedUserID = profile.user.id
+        home.authFlow.hasSession = true
         if profile.isEligible {
           return finishEligible(state: &state, home: &home)
         }
@@ -334,6 +348,8 @@ private extension AppCoordinator {
 
       case .failure(.unauthenticated):
         home.authFlow.verifiedUserID = nil
+        home.authFlow.lastVerifiedUserID = nil
+        home.authFlow.hasSession = false
         home.authFlow.profile = nil
         home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .login
         state = .home(home)
@@ -415,6 +431,8 @@ private extension AppCoordinator {
 
       case .failure(.unauthenticated):
         home.authFlow.verifiedUserID = nil
+        home.authFlow.lastVerifiedUserID = nil
+        home.authFlow.hasSession = false
         home.authFlow.profile = nil
         home.authFlow.presentation = .login
         state = .home(home)
@@ -430,6 +448,27 @@ private extension AppCoordinator {
         state = .home(home)
         return .none
       }
+
+    case let .myAccountFinished(generation, operation, result):
+      guard case var .home(home) = state,
+            home.authFlow.accountOperationGeneration == generation else { return .none }
+      home.authFlow.accountOperationGeneration = nil
+      home.authFlow.isLoading = false
+      switch result {
+      case .success, .failure(.unauthenticated):
+        var cleared = AuthFlow()
+        cleared.generation = max(home.authFlow.generation, generation)
+        home.authFlow = cleared
+        home.profileState = .init()
+        state = .home(home)
+        return .send(.scope(.home(.festival(.reloadBookmarks(userID: nil)))))
+      case .failure:
+        home.authFlow.message = operation == .withdraw
+          ? "회원 탈퇴에 실패했습니다. 다시 시도해 주세요."
+          : "로그아웃에 실패했습니다. 다시 시도해 주세요."
+        state = .home(home)
+        return .none
+      }
     }
   }
 
@@ -439,7 +478,8 @@ private extension AppCoordinator {
       return .send(.view(.presentHome))
 
     case let .home(.festival(.delegate(.bookmarkRequested(id)))):
-      guard case var .home(home) = state else { return .none }
+      guard case var .home(home) = state,
+            home.authFlow.accountOperationGeneration == nil else { return .none }
       home.authFlow.generation += 1
       home.authFlow.pendingFestivalID = id
       if let userID = home.authFlow.verifiedUserID,
@@ -474,6 +514,7 @@ private extension AppCoordinator {
         home.authFlow.pendingOwnerID = nil
       }
       home.authFlow.verifiedUserID = result.user.id
+      home.authFlow.hasSession = true
       home.authFlow.profile = nil
       home.authFlow.presentation = nil
       home.authFlow.loginAttemptGeneration = nil
@@ -483,14 +524,64 @@ private extension AppCoordinator {
       state = .home(home)
       return fetchProfile(generation: generation)
 
+    case .home(.delegate(.myLoginRequested)):
+      guard case var .home(home) = state,
+            !home.authFlow.isLoading else { return .none }
+      home.authFlow.generation += 1
+      home.authFlow.pendingFestivalID = nil
+      home.authFlow.pendingOwnerID = nil
+      home.authFlow.message = nil
+      home.authFlow.presentation = .login
+      state = .home(home)
+      return .none
+
+    case .home(.delegate(.myProfileRefreshRequested)):
+      return .send(.view(.retryProfile))
+
+    case .home(.delegate(.myLogoutRequested)):
+      return myAccountOperation(state: &state, operation: .signOut)
+
+    case .home(.delegate(.myWithdrawRequested)):
+      return myAccountOperation(state: &state, operation: .withdraw)
+
     default:
       return .none
     }
   }
 
+  func myAccountOperation(
+    state: inout State,
+    operation: MyAccountOperation
+  ) -> Effect<Action> {
+    guard case var .home(home) = state,
+          home.authFlow.hasSession,
+          !home.authFlow.isLoading else { return .none }
+    home.authFlow.generation += 1
+    home.authFlow.accountOperationGeneration = home.authFlow.generation
+    home.authFlow.isLoading = true
+    home.authFlow.message = nil
+    let generation = home.authFlow.generation
+    state = .home(home)
+    return .run { send in
+      do {
+        switch operation {
+        case .signOut: try await authUseCase.signOut()
+        case .withdraw: try await authUseCase.withdraw()
+        }
+        await send(.inner(.myAccountFinished(generation: generation, operation: operation, result: .success(()))))
+      } catch {
+        await send(.inner(.myAccountFinished(
+          generation: generation, operation: operation, result: .failure(ProfileFailure(error))
+        )))
+      }
+    }
+  }
+
   func fetchProfile(generation: Int) -> Effect<Action> {
     .run { send in
-      await send(.inner(.sessionRestored(generation: generation, userID: await authService.currentUserID)))
+      let isLoggedIn = await authService.isLoggedIn
+      let userID = await authService.currentUserID
+      await send(.inner(.sessionRestored(generation: generation, userID: userID, isLoggedIn: isLoggedIn)))
       do {
         let profile = try await authUseCase.fetchProfile()
         await send(.inner(.profileLoaded(generation: generation, .success(profile))))

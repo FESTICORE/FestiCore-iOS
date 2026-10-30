@@ -5,12 +5,6 @@ import FestivalDomainInterface
 import FestiCoreNetworkInterface
 import Foundation
 
-public enum FestivalLiveBoardError: Error, Sendable {
-  case deviceNotRegistered
-  case invalidFestivalID
-  case invalidResponse
-}
-
 public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
   private let client: any FestiCoreRequestClient
   private let device: any DeviceRegistrationService

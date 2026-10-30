@@ -90,8 +90,8 @@ private extension AppCoordinatorView {
   var loginSheet: some View {
     VStack {
       FCLoginSheet(
-        title: "축제를 저장하려면 로그인이 필요해요",
-        message: "로그인 후 선택한 축제를 저장할 수 있어요.",
+        title: currentTabIsMy ? "계정 정보를 보려면 로그인이 필요해요" : "축제를 저장하려면 로그인이 필요해요",
+        message: currentTabIsMy ? "로그인 후 프로필을 확인할 수 있어요." : "로그인 후 선택한 축제를 저장할 수 있어요.",
         onApple: { store.send(.view(.startLogin(.apple))) },
         onGoogle: { store.send(.view(.startLogin(.google))) }
       )
@@ -188,13 +188,18 @@ private extension AppCoordinatorView {
     return home.authFlow
   }
 
+  var currentTabIsMy: Bool {
+    guard case let .home(home) = store.state else { return false }
+    return home.selectedTab == .my
+  }
+
   var legalBaseURL: URL? {
     Self.legalBaseURL(host: Bundle.main.object(forInfoDictionaryKey: "FestiCoreAPIHost") as? String)
   }
 }
 
 extension AppCoordinatorView {
-  static func legalBaseURL(host: String?) -> URL? {
+  nonisolated static func legalBaseURL(host: String?) -> URL? {
     guard let host, !host.isEmpty else { return nil }
     return URL(string: "https://\(host)/api/v1/legal/")
   }

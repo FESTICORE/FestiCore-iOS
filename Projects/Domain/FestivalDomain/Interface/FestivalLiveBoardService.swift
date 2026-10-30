@@ -63,6 +63,12 @@ public protocol FestivalLiveBoardService: Sendable {
   func refresh(for festivalID: String) async throws -> FestivalLiveBoardSnapshot
 }
 
+public enum FestivalLiveBoardError: Error, Equatable, Sendable {
+  case deviceNotRegistered
+  case invalidFestivalID
+  case invalidResponse
+}
+
 public enum FestivalLiveBoardServiceDependency: TestDependencyKey {
   public static var testValue: any FestivalLiveBoardService { EmptyFestivalLiveBoardService() }
 }
