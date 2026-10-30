@@ -40,5 +40,6 @@ let project = Project.makeAppModule(
   resources: ["Resources/**"],
   infoPlist: .appInfoPlist,
   entitlements: .file(path: "../../Entitlements/FestiCore.entitlements"),
-  hasTests: true
+  hasTests: true,
+  hasUITests: true
 )
