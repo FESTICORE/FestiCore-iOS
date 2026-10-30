@@ -6,17 +6,23 @@ public struct FestivalBookedStore: Sendable {
   public var save: @Sendable (_ ids: Set<String>, _ userID: String) -> Void
   public var legacyBookmarks: @Sendable () -> Set<String>
   public var resolveLegacyMigrationAction: @Sendable (_ accepted: Bool, _ userID: String) -> Void
+  public var offlineEligible: @Sendable (_ userID: String) -> Bool
+  public var setOfflineEligible: @Sendable (_ userID: String, _ eligible: Bool) -> Void
 
   public init(
     load: @escaping @Sendable (_ userID: String) -> Set<String>,
     save: @escaping @Sendable (_ ids: Set<String>, _ userID: String) -> Void,
     legacyBookmarks: @escaping @Sendable () -> Set<String> = { [] },
-    resolveLegacyMigration: @escaping @Sendable (_ accepted: Bool, _ userID: String) -> Void = { _, _ in }
+    resolveLegacyMigration: @escaping @Sendable (_ accepted: Bool, _ userID: String) -> Void = { _, _ in },
+    offlineEligible: @escaping @Sendable (_ userID: String) -> Bool = { _ in false },
+    setOfflineEligible: @escaping @Sendable (_ userID: String, _ eligible: Bool) -> Void = { _, _ in }
   ) {
     self.load = load
     self.save = save
     self.legacyBookmarks = legacyBookmarks
     self.resolveLegacyMigrationAction = resolveLegacyMigration
+    self.offlineEligible = offlineEligible
+    self.setOfflineEligible = setOfflineEligible
   }
 
   public func load(for userID: String) -> Set<String> { load(userID) }
@@ -65,6 +71,10 @@ extension FestivalBookedStore: DependencyKey {
 
   private static func accountKey(_ userID: String) -> String {
     "FestiCore.bookedFestivalIDs.user.\(userID)"
+  }
+
+  private static func eligibilityKey(_ userID: String) -> String {
+    "FestiCore.bookedFestivalIDs.eligible.\(userID)"
   }
 
   private static func finishAcceptedMigration(for userID: String, defaults: UserDefaults) {
@@ -119,6 +129,17 @@ extension FestivalBookedStore: DependencyKey {
           } else {
             defaults.removeObject(forKey: legacyKey)
           }
+        }
+      },
+      offlineEligible: { userID in
+        box.withLock { defaults in
+          !userID.isEmpty && defaults.bool(forKey: eligibilityKey(userID))
+        }
+      },
+      setOfflineEligible: { userID, eligible in
+        box.withLock { defaults in
+          guard !userID.isEmpty else { return }
+          defaults.set(eligible, forKey: eligibilityKey(userID))
         }
       }
     )

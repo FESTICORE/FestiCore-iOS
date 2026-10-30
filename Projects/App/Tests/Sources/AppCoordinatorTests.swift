@@ -78,6 +78,59 @@ struct AppCoordinatorTests {
     }
   }
 
+  @Test func offlineRestartRestoresAndSavesOnlyTheCurrentAccountsBookmarks() async {
+    let box = BookmarkBox(ids: ["saved"])
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.isLoading = true
+    home.authFlow.pendingFestivalID = "new"
+    home.authFlow.pendingOwnerID = "user-a"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.festivalBookedStore = FestivalBookedStore(
+        load: { userID in userID == "user-a" ? box.ids : [] },
+        save: { ids, userID in if userID == "user-a" { box.ids = ids } },
+        offlineEligible: { $0 == "user-a" }
+      )
+    }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-a")))
+    await store.send(.inner(.profileLoaded(generation: 1, .failure(.offline))))
+    await store.receive(\.scope.home.completePendingBookmark)
+    #expect(box.ids == ["saved", "new"])
+    guard case let .home(restored) = store.state else { return }
+    #expect(restored.authFlow.verifiedUserID == "user-a")
+  }
+
+  @Test func accountSwitchAndLogoutDiscardPreviousAccountsPendingBookmark() async {
+    let box = BookmarkBox(ids: ["saved-a"])
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.pendingFestivalID = "new"
+    home.authFlow.pendingOwnerID = "user-a"
+    home.authFlow.verifiedUserID = "user-a"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.festivalBookedStore = FestivalBookedStore(
+        load: { userID in userID == "user-a" ? box.ids : ["saved-b"] },
+        save: { ids, userID in if userID == "user-a" { box.ids = ids } },
+        offlineEligible: { _ in true }
+      )
+    }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-b")))
+    await store.send(.inner(.profileLoaded(generation: 1, .failure(.offline))))
+    guard case let .home(switched) = store.state else { return }
+    #expect(switched.authFlow.pendingFestivalID == nil)
+    #expect(switched.authFlow.verifiedUserID == "user-b")
+    #expect(box.ids == ["saved-a"])
+
+    await store.send(.inner(.sessionRestored(generation: 1, userID: nil)))
+    guard case let .home(signedOut) = store.state else { return }
+    #expect(signedOut.authFlow.verifiedUserID == nil)
+    #expect(box.ids == ["saved-a"])
+  }
+
   @Test(arguments: [ProfileStubFailure.server, .missingVersion])
   func foregroundFailureDoesNotReuseCachedEligibility(failure: ProfileStubFailure) async {
     let box = BookmarkBox(ids: [])

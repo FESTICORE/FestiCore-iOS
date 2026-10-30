@@ -40,6 +40,7 @@ public struct AuthRepositoryImpl: AuthInterface {
       accessToken: response.data.accessToken,
       refreshToken: response.data.refreshToken
     )
+    await authService.rememberUserID(response.data.user.id)
     return response.data.result
   }
 

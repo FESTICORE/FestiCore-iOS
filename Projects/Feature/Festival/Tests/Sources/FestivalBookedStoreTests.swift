@@ -19,6 +19,16 @@ struct FestivalBookedStoreTests {
     #expect(store.load(for: "user-b").isEmpty)
   }
 
+  @Test func offlineEligibilityIsRememberedPerAccount() {
+    let (store, defaults) = makeStore()
+    #expect(!store.offlineEligible("user-a"))
+    store.setOfflineEligible("user-a", true)
+    #expect(FestivalBookedStore.userDefaults(defaults).offlineEligible("user-a"))
+    #expect(!store.offlineEligible("user-b"))
+    store.setOfflineEligible("user-a", false)
+    #expect(!store.offlineEligible("user-a"))
+  }
+
   @Test func explicitBookmarkIntentRemainsCorrectAfterLegacyMigration() {
     let (store, defaults) = makeStore()
     defaults.set(["festival"], forKey: "FestiCore.bookedFestivalIDs")

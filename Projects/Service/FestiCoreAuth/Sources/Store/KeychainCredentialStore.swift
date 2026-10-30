@@ -44,6 +44,7 @@ final class KeychainCredentialStore: CredentialStore {
     lock.withLock {
       try? storage.remove(.accessToken)
       try? storage.remove(.refreshToken)
+      try? storage.remove(.sessionUserID)
       currentRevision = UUID()
     }
   }

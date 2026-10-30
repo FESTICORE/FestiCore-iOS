@@ -38,8 +38,16 @@ private struct UnimplementedAuthService: AuthService {
     }
   }
 
+  var currentUserID: String? {
+    get async { nil }
+  }
+
   func signIn(accessToken: String, refreshToken: String) async {
     reportIssue("authService 미등록")
+  }
+
+  func rememberUserID(_ userID: String) async {
+    // Test doubles can omit the optional local identity cache.
   }
 
   func signOut() async {

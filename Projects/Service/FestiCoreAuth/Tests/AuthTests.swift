@@ -86,10 +86,18 @@ struct AuthTests {
     #expect((client as AnyObject) === (auth.authenticatedClient as AnyObject))
 
     await auth.signIn(accessToken: "old", refreshToken: "old-refresh")
+    await auth.rememberUserID("user-a")
+    #expect(await auth.currentUserID == "user-a")
     #expect(storage.load(.accessToken) == "old")
     #expect(storage.load(.refreshToken) == "old-refresh")
 
+    let restored = AuthFactory.make(refreshClient: refreshClient, storage: storage)
+    #expect(await restored.currentUserID == "user-a")
+
     await auth.signIn(accessToken: "new", refreshToken: "new-refresh")
+    #expect(await auth.currentUserID == nil)
+    await auth.rememberUserID("user-b")
+    #expect(await auth.currentUserID == "user-b")
     #expect(storage.load(.accessToken) == "new")
     #expect(storage.load(.refreshToken) == "new-refresh")
 
@@ -97,6 +105,8 @@ struct AuthTests {
     #expect(await auth.isLoggedIn == false)
     #expect(storage.load(.accessToken) == nil)
     #expect(storage.load(.refreshToken) == nil)
+    #expect(storage.load(.sessionUserID) == nil)
+    #expect(await auth.currentUserID == nil)
   }
 
   @Test("로그아웃 뒤 늦게 도착한 갱신 결과를 저장하지 않는다")

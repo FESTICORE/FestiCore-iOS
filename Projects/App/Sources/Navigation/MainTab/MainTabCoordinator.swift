@@ -99,7 +99,8 @@ struct MainTabCoordinator {
 
       case let .completePendingBookmark(id, userID, shouldBeBooked):
         guard state.authFlow.verifiedUserID == userID,
-              state.authFlow.profile?.isEligible == true else { return .none }
+              (state.authFlow.profile?.isEligible == true
+                || (state.authFlow.profile == nil && bookedStore.offlineEligible(userID))) else { return .none }
         bookedStore.setBookmark(id, booked: shouldBeBooked, for: userID)
         return .send(.festival(.reloadBookmarks(userID: userID)))
       }

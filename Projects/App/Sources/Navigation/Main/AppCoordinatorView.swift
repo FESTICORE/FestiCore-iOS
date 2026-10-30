@@ -8,10 +8,12 @@
 import ComposableArchitecture
 import FestiCoreDesignKit
 import SwiftUI
+import UIKit
 
 struct AppCoordinatorView: View {
   @Bindable var store: StoreOf<AppCoordinator>
   @Environment(\.scenePhase) private var scenePhase
+  @State private var keyboardInset: CGFloat = 0
 
   private enum AuthSheet: String, Identifiable {
     case login, onboarding, migration, retry
@@ -72,6 +74,13 @@ struct AppCoordinatorView: View {
     }
     .onChange(of: scenePhase) { _, phase in
       if phase == .active { store.send(.view(.foregrounded)) }
+    }
+    .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
+      guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+      keyboardInset = max(0, UIScreen.main.bounds.height - frame.minY)
+    }
+    .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+      keyboardInset = 0
     }
   }
 
@@ -141,7 +150,9 @@ struct AppCoordinatorView: View {
       }
       .padding(24)
     }
-    .frame(maxHeight: 540)
+    .frame(maxHeight: max(180, min(540, UIScreen.main.bounds.height - keyboardInset - 80)))
+    .padding(.bottom, keyboardInset)
+    .scrollDismissesKeyboard(.interactively)
   }
 
   private var migrationSheet: some View {

@@ -8,12 +8,14 @@
 import AuthDomainInterface
 import ComposableArchitecture
 import FeatureAssembly
+import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
 import Foundation
 
 @Reducer
 struct AppCoordinator {
   @Dependency(\.authUseCase) private var authUseCase
+  @Dependency(\.authService) private var authService
   @Dependency(\.festivalBookedStore) private var bookedStore
 
   struct AuthFlow: Equatable {
@@ -81,6 +83,7 @@ struct AppCoordinator {
   @CasePathable
   enum InnerAction {
     case completeHomeTransition
+    case sessionRestored(generation: Int, userID: String?)
     case profileLoaded(generation: Int, Result<AuthProfile, ProfileFailure>)
     case profileUpdated(generation: Int, Result<AuthUser, ProfileFailure>)
   }
@@ -93,12 +96,19 @@ struct AppCoordinator {
 
   enum ProfileFailure: Error, Equatable, Sendable {
     case unauthenticated
+    case offline
     case termsOutdated
     case unavailable
 
     init(_ error: Error) {
       if let domain = error as? AuthDomainError, domain == .notAuthenticated {
         self = .unauthenticated
+      } else if let network = error as? FestiCoreNetworkError,
+                case let .transport(transport) = network {
+        switch transport {
+        case .notConnected, .timedOut: self = .offline
+        case .cancelled, .unknown: self = .unavailable
+        }
       } else if let network = error as? FestiCoreNetworkError,
                 case let .response(response) = network {
         if response.httpStatus == 401 {
@@ -264,12 +274,28 @@ private extension AppCoordinator {
       state = .home(.init())
       return .send(.view(.foregrounded))
 
+    case let .sessionRestored(generation, userID):
+      guard case var .home(home) = state,
+            home.authFlow.generation == generation else { return .none }
+      let eligibleID = userID.flatMap { bookedStore.offlineEligible($0) ? $0 : nil }
+      if let ownerID = home.authFlow.pendingOwnerID,
+         let userID,
+         ownerID != userID {
+        home.authFlow.pendingFestivalID = nil
+        home.authFlow.pendingOwnerID = nil
+      }
+      home.authFlow.verifiedUserID = eligibleID
+      if let userID { home.authFlow.lastVerifiedUserID = userID }
+      state = .home(home)
+      return .send(.scope(.home(.festival(.reloadBookmarks(userID: eligibleID)))))
+
     case let .profileLoaded(generation, result):
       guard case var .home(home) = state,
             home.authFlow.generation == generation else { return .none }
       home.authFlow.isLoading = false
       switch result {
       case let .success(profile):
+        bookedStore.setOfflineEligible(profile.user.id, profile.isEligible)
         if let oldID = home.authFlow.verifiedUserID, oldID != profile.user.id {
           home.authFlow.pendingFestivalID = nil
           home.authFlow.pendingOwnerID = nil
@@ -312,6 +338,27 @@ private extension AppCoordinator {
         home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .login
         state = .home(home)
         return .send(.scope(.home(.festival(.reloadBookmarks(userID: nil)))))
+
+      case .failure(.offline):
+        home.authFlow.profile = nil
+        if let userID = home.authFlow.verifiedUserID,
+           bookedStore.offlineEligible(userID),
+           let pending = home.authFlow.pendingFestivalID {
+          let shouldBeBooked = home.authFlow.pendingShouldBeBooked
+          home.authFlow.pendingFestivalID = nil
+          home.authFlow.pendingOwnerID = nil
+          home.authFlow.presentation = nil
+          state = .home(home)
+          return .send(.scope(.home(.completePendingBookmark(
+            id: pending, userID: userID, shouldBeBooked: shouldBeBooked
+          ))))
+        }
+        home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .retry
+        if home.authFlow.presentation == .retry {
+          home.authFlow.message = "오프라인에서 계정 정보를 확인할 수 없어요. 연결 후 다시 시도해 주세요."
+        }
+        state = .home(home)
+        return .none
 
       case .failure:
         home.authFlow.profile = nil
@@ -401,11 +448,6 @@ private extension AppCoordinator {
       home.authFlow.hasRetriedTermsUpdate = false
       home.authFlow.termsUpdateExhausted = false
       let generation = home.authFlow.generation
-      if !home.authFlow.isLoading,
-         let profile = home.authFlow.profile, profile.isEligible,
-         profile.user.id == home.authFlow.verifiedUserID {
-        return finishEligible(state: &state, home: &home)
-      }
       home.authFlow.isLoading = true
       state = .home(home)
       return fetchProfile(generation: generation)
@@ -443,6 +485,7 @@ private extension AppCoordinator {
 
   func fetchProfile(generation: Int) -> Effect<Action> {
     .run { send in
+      await send(.inner(.sessionRestored(generation: generation, userID: await authService.currentUserID)))
       do {
         let profile = try await authUseCase.fetchProfile()
         await send(.inner(.profileLoaded(generation: generation, .success(profile))))
@@ -455,6 +498,7 @@ private extension AppCoordinator {
   func finishEligible(state: inout State, home: inout MainTabCoordinator.State) -> Effect<Action> {
     guard let profile = home.authFlow.profile, profile.isEligible else { return .none }
     let userID = profile.user.id
+    bookedStore.setOfflineEligible(userID, true)
     home.authFlow.verifiedUserID = userID
     home.authFlow.lastVerifiedUserID = userID
     home.authFlow.hasRetriedTermsUpdate = false

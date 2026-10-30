@@ -415,11 +415,14 @@ private actor StubAuthService: AuthService {
 
   var isLoggedIn: Bool { loggedIn }
   var refreshToken: String? { tokens.last }
+  var currentUserID: String? { nil }
 
   func signIn(accessToken: String, refreshToken: String) {
     tokens = [accessToken, refreshToken]
     loggedIn = true
   }
+
+  func rememberUserID(_ userID: String) {}
 
   func signOut() {
     tokens = []
