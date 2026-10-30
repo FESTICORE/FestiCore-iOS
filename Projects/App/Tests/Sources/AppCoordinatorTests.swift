@@ -282,12 +282,80 @@ struct AppCoordinatorTests {
       home.authFlow.presentation = .login
       $0 = .home(home)
     }
+    await store.receive(\.scope.home.festival.accountChanged)
+    await store.receive(\.scope.home.flag.accountChanged)
+    await store.receive(\.scope.home.festival.router)
     guard case let .home(current) = store.state else {
       Issue.record("홈 상태가 아니에요")
       return
     }
     #expect(current.authFlow.pendingFestivalID == "festival")
     #expect(current.authFlow.pendingOwnerID == "user-a")
+  }
+
+  @Test func signOutClearsPreviousAccountFlagsLiveBoardAndBookingsImmediately() async {
+    await expectAccountDataCleared(by: .inner(.myAccountFinished(
+      generation: 1,
+      operation: .signOut,
+      result: .success(())
+    )))
+  }
+
+  @Test func profileLoad401ClearsPreviousAccountFlagsLiveBoardAndBookingsImmediately() async {
+    await expectAccountDataCleared(by: .inner(.profileLoaded(generation: 1, .failure(.unauthenticated))))
+  }
+
+  @Test func profileUpdate401ClearsPreviousAccountFlagsLiveBoardAndBookingsImmediately() async {
+    await expectAccountDataCleared(by: .inner(.profileUpdated(generation: 1, .failure(.unauthenticated))))
+  }
+
+  private func expectAccountDataCleared(by action: AppCoordinator.Action) async {
+    let snapshot = FestivalLiveBoardSnapshot(
+      festivalID: "festival",
+      activeFlags: [],
+      followedFlags: [.init(id: "followed", name: "이전 계정 깃발", status: "active", zoneID: "A", activity: nil, thumbnailURL: nil)],
+      crew: .init(id: "crew", name: "이전 계정 크루", members: [])
+    )
+    var board = FestivalFeature.State(selectedFestivalID: "festival")
+    board.liveBoard = snapshot
+    board.bookedUserID = "user-a"
+    board.bookedFestivalIDs = ["festival"]
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.accountOperationGeneration = 1
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.verifiedUserID = "user-a"
+    home.authFlow.hasSession = true
+    home.flagState = FestivalFlagFeature.State(festivalID: "festival")
+    home.flagState.snapshot = snapshot
+    home.flagState.viewState = .loaded
+    home.festivalState.routes = [.root(.festivalList(board), embedInNavigationView: true)]
+    home.festivalState.routes.push(.liveBoard(board))
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(action)
+    guard case let .home(cleared) = store.state else {
+      Issue.record("홈 상태가 아니에요")
+      return
+    }
+    #expect(cleared.flagState.snapshot == nil)
+    #expect(cleared.flagState.viewState == .idle)
+    for route in cleared.festivalState.routes {
+      let screen: FestivalFeature.State
+      switch route.screen {
+      case let .festivalList(state): screen = state
+      case let .liveBoard(state): screen = state
+      }
+      #expect(screen.liveBoard == nil)
+      #expect(screen.bookedUserID == nil)
+      #expect(screen.bookedFestivalIDs.isEmpty)
+    }
+    #expect(cleared.festivalState.routes.count == 2)
   }
 
   @Test func offlineProfileUpdateKeepsPendingActionForRetry() async {

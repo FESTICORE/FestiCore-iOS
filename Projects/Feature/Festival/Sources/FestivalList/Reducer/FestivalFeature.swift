@@ -110,6 +110,14 @@ public struct FestivalFeature {
     public func imageURL(for value: String?) -> URL? {
       value.flatMap { imageURLs[$0] }
     }
+
+    /// 로그아웃·인증 상실 때 이전 계정의 라이브 보드와 예약 목록을 비운다.
+    public mutating func clearAccountData() {
+      liveBoard = nil
+      liveBoardUnavailable = false
+      bookedUserID = nil
+      bookedFestivalIDs = []
+    }
   }
 
   public enum Connection: Equatable {
@@ -134,6 +142,7 @@ public struct FestivalFeature {
     case inner(InnerAction)
     case delegate(Delegate)
     case reloadBookmarks(userID: String?)
+    case accountChanged
   }
 
   @CasePathable
@@ -325,6 +334,10 @@ public struct FestivalFeature {
         state.bookedUserID = userID
         state.bookedFestivalIDs = userID.map { bookedStore.load(for: $0) } ?? []
         return .none
+
+      case .accountChanged:
+        state.clearAccountData()
+        return watchLiveBoard(state)
 
       case .delegate:
         return .none

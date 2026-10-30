@@ -27,6 +27,12 @@ public struct FestivalFlagFeature {
     public init(festivalID: String? = nil) {
       self.festivalID = festivalID
     }
+
+    /// 로그아웃·인증 상실 때 이전 계정의 깃발 목록을 비운다.
+    public mutating func clearAccountData() {
+      snapshot = nil
+      viewState = .idle
+    }
   }
 
   @CasePathable
@@ -35,6 +41,7 @@ public struct FestivalFlagFeature {
     case disappeared
     case festivalChanged(String?)
     case refresh
+    case accountChanged
     case loaded(String, FestivalLiveBoardSnapshot)
     case failed(String, LoadFailure)
   }
@@ -68,6 +75,10 @@ public struct FestivalFlagFeature {
 
       case .refresh:
         return load(&state)
+
+      case .accountChanged:
+        state.clearAccountData()
+        return state.isVisible ? load(&state) : .cancel(id: CancelID.refresh)
 
       case let .loaded(id, snapshot):
         guard state.festivalID == id, state.isVisible else { return .none }
