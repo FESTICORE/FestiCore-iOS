@@ -10,11 +10,15 @@ import ComposableArchitecture
 import CoreAssembly
 import ServiceAssembly
 
+@MainActor
 class AppDelegate: UIResponder, UIApplicationDelegate {
-  let secureStorage = StorageAssembly.secureStorage()
+  var secureStorage = StorageAssembly.secureStorage()
   @Dependency(\.deviceRegistrationService) var deviceRegistrationService
   var registrationTask: Task<Void, Never>?
   var lastRegisteredDeviceMetadata: DeviceRegistrationMetadata?
+  var notificationAuthorizationClient = NotificationAuthorizationClient.live
+  var notificationAuthorizationTask: Task<NotificationPermissionResult, Never>?
+  var hasRequestedAPNsRegistration = false
   var liveActivityStartToken: String?
   var liveActivityStartTokenTask: Task<Void, Never>?
 
