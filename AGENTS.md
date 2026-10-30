@@ -27,6 +27,12 @@
 - Point-Free Dependencies를 사용한다. 의존성 인터페이스는 해당 Core·Service·Domain 모듈의 Interface 타깃에, 라이브 구현의 `DependencyKey.liveValue`는 구현 또는 조립 모듈에 둔다. 앱 시작점에서 전역 등록하지 않으며 별도 런타임 DI 컨테이너는 만들지 않는다.
 - Feature는 `@Dependency`로 필요한 인터페이스를 사용하고 테스트에서 결정적인 대역을 주입한다. 테스트나 별도 `DependencyValues` 범위에서는 필요한 `register(into:)`를 명시적으로 호출한다. WeaveDI는 사용하지 않는다.
 
+## SwiftUI View 구성
+
+- 앱·Feature·Widget·DesignKit·SharedUI의 SwiftUI View에 같은 규칙을 적용한다. Attendance의 View 구성처럼 타입 본문에는 저장 속성, 초기화, `body`를 두고, 화면 섹션·하위 뷰 빌더·UI 전용 헬퍼는 같은 파일의 `private extension <View이름>`으로 분리한다. 테스트에서 접근하는 내부 헬퍼가 함께 있으면 일반 `extension`에서 각 비공개 멤버에 `private`를 붙인다. 외부에서 호출하는 체이닝 설정은 기존 `public extension`에 둔다. 분리할 내용이 없는 작은 View에 빈 extension을 만들지 않는다.
+- View 분리는 상태 전환, TCA 액션, 접근성, 다크 모드와 화면 동작을 바꾸지 않는 범위에서 한다. 여러 화면이 실제로 공유하는 컴포넌트만 공용 UI 모듈로 이동한다.
+- 비동기 데이터를 기다리는 화면은 로딩·실패·빈 상태를 구분하고 공용 Skeleton을 사용한다. 데이터가 비었다는 이유만으로 로딩을 계속 표시하지 않는다.
+
 ## 통신과 Domain 모듈
 
 - 새 Domain 모듈은 `Interface`와 `Sources`를 나눈다. `Interface/Sources/Entity`에는 공개 값·오류 타입, `Interface/Sources/<기능>`에는 `Sendable` Repository·UseCase의 `*Interface` 계약과 해당 `DependencyKey`·`DependencyValues` 접근자를 둔다. `Sources/<기능>`에는 `*Impl`, `Sources/Model`에는 DTO·Mapper, `Sources`에는 라이브 의존성 등록을 둔다. 테스트·프리뷰 기본값은 명시적인 Mock을 제공하고 미주입 호출은 테스트 이슈로 기록한다.
