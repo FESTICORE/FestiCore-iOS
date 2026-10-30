@@ -12,8 +12,14 @@ import DependencyPackagePlugin
 let project = Project.makeModule(
   name: "FestiCoreStorage",
   product: .framework,
-  dependencies: [.SPM.sqliteData, .SPM.dependencies],
+  dependencies: [
+    .SPM.sqliteData,
+    .SPM.dependencies
+  ],
   hasTests: true,
   hasInterface: true,
-  interfaceDependencies: [.SPM.dependencies, .SPM.sharing]
+  interfaceDependencies: [
+    .SPM.dependencies,
+    .SPM.sharing
+  ]
 )

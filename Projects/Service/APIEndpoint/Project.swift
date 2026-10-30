@@ -13,6 +13,10 @@ import ProjectTemplatePlugin
 let project = Project.makeModule(
   name: "APIEndpoint",
   product: .framework,
-  dependencies: [.service(.api), .core(.network, .interface), .SPM.alamofire],
+  dependencies: [
+    .service(.api),
+    .core(.network, .interface),
+    .SPM.alamofire
+  ],
   hasTests: true
 )
