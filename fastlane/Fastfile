@@ -22,7 +22,6 @@ def release_credentials!
   require_environment!(
     "MATCH_GIT_URL",
     "MATCH_PASSWORD",
-    "APP_STORE_CONNECT_TEAM_ID",
     "APP_STORE_CONNECT_API_KEY_ID",
     "APP_STORE_CONNECT_ISSUER_ID",
     "APP_STORE_CONNECT_API_KEY_CONTENT"
@@ -62,9 +61,10 @@ def prepare_signing_keychain
   end
 end
 
-def prepare_workspace
+def prepare_workspace(cache_profile: nil)
   sh("mise exec -- tuist install")
-  sh("mise exec -- tuist generate --no-open")
+  cache_option = cache_profile ? " --cache-profile #{cache_profile}" : ""
+  sh("mise exec -- tuist generate --no-open#{cache_option}")
 end
 
 def run_stage_tests
@@ -91,6 +91,8 @@ end
 def signed_ipa(scheme, configuration, version, build_number, api_key)
   sentry_dsn = ENV["FESTICORE_SENTRY_DSN"]
   sentry_arg = sentry_dsn.to_s.empty? ? "" : " FESTICORE_SENTRY_DSN=#{Shellwords.escape(sentry_dsn)}"
+  # 배포 archive는 서명되지 않은 Tuist 바이너리 캐시를 쓰지 않고 소스에서 빌드한다.
+  prepare_workspace(cache_profile: "none")
   prepare_signing_keychain
   match(
     type: "appstore",
@@ -129,25 +131,35 @@ def signed_ipa(scheme, configuration, version, build_number, api_key)
     code_sign_identity: "Apple Distribution",
     profile_name: "match AppStore #{NOTIFICATION_SERVICE_BUNDLE_ID}"
   )
-  build_app(
-    workspace: File.expand_path("FestiCore.xcworkspace"),
-    scheme: scheme,
-    configuration: configuration,
-    export_method: "app-store",
-    output_directory: "fastlane/output",
-    output_name: "#{APP_NAME}.ipa",
-    xcodebuild_formatter: "",
-    xcargs: "FESTICORE_VERSION=#{version} FESTICORE_BUILD_NUMBER=#{build_number} FESTICORE_APNS_ENVIRONMENT=production#{sentry_arg}",
-    export_options: {
-      signingStyle: "manual",
-      teamID: TEAM_ID,
-      provisioningProfiles: {
-        BUNDLE_ID => "match AppStore #{BUNDLE_ID}",
-        LIVE_ACTIVITY_BUNDLE_ID => "match AppStore #{LIVE_ACTIVITY_BUNDLE_ID}",
-        NOTIFICATION_SERVICE_BUNDLE_ID => "match AppStore #{NOTIFICATION_SERVICE_BUNDLE_ID}"
+  # Xcode 26 + pointfree 매크로의 clean-archive 레이스는 같은 DerivedData로 재시도하면 통과한다.
+  build_attempts = 0
+  begin
+    build_attempts += 1
+    build_app(
+      workspace: File.expand_path("FestiCore.xcworkspace"),
+      scheme: scheme,
+      configuration: configuration,
+      export_method: "app-store",
+      output_directory: "fastlane/output",
+      output_name: "#{APP_NAME}.ipa",
+      clean: false,
+      xcodebuild_formatter: "",
+      xcargs: "FESTICORE_VERSION=#{version} FESTICORE_BUILD_NUMBER=#{build_number} FESTICORE_APNS_ENVIRONMENT=production#{sentry_arg}",
+      export_options: {
+        signingStyle: "manual",
+        teamID: TEAM_ID,
+        provisioningProfiles: {
+          BUNDLE_ID => "match AppStore #{BUNDLE_ID}",
+          LIVE_ACTIVITY_BUNDLE_ID => "match AppStore #{LIVE_ACTIVITY_BUNDLE_ID}",
+          NOTIFICATION_SERVICE_BUNDLE_ID => "match AppStore #{NOTIFICATION_SERVICE_BUNDLE_ID}"
+        }
       }
-    }
-  )
+    )
+  rescue => e
+    raise e if build_attempts >= 3
+    UI.important("archive 실패 (#{build_attempts}/3) — 같은 DerivedData로 재시도")
+    retry
+  end
 end
 
 platform :ios do
@@ -224,6 +236,7 @@ platform :ios do
   desc "Prod 빌드를 TestFlight에 업로드하고 App Store 버전을 준비"
   lane :release do |options|
     release_credentials!
+    require_environment!("APP_STORE_CONNECT_TEAM_ID")
     version = options[:version] || ENV["FESTICORE_VERSION"]
     UI.user_error!("version 옵션 또는 FESTICORE_VERSION이 필요합니다.") if version.to_s.empty?
     api_key = connect_api_key
@@ -252,6 +265,7 @@ platform :ios do
   desc "지정한 App Store 버전과 빌드를 심사 제출"
   lane :submit_for_review do |options|
     release_credentials!
+    require_environment!("APP_STORE_CONNECT_TEAM_ID")
     version = options[:version]
     UI.user_error!("version 옵션이 필요합니다.") if version.to_s.empty?
     build_number = options[:build_number]
