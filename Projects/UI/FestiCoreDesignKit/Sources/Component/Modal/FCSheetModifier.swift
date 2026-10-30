@@ -92,6 +92,8 @@ extension FCSheetModifier {
       .padding(.bottom, geometry.safeAreaInsets.bottom)
       .background(FestiCoreSemanticColor.backgroundElevated.color)
       .clipShape(UnevenRoundedRectangle(topLeadingRadius: FestiCoreRadius.r24, topTrailingRadius: FestiCoreRadius.r24))
+      // 이동 중 배경과 내부 요소가 같은 기하 변환을 적용받도록 한다.
+      .geometryGroup()
       .offset(y: dragOffset + dismissOffset)
       .animation(isDragging ? nil : .easeOut(duration: Metric.shortDuration), value: dragOffset)
       .gesture(dragGesture)

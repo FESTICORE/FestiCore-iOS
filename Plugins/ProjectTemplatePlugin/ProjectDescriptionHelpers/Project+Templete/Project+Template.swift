@@ -17,7 +17,8 @@ public extension Project {
     resources: ResourceFileElements? = nil,
     infoPlist: InfoPlist = .default,
     entitlements: Entitlements? = nil,
-    hasTests: Bool = false
+    hasTests: Bool = false,
+    hasUITests: Bool = false
   ) -> Project {
     let appTarget: Target = .target(
       name: name,
@@ -66,6 +67,19 @@ public extension Project {
           )
         ],
         dependencies: [.target(name: name)]
+      ))
+    }
+    if hasUITests {
+      targets.append(.target(
+        name: "\(name)UITests",
+        destinations: Environment.deploymentDestination,
+        product: .uiTests,
+        bundleId: "\(bundleId).uiTests",
+        deploymentTargets: Environment.deploymentTarget,
+        infoPlist: .default,
+        buildableFolders: ["Tests/UITests"],
+        dependencies: [.target(name: name)],
+        settings: .settings(base: ["TEST_TARGET_NAME": .string(name)])
       ))
     }
     return Project(
