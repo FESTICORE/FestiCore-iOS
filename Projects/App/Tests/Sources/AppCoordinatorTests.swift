@@ -392,20 +392,16 @@ struct AppCoordinatorTests {
     }
   }
 
-  @Test func openingLiveBoardCarriesVerifiedBookmarkAccount() async {
+  @Test func openingLiveBoardCarriesVerifiedBookmarkAccount() {
     var list = FestivalFeature.State()
     list.bookedUserID = "user-a"
     var state = FestivalCoordinator.State()
     state.routes = [.root(.festivalList(list), embedInNavigationView: true)]
-    let store = TestStore(initialState: state) {
-      FestivalCoordinator()
-    }
-    var board = FestivalFeature.State(selectedFestivalID: "festival")
-    board.bookedUserID = "user-a"
-
-    await store.send(.router(.routeAction(id: 0, action: .festivalList(.view(.selectFestival("festival")))))) {
-      $0.routes.push(.liveBoard(board))
-    }
+    _ = FestivalCoordinator().handleRoute(
+      state: &state,
+      action: .router(.routeAction(id: 0, action: .festivalList(.view(.selectFestival("festival")))))
+    )
+    #expect(state.routes.last?.screen.liveBoard?.bookedUserID == "user-a")
   }
 
   @Test func bookmarkReloadSynchronizesListAndLiveBoard() async {
