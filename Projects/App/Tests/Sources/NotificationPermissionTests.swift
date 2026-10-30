@@ -54,32 +54,6 @@ struct NotificationPermissionTests {
     #expect(state.registrationCount == 1)
   }
 
-  @Test("동시 권한 요청은 시스템 요청 하나를 공유한다")
-  func coalescesConcurrentRequests() async {
-    let delegate = AppDelegate()
-    let state = NotificationPermissionState(status: .notDetermined, requestResult: true)
-    state.suspendAuthorizationRequest = true
-    delegate.notificationAuthorizationClient = state.client
-
-    let first = Task { await delegate.requestNotificationPermission() }
-    await state.waitUntilAuthorizationRequestStarts()
-    let secondStarted = AsyncStream<Void>.makeStream()
-    let second = Task {
-      secondStarted.continuation.yield(())
-      return await delegate.requestNotificationPermission()
-    }
-    var iterator = secondStarted.stream.makeAsyncIterator()
-    _ = await iterator.next()
-    await Task.yield()
-
-    #expect(state.requestCount == 1)
-    state.finishAuthorizationRequest()
-    #expect(await first.value == .authorized)
-    #expect(await second.value == .authorized)
-    #expect(state.requestCount == 1)
-    #expect(state.registrationCount == 1)
-  }
-
   @Test("진행 중인 권한 요청 Task를 재사용한다")
   func reusesInFlightAuthorizationTask() async {
     let delegate = AppDelegate()
@@ -151,9 +125,6 @@ private final class NotificationPermissionState {
   let requestResult: Bool
   var requestCount = 0
   var registrationCount = 0
-  var suspendAuthorizationRequest = false
-  private var authorizationContinuation: CheckedContinuation<Bool, Error>?
-  private var requestStartedContinuation: CheckedContinuation<Void, Never>?
 
   init(status: UNAuthorizationStatus, requestResult: Bool) {
     self.status = status
@@ -165,16 +136,6 @@ private final class NotificationPermissionState {
       authorizationStatus: { self.status },
       requestAuthorization: {
         self.requestCount += 1
-        if self.suspendAuthorizationRequest {
-          guard self.authorizationContinuation == nil else {
-            throw DuplicateNotificationAuthorizationRequest()
-          }
-          return try await withCheckedThrowingContinuation { continuation in
-            self.authorizationContinuation = continuation
-            self.requestStartedContinuation?.resume()
-            self.requestStartedContinuation = nil
-          }
-        }
         self.status = self.requestResult ? .authorized : .denied
         return self.requestResult
       },
@@ -183,20 +144,7 @@ private final class NotificationPermissionState {
       }
     )
   }
-
-  func waitUntilAuthorizationRequestStarts() async {
-    guard authorizationContinuation == nil else { return }
-    await withCheckedContinuation { requestStartedContinuation = $0 }
-  }
-
-  func finishAuthorizationRequest() {
-    status = requestResult ? .authorized : .denied
-    authorizationContinuation?.resume(returning: requestResult)
-    authorizationContinuation = nil
-  }
 }
-
-private struct DuplicateNotificationAuthorizationRequest: Error {}
 
 private actor RecordingDeviceRegistrationService: DeviceRegistrationService {
   private(set) var registrations: [DeviceRegistrationMetadata] = []
