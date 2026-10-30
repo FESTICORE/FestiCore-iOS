@@ -64,7 +64,10 @@ public struct FCAddItemRow: View {
     .frame(height: Metric.height)
   }
 
-  private func submit() {
+}
+
+private extension FCAddItemRow {
+  func submit() {
     guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
     onAdd()
     isTyping = false

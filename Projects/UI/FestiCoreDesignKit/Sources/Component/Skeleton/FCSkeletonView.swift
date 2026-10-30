@@ -28,8 +28,10 @@ public struct FCSkeletonView: View {
       .compositingGroup()
       .accessibilityLabel("불러오는 중")
   }
+}
 
-  private var shimmer: some View {
+private extension FCSkeletonView {
+  var shimmer: some View {
     GeometryReader { proxy in
       let size = proxy.size
       let bandWidth = size.width / 2
@@ -50,7 +52,7 @@ public struct FCSkeletonView: View {
     }
   }
 
-  private func phase(at date: Date) -> Double {
+  func phase(at date: Date) -> Double {
     date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: Metric.period) / Metric.period
   }
 }

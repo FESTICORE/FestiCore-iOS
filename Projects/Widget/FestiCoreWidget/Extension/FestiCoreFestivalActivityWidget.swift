@@ -47,7 +47,10 @@ struct FestiCoreFestivalActivityWidget: Widget {
     }
   }
 
-  private func statusText(for state: FestiCoreFestivalActivityAttributes.ContentState) -> String {
+}
+
+private extension FestiCoreFestivalActivityWidget {
+  func statusText(for state: FestiCoreFestivalActivityAttributes.ContentState) -> String {
     switch state.phase {
     case .upcoming: "곧 시작하는 축제"
     case .ongoing: "진행 중인 축제"
@@ -55,7 +58,7 @@ struct FestiCoreFestivalActivityWidget: Widget {
     }
   }
 
-  private func shortStatusText(for state: FestiCoreFestivalActivityAttributes.ContentState) -> String {
+  func shortStatusText(for state: FestiCoreFestivalActivityAttributes.ContentState) -> String {
     switch state.phase {
     case .upcoming: "예정"
     case .ongoing: "진행"

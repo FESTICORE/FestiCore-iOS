@@ -52,8 +52,10 @@ struct FestivalLiveBoardView: View {
       }
     }
   }
+}
 
-  private func performance(_ slot: FestivalLiveBoardSchedule.Slot, kind: FCLiveBadge.Kind) -> some View {
+private extension FestivalLiveBoardView {
+  func performance(_ slot: FestivalLiveBoardSchedule.Slot, kind: FCLiveBadge.Kind) -> some View {
     HStack(spacing: FestiCoreSpacing.paddingP12) {
       FCLiveBadge(kind)
       Text(slot.artist)

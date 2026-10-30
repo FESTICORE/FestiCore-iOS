@@ -90,7 +90,10 @@ public struct FCBearerChoiceSheet: View {
     .padding(.bottom, FestiCoreSpacing.paddingP16)
   }
 
-  private func tile(_ option: Option) -> some View {
+}
+
+private extension FCBearerChoiceSheet {
+  func tile(_ option: Option) -> some View {
     let isSelected = option.id == selectedID
 
     return Button {

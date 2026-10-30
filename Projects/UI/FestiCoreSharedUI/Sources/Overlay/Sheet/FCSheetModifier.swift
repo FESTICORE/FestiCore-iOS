@@ -71,6 +71,9 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
     .ignoresSafeArea(.keyboard, edges: .bottom)
   }
 
+}
+
+extension FCSheetModifier {
   @ViewBuilder
   private func sheet(geometry: GeometryProxy) -> some View {
     if let currentItem = item {

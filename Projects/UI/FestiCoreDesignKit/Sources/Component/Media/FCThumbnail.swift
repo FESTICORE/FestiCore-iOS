@@ -38,7 +38,10 @@ public struct FCThumbnail: View {
     .accessibilityHidden(true)
   }
 
-  private var scale: CGFloat {
+}
+
+private extension FCThumbnail {
+  var scale: CGFloat {
     side / Metric.size
   }
 

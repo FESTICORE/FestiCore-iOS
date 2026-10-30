@@ -110,7 +110,10 @@ public struct FCLastRideCard: View {
     .background(FestiCoreSemanticColor.backgroundElevated.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
   }
 
-  private func column(
+}
+
+private extension FCLastRideCard {
+  func column(
     _ label: String,
     time: String
   ) -> some View {

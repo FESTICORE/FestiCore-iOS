@@ -50,7 +50,10 @@ public struct FCSearchField: View {
     .background(FestiCoreSemanticColor.fillNormal.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
   }
 
-  private func icon(_ asset: ImageAsset) -> some View {
+}
+
+private extension FCSearchField {
+  func icon(_ asset: ImageAsset) -> some View {
     Image(asset: asset)
       .resizable()
       .frame(width: Metric.iconSize, height: Metric.iconSize)

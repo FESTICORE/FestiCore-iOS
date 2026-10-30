@@ -62,7 +62,10 @@ public struct FCButton: View {
     .opacity(isEnabled ? 1 : FestiCoreState.disabledOpacity)
   }
 
-  private var shape: RoundedRectangle {
+}
+
+private extension FCButton {
+  var shape: RoundedRectangle {
     RoundedRectangle(cornerRadius: size == .large ? FestiCoreRadius.r12 : FestiCoreRadius.r8)
   }
 

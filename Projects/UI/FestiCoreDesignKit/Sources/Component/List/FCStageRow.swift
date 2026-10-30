@@ -71,7 +71,10 @@ public struct FCStageRow: View {
     .accessibilityElement(children: .combine)
   }
 
-  private func slot(
+}
+
+private extension FCStageRow {
+  func slot(
     _ slot: Slot,
     kind: FCLiveBadge.Kind
   ) -> some View {

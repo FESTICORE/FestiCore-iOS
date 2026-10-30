@@ -81,7 +81,10 @@ public struct FCSetSelectRow: View {
     .accessibilityAddTraits(isSelected ? .isSelected : [])
   }
 
-  private var selectMark: some View {
+}
+
+private extension FCSetSelectRow {
+  var selectMark: some View {
     Image(asset: isSelected ? .check : .plus16)
       .resizable()
       .frame(width: Metric.iconSize, height: Metric.iconSize)

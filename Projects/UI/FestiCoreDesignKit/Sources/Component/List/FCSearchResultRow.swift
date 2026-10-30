@@ -55,8 +55,11 @@ public struct FCSearchResultRow: View {
     .buttonStyle(.plain)
   }
 
+}
+
+private extension FCSearchResultRow {
   @ViewBuilder
-  private var leading: some View {
+  var leading: some View {
     switch kind {
     case let .festival(image, _):
       FCThumbnail(image)
