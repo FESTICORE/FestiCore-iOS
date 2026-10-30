@@ -15,6 +15,7 @@ let project = Project.makeModule(
   dependencies: [
     .domain(.auth, .interface),
     .ui(.designSystem),
+    .ui(.sharedUI),
     .SPM.composableArchitecture
   ],
   hasTests: true

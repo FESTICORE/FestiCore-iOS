@@ -15,6 +15,7 @@ let project = Project.makeModule(
   dependencies: [
     .domain(.festival, .interface),
     .ui(.designSystem),
+    .ui(.sharedUI),
     .SPM.composableArchitecture
   ],
   hasTests: true

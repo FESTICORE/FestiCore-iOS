@@ -1,3 +1,4 @@
+import FestiCoreUtility
 import FestivalDomainInterface
 import Foundation
 import Testing
@@ -39,8 +40,8 @@ struct FestivalListPresentationTests {
   }
 
   @Test func listDateUsesKoreanDayAndRejectsInvalidServerDate() {
-    #expect(FestivalDateFormat.festivalDay(from: "2026-10-30") == "10/30(금)")
-    #expect(FestivalDateFormat.festivalDay(from: "2026-02-30") == nil)
+    #expect("2026-10-30".date(as: .day)?.formatted(.festivalDay) == "10/30(금)")
+    #expect("2026-02-30".date(as: .day) == nil)
   }
 
   private func festival(

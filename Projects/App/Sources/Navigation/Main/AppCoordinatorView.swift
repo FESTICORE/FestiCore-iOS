@@ -7,6 +7,7 @@
 
 import ComposableArchitecture
 import FestiCoreDesignKit
+import FestiCoreSharedUI
 import SwiftUI
 import UIKit
 

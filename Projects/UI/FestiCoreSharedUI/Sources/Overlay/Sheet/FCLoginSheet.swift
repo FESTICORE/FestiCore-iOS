@@ -1,10 +1,11 @@
 //
 //  FCLoginSheet.swift
-//  FestiCoreDesignKit
+//  FestiCoreSharedUI
 //
 //  Created by FestiCore on 10/30/26.
 //
 
+import FestiCoreDesignKit
 import SwiftUI
 
 /// 로그인 바텀시트 내용. 팔로우·크루·기수 진입 때만 `presentFCSheet`로 띄운다.

@@ -7,6 +7,7 @@
 
 import ProjectDescription
 import ProjectTemplatePlugin
+import DependencyPlugin
 
 let project = Project.makeModule(
   name: "FestiCoreDesignKit",
@@ -15,5 +16,6 @@ let project = Project.makeModule(
   resources: ["Resources/**"],
   testResources: ["Tests/Resources/**"],
   hasTests: true,
-  hasDemo: true
+  hasDemo: true,
+  demoDependencies: [.ui(.sharedUI)]
 )

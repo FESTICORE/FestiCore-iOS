@@ -8,6 +8,7 @@
 import AuthDomainInterface
 import ComposableArchitecture
 import FestiCoreDesignKit
+import FestiCoreSharedUI
 import SwiftUI
 
 public struct ProfileView: View {

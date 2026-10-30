@@ -1,10 +1,11 @@
 //
 //  FCSheetModifier.swift
-//  FestiCoreDesignKit
+//  FestiCoreSharedUI
 //
 //  Created by FestiCore on 10/30/26.
 //
 
+import FestiCoreDesignKit
 import SwiftUI
 
 /// 시트 안에서 닫기를 요청할 때 쓰는 동작.

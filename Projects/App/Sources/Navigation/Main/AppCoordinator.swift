@@ -435,7 +435,7 @@ private extension AppCoordinator {
         return .none
 
       case .failure(.offline):
-        home.authFlow.message = "오프라인에서는 저장할 수 없어요. 연결 후 다시 시도해 주세요."
+        home.authFlow.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
         state = .home(home)
         return .none
 

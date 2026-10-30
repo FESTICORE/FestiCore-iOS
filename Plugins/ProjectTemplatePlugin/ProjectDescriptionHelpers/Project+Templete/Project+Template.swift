@@ -95,7 +95,8 @@ public extension Project {
     hasTests: Bool = false,
     hasInterface: Bool = false,
     interfaceDependencies: [TargetDependency] = [],
-    hasDemo: Bool = false
+    hasDemo: Bool = false,
+    demoDependencies: [TargetDependency] = []
   ) -> Project {
     var targets: [Target] = []
 
@@ -133,7 +134,7 @@ public extension Project {
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .default,
         buildableFolders: ["Demo"],
-        dependencies: [.target(name: name)]
+        dependencies: [.target(name: name)] + demoDependencies
       ))
     }
 
