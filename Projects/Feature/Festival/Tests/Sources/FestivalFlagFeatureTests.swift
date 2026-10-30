@@ -44,7 +44,7 @@ struct FestivalFlagFeatureTests {
     await store.send(.loaded("old", old))
   }
 
-  @Test func failedRefreshKeepsExistingFlagsForOfflineDisplay() async {
+  @Test func invalidResponseKeepsExistingFlagsForRecoveryDisplay() async {
     let cached = FestivalLiveBoardSnapshot(festivalID: "festival", activeFlags: [], followedFlags: [], crew: nil)
     let store = TestStore(initialState: {
       var state = FestivalFlagFeature.State(festivalID: "festival")
@@ -57,7 +57,7 @@ struct FestivalFlagFeatureTests {
     }
 
     await store.send(.refresh) { $0.viewState = .loading }
-    await store.receive(\.failed) { $0.viewState = .failed }
+    await store.receive(\.failed) { $0.viewState = .invalidResponse }
     #expect(store.state.snapshot == cached)
   }
 

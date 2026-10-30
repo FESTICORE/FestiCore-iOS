@@ -12,6 +12,7 @@ import ComposableArchitecture
 import AuthDomainInterface
 import FeatureAssembly
 import FestivalDomainInterface
+import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
 import TCAFlow
 @testable import FestiCore
@@ -37,6 +38,7 @@ struct AppCoordinatorTests {
     } withDependencies: {
       $0.festivalCatalogService = EmptyFestivalCatalogService()
       $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.authService = StubAuthService(loggedIn: false, userID: nil)
     }
     store.exhaustivity = .off
     await store.send(.scope(.splash(.delegate(.presentHome))))
@@ -60,6 +62,7 @@ struct AppCoordinatorTests {
       AppCoordinator()
     } withDependencies: {
       $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.authService = StubAuthService(loggedIn: false, userID: nil)
     }
     store.exhaustivity = .off
 
@@ -143,6 +146,7 @@ struct AppCoordinatorTests {
       AppCoordinator()
     } withDependencies: {
       $0.authUseCase = FailingProfileAuthUseCase(failure: failure)
+      $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
       $0.festivalBookedStore = FestivalBookedStore(
         load: { _ in box.ids },
         save: { ids, _ in box.ids = ids }
@@ -193,6 +197,7 @@ struct AppCoordinatorTests {
       AppCoordinator()
     } withDependencies: {
       $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-b"))
+      $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
       $0.festivalBookedStore = FestivalBookedStore(
         load: { _ in box.ids },
         save: { ids, _ in box.ids = ids }
@@ -272,6 +277,7 @@ struct AppCoordinatorTests {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       home.authFlow.verifiedUserID = nil
+      home.authFlow.lastVerifiedUserID = nil
       home.authFlow.profile = nil
       home.authFlow.presentation = .login
       $0 = .home(home)
@@ -332,6 +338,7 @@ struct AppCoordinatorTests {
       $0.authUseCase = OutdatedTermsAuthUseCase(
         profile: AuthProfile(user: user, currentTermsVersion: "2026-10")
       )
+      $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
     }
     store.exhaustivity = .off
 
@@ -380,6 +387,7 @@ struct AppCoordinatorTests {
       AppCoordinator()
     } withDependencies: {
       $0.authUseCase = ReturningProfileAuthUseCase(profile: profile)
+      $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
     }
     store.exhaustivity = .off
 
@@ -692,7 +700,7 @@ struct AppCoordinatorTests {
     await store.send(.inner(.profileUpdated(generation: 1, .failure(.offline)))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
-      home.authFlow.message = "오프라인에서는 저장할 수 없어요. 연결 후 다시 시도해 주세요."
+      home.authFlow.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
       $0 = .home(home)
     }
     guard case let .home(unchanged) = store.state else { return }
@@ -770,6 +778,32 @@ private struct OutdatedTermsAuthUseCase: AuthUseCaseInterface {
   }
   func signOut() async throws {}
   func withdraw() async throws {}
+}
+
+private struct StubAuthService: AuthService {
+  let loggedIn: Bool
+  let userID: String?
+
+  var isLoggedIn: Bool { get async { loggedIn } }
+  var currentUserID: String? { get async { userID } }
+  var refreshToken: String? {
+    get async {
+      Issue.record("테스트에서 refreshToken 조회를 예상하지 않았어요")
+      return nil
+    }
+  }
+
+  func signIn(accessToken: String, refreshToken: String) async {
+    Issue.record("테스트에서 signIn 호출을 예상하지 않았어요")
+  }
+
+  func rememberUserID(_ userID: String) async {
+    Issue.record("테스트에서 rememberUserID 호출을 예상하지 않았어요")
+  }
+
+  func signOut() async {
+    Issue.record("테스트에서 signOut 호출을 예상하지 않았어요")
+  }
 }
 
 private func eligibleProfile(id: String) -> AuthProfile {
