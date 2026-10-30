@@ -454,6 +454,7 @@ private extension AppCoordinator {
         var cleared = AuthFlow()
         cleared.generation = generation
         home.authFlow = cleared
+        home.profileState = .init()
         state = .home(home)
         return .send(.scope(.home(.festival(.reloadBookmarks(userID: nil)))))
       case .failure:

@@ -563,10 +563,39 @@ struct AppCoordinatorTests {
     #expect(signedOut.authFlow.profile == nil)
   }
 
+  @Test func completedAccountOperationClosesSheetAfterSwitchingTabs() async {
+    var home = MainTabCoordinator.State(selectedTab: .flag)
+    home.authFlow.generation = 1
+    home.authFlow.hasSession = true
+    home.profileState.isAccountPresented = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.myAccountFinished(
+      generation: 1,
+      operation: .signOut,
+      result: .success(())
+    ))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow = .init()
+      home.authFlow.generation = 1
+      home.profileState = .init()
+      $0 = .home(home)
+    }
+    guard case let .home(signedOut) = store.state else { return }
+    #expect(signedOut.selectedTab == .flag)
+    #expect(!signedOut.profileState.isAccountPresented)
+  }
+
   @Test func myWithdrawalFailureRetainsAccount() async {
     var home = MainTabCoordinator.State(selectedTab: .my)
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.hasSession = true
+    home.profileState.isAccountPresented = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
@@ -587,6 +616,7 @@ struct AppCoordinatorTests {
     }
     guard case let .home(unchanged) = store.state else { return }
     #expect(unchanged.authFlow.profile?.user.id == "user-a")
+    #expect(unchanged.profileState.isAccountPresented)
   }
 
   @Test func myLogoutWorksWhenSessionHasNoUserIDAndProfileFetchFailed() async {

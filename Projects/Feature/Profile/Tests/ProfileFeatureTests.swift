@@ -25,9 +25,10 @@ struct ProfileFeatureTests {
     await store.send(.view(.logoutTapped)) { $0.isLogoutConfirmationPresented = true }
     await store.send(.view(.confirmLogoutTapped)) {
       $0.isLogoutConfirmationPresented = false
-      $0.isAccountPresented = false
     }
     await store.receive(\.delegate.logoutRequested)
+    #expect(store.state.isAccountPresented)
+    await store.send(.view(.logoutTapped)) { $0.isLogoutConfirmationPresented = true }
   }
 
   @Test func packTapPreservesSelectedIdentity() async {
@@ -46,5 +47,16 @@ struct ProfileFeatureTests {
       $0.isAccountPresented = false
       $0.isWithdrawalConfirmationPresented = false
     }
+  }
+
+  @Test func withdrawalFailureCanBeRetriedFromAccountSheet() async {
+    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
+
+    await store.send(.view(.accountTapped(isSignedIn: true))) { $0.isAccountPresented = true }
+    await store.send(.view(.withdrawTapped)) { $0.isWithdrawalConfirmationPresented = true }
+    await store.send(.view(.confirmWithdrawTapped)) { $0.isWithdrawalConfirmationPresented = false }
+    await store.receive(\.delegate.withdrawRequested)
+    #expect(store.state.isAccountPresented)
+    await store.send(.view(.withdrawTapped)) { $0.isWithdrawalConfirmationPresented = true }
   }
 }

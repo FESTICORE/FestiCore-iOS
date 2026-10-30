@@ -108,7 +108,6 @@ public struct ProfileFeature {
         return .none
       case .view(.confirmLogoutTapped):
         state.isLogoutConfirmationPresented = false
-        state.isAccountPresented = false
         return .send(.delegate(.logoutRequested))
       case .view(.withdrawTapped):
         state.isWithdrawalConfirmationPresented = true
@@ -118,7 +117,6 @@ public struct ProfileFeature {
         return .none
       case .view(.confirmWithdrawTapped):
         state.isWithdrawalConfirmationPresented = false
-        state.isAccountPresented = false
         return .send(.delegate(.withdrawRequested))
       case .view(.noticeTapped): return .send(.delegate(.noticeRequested))
       case .view(.termsTapped): return open(legalURL(path: "terms"))

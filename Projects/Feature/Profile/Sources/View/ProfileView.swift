@@ -86,10 +86,17 @@ public struct ProfileView: View {
       )
     }
     .overlay { confirmationOverlay }
+    .onChange(of: hasSession) { wasSignedIn, isSignedIn in
+      if wasSignedIn && !isSignedIn && store.isAccountPresented {
+        store.send(.view(.accountDismissed))
+      }
+    }
   }
+}
 
+private extension ProfileView {
   @ViewBuilder
-  private var topBar: some View {
+  var topBar: some View {
     if isSearchAvailable {
       FCTopBar(.large, title: "마이")
         .trailingAction { store.send(.view(.searchTapped)) }
@@ -98,7 +105,7 @@ public struct ProfileView: View {
     }
   }
 
-  private var receivedPacks: some View {
+  var receivedPacks: some View {
     VStack(spacing: FestiCoreSpacing.paddingP8) {
       HStack {
         sectionTitle("내가 받은 팩")
@@ -127,7 +134,7 @@ public struct ProfileView: View {
     }
   }
 
-  private func packRow(_ pack: ProfileReceivedPack) -> some View {
+  func packRow(_ pack: ProfileReceivedPack) -> some View {
     let image: Image? = pack.imageName.map { Image($0) }
     return FCPackRow(name: pack.name, meta: pack.detail) {
       store.send(.view(.packTapped(pack.id)))
@@ -137,7 +144,7 @@ public struct ProfileView: View {
     .allowsHitTesting(isPackNavigationAvailable)
   }
 
-  private var settings: some View {
+  var settings: some View {
     section("설정") {
       FCListRow("알림") { store.send(.view(.notificationsTapped)) }
       rowDivider
@@ -151,7 +158,7 @@ public struct ProfileView: View {
     }
   }
 
-  private var information: some View {
+  var information: some View {
     section("정보") {
       FCListRow("공지사항") { store.send(.view(.noticeTapped)) }
         .allowsHitTesting(isNoticeAvailable)
@@ -162,13 +169,13 @@ public struct ProfileView: View {
     }
   }
 
-  private enum AccountSheet: String, Identifiable {
+  enum AccountSheet: String, Identifiable {
     case account
 
     var id: String { rawValue }
   }
 
-  private var accountItem: Binding<AccountSheet?> {
+  var accountItem: Binding<AccountSheet?> {
     Binding(
       get: { store.isAccountPresented ? .account : nil },
       set: { if $0 == nil { store.send(.view(.accountDismissed)) } }
@@ -176,7 +183,7 @@ public struct ProfileView: View {
   }
 
   @ViewBuilder
-  private var confirmationOverlay: some View {
+  var confirmationOverlay: some View {
     if store.isWithdrawalConfirmationPresented {
       confirmation(
         title: "회원 탈퇴",
@@ -196,7 +203,7 @@ public struct ProfileView: View {
     }
   }
 
-  private func confirmation(
+  func confirmation(
     title: String,
     message: String,
     confirmTitle: String,
@@ -220,13 +227,13 @@ public struct ProfileView: View {
     }
   }
 
-  private func sectionTitle(_ title: String) -> some View {
+  func sectionTitle(_ title: String) -> some View {
     Text(title)
       .festiCoreFont(.baseCaption1Medium)
       .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
   }
 
-  private func section<Content: View>(
+  func section<Content: View>(
     _ title: String,
     @ViewBuilder content: () -> Content
   ) -> some View {
@@ -242,13 +249,13 @@ public struct ProfileView: View {
     }
   }
 
-  private var rowDivider: some View {
+  var rowDivider: some View {
     FestiCoreSemanticColor.lineNormal.color
       .frame(height: 1)
       .padding(.leading, FestiCoreSpacing.paddingP16)
   }
 
-  private var appVersion: String {
+  var appVersion: String {
     Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0"
   }
 }

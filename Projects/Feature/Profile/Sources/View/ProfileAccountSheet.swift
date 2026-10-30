@@ -26,6 +26,14 @@ struct ProfileAccountSheet: View {
 
       accountDetails
 
+      if let message, !message.isEmpty, !isLoading {
+        Text(message)
+          .festiCoreFont(.baseSubheadlineRegular)
+          .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .accessibilityAddTraits(.updatesFrequently)
+      }
+
       VStack(spacing: FestiCoreSpacing.paddingP8) {
         FCButton("로그아웃", action: onLogout)
           .style(.secondary)
@@ -44,9 +52,11 @@ struct ProfileAccountSheet: View {
     .padding(.horizontal, FestiCoreSpacing.paddingP20)
     .padding(.bottom, FestiCoreSpacing.paddingP24)
   }
+}
 
+private extension ProfileAccountSheet {
   @ViewBuilder
-  private var accountDetails: some View {
+  var accountDetails: some View {
     if let profile {
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
         Text(profile.user.nickname ?? profile.user.email ?? "내 계정")
@@ -69,9 +79,11 @@ struct ProfileAccountSheet: View {
         .frame(maxWidth: .infinity, minHeight: 72)
     } else {
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
-        Text(message ?? "계정 정보를 확인할 수 없습니다")
-          .festiCoreFont(.baseSubheadlineRegular)
-          .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+        if message == nil {
+          Text("계정 정보를 확인할 수 없습니다")
+            .festiCoreFont(.baseSubheadlineRegular)
+            .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+        }
         FCButton("계정 정보 다시 확인", action: onRefresh)
           .style(.secondary)
           .size(.medium)
