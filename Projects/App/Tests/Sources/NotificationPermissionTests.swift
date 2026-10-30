@@ -70,6 +70,7 @@ struct NotificationPermissionTests {
     }
     var iterator = secondStarted.stream.makeAsyncIterator()
     _ = await iterator.next()
+    await Task.yield()
 
     #expect(state.requestCount == 1)
     state.finishAuthorizationRequest()
@@ -77,6 +78,29 @@ struct NotificationPermissionTests {
     #expect(await second.value == .authorized)
     #expect(state.requestCount == 1)
     #expect(state.registrationCount == 1)
+  }
+
+  @Test("진행 중인 권한 요청 Task를 재사용한다")
+  func reusesInFlightAuthorizationTask() async {
+    let delegate = AppDelegate()
+    let state = NotificationPermissionState(status: .notDetermined, requestResult: true)
+    delegate.notificationAuthorizationClient = state.client
+    let results = AsyncStream<NotificationPermissionResult>.makeStream()
+    delegate.notificationAuthorizationTask = Task {
+      var iterator = results.stream.makeAsyncIterator()
+      return await iterator.next() ?? .unavailable
+    }
+    let release = Task {
+      await Task.yield()
+      results.continuation.yield(.denied)
+      results.continuation.finish()
+    }
+
+    let result = await delegate.requestNotificationPermission()
+    await release.value
+    #expect(result == .denied)
+    #expect(state.requestCount == 0)
+    #expect(state.registrationCount == 0)
   }
 
   @Test("허용하면 한 번만 권한을 요청하고 APNs 등록을 시작한다")
