@@ -345,7 +345,7 @@ struct AuthDomainTests {
     #expect(await auth.signOutCalls == 0)
   }
 
-  @Test("회원 탈퇴 요청 실패는 오류를 전파하고 Repository에서 세션을 지우지 않는다", arguments: [0, 401, 500])
+  @Test("회원 탈퇴 요청 실패는 오류를 전파하고 인증 만료 시 세션을 지운다", arguments: [0, 401, 500])
   func withdrawFailure(status: Int) async {
     let auth = StubAuthService(loggedIn: true)
     let error: FestiCoreNetworkError = status == 0
@@ -375,8 +375,8 @@ struct AuthDomainTests {
       Issue.record("네트워크 오류 타입이 유지되지 않음")
     }
     #expect(await client.calls == 1)
-    #expect(await auth.isLoggedIn)
-    #expect(await auth.signOutCalls == 0)
+    #expect(await auth.isLoggedIn == (status != 401))
+    #expect(await auth.signOutCalls == (status == 401 ? 1 : 0))
   }
 
   @Test("회원 탈퇴 UseCase는 저장소의 성공 결과를 전달한다")

@@ -183,6 +183,9 @@ private extension AppCoordinator {
       home.authFlow.pendingFestivalID = nil
       home.authFlow.pendingOwnerID = nil
       home.authFlow.generation += 1
+      if home.authFlow.accountOperationGeneration == nil {
+        home.authFlow.isLoading = false
+      }
       home.authFlow.loginAttemptGeneration = nil
       home.authFlow.presentation = nil
       home.authFlow.message = nil
@@ -452,7 +455,7 @@ private extension AppCoordinator {
       home.authFlow.accountOperationGeneration = nil
       home.authFlow.isLoading = false
       switch result {
-      case .success:
+      case .success, .failure(.unauthenticated):
         var cleared = AuthFlow()
         cleared.generation = max(home.authFlow.generation, generation)
         home.authFlow = cleared

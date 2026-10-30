@@ -659,6 +659,103 @@ struct AppCoordinatorTests {
     #expect(unchanged.profileState.isAccountPresented)
   }
 
+  @Test func unauthenticatedWithdrawalClearsAccount() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.generation = 1
+    home.authFlow.accountOperationGeneration = 1
+    home.authFlow.isLoading = true
+    home.authFlow.hasSession = true
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.verifiedUserID = "user-a"
+    home.profileState.isAccountPresented = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.myAccountFinished(
+      generation: 1,
+      operation: .withdraw,
+      result: .failure(.unauthenticated)
+    ))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow = .init()
+      home.authFlow.generation = 1
+      home.profileState = .init()
+      $0 = .home(home)
+    }
+    guard case let .home(signedOut) = store.state else { return }
+    #expect(!signedOut.authFlow.hasSession)
+    #expect(signedOut.authFlow.profile == nil)
+    #expect(signedOut.authFlow.verifiedUserID == nil)
+    #expect(!signedOut.profileState.isAccountPresented)
+  }
+
+  @Test func dismissingRetryWhileLoadingAllowsForegroundRefresh() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.generation = 1
+    home.authFlow.isLoading = true
+    home.authFlow.presentation = .retry
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.authService = StubAuthService(loggedIn: false, userID: nil)
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.view(.dismissFlow)) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 2
+      home.authFlow.isLoading = false
+      home.authFlow.presentation = nil
+      $0 = .home(home)
+    }
+    await store.send(.inner(.profileLoaded(generation: 1, .failure(.offline))))
+    await store.send(.view(.foregrounded)) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 3
+      home.authFlow.isLoading = true
+      $0 = .home(home)
+    }
+  }
+
+  @Test func dismissingOnboardingWhileSavingAllowsLogout() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.generation = 1
+    home.authFlow.isLoading = true
+    home.authFlow.hasSession = true
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.presentation = .onboarding
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.view(.dismissFlow)) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 2
+      home.authFlow.isLoading = false
+      home.authFlow.presentation = nil
+      $0 = .home(home)
+    }
+    let previous = eligibleProfile(id: "user-a").user
+    await store.send(.inner(.profileUpdated(generation: 1, .success(previous))))
+    await store.send(.scope(.home(.delegate(.myLogoutRequested)))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 3
+      home.authFlow.accountOperationGeneration = 3
+      home.authFlow.isLoading = true
+      $0 = .home(home)
+    }
+  }
+
   @Test func myLogoutWorksWhenSessionHasNoUserIDAndProfileFetchFailed() async {
     var home = MainTabCoordinator.State(selectedTab: .my)
     home.authFlow.message = "회원 정보를 확인할 수 없어요. 다시 시도해 주세요."
@@ -811,8 +908,8 @@ private struct FailingMyAuthUseCase: AuthUseCaseInterface {
   func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser {
     throw AuthDomainError.notAuthenticated
   }
-  func signOut() async throws { throw AuthDomainError.notAuthenticated }
-  func withdraw() async throws { throw AuthDomainError.notAuthenticated }
+  func signOut() async throws { throw FestiCoreNetworkError.response(ResponseError(httpStatus: 503)) }
+  func withdraw() async throws { throw FestiCoreNetworkError.response(ResponseError(httpStatus: 503)) }
 }
 
 private struct UnauthenticatedAuthUseCase: AuthUseCaseInterface {

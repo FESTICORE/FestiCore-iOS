@@ -110,7 +110,12 @@ public struct AuthRepositoryImpl: AuthInterface {
   public func withdraw() async throws {
     guard await authService.isLoggedIn else { throw AuthDomainError.notAuthenticated }
 
-    _ = try await client.send(AuthRequest.withdraw, as: FestiCoreEmptyResponse.self)
-    await authService.signOut()
+    do {
+      _ = try await client.send(AuthRequest.withdraw, as: FestiCoreEmptyResponse.self)
+      await authService.signOut()
+    } catch {
+      await clearUnauthorizedSession(error)
+      throw error
+    }
   }
 }
