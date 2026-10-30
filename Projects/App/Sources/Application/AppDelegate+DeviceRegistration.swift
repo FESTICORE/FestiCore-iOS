@@ -18,6 +18,20 @@ extension AppDelegate {
     registerDeviceWithStoredAPNsToken()
     registerForRemoteNotificationsIfNeeded()
     observeLiveActivityStartToken()
+    let deviceRegistrationService = deviceRegistrationService
+    liveActivityTokenSync = LiveActivityTokenSync(
+      authorization: { [weak self] in
+        await self?.registrationTask?.value
+        if let authorization = try await deviceRegistrationService.authorization() {
+          return authorization
+        }
+        self?.registerDeviceWithStoredAPNsToken()
+        await self?.registrationTask?.value
+        return try await deviceRegistrationService.authorization()
+      },
+      registrationService: liveActivityRegistrationService
+    )
+    liveActivityTokenSync?.start()
   }
 
   func requestNotificationPermission() async -> NotificationPermissionResult {

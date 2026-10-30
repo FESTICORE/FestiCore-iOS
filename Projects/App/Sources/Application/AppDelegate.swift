@@ -14,6 +14,7 @@ import ServiceAssembly
 class AppDelegate: UIResponder, UIApplicationDelegate {
   var secureStorage = StorageAssembly.secureStorage()
   @Dependency(\.deviceRegistrationService) var deviceRegistrationService
+  @Dependency(\.liveActivityRegistrationService) var liveActivityRegistrationService
   var registrationTask: Task<Void, Never>?
   var lastRegisteredDeviceMetadata: DeviceRegistrationMetadata?
   var notificationAuthorizationClient = NotificationAuthorizationClient.live
@@ -21,6 +22,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   var hasRequestedAPNsRegistration = false
   var liveActivityStartToken: String?
   var liveActivityStartTokenTask: Task<Void, Never>?
+  var liveActivityTokenSync: LiveActivityTokenSync?
 
   func application(
     _ application: UIApplication,
