@@ -4,7 +4,7 @@ import Testing
 
 struct FestivalLiveBoardScheduleTests {
   @Test func showsCurrentAndNextForEachStage() throws {
-    let pack = try document(#"{"id":"festival","stages":[{"id":"main","name":"메인 무대"},{"id":"sub","name":"서브 무대"}],"sets":[{"id":"later","stageId":"main","artist":"두 번째","startsAt":"2026-10-30T13:00:00+09:00","endsAt":"2026-10-30T14:00:00+09:00"},{"id":"now","stageId":"main","artist":"첫 번째","startsAt":"2026-10-30T12:00:00+09:00","endsAt":"2026-10-30T13:00:00+09:00"},{"id":"sub-next","stageId":"sub","artist":"다른 공연","startsAt":"2026-10-30T12:30:00+09:00"}]}"#)
+    let pack = try document(#"{"id":"festival","stages":[{"id":"main","name":"메인 무대"},{"id":"sub","name":"서브 무대"}],"sets":[{"id":"later","stageId":"main","artist":"두 번째","startsAt":"2026-10-30T13:00:00+09:00","endsAt":"2026-10-30T14:00:00+09:00"},{"id":"now","stageId":"main","artist":"첫 번째","startsAt":"2026-10-30T12:00:00+09:00","endsAt":"2026-10-30T13:00:00+09:00"},{"id":"sub-next","stageId":"sub","artist":"다른 공연","startsAt":"2026-10-30T12:31:00+09:00"}]}"#)
     let stages = FestivalLiveBoardSchedule.resolve(pack: pack, now: utc("2026-10-30T03:30:00Z"))
 
     #expect(stages.map(\.name) == ["메인 무대", "서브 무대"])
