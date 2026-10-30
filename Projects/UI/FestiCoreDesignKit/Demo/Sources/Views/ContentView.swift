@@ -18,6 +18,7 @@ struct ContentView: View {
           NavigationLink("02 Actions") { ActionView() }
           NavigationLink("03 Selection & Input") { SelectionInputView() }
           NavigationLink("04 Labels & Status") { LabelStatusView() }
+          NavigationLink("05 List Rows") { ListRowView() }
           NavigationLink("07 Timetable") { TimetableView() }
           NavigationLink("09 Media & Brand") { MediaBrandView() }
           NavigationLink("Primary Button") { PrimaryButtonView() }

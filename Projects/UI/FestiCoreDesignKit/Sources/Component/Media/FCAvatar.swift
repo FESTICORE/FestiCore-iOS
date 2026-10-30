@@ -23,6 +23,7 @@ public struct FCAvatar: View {
 
   private var initial: String
   private(set) var tint: Tint = .gray
+  private(set) var avatarSize: Size = .medium
 
   public init(_ initial: String) {
     self.initial = initial
@@ -30,9 +31,9 @@ public struct FCAvatar: View {
 
   public var body: some View {
     Text(initial.prefix(1))
-      .festiCoreFont(.baseSubheadlineBold)
+      .festiCoreFont(avatarSize == .large ? .baseBodyBold : .baseSubheadlineBold)
       .foregroundStyle(colors.foreground.color)
-      .frame(width: Metric.size, height: Metric.size)
+      .frame(width: avatarSize.side, height: avatarSize.side)
       .background(colors.background.color, in: Circle())
       .accessibilityHidden(true)
   }
@@ -61,11 +62,28 @@ public extension FCAvatar {
     copy.tint = tint
     return copy
   }
+
+  /// 크기를 바꾼 사본을 돌려준다.
+  func size(_ size: Size) -> Self {
+    var copy = self
+    copy.avatarSize = size
+    return copy
+  }
 }
 
-private extension FCAvatar {
-  enum Metric {
-    static let size: CGFloat = 40
+public extension FCAvatar {
+  enum Size: Sendable {
+    /// 40, 목록 기본
+    case medium
+    /// 48, 검색 결과
+    case large
+
+    var side: CGFloat {
+      switch self {
+      case .medium: return 40
+      case .large: return 48
+      }
+    }
   }
 }
 
