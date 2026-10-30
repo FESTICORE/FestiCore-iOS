@@ -18,4 +18,9 @@ Feature 상태에 `@Presents var alert: FCAlertState<FCAlertAction>?`를 두고 
 
 ## 시트와 팝업
 
-공통 바텀시트는 `presentFCSheet(item:)`으로 띄웁니다. 로그인·신고·셋 상세·기수 선택 시트와 확인 팝업, 완료 팝업, 토스트가 이 모듈에 있습니다. 색상·서체·버튼은 DesignKit 토큰과 컴포넌트를 사용합니다.
+Attendance와 같이 범용 표현은 DesignKit에, FestiCore 화면 내용은 이 모듈에 둡니다.
+
+- DesignKit: 바텀시트 `presentFCSheet(item:)`(`Component/Modal`), 토스트 `FCToast`·`fcToast(item:)`(`Component/Toast`), 확인 팝업 `FCDialog`·완료 팝업 `FCCheckOverlay`(`Component/PopUp`)
+- SharedUI: 로그인·셋 상세·신고·기수 선택 시트 내용(`Sources/Sheet`), 화면별 토스트 문구 `FCToast.Item.booked()` 등(`Sources/Toast`), TCA 확인 다이얼로그(`Sources/Alert`)
+
+시트 내용은 DesignKit `presentFCSheet(item:)`로 띄우고, 색상·서체·버튼은 DesignKit 토큰과 컴포넌트를 사용합니다.

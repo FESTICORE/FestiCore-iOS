@@ -1,11 +1,10 @@
 //
 //  FCToast.swift
-//  FestiCoreSharedUI
+//  FestiCoreDesignKit
 //
 //  Created by FestiCore on 10/30/26.
 //
 
-import FestiCoreDesignKit
 import SwiftUI
 
 /// 하단 짧은 알림. 탭 바 위에 2초 동안 보인다.
@@ -22,30 +21,6 @@ public struct FCToast: View {
     ) {
       self.icon = icon
       self.message = message
-    }
-
-    public static func booked(_ message: String = "내가 예매한 페스티벌에 담았어요") -> Item {
-      Item(icon: .bookmark16, message: message)
-    }
-
-    public static func unbooked(_ message: String = "내가 예매한 페스티벌에서 제외했어요") -> Item {
-      Item(icon: .bookmark16, message: message)
-    }
-
-    public static func noLink(_ message: String = "예매처 정보가 없습니다") -> Item {
-      Item(icon: .circleInfo16, message: message)
-    }
-
-    public static func scheduleAdded(_ message: String = "내 일정에 추가됐어요") -> Item {
-      Item(icon: .check, message: message)
-    }
-
-    public static func scheduleRemoved(_ message: String = "내 일정에서 제외했어요") -> Item {
-      Item(icon: .xmark16, message: message)
-    }
-
-    public static func followed(_ name: String) -> Item {
-      Item(icon: .flag16, message: "\(name)님을 팔로우했습니다")
     }
   }
 
@@ -103,12 +78,8 @@ private enum Metric {
 
 #Preview {
   VStack(spacing: FestiCoreSpacing.paddingP16) {
-    FCToast(.booked())
-    FCToast(.unbooked())
-    FCToast(.noLink())
-    FCToast(.scheduleAdded())
-    FCToast(.scheduleRemoved())
-    FCToast(.followed("호락호락"))
+    FCToast(FCToast.Item(icon: .check, message: "내 일정에 추가됐어요"))
+    FCToast(FCToast.Item(icon: .circleInfo16, message: "예매처 정보가 없습니다"))
   }
   .padding(FestiCoreSpacing.paddingP16)
 }
