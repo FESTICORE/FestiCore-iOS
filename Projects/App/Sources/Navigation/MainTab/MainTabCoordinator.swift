@@ -22,6 +22,7 @@ struct MainTabCoordinator {
     var festivalState: FestivalCoordinator.State
     var timetableState: TimetableFeature.State
     var flagState = FestivalFlagFeature.State()
+    var profileState = ProfileFeature.State()
     var loginState = LoginFeature.State()
     var authFlow = AppCoordinator.AuthFlow()
 
@@ -53,6 +54,7 @@ struct MainTabCoordinator {
     case festival(FestivalCoordinator.Action)
     case timetable(TimetableFeature.Action)
     case flag(FestivalFlagFeature.Action)
+    case profile(ProfileFeature.Action)
     case login(LoginFeature.Action)
     case delegate(Delegate)
     case completePendingBookmark(id: String, userID: String, shouldBeBooked: Bool)
@@ -74,6 +76,9 @@ struct MainTabCoordinator {
     }
     Scope(state: \.flagState, action: \.flag) {
       FestivalFlagFeature()
+    }
+    Scope(state: \.profileState, action: \.profile) {
+      ProfileFeature()
     }
     Scope(state: \.loginState, action: \.login) {
       LoginFeature()
@@ -113,6 +118,17 @@ struct MainTabCoordinator {
         return .none
 
       case .flag, .delegate:
+        return .none
+
+      case .profile(.delegate(.loginRequested)):
+        return .send(.delegate(.myLoginRequested))
+      case .profile(.delegate(.profileRefreshRequested)):
+        return .send(.delegate(.myProfileRefreshRequested))
+      case .profile(.delegate(.logoutRequested)):
+        return .send(.delegate(.myLogoutRequested))
+      case .profile(.delegate(.withdrawRequested)):
+        return .send(.delegate(.myWithdrawRequested))
+      case .profile:
         return .none
 
       case .login:

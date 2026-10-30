@@ -56,15 +56,12 @@ struct MainTabView: View {
       )
 
     case .my:
-      MyTabView(
+      ProfileView(
+        store: store.scope(state: \.profileState, action: \.profile),
         profile: store.authFlow.profile,
-          hasSession: store.authFlow.hasSession,
+        hasSession: store.authFlow.hasSession,
         isLoading: store.authFlow.isLoading,
-        message: store.authFlow.message,
-        onLogin: { store.send(.delegate(.myLoginRequested)) },
-        onRefresh: { store.send(.delegate(.myProfileRefreshRequested)) },
-        onLogout: { store.send(.delegate(.myLogoutRequested)) },
-        onWithdraw: { store.send(.delegate(.myWithdrawRequested)) }
+        message: store.authFlow.message
       )
     }
   }

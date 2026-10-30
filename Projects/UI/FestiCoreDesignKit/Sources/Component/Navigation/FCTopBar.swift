@@ -182,12 +182,15 @@ public struct FCTopBar: View {
 
   @ViewBuilder
   private var background: some View {
-    if case .backOnImage = style {
+    switch style {
+    case .backOnImage:
       Rectangle()
         .fill(.ultraThinMaterial)
         .environment(\.colorScheme, .dark)
         .overlay(FestiCoreSemanticColor.staticalphaBlack20.color)
-    } else {
+    case .large:
+      FestiCoreSemanticColor.backgroundNormal.color
+    default:
       Rectangle()
         .fill(.ultraThinMaterial)
         .overlay(FestiCoreSemanticColor.materialGlass.color)

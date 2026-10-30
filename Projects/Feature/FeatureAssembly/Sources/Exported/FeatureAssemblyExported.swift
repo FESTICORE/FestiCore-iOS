@@ -8,5 +8,6 @@
 @_exported import ComposableArchitecture
 @_exported import Festival
 @_exported import Login
+@_exported import Profile
 @_exported import ServiceAssembly
 @_exported import Timetable
