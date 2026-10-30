@@ -12,7 +12,10 @@ public struct FCBackPill: View {
   private var label: String
   private var action: () -> Void
 
-  public init(_ label: String, action: @escaping () -> Void) {
+  public init(
+    _ label: String,
+    action: @escaping () -> Void
+  ) {
     self.label = label
     self.action = action
   }

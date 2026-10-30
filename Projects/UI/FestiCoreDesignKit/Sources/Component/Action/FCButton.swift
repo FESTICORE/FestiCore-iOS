@@ -30,7 +30,10 @@ public struct FCButton: View {
   private(set) var size: Size = .large
   private(set) var isEnabled = true
 
-  public init(_ title: String, action: @escaping () -> Void) {
+  public init(
+    _ title: String,
+    action: @escaping () -> Void
+  ) {
     self.title = title
     self.action = action
   }

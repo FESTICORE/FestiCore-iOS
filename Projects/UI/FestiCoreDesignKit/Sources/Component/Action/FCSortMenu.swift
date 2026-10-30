@@ -12,7 +12,10 @@ public struct FCSortMenu: View {
   @Binding private var selection: Int
   private var items: [String]
 
-  public init(selection: Binding<Int>, items: [String]) {
+  public init(
+    selection: Binding<Int>,
+    items: [String]
+  ) {
     _selection = selection
     self.items = items
   }
@@ -62,7 +65,10 @@ private extension FCSortMenu {
   @Previewable
   @State var selection = 0
 
-  FCSortMenu(selection: $selection, items: ["활동 중 순", "팔로워 많은 순", "최근 업데이트 순", "새로 생긴 순"])
+  FCSortMenu(
+    selection: $selection,
+    items: ["활동 중 순", "팔로워 많은 순", "최근 업데이트 순", "새로 생긴 순"]
+  )
     .padding(FestiCoreSpacing.paddingP20)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
 }

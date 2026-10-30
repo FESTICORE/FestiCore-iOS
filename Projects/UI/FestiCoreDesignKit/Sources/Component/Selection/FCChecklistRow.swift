@@ -14,7 +14,11 @@ public struct FCChecklistRow: View {
   private var action: () -> Void
   private(set) var isRequired = false
 
-  public init(_ label: String, isChecked: Bool, action: @escaping () -> Void) {
+  public init(
+    _ label: String,
+    isChecked: Bool,
+    action: @escaping () -> Void
+  ) {
     self.label = label
     self.isChecked = isChecked
     self.action = action
@@ -62,9 +66,18 @@ private extension FCChecklistRow {
 
 #Preview {
   VStack(spacing: FestiCoreSpacing.paddingP12) {
-    FCChecklistRow("보조배터리", isChecked: false) {}
-    FCChecklistRow("보조배터리", isChecked: true) {}
-    FCChecklistRow("티켓", isChecked: false) {}
+    FCChecklistRow(
+      "보조배터리",
+      isChecked: false
+    ) {}
+    FCChecklistRow(
+      "보조배터리",
+      isChecked: true
+    ) {}
+    FCChecklistRow(
+      "티켓",
+      isChecked: false
+    ) {}
       .isRequired(true)
   }
   .padding(FestiCoreSpacing.paddingP12)

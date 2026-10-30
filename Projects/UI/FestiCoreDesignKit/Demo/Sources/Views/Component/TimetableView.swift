@@ -18,17 +18,29 @@ struct TimetableView: View {
       }
       DemoSection("Set Block (default · mine · changed · overlap)") {
         HStack(alignment: .top, spacing: FestiCoreSpacing.paddingP8) {
-          FCSetBlock(artist: "아티스트", time: "18:00 - 19:00")
+          FCSetBlock(
+            artist: "아티스트",
+            time: "18:00 - 19:00"
+          )
             .frame(height: FCSetBlock.height(minutes: 60))
-          FCSetBlock(artist: "아티스트", time: "18:00 - 19:00")
+          FCSetBlock(
+            artist: "아티스트",
+            time: "18:00 - 19:00"
+          )
             .state(.mine)
             .frame(height: FCSetBlock.height(minutes: 60))
         }
         HStack(alignment: .top, spacing: FestiCoreSpacing.paddingP8) {
-          FCSetBlock(artist: "아티스트", time: "18:30 - 19:30")
+          FCSetBlock(
+            artist: "아티스트",
+            time: "18:30 - 19:30"
+          )
             .state(.changed(oldTime: "18:00", change: "30분 지연"))
             .frame(height: FCSetBlock.height(minutes: 60))
-          FCSetBlock(artist: "아티스트", time: "18:00 - 18:20")
+          FCSetBlock(
+            artist: "아티스트",
+            time: "18:00 - 18:20"
+          )
             .state(.overlap())
             .frame(height: FCSetBlock.height(minutes: 20))
         }

@@ -38,7 +38,11 @@ struct ActionView: View {
           .background(FestiCoreSemanticColor.staticalphaBlack80.color)
       }
       DemoSection("Big Button") {
-        FCBigButton("존", sub: "리벳 앞 왼쪽", icon: .locationDot) { isBigButtonSelected.toggle() }
+        FCBigButton(
+          "존",
+          sub: "리벳 앞 왼쪽",
+          icon: .locationDot
+        ) { isBigButtonSelected.toggle() }
           .isSelected(isBigButtonSelected)
           .frame(width: 168, height: 180)
       }
@@ -53,7 +57,10 @@ struct ActionView: View {
           Spacer()
           FCSortButton(sortItems[sortSelection]) {}
         }
-        FCSortMenu(selection: $sortSelection, items: sortItems)
+        FCSortMenu(
+          selection: $sortSelection,
+          items: sortItems
+        )
       }
       DemoSection("Back Pill · Bearer Prompt") {
         FCBackPill("관객 화면으로") {}

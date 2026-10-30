@@ -49,7 +49,10 @@ struct LabelStatusView: View {
         FCBearerFooter(queuedCount: 1)
       }
       DemoSection("Checklist Progress") {
-        FCChecklistProgress(checked: 3, total: 7)
+        FCChecklistProgress(
+          checked: 3,
+          total: 7
+        )
       }
     }
   }

@@ -15,7 +15,12 @@ public struct FCBigButton: View {
   private var action: () -> Void
   private(set) var isSelected = false
 
-  public init(_ label: String, sub: String, icon: ImageAsset, action: @escaping () -> Void) {
+  public init(
+    _ label: String,
+    sub: String,
+    icon: ImageAsset,
+    action: @escaping () -> Void
+  ) {
     self.label = label
     self.sub = sub
     self.icon = icon
@@ -79,8 +84,16 @@ private extension FCBigButton {
 
 #Preview {
   HStack(spacing: FestiCoreSpacing.paddingP16) {
-    FCBigButton("존", sub: "리벳 앞 왼쪽", icon: .locationDot) {}
-    FCBigButton("존", sub: "리벳 앞 왼쪽", icon: .locationDot) {}
+    FCBigButton(
+      "존",
+      sub: "리벳 앞 왼쪽",
+      icon: .locationDot
+    ) {}
+    FCBigButton(
+      "존",
+      sub: "리벳 앞 왼쪽",
+      icon: .locationDot
+    ) {}
       .isSelected(true)
   }
   .frame(height: 180)

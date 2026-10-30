@@ -13,7 +13,10 @@ struct PrimaryButtonView: View {
     DemoPage("Primary Button 검증") {
       DemoSection("State (default · disabled)") {
         FCPrimaryButton("기본 버튼") {}
-        FCPrimaryButton("비활성 버튼", isEnabled: false) {}
+        FCPrimaryButton(
+          "비활성 버튼",
+          isEnabled: false
+        ) {}
       }
     }
   }

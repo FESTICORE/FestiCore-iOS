@@ -22,7 +22,10 @@ struct ColorView: View {
     }
   }
 
-  private func swatch(_ title: String, color: FestiCoreSemanticColor) -> some View {
+  private func swatch(
+    _ title: String,
+    color: FestiCoreSemanticColor
+  ) -> some View {
     VStack(spacing: FestiCoreSpacing.paddingP8) {
       color.color
         .frame(height: 48)

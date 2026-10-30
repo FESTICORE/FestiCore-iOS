@@ -22,7 +22,10 @@ public struct FCPhotoPicker: View {
   private(set) var customDescription: String?
   private(set) var customButtonTitle: String?
 
-  public init(_ state: State, action: @escaping () -> Void) {
+  public init(
+    _ state: State,
+    action: @escaping () -> Void
+  ) {
     self.state = state
     self.action = action
   }
@@ -37,7 +40,10 @@ public struct FCPhotoPicker: View {
         Text(customDescription ?? description)
           .festiCoreFont(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
-        FCButton(customButtonTitle ?? buttonTitle, action: action)
+        FCButton(
+          customButtonTitle ?? buttonTitle,
+          action: action
+        )
           .style(.secondary)
           .size(.medium)
           .padding(.top, FestiCoreSpacing.paddingP4)

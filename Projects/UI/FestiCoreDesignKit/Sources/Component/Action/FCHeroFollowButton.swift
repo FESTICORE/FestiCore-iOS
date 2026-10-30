@@ -14,7 +14,10 @@ public struct FCHeroFollowButton: View {
   private(set) var followTitle = "팔로우"
   private(set) var followingTitle = "팔로잉"
 
-  public init(isFollowing: Bool, action: @escaping () -> Void) {
+  public init(
+    isFollowing: Bool,
+    action: @escaping () -> Void
+  ) {
     self.isFollowing = isFollowing
     self.action = action
   }
@@ -65,7 +68,10 @@ public extension FCHeroFollowButton {
   }
 
   /// 상태별 글자를 바꾼 사본을 돌려준다.
-  func titles(follow: String, following: String) -> Self {
+  func titles(
+    follow: String,
+    following: String
+  ) -> Self {
     var copy = self
     copy.followTitle = follow
     copy.followingTitle = following

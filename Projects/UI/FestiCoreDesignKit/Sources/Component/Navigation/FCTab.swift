@@ -12,7 +12,10 @@ public struct FCTab: View {
   @Binding private var selection: Int
   private var items: [String]
 
-  public init(selection: Binding<Int>, items: [String]) {
+  public init(
+    selection: Binding<Int>,
+    items: [String]
+  ) {
     self._selection = selection
     self.items = items
   }
@@ -26,7 +29,10 @@ public struct FCTab: View {
           Button {
             selection = index
           } label: {
-            FCTabItem(item, isSelected: isSelected)
+            FCTabItem(
+              item,
+              isSelected: isSelected
+            )
               .frame(maxWidth: .infinity)
               .contentShape(Rectangle())
           }
@@ -52,6 +58,9 @@ public extension FCTab {
   @Previewable
   @State var selection = 0
 
-  FCTab(selection: $selection, items: ["1일차", "2일차", "3일차"])
+  FCTab(
+    selection: $selection,
+    items: ["1일차", "2일차", "3일차"]
+  )
     .background(FestiCoreSemanticColor.backgroundNormal.color)
 }

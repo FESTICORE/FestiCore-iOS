@@ -12,7 +12,10 @@ public struct FCZoneChip: View {
   private var zone: String
   private var action: () -> Void
 
-  public init(_ zone: String, action: @escaping () -> Void) {
+  public init(
+    _ zone: String,
+    action: @escaping () -> Void
+  ) {
     self.zone = zone
     self.action = action
   }

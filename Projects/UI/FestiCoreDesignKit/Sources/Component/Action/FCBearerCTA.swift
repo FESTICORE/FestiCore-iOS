@@ -21,7 +21,12 @@ public struct FCBearerCTA: View {
     public var caption: String
     public var note: String?
 
-    public init(title: String, buttonTitle: String, caption: String, note: String? = nil) {
+    public init(
+      title: String,
+      buttonTitle: String,
+      caption: String,
+      note: String? = nil
+    ) {
       self.title = title
       self.buttonTitle = buttonTitle
       self.caption = caption
@@ -31,7 +36,11 @@ public struct FCBearerCTA: View {
     public static func defaultValue(for state: State) -> Copy {
       switch state {
       case .start:
-        return Copy(title: "오늘 깃발을 올릴 준비가 됐나요?", buttonTitle: "깃발 올리기", caption: "올리면 팔로워에게 알림이 가요")
+        return Copy(
+          title: "오늘 깃발을 올릴 준비가 됐나요?",
+          buttonTitle: "깃발 올리기",
+          caption: "올리면 팔로워에게 알림이 가요"
+        )
       case .restart:
         return Copy(
           title: "오늘 깃발을 내렸어요",
@@ -47,7 +56,10 @@ public struct FCBearerCTA: View {
   private var action: () -> Void
   private(set) var customCopy: Copy?
 
-  public init(_ state: State, action: @escaping () -> Void) {
+  public init(
+    _ state: State,
+    action: @escaping () -> Void
+  ) {
     self.state = state
     self.action = action
   }

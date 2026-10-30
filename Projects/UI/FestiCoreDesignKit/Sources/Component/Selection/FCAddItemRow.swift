@@ -14,7 +14,10 @@ public struct FCAddItemRow: View {
   @State private var isTyping = false
   @FocusState private var isFocused: Bool
 
-  public init(text: Binding<String>, onAdd: @escaping () -> Void) {
+  public init(
+    text: Binding<String>,
+    onAdd: @escaping () -> Void
+  ) {
     _text = text
     self.onAdd = onAdd
   }
@@ -32,7 +35,10 @@ public struct FCAddItemRow: View {
           .padding(.horizontal, FestiCoreSpacing.paddingP12)
           .frame(height: Metric.inputHeight)
           .background(FestiCoreSemanticColor.fillNormal.color, in: RoundedRectangle(cornerRadius: Metric.inputRadius))
-        FCButton("추가", action: submit)
+        FCButton(
+          "추가",
+          action: submit
+        )
           .size(.medium)
           .isEnabled(!text.trimmingCharacters(in: .whitespaces).isEmpty)
       } else {

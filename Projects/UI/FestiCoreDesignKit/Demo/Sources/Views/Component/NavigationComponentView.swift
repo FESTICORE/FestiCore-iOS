@@ -21,19 +21,34 @@ struct NavigationComponentView: View {
           .showsBadge(true)
         FCTopBar(.logoBearer)
           .onBearer {}
-        FCTopBar(.back, title: "라인업")
+        FCTopBar(
+          .back,
+          title: "라인업"
+        )
           .onBack {}
-        FCTopBar(.large, title: "타임테이블")
+        FCTopBar(
+          .large,
+          title: "타임테이블"
+        )
         FCTopBar(.search(text: $searchText))
           .searchPlaceholder("아티스트 검색")
           .onCancel {}
-        FCTopBar(.backOnImage, title: "아티스트")
+        FCTopBar(
+          .backOnImage,
+          title: "아티스트"
+        )
           .onBack {}
           .background(FestiCoreSemanticColor.accentPointOrange.color)
       }
       DemoSection("Tab · Segmented") {
-        FCTab(selection: $tabSelection, items: ["1일차", "2일차", "3일차"])
-        FCSegmented(selection: $segmentSelection, items: ["전체", "내 일정"])
+        FCTab(
+          selection: $tabSelection,
+          items: ["1일차", "2일차", "3일차"]
+        )
+        FCSegmented(
+          selection: $segmentSelection,
+          items: ["전체", "내 일정"]
+        )
       }
       DemoSection("Step Header") {
         FCStepHeader(step: 2)

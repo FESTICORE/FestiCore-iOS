@@ -114,8 +114,20 @@ private extension FCSetSelectRow {
 
 #Preview {
   VStack(spacing: FestiCoreSpacing.paddingP12) {
-    FCSetSelectRow(artist: "coldrain", stage: "WONDER STAGE", start: "16:40", end: "17:30", isSelected: false) {}
-    FCSetSelectRow(artist: "coldrain", stage: "WONDER STAGE", start: "16:40", end: "17:30", isSelected: true) {}
+    FCSetSelectRow(
+      artist: "coldrain",
+      stage: "WONDER STAGE",
+      start: "16:40",
+      end: "17:30",
+      isSelected: false
+    ) {}
+    FCSetSelectRow(
+      artist: "coldrain",
+      stage: "WONDER STAGE",
+      start: "16:40",
+      end: "17:30",
+      isSelected: true
+    ) {}
       .overlapText("SPYAIR와 20분 겹쳐요")
   }
   .padding(FestiCoreSpacing.paddingP12)

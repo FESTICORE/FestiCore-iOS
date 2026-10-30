@@ -12,7 +12,10 @@ public struct FCChecklistProgress: View {
   private var checked: Int
   private var total: Int
 
-  public init(checked: Int, total: Int) {
+  public init(
+    checked: Int,
+    total: Int
+  ) {
     self.checked = checked
     self.total = total
   }
@@ -53,7 +56,10 @@ private extension FCChecklistProgress {
 }
 
 #Preview {
-  FCChecklistProgress(checked: 3, total: 7)
+  FCChecklistProgress(
+    checked: 3,
+    total: 7
+  )
     .padding(FestiCoreSpacing.paddingP20)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
 }
