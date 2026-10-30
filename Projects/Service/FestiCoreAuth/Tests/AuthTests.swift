@@ -240,17 +240,17 @@ private final class MemorySecureStorage: SecureStorage, @unchecked Sendable {
   }
 
   func save(_ value: String, for key: SecureStorageKey) throws(SecureStorageError) {
-    try values.withLock {
-      if key == .sessionUserID, failsIdentitySave { throw SecureStorageError.invalidData }
-      stored[key] = value
-    }
+    values.lock()
+    defer { values.unlock() }
+    if key == .sessionUserID, failsIdentitySave { throw SecureStorageError.invalidData }
+    stored[key] = value
   }
   func load(_ key: SecureStorageKey) -> String? { values.withLock { stored[key] } }
   func remove(_ key: SecureStorageKey) throws(SecureStorageError) {
-    try values.withLock {
-      if key == .sessionUserID, failsIdentityRemoval { throw SecureStorageError.invalidData }
-      stored.removeValue(forKey: key)
-    }
+    values.lock()
+    defer { values.unlock() }
+    if key == .sessionUserID, failsIdentityRemoval { throw SecureStorageError.invalidData }
+    stored.removeValue(forKey: key)
   }
   func removeAll() { values.withLock { stored.removeAll() } }
 }

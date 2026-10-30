@@ -48,7 +48,8 @@ extension FestivalLiveActivityClient: DependencyKey {
         festivalName: name,
         startDate: startDate,
         phase: .init(rawValue: phase.rawValue) ?? .upcoming,
-        endDate: endDate
+        endDate: endDate,
+        remoteUpdates: true
       )
     },
     update: { id, phase, startDate, endDate in
