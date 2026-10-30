@@ -22,6 +22,7 @@ let packageSettings = PackageSettings(
   productTypes: [
     "Alamofire": .framework,
     "ComposableArchitecture": .framework,
+    "ConcurrencyExtras": .framework,
     "Dependencies": .framework,
     "DependenciesMacros": .framework,
     "IssueReporting": .framework,
