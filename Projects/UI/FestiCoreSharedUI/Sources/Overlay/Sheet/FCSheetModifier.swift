@@ -97,7 +97,6 @@ extension FCSheetModifier {
       .animation(isDragging ? nil : .easeOut(duration: Metric.shortDuration), value: dragOffset)
       .gesture(dragGesture)
       .ignoresSafeArea(edges: .bottom)
-      .transition(.move(edge: .bottom))
       .onAppear {
         dismissOffset = Metric.slideDistance
         withAnimation(.easeOut(duration: Metric.longDuration)) {

@@ -38,7 +38,7 @@ public struct FCLoginSheet: View {
         .frame(width: Metric.markSize, height: Metric.markSize)
         .background(FestiCoreSemanticColor.staticLime.color, in: Circle())
         .accessibilityHidden(true)
-      VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
+      VStack(spacing: FestiCoreSpacing.paddingP8) {
         Text(title)
           .festiCoreFont(.baseTitle3Bold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
@@ -47,7 +47,8 @@ public struct FCLoginSheet: View {
           .festiCoreFont(.baseSubheadlineRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
       }
-      .frame(maxWidth: .infinity, alignment: .leading)
+      .multilineTextAlignment(.center)
+      .frame(maxWidth: .infinity)
       .padding(.horizontal, FestiCoreSpacing.paddingP20)
       VStack(spacing: FestiCoreSpacing.paddingP16) {
         FCLoginButton(
@@ -66,6 +67,9 @@ public struct FCLoginSheet: View {
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         .buttonStyle(.plain)
     }
+    .padding(.top, FestiCoreSpacing.paddingP8)
+    .padding(.bottom, FestiCoreSpacing.paddingP20)
+    .fixedSize(horizontal: false, vertical: true)
   }
 }
 
