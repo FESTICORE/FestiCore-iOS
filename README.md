@@ -123,6 +123,8 @@ flowchart TD
 
 `FestivalFeature.State.catalog`는 `IdentifiedArrayOf<FestivalCatalogItem>`을 사용합니다. `FestivalCatalogUseCase`는 중복 축제와 초기 선택을 처리하고, `FestivalImageUseCase`는 이미지 수집·프리페치 대상을 정리합니다. 두 유스케이스는 `Projects/Feature/Festival/Sources/Common/UseCase/`에 있습니다.
 
+라이브 보드는 `FestivalLiveBoardService` 계약을 Domain에 두고, Service의 `NetworkFestivalLiveBoardService`가 축제별 라이브 상태와 공개 깃발 프로필을 조회합니다. 화면이 열려 있고 앱이 활성 상태일 때 35초 간격으로 갱신하며, 화면을 닫거나 앱이 백그라운드로 가면 갱신을 중단합니다. 기기 등록 ID는 기존 `DeviceRegistrationService`에서 읽습니다.
+
 ### 의존성 주입
 
 Point-Free Dependencies를 사용합니다. `ServiceAssembly`가 네트워크·인증 세션을 같은 수명주기로 조립하고, 각 기능 모듈은 자신의 `DependencyKey.liveValue`를 등록합니다. `AuthDomain`은 공용 세션을 `@Dependency`로 받아 API를 호출합니다. 앱 시작점의 별도 전역 등록이나 런타임 DI 컨테이너는 사용하지 않습니다.
