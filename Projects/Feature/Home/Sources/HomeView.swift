@@ -14,7 +14,9 @@ public struct HomeView: View {
   public var body: some View {
     ScrollView {
       LazyVStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
-        status
+        if (store.connection != .live && store.connection != .unavailable) || store.cacheReadFailed {
+          status
+        }
         festivalList
         if let pack = store.selectedPack {
           HomeLiveBoardView(pack: pack)

@@ -32,6 +32,7 @@ struct HomeFestivalListView: View {
           if !isSearching { query = "" }
         } label: {
           Image(systemName: isSearching ? "xmark" : "magnifyingglass")
+            .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
             .frame(width: 44, height: 44)
         }
         .accessibilityLabel(isSearching ? "검색 닫기" : "페스티벌 검색")
