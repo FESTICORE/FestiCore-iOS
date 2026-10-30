@@ -11,6 +11,18 @@ import SwiftUI
 @testable import FestiCoreDesignKit
 
 struct FestiCoreDesignKitTests {
+  @Test @MainActor func delayedDismissalCannotCloseReplacementSheet() {
+    let box = TestSheetBox()
+    let binding = Binding<TestSheet?>(get: { box.item }, set: { box.item = $0 })
+
+    box.item = .onboarding
+    FCSheetModifier<TestSheet, Text>.completeDismissal(of: .login, item: binding)
+    #expect(box.item == .onboarding)
+
+    FCSheetModifier<TestSheet, Text>.completeDismissal(of: .onboarding, item: binding)
+    #expect(box.item == nil)
+  }
+
   @Test func pretendardRegistersForUIKitAndSwiftUI() {
     PretendardFontFamily.registerFonts()
     PretendardFontFamily.registerFonts()
@@ -103,6 +115,18 @@ struct FestiCoreDesignKitTests {
     let controller = UIHostingController(rootView: Image(asset: asset))
     #expect(controller.view != nil)
   }
+}
+
+private enum TestSheet: Identifiable {
+  case login
+  case onboarding
+
+  var id: Self { self }
+}
+
+@MainActor
+private final class TestSheetBox {
+  var item: TestSheet? = .login
 }
 
 private extension UIColor {

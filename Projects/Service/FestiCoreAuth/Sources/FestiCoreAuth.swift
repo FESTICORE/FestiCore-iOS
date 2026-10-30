@@ -31,8 +31,11 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
   var isLoggedIn: Bool { store.load() != nil }
   var refreshToken: String? { store.load()?.refreshToken }
   var currentUserID: String? {
-    guard store.load() != nil else { return nil }
-    return try? identityStorage.load(.sessionUserID)
+    guard let credential = store.load(),
+          let stored = try? identityStorage.load(.sessionUserID),
+          stored == JWTDecoder.decodeSubject(credential.accessToken)
+    else { return nil }
+    return stored
   }
 
   func signIn(accessToken: String, refreshToken: String) {
@@ -48,7 +51,9 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
   }
 
   func rememberUserID(_ userID: String) {
-    guard store.load() != nil, !userID.isEmpty else { return }
+    guard let credential = store.load(),
+          userID == JWTDecoder.decodeSubject(credential.accessToken)
+    else { return }
     try? identityStorage.save(userID, for: .sessionUserID)
   }
 
