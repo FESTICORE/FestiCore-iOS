@@ -67,6 +67,7 @@ public struct FCTabBar: View {
     } label: {
       VStack(spacing: FestiCoreSpacing.paddingP8) {
         Image(asset: tab.icon(isSelected: isSelected))
+          .renderingMode(.template)
           .resizable()
           .frame(width: Metric.iconSize, height: Metric.iconSize)
         Text(tab.title)
