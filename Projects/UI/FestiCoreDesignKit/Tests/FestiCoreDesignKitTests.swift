@@ -108,6 +108,28 @@ struct FestiCoreDesignKitTests {
       accessibility.view.sizeThatFits(CGSize(width: 300, height: 300)))
   }
 
+  @Test func paginationMarksCurrentPageFromOne() {
+    #expect(FCPagination(current: 1).dotStates == [true, false, false, false])
+    #expect(FCPagination(current: 2).dotStates == [false, true, false, false])
+    #expect(FCPagination(current: 3).dotStates == [false, false, true, false])
+    #expect(FCPagination(current: 4).dotStates == [false, false, false, true])
+    #expect(FCPagination(current: 2).accessibilityText == "페이지 2/4")
+  }
+
+  @Test func paginationClampsOutOfRangePage() {
+    #expect(FCPagination(current: 0).dotStates == [true, false, false, false])
+    #expect(FCPagination(current: 0).accessibilityText == "페이지 1/4")
+    #expect(FCPagination(current: 5).dotStates == [false, false, false, true])
+    #expect(FCPagination(current: 5).accessibilityText == "페이지 4/4")
+  }
+
+  @Test func paginationDrawsNothingWithoutPages() {
+    #expect(FCPagination(count: 0, current: 1).dotStates.isEmpty)
+    #expect(FCPagination(count: 0, current: 1).accessibilityText == nil)
+    #expect(FCPagination(count: -1, current: 1).dotStates.isEmpty)
+    #expect(FCPagination(count: -1, current: 1).accessibilityText == nil)
+  }
+
   @Test @MainActor func missingImageAssetUsesAttendanceFallback() {
     let asset = ImageAsset(rawValue: "missing-image")
     #expect(UIImage(asset) == nil)
