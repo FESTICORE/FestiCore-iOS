@@ -26,7 +26,7 @@ struct AppCoordinatorView: View {
 
       case .home:
         if let homeStore = store.scope(\.home, action: \.scope.home) {
-          HomeCoordinatorView(store: homeStore)
+          MainTabView(store: homeStore)
             .transition(.asymmetric(
               insertion: .move(edge: .trailing),
               removal: .move(edge: .leading)

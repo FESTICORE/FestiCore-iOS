@@ -9,3 +9,4 @@
 @_exported import Home
 @_exported import Login
 @_exported import ServiceAssembly
+@_exported import Timetable

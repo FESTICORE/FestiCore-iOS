@@ -40,6 +40,19 @@ struct AppCoordinatorTests {
     await store.send(.inner(.completeHomeTransition))
   }
 
+  @Test func tappingTabSwitchesAndRemembersPreviousTab() async {
+    let store = TestStore(initialState: MainTabCoordinator.State()) {
+      MainTabCoordinator()
+    }
+    await store.send(.tabTapped(.timetable))
+    await store.receive(\.selectTab) {
+      $0.selectedTab = .timetable
+      $0.previousTab = .live
+    }
+    await store.send(.tabTapped(.timetable))
+    await store.receive(\.tabReselected)
+  }
+
   @Test func homeCoordinatorStartsWithHomeFeatureRoute() {
     let coordinator = HomeCoordinator.State()
     #expect(coordinator.routes.count == 1)
