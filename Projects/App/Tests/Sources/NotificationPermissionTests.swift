@@ -142,6 +142,9 @@ private final class NotificationPermissionState {
       requestAuthorization: {
         self.requestCount += 1
         if self.suspendAuthorizationRequest {
+          guard self.authorizationContinuation == nil else {
+            throw DuplicateNotificationAuthorizationRequest()
+          }
           return try await withCheckedThrowingContinuation { continuation in
             self.authorizationContinuation = continuation
             self.requestStartedContinuation?.resume()
@@ -168,6 +171,8 @@ private final class NotificationPermissionState {
     authorizationContinuation = nil
   }
 }
+
+private struct DuplicateNotificationAuthorizationRequest: Error {}
 
 private actor RecordingDeviceRegistrationService: DeviceRegistrationService {
   private(set) var registrations: [DeviceRegistrationMetadata] = []

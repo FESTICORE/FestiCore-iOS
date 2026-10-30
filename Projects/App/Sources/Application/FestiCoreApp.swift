@@ -59,6 +59,7 @@ private struct RootView: View {
   }
 
   private func refreshNotificationPermission() async {
+    guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
     let result = await appDelegate.requestNotificationPermission()
     if notificationSettingsAlertGate.shouldShow(for: result) {
       showNotificationSettingsAlert = true
