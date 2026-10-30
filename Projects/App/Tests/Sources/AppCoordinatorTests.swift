@@ -94,7 +94,7 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-a")))
+    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-a", isLoggedIn: true)))
     await store.send(.inner(.profileLoaded(generation: 1, .failure(.offline))))
     await store.receive(\.scope.home.completePendingBookmark)
     #expect(box.ids == ["saved", "new"])
@@ -118,14 +118,14 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-b")))
+    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-b", isLoggedIn: true)))
     await store.send(.inner(.profileLoaded(generation: 1, .failure(.offline))))
     guard case let .home(switched) = store.state else { return }
     #expect(switched.authFlow.pendingFestivalID == nil)
     #expect(switched.authFlow.verifiedUserID == "user-b")
     #expect(box.ids == ["saved-a"])
 
-    await store.send(.inner(.sessionRestored(generation: 1, userID: nil)))
+    await store.send(.inner(.sessionRestored(generation: 1, userID: nil, isLoggedIn: false)))
     guard case let .home(signedOut) = store.state else { return }
     #expect(signedOut.authFlow.verifiedUserID == nil)
     #expect(signedOut.authFlow.lastVerifiedUserID == nil)
@@ -536,6 +536,7 @@ struct AppCoordinatorTests {
     var home = MainTabCoordinator.State(selectedTab: .my)
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.verifiedUserID = "user-a"
+    home.authFlow.hasSession = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
@@ -565,6 +566,7 @@ struct AppCoordinatorTests {
   @Test func myWithdrawalFailureRetainsAccount() async {
     var home = MainTabCoordinator.State(selectedTab: .my)
     home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.hasSession = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
@@ -587,9 +589,8 @@ struct AppCoordinatorTests {
     #expect(unchanged.authFlow.profile?.user.id == "user-a")
   }
 
-  @Test func myLogoutWorksWhenProfileFetchFailedButSessionRemains() async {
+  @Test func myLogoutWorksWhenSessionHasNoUserIDAndProfileFetchFailed() async {
     var home = MainTabCoordinator.State(selectedTab: .my)
-    home.authFlow.lastVerifiedUserID = "user-a"
     home.authFlow.message = "회원 정보를 확인할 수 없어요. 다시 시도해 주세요."
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
@@ -598,6 +599,12 @@ struct AppCoordinatorTests {
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
     store.exhaustivity = .off
+
+    await store.send(.inner(.sessionRestored(generation: 0, userID: nil, isLoggedIn: true))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.hasSession = true
+      $0 = .home(home)
+    }
 
     await store.send(.scope(.home(.delegate(.myLogoutRequested)))) {
       guard case var .home(home) = $0 else { return }
@@ -613,7 +620,25 @@ struct AppCoordinatorTests {
       $0 = .home(home)
     }
     guard case let .home(signedOut) = store.state else { return }
-    #expect(signedOut.authFlow.lastVerifiedUserID == nil)
+    #expect(signedOut.authFlow.hasSession == false)
+  }
+
+  @Test func profileUpdateOfflineFailureKeepsAccount() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.hasSession = true
+    home.authFlow.generation = 1
+    home.authFlow.isLoading = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+
+    await store.send(.inner(.profileUpdated(generation: 1, .failure(.offline)))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.isLoading = false
+      home.authFlow.message = "오프라인에서는 저장할 수 없어요. 연결 후 다시 시도해 주세요."
+      $0 = .home(home)
+    }
+    guard case let .home(unchanged) = store.state else { return }
+    #expect(unchanged.authFlow.profile?.user.id == "user-a")
   }
 }
 

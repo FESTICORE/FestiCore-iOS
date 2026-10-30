@@ -58,7 +58,7 @@ struct MainTabView: View {
     case .my:
       MyTabView(
         profile: store.authFlow.profile,
-        hasSession: store.authFlow.lastVerifiedUserID != nil,
+          hasSession: store.authFlow.hasSession,
         isLoading: store.authFlow.isLoading,
         message: store.authFlow.message,
         onLogin: { store.send(.delegate(.myLoginRequested)) },

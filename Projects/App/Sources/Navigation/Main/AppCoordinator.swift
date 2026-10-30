@@ -33,6 +33,7 @@ struct AppCoordinator {
     var loginAttemptGeneration: Int?
     var verifiedUserID: String?
     var lastVerifiedUserID: String?
+    var hasSession = false
     var profile: AuthProfile?
     var presentation: Presentation?
     var nickname = ""
@@ -83,7 +84,7 @@ struct AppCoordinator {
   @CasePathable
   enum InnerAction {
     case completeHomeTransition
-    case sessionRestored(generation: Int, userID: String?)
+    case sessionRestored(generation: Int, userID: String?, isLoggedIn: Bool)
     case profileLoaded(generation: Int, Result<AuthProfile, ProfileFailure>)
     case profileUpdated(generation: Int, Result<AuthUser, ProfileFailure>)
     case myAccountFinished(generation: Int, operation: MyAccountOperation, result: Result<Void, ProfileFailure>)
@@ -281,7 +282,7 @@ private extension AppCoordinator {
       state = .home(.init())
       return .send(.view(.foregrounded))
 
-    case let .sessionRestored(generation, userID):
+    case let .sessionRestored(generation, userID, isLoggedIn):
       guard case var .home(home) = state,
             home.authFlow.generation == generation else { return .none }
       let eligibleID = userID.flatMap { bookedStore.offlineEligible($0) ? $0 : nil }
@@ -293,6 +294,7 @@ private extension AppCoordinator {
       }
       home.authFlow.verifiedUserID = eligibleID
       home.authFlow.lastVerifiedUserID = userID
+      home.authFlow.hasSession = isLoggedIn
       state = .home(home)
       return .send(.scope(.home(.festival(.reloadBookmarks(userID: eligibleID)))))
 
@@ -324,6 +326,7 @@ private extension AppCoordinator {
         home.authFlow.profile = profile
         home.authFlow.verifiedUserID = profile.user.id
         home.authFlow.lastVerifiedUserID = profile.user.id
+        home.authFlow.hasSession = true
         if profile.isEligible {
           return finishEligible(state: &state, home: &home)
         }
@@ -342,6 +345,7 @@ private extension AppCoordinator {
       case .failure(.unauthenticated):
         home.authFlow.verifiedUserID = nil
         home.authFlow.lastVerifiedUserID = nil
+        home.authFlow.hasSession = false
         home.authFlow.profile = nil
         home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .login
         state = .home(home)
@@ -423,8 +427,15 @@ private extension AppCoordinator {
 
       case .failure(.unauthenticated):
         home.authFlow.verifiedUserID = nil
+        home.authFlow.lastVerifiedUserID = nil
+        home.authFlow.hasSession = false
         home.authFlow.profile = nil
         home.authFlow.presentation = .login
+        state = .home(home)
+        return .none
+
+      case .failure(.offline):
+        home.authFlow.message = "오프라인에서는 저장할 수 없어요. 연결 후 다시 시도해 주세요."
         state = .home(home)
         return .none
 
@@ -496,6 +507,7 @@ private extension AppCoordinator {
         home.authFlow.pendingOwnerID = nil
       }
       home.authFlow.verifiedUserID = result.user.id
+      home.authFlow.hasSession = true
       home.authFlow.profile = nil
       home.authFlow.presentation = nil
       home.authFlow.loginAttemptGeneration = nil
@@ -535,7 +547,7 @@ private extension AppCoordinator {
     operation: MyAccountOperation
   ) -> Effect<Action> {
     guard case var .home(home) = state,
-          home.authFlow.profile != nil || home.authFlow.lastVerifiedUserID != nil,
+          home.authFlow.hasSession,
           !home.authFlow.isLoading else { return .none }
     home.authFlow.generation += 1
     home.authFlow.isLoading = true
@@ -559,7 +571,9 @@ private extension AppCoordinator {
 
   func fetchProfile(generation: Int) -> Effect<Action> {
     .run { send in
-      await send(.inner(.sessionRestored(generation: generation, userID: await authService.currentUserID)))
+      let isLoggedIn = await authService.isLoggedIn
+      let userID = await authService.currentUserID
+      await send(.inner(.sessionRestored(generation: generation, userID: userID, isLoggedIn: isLoggedIn)))
       do {
         let profile = try await authUseCase.fetchProfile()
         await send(.inner(.profileLoaded(generation: generation, .success(profile))))

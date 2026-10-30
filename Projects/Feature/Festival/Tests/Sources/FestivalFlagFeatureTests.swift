@@ -74,6 +74,23 @@ struct FestivalFlagFeatureTests {
     }
     await store.receive(\.failed) { $0.viewState = .deviceNotRegistered }
   }
+
+  @Test(arguments: [FestivalLiveBoardError.invalidFestivalID, .invalidResponse])
+  func contractErrorsAreNotShownAsNetworkFailures(error: FestivalLiveBoardError) async {
+    let store = TestStore(initialState: FestivalFlagFeature.State(festivalID: "festival")) {
+      FestivalFlagFeature()
+    } withDependencies: {
+      $0.festivalLiveBoardService = StubLiveBoardService(result: .failure(error))
+    }
+
+    await store.send(.appeared) {
+      $0.isVisible = true
+      $0.viewState = .loading
+    }
+    await store.receive(\.failed) {
+      $0.viewState = error == .invalidFestivalID ? .invalidFestivalID : .invalidResponse
+    }
+  }
 }
 
 private struct StubLiveBoardService: FestivalLiveBoardService {

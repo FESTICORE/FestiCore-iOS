@@ -15,6 +15,8 @@ public struct FestivalFlagFeature {
       case loaded
       case failed
       case deviceNotRegistered
+      case invalidFestivalID
+      case invalidResponse
     }
 
     public var festivalID: String?
@@ -39,6 +41,8 @@ public struct FestivalFlagFeature {
 
   public enum LoadFailure: Equatable {
     case deviceNotRegistered
+    case invalidFestivalID
+    case invalidResponse
     case unavailable
   }
 
@@ -73,7 +77,12 @@ public struct FestivalFlagFeature {
 
       case let .failed(id, failure):
         guard state.festivalID == id, state.isVisible else { return .none }
-        state.viewState = failure == .deviceNotRegistered ? .deviceNotRegistered : .failed
+        switch failure {
+        case .deviceNotRegistered: state.viewState = .deviceNotRegistered
+        case .invalidFestivalID: state.viewState = .invalidFestivalID
+        case .invalidResponse: state.viewState = .invalidResponse
+        case .unavailable: state.viewState = .failed
+        }
         return .none
       }
     }
@@ -90,6 +99,10 @@ public struct FestivalFlagFeature {
         await send(.loaded(id, try await liveBoardService.refresh(for: id)))
       } catch FestivalLiveBoardError.deviceNotRegistered {
         await send(.failed(id, .deviceNotRegistered))
+      } catch FestivalLiveBoardError.invalidFestivalID {
+        await send(.failed(id, .invalidFestivalID))
+      } catch FestivalLiveBoardError.invalidResponse {
+        await send(.failed(id, .invalidResponse))
       } catch {
         await send(.failed(id, .unavailable))
       }
