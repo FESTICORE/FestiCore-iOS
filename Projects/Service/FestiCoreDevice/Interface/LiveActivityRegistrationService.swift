@@ -41,13 +41,15 @@ public protocol LiveActivityRegistrationService: Sendable {
 
 public enum LiveActivityRegistrationServiceDependency: TestDependencyKey {
   public static var testValue: any LiveActivityRegistrationService {
-    UnimplementedLiveActivityRegistrationService()
+    return UnimplementedLiveActivityRegistrationService()
   }
 }
 
 public extension DependencyValues {
   var liveActivityRegistrationService: any LiveActivityRegistrationService {
-    get { self[LiveActivityRegistrationServiceDependency.self] }
+    get {
+      return self[LiveActivityRegistrationServiceDependency.self]
+    }
     set { self[LiveActivityRegistrationServiceDependency.self] = newValue }
   }
 }
@@ -57,10 +59,10 @@ private struct UnimplementedLiveActivityRegistrationService: LiveActivityRegistr
     _: LiveActivityRegistration,
     authorization _: DeviceAuthorization
   ) async throws(FestiCoreNetworkError) {
-    fatalError("liveActivityRegistrationService 미등록")
+    throw .request(.dependencyNotRegistered("liveActivityRegistrationService"))
   }
 
   func remove(authorization _: DeviceAuthorization) async throws(FestiCoreNetworkError) {
-    fatalError("liveActivityRegistrationService 미등록")
+    throw .request(.dependencyNotRegistered("liveActivityRegistrationService"))
   }
 }

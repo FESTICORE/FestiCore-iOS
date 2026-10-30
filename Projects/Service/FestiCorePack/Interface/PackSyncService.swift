@@ -33,30 +33,38 @@ public protocol PackSyncService: Sendable {
 }
 
 public enum PackSyncServiceDependency: TestDependencyKey {
-  public static var testValue: any PackSyncService { UnimplementedPackSyncService() }
+  public static var testValue: any PackSyncService {
+    return UnimplementedPackSyncService()
+  }
 }
 
 public extension DependencyValues {
   var packSyncService: any PackSyncService {
-    get { self[PackSyncServiceDependency.self] }
+    get {
+      return self[PackSyncServiceDependency.self]
+    }
     set { self[PackSyncServiceDependency.self] = newValue }
   }
 }
 
 private struct UnimplementedPackSyncService: PackSyncService {
   func cachedPack(for _: String) async throws -> CachedFestivalPack? {
-    fatalError("packSyncService 미등록")
+    throw TestPackSyncServiceUnavailable()
   }
 
   func cachedPacks() async throws -> [CachedFestivalPack] {
-    []
+    return []
   }
 
   func sync(for _: String) async throws -> PackSyncResult {
-    fatalError("packSyncService 미등록")
+    throw TestPackSyncServiceUnavailable()
   }
 
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
-    fatalError("packSyncService 미등록")
+    return AsyncThrowingStream { continuation in
+      continuation.finish(throwing: TestPackSyncServiceUnavailable())
+    }
   }
 }
+
+struct TestPackSyncServiceUnavailable: Error {}

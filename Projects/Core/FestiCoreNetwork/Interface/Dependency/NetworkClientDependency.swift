@@ -16,19 +16,20 @@ import Dependencies
 
 public enum NetworkClientDependency: TestDependencyKey {
   public static var testValue: any FestiCoreNetworkClient {
-    UnimplementedNetworkClient()
+    return UnimplementedNetworkClient()
   }
 }
 
 public extension DependencyValues {
   var networkClient: any FestiCoreNetworkClient {
-    get { self[NetworkClientDependency.self] }
+    get {
+      return self[NetworkClientDependency.self]
+    }
     set { self[NetworkClientDependency.self] = newValue }
   }
 }
 
-/// 테스트에서 클라이언트를 갈아끼우지 않은 채 네트워크를 타면 알려주는 기본값.
-/// 조용히 빈 응답을 돌려주면 테스트가 통과해버려 누락을 놓친다.
+/// 테스트에서 클라이언트를 갈아끼우지 않은 채 네트워크를 타면 오류를 반환하는 기본값.
 public struct UnimplementedNetworkClient: FestiCoreNetworkClient {
   public init() {}
 
@@ -36,31 +37,24 @@ public struct UnimplementedNetworkClient: FestiCoreNetworkClient {
     _ request: R,
     as type: T.Type
   ) async throws(FestiCoreNetworkError) -> T {
-    reportUnimplemented()
+    throw .request(.dependencyNotRegistered("networkClient"))
   }
 
   public func send<R: FestiCoreDataRequest>(_ request: R) async throws(FestiCoreNetworkError) -> R.Response {
-    reportUnimplemented()
+    throw .request(.dependencyNotRegistered("networkClient"))
   }
 
   public func sendResponse<R: FestiCoreDataRequest>(
     _ request: R
   ) async throws(FestiCoreNetworkError) -> FestiCoreHTTPResponse {
-    reportUnimplemented()
+    throw .request(.dependencyNotRegistered("networkClient"))
   }
 
   public func upload<R: FestiCoreUploadRequest>(_ request: R) async throws(FestiCoreNetworkError) -> R.Response {
-    reportUnimplemented()
+    throw .request(.dependencyNotRegistered("networkClient"))
   }
 
   public func upload(_ request: some FestiCoreFileUploadRequest) async throws(FestiCoreNetworkError) {
-    reportUnimplemented()
-  }
-
-  private func reportUnimplemented() -> Never {
-    fatalError(
-      "networkClient 가 등록되지 않았다. 테스트라면 withDependencies 로 스텁을 넣고, "
-        + "앱이라면 앱 조립 계층의 등록을 확인할 것."
-    )
+    throw .request(.dependencyNotRegistered("networkClient"))
   }
 }

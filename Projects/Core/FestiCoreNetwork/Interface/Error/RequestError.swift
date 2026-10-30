@@ -13,4 +13,6 @@ public enum RequestError: Error {
   case invalidURL
   /// 파라미터 인코딩 실패
   case encodingFailed(any Error)
+  /// 요청에 필요한 서비스가 주입되지 않음
+  case dependencyNotRegistered(String)
 }
