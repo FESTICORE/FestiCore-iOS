@@ -21,6 +21,7 @@ struct ContentView: View {
           NavigationLink("05 List Rows") { ListRowView() }
           NavigationLink("06 Cards") { CardView() }
           NavigationLink("07 Timetable") { TimetableView() }
+          NavigationLink("08 Feedback & Overlay") { OverlayView() }
           NavigationLink("09 Media & Brand") { MediaBrandView() }
           NavigationLink("Primary Button") { PrimaryButtonView() }
           NavigationLink("Skeleton") { SkeletonView() }
