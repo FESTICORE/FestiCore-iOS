@@ -21,11 +21,11 @@ struct MainTabCoordinator {
     var homeState: HomeCoordinator.State
     var timetableState: TimetableFeature.State
 
-    /// 하위 화면으로 들어가면 탭바를 숨긴다.
+    /// 목록에서는 탭바를 숨기고, 선택한 축제의 라이브 보드에서는 표시한다.
     var shouldHideTabBar: Bool {
       switch selectedTab {
       case .live:
-        return homeState.routes.count > 1
+        return homeState.routes.count == 1
       case .timetable, .flag, .my:
         return false
       }
@@ -68,17 +68,36 @@ struct MainTabCoordinator {
           state.previousTab = state.selectedTab
         }
         state.selectedTab = tab
-        return .none
-
-      case let .tabReselected(tab):
-        if tab == .live {
-          state.homeState.routes.goBackToRoot()
+        if tab == .timetable {
+          syncTimetable(state: &state)
         }
         return .none
 
-      case .home, .timetable:
+      case let .tabReselected(tab):
+        _ = tab
+        return .none
+
+      case .home:
+        if state.selectedTab == .timetable {
+          syncTimetable(state: &state)
+        }
+        return .none
+
+      case .timetable:
         return .none
       }
     }
+  }
+
+  private func syncTimetable(state: inout State) {
+    guard let screen = state.homeState.routes.last?.screen,
+          case let .liveBoard(home) = screen,
+          let pack = home.selectedPack else { return }
+    let days = FestivalPackTimetableMapper.days(from: pack)
+    guard state.timetableState.days != days else { return }
+    let selectedID = state.timetableState.selectedDay?.id
+    state.timetableState.days = days
+    state.timetableState.selectedDayIndex = days.firstIndex { $0.id == selectedID } ?? 0
+    state.timetableState.source = "저장된 축제 팩"
   }
 }

@@ -11,6 +11,9 @@ struct HomeCoordinatorView: View {
       switch screen.case {
       case let .home(homeStore):
         HomeView(store: homeStore)
+      case let .liveBoard(liveBoardStore):
+        HomeLiveBoardRouteView(store: liveBoardStore)
+          .swipeBackButtonHidden()
       }
     }
   }

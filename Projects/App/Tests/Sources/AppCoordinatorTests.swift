@@ -9,7 +9,9 @@ import Foundation
 import Testing
 
 import ComposableArchitecture
+import FeatureAssembly
 import FestivalDomainInterface
+import TCAFlow
 @testable import FestiCore
 
 @MainActor
@@ -57,6 +59,42 @@ struct AppCoordinatorTests {
     let coordinator = HomeCoordinator.State()
     #expect(coordinator.routes.count == 1)
     #expect(coordinator.routes.first?.screen.home != nil)
+  }
+
+  @Test func bottomTabsAppearOnFestivalLiveBoard() {
+    var state = MainTabCoordinator.State()
+    #expect(state.shouldHideTabBar)
+
+    state.homeState.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
+    #expect(!state.shouldHideTabBar)
+
+    state.homeState.routes.goBack()
+    #expect(state.shouldHideTabBar)
+  }
+
+  @Test func swipingBackFromLiveBoardReturnsToFestivalList() async {
+    var state = HomeCoordinator.State()
+    state.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
+    let store = TestStore(initialState: state) {
+      HomeCoordinator()
+    }
+
+    await store.send(.router(.routeAction(id: 1, action: .liveBoard(.view(.backToFestivalList))))) {
+      $0.routes.goBack()
+    }
+  }
+
+  @Test func timetableUsesSelectedFestivalPackTimes() throws {
+    let payload = #"{"id":"festival","stages":[{"id":"main","name":"메인 무대"}],"sets":[{"id":"set-1","artist":"가수","stageId":"main","startsAt":"2026-10-30T12:00:00+09:00","endsAt":"2026-10-30T13:00:00+09:00"}]}"#
+    let pack = try JSONDecoder().decode(FestivalPackDocument.self, from: Data(payload.utf8))
+
+    let days = FestivalPackTimetableMapper.days(from: pack)
+
+    #expect(days.count == 1)
+    #expect(days.first?.id == "2026-10-30")
+    #expect(days.first?.stages.first?.name == "메인 무대")
+    #expect(days.first?.sets.first?.start == 720)
+    #expect(days.first?.sets.first?.end == 780)
   }
 }
 

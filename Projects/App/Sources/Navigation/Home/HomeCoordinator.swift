@@ -19,7 +19,18 @@ struct HomeCoordinator {
   }
 
   func handleRoute(state: inout State, action: Action) -> Effect<Action> {
-    .none
+    switch action {
+    case let .router(.routeAction(id: _, action: .home(.view(.selectFestival(festivalID))))):
+      state.routes.push(.liveBoard(.init(selectedFestivalID: festivalID)))
+      return .none
+
+    case .router(.routeAction(id: _, action: .liveBoard(.view(.backToFestivalList)))):
+      state.routes.goBack()
+      return .none
+
+    case .router:
+      return .none
+    }
   }
 }
 
@@ -27,6 +38,7 @@ extension HomeCoordinator {
   @Reducer
   enum HomeScreen {
     case home(HomeFeature)
+    case liveBoard(HomeFeature)
   }
 }
 

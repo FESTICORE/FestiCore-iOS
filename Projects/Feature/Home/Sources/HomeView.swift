@@ -12,23 +12,9 @@ public struct HomeView: View {
   }
 
   public var body: some View {
-    ScrollView {
-      LazyVStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
-        if (store.connection != .live && store.connection != .unavailable) || store.cacheReadFailed {
-          status
-        }
-        festivalList
-        if let pack = store.selectedPack {
-          HomeLiveBoardView(pack: pack)
-        }
-        festivalDetail
-      }
-      .padding(FestiCoreSpacing.paddingP16)
-    }
-    .scrollIndicators(.hidden)
+    festivalListScreen
     .background(FestiCoreSemanticColor.backgroundNormal.color)
     .toolbar(.hidden, for: .navigationBar)
-    .refreshable { send(.refreshRequested) }
     .task {
       send(.onAppear)
       send(.liveActivityOnAppear)
@@ -38,31 +24,29 @@ public struct HomeView: View {
     }
   }
 
+  private var festivalListScreen: some View {
+    VStack(spacing: .zero) {
+      if (store.connection != .live && store.connection != .unavailable) || store.cacheReadFailed {
+        status
+          .padding(.horizontal, FestiCoreSpacing.paddingP16)
+      }
+      festivalList
+    }
+  }
+
   private var festivalList: some View {
     HomeFestivalListView(
       festivals: store.festivals,
-      selectedFestivalID: store.selectedFestivalID,
       bookedFestivalIDs: store.bookedFestivalIDs,
       imageRevision: store.imageRevision,
+      isLoading: store.festivals.isEmpty && store.viewState == .loading,
       imageURL: imageURL,
       onSelect: { send(.selectFestival($0)) },
-      onToggleBooked: { send(.toggleBookedFestival($0)) }
+      onToggleBooked: { send(.toggleBookedFestival($0)) },
+      onRefresh: { send(.refreshRequested) }
     )
   }
 
-  @ViewBuilder
-  private var festivalDetail: some View {
-    if let festival = store.selectedFestival {
-      HomeFestivalDetailView(
-        festival: festival,
-        pack: store.selectedPack,
-        imageRevision: store.imageRevision,
-        imageURL: imageURL,
-        liveActivityState: store.liveActivityState,
-        onLiveActivityTap: { send(.liveActivityTapped) }
-      )
-    }
-  }
 
   private func imageURL(_ value: String?) -> URL? {
     store.state.imageURL(for: value)
