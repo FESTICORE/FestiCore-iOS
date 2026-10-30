@@ -73,6 +73,8 @@ struct FestivalLiveBoardScreen: View {
       Text(festival.name)
         .festiCoreFont(.baseTitle1Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+        .lineLimit(2)
+        .fixedSize(horizontal: false, vertical: true)
       if let dayLabel, let dateLabel {
         Text("\(dayLabel) · \(dateLabel)")
           .festiCoreFont(.baseSubheadlineRegular)
