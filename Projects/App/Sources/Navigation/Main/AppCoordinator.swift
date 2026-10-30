@@ -13,7 +13,7 @@ struct AppCoordinator {
   @ObservableState
   enum State: Equatable {
     case splash(SplashFeature.State)
-    case home(HomeCoordinator.State)
+    case home(MainTabCoordinator.State)
 
     init() {
       self = .splash(SplashFeature.State())
@@ -46,7 +46,7 @@ struct AppCoordinator {
   @CasePathable
   enum ScopeAction {
     case splash(SplashFeature.Action)
-    case home(HomeCoordinator.Action)
+    case home(MainTabCoordinator.Action)
   }
 
   var body: some ReducerOf<Self> {
@@ -66,7 +66,7 @@ struct AppCoordinator {
       SplashFeature()
     }
     .ifCaseLet(\.home, action: \.scope.home) {
-      HomeCoordinator()
+      MainTabCoordinator()
     }
   }
 }
