@@ -1,3 +1,4 @@
+import FestiCoreUtility
 import Foundation
 
 enum FestivalListPresentation {
@@ -25,9 +26,9 @@ enum FestivalListPresentation {
 
   static func timing(for festival: FestivalOverview, now: Date) -> Timing {
     let calendar = FestivalDateFormat.calendar
-    guard let first = FestivalDateFormat.day(from: festival.firstDate) else { return .undated }
+    guard let firstDate = festival.firstDate, let first = firstDate.date(as: .day) else { return .undated }
     let today = calendar.startOfDay(for: now)
-    let last = FestivalDateFormat.day(from: festival.lastDate) ?? first
+    let last = festival.lastDate?.date(as: .day) ?? first
     if today > last { return .ended }
     let days = calendar.dateComponents([.day], from: today, to: first).day ?? 0
     return days > 0 ? .daysUntil(days) : .live

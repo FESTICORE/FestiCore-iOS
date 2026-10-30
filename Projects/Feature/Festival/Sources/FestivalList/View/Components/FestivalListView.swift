@@ -1,4 +1,5 @@
 import FestiCoreDesignKit
+import FestiCoreUtility
 import SwiftUI
 
 struct FestivalListView: View {
@@ -133,7 +134,7 @@ struct FestivalListView: View {
     case .undated: .upcoming("일정 확인")
     }
     let dates = [festival.firstDate, festival.lastDate]
-      .compactMap(FestivalDateFormat.festivalDay(from:))
+      .compactMap { $0?.date(as: .day)?.formatted(.festivalDay) }
       .joined(separator: " – ")
     let meta = [festival.venue, dates.isEmpty ? nil : dates].compactMap { $0 }.joined(separator: " · ")
 
