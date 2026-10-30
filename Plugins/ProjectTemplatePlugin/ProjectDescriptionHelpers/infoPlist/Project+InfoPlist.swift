@@ -11,6 +11,7 @@ public extension InfoPlist {
   static let appInfoPlist: Self = .extendingDefault(
     with: InfoPlistDictionary()
       .setCFBundleName("$(FESTICORE_DISPLAY_NAME)")
+      .set("CFBundleDisplayName", .string("$(FESTICORE_DISPLAY_NAME)"))
       .setCFBundleShortVersionString("$(FESTICORE_VERSION)")
       .setCFBundleVersion("$(FESTICORE_BUILD_NUMBER)")
       .setFestiCoreEnvironment("$(FESTICORE_ENVIRONMENT)")
