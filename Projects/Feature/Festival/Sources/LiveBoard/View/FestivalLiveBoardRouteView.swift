@@ -17,6 +17,8 @@ public struct FestivalLiveBoardRouteView: View {
         FestivalLiveBoardScreen(
           festival: festival,
           pack: store.selectedPack,
+          liveBoard: store.liveBoard,
+          liveBoardUnavailable: store.liveBoardUnavailable,
           liveActivityState: store.liveActivityState,
           onLiveActivityTap: { send(.liveActivityTapped) },
           onSwipeBack: { send(.backToFestivalList) }
@@ -30,7 +32,9 @@ public struct FestivalLiveBoardRouteView: View {
     .task {
       send(.onAppear)
       send(.liveActivityOnAppear)
+      send(.liveBoardOnAppear)
     }
+    .onDisappear { send(.liveBoardOnDisappear) }
     .onChange(of: scenePhase) { _, phase in
       send(.foregroundChanged(phase == .active))
     }

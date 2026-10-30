@@ -9,6 +9,7 @@ public struct FestivalFeature {
   @Dependency(\.festivalSelectionStore) private var selectionStore
   @Dependency(\.festivalBookedStore) private var bookedStore
   @Dependency(\.packSyncService) private var packService
+  @Dependency(\.festivalLiveBoardService) private var liveBoardService
   @Dependency(\.festivalImagePrefetchClient) private var imagePrefetchClient
   @Dependency(\.festivalLiveActivityClient) private var liveActivityClient
   @Dependency(\.date) private var date
@@ -33,6 +34,9 @@ public struct FestivalFeature {
     public var selectedFestivalID: String?
     public var bookedFestivalIDs: Set<String> = []
     public var selectedPack: FestivalPackDocument?
+    public var liveBoard: FestivalLiveBoardSnapshot?
+    public var liveBoardUnavailable = false
+    public var isLiveBoardVisible = false
     public var connection: Connection = .loading
     public var hasStarted = false
     public var isForeground = true
@@ -138,6 +142,8 @@ public struct FestivalFeature {
     case backToFestivalList
     case toggleBookedFestival(String)
     case liveActivityOnAppear
+    case liveBoardOnAppear
+    case liveBoardOnDisappear
     case liveActivityTapped
   }
 
@@ -155,9 +161,11 @@ public struct FestivalFeature {
     case liveActivityFailed(String)
     case liveActivityBoundary
     case liveActivityChanged
+    case liveBoardLoaded(String, FestivalLiveBoardSnapshot)
+    case liveBoardFailed(String)
   }
 
-  private enum CancelID { case packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary }
+  private enum CancelID { case packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary, liveBoard }
   private struct LiveActivitySyncID: Hashable { let id: String }
 
   public var body: some ReducerOf<Self> {
@@ -180,6 +188,14 @@ public struct FestivalFeature {
 
       case .view(.liveActivityOnAppear):
         return .merge(loadLiveActivities(revision: state.liveActivityRevision), watchLiveActivityChanges())
+
+      case .view(.liveBoardOnAppear):
+        state.isLiveBoardVisible = true
+        return watchLiveBoard(state)
+
+      case .view(.liveBoardOnDisappear):
+        state.isLiveBoardVisible = false
+        return .cancel(id: CancelID.liveBoard)
 
       case .view(.liveActivityTapped):
         guard state.liveActivityReady,
@@ -246,11 +262,13 @@ public struct FestivalFeature {
           if state.liveActivityReady { state.liveActivityNow = date.now }
           return .merge(
             refreshCatalog(), watchSelectedPack(state), prefetchImages(state),
-            state.liveActivityReady ? loadLiveActivities(revision: state.liveActivityRevision) : .none
+            state.liveActivityReady ? loadLiveActivities(revision: state.liveActivityRevision) : .none,
+            state.isLiveBoardVisible ? watchLiveBoard(state) : .none
           )
         }
         return .merge(
           .cancel(id: CancelID.packUpdates),
+          .cancel(id: CancelID.liveBoard),
           .cancel(id: CancelID.liveActivityBoundary),
           prefetchImages(state)
         )
@@ -258,6 +276,8 @@ public struct FestivalFeature {
       case let .view(.selectFestival(id)):
         guard state.festivals.contains(where: { $0.id == id }) else { return .none }
         state.selectedFestivalID = id
+        state.liveBoard = nil
+        state.liveBoardUnavailable = false
         state.liveActivityError = nil
         if state.liveActivityReady { state.liveActivityNow = date.now }
         state.packWatchFailed = false
@@ -266,11 +286,23 @@ public struct FestivalFeature {
         return .merge(
           .run { _ in selectionStore.save(id) },
           watchSelectedPack(state),
+          state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
           prefetchImages(state),
           liveActivityBoundary(state)
         )
 
       case .view(.backToFestivalList):
+        return .none
+
+      case let .inner(.liveBoardLoaded(id, snapshot)):
+        guard state.selectedFestivalID == id else { return .none }
+        state.liveBoard = snapshot
+        state.liveBoardUnavailable = false
+        return .none
+
+      case let .inner(.liveBoardFailed(id)):
+        guard state.selectedFestivalID == id else { return .none }
+        state.liveBoardUnavailable = true
         return .none
 
 
@@ -507,6 +539,25 @@ public struct FestivalFeature {
       urls[value] = catalogService.imageURL(for: value)
     }
     state.imageURLs = urls
+  }
+
+  private func watchLiveBoard(_ state: State) -> Effect<Action> {
+    guard state.isForeground, state.isLiveBoardVisible,
+          let id = state.selectedFestivalID else {
+      return .cancel(id: CancelID.liveBoard)
+    }
+    return .run { send in
+      while !Task.isCancelled {
+        do {
+          let snapshot = try await liveBoardService.refresh(for: id)
+          await send(.inner(.liveBoardLoaded(id, snapshot)))
+        } catch {
+          await send(.inner(.liveBoardFailed(id)))
+        }
+        try await clock.sleep(for: .seconds(35))
+      }
+    }
+    .cancellable(id: CancelID.liveBoard, cancelInFlight: true)
   }
 
   private func watchSelectedPack(_ state: State) -> Effect<Action> {

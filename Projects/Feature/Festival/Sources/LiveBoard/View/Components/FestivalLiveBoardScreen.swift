@@ -1,9 +1,13 @@
 import FestiCoreDesignKit
+import FestiCoreSharedUI
+import FestivalDomainInterface
 import SwiftUI
 
 struct FestivalLiveBoardScreen: View {
   let festival: FestivalOverview
   let pack: FestivalPackDocument?
+  let liveBoard: FestivalLiveBoardSnapshot?
+  let liveBoardUnavailable: Bool
   let liveActivityState: FestivalFeature.LiveActivityControlState
   let onLiveActivityTap: () -> Void
   let onSwipeBack: () -> Void
@@ -22,9 +26,9 @@ struct FestivalLiveBoardScreen: View {
         } else {
           emptySection(title: "지금 무대", message: "공연 시간표를 불러오면 무대 현황을 볼 수 있습니다.")
         }
-        emptySection(title: "내 크루 · 확인이들", message: "아직 크루가 없어요. 크루를 만들면 여기에서 함께한 친구를 볼 수 있어요.")
-        emptySection(title: "팔로우한 깃발", message: "팔로우한 깃발이 없습니다.")
-        emptySection(title: "활성 깃발", message: "현재 활성 깃발이 없습니다.")
+        crewSection
+        flagSection(title: "팔로우한 깃발", flags: liveBoard?.followedFlags ?? [])
+        flagSection(title: "활성 깃발", flags: liveBoard?.activeFlags ?? [])
         liveActivityControl
       }
       .padding(.horizontal, FestiCoreSpacing.paddingP20)
@@ -114,6 +118,82 @@ struct FestivalLiveBoardScreen: View {
         .festiCoreFont(.baseTitle3Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       FCEmptyCard(title: title, message: message)
+    }
+  }
+
+  private var crewSection: some View {
+    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
+      Text("내 크루 · 확인이들")
+        .festiCoreFont(.baseTitle3Bold)
+        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+      if let crew = liveBoard?.crew {
+        VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
+          Text(crew.name)
+            .festiCoreFont(.baseHeadlineBold)
+          ForEach(crew.members) { member in
+            HStack {
+              Text(member.nickname)
+              Spacer()
+              Text(member.zoneID ?? member.state)
+                .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+            }
+            .festiCoreFont(.baseSubheadlineRegular)
+          }
+        }
+        .padding(FestiCoreSpacing.paddingP16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(FestiCoreSemanticColor.backgroundElevated.color,
+                    in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
+      } else {
+        FCEmptyCard(title: "내 크루", message: liveBoardMessage(empty: "참여 중인 크루가 없습니다."))
+      }
+    }
+    .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+  }
+
+  private func flagSection(title: String, flags: [FestivalLiveBoardSnapshot.Flag]) -> some View {
+    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
+      Text(title)
+        .festiCoreFont(.baseTitle3Bold)
+        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+      if flags.isEmpty {
+        FCEmptyCard(title: title, message: liveBoardMessage(empty: "표시할 깃발이 없습니다."))
+      } else {
+        ForEach(flags) { flag in
+          HStack(spacing: FestiCoreSpacing.paddingP12) {
+            FCRemoteImage(url: flag.thumbnailURL)
+              .frame(width: 48, height: 48)
+              .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
+            VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
+              Text(flag.name)
+                .festiCoreFont(.baseSubheadlineBold)
+                .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+              Text([flag.zoneID, flag.activity, flagStatus(flag.status)]
+                .compactMap { $0 }.joined(separator: " · "))
+                .festiCoreFont(.baseCaption1Regular)
+                .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+            }
+            Spacer(minLength: 0)
+          }
+          .padding(FestiCoreSpacing.paddingP12)
+          .background(FestiCoreSemanticColor.backgroundElevated.color,
+                      in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
+        }
+      }
+    }
+  }
+
+  private func liveBoardMessage(empty: String) -> String {
+    guard liveBoard == nil else { return empty }
+    return liveBoardUnavailable ? "실시간 정보를 불러올 수 없습니다. 잠시 후 다시 시도합니다." : "실시간 정보를 불러오는 중입니다."
+  }
+
+  private func flagStatus(_ status: String) -> String? {
+    switch status {
+    case "active": "활동 중"
+    case "resting": "휴식 중"
+    case "ended": "종료"
+    default: nil
     }
   }
 

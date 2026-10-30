@@ -31,6 +31,7 @@ public enum NetworkContainer {
   }
   public static var packSyncService: any PackSyncService { assembly.packSyncService }
   public static var festivalCatalogService: any FestivalCatalogService { assembly.festivalCatalogService }
+  public static var festivalLiveBoardService: any FestivalLiveBoardService { assembly.festivalLiveBoardService }
 
   private static func makeAssembly() -> Assembly {
     let storage = StorageAssembly.secureStorage()
@@ -38,10 +39,11 @@ public enum NetworkContainer {
       refreshClient: NetworkAssembly.plainClient(),
       storage: storage
     )
+    let deviceRegistrationService = NetworkDeviceRegistrationService(client: auth.authenticatedClient, storage: storage)
     return Assembly(
       authenticatedClient: auth.authenticatedClient,
       authService: auth,
-      deviceRegistrationService: NetworkDeviceRegistrationService(client: auth.authenticatedClient, storage: storage),
+      deviceRegistrationService: deviceRegistrationService,
       liveActivityRegistrationService: NetworkLiveActivityRegistrationService(client: auth.authenticatedClient),
       packSyncService: NetworkPackSyncService(
         baseURL: NetworkClientFactory.bundleBaseURL,
@@ -51,6 +53,11 @@ public enum NetworkContainer {
       festivalCatalogService: NetworkFestivalCatalogService(
         client: NetworkAssembly.plainClient(),
         cacheURL: packCacheDirectory.deletingLastPathComponent().appendingPathComponent("festival-catalog.json"),
+        baseURL: NetworkClientFactory.bundleBaseURL
+      ),
+      festivalLiveBoardService: NetworkFestivalLiveBoardService(
+        client: auth.authenticatedClient,
+        device: deviceRegistrationService,
         baseURL: NetworkClientFactory.bundleBaseURL
       )
     )
@@ -72,5 +79,6 @@ private extension NetworkContainer {
     let liveActivityRegistrationService: any LiveActivityRegistrationService
     let packSyncService: any PackSyncService
     let festivalCatalogService: any FestivalCatalogService
+    let festivalLiveBoardService: any FestivalLiveBoardService
   }
 }
