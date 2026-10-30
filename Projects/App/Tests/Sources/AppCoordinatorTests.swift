@@ -490,7 +490,7 @@ private struct UnauthenticatedAuthUseCase: AuthUseCaseInterface {
   func withdraw() async throws {}
 }
 
-private enum ProfileStubFailure: Sendable {
+enum ProfileStubFailure: Sendable {
   case server
   case missingVersion
 }
