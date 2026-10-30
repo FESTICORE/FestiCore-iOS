@@ -15,12 +15,10 @@
 
 ## Xcode 컴파일 캐시 전환
 
-이전 Tuist가 생성한 프로젝트별 캐시 소켓에서 연결 오류가 나면, 이 Mac의 모든 Xcode 빌드가 끝난 뒤 아래 명령을 실행한다.
+Tuist 버전을 4.214.1로 올린 뒤 처음 프로젝트를 생성하거나 이전 프로젝트별 캐시 소켓의 연결 오류를 복구할 때는, 이 Mac의 모든 Xcode·Tuist 빌드가 끝난 뒤 아래 명령을 실행한다. `./make generate`만으로는 공유 캐시 서비스를 설치하지 않는다.
 
 ```sh
-mise install
-mise exec -- tuist setup cache
-mise exec -- tuist generate --no-open
+./make setup
 ```
 
-`tuist setup cache`는 Mac의 공유 캐시 서비스를 바꾸므로 빌드 중에는 실행하지 않는다. 생성된 프로젝트의 `COMPILATION_CACHE_REMOTE_SERVICE_PATH`는 `$HOME/.local/state/tuist/cas-proxy.sock`을 가리켜야 한다. CI는 각 작업의 빌드 전에 캐시를 설정한다.
+`./make setup`은 Mise 도구와 Tuist 의존성을 설치하고 `tuist setup cache`로 공유 서비스를 준비한 뒤 프로젝트를 생성한다. 캐시 서비스 전환은 빌드 중에 실행하지 않는다. 기본 설정에서 생성된 프로젝트의 `COMPILATION_CACHE_REMOTE_SERVICE_PATH`는 `$HOME/.local/state/tuist/cas-proxy.sock`을 가리켜야 한다. CI도 빌드 전에 캐시를 설정하므로 공유 러너의 동시 빌드를 확인한 뒤 전환한다.
