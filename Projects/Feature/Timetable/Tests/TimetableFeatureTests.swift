@@ -4,16 +4,16 @@ import Testing
 
 @MainActor
 struct TimetableFeatureTests {
-  @Test func tappingSetTogglesMySchedule() async {
+  @Test func tappingSetOpensDetailWithoutChangingSchedule() async {
     let store = TestStore(initialState: TimetableFeature.State.sample()) {
       TimetableFeature()
     }
 
     await store.send(.view(.setTapped("lime"))) {
-      $0.mySetIDs.insert("lime")
+      $0.selectedSetID = "lime"
     }
-    await store.send(.view(.setTapped("lime"))) {
-      $0.mySetIDs.remove("lime")
+    await store.send(.view(.setDetailDismissed)) {
+      $0.selectedSetID = nil
     }
   }
 

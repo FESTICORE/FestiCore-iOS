@@ -152,10 +152,12 @@
       }
 
       let isUnpublished = variant == .unpublished
+      let firstDay = Date(timeIntervalSince1970: 1_786_028_400) // 2026-08-07 00:00 KST
       let days = [("0807", "8/7 금"), ("0808", "8/8 토"), ("0809", "8/9 일")].enumerated().map { index, day in
         TimetableDay(
           id: day.0,
           title: day.1,
+          date: firstDay.addingTimeInterval(TimeInterval(index * 24 * 60 * 60)),
           stages: stages,
           sets: index == 0 && !isUnpublished ? sets : []
         )

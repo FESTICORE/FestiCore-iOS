@@ -34,6 +34,7 @@ public struct FCSetSheet: View {
   private(set) var scheduleHelper = "공연 10분 전에 알려 드려요"
   private(set) var endedTitle = "공연 종료"
   private(set) var endedHelper = "이미 종료된 공연이에요"
+  private(set) var isScheduleDisabled = false
 
   public init(
     artist: String,
@@ -224,8 +225,8 @@ public struct FCSetSheet: View {
         isOn: $isScheduled,
         accessibilityLabel: scheduleTitle
       )
-      .disabled(isEnded)
-      .opacity(isEnded ? Metric.disabledOpacity : 1)
+      .disabled(isEnded || isScheduleDisabled)
+      .opacity(isEnded || isScheduleDisabled ? Metric.disabledOpacity : 1)
     }
   }
 
@@ -277,6 +278,13 @@ public extension FCSetSheet {
     var copy = self
     copy.scheduleTitle = title
     copy.scheduleHelper = helper
+    return copy
+  }
+
+  /// 내 일정 토글을 잠시 끈 사본을 돌려준다(불러오는 중 등).
+  func scheduleDisabled(_ isDisabled: Bool) -> Self {
+    var copy = self
+    copy.isScheduleDisabled = isDisabled
     return copy
   }
 }

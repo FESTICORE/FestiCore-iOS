@@ -46,6 +46,62 @@ public struct TimetableView: View {
     }
     .frame(maxHeight: .infinity, alignment: .top)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
+    .presentFCSheet(
+      item: Binding(
+        get: { store.selectedSetID.map(SelectedSet.init) },
+        set: { if $0 == nil { send(.setDetailDismissed) } }
+      )
+    ) { _ in
+      // 열린 동안 공연 시작·종료 시각이 지나면 상태가 바뀌도록 매분 다시 그린다.
+      TimelineView(.everyMinute) { context in
+        if let detail = store.state.setDetail(now: context.date) {
+          setSheet(detail)
+        }
+      }
+    }
+  }
+
+  private func setSheet(_ detail: TimetableSetDetail) -> some View {
+    FCSetSheet(
+      artist: detail.artist,
+      stage: detail.stage,
+      time: detail.time,
+      relativeTime: detail.relativeTime,
+      isScheduled: Binding(
+        get: { detail.isScheduled },
+        set: { _ in send(.setScheduleToggled) }
+      )
+    )
+    .state(sheetState(detail))
+    .scheduleTexts(
+      title: "내 일정에 넣기",
+      helper: scheduleHelper
+    )
+    .scheduleDisabled(store.scheduleSync == .loading)
+  }
+
+  private func sheetState(_ detail: TimetableSetDetail) -> FCSetSheet.State {
+    if detail.status == .ended {
+      return .ended
+    }
+    if let artist = detail.overlappingArtists.first {
+      return .overlap(warning: "\(artist) 공연과 시간이 겹쳐요")
+    }
+    if let previousTime = detail.previousTime, let change = detail.change {
+      return .changed(oldTime: previousTime, change: change)
+    }
+    return .default
+  }
+
+  /// 알림 기능 전까지는 저장된다는 사실만 안내한다.
+  private var scheduleHelper: String {
+    if store.scheduleSync == .loading {
+      return "내 일정을 불러오는 중이에요"
+    }
+    if store.isScheduleLimitReached {
+      return "내 일정은 최대 \(TimetableFeature.scheduleLimit)개까지 저장할 수 있어요"
+    }
+    return "내 일정에 저장돼요"
   }
 
   private var header: some View {
@@ -83,6 +139,10 @@ public struct TimetableView: View {
     }
     .padding(FestiCoreSpacing.paddingP16)
   }
+}
+
+private struct SelectedSet: Identifiable, Equatable {
+  let id: String
 }
 
 #Preview("A. 기본") {

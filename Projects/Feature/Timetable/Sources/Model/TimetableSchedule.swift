@@ -11,19 +11,31 @@ import Foundation
 public struct TimetableDay: Equatable, Identifiable, Sendable {
   public let id: String
   public var title: String
+  /// 그날 0시(Asia/Seoul). 공연의 실제 시각은 여기에 분을 더해 구한다.
+  public var date: Date
   public var stages: [TimetableStage]
   public var sets: [TimetableSet]
 
   public init(
     id: String,
     title: String,
+    date: Date,
     stages: [TimetableStage],
     sets: [TimetableSet]
   ) {
     self.id = id
     self.title = title
+    self.date = date
     self.stages = stages
     self.sets = sets
+  }
+
+  /// 공연의 실제 시작·종료 시각
+  func interval(of set: TimetableSet) -> DateInterval {
+    DateInterval(
+      start: date.addingTimeInterval(TimeInterval(set.start * 60)),
+      end: date.addingTimeInterval(TimeInterval(set.end * 60))
+    )
   }
 
   /// 시작 시각이 바뀐 공연 수
@@ -93,6 +105,41 @@ public struct TimetableLineupDay: Equatable, Identifiable, Sendable {
 }
 
 /// 내 일정끼리 겹치는 구간
+/// 공연 상세 시트에 보여 줄 정보
+public struct TimetableSetDetail: Equatable, Sendable {
+  public enum Status: Equatable, Sendable {
+    case upcoming(minutes: Int)
+    case live
+    case ended
+  }
+
+  public var artist: String
+  public var stage: String
+  public var time: String
+  public var status: Status
+  public var isScheduled: Bool
+  /// 시간이 겹치는 다른 내 일정 공연
+  public var overlappingArtists: [String]
+  /// 바뀌기 전 시작 시각(`HH:mm`). 바뀌지 않았으면 nil이다.
+  public var previousTime: String?
+  public var change: String?
+
+  public var relativeTime: String {
+    switch status {
+    case let .upcoming(minutes) where minutes < 60:
+      return "\(minutes)분 후 시작"
+    case let .upcoming(minutes):
+      let hours = minutes / 60
+      let rest = minutes % 60
+      return rest == 0 ? "\(hours)시간 후 시작" : "\(hours)시간 \(rest)분 후 시작"
+    case .live:
+      return "공연 중"
+    case .ended:
+      return "종료"
+    }
+  }
+}
+
 public struct TimetableOverlap: Equatable, Sendable {
   public var start: Int
   public var end: Int

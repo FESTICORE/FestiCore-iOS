@@ -68,20 +68,16 @@ struct MainTabCoordinator {
           state.previousTab = state.selectedTab
         }
         state.selectedTab = tab
-        if tab == .timetable {
-          syncTimetable(state: &state)
-        }
-        return .none
+        guard tab == .timetable else { return .none }
+        return syncTimetable(state: &state, appearing: true)
 
       case let .tabReselected(tab):
         _ = tab
         return .none
 
       case .festival:
-        if state.selectedTab == .timetable {
-          syncTimetable(state: &state)
-        }
-        return .none
+        guard state.selectedTab == .timetable else { return .none }
+        return syncTimetable(state: &state, appearing: false)
 
       case .timetable:
         return .none
@@ -89,15 +85,38 @@ struct MainTabCoordinator {
     }
   }
 
-  private func syncTimetable(state: inout State) {
-    guard let screen = state.festivalState.routes.last?.screen,
-          case let .liveBoard(home) = screen,
-          let pack = home.selectedPack else { return }
-    let days = FestivalPackTimetableMapper.days(from: pack)
-    guard state.timetableState.days != days else { return }
-    let selectedID = state.timetableState.selectedDay?.id
-    state.timetableState.days = days
-    state.timetableState.selectedDayIndex = days.firstIndex { $0.id == selectedID } ?? 0
-    state.timetableState.source = "저장된 축제 팩"
+  /// 라이브 보드에서 고른 축제의 팩을 타임테이블에 옮긴다.
+  /// 고른 축제가 없으면 이전 축제의 시간표가 남지 않게 비운다.
+  private func syncTimetable(
+    state: inout State,
+    appearing: Bool
+  ) -> Effect<Action> {
+    var selected: (festivalID: String?, pack: FestivalPackDocument)?
+    if let screen = state.festivalState.routes.last?.screen,
+       case let .liveBoard(home) = screen,
+       let pack = home.selectedPack {
+      selected = (home.selectedFestivalID, pack)
+    }
+    let days = selected.map { FestivalPackTimetableMapper.days(from: $0.pack) } ?? []
+    let daysChanged = state.timetableState.days != days
+    if daysChanged {
+      let selectedID = state.timetableState.selectedDay?.id
+      state.timetableState.days = days
+      state.timetableState.selectedDayIndex = days.firstIndex { $0.id == selectedID } ?? 0
+      state.timetableState.source = selected == nil ? "" : "저장된 축제 팩"
+    }
+
+    let festivalID = selected?.festivalID
+    if festivalID != state.timetableState.festivalID {
+      return .send(.timetable(.festivalChanged(festivalID)))
+    }
+    var effects: [Effect<Action>] = []
+    if daysChanged {
+      effects.append(.send(.timetable(.packUpdated)))
+    }
+    if appearing {
+      effects.append(.send(.timetable(.timetableAppeared)))
+    }
+    return .concatenate(effects)
   }
 }

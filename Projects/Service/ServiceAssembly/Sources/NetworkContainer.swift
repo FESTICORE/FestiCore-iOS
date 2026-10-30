@@ -32,6 +32,7 @@ public enum NetworkContainer {
   public static var packSyncService: any PackSyncService { assembly.packSyncService }
   public static var festivalCatalogService: any FestivalCatalogService { assembly.festivalCatalogService }
   public static var festivalLiveBoardService: any FestivalLiveBoardService { assembly.festivalLiveBoardService }
+  public static var festivalScheduleService: any FestivalScheduleService { assembly.festivalScheduleService }
 
   private static func makeAssembly() -> Assembly {
     let storage = StorageAssembly.secureStorage()
@@ -59,7 +60,8 @@ public enum NetworkContainer {
         client: auth.authenticatedClient,
         device: deviceRegistrationService,
         baseURL: NetworkClientFactory.bundleBaseURL
-      )
+      ),
+      festivalScheduleService: NetworkFestivalScheduleService(client: auth.authenticatedClient)
     )
   }
 
@@ -80,5 +82,6 @@ private extension NetworkContainer {
     let packSyncService: any PackSyncService
     let festivalCatalogService: any FestivalCatalogService
     let festivalLiveBoardService: any FestivalLiveBoardService
+    let festivalScheduleService: any FestivalScheduleService
   }
 }
