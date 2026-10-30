@@ -1,0 +1,86 @@
+name: iOS Deploy
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+# 셀프호스티드 러너가 한 대뿐이라 배포는 항상 직렬로 실행한다.
+concurrency:
+  group: ios-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    env:
+      MATCH_GIT_URL: git@github.com:Roy-wonji/FastlaneMatch.git
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+      APP_STORE_CONNECT_TEAM_ID: ${{ secrets.TEAM_ID }}
+      APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+      FESTICORE_SENTRY_DSN: ${{ secrets.FESTICORE_SENTRY_DSN }}
+      TUIST_CONFIG_TOKEN: ${{ secrets.TUIST_TOKEN }}
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+      FASTLANE_SKIP_UPDATE_CHECK: "1"
+      FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "600"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup iOS runner
+        uses: ./.github/actions/setup-ios-runner
+        with:
+          tuist-token: ${{ secrets.TUIST_TOKEN }}
+          derived-data-directory: FestiCore-deploy
+
+      - name: Restore Google service configuration
+        uses: ./.github/actions/restore-google-service
+        with:
+          plist-base64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
+
+      - name: Install Fastlane dependencies
+        run: bundle install
+
+      # 앱 버전은 수동 관리한다. CI는 빌드 번호만 올린다.
+      - name: Read app version
+        id: ver
+        run: |
+          FILE=Plugins/ProjectTemplatePlugin/ProjectDescriptionHelpers/Project+Templete/Project+Environment.swift
+          VERSION=$(sed -nE 's/.*appVersion = "([0-9.]+)".*/\1/p' "$FILE" | head -1)
+          test -n "$VERSION" || { echo "appVersion 추출 실패: $FILE"; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "앱 버전: $VERSION"
+
+      # develop 푸시 → Stage 빌드를 TestFlight에 올린다.
+      - name: Deploy to TestFlight
+        run: |
+          set +e
+          bundle exec fastlane ios QA \
+            version:"${{ steps.ver.outputs.version }}" \
+            changelog:"$(git log -1 --pretty=%s)" > fastlane-qa.log 2>&1
+          DEPLOY_EXIT_CODE=$?
+          echo "Fastlane QA exit code: $DEPLOY_EXIT_CODE"
+          tail -n 80 fastlane-qa.log
+          if [[ "$DEPLOY_EXIT_CODE" -ne 0 ]]; then
+            GYM_LOG=$(ls -t ~/Library/Logs/gym/*.log 2>/dev/null | head -1)
+            [[ -n "$GYM_LOG" ]] && tail -n 120 "$GYM_LOG"
+          fi
+          exit "$DEPLOY_EXIT_CODE"
+
+      - name: Upload deploy logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fastlane-qa-log
+          path: fastlane-qa.log
+          retention-days: 7
+
+      - name: Clean deploy DerivedData
+        if: always()
+        run: bash Scripts/clean-ci-derived-data.sh FestiCore-deploy
