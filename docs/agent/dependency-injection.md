@@ -10,7 +10,7 @@ Core 모듈의 Interface와 구현 타깃은 경계를 나눈다. `FestiCoreStor
 
 AuthDomain의 공개 계약은 `Interface/Sources`에 두고 `AuthInterface`, `AuthUseCaseInterface`, `OAuthUseCaseInterface`처럼 역할을 이름에 표시한다. 각 계약 파일에 DI 키와 접근자를 함께 두며, 구현 타깃의 `AuthLiveDependencies.swift`에서 `*Impl`을 등록한다. 테스트·프리뷰 기본 Mock은 누락된 주입을 이슈로 기록하고 오류를 반환한다. 성공 경로 테스트는 필요한 대역을 명시적으로 주입한다.
 
-앱 타깃을 테스트 호스트로 사용하는 동안 앱 시작 경로에서도 테스트 기본값이 호출된다. `FestivalCatalogService`의 캐시·새로고침은 빈 목록, `PackSyncService`의 캐시 목록은 빈 목록을 반환한다. `DeviceRegistrationService.register`는 외부 등록 없이 오류를 던진다. 이 네 메서드는 테스트 호스트가 다른 테스트의 미연결 이슈나 프로세스 종료를 만들지 않도록 이슈를 기록하지 않는다. 나머지 미구현 메서드와 AuthDomain의 누락 주입 정책은 유지하며, 개별 동작 테스트에서는 대역을 명시적으로 주입한다.
+앱 타깃을 테스트 호스트로 사용하는 동안 `FestiCoreApp`은 장면만 만들고 루트 Store를 시작하지 않는다. 스플래시가 자동으로 전환하면서 테스트 기본 Auth 의존성을 호출해 전역 이슈를 남기는 것을 막기 위해서다. `AppDelegate`는 이때도 실행된다. `FestivalCatalogService`의 캐시·새로고침은 빈 목록, `PackSyncService`의 캐시 목록은 빈 목록을 반환한다. `DeviceRegistrationService.register`는 외부 등록 없이 오류를 던진다. 이 네 메서드는 테스트 호스트가 다른 테스트의 미연결 이슈나 프로세스 종료를 만들지 않도록 이슈를 기록하지 않는다. 나머지 미구현 메서드와 AuthDomain의 누락 주입 정책은 유지하며, 개별 동작 테스트에서는 대역을 명시적으로 주입한다.
 
 의도적으로 로그아웃하는 동안 다른 인증 요청의 refresh가 401을 받으면 `festiCoreAuthSessionDidExpire` 알림이 발생할 수 있다. 후속 로그인 UI의 알림 관찰자는 로그아웃 진행 중 이 알림을 무시하거나 억제해야 한다.
 

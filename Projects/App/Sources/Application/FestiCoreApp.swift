@@ -18,7 +18,12 @@ struct FestiCoreApp: App {
 
   var body: some Scene {
     WindowGroup {
-      RootView(appDelegate: appDelegate)
+      if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+        RootView(appDelegate: appDelegate)
+      } else {
+        // 앱 호스트 테스트에서 실제 시작 효과가 다른 테스트의 이슈로 기록되지 않게 한다.
+        Color.clear
+      }
     }
   }
 }
@@ -57,7 +62,6 @@ private struct RootView: View {
         Text("알림을 받으려면 설정에서 알림을 허용해 주세요. 알림 없이도 앱을 사용할 수 있어요.")
       }
   }
-
 }
 
 private extension RootView {
