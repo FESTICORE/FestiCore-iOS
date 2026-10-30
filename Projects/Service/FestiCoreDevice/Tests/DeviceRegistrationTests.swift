@@ -136,7 +136,7 @@ private final class StubDeviceClient: FestiCoreRequestClient, @unchecked Sendabl
     lock.withLock { requests.append((deviceID, bearer)) }
     let tokenField = bearer == nil ? "\"deviceAccessToken\":\"issued-token\"," : ""
     let response = Data("""
-      {"code":"SUCCESS","data":{\(tokenField)"deviceId":"\(deviceID)"}}
+      {"code":"SUCCESS","message":"성공","data":{\(tokenField)"deviceId":"\(deviceID)"}}
       """.utf8)
     do { return try JSONDecoder().decode(T.self, from: response) }
     catch { throw .decoding(.failed(error)) }

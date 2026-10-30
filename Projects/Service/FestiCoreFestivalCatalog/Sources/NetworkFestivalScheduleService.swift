@@ -78,7 +78,7 @@ private extension NetworkFestivalScheduleService {
 
   static func schedule(from response: FestivalScheduleResponseDTO) throws(FestivalScheduleError) -> FestivalSchedule {
     guard response.code == "SUCCESS" else { throw .unavailable }
-    return .init(setIDs: response.data.setIds)
+    return response.data.toDomain()
   }
 
   static func map(_ error: FestiCoreNetworkError) -> FestivalScheduleError {

@@ -10,8 +10,8 @@ struct FestivalCatalogTests {
   func paginatesAndRestores() async throws {
     let cacheURL = temporaryCacheURL()
     let client = ScriptClient(pages: [
-      #"{"code":"SUCCESS","data":{"items":[{"id":"fst_a","name":"첫 축제","packVersion":1,"thumbUrl":null}],"nextCursor":"cursor-a"}}"#,
-      #"{"code":"SUCCESS","data":{"items":[{"id":"fst_b","name":"두 번째 축제","packVersion":0,"status":"discovered"}],"nextCursor":null}}"#
+      #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"fst_a","name":"첫 축제","packVersion":1,"thumbUrl":null}],"nextCursor":"cursor-a"}}"#,
+      #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"fst_b","name":"두 번째 축제","packVersion":0,"status":"discovered"}],"nextCursor":null}}"#
     ])
     let online = NetworkFestivalCatalogService(client: client, cacheURL: cacheURL)
     #expect(try await online.refresh().map(\.id) == ["fst_a", "fst_b"])
@@ -23,13 +23,13 @@ struct FestivalCatalogTests {
   func repeatedCursorPreservesCache() async throws {
     let cacheURL = temporaryCacheURL()
     let good = NetworkFestivalCatalogService(client: ScriptClient(pages: [
-      #"{"code":"SUCCESS","data":{"items":[{"id":"fst_saved","name":"저장된 축제","packVersion":2}],"nextCursor":null}}"#
+      #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"fst_saved","name":"저장된 축제","packVersion":2}],"nextCursor":null}}"#
     ]), cacheURL: cacheURL)
     _ = try await good.refresh()
 
     let broken = NetworkFestivalCatalogService(client: ScriptClient(pages: [
-      #"{"code":"SUCCESS","data":{"items":[],"nextCursor":"same"}}"#,
-      #"{"code":"SUCCESS","data":{"items":[],"nextCursor":"same"}}"#
+      #"{"code":"SUCCESS","message":"OK","data":{"items":[],"nextCursor":"same"}}"#,
+      #"{"code":"SUCCESS","message":"OK","data":{"items":[],"nextCursor":"same"}}"#
     ]), cacheURL: cacheURL)
     await #expect(throws: FestivalCatalogError.self) { try await broken.refresh() }
     #expect(try await broken.cachedFestivals().map(\.id) == ["fst_saved"])
@@ -39,7 +39,7 @@ struct FestivalCatalogTests {
   func resolvesRelativeImageURL() async throws {
     let service = NetworkFestivalCatalogService(
       client: ScriptClient(pages: [
-        #"{"code":"SUCCESS","data":{"items":[{"id":"fst_a","name":"축제","packVersion":1,"thumbUrl":"/api/v1/festivals/images/poster"}],"nextCursor":null}}"#
+        #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"fst_a","name":"축제","packVersion":1,"thumbUrl":"/api/v1/festivals/images/poster"}],"nextCursor":null}}"#
       ]),
       cacheURL: temporaryCacheURL(),
       baseURL: URL(string: "https://festicore-dev.up.railway.app")
@@ -50,6 +50,25 @@ struct FestivalCatalogTests {
     #expect(service.imageURL(for: "http://example.com/poster.jpg") == nil)
     #expect(FestivalImageURLResolver(baseURL: URL(string: "http://example.com"))
       .resolve("/poster.jpg") == nil)
+  }
+
+  @Test("네트워크와 저장된 목록의 위험한 썸네일 URL은 제외한다")
+  func rejectsUnsafeItemThumbnailOnRefreshAndCache() async throws {
+    let cacheURL = temporaryCacheURL()
+    let online = NetworkFestivalCatalogService(
+      client: ScriptClient(pages: [
+        #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"fst_a","name":"축제","packVersion":1,"thumbUrl":"javascript:alert(1)"}],"nextCursor":null}}"#
+      ]),
+      cacheURL: cacheURL,
+      baseURL: URL(string: "https://festicore-dev.up.railway.app")
+    )
+    #expect(try await online.refresh().first?.thumbnailURL == nil)
+
+    let offline = NetworkFestivalCatalogService(
+      client: ScriptClient(pages: []), cacheURL: cacheURL,
+      baseURL: URL(string: "https://festicore-dev.up.railway.app")
+    )
+    #expect(try await offline.cachedFestivals().first?.thumbnailURL == nil)
   }
 
   @Test("기본 카탈로그 이미지 URL도 HTTPS만 허용한다")

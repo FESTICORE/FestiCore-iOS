@@ -1,9 +1,6 @@
-import AuthDomainInterface
+import FestiCoreNetworkInterface
 
-struct AuthProfileResponseDTO: Decodable, Sendable {
-  let code: String
-  let data: AuthProfileDataDTO
-}
+typealias AuthProfileResponseDTO = BaseResponseDTO<AuthProfileDataDTO>
 
 struct AuthProfileDataDTO: Decodable, Sendable {
   let id: String
@@ -16,17 +13,6 @@ struct AuthProfileDataDTO: Decodable, Sendable {
   let pushOptIn: Bool
   let profileImageUrl: String?
   let currentTermsVersion: String
-
-  var profile: AuthProfile {
-    AuthProfile(user: AuthUser(
-      id: id, provider: provider, email: email, nickname: nickname,
-      nicknameConfirmed: nicknameConfirmed, termsAcceptedAt: termsAcceptedAt,
-      termsVersion: termsVersion, pushOptIn: pushOptIn, profileImageURL: profileImageUrl
-    ), currentTermsVersion: currentTermsVersion)
-  }
 }
 
-struct AuthProfileUpdateResponseDTO: Decodable, Sendable {
-  let code: String
-  let data: AuthUserDTO
-}
+typealias AuthProfileUpdateResponseDTO = BaseResponseDTO<AuthUserDTO>

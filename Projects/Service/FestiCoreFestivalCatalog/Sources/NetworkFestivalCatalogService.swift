@@ -19,7 +19,7 @@ public actor NetworkFestivalCatalogService: FestivalCatalogService {
   }
 
   public func cachedFestivals() throws -> [FestivalCatalogItem] {
-    try cache.load().map { $0.toEntity(imageURL: imageResolver.resolve($0.thumbUrl)) }
+    try cache.load().map { $0.toDomain(imageURL: imageResolver.resolve($0.thumbUrl)) }
   }
 
   public func refresh() async throws -> [FestivalCatalogItem] {
@@ -34,7 +34,7 @@ public actor NetworkFestivalCatalogService: FestivalCatalogService {
       for item in response.data.items where seenIDs.insert(item.id).inserted { items.append(item) }
       guard let nextCursor = response.data.nextCursor else {
         try cache.save(items)
-        return items.map { $0.toEntity(imageURL: imageResolver.resolve($0.thumbUrl)) }
+        return items.map { $0.toDomain(imageURL: imageResolver.resolve($0.thumbUrl)) }
       }
       guard seenCursors.insert(nextCursor).inserted else { throw FestivalCatalogError.repeatedCursor }
       after = nextCursor

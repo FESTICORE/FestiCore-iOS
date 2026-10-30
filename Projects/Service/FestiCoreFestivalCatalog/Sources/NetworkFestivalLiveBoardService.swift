@@ -36,7 +36,7 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
           boardResponse.data.festivalId == festivalID else {
       throw FestivalLiveBoardError.invalidResponse
     }
-    return boardResponse.toEntity(profiles: profilesResponse, imageURL: imageResolver.resolve)
+    return boardResponse.data.toDomain(profiles: profilesResponse.data, imageURL: imageResolver.resolve)
   }
 }
 

@@ -1,5 +1,5 @@
 //
-//  AuthLoginResponseDTO+Entity.swift
+//  AuthLoginDataDTO+.swift
 //  AuthDomain
 //
 //  Created by FestiCore on 10/29/26.
@@ -8,13 +8,13 @@
 import AuthDomainInterface
 
 extension AuthLoginDataDTO {
-  var result: AuthLoginResult {
-    AuthLoginResult(newUser: newUser, user: user.entity)
+  func toDomain() -> AuthLoginResult {
+    AuthLoginResult(newUser: newUser, user: user.toDomain())
   }
 }
 
 extension AuthUserDTO {
-  var entity: AuthUser {
+  func toDomain() -> AuthUser {
     AuthUser(
       id: id,
       provider: provider,

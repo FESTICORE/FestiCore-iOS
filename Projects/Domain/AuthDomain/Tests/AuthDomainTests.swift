@@ -42,25 +42,27 @@ struct AuthDomainTests {
   func mapsUser() throws {
     let response = try JSONDecoder().decode(AuthLoginResponseDTO.self, from: loginBody)
     #expect(response.data.newUser)
-    #expect(response.data.result.user.email == nil)
-    #expect(response.data.result.user.nickname == nil)
-    #expect(response.data.result.user.termsAcceptedAt == "2026-10-29T01:02:03.123Z")
-    #expect(response.data.result.user.profileImageURL == nil)
+    let user = response.data.toDomain().user
+    #expect(user.email == nil)
+    #expect(user.nickname == nil)
+    #expect(user.termsAcceptedAt == "2026-10-29T01:02:03.123Z")
+    #expect(user.profileImageURL == nil)
   }
 
   @Test("현재 약관 버전이 일치해야 프로필이 완료된다")
   func profileEligibility() throws {
     let response = try JSONDecoder().decode(AuthProfileResponseDTO.self, from: profileBody)
-    #expect(response.data.profile.user.id == "user-1")
-    #expect(response.data.profile.isEligible)
-    let stale = AuthProfile(user: response.data.profile.user, currentTermsVersion: "2026-11")
+    let profile = response.data.toDomain()
+    #expect(profile.user.id == "user-1")
+    #expect(profile.isEligible)
+    let stale = AuthProfile(user: profile.user, currentTermsVersion: "2026-11")
     #expect(!stale.isEligible)
   }
 
   @Test("GET me가 현재 약관 버전을 누락하면 실패한다")
   func missingTermsVersion() async {
     let auth = StubAuthService(loggedIn: true)
-    let body = Data(#"{"code":"SUCCESS","data":{"id":"user-1","provider":"google","nicknameConfirmed":true,"termsAcceptedAt":"2026-10-30T00:00:00Z","termsVersion":"2026-10","pushOptIn":false}}"#.utf8)
+    let body = Data(#"{"code":"SUCCESS","message":"OK","data":{"id":"user-1","provider":"google","nicknameConfirmed":true,"termsAcceptedAt":"2026-10-30T00:00:00Z","termsVersion":"2026-10","pushOptIn":false}}"#.utf8)
     let client = StubClient(result: .success(body))
     let repository = withDependencies {
       $0.networkClient = client
@@ -85,7 +87,7 @@ struct AuthDomainTests {
 
   @Test("프로필 수정은 인증된 PATCH me 응답을 반환한다")
   func updateProfile() async throws {
-    let body = Data(#"{"code":"SUCCESS","data":{"id":"user-1","provider":"google","nickname":"축제관객","nicknameConfirmed":true,"termsAcceptedAt":"2026-10-30T00:00:00Z","termsVersion":"2026-10","pushOptIn":false}}"#.utf8)
+    let body = Data(#"{"code":"SUCCESS","message":"OK","data":{"id":"user-1","provider":"google","nickname":"축제관객","nicknameConfirmed":true,"termsAcceptedAt":"2026-10-30T00:00:00Z","termsVersion":"2026-10","pushOptIn":false}}"#.utf8)
     let client = StubClient(result: .success(body))
     let repository = withDependencies {
       $0.networkClient = client
@@ -187,7 +189,7 @@ struct AuthDomainTests {
     #expect(result.user.id == "user-1")
     #expect(await auth.isLoggedIn)
     // 두 번째 요청은 서버 로그아웃 응답이 필요하므로 별도 성공 대역을 등록한다.
-    let logoutClient = StubClient(result: .success(Data(#"{"code":"SUCCESS","data":{"success":true}}"#.utf8)))
+    let logoutClient = StubClient(result: .success(Data(#"{"code":"SUCCESS","message":"OK","data":{"success":true}}"#.utf8)))
     let logoutRepository = withDependencies {
       $0.networkClient = logoutClient
       $0.authService = auth
@@ -242,7 +244,7 @@ struct AuthDomainTests {
   @Test("로그아웃 성공은 서버 응답 후 로컬 세션을 지운다")
   func signOut() async throws {
     let auth = StubAuthService(loggedIn: true)
-    let client = StubClient(result: .success(Data(#"{"code":"SUCCESS","data":{"success":true}}"#.utf8)))
+    let client = StubClient(result: .success(Data(#"{"code":"SUCCESS","message":"OK","data":{"success":true}}"#.utf8)))
     let repository = withDependencies {
       $0.networkClient = client
       $0.authService = auth
@@ -398,11 +400,11 @@ struct AuthDomainTests {
   }
 
   private var loginBody: Data {
-    Data(#"{"code":"SUCCESS","data":{"accessToken":"access","refreshToken":"refresh","newUser":true,"user":{"id":"user-1","provider":"google","email":null,"nickname":null,"nicknameConfirmed":false,"termsAcceptedAt":"2026-10-29T01:02:03.123Z","termsVersion":null,"pushOptIn":false,"profileImageUrl":null}}}"#.utf8)
+    Data(#"{"code":"SUCCESS","message":"OK","data":{"accessToken":"access","refreshToken":"refresh","newUser":true,"user":{"id":"user-1","provider":"google","email":null,"nickname":null,"nicknameConfirmed":false,"termsAcceptedAt":"2026-10-29T01:02:03.123Z","termsVersion":null,"pushOptIn":false,"profileImageUrl":null}}}"#.utf8)
   }
 
   private var profileBody: Data {
-    Data(#"{"code":"SUCCESS","data":{"id":"user-1","provider":"google","email":null,"nickname":"축제관객","nicknameConfirmed":true,"termsAcceptedAt":"2026-10-30T00:00:00Z","termsVersion":"2026-10","pushOptIn":false,"profileImageUrl":null,"currentTermsVersion":"2026-10","admin":null}}"#.utf8)
+    Data(#"{"code":"SUCCESS","message":"OK","data":{"id":"user-1","provider":"google","email":null,"nickname":"축제관객","nicknameConfirmed":true,"termsAcceptedAt":"2026-10-30T00:00:00Z","termsVersion":"2026-10","pushOptIn":false,"profileImageUrl":null,"currentTermsVersion":"2026-10","admin":null}}"#.utf8)
   }
 }
 
