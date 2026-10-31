@@ -576,13 +576,17 @@ public struct FestivalFeature {
     }
     return .run { send in
       while !Task.isCancelled {
+        var interval: TimeInterval = 35
         do {
           let snapshot = try await liveBoardService.refresh(for: id)
           await send(.inner(.liveBoardLoaded(id, snapshot)))
+        } catch FestivalLiveBoardError.rateLimited(let retryAfter) {
+          interval = max(interval, retryAfter)
+          await send(.inner(.liveBoardFailed(id)))
         } catch {
           await send(.inner(.liveBoardFailed(id)))
         }
-        try await clock.sleep(for: .seconds(35))
+        try await clock.sleep(for: .seconds(interval))
       }
     }
     .cancellable(id: CancelID.liveBoard, cancelInFlight: true)
