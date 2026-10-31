@@ -54,7 +54,8 @@ final class SessionRevocationJournal: Sendable {
         at: url.deletingLastPathComponent(),
         withIntermediateDirectories: true
       )
-      try Data(state.rawValue.utf8).write(to: url, options: [.atomic, .completeFileProtectionUnlessOpen])
+      // 상태만 담는 저널은 잠금 중에도 읽혀야 토큰 복원을 차단할 수 있다.
+      try Data(state.rawValue.utf8).write(to: url, options: .atomic)
       guard case let .pending(saved) = status, saved == state else { return false }
       return true
     } catch { return false }
