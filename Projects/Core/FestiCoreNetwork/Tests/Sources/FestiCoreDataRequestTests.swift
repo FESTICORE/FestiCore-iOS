@@ -115,6 +115,28 @@ struct FestiCoreDataRequestTests {
     #expect(SampleService.list(page: 1).timeoutInterval == nil)
   }
 
+  @Test("캐시 정책을 선언하지 않으면 URLRequest 기본값을 유지한다")
+  func keepsDefaultCachePolicy() throws {
+    let endpoint = SampleService.list(page: 1)
+    let request = try endpoint.asURLRequest(baseURL: baseURL)
+
+    #expect(endpoint.cachePolicy == nil)
+    #expect(request.cachePolicy == .useProtocolCachePolicy)
+  }
+
+  @Test("요청별 캐시 정책을 URLRequest에 반영한다")
+  func appliesCachePolicy() throws {
+    struct UncachedRequest: FestiCoreDataRequest {
+      let path = "api/live"
+      let method: HTTPMethod = .get
+      let cachePolicy: URLRequest.CachePolicy? = .reloadIgnoringLocalCacheData
+    }
+
+    let request = try UncachedRequest().asURLRequest(baseURL: baseURL)
+
+    #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
+  }
+
   @Test("인증 정책 기본값은 automatic 이다")
   func defaultsToAutomaticAuthorization() {
     #expect(SampleService.list(page: 1).authorization == .automatic)

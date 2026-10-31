@@ -15,6 +15,7 @@ struct FestivalLiveRequest: FestiCoreDataRequest {
     if let etag { headers.add(name: "If-None-Match", value: etag) }
     return headers
   }
+  var cachePolicy: URLRequest.CachePolicy? { .reloadIgnoringLocalCacheData }
   var maxRetryAttempts: Int { 0 }
   var parameters: (any Encodable & Sendable)? { nil }
 }

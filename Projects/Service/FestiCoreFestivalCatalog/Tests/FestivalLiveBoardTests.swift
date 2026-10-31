@@ -11,8 +11,23 @@ struct FestivalLiveBoardTests {
   @Test("라이브 상태와 공개 프로필을 합쳐 크루·팔로우·활성 깃발을 반환한다")
   func mapsLiveBoard() async throws {
     let client = LiveBoardStubClient(responses: [
-      "api/v1/festivals/fst_test/live": #"{"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test","serverAt":"2026-10-31T00:30:00.000Z","activeFlags":[{"flagId":"flg_a","status":"active","zoneId":"A","activity":"sing","updatedAt":"2026-10-31T00:29:00Z"}],"me":{"following":["flg_a","flg_b"],"crew":{"id":"crw_a","name":"우리 크루","members":[{"userId":"usr_a","nickname":"서원지","state":"ready","zoneId":"B"}]}}}}"#,
-      "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"flg_a","name":"첫 깃발","thumbUrl":"/image/a"},{"id":"flg_b","name":"두 번째 깃발","thumbUrl":null}]}}"#,
+      "api/v1/festivals/fst_test/live": #"""
+        {"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test",
+        "serverAt":"2026-10-20T09:00:00Z",
+        "activeFlags":[{"flagId":"flg_a","status":"active","zoneId":"A","activity":"sing",
+        "updatedAt":"2026-10-20T09:00:01.123Z"}],
+        "me":{"following":["flg_a","flg_b"],"pinnedFlagId":"flg_b",
+        "crew":{"id":"crw_a","name":"우리 크루","ownerId":"usr_a",
+        "gatherRequest":{"zoneId":"B","byUserId":"usr_a","at":"2026-10-20T09:00:02Z"},
+        "gatherAvailableAt":"2026-10-20T09:10:00.456Z",
+        "members":[{"userId":"usr_a","nickname":"서원지","state":"here","zoneId":"B",
+        "updatedAt":"2026-10-20T09:00:03Z"}]}}}}
+        """#,
+      "api/v1/festivals/fst_test/flags": #"""
+        {"code":"SUCCESS","message":"OK","data":{"items":[
+        {"id":"flg_a","name":"첫 깃발","thumbUrl":"/image/a","tags":["sing"]},
+        {"id":"flg_b","name":"두 번째 깃발","thumbUrl":null,"tags":["slam","newbie"]}]}}
+        """#,
     ])
     let service = NetworkFestivalLiveBoardService(
       client: client,
@@ -27,11 +42,128 @@ struct FestivalLiveBoardTests {
     #expect(board.activeFlags.first?.thumbnailURL?.absoluteString ==
       "https://festicore-dev.up.railway.app/image/a")
     #expect(board.followedFlags.map(\.name) == ["첫 깃발", "두 번째 깃발"])
+    #expect(board.serverAt == date("2026-10-20T09:00:00Z"))
+    #expect(board.pinnedFlagID == "flg_b")
+    #expect(board.activeFlags.first?.tags == ["sing"])
+    #expect(board.activeFlags.first?.updatedAt == date("2026-10-20T09:00:01.123Z"))
+    #expect(board.followedFlags.last?.tags == ["slam", "newbie"])
+    #expect(board.followedFlags.last?.updatedAt == nil)
+    #expect(board.crew?.ownerID == "usr_a")
+    #expect(board.crew?.gatherRequest?.zoneID == "B")
+    #expect(board.crew?.gatherRequest?.byUserID == "usr_a")
+    #expect(board.crew?.gatherRequest?.at == date("2026-10-20T09:00:02Z"))
+    #expect(board.crew?.gatherAvailableAt == date("2026-10-20T09:10:00.456Z"))
     #expect(board.crew?.members.first?.nickname == "서원지")
-    #expect(board.serverAt == ISO8601DateFormatter().date(from: "2026-10-31T00:30:00Z"))
-    #expect(board.activeFlags.first?.updatedAt == ISO8601DateFormatter().date(from: "2026-10-31T00:29:00Z"))
+    #expect(board.crew?.members.first?.updatedAt == date("2026-10-20T09:00:03Z"))
     let sentDeviceID = await client.liveDeviceID
     #expect(sentDeviceID == "00000000-0000-4000-8000-000000000001")
+    let liveCachePolicy = await client.liveCachePolicy
+    let flagsCachePolicy = await client.flagsCachePolicy
+    #expect(liveCachePolicy == .reloadIgnoringLocalCacheData)
+    #expect(flagsCachePolicy == nil)
+  }
+
+  @Test("선택 필드가 없는 응답과 null 집결 요청도 디코딩한다")
+  func decodesLegacyAndNullFields() async throws {
+    let client = LiveBoardStubClient(responses: [
+      "api/v1/festivals/fst_test/live": #"{"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test","serverAt":"2026-10-20T09:00:00Z","activeFlags":[{"flagId":"flg_a","status":"resting","updatedAt":"2026-10-20T09:00:01Z"}],"me":{"following":["flg_a"],"crew":{"id":"crw_a","name":"우리 크루","members":[],"gatherRequest":null}}}}"#,
+      "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"flg_a","name":"첫 깃발"}]}}"#,
+    ])
+    let service = NetworkFestivalLiveBoardService(
+      client: client,
+      auth: LiveBoardStubAuth(),
+      device: LiveBoardStubDevice(),
+      baseURL: nil
+    )
+
+    let board = try await service.refresh(for: "fst_test")
+
+    #expect(board.serverAt == date("2026-10-20T09:00:00Z"))
+    #expect(board.pinnedFlagID == nil)
+    #expect(board.activeFlags.first?.updatedAt == date("2026-10-20T09:00:01Z"))
+    #expect(board.activeFlags.first?.tags == [])
+    #expect(board.crew?.ownerID == nil)
+    #expect(board.crew?.gatherRequest == nil)
+    #expect(board.crew?.gatherAvailableAt == nil)
+  }
+
+  @Test("선택적 크루 날짜가 잘못되면 안전하게 비운다")
+  func rejectsInvalidDates() async throws {
+    let client = LiveBoardStubClient(responses: [
+      "api/v1/festivals/fst_test/live": #"{"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test","serverAt":"2026-10-20T09:00:00Z","activeFlags":[{"flagId":"flg_a","status":"active","updatedAt":"2026-10-20T09:00:01Z"}],"me":{"following":[],"crew":{"id":"crw_a","name":"우리 크루","members":[{"userId":"usr_a","nickname":"서원지","state":"here","updatedAt":"invalid"}],"gatherRequest":{"zoneId":null,"byUserId":"usr_a","at":"invalid"},"gatherAvailableAt":"invalid"}}}}"#,
+      "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[]}}"#,
+    ])
+    let service = NetworkFestivalLiveBoardService(
+      client: client,
+      auth: LiveBoardStubAuth(),
+      device: LiveBoardStubDevice(),
+      baseURL: nil
+    )
+
+    let board = try await service.refresh(for: "fst_test")
+
+    #expect(board.serverAt != nil)
+    #expect(board.activeFlags.first?.updatedAt != nil)
+    #expect(board.crew?.members.first?.updatedAt == nil)
+    #expect(board.crew?.gatherRequest == nil)
+    #expect(board.crew?.gatherAvailableAt == nil)
+  }
+
+  @Test("로그인 응답에 크루가 null이어도 디코딩한다")
+  func decodesNullCrew() async throws {
+    let client = LiveBoardStubClient(responses: [
+      "api/v1/festivals/fst_test/live": #"{"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test","serverAt":"2026-10-20T09:00:00Z","activeFlags":[],"me":{"following":[],"crew":null}}}"#,
+      "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[]}}"#,
+    ])
+    let service = NetworkFestivalLiveBoardService(
+      client: client,
+      auth: LiveBoardStubAuth(),
+      device: LiveBoardStubDevice(),
+      baseURL: nil
+    )
+
+    let board = try await service.refresh(for: "fst_test")
+
+    #expect(board.crew == nil)
+  }
+
+  @Test("상태와 갱신 시각이 null인 크루 멤버를 매핑한다")
+  func mapsNullMemberState() async throws {
+    let client = LiveBoardStubClient(responses: [
+      "api/v1/festivals/fst_test/live": #"{"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test","serverAt":"2026-10-20T09:00:00Z","activeFlags":[],"me":{"following":[],"crew":{"id":"crw_a","name":"우리 크루","members":[{"userId":"usr_a","nickname":"서원지","zoneId":null,"state":null,"updatedAt":null}]}}}}"#,
+      "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[]}}"#,
+    ])
+    let service = NetworkFestivalLiveBoardService(
+      client: client,
+      auth: LiveBoardStubAuth(),
+      device: LiveBoardStubDevice(),
+      baseURL: nil
+    )
+
+    let board = try await service.refresh(for: "fst_test")
+
+    #expect(board.crew?.members.first?.id == "usr_a")
+    #expect(board.crew?.members.first?.state == nil)
+    #expect(board.crew?.members.first?.updatedAt == nil)
+  }
+
+  @Test("잘못된 태그 형식은 버리고 문자열 태그만 남긴다")
+  func ignoresInvalidProfileTags() async throws {
+    let client = LiveBoardStubClient(responses: [
+      "api/v1/festivals/fst_test/live": #"{"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test","serverAt":"2026-10-20T09:00:00Z","activeFlags":[],"me":{"following":["flg_number","flg_object","flg_mixed"],"crew":null}}}"#,
+      "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"flg_number","name":"숫자","tags":12},{"id":"flg_object","name":"객체","tags":{"bad":true}},{"id":"flg_mixed","name":"혼합","tags":["slam",12,{"bad":true},null,"sing"]}]}}"#,
+    ])
+    let service = NetworkFestivalLiveBoardService(
+      client: client,
+      auth: LiveBoardStubAuth(),
+      device: LiveBoardStubDevice(),
+      baseURL: nil
+    )
+
+    let board = try await service.refresh(for: "fst_test")
+
+    #expect(board.followedFlags.map(\.name) == ["숫자", "객체", "혼합"])
+    #expect(board.followedFlags.map(\.tags) == [[], [], ["slam", "sing"]])
   }
 
   @Test("공개 프로필의 위험한 썸네일 URL은 제외한다")
@@ -166,6 +298,14 @@ struct FestivalLiveBoardTests {
     #expect(second.followedFlags.isEmpty)
     #expect(await client.lastIfNoneMatch == nil)
   }
+
+  private func date(_ value: String) -> Date? {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = formatter.date(from: value) { return date }
+    formatter.formatOptions = [.withInternetDateTime]
+    return formatter.date(from: value)
+  }
 }
 
 private actor LiveBoardStubAuth: AuthService {
@@ -197,6 +337,8 @@ private actor LiveBoardStubClient: FestiCoreRequestClient {
   private(set) var liveDeviceID: String?
   private(set) var lastIfNoneMatch: String?
   private(set) var liveRequestCount = 0
+  private(set) var liveCachePolicy: URLRequest.CachePolicy?
+  private(set) var flagsCachePolicy: URLRequest.CachePolicy?
 
   init(responses: [String: String], liveResponses: [FestiCoreHTTPResponse] = []) {
     self.responses = responses
@@ -212,6 +354,9 @@ private actor LiveBoardStubClient: FestiCoreRequestClient {
   func send<R: FestiCoreDataRequest>(_ request: R) async throws(FestiCoreNetworkError) -> R.Response {
     if request.path.hasSuffix("/live") {
       liveDeviceID = request.headers.value(for: "X-Device-Id")
+      liveCachePolicy = request.cachePolicy
+    } else if request.path.hasSuffix("/flags") {
+      flagsCachePolicy = request.cachePolicy
     }
     guard let value = responses[request.path],
           let result = try? JSONDecoder().decode(R.Response.self, from: Data(value.utf8)) else {
@@ -226,6 +371,7 @@ private actor LiveBoardStubClient: FestiCoreRequestClient {
     guard request.path.hasSuffix("/live") else { throw .request(.invalidURL) }
     liveDeviceID = request.headers.value(for: "X-Device-Id")
     lastIfNoneMatch = request.headers.value(for: "If-None-Match")
+    liveCachePolicy = request.cachePolicy
     liveRequestCount += 1
     if nextLiveResponseIndex < liveResponses.count {
       defer { nextLiveResponseIndex += 1 }
