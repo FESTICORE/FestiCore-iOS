@@ -8,6 +8,7 @@ struct FestivalLiveRequest: FestiCoreDataRequest {
   let festivalID: String
   let deviceID: String
   let etag: String?
+  let authorization: FestiCoreAuthorization
 
   var path: String { "api/v1/festivals/\(festivalID)/live" }
   var method: HTTPMethod { .get }
