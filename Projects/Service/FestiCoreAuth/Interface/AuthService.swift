@@ -20,7 +20,9 @@ public protocol AuthService: Sendable {
   /// 현재 확정 세션이 그 식별자일 때만 로그아웃하고 true를 돌려준다. 진행 중인 임시 세션은 남긴다.
   func signOut(ifSession id: UUID) async -> Bool
   func rememberUserID(_ userID: String) async
-  func signOut() async
+  /// 로컬 자격 증명 삭제가 완료되었을 때만 true를 반환한다.
+  @discardableResult
+  func signOut() async -> Bool
 }
 
 public extension Notification.Name {

@@ -187,6 +187,21 @@ struct AuthTests {
     #expect(KeychainCredentialStore(storage: storage).load() == old)
   }
 
+  @Test("인증 서비스는 키체인 삭제 실패를 로그아웃 성공으로 보고하지 않는다")
+  func signOutReportsKeychainFailure() async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage)
+    await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
+    storage.failTokenSaveFor = .credentialIntegrity
+    storage.failTokenRemovalFor = [.accessToken, .refreshToken]
+    storage.failIdentityRemoval = true
+
+    #expect(await auth.signOut() == false)
+    #expect(await auth.isLoggedIn == false)
+    #expect(KeychainCredentialStore(storage: storage).load() == old)
+  }
+
   @Test("로그아웃 및 재로그인 뒤에는 이전 토큰 갱신 결과를 교체하지 않는다")
   func guardedStoreRejectsPreviousSessionRefresh() throws {
     let storage = MemorySecureStorage()

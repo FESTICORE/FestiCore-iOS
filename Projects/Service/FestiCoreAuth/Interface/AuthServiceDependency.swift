@@ -67,7 +67,8 @@ private struct UnimplementedAuthService: AuthService {
     // Test doubles can omit the optional local identity cache.
   }
 
-  func signOut() async {
+  func signOut() async -> Bool {
     reportIssue("authService 미등록")
+    return false
   }
 }

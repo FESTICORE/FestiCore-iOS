@@ -259,6 +259,24 @@ struct AuthDomainTests {
     #expect(await client.calls == 1)
   }
 
+  @Test("서버 로그아웃 성공 뒤 로컬 자격 증명 삭제 실패를 전파한다")
+  func signOutReportsLocalClearFailure() async throws {
+    let auth = StubAuthService(loggedIn: true, clearSucceeds: false)
+    let client = StubClient(result: .success(Data(#"{"code":"SUCCESS","message":"OK","data":{"success":true}}"#.utf8)))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.signOut() }
+    #expect(await auth.signOutCalls == 1)
+
+    await auth.setClearSucceeds(true)
+    try await repository.signOut()
+    #expect(await auth.signOutCalls == 2)
+    #expect(await client.calls == 1)
+  }
+
   @Test("이미 로그아웃 상태라면 네트워크를 호출하지 않는다")
   func alreadySignedOut() async throws {
     let auth = StubAuthService()
@@ -332,6 +350,19 @@ struct AuthDomainTests {
     #expect(await client.lastRequestAuthorizationIsAutomatic)
     #expect(await client.lastRequestParametersAreNil)
     #expect(await auth.isLoggedIn == false)
+    #expect(await auth.signOutCalls == 1)
+  }
+
+  @Test("회원 탈퇴 응답 뒤 로컬 자격 증명 삭제 실패를 전파한다")
+  func withdrawReportsLocalClearFailure() async {
+    let auth = StubAuthService(loggedIn: true, clearSucceeds: false)
+    let client = StubClient(result: .success(Data()))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.withdraw() }
     #expect(await auth.signOutCalls == 1)
   }
 
@@ -414,12 +445,17 @@ struct AuthDomainTests {
 
 private actor StubAuthService: AuthService {
   private var loggedIn: Bool
+  private var clearSucceeds: Bool
   private(set) var tokens: [String] = []
   private(set) var signOutCalls = 0
 
-  init(loggedIn: Bool = false) { self.loggedIn = loggedIn }
+  init(loggedIn: Bool = false, clearSucceeds: Bool = true) {
+    self.loggedIn = loggedIn
+    self.clearSucceeds = clearSucceeds
+  }
 
   var isLoggedIn: Bool { loggedIn }
+  func setClearSucceeds(_ value: Bool) { clearSucceeds = value }
   var refreshToken: String? { tokens.last }
   var currentUserID: String? { nil }
 
@@ -453,10 +489,11 @@ private actor StubAuthService: AuthService {
 
   func rememberUserID(_ userID: String) {}
 
-  func signOut() {
+  func signOut() -> Bool {
     tokens = []
     loggedIn = false
     signOutCalls += 1
+    return clearSucceeds
   }
 }
 

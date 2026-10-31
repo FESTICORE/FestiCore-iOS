@@ -1821,8 +1821,9 @@ private struct StubAuthService: AuthService {
     Issue.record("테스트에서 rememberUserID 호출을 예상하지 않았어요")
   }
 
-  func signOut() async {
+  func signOut() async -> Bool {
     Issue.record("테스트에서 signOut 호출을 예상하지 않았어요")
+    return false
   }
 }
 
@@ -1911,7 +1912,10 @@ private actor SessionRecordingAuthService: AuthService {
   }
 
   func rememberUserID(_ userID: String) {}
-  func signOut() { loggedIn = false }
+  func signOut() -> Bool {
+    loggedIn = false
+    return true
+  }
 
   func waitUntilCommitStarts() async {
     while !commitStarted || (holdsCommit && release == nil) { await Task.yield() }

@@ -105,7 +105,7 @@ private actor FollowStubAuth: AuthService {
 
   func signIn(accessToken _: String, refreshToken _: String) {}
   func rememberUserID(_: String) {}
-  func signOut() {}
+  func signOut() -> Bool { true }
 }
 
 private actor FollowStubClient: FestiCoreRequestClient {

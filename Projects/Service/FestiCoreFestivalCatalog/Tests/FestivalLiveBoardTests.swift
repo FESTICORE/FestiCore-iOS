@@ -429,7 +429,10 @@ private actor LiveBoardStubAuth: AuthService {
   func discardSession(_: UUID) -> Bool { false }
   func signOut(ifSession _: UUID) -> Bool { false }
   func rememberUserID(_ value: String) { userID = value }
-  func signOut() { userID = nil }
+  func signOut() -> Bool {
+    userID = nil
+    return true
+  }
 }
 
 private struct LiveBoardStubDevice: DeviceRegistrationService {

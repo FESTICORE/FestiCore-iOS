@@ -92,15 +92,14 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     try? identityStorage.save(userID, for: .sessionUserID)
   }
 
-  func signOut() {
+  func signOut() -> Bool {
     staged = nil
-    clearCommittedSession()
+    return clearCommittedSession()
   }
 
   func signOut(ifSession id: UUID) -> Bool {
     guard committedSessionID == id else { return false }
-    clearCommittedSession()
-    return true
+    return clearCommittedSession()
   }
 
   func handleAuthFailure(for attempted: FestiCoreCredential) {
@@ -120,11 +119,13 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
 }
 
 private extension FestiCoreAuth {
-  func clearCommittedSession() {
-    committedSessionID = nil
-    _ = store.clear()
+  @discardableResult
+  func clearCommittedSession() -> Bool {
+    let cleared = store.clear()
+    if cleared { committedSessionID = nil }
     try? identityStorage.remove(.sessionUserID)
     credentials.update(nil)
+    return cleared
   }
 }
 

@@ -54,7 +54,7 @@ public struct AuthRepositoryImpl: AuthInterface {
       }
       return response.data.toDomain()
     } catch {
-      await clearUnauthorizedSession(error)
+      try await clearUnauthorizedSession(error)
       throw error
     }
   }
@@ -73,39 +73,45 @@ public struct AuthRepositoryImpl: AuthInterface {
       guard response.code == "SUCCESS" else { throw AuthDomainError.invalidResponse }
       return response.data.toDomain()
     } catch {
-      await clearUnauthorizedSession(error)
+      try await clearUnauthorizedSession(error)
       throw error
     }
   }
 
-  private func clearUnauthorizedSession(_ error: any Error) async {
+  private func clearUnauthorizedSession(_ error: any Error) async throws {
     if let networkError = error as? FestiCoreNetworkError,
        case let .response(response) = networkError,
        response.isUnauthorized {
-      await authService.signOut()
+      guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
     }
   }
 
   public func signOut() async throws {
-    guard await authService.isLoggedIn else { return }
+    guard await authService.isLoggedIn else {
+      guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
+      return
+    }
 
     do {
       let response = try await client.send(AuthRequest.logout, as: AuthLogoutResponseDTO.self)
       guard response.code == "SUCCESS", response.data.success else {
         throw AuthDomainError.invalidResponse
       }
-      await authService.signOut()
     } catch {
       // 갱신 실패가 먼저 세션을 지웠다면 요청 오류와 관계없이 로그아웃을 마친 상태다.
-      guard await authService.isLoggedIn else { return }
+      guard await authService.isLoggedIn else {
+        guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
+        return
+      }
       if let networkError = error as? FestiCoreNetworkError,
          case let .response(response) = networkError,
          response.isUnauthorized {
-        await authService.signOut()
+        guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
         return
       }
       throw error
     }
+    guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
   }
 
   public func withdraw() async throws {
@@ -113,9 +119,9 @@ public struct AuthRepositoryImpl: AuthInterface {
 
     do {
       _ = try await client.send(AuthRequest.withdraw, as: FestiCoreEmptyResponse.self)
-      await authService.signOut()
+      guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
     } catch {
-      await clearUnauthorizedSession(error)
+      try await clearUnauthorizedSession(error)
       throw error
     }
   }
