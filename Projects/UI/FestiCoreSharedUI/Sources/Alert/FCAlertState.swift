@@ -12,6 +12,8 @@ import SwiftUI
 /// Feature 상태에 `@Presents`로 들고 있는 확인 다이얼로그 내용
 @ObservableState
 public struct FCAlertState<Action>: Equatable {
+  /// 표시마다 새로 만드는 ID. 같은 내용을 다시 띄워도 등장 애니메이션을 다시 재생한다. 내용 비교에는 쓰지 않는다.
+  public let presentationID = UUID()
   public let title: String
   public let message: String
   public let confirmTitle: String
@@ -27,6 +29,13 @@ public struct FCAlertState<Action>: Equatable {
     self.message = message
     self.confirmTitle = confirmTitle
     self.cancelTitle = cancelTitle
+  }
+
+  public static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.title == rhs.title
+      && lhs.message == rhs.message
+      && lhs.confirmTitle == rhs.confirmTitle
+      && lhs.cancelTitle == rhs.cancelTitle
   }
 }
 

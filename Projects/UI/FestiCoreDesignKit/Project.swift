@@ -7,6 +7,7 @@
 
 import ProjectDescription
 import ProjectTemplatePlugin
+import DependencyPackagePlugin
 import DependencyPlugin
 
 let project = Project.makeModule(
@@ -17,5 +18,5 @@ let project = Project.makeModule(
   testResources: ["Tests/Resources/**"],
   hasTests: true,
   hasDemo: true,
-  demoDependencies: [.ui(.sharedUI)]
+  demoDependencies: [.ui(.sharedUI), .SPM.composableArchitecture]
 )

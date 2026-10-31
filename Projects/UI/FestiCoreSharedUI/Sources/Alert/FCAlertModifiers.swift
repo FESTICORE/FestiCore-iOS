@@ -6,6 +6,7 @@
 //
 
 import ComposableArchitecture
+import FestiCoreAnimation
 import FestiCoreDesignKit
 import SwiftUI
 
@@ -31,7 +32,7 @@ struct FCAlertStoreModifier: ViewModifier {
       .overlay {
         if let alertStore = store {
           let state = alertStore.withState { $0 }
-          FCAlertContainer(
+          FCDialogOverlay(
             item: FCDialogItem(
               title: state.title,
               message: state.message,
@@ -42,12 +43,11 @@ struct FCAlertStoreModifier: ViewModifier {
             ),
             onDismiss: {}
           )
+          // Store 인스턴스는 TCA가 재사용할 수 있어 상태의 표시 ID로 구분한다.
+          .id(state.presentationID)
         }
       }
-      .animation(
-        .easeOut(duration: FCAlertMetric.duration),
-        value: store != nil
-      )
+      .animation(.fcModal, value: store?.withState(\.presentationID))
   }
 }
 
@@ -58,39 +58,87 @@ struct FCDialogItemModifier: ViewModifier {
     content
       .overlay {
         if let current = item {
-          FCAlertContainer(
+          FCDialogOverlay(
             item: current,
             onDismiss: { item = nil }
           )
+          .id(current.id)
         }
       }
-      .animation(
-        .easeOut(duration: FCAlertMetric.duration),
-        value: item
-      )
+      .animation(.fcModal, value: item)
   }
 }
 
-/// 딤 배경 위에 다이얼로그를 띄운다.
-struct FCAlertContainer: View {
-  let item: FCDialogItem
-  let onDismiss: () -> Void
+/// 딤 배경 위에 다이얼로그를 띄운다. 딤이 밝아지며 다이얼로그가 아래에서 올라오고, 닫힐 때는 함께 사라진다.
+public struct FCDialogOverlay: View {
+  @State private var isContentVisible = false
+  /// 첫 입력을 처리했는지. 닫히는 동안 늦게 들어온 탭이 동작을 다시 실행하지 않게 한다.
+  @State private var isHandled = false
+  private let item: FCDialogItem
+  private let dismissesOnDimTap: Bool
+  private let onDismiss: () -> Void
 
-  var body: some View {
+  /// - Parameters:
+  ///   - dismissesOnDimTap: 참이면 딤을 탭할 때 `onDismiss`를 부른다.
+  public init(
+    item: FCDialogItem,
+    dismissesOnDimTap: Bool = false,
+    onDismiss: @escaping () -> Void
+  ) {
+    self.item = item
+    self.dismissesOnDimTap = dismissesOnDimTap
+    self.onDismiss = onDismiss
+  }
+
+  public var body: some View {
     ZStack {
       FestiCoreSemanticColor.materialDimmer.color
+        .opacity(isContentVisible ? 1 : 0)
         .ignoresSafeArea()
+        .onTapGesture {
+          guard dismissesOnDimTap else { return }
+          isHandled = true
+          onDismiss()
+        }
       FCDialog(
-        item,
+        handledOnce(item),
         onDismiss: onDismiss
       )
-      .transition(.scale(scale: FCAlertMetric.appearScale).combined(with: .opacity))
+      .offset(y: isContentVisible ? 0 : Metric.appearOffset)
+      .opacity(isContentVisible ? 1 : 0)
     }
-    .transition(.opacity)
+    .allowsHitTesting(!isHandled)
+    .transition(.opacity.animation(.fcModal))
+    .onAppear {
+      withAnimation(.fcModal) {
+        isContentVisible = true
+      }
+    }
   }
 }
 
-private enum FCAlertMetric {
-  static let appearScale: CGFloat = 0.95
-  static let duration: Double = 0.2
+private extension FCDialogOverlay {
+  /// 버튼 동작이 한 번만 실행되도록 감싼다.
+  func handledOnce(_ item: FCDialogItem) -> FCDialogItem {
+    FCDialogItem(
+      title: item.title,
+      message: item.message,
+      confirmTitle: item.confirmTitle,
+      cancelTitle: item.cancelTitle,
+      onConfirm: {
+        guard !isHandled else { return }
+        isHandled = true
+        item.onConfirm()
+      },
+      onCancel: {
+        guard !isHandled else { return }
+        isHandled = true
+        item.onCancel()
+      }
+    )
+  }
+}
+
+private enum Metric {
+  static let appearOffset: CGFloat = 120
 }

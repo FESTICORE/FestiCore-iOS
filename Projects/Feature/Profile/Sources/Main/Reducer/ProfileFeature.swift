@@ -40,6 +40,8 @@ public struct ProfileFeature {
     public var isLogoutConfirmationPresented = false
     public var isWithdrawalConfirmationPresented = false
     public var isLegalLinkUnavailablePresented = false
+    /// 확인 팝업을 띄울 때마다 바뀌는 값. 같은 팝업을 닫고 바로 다시 열어도 등장 애니메이션을 다시 재생한다.
+    public var dialogPresentationID = 0
 
     public init() {}
   }
@@ -107,21 +109,26 @@ public struct ProfileFeature {
         return .none
       case .view(.refreshTapped): return .send(.delegate(.profileRefreshRequested))
       case .view(.logoutTapped):
+        if !state.isLogoutConfirmationPresented { state.dialogPresentationID += 1 }
         state.isLogoutConfirmationPresented = true
         return .none
       case .view(.logoutConfirmationDismissed):
         state.isLogoutConfirmationPresented = false
         return .none
       case .view(.confirmLogoutTapped):
+        // 닫히는 중인 팝업의 버튼이 늦게 눌려도 실행하지 않는다.
+        guard state.isLogoutConfirmationPresented else { return .none }
         state.isLogoutConfirmationPresented = false
         return .send(.delegate(.logoutRequested))
       case .view(.withdrawTapped):
+        if !state.isWithdrawalConfirmationPresented { state.dialogPresentationID += 1 }
         state.isWithdrawalConfirmationPresented = true
         return .none
       case .view(.withdrawalConfirmationDismissed):
         state.isWithdrawalConfirmationPresented = false
         return .none
       case .view(.confirmWithdrawTapped):
+        guard state.isWithdrawalConfirmationPresented else { return .none }
         state.isWithdrawalConfirmationPresented = false
         return .send(.delegate(.withdrawRequested))
       case .view(.noticeTapped): return .send(.delegate(.noticeRequested))
@@ -139,6 +146,7 @@ public struct ProfileFeature {
 
   private func openLegalURL(path: String, state: inout State) -> Effect<Action> {
     guard let legalBaseURL else {
+      if !state.isLegalLinkUnavailablePresented { state.dialogPresentationID += 1 }
       state.isLegalLinkUnavailablePresented = true
       return .none
     }
