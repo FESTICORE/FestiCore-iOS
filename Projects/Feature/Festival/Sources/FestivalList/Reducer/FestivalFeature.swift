@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import FestivalDomainInterface
 import FestiCorePackInterface
+import FestivalInterface
 import Foundation
 
 @Reducer
@@ -140,14 +141,9 @@ public struct FestivalFeature {
   public enum Action: ViewAction, Equatable {
     case view(View)
     case inner(InnerAction)
-    case delegate(Delegate)
+    case delegate(FestivalDelegate)
     case reloadBookmarks(userID: String?)
     case accountChanged
-  }
-
-  @CasePathable
-  public enum Delegate: Equatable {
-    case bookmarkRequested(String)
   }
 
   @CasePathable

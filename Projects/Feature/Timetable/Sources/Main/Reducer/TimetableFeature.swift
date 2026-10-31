@@ -8,6 +8,7 @@
 import ComposableArchitecture
 import FestivalDomainInterface
 import Foundation
+import TimetableInterface
 
 @Reducer
 public struct TimetableFeature {
@@ -157,7 +158,7 @@ public struct TimetableFeature {
 
   public enum Action: ViewAction {
     case view(View)
-    case delegate(Delegate)
+    case delegate(TimetableDelegate)
     /// 선택한 축제가 바뀌었다. 팩이 없으면 nil이다.
     case festivalChanged(String?)
     /// 같은 축제의 팩이 갱신돼 공연 목록이 바뀌었다.
@@ -178,13 +179,6 @@ public struct TimetableFeature {
     case changeBannerTapped
     case searchTapped
     case notifyTapped
-  }
-
-  @CasePathable
-  public enum Delegate {
-    case showChanges
-    case search
-    case requestNotification
   }
 
   public var body: some ReducerOf<Self> {
