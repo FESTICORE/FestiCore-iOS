@@ -24,7 +24,9 @@ struct AuthTests {
   func refreshSuccess() async throws {
     let recorder = FailureRecorder()
     let client = StubRefreshClient(result: .success(successBody))
-    let refresher = TokenRefresher(client: client) { _ in await recorder.record() }
+    let refresher = TokenRefresher(client: client, sessionIDForCredential: { _ in UUID() }) { _, _ in
+      await recorder.record()
+    }
 
     let renewed = try await refresher.refresh(old)
 
@@ -40,7 +42,9 @@ struct AuthTests {
   func refreshResponseFailure(status: Int) async {
     let recorder = FailureRecorder()
     let client = StubRefreshClient(result: .failure(.response(ResponseError(httpStatus: status))))
-    let refresher = TokenRefresher(client: client) { _ in await recorder.record() }
+    let refresher = TokenRefresher(client: client, sessionIDForCredential: { _ in UUID() }) { _, _ in
+      await recorder.record()
+    }
 
     do {
       _ = try await refresher.refresh(old)
@@ -59,7 +63,9 @@ struct AuthTests {
   func refreshTransportFailure() async {
     let recorder = FailureRecorder()
     let client = StubRefreshClient(result: .failure(.transport(.notConnected)))
-    let refresher = TokenRefresher(client: client) { _ in await recorder.record() }
+    let refresher = TokenRefresher(client: client, sessionIDForCredential: { _ in UUID() }) { _, _ in
+      await recorder.record()
+    }
 
     do {
       _ = try await refresher.refresh(old)
@@ -344,10 +350,53 @@ struct AuthTests {
     await signIn(auth, accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
     let next = await auth.stageSession(accessToken: jwt(subject: "user-b"), refreshToken: "refresh-b")
 
-    await auth.handleAuthFailure(for: FestiCoreCredential(accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a"))
+    let oldSessionID = await auth.sessionID
+    await auth.handleAuthFailure(
+      for: FestiCoreCredential(accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a"),
+      sessionID: oldSessionID
+    )
     #expect(await auth.isLoggedIn == false)
     #expect(await auth.commitSession(next))
     #expect(storage.load(.refreshToken) == "refresh-b")
+  }
+
+  @Test("이전 세션의 갱신 401은 같은 토큰으로 다시 로그인한 세션을 종료하지 않는다")
+  func staleRefreshFailureKeepsSameTokenRelogin() async throws {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let made = AuthFactory.make(refreshClient: client, storage: storage)
+    let auth = try #require(made as? FestiCoreAuth)
+    let accessToken = jwt(subject: "user-a")
+    let refreshToken = "shared-refresh"
+    await signIn(auth, accessToken: accessToken, refreshToken: refreshToken)
+    let oldSessionID = await auth.sessionID
+
+    let oldCredential = FestiCoreCredential(accessToken: accessToken, refreshToken: refreshToken)
+    let refreshClient = StubRefreshClient(
+      result: .failure(.response(ResponseError(httpStatus: 401))),
+      beforeResponse: { await signIn(auth, accessToken: accessToken, refreshToken: refreshToken) }
+    )
+    let refresher = TokenRefresher(client: refreshClient, sessionIDForCredential: { _ in oldSessionID }) {
+      credential, sessionID in
+      await auth.handleAuthFailure(for: credential, sessionID: sessionID)
+    }
+
+    do {
+      _ = try await refresher.refresh(oldCredential)
+      Issue.record("이전 세션의 갱신은 401로 실패해야 한다")
+    } catch {
+      guard case let FestiCoreNetworkError.response(response) = error else {
+        Issue.record("응답 오류 기대: \(error)")
+        return
+      }
+      #expect(response.httpStatus == 401)
+    }
+
+    let newSessionID = await auth.sessionID
+    #expect(newSessionID != oldSessionID)
+    #expect(await auth.isLoggedIn)
+    #expect(await auth.sessionID == newSessionID)
+    #expect(storage.load(.refreshToken) == refreshToken)
   }
 }
 
@@ -405,10 +454,17 @@ private final class StubRefreshClient: FestiCoreRequestClient, @unchecked Sendab
   }
 
   private let result: Result<Data, FestiCoreNetworkError>
+  private let beforeResponse: (@Sendable () async -> Void)?
   private let lock = NSLock()
   private var captured: CapturedRequest?
 
-  init(result: Result<Data, FestiCoreNetworkError>) { self.result = result }
+  init(
+    result: Result<Data, FestiCoreNetworkError>,
+    beforeResponse: (@Sendable () async -> Void)? = nil
+  ) {
+    self.result = result
+    self.beforeResponse = beforeResponse
+  }
 
   var lastRequest: CapturedRequest? { lock.withLock { captured } }
 
@@ -428,6 +484,7 @@ private final class StubRefreshClient: FestiCoreRequestClient, @unchecked Sendab
         refreshToken: refreshToken
       )
     }
+    await beforeResponse?()
     let data: Data
     switch result {
     case let .success(value): data = value

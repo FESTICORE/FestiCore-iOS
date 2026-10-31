@@ -107,8 +107,11 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     return true
   }
 
-  func handleAuthFailure(for attempted: FestiCoreCredential) {
-    guard store.load()?.refreshToken == attempted.refreshToken else { return }
+  func handleAuthFailure(for attempted: FestiCoreCredential, sessionID: UUID) {
+    guard let session = store.sessionSnapshot(),
+          session.id == sessionID,
+          session.credential.refreshToken == attempted.refreshToken
+    else { return }
     // 기존 세션의 자동 만료는 진행 중인 새 로그인의 임시 세션까지 무효로 만들지 않는다.
     clearCommittedSession()
     NotificationCenter.default.post(name: .festiCoreAuthSessionDidExpire, object: nil)
