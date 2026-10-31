@@ -60,6 +60,23 @@ struct AppCoordinator {
       case .home: "home"
       }
     }
+
+    /// 라이브 보드에 전달할 세션. 세션 여부와 확인된 사용자 ID가 바뀌면 `FestivalFeature`에 알린다.
+    var festivalSession: FestivalSession {
+      guard case let .home(home) = self, home.authFlow.hasSession else {
+        return FestivalSession(hasSession: false, userID: nil)
+      }
+      let flow = home.authFlow
+      return FestivalSession(
+        hasSession: true,
+        userID: flow.profile?.user.id ?? flow.verifiedUserID ?? flow.lastVerifiedUserID
+      )
+    }
+  }
+
+  struct FestivalSession: Equatable {
+    let hasSession: Bool
+    let userID: String?
   }
 
   enum Action: ViewAction {
@@ -145,6 +162,12 @@ struct AppCoordinator {
     }
     .ifCaseLet(\.splash, action: \.scope.splash) { SplashFeature() }
     .ifCaseLet(\.home, action: \.scope.home) { MainTabCoordinator() }
+    .onChange(of: \.festivalSession) { _, state in
+      let session = state.festivalSession
+      return .send(.scope(.home(.festival(.sessionChanged(
+        hasSession: session.hasSession, userID: session.userID
+      )))))
+    }
   }
 }
 

@@ -21,6 +21,28 @@ struct FestivalLiveBoardSchedule {
     let next: Slot?
   }
 
+  struct Entry: Equatable {
+    let stageName: String
+    let slot: Slot
+  }
+
+  /// 팩의 모든 공연을 무대 이름과 함께 시작 시각 순으로 돌려준다.
+  static func entries(pack: FestivalPackDocument) -> [Entry] {
+    let namesByID = Dictionary((pack.stages ?? []).map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+    return pack.performances.compactMap { performance -> Entry? in
+      guard
+        let start = performance.startsAt.flatMap(parse),
+        let artist = nonempty(performance.artist),
+        let stageID = nonempty(performance.stageId) ?? nonempty(performance.stageName)
+      else { return nil }
+      let end = performance.endsAt.flatMap(parse)
+      if let end, end <= start { return nil }
+      let name = nonempty(performance.stageName) ?? namesByID[stageID] ?? stageID
+      return Entry(stageName: name, slot: Slot(id: performance.id, artist: artist, startsAt: start, endsAt: end))
+    }
+    .sorted { $0.slot.startsAt == $1.slot.startsAt ? $0.slot.id < $1.slot.id : $0.slot.startsAt < $1.slot.startsAt }
+  }
+
   static func resolve(pack: FestivalPackDocument, now: Date) -> [Stage] {
     let namesByID = Dictionary((pack.stages ?? []).map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
     var stageOrder: [String] = []
@@ -66,7 +88,7 @@ struct FestivalLiveBoardSchedule {
     return value
   }
 
-  private static func parse(_ value: String) -> Date? {
+  static func parse(_ value: String) -> Date? {
     guard value.range(
       of: #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"#,
       options: .regularExpression

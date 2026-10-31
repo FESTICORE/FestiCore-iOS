@@ -19,8 +19,13 @@ public struct FestivalLiveBoardRouteView: View {
           pack: store.selectedPack,
           liveBoard: store.liveBoard,
           liveBoardUnavailable: store.liveBoardUnavailable,
+          liveBoardReceivedAt: store.liveBoardReceivedAt,
+          hasSession: store.hasSession,
+          sessionUserID: store.sessionUserID,
+          mySetIDs: store.mySchedule?.setIDs ?? [],
           liveActivityState: store.liveActivityState,
           onLiveActivityTap: { send(.liveActivityTapped) },
+          onLoginTap: { send(.loginTapped) },
           onSwipeBack: { send(.backToFestivalList) }
         )
       } else {

@@ -126,6 +126,9 @@ struct MainTabCoordinator {
         _ = tab
         return .none
 
+      case .festival(.delegate(.loginRequested)):
+        return .send(.delegate(.myLoginRequested))
+
       case .festival:
         switch state.selectedTab {
         case .timetable: return syncTimetable(state: &state, appearing: false)

@@ -643,6 +643,7 @@ struct AppCoordinatorTests {
     let current = FestivalLiveBoardSnapshot(festivalID: "festival", activeFlags: [], followedFlags: [], crew: nil)
     var board = FestivalFeature.State(selectedFestivalID: "festival")
     board.isLiveBoardVisible = true
+    board.hasSession = true
     var state = FestivalCoordinator.State()
     state.routes.push(.liveBoard(board))
     let clock = TestClock()
@@ -650,6 +651,7 @@ struct AppCoordinatorTests {
       FestivalCoordinator()
     } withDependencies: {
       $0.continuousClock = clock
+      $0.date = .constant(Date(timeIntervalSince1970: 1_000))
       $0.festivalLiveBoardService = FixedLiveBoardService(snapshot: current)
     }
     store.exhaustivity = .off
@@ -673,6 +675,54 @@ struct AppCoordinatorTests {
       action: .router(.routeAction(id: 0, action: .festivalList(.view(.selectFestival("festival")))))
     )
     #expect(state.routes.last?.screen.liveBoard?.bookedUserID == "user-a")
+  }
+
+  @Test func openingLiveBoardCarriesSessionFromList() {
+    var list = FestivalFeature.State()
+    list.hasSession = true
+    list.sessionUserID = "user-a"
+    list.accountGeneration = 3
+    var state = FestivalCoordinator.State()
+    state.routes = [.root(.festivalList(list), embedInNavigationView: true)]
+    _ = FestivalCoordinator().handleRoute(
+      state: &state,
+      action: .router(.routeAction(id: 0, action: .festivalList(.view(.selectFestival("festival")))))
+    )
+    let board = state.routes.last?.screen.liveBoard
+    #expect(board?.hasSession == true)
+    #expect(board?.sessionUserID == "user-a")
+    #expect(board?.accountGeneration == 3)
+  }
+
+  @Test func liveBoardLoginCardPresentsLoginSheet() async {
+    var home = MainTabCoordinator.State()
+    home.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.festival(.router(.routeAction(id: 1, action: .liveBoard(.view(.loginTapped))))))))
+    await store.receive {
+      guard case .scope(.home(.delegate(.myLoginRequested))) = $0 else { return false }
+      return true
+    }
+    guard case let .home(presented) = store.state else { return }
+    #expect(presented.authFlow.presentation == .login)
+  }
+
+  @Test func restoredSessionWithoutOfflineEligibilityStillReachesLiveBoard() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in }, offlineEligible: { _ in false })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-a", isLoggedIn: true)))
+    await store.receive {
+      guard case .scope(.home(.festival(.sessionChanged(hasSession: true, userID: "user-a")))) = $0 else { return false }
+      return true
+    }
+    #expect(store.state.festivalSession == .init(hasSession: true, userID: "user-a"))
   }
 
   @Test func bookmarkReloadSynchronizesListAndLiveBoard() async {
