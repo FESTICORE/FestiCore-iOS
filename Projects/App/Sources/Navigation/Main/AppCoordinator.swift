@@ -8,6 +8,7 @@
 import AuthDomainInterface
 import ComposableArchitecture
 import FeatureAssembly
+import FestivalDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
 import Foundation

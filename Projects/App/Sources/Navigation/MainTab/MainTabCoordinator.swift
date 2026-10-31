@@ -7,6 +7,7 @@
 
 import ComposableArchitecture
 import FeatureAssembly
+import FestivalDomainInterface
 import FestiCoreDesignKit
 import Foundation
 
