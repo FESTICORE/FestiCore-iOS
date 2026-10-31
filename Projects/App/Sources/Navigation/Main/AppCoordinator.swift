@@ -352,8 +352,9 @@ private extension AppCoordinator {
         home.authFlow.hasSession = false
         home.authFlow.profile = nil
         home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .login
+        let clear = clearAccountData(&home)
         state = .home(home)
-        return .send(.scope(.home(.festival(.reloadBookmarks(userID: nil)))))
+        return clear
 
       case .failure(.offline):
         home.authFlow.profile = nil
@@ -435,8 +436,9 @@ private extension AppCoordinator {
         home.authFlow.hasSession = false
         home.authFlow.profile = nil
         home.authFlow.presentation = .login
+        let clear = clearAccountData(&home)
         state = .home(home)
-        return .none
+        return clear
 
       case .failure(.offline):
         home.authFlow.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
@@ -460,8 +462,9 @@ private extension AppCoordinator {
         cleared.generation = max(home.authFlow.generation, generation)
         home.authFlow = cleared
         home.profileState = .init()
+        let clear = clearAccountData(&home)
         state = .home(home)
-        return .send(.scope(.home(.festival(.reloadBookmarks(userID: nil)))))
+        return clear
       case .failure:
         home.authFlow.message = operation == .withdraw
           ? "회원 탈퇴에 실패했습니다. 다시 시도해 주세요."
@@ -613,6 +616,16 @@ private extension AppCoordinator {
     state = .home(home)
     return pending.map { .send(.scope(.home(.completePendingBookmark(id: $0, userID: userID, shouldBeBooked: shouldBeBooked)))) }
       ?? .send(.scope(.home(.festival(.reloadBookmarks(userID: userID)))))
+  }
+
+  /// 이전 계정의 깃발·라이브 보드·예약 목록을 바로 비우고, 보이는 화면은 새 인증 상태로 다시 불러온다.
+  func clearAccountData(_ home: inout MainTabCoordinator.State) -> Effect<Action> {
+    home.flagState.clearAccountData()
+    home.festivalState.clearAccountData()
+    return .merge(
+      .send(.scope(.home(.festival(.accountChanged)))),
+      .send(.scope(.home(.flag(.accountChanged))))
+    )
   }
 
   func isBooked(_ id: String, in festival: FestivalCoordinator.State) -> Bool {

@@ -11,6 +11,19 @@ struct FestivalCoordinator {
     init() {
       routes = [.root(.festivalList(.init()), embedInNavigationView: true)]
     }
+
+    mutating func clearAccountData() {
+      for index in routes.indices {
+        switch routes[index].screen {
+        case var .festivalList(board):
+          board.clearAccountData()
+          routes[index].screen = .festivalList(board)
+        case var .liveBoard(board):
+          board.clearAccountData()
+          routes[index].screen = .liveBoard(board)
+        }
+      }
+    }
   }
 
   @CasePathable
@@ -18,6 +31,7 @@ struct FestivalCoordinator {
     case router(IndexedRouterActionOf<FestivalScreen>)
     case delegate(Delegate)
     case reloadBookmarks(userID: String?)
+    case accountChanged
   }
 
   enum Delegate {
@@ -41,16 +55,10 @@ struct FestivalCoordinator {
       return .send(.delegate(.bookmarkRequested(festivalID)))
 
     case let .reloadBookmarks(userID):
-      return .merge(state.routes.enumerated().map { index, route in
-        let screenAction: FestivalScreen.Action
-        switch route.screen {
-        case .festivalList:
-          screenAction = .festivalList(.reloadBookmarks(userID: userID))
-        case .liveBoard:
-          screenAction = .liveBoard(.reloadBookmarks(userID: userID))
-        }
-        return .send(.router(.routeAction(id: index, action: screenAction)))
-      })
+      return broadcast(state, .reloadBookmarks(userID: userID))
+
+    case .accountChanged:
+      return broadcast(state, .accountChanged)
 
     case .delegate:
       return .none
@@ -58,6 +66,22 @@ struct FestivalCoordinator {
     case .router:
       return .none
     }
+  }
+}
+
+private extension FestivalCoordinator {
+  /// 열린 모든 라우트에 같은 `FestivalFeature` 액션을 보낸다.
+  func broadcast(_ state: State, _ action: FestivalFeature.Action) -> Effect<Action> {
+    .merge(state.routes.enumerated().map { index, route in
+      let screenAction: FestivalScreen.Action
+      switch route.screen {
+      case .festivalList:
+        screenAction = .festivalList(action)
+      case .liveBoard:
+        screenAction = .liveBoard(action)
+      }
+      return .send(.router(.routeAction(id: index, action: screenAction)))
+    })
   }
 }
 

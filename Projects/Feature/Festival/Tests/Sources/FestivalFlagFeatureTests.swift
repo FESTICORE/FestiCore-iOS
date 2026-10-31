@@ -91,6 +91,59 @@ struct FestivalFlagFeatureTests {
       $0.viewState = error == .invalidFestivalID ? .invalidFestivalID : .invalidResponse
     }
   }
+
+  @Test func accountChangeWhileHiddenClearsFlagsWithoutLoading() async {
+    let previous = FestivalLiveBoardSnapshot(festivalID: "festival", activeFlags: [], followedFlags: [], crew: nil)
+    let store = TestStore(initialState: {
+      var state = FestivalFlagFeature.State(festivalID: "festival")
+      state.snapshot = previous
+      state.viewState = .loaded
+      return state
+    }()) { FestivalFlagFeature() }
+
+    await store.send(.accountChanged) {
+      $0.snapshot = nil
+      $0.viewState = .idle
+    }
+  }
+
+  @Test func accountChangeWhileVisibleDropsPreviousAccountResponseAndReloads() async {
+    let previous = FestivalLiveBoardSnapshot(
+      festivalID: "festival",
+      activeFlags: [],
+      followedFlags: [.init(id: "followed", name: "이전 계정 깃발", status: "active", zoneID: "A", activity: nil, thumbnailURL: nil)],
+      crew: nil
+    )
+    let current = FestivalLiveBoardSnapshot(festivalID: "festival", activeFlags: [], followedFlags: [], crew: nil)
+    let clock = TestClock()
+    let signedIn = LockIsolated(true)
+    let started = LockIsolated(false)
+    let store = TestStore(initialState: {
+      var state = FestivalFlagFeature.State(festivalID: "festival")
+      state.isVisible = true
+      state.snapshot = previous
+      state.viewState = .loaded
+      return state
+    }()) { FestivalFlagFeature() } withDependencies: {
+      $0.festivalLiveBoardService = ClosureLiveBoardService { _ in
+        guard signedIn.value else { return current }
+        started.setValue(true)
+        try await clock.sleep(for: .seconds(1))
+        return previous
+      }
+    }
+
+    await store.send(.refresh) { $0.viewState = .loading }
+    while !started.value { await Task.yield() }
+    signedIn.setValue(false)
+    await store.send(.accountChanged) { $0.snapshot = nil }
+    await store.receive(\.loaded) {
+      $0.snapshot = current
+      $0.viewState = .loaded
+    }
+    await clock.run()
+    #expect(store.state.snapshot == current)
+  }
 }
 
 private struct StubLiveBoardService: FestivalLiveBoardService {
@@ -98,5 +151,13 @@ private struct StubLiveBoardService: FestivalLiveBoardService {
 
   func refresh(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
     try result.get()
+  }
+}
+
+private struct ClosureLiveBoardService: FestivalLiveBoardService {
+  let handler: @Sendable (String) async throws -> FestivalLiveBoardSnapshot
+
+  func refresh(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
+    try await handler(festivalID)
   }
 }
