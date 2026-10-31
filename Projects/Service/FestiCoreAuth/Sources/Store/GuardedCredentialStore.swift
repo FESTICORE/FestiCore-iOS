@@ -16,23 +16,36 @@ final class GuardedCredentialStore: CredentialStore {
 
   private struct State {
     var isBarred: Bool
+    var canRecoverInitialCredential: Bool
     var revision = UUID()
     var onPersistenceFailure: (@Sendable () -> Void)?
   }
 
-  init(base: any CredentialStore) {
+  init(base: any CredentialStore, recoverInitialCredential: Bool = false) {
     self.base = base
-    state = OSAllocatedUnfairLock(initialState: State(isBarred: base.load() == nil))
+    state = OSAllocatedUnfairLock(initialState: State(
+      isBarred: base.load() == nil,
+      canRecoverInitialCredential: recoverInitialCredential
+    ))
   }
 
   func load() -> FestiCoreCredential? {
-    state.withLock { state in state.isBarred ? nil : base.load() }
+    state.withLock { state in
+      if state.isBarred {
+        guard state.canRecoverInitialCredential, let restored = base.load() else { return nil }
+        state.isBarred = false
+        state.canRecoverInitialCredential = false
+        return restored
+      }
+      return base.load()
+    }
   }
 
   @discardableResult
   func save(_ credential: FestiCoreCredential) -> Bool {
     state.withLock { state in
       guard !state.isBarred else { return false }
+      state.canRecoverInitialCredential = false
       let saved = base.save(credential)
       if !saved { state.isBarred = true }
       state.revision = UUID()
@@ -53,6 +66,7 @@ final class GuardedCredentialStore: CredentialStore {
       let saved = base.save(credential)
       if !saved {
         state.isBarred = true
+        state.canRecoverInitialCredential = false
         // 이전 토큰 삭제를 시도하고 저장 실패를 호출자에게 전달한다.
         _ = base.clear()
         state.onPersistenceFailure?()
@@ -68,6 +82,7 @@ final class GuardedCredentialStore: CredentialStore {
   func clear() -> Bool {
     state.withLock { state in
       state.isBarred = true
+      state.canRecoverInitialCredential = false
       state.revision = UUID()
       return base.clear()
     }
@@ -76,6 +91,7 @@ final class GuardedCredentialStore: CredentialStore {
   func allowSaves() {
     state.withLock { state in
       state.isBarred = false
+      state.canRecoverInitialCredential = false
       state.revision = UUID()
     }
   }

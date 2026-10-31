@@ -116,7 +116,7 @@ public struct AuthRepositoryImpl: AuthInterface {
         guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
         return
       }
-      guard await authService.cancelRevocation() else { throw AuthDomainError.localSessionClearFailed }
+      await authService.finishRevocationRequest()
       throw error
     }
     guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
@@ -127,6 +127,10 @@ public struct AuthRepositoryImpl: AuthInterface {
       guard await authService.completeWithdrawal() else { throw AuthDomainError.localSessionClearFailed }
       return
     }
+    if await authService.hasPendingWithdrawalAuthorizationCleanup {
+      guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
+      throw AuthDomainError.notAuthenticated
+    }
     guard await authService.isLoggedIn else { throw AuthDomainError.notAuthenticated }
     guard await authService.prepareRevocation(.withdrawal) else {
       throw AuthDomainError.localSessionClearFailed
@@ -136,7 +140,7 @@ public struct AuthRepositoryImpl: AuthInterface {
       _ = try await client.send(AuthRequest.withdraw, as: FestiCoreEmptyResponse.self)
     } catch {
       try await clearUnauthorizedSession(error)
-      guard await authService.cancelRevocation() else { throw AuthDomainError.localSessionClearFailed }
+      await authService.finishRevocationRequest()
       throw error
     }
     guard await authService.completeWithdrawal() else { throw AuthDomainError.localSessionClearFailed }

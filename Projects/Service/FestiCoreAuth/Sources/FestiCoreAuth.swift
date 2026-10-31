@@ -16,6 +16,8 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
   private let credentials: any CredentialUpdating
   private let identityStorage: any SecureStorage
   private let journal: SessionRevocationJournal
+  private var revocationInFlight = false
+  private var initialJournalRecoveryPending: Bool
   /// 코디네이터가 로그인을 수락하기 전까지 Keychain에 쓰지 않는 세션.
   private var staged: StagedSession?
   /// 이번 실행에서 확정한 세션의 식별자. 닫힌 로그인의 세션만 되돌릴 때 쓴다.
@@ -29,16 +31,18 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     store: GuardedCredentialStore,
     credentials: any CredentialUpdating,
     identityStorage: any SecureStorage,
-    journal: SessionRevocationJournal
+    journal: SessionRevocationJournal,
+    initialJournalUnreadable: Bool
   ) {
     self.authenticatedClient = authenticatedClient
     self.store = store
     self.credentials = credentials
     self.identityStorage = identityStorage
     self.journal = journal
+    initialJournalRecoveryPending = initialJournalUnreadable
   }
 
-  var isLoggedIn: Bool { store.load() != nil || sessionClearPending }
+  var isLoggedIn: Bool { recoveredCredential() != nil || sessionClearPending }
   var hasPendingWithdrawalCleanup: Bool {
     if case .pending(.withdrawalCompleted) = journal.status { return true }
     return withdrawalCleanupPending
@@ -47,9 +51,13 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     guard case .pending(.signOutRequested) = journal.status else { return false }
     return sessionClearPending || store.load() == nil
   }
-  var refreshToken: String? { store.load()?.refreshToken }
+  var hasPendingWithdrawalAuthorizationCleanup: Bool {
+    guard case .pending(.withdrawalRequested) = journal.status else { return false }
+    return sessionClearPending || store.load() == nil
+  }
+  var refreshToken: String? { recoveredCredential()?.refreshToken }
   var currentUserID: String? {
-    guard let credential = store.load(),
+    guard let credential = recoveredCredential(),
           let stored = try? identityStorage.load(.sessionUserID),
           stored == JWTDecoder.decodeSubject(credential.accessToken)
     else { return nil }
@@ -71,7 +79,11 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
 
   func commitSession(_ id: UUID) -> Bool {
     guard let session = staged, session.id == id else { return false }
-    guard case .absent = journal.status else { return false }
+    switch journal.status {
+    case .absent: break
+    case .pending: guard !revocationInFlight else { return false }
+    case .unreadable: return false
+    }
     staged = nil
     try? identityStorage.remove(.sessionUserID)
     store.allowSaves()
@@ -79,7 +91,12 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
       clearCommittedSession()
       return false
     }
+    guard journal.clear() else {
+      clearCommittedSession()
+      return false
+    }
     credentials.update(session.credential)
+    initialJournalRecoveryPending = false
     committedSessionID = session.id
     sessionClearPending = false
     withdrawalCleanupPending = false
@@ -103,13 +120,14 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
       staged = session
       return
     }
-    guard let credential = store.load(),
+    guard let credential = recoveredCredential(),
           userID == JWTDecoder.decodeSubject(credential.accessToken)
     else { return }
     try? identityStorage.save(userID, for: .sessionUserID)
   }
 
   func signOut() -> Bool {
+    revocationInFlight = false
     staged = nil
     let cleared = clearCommittedSession()
     sessionClearPending = !cleared
@@ -118,16 +136,29 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
   }
 
   func prepareRevocation(_ kind: AuthRevocationKind) -> Bool {
-    guard case .absent = journal.status else { return false }
+    guard !revocationInFlight else { return false }
+    let requested: SessionRevocationJournal.State
     switch kind {
-    case .signOut: return journal.record(.signOutRequested)
-    case .withdrawal: return journal.record(.withdrawalRequested)
+    case .signOut: requested = .signOutRequested
+    case .withdrawal: requested = .withdrawalRequested
+    }
+    switch journal.status {
+    case .absent:
+      let recorded = journal.record(requested)
+      if recorded { revocationInFlight = true }
+      return recorded
+    case let .pending(state) where state == requested:
+      guard store.load() != nil, !sessionClearPending else { return false }
+      revocationInFlight = true
+      return true
+    case .pending, .unreadable: return false
     }
   }
 
-  func cancelRevocation() -> Bool { journal.clear() }
+  func finishRevocationRequest() { revocationInFlight = false }
 
   func completeWithdrawal() -> Bool {
+    revocationInFlight = false
     withdrawalCleanupPending = true
     guard journal.record(.withdrawalCompleted) else { return false }
     return signOut()
@@ -158,6 +189,15 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
 }
 
 private extension FestiCoreAuth {
+  func recoveredCredential() -> FestiCoreCredential? {
+    guard let credential = store.load() else { return nil }
+    if initialJournalRecoveryPending {
+      credentials.update(credential)
+      initialJournalRecoveryPending = false
+    }
+    return credential
+  }
+
   @discardableResult
   func clearCommittedSession() -> Bool {
     let keychainCleared = store.clear()

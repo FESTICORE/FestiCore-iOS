@@ -333,6 +333,8 @@ struct AuthDomainTests {
     await #expect(throws: FestiCoreNetworkError.self) { try await repository.signOut() }
     #expect(await auth.isLoggedIn)
     #expect(await auth.signOutCalls == 0)
+    #expect(await auth.revocationPending)
+    #expect(await auth.finishedRevocationRequests == 1)
   }
 
   @Test("토큰 갱신이 먼저 세션을 지웠으면 전송 오류여도 로그아웃이 완료된다")
@@ -413,6 +415,23 @@ struct AuthDomainTests {
     #expect(await unavailableClient.calls == 0)
   }
 
+  @Test("탈퇴 401 뒤 Keychain 삭제 실패는 다음 시도에서 서버 없이 로컬 정리를 완료한다")
+  func withdrawalUnauthorizedCleanupRetriesOffline() async {
+    let auth = StubAuthService(loggedIn: true, clearSucceeds: false)
+    let client = StubClient(result: .failure(.response(ResponseError(httpStatus: 401))))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.withdraw() }
+    #expect(await client.calls == 1)
+
+    await auth.setClearSucceeds(true)
+    await #expect(throws: AuthDomainError.notAuthenticated) { try await repository.withdraw() }
+    #expect(await client.calls == 1)
+    #expect(await auth.isLoggedIn == false)
+  }
+
   @Test("미로그인 상태는 회원 탈퇴 요청 전에 거부한다")
   func withdrawNotAuthenticated() async {
     let auth = StubAuthService()
@@ -461,6 +480,8 @@ struct AuthDomainTests {
     #expect(await client.calls == 1)
     #expect(await auth.isLoggedIn == (status != 401))
     #expect(await auth.signOutCalls == (status == 401 ? 1 : 0))
+    #expect(await auth.revocationPending == (status != 401))
+    #expect(await auth.finishedRevocationRequests == 1)
   }
 
   @Test("회원 탈퇴 UseCase는 저장소의 성공 결과를 전달한다")
@@ -496,6 +517,9 @@ private actor StubAuthService: AuthService {
   private let prepareSucceeds: Bool
   private var withdrawalCleanupPending = false
   private var signOutCleanupPending = false
+  private var withdrawalRequested = false
+  private(set) var revocationPending = false
+  private(set) var finishedRevocationRequests = 0
   private(set) var tokens: [String] = []
   private(set) var signOutCalls = 0
 
@@ -507,10 +531,16 @@ private actor StubAuthService: AuthService {
 
   var isLoggedIn: Bool { loggedIn }
   var hasPendingWithdrawalCleanup: Bool { withdrawalCleanupPending }
+  var hasPendingWithdrawalAuthorizationCleanup: Bool { withdrawalRequested && signOutCleanupPending }
   var hasPendingSignOutCleanup: Bool { signOutCleanupPending }
   func setClearSucceeds(_ value: Bool) { clearSucceeds = value }
-  func prepareRevocation(_ kind: AuthRevocationKind) -> Bool { prepareSucceeds }
-  func cancelRevocation() -> Bool { true }
+  func prepareRevocation(_ kind: AuthRevocationKind) -> Bool {
+    guard prepareSucceeds else { return false }
+    revocationPending = true
+    if case .withdrawal = kind { withdrawalRequested = true }
+    return true
+  }
+  func finishRevocationRequest() { finishedRevocationRequests += 1 }
 
   func completeWithdrawal() -> Bool {
     withdrawalCleanupPending = true
@@ -556,6 +586,8 @@ private actor StubAuthService: AuthService {
       loggedIn = false
       withdrawalCleanupPending = false
       signOutCleanupPending = false
+      withdrawalRequested = false
+      revocationPending = false
     } else {
       signOutCleanupPending = true
     }

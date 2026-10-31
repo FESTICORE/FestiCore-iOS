@@ -13,6 +13,7 @@ import FestiCoreStorageInterface
 final class KeychainCredentialStore: CredentialStore {
   private let storage: any SecureStorage
   private let journal: SessionRevocationJournal?
+  let initialJournalUnreadable: Bool
   private var restorationBlocked: Bool
   private let lock = NSLock()
   private var currentRevision = UUID()
@@ -21,9 +22,19 @@ final class KeychainCredentialStore: CredentialStore {
     self.storage = storage
     self.journal = journal
     if let journal {
-      if case .absent = journal.status { restorationBlocked = false }
-      else { restorationBlocked = true }
+      switch journal.status {
+      case .absent:
+        initialJournalUnreadable = false
+        restorationBlocked = false
+      case .pending:
+        initialJournalUnreadable = false
+        restorationBlocked = true
+      case .unreadable:
+        initialJournalUnreadable = true
+        restorationBlocked = true
+      }
     } else {
+      initialJournalUnreadable = false
       restorationBlocked = false
     }
   }
@@ -36,7 +47,7 @@ final class KeychainCredentialStore: CredentialStore {
   func save(_ credential: FestiCoreCredential) -> Bool {
     lock.withLock {
       let saved = saveUnlocked(credential)
-      if saved { restorationBlocked = false }
+      if saved, let journal, case .absent = journal.status { restorationBlocked = false }
       currentRevision = UUID()
       return saved
     }
@@ -73,7 +84,10 @@ final class KeychainCredentialStore: CredentialStore {
   }
 
   private func loadUnlocked() -> FestiCoreCredential? {
-    guard !restorationBlocked else { return nil }
+    if restorationBlocked {
+      guard let journal, case .absent = journal.status else { return nil }
+      restorationBlocked = false
+    }
     guard let accessToken = try? storage.load(.accessToken), !accessToken.isEmpty,
           let refreshToken = try? storage.load(.refreshToken), !refreshToken.isEmpty
     else { return nil }
@@ -92,9 +106,6 @@ final class KeychainCredentialStore: CredentialStore {
   }
 
   private func saveUnlocked(_ credential: FestiCoreCredential) -> Bool {
-    if restorationBlocked {
-      guard let journal, case .absent = journal.status else { return false }
-    }
     // 첫 쓰기가 실패하면 기존 토큰은 건드리지 않는다.
     do { try storage.save("invalid:\(UUID())", for: .credentialIntegrity) }
     catch { return false }

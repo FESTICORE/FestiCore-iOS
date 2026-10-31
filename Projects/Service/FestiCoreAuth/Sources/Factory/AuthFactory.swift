@@ -20,7 +20,11 @@ public enum AuthFactory {
     revocationJournalURL: URL? = nil
   ) -> any AuthService & AuthenticatedClientProvider {
     let journal = SessionRevocationJournal(url: revocationJournalURL ?? defaultRevocationJournalURL)
-    let store = GuardedCredentialStore(base: KeychainCredentialStore(storage: storage, journal: journal))
+    let base = KeychainCredentialStore(storage: storage, journal: journal)
+    let store = GuardedCredentialStore(
+      base: base,
+      recoverInitialCredential: base.initialJournalUnreadable
+    )
     let relay = AuthFailureRelay()
     let authenticated = NetworkClientFactory.unified(
       store: store,
@@ -34,7 +38,8 @@ public enum AuthFactory {
       store: store,
       credentials: authenticated.credentials,
       identityStorage: storage,
-      journal: journal
+      journal: journal,
+      initialJournalUnreadable: base.initialJournalUnreadable
     )
     relay.set { [weak auth] credential in
       await auth?.handleAuthFailure(for: credential)

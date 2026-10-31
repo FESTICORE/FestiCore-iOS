@@ -279,6 +279,25 @@ struct AuthTests {
     #expect(FileManager.default.fileExists(atPath: storage.journalURL.path) == false)
   }
 
+  @Test("탈퇴 401 뒤 로컬 삭제 실패도 재시작 후 로컬 정리 상태로 남는다")
+  func withdrawalAuthorizationCleanupSurvivesRestart() async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+    await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
+    #expect(await auth.prepareRevocation(.withdrawal))
+    storage.failTokenSaveFor = .credentialIntegrity
+    storage.failTokenRemovalFor = [.accessToken, .refreshToken]
+    #expect(await auth.signOut() == false)
+
+    let restarted = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+    #expect(await restarted.hasPendingWithdrawalAuthorizationCleanup)
+    storage.failTokenSaveFor = nil
+    storage.failTokenRemovalFor = []
+    #expect(await restarted.signOut())
+    #expect(FileManager.default.fileExists(atPath: storage.journalURL.path) == false)
+  }
+
   @Test("저널 파일을 쓸 수 없으면 서버 요청 준비가 실패하고 토큰은 유지된다")
   func journalWriteFailureRejectsRevocation() async throws {
     let storage = MemorySecureStorage()
@@ -308,6 +327,62 @@ struct AuthTests {
     let restarted = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
     #expect(await restarted.isLoggedIn == false)
     #expect(await restarted.refreshToken == nil)
+  }
+
+  @Test("요청 기록 뒤 재시작해도 명시적 새 로그인으로 세션을 안전하게 교체한다")
+  func newLoginReplacesRequestedRevocation() async {
+    for kind in [AuthRevocationKind.signOut, .withdrawal] {
+      let storage = MemorySecureStorage()
+      let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+      let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+      await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
+      #expect(await auth.prepareRevocation(kind))
+      let concurrentID = await auth.stageSession(accessToken: "early", refreshToken: "early-refresh")
+      #expect(await auth.commitSession(concurrentID) == false)
+
+      let restarted = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+      #expect(await restarted.isLoggedIn == false)
+      #expect(await restarted.refreshToken == nil)
+      let id = await restarted.stageSession(accessToken: "new-access", refreshToken: "new-refresh")
+      #expect(await restarted.commitSession(id))
+      #expect(await restarted.isLoggedIn)
+      #expect(await restarted.refreshToken == "new-refresh")
+      #expect(storage.load(.refreshToken) == "new-refresh")
+      #expect(FileManager.default.fileExists(atPath: storage.journalURL.path) == false)
+
+      let secondRestart = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+      #expect(await secondRestart.refreshToken == "new-refresh")
+    }
+  }
+
+  @Test("전송 결과가 불명확한 요청이 끝난 뒤 새 로그인은 기존 요청 기록을 대체한다")
+  func newLoginAfterUncertainRequest() async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+    await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
+    #expect(await auth.prepareRevocation(.withdrawal))
+    let id = await auth.stageSession(accessToken: "new-access", refreshToken: "new-refresh")
+    #expect(await auth.commitSession(id) == false)
+
+    await auth.finishRevocationRequest()
+    #expect(await auth.commitSession(id))
+    #expect(await auth.refreshToken == "new-refresh")
+    #expect(FileManager.default.fileExists(atPath: storage.journalURL.path) == false)
+  }
+
+  @Test("읽기 불가 상태가 사라지면 기존 인증 객체도 저장된 세션을 다시 확인한다")
+  func temporaryJournalReadFailureRecovers() async throws {
+    let storage = MemorySecureStorage()
+    #expect(KeychainCredentialStore(storage: storage).save(old))
+    try FileManager.default.createDirectory(at: storage.journalURL, withIntermediateDirectories: true)
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+    #expect(await auth.isLoggedIn == false)
+
+    try FileManager.default.removeItem(at: storage.journalURL)
+    #expect(await auth.isLoggedIn)
+    #expect(await auth.refreshToken == old.refreshToken)
   }
 
   @Test("로그아웃 및 재로그인 뒤에는 이전 토큰 갱신 결과를 교체하지 않는다")

@@ -30,10 +30,12 @@ public protocol AuthService: Sendable {
   func signOut() async -> Bool
   /// 서버 요청 전에 복원 차단 기록을 디스크에 확인한 뒤 요청을 허용한다.
   func prepareRevocation(_ kind: AuthRevocationKind) async -> Bool
-  /// 서버 요청이 확실히 실패했을 때만 차단 기록을 제거한다.
-  func cancelRevocation() async -> Bool
+  /// 서버 결과가 불명확해도 기록은 유지하고 이번 요청만 종료한다.
+  func finishRevocationRequest() async
   /// 서버 로그아웃 뒤 또는 재시작 뒤 로컬 토큰 삭제만 남았는지 확인한다.
   var hasPendingSignOutCleanup: Bool { get async }
+  /// 탈퇴 완료 여부를 확인할 수 없는 상태에서 로컬 토큰 정리만 남았는지 확인한다.
+  var hasPendingWithdrawalAuthorizationCleanup: Bool { get async }
   /// 서버 탈퇴가 성공했지만 로컬 자격 증명 정리가 남아 있는지 확인한다.
   var hasPendingWithdrawalCleanup: Bool { get async }
   /// 서버 탈퇴 성공 뒤 로컬 자격 증명을 정리하고, 실패 시 재시도 상태를 유지한다.
@@ -43,8 +45,9 @@ public protocol AuthService: Sendable {
 
 public extension AuthService {
   func prepareRevocation(_ kind: AuthRevocationKind) async -> Bool { false }
-  func cancelRevocation() async -> Bool { false }
+  func finishRevocationRequest() async {}
   var hasPendingSignOutCleanup: Bool { get async { false } }
+  var hasPendingWithdrawalAuthorizationCleanup: Bool { get async { false } }
   var hasPendingWithdrawalCleanup: Bool { get async { false } }
 
   @discardableResult
