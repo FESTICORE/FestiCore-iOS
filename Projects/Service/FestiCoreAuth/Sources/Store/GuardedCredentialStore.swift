@@ -11,7 +11,7 @@ import FestiCoreNetworkInterface
 
 /// 로그아웃 뒤 늦게 도착한 refresh 저장을 차단한다.
 final class GuardedCredentialStore: CredentialStore {
-  private let base: any CredentialStore
+  private let base: KeychainCredentialStore
   private let state: OSAllocatedUnfairLock<State>
 
   private struct State {
@@ -19,7 +19,7 @@ final class GuardedCredentialStore: CredentialStore {
     var revision = UUID()
   }
 
-  init(base: any CredentialStore) {
+  init(base: KeychainCredentialStore) {
     self.base = base
     state = OSAllocatedUnfairLock(initialState: State(isBarred: base.load() == nil))
   }
@@ -29,10 +29,17 @@ final class GuardedCredentialStore: CredentialStore {
   }
 
   func save(_ credential: FestiCoreCredential) {
+    _ = saveResult(credential)
+  }
+
+  @discardableResult
+  func saveResult(_ credential: FestiCoreCredential) -> Bool {
     state.withLock { state in
-      guard !state.isBarred else { return }
-      base.save(credential)
+      guard !state.isBarred else { return false }
+      let saved = base.saveResult(credential)
+      if !saved { state.isBarred = true }
       state.revision = UUID()
+      return saved
     }
   }
 
@@ -46,9 +53,10 @@ final class GuardedCredentialStore: CredentialStore {
   func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {
     state.withLock { state in
       guard !state.isBarred, state.revision == revision, base.load() == current else { return false }
-      base.save(credential)
+      let saved = base.saveResult(credential)
+      if !saved { state.isBarred = true }
       state.revision = UUID()
-      return true
+      return saved
     }
   }
 

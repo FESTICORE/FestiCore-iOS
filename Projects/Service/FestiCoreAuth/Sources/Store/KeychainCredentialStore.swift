@@ -21,9 +21,15 @@ final class KeychainCredentialStore: CredentialStore {
   }
 
   func save(_ credential: FestiCoreCredential) {
+    _ = saveResult(credential)
+  }
+
+  @discardableResult
+  func saveResult(_ credential: FestiCoreCredential) -> Bool {
     lock.withLock {
-      saveUnlocked(credential)
+      let saved = saveUnlocked(credential)
       currentRevision = UUID()
+      return saved
     }
   }
 
@@ -34,7 +40,10 @@ final class KeychainCredentialStore: CredentialStore {
   func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {
     lock.withLock {
       guard currentRevision == revision, loadUnlocked() == current else { return false }
-      saveUnlocked(credential)
+      guard saveUnlocked(credential) else {
+        currentRevision = UUID()
+        return false
+      }
       currentRevision = UUID()
       return true
     }
@@ -60,8 +69,16 @@ final class KeychainCredentialStore: CredentialStore {
     )
   }
 
-  private func saveUnlocked(_ credential: FestiCoreCredential) {
-    try? storage.save(credential.accessToken, for: .accessToken)
-    try? storage.save(credential.refreshToken, for: .refreshToken)
+  private func saveUnlocked(_ credential: FestiCoreCredential) -> Bool {
+    do {
+      try storage.save(credential.accessToken, for: .accessToken)
+      try storage.save(credential.refreshToken, for: .refreshToken)
+      return true
+    } catch {
+      // 둘 중 하나라도 실패하면 서로 다른 세션의 토큰 쌍이 남지 않도록 지운다.
+      try? storage.remove(.accessToken)
+      try? storage.remove(.refreshToken)
+      return false
+    }
   }
 }
