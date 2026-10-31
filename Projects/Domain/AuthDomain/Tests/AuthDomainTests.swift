@@ -270,11 +270,13 @@ struct AuthDomainTests {
 
     await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.signOut() }
     #expect(await auth.signOutCalls == 1)
+    #expect(await auth.isLoggedIn)
 
     await auth.setClearSucceeds(true)
     try await repository.signOut()
     #expect(await auth.signOutCalls == 2)
-    #expect(await client.calls == 1)
+    #expect(await auth.isLoggedIn == false)
+    #expect(await client.calls == 2)
   }
 
   @Test("이미 로그아웃 상태라면 네트워크를 호출하지 않는다")
@@ -364,6 +366,31 @@ struct AuthDomainTests {
 
     await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.withdraw() }
     #expect(await auth.signOutCalls == 1)
+    #expect(await auth.isLoggedIn)
+  }
+
+  @Test("회원 탈퇴 뒤 로컬 삭제가 남으면 401 재시도에서도 삭제 성공 전까지 완료하지 않는다")
+  func withdrawRetriesPendingLocalClear() async {
+    let auth = StubAuthService(loggedIn: true, clearSucceeds: false)
+    let successfulClient = StubClient(result: .success(Data()))
+    let first = withDependencies {
+      $0.networkClient = successfulClient
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await first.withdraw() }
+
+    let unauthorizedClient = StubClient(result: .failure(.response(ResponseError(httpStatus: 401))))
+    let retry = withDependencies {
+      $0.networkClient = unauthorizedClient
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await retry.withdraw() }
+    #expect(await auth.isLoggedIn)
+
+    await auth.setClearSucceeds(true)
+    await #expect(throws: FestiCoreNetworkError.self) { try await retry.withdraw() }
+    #expect(await auth.isLoggedIn == false)
+    #expect(await auth.signOutCalls == 3)
   }
 
   @Test("미로그인 상태는 회원 탈퇴 요청 전에 거부한다")
@@ -491,8 +518,8 @@ private actor StubAuthService: AuthService {
 
   func signOut() -> Bool {
     tokens = []
-    loggedIn = false
     signOutCalls += 1
+    if clearSucceeds { loggedIn = false }
     return clearSucceeds
   }
 }

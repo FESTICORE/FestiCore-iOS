@@ -198,8 +198,15 @@ struct AuthTests {
     storage.failIdentityRemoval = true
 
     #expect(await auth.signOut() == false)
-    #expect(await auth.isLoggedIn == false)
+    #expect(await auth.isLoggedIn)
     #expect(KeychainCredentialStore(storage: storage).load() == old)
+
+    storage.failTokenSaveFor = nil
+    storage.failTokenRemovalFor = []
+    storage.failIdentityRemoval = false
+    #expect(await auth.signOut())
+    #expect(await auth.isLoggedIn == false)
+    #expect(KeychainCredentialStore(storage: storage).load() == nil)
   }
 
   @Test("로그아웃 및 재로그인 뒤에는 이전 토큰 갱신 결과를 교체하지 않는다")

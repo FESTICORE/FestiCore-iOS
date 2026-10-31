@@ -19,6 +19,8 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
   private var staged: StagedSession?
   /// 이번 실행에서 확정한 세션의 식별자. 닫힌 로그인의 세션만 되돌릴 때 쓴다.
   private var committedSessionID: UUID?
+  /// 키체인 삭제 실패 뒤 서버에서 끝난 세션의 로컬 정리가 남아 있다.
+  private var sessionClearPending = false
 
   init(
     authenticatedClient: any FestiCoreNetworkClient,
@@ -32,7 +34,7 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     self.identityStorage = identityStorage
   }
 
-  var isLoggedIn: Bool { store.load() != nil }
+  var isLoggedIn: Bool { store.load() != nil || sessionClearPending }
   var refreshToken: String? { store.load()?.refreshToken }
   var currentUserID: String? {
     guard let credential = store.load(),
@@ -66,6 +68,7 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     }
     credentials.update(session.credential)
     committedSessionID = session.id
+    sessionClearPending = false
     if let userID = session.userID {
       try? identityStorage.save(userID, for: .sessionUserID)
     }
@@ -94,12 +97,16 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
 
   func signOut() -> Bool {
     staged = nil
-    return clearCommittedSession()
+    let cleared = clearCommittedSession()
+    sessionClearPending = !cleared
+    return cleared
   }
 
   func signOut(ifSession id: UUID) -> Bool {
     guard committedSessionID == id else { return false }
-    return clearCommittedSession()
+    let cleared = clearCommittedSession()
+    sessionClearPending = !cleared
+    return cleared
   }
 
   func handleAuthFailure(for attempted: FestiCoreCredential) {
