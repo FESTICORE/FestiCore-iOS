@@ -45,62 +45,66 @@ public struct AuthRepositoryImpl: AuthInterface {
   }
 
   public func fetchProfile() async throws -> AuthProfile {
-    guard await authService.isLoggedIn else { throw AuthDomainError.notAuthenticated }
+    guard let sessionID = await authService.authenticatedSessionID else {
+      throw AuthDomainError.notAuthenticated
+    }
     do {
-      let response = try await client.send(AuthRequest.me, as: AuthProfileResponseDTO.self)
+      let response = try await client.send(AuthRequest.me(sessionID: sessionID), as: AuthProfileResponseDTO.self)
       guard response.code == "SUCCESS", !response.data.currentTermsVersion.isEmpty else {
         throw AuthDomainError.invalidResponse
       }
       return response.data.toDomain()
     } catch {
-      await clearUnauthorizedSession(error)
+      await clearUnauthorizedSession(error, sessionID: sessionID)
       throw error
     }
   }
 
   public func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser {
-    guard await authService.isLoggedIn else { throw AuthDomainError.notAuthenticated }
+    guard let sessionID = await authService.authenticatedSessionID else {
+      throw AuthDomainError.notAuthenticated
+    }
     guard !nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
           !termsVersion.isEmpty else { throw AuthDomainError.invalidResponse }
     do {
       let response = try await client.send(
         AuthRequest.updateMe(body: AuthProfileUpdateBody(
           nickname: nickname, termsVersion: termsVersion, pushOptIn: pushOptIn
-        )),
+        ), sessionID: sessionID),
         as: AuthProfileUpdateResponseDTO.self
       )
       guard response.code == "SUCCESS" else { throw AuthDomainError.invalidResponse }
       return response.data.toDomain()
     } catch {
-      await clearUnauthorizedSession(error)
+      await clearUnauthorizedSession(error, sessionID: sessionID)
       throw error
     }
   }
 
-  private func clearUnauthorizedSession(_ error: any Error) async {
+  private func clearUnauthorizedSession(_ error: any Error, sessionID: UUID) async {
     if let networkError = error as? FestiCoreNetworkError,
        case let .response(response) = networkError,
        response.isUnauthorized {
-      await authService.signOut()
+      _ = await authService.signOut(ifSessionIDMatches: sessionID)
     }
   }
 
   public func signOut() async throws {
-    guard await authService.isLoggedIn else { return }
+    guard let sessionID = await authService.authenticatedSessionID else { return }
 
     do {
-      let response = try await client.send(AuthRequest.logout, as: AuthLogoutResponseDTO.self)
+      let response = try await client.send(AuthRequest.logout(sessionID: sessionID), as: AuthLogoutResponseDTO.self)
       guard response.code == "SUCCESS", response.data.success else {
         throw AuthDomainError.invalidResponse
       }
-      await authService.signOut()
+      _ = await authService.signOut(ifSessionIDMatches: sessionID)
     } catch {
       // 갱신 실패가 먼저 세션을 지웠다면 요청 오류와 관계없이 로그아웃을 마친 상태다.
       guard await authService.isLoggedIn else { return }
       if let networkError = error as? FestiCoreNetworkError,
          case let .response(response) = networkError,
          response.isUnauthorized {
-        await authService.signOut()
+        _ = await authService.signOut(ifSessionIDMatches: sessionID)
         return
       }
       throw error
@@ -108,13 +112,15 @@ public struct AuthRepositoryImpl: AuthInterface {
   }
 
   public func withdraw() async throws {
-    guard await authService.isLoggedIn else { throw AuthDomainError.notAuthenticated }
+    guard let sessionID = await authService.authenticatedSessionID else {
+      throw AuthDomainError.notAuthenticated
+    }
 
     do {
-      _ = try await client.send(AuthRequest.withdraw, as: FestiCoreEmptyResponse.self)
-      await authService.signOut()
+      _ = try await client.send(AuthRequest.withdraw(sessionID: sessionID), as: FestiCoreEmptyResponse.self)
+      _ = await authService.signOut(ifSessionIDMatches: sessionID)
     } catch {
-      await clearUnauthorizedSession(error)
+      await clearUnauthorizedSession(error, sessionID: sessionID)
       throw error
     }
   }

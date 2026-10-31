@@ -55,6 +55,15 @@ public struct ProfileView: View {
     VStack(spacing: .zero) {
       topBar
 
+      if !hasSession, let message, !message.isEmpty {
+        Text(message)
+          .festiCoreFont(.baseSubheadlineRegular)
+          .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal, FestiCoreSpacing.paddingP20)
+          .accessibilityAddTraits(.updatesFrequently)
+      }
+
       ScrollView {
         VStack(spacing: FestiCoreSpacing.paddingP24) {
           FCBearerPrompt { store.send(.view(.bearerTapped)) }

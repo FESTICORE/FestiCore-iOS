@@ -143,6 +143,7 @@ struct AuthTests {
     let newToken = jwt(subject: "user-a", suffix: "renewed")
     await auth.signIn(accessToken: oldToken, refreshToken: "refresh-a")
     await auth.rememberUserID("user-a")
+    let sessionID = await auth.sessionID
 
     let credentialStore = KeychainCredentialStore(storage: storage)
     let oldCredential = try #require(credentialStore.load())
@@ -153,8 +154,23 @@ struct AuthTests {
       revision: revision
     ))
     #expect(await auth.currentUserID == "user-a")
+    #expect(await auth.sessionID == sessionID)
     let restored = AuthFactory.make(refreshClient: client, storage: storage)
     #expect(await restored.currentUserID == "user-a")
+  }
+
+  @Test("이전 로그인 식별자로 새 세션을 지울 수 없다")
+  func staleSessionCannotSignOutNewLogin() async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage)
+    await auth.signIn(accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
+    let oldSessionID = await auth.sessionID
+
+    await auth.signIn(accessToken: jwt(subject: "user-b"), refreshToken: "refresh-b")
+    #expect(await auth.signOut(ifSessionIDMatches: oldSessionID) == false)
+    #expect(await auth.isLoggedIn)
+    #expect(await auth.refreshToken == "refresh-b")
   }
 
   @Test("로그아웃 뒤 늦게 도착한 갱신 결과를 저장하지 않는다")

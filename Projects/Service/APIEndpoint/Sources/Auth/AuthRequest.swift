@@ -8,6 +8,7 @@
 import Alamofire
 import API
 import FestiCoreNetworkInterface
+import Foundation
 
 public struct AuthLoginBody: Encodable, Sendable {
   public let provider: String
@@ -42,10 +43,10 @@ public struct AuthProfileUpdateBody: Encodable, Sendable {
 public enum AuthRequest: FestiCoreDataRequest, Sendable {
   case login(body: AuthLoginBody)
   case refresh(refreshToken: String)
-  case logout
-  case me
-  case updateMe(body: AuthProfileUpdateBody)
-  case withdraw
+  case logout(sessionID: UUID)
+  case me(sessionID: UUID)
+  case updateMe(body: AuthProfileUpdateBody, sessionID: UUID)
+  case withdraw(sessionID: UUID)
 
   public var path: String { return api.path }
 
@@ -61,7 +62,8 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
   public var authorization: FestiCoreAuthorization {
     switch self {
     case .login, .refresh: return .none
-    case .logout, .me, .updateMe, .withdraw: return .automatic
+    case let .logout(sessionID), let .me(sessionID), let .updateMe(_, sessionID), let .withdraw(sessionID):
+      return .sessionBound(sessionID)
     }
   }
 
@@ -71,7 +73,7 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
     switch self {
     case let .login(body): return body
     case let .refresh(refreshToken): return RefreshBody(refreshToken: refreshToken)
-    case let .updateMe(body): return body
+    case let .updateMe(body, _): return body
     case .logout, .me, .withdraw: return nil
     }
   }

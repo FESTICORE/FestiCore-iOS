@@ -287,6 +287,65 @@ struct NetworkClientTests {
     )
   }
 
+  @Test("세션 지정 요청은 다른 로그인 토큰으로 전송되지 않는다")
+  func sessionBoundRequestRejectsNewAccount() async throws {
+    URLProtocolStub.set(statusCode: 204)
+    let first = FestiCoreCredential(accessToken: "account-a", refreshToken: "refresh-a")
+    let second = FestiCoreCredential(accessToken: "account-b", refreshToken: "refresh-b")
+    let store = ClientCredentialStore(credential: first)
+    let expected = try #require(store.sessionSnapshot()?.id)
+    let (authorizing, updater) = SessionFactory.authorization(
+      store: store,
+      refresher: ClientTokenRefresher(credential: second)
+    )
+    store.save(second)
+    updater.update(second)
+
+    do {
+      _ = try await URLProtocolStub.makeClient(authorizing: authorizing)
+        .send(SessionBoundPingRequest(sessionID: expected))
+      Issue.record("이전 세션 요청은 전송에 실패해야 한다")
+    } catch {
+      #expect(URLProtocolStub.recordedRequests.isEmpty)
+    }
+  }
+
+  @Test("세션 지정 요청은 인증 인터셉터가 없으면 HTTP 전송 전에 실패한다")
+  func sessionBoundRequestWithoutAuthorizerFailsClosed() async {
+    URLProtocolStub.set(statusCode: 204)
+
+    do {
+      _ = try await URLProtocolStub.makeClient()
+        .send(SessionBoundPingRequest(sessionID: UUID()))
+      Issue.record("인증 인터셉터 없는 세션 지정 요청은 실패해야 한다")
+    } catch {
+      #expect(URLProtocolStub.recordedRequests.isEmpty)
+    }
+  }
+
+  @Test("같은 세션의 토큰 갱신 후 세션 지정 요청을 재시도한다")
+  func sessionBoundRequestAllowsRefresh() async throws {
+    URLProtocolStub.setSequence([
+      (401, json(#"{"code":"UNAUTHORIZED"}"#)),
+      (204, Data()),
+    ])
+    let first = FestiCoreCredential(accessToken: "old-access", refreshToken: "refresh")
+    let renewed = FestiCoreCredential(accessToken: "new-access", refreshToken: "new-refresh")
+    let store = ClientCredentialStore(credential: first)
+    let expected = try #require(store.sessionSnapshot()?.id)
+    let (authorizing, _) = SessionFactory.authorization(
+      store: store,
+      refresher: ClientTokenRefresher(credential: renewed)
+    )
+
+    _ = try await URLProtocolStub.makeClient(authorizing: authorizing)
+      .send(SessionBoundPingRequest(sessionID: expected))
+
+    #expect(store.sessionSnapshot()?.id == expected)
+    #expect(URLProtocolStub.recordedRequests.count == 2)
+    #expect(URLProtocolStub.recordedRequests.last?.value(forHTTPHeaderField: "Authorization") == "Bearer new-access")
+  }
+
   @Test("authorization.none 요청은 로그인 상태여도 인증 헤더를 붙이지 않는다")
   func bypassesAuthorization() async throws {
     URLProtocolStub.set(statusCode: 204)
@@ -454,6 +513,16 @@ private struct PublicPingRequest: FestiCoreDataRequest {
   let authorization: FestiCoreAuthorization = .none
 }
 
+private struct SessionBoundPingRequest: FestiCoreDataRequest {
+  typealias Response = FestiCoreEmptyResponse
+
+  let path = "ping"
+  let method: HTTPMethod = .get
+  let maxRetryAttempts = 0
+  let sessionID: UUID
+  var authorization: FestiCoreAuthorization { .sessionBound(sessionID) }
+}
+
 private struct AcceptingUserRequest: FestiCoreDataRequest {
   typealias Response = User
 
@@ -517,6 +586,7 @@ private final class ClientCredentialStore: CredentialStore, @unchecked Sendable 
   private let lock = NSLock()
   private var credential: FestiCoreCredential?
   private var currentRevision = UUID()
+  private var currentSessionID = UUID()
 
   init(credential: FestiCoreCredential?) {
     self.credential = credential
@@ -526,10 +596,17 @@ private final class ClientCredentialStore: CredentialStore, @unchecked Sendable 
     lock.withLock { credential }
   }
 
+  func sessionSnapshot() -> FestiCoreCredentialSession? {
+    lock.withLock {
+      credential.map { FestiCoreCredentialSession(credential: $0, id: currentSessionID) }
+    }
+  }
+
   func save(_ credential: FestiCoreCredential) {
     lock.withLock {
       self.credential = credential
       currentRevision = UUID()
+      currentSessionID = UUID()
     }
   }
 
@@ -550,6 +627,7 @@ private final class ClientCredentialStore: CredentialStore, @unchecked Sendable 
     lock.withLock {
       credential = nil
       currentRevision = UUID()
+      currentSessionID = UUID()
     }
   }
 }

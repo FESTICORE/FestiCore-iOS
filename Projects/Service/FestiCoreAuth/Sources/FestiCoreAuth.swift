@@ -30,6 +30,8 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
 
   var isLoggedIn: Bool { store.load() != nil }
   var refreshToken: String? { store.load()?.refreshToken }
+  var sessionID: UUID { store.sessionID }
+  var authenticatedSessionID: UUID? { store.sessionSnapshot()?.id }
   var currentUserID: String? {
     guard let credential = store.load(),
           let stored = try? identityStorage.load(.sessionUserID),
@@ -40,13 +42,12 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
 
   func signIn(accessToken: String, refreshToken: String) {
     try? identityStorage.remove(.sessionUserID)
-    store.allowSaves()
     let credential = FestiCoreCredential(
       accessToken: accessToken,
       refreshToken: refreshToken,
       expiresAt: JWTDecoder.decodeExpiration(accessToken)
     )
-    store.save(credential)
+    store.startSession(credential)
     credentials.update(credential)
   }
 
@@ -61,6 +62,12 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     store.clear()
     try? identityStorage.remove(.sessionUserID)
     credentials.update(nil)
+  }
+
+  func signOut(ifSessionIDMatches sessionID: UUID) -> Bool {
+    guard store.sessionSnapshot()?.id == sessionID else { return false }
+    signOut()
+    return true
   }
 
   func handleAuthFailure(for attempted: FestiCoreCredential) {

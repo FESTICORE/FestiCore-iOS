@@ -199,6 +199,56 @@ struct AuthenticationTests {
     #expect(adapted.value(forHTTPHeaderField: "Authorization") == "Bearer old-access")
   }
 
+  @Test("세션 지정 요청은 다른 로그인 토큰으로 적응하지 않는다")
+  func boundRequestRejectsNewSessionDuringAdapt() async throws {
+    let expiring = FestiCoreCredential(
+      accessToken: "old-access", refreshToken: "refresh", expiresAt: .distantPast
+    )
+    let store = RecordingCredentialStore(initial: expiring)
+    let expected = try #require(store.sessionSnapshot()?.id)
+    let refresher = SuspendedTokenRefresher()
+    let (authorizing, updater) = SessionFactory.authorization(store: store, refresher: refresher)
+    let request = URLRequest(url: URL(string: "https://festicore.test/private")!)
+    let adaptation = Task { try await adapt(authorizing.bound(to: expected), request: request) }
+
+    await refresher.waitUntilStarted()
+    let replacement = FestiCoreCredential(accessToken: "account-b", refreshToken: "refresh-b")
+    store.save(replacement)
+    updater.update(replacement)
+    await refresher.complete(with: renewed)
+
+    do {
+      _ = try await adaptation.value
+      Issue.record("이전 세션의 요청은 적응에 실패해야 한다")
+    } catch {
+      #expect(store.sessionSnapshot()?.credential == replacement)
+    }
+  }
+
+  @Test("세션 지정 요청은 계정 전환 후 재시도하지 않는다")
+  func boundRequestDoesNotRetryNewSession() async throws {
+    let store = RecordingCredentialStore(initial: current)
+    let expected = try #require(store.sessionSnapshot()?.id)
+    let (authorizing, updater) = SessionFactory.authorization(
+      store: store,
+      refresher: StubTokenRefresher(result: .success(renewed))
+    )
+    let replacement = FestiCoreCredential(accessToken: "account-b", refreshToken: "refresh-b")
+    store.save(replacement)
+    updater.update(replacement)
+    let session = Session(startRequestsImmediately: false)
+    let request = session.request("https://festicore.test/private")
+    let result = await withCheckedContinuation { continuation in
+      authorizing.bound(to: expected).retry(
+        request, for: session, dueTo: URLError(.userAuthenticationRequired)
+      ) { continuation.resume(returning: $0) }
+    }
+    guard case .doNotRetry = result else {
+      Issue.record("이전 세션의 요청은 재시도하면 안 된다")
+      return
+    }
+  }
+
   @Test("CredentialUpdater는 로그인과 로그아웃 credential을 같은 interceptor에 반영한다")
   func credentialUpdaterChangesSharedCredential() {
     let store = RecordingCredentialStore()
@@ -274,6 +324,7 @@ private final class RecordingCredentialStore: CredentialStore, @unchecked Sendab
   private let lock = NSLock()
   private var credential: FestiCoreCredential?
   private var currentRevision = UUID()
+  private var currentSessionID = UUID()
 
   init(initial: FestiCoreCredential? = nil) {
     credential = initial
@@ -287,10 +338,17 @@ private final class RecordingCredentialStore: CredentialStore, @unchecked Sendab
     lock.withLock { credential }
   }
 
+  func sessionSnapshot() -> FestiCoreCredentialSession? {
+    lock.withLock {
+      credential.map { FestiCoreCredentialSession(credential: $0, id: currentSessionID) }
+    }
+  }
+
   func save(_ credential: FestiCoreCredential) {
     lock.withLock {
       self.credential = credential
       currentRevision = UUID()
+      currentSessionID = UUID()
     }
   }
 
@@ -311,6 +369,7 @@ private final class RecordingCredentialStore: CredentialStore, @unchecked Sendab
     lock.withLock {
       credential = nil
       currentRevision = UUID()
+      currentSessionID = UUID()
     }
   }
 }
