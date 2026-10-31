@@ -39,7 +39,7 @@ jobs:
       - name: Resolve dependencies
         run: mise exec -- tuist install
       - name: Warm external module cache
-        run: mise exec -- tuist cache warm --cache-profile only-external --configuration Stage
+        run: bash Scripts/warm-ci-module-cache.sh
       - name: Clean cache warm DerivedData
         if: always()
         run: bash Scripts/clean-ci-derived-data.sh FestiCore-cache-warm

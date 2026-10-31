@@ -96,10 +96,11 @@ jobs:
             ShardBuildRunReport.json \
             TuistShardBuild.log
 
-      - name: Test simulator selector
+      - name: Test CI utilities
         run: |
           python3 Scripts/select-ios-simulator.test.py
           python3 Scripts/clean-ci-derived-data.test.py
+          python3 Scripts/warm-ci-module-cache.test.py
 
       # 최신 사용 가능 iOS 런타임의 CI 전용 iPhone Duo를 선택한다. 없으면 실패한다.
       - name: Select simulator
