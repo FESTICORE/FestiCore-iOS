@@ -136,19 +136,36 @@ struct FestiCoreDesignKitTests {
     #expect(dark.getRed() == 0xC6)
   }
 
-  @Test @MainActor func appleLoginLogoUsesContrastingDarkAppearance() throws {
-    let logo = try #require(UIImage(.appleLogo))
-    #expect(logo.renderingMode == .alwaysTemplate)
-
-    let dark = UITraitCollection(userInterfaceStyle: .dark)
-    let label = FestiCoreSemanticColor.inverseLabel.uiColor.resolvedColor(with: dark)
-    let background = FestiCoreSemanticColor.inverseBackground.uiColor.resolvedColor(with: dark)
-    #expect(label.getRed() == 0x11)
-    #expect(background.getRed() == 0xFF)
-
-    let controller = UIHostingController(rootView: FCLoginButton(.apple) {}
+  @Test @MainActor func appleLoginLogoRendersWithDarkModeContrast() throws {
+    PretendardFontFamily.registerFonts()
+    let renderer = ImageRenderer(content: FCLoginButton(.apple) {}
+      .frame(width: 320)
       .environment(\.colorScheme, .dark))
-    #expect(controller.view != nil)
+    renderer.scale = 1
+    let image = try #require(renderer.uiImage)
+    let cgImage = try #require(image.cgImage)
+    #expect(cgImage.width == 320)
+    #expect(cgImage.height == 52)
+    #expect(cgImage.bitsPerPixel == 32)
+
+    let data = try #require(cgImage.dataProvider?.data)
+    let bytes = try #require(CFDataGetBytePtr(data))
+    let labelWidth = ("Apple로 계속" as NSString).size(withAttributes: [
+      .font: FestiCoreTextStyle.baseCalloutBold.resolvedFont
+    ]).width
+    let iconLeading = (320 - (16 + FestiCoreSpacing.paddingP8 + labelWidth)) / 2
+    let iconRange = (Int(iconLeading) - 2)..<(Int(iconLeading) + 18)
+    let iconPixels = (16..<36).flatMap { y in
+      iconRange.map { x in
+        let offset = y * cgImage.bytesPerRow + x * 4
+        let alphaFirst = bytes[offset] > 0xC0
+          && bytes[offset + 1] < 0x80 && bytes[offset + 2] < 0x80 && bytes[offset + 3] < 0x80
+        let alphaLast = bytes[offset + 3] > 0xC0
+          && bytes[offset] < 0x80 && bytes[offset + 1] < 0x80 && bytes[offset + 2] < 0x80
+        return alphaFirst || alphaLast
+      }
+    }
+    #expect(iconPixels.filter { $0 }.count > 12)
   }
 
   @Test @MainActor func swiftUISemanticColorsTrackColorScheme() {

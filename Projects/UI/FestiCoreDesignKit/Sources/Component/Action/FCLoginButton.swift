@@ -32,8 +32,8 @@ public struct FCLoginButton: View {
         Text(provider == .apple ? "Apple로 계속" : "Google로 계속")
           .festiCoreFont(.baseCalloutBold)
           .lineLimit(1)
+          .foregroundStyle(provider == .apple ? FestiCoreSemanticColor.inverseLabel.color : FestiCoreSemanticColor.staticInk.color)
       }
-      .foregroundStyle(provider == .apple ? FestiCoreSemanticColor.inverseLabel.color : FestiCoreSemanticColor.staticInk.color)
       .frame(maxWidth: .infinity)
       .frame(height: Metric.height)
       .background(
