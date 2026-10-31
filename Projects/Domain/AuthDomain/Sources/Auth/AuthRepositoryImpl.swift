@@ -46,43 +46,50 @@ public struct AuthRepositoryImpl: AuthInterface {
   }
 
   public func fetchProfile() async throws -> AuthProfile {
-    guard await authService.isLoggedIn else { throw AuthDomainError.notAuthenticated }
+    guard let sessionID = await authService.authenticatedSessionID else {
+      throw AuthDomainError.notAuthenticated
+    }
     do {
-      let response = try await client.send(AuthRequest.me, as: AuthProfileResponseDTO.self)
+      let response = try await client.send(AuthRequest.me(sessionID: sessionID), as: AuthProfileResponseDTO.self)
       guard response.code == "SUCCESS", !response.data.currentTermsVersion.isEmpty else {
         throw AuthDomainError.invalidResponse
       }
       return response.data.toDomain()
     } catch {
-      try await clearUnauthorizedSession(error)
+      try await clearUnauthorizedSession(error, sessionID: sessionID)
       throw error
     }
   }
 
   public func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser {
-    guard await authService.isLoggedIn else { throw AuthDomainError.notAuthenticated }
+    guard let sessionID = await authService.authenticatedSessionID else {
+      throw AuthDomainError.notAuthenticated
+    }
     guard !nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
           !termsVersion.isEmpty else { throw AuthDomainError.invalidResponse }
     do {
       let response = try await client.send(
         AuthRequest.updateMe(body: AuthProfileUpdateBody(
           nickname: nickname, termsVersion: termsVersion, pushOptIn: pushOptIn
-        )),
+        ), sessionID: sessionID),
         as: AuthProfileUpdateResponseDTO.self
       )
       guard response.code == "SUCCESS" else { throw AuthDomainError.invalidResponse }
       return response.data.toDomain()
     } catch {
-      try await clearUnauthorizedSession(error)
+      try await clearUnauthorizedSession(error, sessionID: sessionID)
       throw error
     }
   }
 
-  private func clearUnauthorizedSession(_ error: any Error) async throws {
+  private func clearUnauthorizedSession(_ error: any Error, sessionID: UUID) async throws {
     if let networkError = error as? FestiCoreNetworkError,
        case let .response(response) = networkError,
        response.isUnauthorized {
-      guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
+      let cleared = await authService.signOut(ifSessionIDMatches: sessionID)
+      if !cleared, await authService.hasPendingLocalClear {
+        throw AuthDomainError.localSessionClearFailed
+      }
     }
   }
 
@@ -97,7 +104,7 @@ public struct AuthRepositoryImpl: AuthInterface {
       guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
       return
     }
-    guard await authService.isLoggedIn else {
+    guard let sessionID = await authService.authenticatedSessionID else {
       guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
       return
     }
@@ -106,7 +113,7 @@ public struct AuthRepositoryImpl: AuthInterface {
     }
 
     do {
-      let response = try await client.send(AuthRequest.logout, as: AuthLogoutResponseDTO.self)
+      let response = try await client.send(AuthRequest.logout(sessionID: sessionID), as: AuthLogoutResponseDTO.self)
       guard response.code == "SUCCESS", response.data.success else {
         throw AuthDomainError.invalidResponse
       }
@@ -155,13 +162,15 @@ public struct AuthRepositoryImpl: AuthInterface {
       guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
       throw AuthDomainError.notAuthenticated
     }
-    guard await authService.isLoggedIn else { throw AuthDomainError.notAuthenticated }
+    guard let sessionID = await authService.authenticatedSessionID else {
+      throw AuthDomainError.notAuthenticated
+    }
     guard await authService.prepareRevocation(.withdrawal) else {
       throw AuthDomainError.localSessionClearFailed
     }
 
     do {
-      _ = try await client.send(AuthRequest.withdraw, as: FestiCoreEmptyResponse.self)
+      _ = try await client.send(AuthRequest.withdraw(sessionID: sessionID), as: FestiCoreEmptyResponse.self)
     } catch {
       if let networkError = error as? FestiCoreNetworkError,
          case let .response(response) = networkError,
@@ -171,7 +180,7 @@ public struct AuthRepositoryImpl: AuthInterface {
           throw AuthDomainError.localSessionClearFailed
         }
       }
-      try await clearUnauthorizedSession(error)
+      try await clearUnauthorizedSession(error, sessionID: sessionID)
       await authService.finishRevocationRequest()
       throw error
     }

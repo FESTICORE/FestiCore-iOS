@@ -73,30 +73,34 @@ struct AuthDomainTests {
 
   @Test("인증된 프로필을 GET me에서 조회한다")
   func fetchProfile() async throws {
+    let auth = StubAuthService(loggedIn: true)
+    let sessionID = await auth.sessionID
     let client = StubClient(result: .success(profileBody))
     let repository = withDependencies {
       $0.networkClient = client
-      $0.authService = StubAuthService(loggedIn: true)
+      $0.authService = auth
     } operation: { AuthRepositoryImpl() }
     let profile = try await repository.fetchProfile()
     #expect(profile.isEligible)
     #expect(await client.lastRequestPath == "api/v1/me")
     #expect(await client.lastRequestMethod == "GET")
-    #expect(await client.lastRequestAuthorizationIsAutomatic)
+    #expect(await client.lastRequestBoundSessionID == sessionID)
   }
 
   @Test("프로필 수정은 인증된 PATCH me 응답을 반환한다")
   func updateProfile() async throws {
+    let auth = StubAuthService(loggedIn: true)
+    let sessionID = await auth.sessionID
     let body = Data(#"{"code":"SUCCESS","message":"OK","data":{"id":"user-1","provider":"google","nickname":"축제관객","nicknameConfirmed":true,"termsAcceptedAt":"2026-10-30T00:00:00Z","termsVersion":"2026-10","pushOptIn":false}}"#.utf8)
     let client = StubClient(result: .success(body))
     let repository = withDependencies {
       $0.networkClient = client
-      $0.authService = StubAuthService(loggedIn: true)
+      $0.authService = auth
     } operation: { AuthRepositoryImpl() }
     let user = try await repository.updateProfile(nickname: "축제관객", termsVersion: "2026-10", pushOptIn: false)
     #expect(user.nicknameConfirmed)
     #expect(await client.lastRequestMethod == "PATCH")
-    #expect(await client.lastRequestAuthorizationIsAutomatic)
+    #expect(await client.lastRequestBoundSessionID == sessionID)
   }
 
   @Test("프로필 조회 실패는 전파하고 401에서만 세션을 지운다", arguments: [0, 401, 500])
@@ -248,6 +252,7 @@ struct AuthDomainTests {
   @Test("로그아웃 성공은 서버 응답 후 로컬 세션을 지운다")
   func signOut() async throws {
     let auth = StubAuthService(loggedIn: true)
+    let sessionID = await auth.sessionID
     let client = StubClient(result: .success(Data(#"{"code":"SUCCESS","message":"OK","data":{"success":true}}"#.utf8)))
     let repository = withDependencies {
       $0.networkClient = client
@@ -257,6 +262,7 @@ struct AuthDomainTests {
     #expect(await auth.isLoggedIn == false)
     #expect(await auth.signOutCalls == 1)
     #expect(await client.calls == 1)
+    #expect(await client.lastRequestBoundSessionID == sessionID)
   }
 
   @Test("서버 로그아웃 성공 뒤 로컬 자격 증명 삭제 실패를 전파한다")
@@ -370,6 +376,7 @@ struct AuthDomainTests {
   @Test("회원 탈퇴 빈 응답 성공 뒤에 로컬 세션을 삭제한다")
   func withdraw() async throws {
     let auth = StubAuthService(loggedIn: true)
+    let sessionID = await auth.sessionID
     let client = StubClient(result: .success(Data()))
     let repository = withDependencies {
       $0.networkClient = client
@@ -381,7 +388,7 @@ struct AuthDomainTests {
     #expect(await client.calls == 1)
     #expect(await client.lastRequestPath == "api/v1/me")
     #expect(await client.lastRequestMethod == "DELETE")
-    #expect(await client.lastRequestAuthorizationIsAutomatic)
+    #expect(await client.lastRequestBoundSessionID == sessionID)
     #expect(await client.lastRequestParametersAreNil)
     #expect(await auth.isLoggedIn == false)
     #expect(await auth.signOutCalls == 1)
@@ -537,6 +544,52 @@ struct AuthDomainTests {
     #expect(await auth.finishedRevocationRequests == 1)
   }
 
+  @Test("회원 탈퇴 중 토큰 갱신 실패가 세션을 지워도 원래 전송 오류를 전파한다")
+  func withdrawRefreshFailure() async {
+    let auth = StubAuthService(loggedIn: true)
+    let client = StubClient(result: .failure(.transport(.notConnected))) {
+      await auth.signOut()
+    }
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    do {
+      try await repository.withdraw()
+      Issue.record("토큰 갱신 실패 오류가 전파되지 않음")
+    } catch let error as FestiCoreNetworkError {
+      guard case .transport(.notConnected) = error else {
+        Issue.record("원래 전송 오류가 유지되지 않음")
+        return
+      }
+    } catch {
+      Issue.record("네트워크 오류 타입이 유지되지 않음")
+    }
+    #expect(await client.calls == 1)
+    #expect(await auth.isLoggedIn == false)
+    #expect(await auth.signOutCalls == 1)
+  }
+
+  @Test("이전 탈퇴 응답은 새 로그인 세션을 지우지 않는다")
+  func lateWithdrawalKeepsNewSession() async throws {
+    let auth = StubAuthService(loggedIn: true)
+    let client = StubClient(result: .success(Data())) {
+      let id = await auth.stageSession(accessToken: "new-access", refreshToken: "new-refresh")
+      _ = await auth.commitSession(id)
+    }
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    try await repository.withdraw()
+
+    #expect(await auth.isLoggedIn)
+    #expect(await auth.refreshToken == "new-refresh")
+    #expect(await auth.signOutCalls == 0)
+  }
+
   @Test("회원 탈퇴 UseCase는 저장소의 성공 결과를 전달한다")
   func withdrawUseCase() async throws {
     let auth = StubAuthService(loggedIn: true)
@@ -575,6 +628,7 @@ private actor StubAuthService: AuthService {
   private var withdrawalRequested = false
   private(set) var revocationPending = false
   private(set) var finishedRevocationRequests = 0
+  private(set) var sessionID = UUID()
   private(set) var tokens: [String] = []
   private(set) var signOutCalls = 0
   private(set) var localCleanupRetryCalls = 0
@@ -617,6 +671,8 @@ private actor StubAuthService: AuthService {
     withdrawalCleanupPending = true
     return signOut()
   }
+  var authenticatedSessionID: UUID? { loggedIn ? sessionID : nil }
+  var hasPendingLocalClear: Bool { signOutCleanupPending }
   var refreshToken: String? { tokens.last }
   var currentUserID: String? { nil }
 
@@ -632,6 +688,7 @@ private actor StubAuthService: AuthService {
 
   func commitSession(_ id: UUID) -> Bool {
     guard stagedID == id else { return false }
+    sessionID = UUID()
     tokens = stagedTokens
     loggedIn = true
     stagedTokens = []
@@ -651,6 +708,7 @@ private actor StubAuthService: AuthService {
   func rememberUserID(_ userID: String) {}
 
   func signOut() -> Bool {
+    sessionID = UUID()
     tokens = []
     signOutCalls += 1
     if clearSucceeds {
@@ -664,6 +722,11 @@ private actor StubAuthService: AuthService {
     }
     return clearSucceeds
   }
+
+  func signOut(ifSessionIDMatches expected: UUID) -> Bool {
+    guard sessionID == expected else { return false }
+    return signOut()
+  }
 }
 
 private actor StubClient: FestiCoreNetworkClient {
@@ -673,6 +736,7 @@ private actor StubClient: FestiCoreNetworkClient {
   private(set) var lastRequestPath: String?
   private(set) var lastRequestMethod: String?
   private(set) var lastRequestAuthorizationIsAutomatic = false
+  private(set) var lastRequestBoundSessionID: UUID?
   private(set) var lastRequestParametersAreNil = false
 
   init(result: Result<Data, FestiCoreNetworkError>, onSend: (@Sendable () async -> Void)? = nil) {
@@ -687,6 +751,9 @@ private actor StubClient: FestiCoreNetworkClient {
     lastRequestPath = request.path
     lastRequestMethod = request.method.rawValue
     lastRequestAuthorizationIsAutomatic = request.authorization == .automatic
+    if case let .sessionBound(sessionID) = request.authorization {
+      lastRequestBoundSessionID = sessionID
+    }
     lastRequestParametersAreNil = request.parameters == nil
     await onSend?()
     switch result {

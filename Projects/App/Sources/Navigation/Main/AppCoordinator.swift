@@ -19,7 +19,7 @@ struct AppCoordinator {
   @Dependency(\.festivalBookedStore) private var bookedStore
   @Dependency(\.authSessionExpiryClient) private var authSessionExpiryClient
 
-  private enum CancelID { case sessionExpiry }
+  private enum CancelID { case sessionExpiry, accountOperation }
 
   struct AuthFlow: Equatable {
     enum Presentation: Equatable {
@@ -34,6 +34,7 @@ struct AppCoordinator {
     var pendingOwnerID: String?
     var generation = 0
     var accountOperationGeneration: Int?
+    var accountOperation: MyAccountOperation?
     var loginAttemptGeneration: Int?
     /// 수락해 확정 중인 로그인 세션. 확정 전에 시트가 닫히면 이 세션을 버린다.
     var pendingCommitSessionID: UUID?
@@ -361,14 +362,16 @@ private extension AppCoordinator {
 
     case .sessionExpired:
       guard case var .home(home) = state,
-            home.authFlow.hasSession,
-            home.authFlow.accountOperationGeneration == nil else { return .none }
+            home.authFlow.hasSession else { return .none }
+      let interruptedOperation = home.authFlow.accountOperation
       home.authFlow.hasSession = false
       home.authFlow.profile = nil
       home.authFlow.verifiedUserID = nil
       home.authFlow.lastVerifiedUserID = nil
       home.authFlow.generation += 1
       home.authFlow.isLoading = false
+      home.authFlow.accountOperationGeneration = nil
+      home.authFlow.accountOperation = nil
       home.authFlow.loginAttemptGeneration = nil
       home.authFlow.pendingFestivalID = nil
       home.authFlow.pendingOwnerID = nil
@@ -378,9 +381,13 @@ private extension AppCoordinator {
       home.authFlow.nickname = ""
       home.authFlow.pushOptIn = false
       home.authFlow.clearConsentAndRetryState()
+      if interruptedOperation == .withdraw {
+        home.authFlow.message = "로그인이 만료되어 회원 탈퇴 결과를 확인할 수 없어요. 다시 로그인해 계정 상태를 확인해 주세요."
+      }
+      home.profileState = .init()
       let clear = clearAccountData(&home)
       state = .home(home)
-      return clear
+      return .merge(clear, .cancel(id: CancelID.accountOperation))
 
     case let .sessionRestored(generation, userID, isLoggedIn):
       guard case var .home(home) = state,
@@ -598,11 +605,23 @@ private extension AppCoordinator {
       guard case var .home(home) = state,
             home.authFlow.accountOperationGeneration == generation else { return .none }
       home.authFlow.accountOperationGeneration = nil
+      home.authFlow.accountOperation = nil
       home.authFlow.isLoading = false
       switch result {
-      case .success, .failure(.unauthenticated):
+      case .success:
         var cleared = AuthFlow()
         cleared.generation = max(home.authFlow.generation, generation)
+        home.authFlow = cleared
+        home.profileState = .init()
+        let clear = clearAccountData(&home)
+        state = .home(home)
+        return clear
+      case .failure(.unauthenticated):
+        var cleared = AuthFlow()
+        cleared.generation = max(home.authFlow.generation, generation)
+        if operation == .withdraw {
+          cleared.message = "로그인이 만료되어 회원 탈퇴 결과를 확인할 수 없어요. 다시 로그인해 계정 상태를 확인해 주세요."
+        }
         home.authFlow = cleared
         home.profileState = .init()
         let clear = clearAccountData(&home)
@@ -696,6 +715,7 @@ private extension AppCoordinator {
           !home.authFlow.isLoading else { return .none }
     home.authFlow.generation += 1
     home.authFlow.accountOperationGeneration = home.authFlow.generation
+    home.authFlow.accountOperation = operation
     home.authFlow.isLoading = true
     home.authFlow.message = nil
     let generation = home.authFlow.generation
@@ -708,11 +728,16 @@ private extension AppCoordinator {
         }
         await send(.inner(.myAccountFinished(generation: generation, operation: operation, result: .success(()))))
       } catch {
+        if !(await authService.isLoggedIn) {
+          await send(.inner(.sessionExpired))
+          return
+        }
         await send(.inner(.myAccountFinished(
           generation: generation, operation: operation, result: .failure(ProfileFailure(error))
         )))
       }
     }
+    .cancellable(id: CancelID.accountOperation, cancelInFlight: true)
   }
 
   func fetchProfile(generation: Int) -> Effect<Action> {

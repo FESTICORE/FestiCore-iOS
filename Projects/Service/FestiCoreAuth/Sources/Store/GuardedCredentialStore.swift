@@ -19,6 +19,7 @@ final class GuardedCredentialStore: CredentialStore {
     var canRecoverInitialCredential: Bool
     var revision = UUID()
     var onPersistenceFailure: (@Sendable () -> Void)?
+    var sessionID = UUID()
   }
 
   init(base: any CredentialStore, recoverInitialCredential: Bool = false) {
@@ -41,6 +42,21 @@ final class GuardedCredentialStore: CredentialStore {
     }
   }
 
+  var sessionID: UUID { state.withLock { $0.sessionID } }
+
+  func sessionSnapshot() -> FestiCoreCredentialSession? {
+    state.withLock { state in
+      if state.isBarred {
+        guard state.canRecoverInitialCredential, let restored = base.load() else { return nil }
+        state.isBarred = false
+        state.canRecoverInitialCredential = false
+        return FestiCoreCredentialSession(credential: restored, id: state.sessionID)
+      }
+      guard let credential = base.load() else { return nil }
+      return FestiCoreCredentialSession(credential: credential, id: state.sessionID)
+    }
+  }
+
   @discardableResult
   func save(_ credential: FestiCoreCredential) -> Bool {
     state.withLock { state in
@@ -49,6 +65,7 @@ final class GuardedCredentialStore: CredentialStore {
       let saved = base.save(credential)
       if !saved { state.isBarred = true }
       state.revision = UUID()
+      state.sessionID = UUID()
       return saved
     }
   }
@@ -57,6 +74,13 @@ final class GuardedCredentialStore: CredentialStore {
     state.withLock { state in
       guard !state.isBarred, base.load() == current else { return nil }
       return state.revision
+    }
+  }
+
+  func refreshContext(matching current: FestiCoreCredential) -> FestiCoreRefreshContext? {
+    state.withLock { state in
+      guard !state.isBarred, base.load() == current else { return nil }
+      return FestiCoreRefreshContext(sessionID: state.sessionID, revision: state.revision)
     }
   }
 
@@ -84,6 +108,7 @@ final class GuardedCredentialStore: CredentialStore {
       state.isBarred = true
       state.canRecoverInitialCredential = false
       state.revision = UUID()
+      state.sessionID = UUID()
       return base.clear()
     }
   }
@@ -93,6 +118,7 @@ final class GuardedCredentialStore: CredentialStore {
       state.isBarred = false
       state.canRecoverInitialCredential = false
       state.revision = UUID()
+      state.sessionID = UUID()
     }
   }
 

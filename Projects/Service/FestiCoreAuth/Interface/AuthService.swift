@@ -16,6 +16,12 @@ public protocol AuthService: Sendable {
   var isLoggedIn: Bool { get async }
   var refreshToken: String? { get async }
   var currentUserID: String? { get async }
+  /// 로그인마다 바뀌며 같은 세션의 토큰 갱신 중에는 유지된다.
+  var sessionID: UUID { get async }
+  /// 로그인된 경우 토큰과 동일한 저장소 스냅샷에서 얻은 세션 식별자.
+  var authenticatedSessionID: UUID? { get async }
+  /// 세션에 한정한 로컬 삭제가 실패해 재시도가 필요한지 나타낸다.
+  var hasPendingLocalClear: Bool { get async }
   /// 서버 로그인 응답을 확정 전 임시 세션으로 둔다. Keychain과 인증 요청 자격 증명은 바꾸지 않는다.
   func stageSession(accessToken: String, refreshToken: String) async -> UUID
   /// 같은 임시 세션일 때만 Keychain에 확정하고 true를 돌려준다.
@@ -28,6 +34,8 @@ public protocol AuthService: Sendable {
   /// 로컬 자격 증명 삭제가 완료되었을 때만 true를 반환한다.
   @discardableResult
   func signOut() async -> Bool
+  /// 오래된 요청이 새 로그인 세션을 지우지 않도록 현재 세션을 원자적으로 확인한다.
+  func signOut(ifSessionIDMatches sessionID: UUID) async -> Bool
   /// 서버 요청 전에 복원 차단 기록을 디스크에 확인한 뒤 요청을 허용한다.
   func prepareRevocation(_ kind: AuthRevocationKind) async -> Bool
   /// 서버 결과가 불명확해도 기록은 유지하고 이번 요청만 종료한다.
@@ -51,6 +59,7 @@ public protocol AuthService: Sendable {
 }
 
 public extension AuthService {
+  var hasPendingLocalClear: Bool { get async { false } }
   func prepareRevocation(_ kind: AuthRevocationKind) async -> Bool { false }
   func finishRevocationRequest() async {}
   func confirmSignOut() async -> Bool { false }

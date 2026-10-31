@@ -145,12 +145,39 @@ private extension NetworkClient {
 
   /// 요청의 인증 정책에 따라 인터셉터를 조립한다.
   func interceptor(for request: some FestiCoreEndpoint) -> any RequestInterceptor {
-    guard let authorizing, request.authorization == .automatic else {
+    switch request.authorization {
+    case .none:
       return request.retryPolicy
+    case .automatic:
+      guard let authorizing else { return request.retryPolicy }
+      return Interceptor(interceptors: [authorizing, request.retryPolicy])
+    case let .sessionBound(sessionID):
+      guard let authorizing else { return RejectingSessionBoundInterceptor() }
+      return Interceptor(interceptors: [authorizing.bound(to: sessionID), request.retryPolicy])
     }
-    return Interceptor(interceptors: [authorizing, request.retryPolicy])
   }
 }
+
+private struct RejectingSessionBoundInterceptor: RequestInterceptor {
+  func adapt(
+    _: URLRequest,
+    for _: Session,
+    completion: @escaping @Sendable (Result<URLRequest, any Error>) -> Void
+  ) {
+    completion(.failure(SessionBoundClientUnavailableError()))
+  }
+
+  func retry(
+    _: Request,
+    for _: Session,
+    dueTo _: any Error,
+    completion: @escaping @Sendable (RetryResult) -> Void
+  ) {
+    completion(.doNotRetry)
+  }
+}
+
+private struct SessionBoundClientUnavailableError: Error {}
 
 // MARK: - Response Handling (send / upload 공유)
 

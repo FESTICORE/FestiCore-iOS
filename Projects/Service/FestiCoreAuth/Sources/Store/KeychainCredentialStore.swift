@@ -17,6 +17,7 @@ final class KeychainCredentialStore: CredentialStore {
   private var restorationBlocked: Bool
   private let lock = NSLock()
   private var currentRevision = UUID()
+  private var currentSessionID = UUID()
 
   init(storage: any SecureStorage, journal: SessionRevocationJournal? = nil) {
     self.storage = storage
@@ -43,18 +44,33 @@ final class KeychainCredentialStore: CredentialStore {
     lock.withLock { loadUnlocked() }
   }
 
+  func sessionSnapshot() -> FestiCoreCredentialSession? {
+    lock.withLock {
+      guard let credential = loadUnlocked() else { return nil }
+      return FestiCoreCredentialSession(credential: credential, id: currentSessionID)
+    }
+  }
+
   @discardableResult
   func save(_ credential: FestiCoreCredential) -> Bool {
     lock.withLock {
       let saved = saveUnlocked(credential)
       if saved, let journal, case .absent = journal.status { restorationBlocked = false }
       currentRevision = UUID()
+      if saved { currentSessionID = UUID() }
       return saved
     }
   }
 
   func revision(matching current: FestiCoreCredential) -> UUID? {
     lock.withLock { loadUnlocked() == current ? currentRevision : nil }
+  }
+
+  func refreshContext(matching current: FestiCoreCredential) -> FestiCoreRefreshContext? {
+    lock.withLock {
+      guard loadUnlocked() == current else { return nil }
+      return FestiCoreRefreshContext(sessionID: currentSessionID, revision: currentRevision)
+    }
   }
 
   func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) throws -> Bool {
@@ -79,6 +95,7 @@ final class KeychainCredentialStore: CredentialStore {
       let refreshRemoved = (try? storage.remove(.refreshToken)) != nil
       let identityRemoved = (try? storage.remove(.sessionUserID)) != nil
       currentRevision = UUID()
+      currentSessionID = UUID()
       return invalidated && accessRemoved && refreshRemoved && identityRemoved
     }
   }

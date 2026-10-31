@@ -64,14 +64,15 @@ struct AuthRequestTests {
     #expect(body["refreshToken"] as? String == "sample-refresh-token")
   }
 
-  @Test("로그아웃은 자동 인증을 사용하고 본문이 없다")
+  @Test("로그아웃은 시작 세션에 묶이고 본문이 없다")
   func logout() throws {
-    let endpoint = AuthRequest.logout
+    let sessionID = UUID()
+    let endpoint = AuthRequest.logout(sessionID: sessionID)
     let request = try endpoint.asURLRequest(baseURL: baseURL)
 
     #expect(request.url?.path == "/api/v1/auth/logout")
     #expect(request.httpMethod == "POST")
-    #expect(endpoint.authorization == .automatic)
+    #expect(endpoint.authorization == .sessionBound(sessionID))
     #expect(endpoint.maxRetryAttempts == 0)
     #expect(request.httpBody == nil)
     #expect(request.url?.query == nil)
@@ -79,12 +80,13 @@ struct AuthRequestTests {
 
   @Test("회원 탈퇴는 인증된 DELETE 요청이며 본문과 재시도가 없다")
   func withdraw() throws {
-    let endpoint = AuthRequest.withdraw
+    let sessionID = UUID()
+    let endpoint = AuthRequest.withdraw(sessionID: sessionID)
     let request = try endpoint.asURLRequest(baseURL: baseURL)
 
     #expect(request.url?.path == "/api/v1/me")
     #expect(request.httpMethod == "DELETE")
-    #expect(endpoint.authorization == .automatic)
+    #expect(endpoint.authorization == .sessionBound(sessionID))
     #expect(endpoint.maxRetryAttempts == 0)
     #expect(endpoint.parameters == nil)
     #expect(request.httpBody == nil)
@@ -94,24 +96,26 @@ struct AuthRequestTests {
 
   @Test("내 프로필은 인증된 GET 요청이다")
   func me() throws {
-    let endpoint = AuthRequest.me
+    let sessionID = UUID()
+    let endpoint = AuthRequest.me(sessionID: sessionID)
     let request = try endpoint.asURLRequest(baseURL: baseURL)
     #expect(request.url?.path == "/api/v1/me")
     #expect(request.httpMethod == "GET")
-    #expect(endpoint.authorization == .automatic)
+    #expect(endpoint.authorization == .sessionBound(sessionID))
     #expect(endpoint.maxRetryAttempts == 0)
     #expect(request.httpBody == nil)
   }
 
   @Test("프로필 수정은 약관 버전과 선택 동의를 PATCH 본문에 보낸다")
   func updateMe() throws {
+    let sessionID = UUID()
     let endpoint = AuthRequest.updateMe(body: AuthProfileUpdateBody(
       nickname: "축제관객", termsVersion: "2026-10", pushOptIn: false
-    ))
+    ), sessionID: sessionID)
     let request = try endpoint.asURLRequest(baseURL: baseURL)
     #expect(request.url?.path == "/api/v1/me")
     #expect(request.httpMethod == "PATCH")
-    #expect(endpoint.authorization == .automatic)
+    #expect(endpoint.authorization == .sessionBound(sessionID))
     #expect(endpoint.maxRetryAttempts == 0)
     let body = try jsonBody(request)
     #expect(body["nickname"] as? String == "축제관객")

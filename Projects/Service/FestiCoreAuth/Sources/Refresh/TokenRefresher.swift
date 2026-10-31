@@ -11,17 +11,17 @@ import FestiCoreNetworkInterface
 
 struct TokenRefresher: TokenRefreshing {
   private let client: any FestiCoreRequestClient
-  private let onAuthFailure: @Sendable (FestiCoreCredential) async -> Void
+  private let onAuthFailure: @Sendable (FestiCoreCredential, UUID) async -> Void
 
   init(
     client: any FestiCoreRequestClient,
-    onAuthFailure: @escaping @Sendable (FestiCoreCredential) async -> Void
+    onAuthFailure: @escaping @Sendable (FestiCoreCredential, UUID) async -> Void
   ) {
     self.client = client
     self.onAuthFailure = onAuthFailure
   }
 
-  func refresh(_ current: FestiCoreCredential) async throws(FestiCoreNetworkError) -> FestiCoreCredential {
+  func refresh(_ current: FestiCoreCredential, sessionID: UUID) async throws(FestiCoreNetworkError) -> FestiCoreCredential {
     do {
       let response = try await client.send(
         AuthRequest.refresh(refreshToken: current.refreshToken),
@@ -38,7 +38,7 @@ struct TokenRefresher: TokenRefreshing {
     } catch {
       let networkError = (error as? FestiCoreNetworkError) ?? .decoding(.failed(error))
       if case let .response(response) = networkError, response.isUnauthorized {
-        await onAuthFailure(current)
+        await onAuthFailure(current, sessionID)
       }
       throw networkError
     }

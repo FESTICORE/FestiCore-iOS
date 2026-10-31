@@ -189,6 +189,24 @@ struct AuthenticationTests {
     }
   }
 
+  @Test("갱신 작업 예약 전에 같은 토큰으로 재로그인해도 이전 세션 ID를 전달한다")
+  func refreshCapturesSessionBeforeScheduling() async throws {
+    let store = RecordingCredentialStore(initial: current)
+    let oldSessionID = try #require(store.sessionSnapshot()?.id)
+    store.reloginAfterNextRefreshContext()
+    let refresher = ContextCapturingRefresher()
+    let authenticator = FestiCoreAuthenticator(refresher: refresher, store: store)
+
+    do {
+      _ = try await refresh(authenticator, credential: current)
+      Issue.record("이전 세션의 갱신은 실패해야 한다")
+    } catch {
+      #expect(store.sessionSnapshot()?.id != oldSessionID)
+      #expect(store.load() == current)
+      #expect(await refresher.capturedSessionID == oldSessionID)
+    }
+  }
+
   @Test("credential이 없으면 AuthorizingInterceptor가 요청을 변경하지 않는다")
   func authorizingBypassesMissingCredential() async throws {
     let store = RecordingCredentialStore()
@@ -215,6 +233,56 @@ struct AuthenticationTests {
     let adapted = try await adapt(authorizing, request: request)
 
     #expect(adapted.value(forHTTPHeaderField: "Authorization") == "Bearer old-access")
+  }
+
+  @Test("세션 지정 요청은 다른 로그인 토큰으로 적응하지 않는다")
+  func boundRequestRejectsNewSessionDuringAdapt() async throws {
+    let expiring = FestiCoreCredential(
+      accessToken: "old-access", refreshToken: "refresh", expiresAt: .distantPast
+    )
+    let store = RecordingCredentialStore(initial: expiring)
+    let expected = try #require(store.sessionSnapshot()?.id)
+    let refresher = SuspendedTokenRefresher()
+    let (authorizing, updater) = SessionFactory.authorization(store: store, refresher: refresher)
+    let request = URLRequest(url: URL(string: "https://festicore.test/private")!)
+    let adaptation = Task { try await adapt(authorizing.bound(to: expected), request: request) }
+
+    await refresher.waitUntilStarted()
+    let replacement = FestiCoreCredential(accessToken: "account-b", refreshToken: "refresh-b")
+    store.save(replacement)
+    updater.update(replacement)
+    await refresher.complete(with: renewed)
+
+    do {
+      _ = try await adaptation.value
+      Issue.record("이전 세션의 요청은 적응에 실패해야 한다")
+    } catch {
+      #expect(store.sessionSnapshot()?.credential == replacement)
+    }
+  }
+
+  @Test("세션 지정 요청은 계정 전환 후 재시도하지 않는다")
+  func boundRequestDoesNotRetryNewSession() async throws {
+    let store = RecordingCredentialStore(initial: current)
+    let expected = try #require(store.sessionSnapshot()?.id)
+    let (authorizing, updater) = SessionFactory.authorization(
+      store: store,
+      refresher: StubTokenRefresher(result: .success(renewed))
+    )
+    let replacement = FestiCoreCredential(accessToken: "account-b", refreshToken: "refresh-b")
+    store.save(replacement)
+    updater.update(replacement)
+    let session = Session(startRequestsImmediately: false)
+    let request = session.request("https://festicore.test/private")
+    let result = await withCheckedContinuation { continuation in
+      authorizing.bound(to: expected).retry(
+        request, for: session, dueTo: URLError(.userAuthenticationRequired)
+      ) { continuation.resume(returning: $0) }
+    }
+    guard case .doNotRetry = result else {
+      Issue.record("이전 세션의 요청은 재시도하면 안 된다")
+      return
+    }
   }
 
   @Test("CredentialUpdater는 로그인과 로그아웃 credential을 같은 interceptor에 반영한다")
@@ -258,7 +326,7 @@ struct AuthenticationTests {
 private struct StubTokenRefresher: TokenRefreshing {
   let result: Result<FestiCoreCredential, FestiCoreNetworkError>
 
-  func refresh(_ current: FestiCoreCredential) async throws(FestiCoreNetworkError) -> FestiCoreCredential {
+  func refresh(_ current: FestiCoreCredential, sessionID _: UUID) async throws(FestiCoreNetworkError) -> FestiCoreCredential {
     try result.get()
   }
 }
@@ -268,7 +336,7 @@ private actor SuspendedTokenRefresher: TokenRefreshing {
   private var startedContinuation: CheckedContinuation<Void, Never>?
   private var resultContinuation: CheckedContinuation<FestiCoreCredential, Never>?
 
-  func refresh(_: FestiCoreCredential) async throws(FestiCoreNetworkError) -> FestiCoreCredential {
+  func refresh(_: FestiCoreCredential, sessionID _: UUID) async throws(FestiCoreNetworkError) -> FestiCoreCredential {
     await withCheckedContinuation { continuation in
       resultContinuation = continuation
       started = true
@@ -288,11 +356,25 @@ private actor SuspendedTokenRefresher: TokenRefreshing {
   }
 }
 
+private actor ContextCapturingRefresher: TokenRefreshing {
+  private(set) var capturedSessionID: UUID?
+
+  func refresh(
+    _: FestiCoreCredential,
+    sessionID: UUID
+  ) async throws(FestiCoreNetworkError) -> FestiCoreCredential {
+    capturedSessionID = sessionID
+    throw .response(ResponseError(httpStatus: 401))
+  }
+}
+
 private final class RecordingCredentialStore: CredentialStore, @unchecked Sendable {
   private let lock = NSLock()
   private var credential: FestiCoreCredential?
   private var currentRevision = UUID()
   private let failReplacement: Bool
+  private var currentSessionID = UUID()
+  private var shouldReloginAfterRefreshContext = false
 
   init(initial: FestiCoreCredential? = nil, failReplacement: Bool = false) {
     credential = initial
@@ -307,16 +389,40 @@ private final class RecordingCredentialStore: CredentialStore, @unchecked Sendab
     lock.withLock { credential }
   }
 
+  func sessionSnapshot() -> FestiCoreCredentialSession? {
+    lock.withLock {
+      credential.map { FestiCoreCredentialSession(credential: $0, id: currentSessionID) }
+    }
+  }
+
   func save(_ credential: FestiCoreCredential) -> Bool {
     lock.withLock {
       self.credential = credential
       currentRevision = UUID()
+      currentSessionID = UUID()
       return true
     }
   }
 
   func revision(matching current: FestiCoreCredential) -> UUID? {
     lock.withLock { credential == current ? currentRevision : nil }
+  }
+
+  func refreshContext(matching current: FestiCoreCredential) -> FestiCoreRefreshContext? {
+    lock.withLock {
+      guard credential == current else { return nil }
+      let context = FestiCoreRefreshContext(sessionID: currentSessionID, revision: currentRevision)
+      if shouldReloginAfterRefreshContext {
+        shouldReloginAfterRefreshContext = false
+        currentSessionID = UUID()
+        currentRevision = UUID()
+      }
+      return context
+    }
+  }
+
+  func reloginAfterNextRefreshContext() {
+    lock.withLock { shouldReloginAfterRefreshContext = true }
   }
 
   func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) throws -> Bool {
@@ -333,6 +439,7 @@ private final class RecordingCredentialStore: CredentialStore, @unchecked Sendab
     lock.withLock {
       credential = nil
       currentRevision = UUID()
+      currentSessionID = UUID()
       return true
     }
   }
