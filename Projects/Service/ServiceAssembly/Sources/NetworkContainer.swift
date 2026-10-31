@@ -58,6 +58,7 @@ public enum NetworkContainer {
       ),
       festivalLiveBoardService: NetworkFestivalLiveBoardService(
         client: auth.authenticatedClient,
+        auth: auth,
         device: deviceRegistrationService,
         baseURL: NetworkClientFactory.bundleBaseURL
       ),

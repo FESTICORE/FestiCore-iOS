@@ -9,14 +9,16 @@ public struct FestivalLiveBoardSnapshot: Equatable, Sendable {
     public let zoneID: String?
     public let activity: String?
     public let thumbnailURL: URL?
+    public let updatedAt: Date?
 
-    public init(id: String, name: String, status: String, zoneID: String?, activity: String?, thumbnailURL: URL?) {
+    public init(id: String, name: String, status: String, zoneID: String?, activity: String?, thumbnailURL: URL?, updatedAt: Date? = nil) {
       self.id = id
       self.name = name
       self.status = status
       self.zoneID = zoneID
       self.activity = activity
       self.thumbnailURL = thumbnailURL
+      self.updatedAt = updatedAt
     }
   }
 
@@ -50,12 +52,14 @@ public struct FestivalLiveBoardSnapshot: Equatable, Sendable {
   public let activeFlags: [Flag]
   public let followedFlags: [Flag]
   public let crew: Crew?
+  public let serverAt: Date?
 
-  public init(festivalID: String, activeFlags: [Flag], followedFlags: [Flag], crew: Crew?) {
+  public init(festivalID: String, activeFlags: [Flag], followedFlags: [Flag], crew: Crew?, serverAt: Date? = nil) {
     self.festivalID = festivalID
     self.activeFlags = activeFlags
     self.followedFlags = followedFlags
     self.crew = crew
+    self.serverAt = serverAt
   }
 }
 
@@ -67,6 +71,7 @@ public enum FestivalLiveBoardError: Error, Equatable, Sendable {
   case deviceNotRegistered
   case invalidFestivalID
   case invalidResponse
+  case rateLimited(retryAfter: TimeInterval)
 }
 
 public enum FestivalLiveBoardServiceDependency: TestDependencyKey {

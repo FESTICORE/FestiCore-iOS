@@ -55,13 +55,18 @@ extension NetworkClient: FestiCoreRequestClient {
 
   func sendResponse<R: FestiCoreDataRequest>(_ request: R) async throws(FestiCoreNetworkError) -> FestiCoreHTTPResponse {
     let dataRequest = try makeDataRequest(request)
-    let response = await dataRequest.serializingData(emptyResponseCodes: Self.emptyResponseCodes).response
+    let response = await dataRequest.validate()
+      .serializingData(emptyResponseCodes: Self.emptyResponseCodes).response
     if let error = response.error, response.response == nil {
       throw Self.mapFailure(error, data: response.data, status: -1)
     }
     return FestiCoreHTTPResponse(
       statusCode: response.response?.statusCode ?? -1,
-      data: response.data ?? Data()
+      data: response.data ?? Data(),
+      headers: response.response?.allHeaderFields.reduce(into: [:]) { headers, field in
+        guard let name = field.key as? String, let value = field.value as? String else { return }
+        headers[name] = value
+      } ?? [:]
     )
   }
 

@@ -122,6 +122,38 @@ struct NetworkClientTests {
     #expect(response.data == body)
   }
 
+  @Test("raw 응답은 캐시와 재시도 헤더를 보존한다")
+  func rawResponseHeaders() async throws {
+    URLProtocolStub.set(statusCode: 304, headerFields: ["ETag": "\"version-1\"", "Retry-After": "90"])
+
+    let response = try await URLProtocolStub.makeClient().sendResponse(PingRequest())
+
+    #expect(response.statusCode == 304)
+    #expect(response.header("etag") == "\"version-1\"")
+    #expect(response.header("RETRY-AFTER") == "90")
+  }
+
+  @Test("raw 응답의 401도 토큰 갱신 후 다시 요청한다")
+  func rawResponseRefreshesExpiredCredential() async throws {
+    URLProtocolStub.setSequence([
+      (401, json(#"{"code":"UNAUTHORIZED"}"#)),
+      (200, json(#"{"id":7,"name":"인증"}"#)),
+    ])
+    let old = FestiCoreCredential(accessToken: "old-access", refreshToken: "refresh")
+    let renewed = FestiCoreCredential(accessToken: "new-access", refreshToken: "new-refresh")
+    let store = ClientCredentialStore(credential: old)
+    let (authorizing, _) = SessionFactory.authorization(
+      store: store,
+      refresher: ClientTokenRefresher(credential: renewed)
+    )
+
+    let response = try await URLProtocolStub.makeClient(authorizing: authorizing).sendResponse(UserRequest())
+
+    #expect(response.statusCode == 200)
+    #expect(URLProtocolStub.recordedRequests.count == 2)
+    #expect(URLProtocolStub.recordedRequests.last?.value(forHTTPHeaderField: "Authorization") == "Bearer new-access")
+  }
+
   @Test("raw 응답도 전송 실패는 FestiCoreNetworkError로 변환한다")
   func rawResponseTransportFailure() async {
     URLProtocolStub.setError(URLError(.notConnectedToInternet))

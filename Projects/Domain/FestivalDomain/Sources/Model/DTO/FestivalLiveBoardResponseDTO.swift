@@ -7,6 +7,7 @@ public struct FestivalLiveBoardDataDTO: Decodable, Sendable {
   public let festivalId: String
   public let activeFlags: [FestivalLiveBoardFlagDTO]
   public let me: FestivalLiveBoardMeDTO?
+  public let serverAt: String?
 }
 
 public struct FestivalLiveBoardFlagDTO: Decodable, Sendable {
@@ -14,6 +15,7 @@ public struct FestivalLiveBoardFlagDTO: Decodable, Sendable {
   public let status: String
   public let zoneId: String?
   public let activity: String?
+  public let updatedAt: String?
 }
 
 public struct FestivalLiveBoardMeDTO: Decodable, Sendable {

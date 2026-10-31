@@ -6,12 +6,18 @@ struct FestivalLiveBoardSchedule {
     let artist: String
     let startsAt: Date
     let endsAt: Date?
+
+    func progress(toward nextStart: Date, at date: Date) -> Double {
+      guard nextStart > startsAt else { return 0 }
+      return min(max(date.timeIntervalSince(startsAt) / nextStart.timeIntervalSince(startsAt), 0), 1)
+    }
   }
 
   struct Stage: Equatable, Identifiable {
     let id: String
     let name: String
     let current: Slot?
+    let previous: Slot?
     let next: Slot?
   }
 
@@ -46,9 +52,10 @@ struct FestivalLiveBoardSchedule {
       let current = ordered.last { slot in
         slot.startsAt <= now && (slot.endsAt.map { now < $0 } ?? false)
       }
+      let previous = ordered.last { $0.startsAt <= now }
       let next = ordered.first { $0.startsAt > now }
       guard current != nil || next != nil, let name = stageNames[stageID] else { return nil }
-      return Stage(id: stageID, name: name, current: current, next: next)
+      return Stage(id: stageID, name: name, current: current, previous: previous, next: next)
     }
   }
 

@@ -1,21 +1,32 @@
-import Alamofire
 import FestiCoreDeviceInterface
+import FestiCoreAuthInterface
 import FestivalDomain
 import FestivalDomainInterface
 import FestiCoreNetworkInterface
 import Foundation
 
 public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
+  private struct CachedBoard {
+    let etag: String?
+    let data: FestivalLiveBoardDataDTO
+  }
+
   private let client: any FestiCoreRequestClient
+  private let auth: any AuthService
   private let device: any DeviceRegistrationService
   private let imageResolver: FestivalImageURLResolver
+  private var cachedBoards: [String: CachedBoard] = [:]
+  private var retryNotBefore: [String: Date] = [:]
+  private var cachedUserID: String?
 
   public init(
     client: any FestiCoreRequestClient,
+    auth: any AuthService,
     device: any DeviceRegistrationService,
     baseURL: URL?
   ) {
     self.client = client
+    self.auth = auth
     self.device = device
     imageResolver = FestivalImageURLResolver(baseURL: baseURL)
   }
@@ -29,35 +40,66 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
     guard let deviceID = try await device.authorization()?.deviceID else {
       throw FestivalLiveBoardError.deviceNotRegistered
     }
-    async let board = client.send(FestivalLiveRequest(festivalID: festivalID, deviceID: deviceID))
-    async let profiles = client.send(FestivalFlagsRequest(festivalID: festivalID))
-    let (boardResponse, profilesResponse) = try await (board, profiles)
-    guard boardResponse.code == "SUCCESS", profilesResponse.code == "SUCCESS",
-          boardResponse.data.festivalId == festivalID else {
+    let userID = await authenticatedUserID()
+    if cachedUserID != userID {
+      cachedBoards.removeAll()
+      retryNotBefore.removeAll()
+      cachedUserID = userID
+    }
+    if let retryDate = retryNotBefore[festivalID], retryDate > Date() {
+      throw FestivalLiveBoardError.rateLimited(retryAfter: retryDate.timeIntervalSinceNow)
+    }
+
+    let response = try await client.sendResponse(FestivalLiveRequest(
+      festivalID: festivalID,
+      deviceID: deviceID,
+      etag: userID == nil ? nil : cachedBoards[festivalID]?.etag
+    ))
+    let boardData: FestivalLiveBoardDataDTO
+    switch response.statusCode {
+    case 200:
+      let boardResponse = try JSONDecoder().decode(FestivalLiveBoardResponseDTO.self, from: response.data)
+      guard boardResponse.code == "SUCCESS", boardResponse.data.festivalId == festivalID else {
+        throw FestivalLiveBoardError.invalidResponse
+      }
+      boardData = boardResponse.data
+    case 304:
+      guard userID != nil, let cached = cachedBoards[festivalID] else {
+        throw FestivalLiveBoardError.invalidResponse
+      }
+      boardData = cached.data
+    case 429:
+      let retryAfter = Self.retryAfter(response.header("Retry-After"))
+      retryNotBefore[festivalID] = Date().addingTimeInterval(retryAfter)
+      throw FestivalLiveBoardError.rateLimited(retryAfter: retryAfter)
+    default:
       throw FestivalLiveBoardError.invalidResponse
     }
-    return boardResponse.data.toDomain(profiles: profilesResponse.data, imageURL: imageResolver.resolve)
+
+    let profilesResponse = try await client.send(FestivalFlagsRequest(festivalID: festivalID))
+    guard profilesResponse.code == "SUCCESS" else { throw FestivalLiveBoardError.invalidResponse }
+    let snapshot = try boardData.toDomain(profiles: profilesResponse.data, imageURL: imageResolver.resolve)
+    let latestUserID = await authenticatedUserID()
+    guard cachedUserID == userID, latestUserID == userID else {
+      throw FestivalLiveBoardError.invalidResponse
+    }
+    if userID != nil {
+      cachedBoards[festivalID] = CachedBoard(
+        etag: response.statusCode == 304 ? cachedBoards[festivalID]?.etag : response.header("ETag"),
+        data: boardData
+      )
+    }
+    retryNotBefore[festivalID] = nil
+    return snapshot
   }
-}
 
-private struct FestivalLiveRequest: FestiCoreDataRequest {
-  typealias Response = FestivalLiveBoardResponseDTO
-  let festivalID: String
-  let deviceID: String
+  private func authenticatedUserID() async -> String? {
+    guard await auth.isLoggedIn else { return nil }
+    return await auth.currentUserID
+  }
 
-  var path: String { "api/v1/festivals/\(festivalID)/live" }
-  var method: HTTPMethod { .get }
-  var headers: HTTPHeaders { ["X-Device-Id": deviceID] }
-  var maxRetryAttempts: Int { 0 }
-  var parameters: (any Encodable & Sendable)? { nil }
-}
-
-private struct FestivalFlagsRequest: FestiCoreDataRequest {
-  typealias Response = FestivalFlagsResponseDTO
-  let festivalID: String
-
-  var path: String { "api/v1/festivals/\(festivalID)/flags" }
-  var method: HTTPMethod { .get }
-  var authorization: FestiCoreAuthorization { .none }
-  var parameters: (any Encodable & Sendable)? { nil }
+  private static func retryAfter(_ value: String?) -> TimeInterval {
+    guard let value, let seconds = TimeInterval(value), seconds.isFinite else { return 35 }
+    return max(seconds, 1)
+  }
 }
