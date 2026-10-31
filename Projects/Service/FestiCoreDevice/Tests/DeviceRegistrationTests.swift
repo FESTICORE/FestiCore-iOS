@@ -38,6 +38,13 @@ struct DeviceRegistrationTests {
     }
   }
 
+  @Test("기본 설치 ID 조회는 테스트 호스트에서 오류를 반환한다")
+  func defaultInstallationDeviceIDDoesNotSucceed() async {
+    await #expect(throws: TestDeviceRegistrationUnavailable.self) {
+      _ = try await DeviceRegistrationServiceDependency.testValue.installationDeviceID()
+    }
+  }
+
   @Test("APNs 권한이 없어도 명시적인 null 토큰으로 등록 요청한다")
   func encodesRegistrationRequest() throws {
     let request = DeviceRegistrationRequest(deviceID: UUID().uuidString, bearerToken: nil, metadata: metadata)
@@ -109,6 +116,39 @@ struct DeviceRegistrationTests {
     #expect(try await service.authorization()?.deviceID == first.deviceID)
     #expect(client.bearerTokens == [nil, "issued-token"])
   }
+
+  @Test("등록 실패 후에도 설치 UUID를 유지하고 토큰 없이 조회한다")
+  func keepsInstallationIDAfterRegistrationFailure() async throws {
+    let storage = MemoryDeviceStorage()
+    let service = NetworkDeviceRegistrationService(
+      client: StubDeviceClient(failsRegistration: true),
+      storage: storage
+    )
+
+    await #expect(throws: FestiCoreNetworkError.self) {
+      _ = try await service.register(metadata)
+    }
+    let deviceID = try await service.installationDeviceID()
+    #expect(UUID(uuidString: deviceID) != nil)
+    #expect(storage.load(.deviceID) == deviceID)
+    #expect(storage.load(.deviceAccessToken) == nil)
+    #expect(try await service.authorization()?.deviceID == nil)
+    #expect(try await service.installationDeviceID() == deviceID)
+  }
+
+  @Test("서버 등록 전에 만든 설치 UUID를 이후 등록에도 사용한다")
+  func installationIDBeforeRegistrationIsReused() async throws {
+    let storage = MemoryDeviceStorage()
+    let service = NetworkDeviceRegistrationService(client: StubDeviceClient(), storage: storage)
+
+    let deviceID = try await service.installationDeviceID()
+    #expect(UUID(uuidString: deviceID) != nil)
+    #expect(storage.load(.deviceID) == deviceID)
+    #expect(try await service.authorization() == nil)
+
+    let authorization = try await service.register(metadata)
+    #expect(authorization.deviceID == deviceID)
+  }
 }
 
 private final class MemoryDeviceStorage: SecureStorage, @unchecked Sendable {
@@ -123,7 +163,10 @@ private final class MemoryDeviceStorage: SecureStorage, @unchecked Sendable {
 
 private final class StubDeviceClient: FestiCoreRequestClient, @unchecked Sendable {
   private let lock = NSLock()
+  private let failsRegistration: Bool
   private var requests: [(deviceID: String, bearerToken: String?)] = []
+
+  init(failsRegistration: Bool = false) { self.failsRegistration = failsRegistration }
 
   var bearerTokens: [String?] { lock.withLock { requests.map { $0.bearerToken } } }
 
@@ -131,6 +174,7 @@ private final class StubDeviceClient: FestiCoreRequestClient, @unchecked Sendabl
     _ request: R,
     as _: T.Type
   ) async throws(FestiCoreNetworkError) -> T {
+    if failsRegistration { throw .request(.invalidURL) }
     let deviceID = request.headers.value(for: "X-Device-Id") ?? ""
     let bearer = request.headers.value(for: "Authorization")?.replacingOccurrences(of: "Bearer ", with: "")
     lock.withLock { requests.append((deviceID, bearer)) }

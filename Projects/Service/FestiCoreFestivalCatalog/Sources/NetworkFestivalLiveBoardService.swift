@@ -40,9 +40,7 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
             || ($0 >= 97 && $0 <= 122) || $0 == 45 || $0 == 95 }) else {
       throw FestivalLiveBoardError.invalidFestivalID
     }
-    guard let deviceID = try await device.authorization()?.deviceID else {
-      throw FestivalLiveBoardError.deviceNotRegistered
-    }
+    let deviceID = try await device.installationDeviceID()
     let userID = await authenticatedUserID()
     if cachedUserID != userID {
       cachedBoards.removeAll()
@@ -58,6 +56,10 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
       deviceID: deviceID,
       etag: userID == nil ? nil : cachedBoards[festivalID]?.etag
     ))
+    if (try? JSONDecoder().decode(LiveBoardErrorDTO.self, from: response.data))?.code == "FESTIVAL_NOT_FOUND" {
+      cachedBoards[festivalID] = nil
+      throw FestivalLiveBoardError.festivalNotFound
+    }
     let boardData: FestivalLiveBoardDataDTO
     switch response.statusCode {
     case 200:
@@ -116,4 +118,8 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
     guard let value, let seconds = TimeInterval(value), seconds.isFinite else { return 35 }
     return max(seconds, 1)
   }
+}
+
+private struct LiveBoardErrorDTO: Decodable {
+  let code: String
 }
