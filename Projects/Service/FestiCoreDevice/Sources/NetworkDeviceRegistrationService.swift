@@ -25,7 +25,7 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
   }
 
   public func register(_ metadata: DeviceRegistrationMetadata) async throws -> DeviceAuthorization {
-    let deviceID = try installationDeviceID()
+    let deviceID = try await installationDeviceID()
     let currentToken = try storage.load(.deviceAccessToken)
     let response = try await client.send(DeviceRegistrationRequest(
       deviceID: deviceID,
@@ -44,7 +44,7 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
     return DeviceAuthorization(deviceID: deviceID, bearerToken: token)
   }
 
-  public func installationDeviceID() throws -> String {
+  public func installationDeviceID() async throws -> String {
     let deviceID: String
     if let storedID = try storage.load(.deviceID) {
       deviceID = storedID
