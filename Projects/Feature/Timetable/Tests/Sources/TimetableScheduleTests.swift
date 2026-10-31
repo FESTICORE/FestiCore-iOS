@@ -258,7 +258,7 @@ struct TimetableScheduleTests {
     #expect(service.fetchCount.value == 1)
   }
 
-  @Test func previousAccountSaveCannotOverwriteCurrentSave() async {
+  @Test func previousAccountSaveCannotOverwriteCurrentSave() async throws {
     var state = readyState(mine: ["lime"], selected: "noise")
     state.isSaving = true
     let clock = TestClock()
@@ -282,7 +282,11 @@ struct TimetableScheduleTests {
       $0.isSaving = true
       $0.lastClientAt = self.beforeFestival
     }
-    while service.replaced.value.isEmpty { await Task.yield() }
+    for _ in 0..<500 {
+      guard service.replaced.value.isEmpty else { break }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    try #require(!service.replaced.value.isEmpty)
     await store.send(.scheduleSaved(festivalID: "fst", previous, .failure(.stale(.init(setIDs: ["lime"])))))
     await store.send(.scheduleSaved(festivalID: "fst", previous, .success(.init(setIDs: ["lime"]))))
     #expect(store.state.isSaving)
@@ -400,6 +404,7 @@ extension TimetableScheduleTests {
     await store.receive(\.scheduleSaved) {
       $0.isSaving = false
     }
+    await store.receive(scheduleSaved(festivalID: "fst", setIDs: ["lime"]))
     await clock.advance(by: .milliseconds(1999))
     #expect(store.state.isScheduleToastVisible)
     await clock.advance(by: .milliseconds(1))
@@ -509,6 +514,7 @@ extension TimetableScheduleTests {
       $0.mySetIDs = []
       $0.isScheduleToastVisible = false
     }
+    await store.receive(scheduleSaved(festivalID: "fst", setIDs: []))
     await clock.run()
   }
 
