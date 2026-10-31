@@ -164,4 +164,110 @@ struct GoogleOAuthTests {
       try await repository.credential()
     }
   }
+
+  @Test("RunningBoard 코드 1은 0.5초 후 한 번 재시도한다")
+  func runningBoardRetrySucceeds() async throws {
+    var signInCount = 0
+    var signOutCount = 0
+    let repository = GoogleOAuthRepositoryImpl(
+      configuration: { .init(clientID: "client", serverClientID: nil) },
+      presentingController: { UIViewController() },
+      signIn: { _, _ in
+        signInCount += 1
+        if signInCount == 1 {
+          throw NSError(domain: "RBSServiceErrorDomain", code: 1)
+        }
+        return .init(idToken: "id", serverAuthCode: nil)
+      },
+      signOut: { signOutCount += 1 }, gate: GoogleOAuthRequestGate()
+    )
+
+    let clock = ContinuousClock()
+    let start = clock.now
+    #expect(try await repository.credential() == .google(idToken: "id"))
+    #expect(clock.now - start >= .milliseconds(450))
+    #expect(signInCount == 2)
+    #expect(signOutCount == 1)
+  }
+
+  @Test("재시도도 실패하면 기존 providerFailure로 매핑한다")
+  func runningBoardSecondFailure() async {
+    var signInCount = 0
+    let repository = GoogleOAuthRepositoryImpl(
+      configuration: { .init(clientID: "client", serverClientID: nil) },
+      presentingController: { UIViewController() },
+      signIn: { _, _ in
+        signInCount += 1
+        throw NSError(domain: "RBSServiceErrorDomain", code: 1)
+      },
+      signOut: {}, gate: GoogleOAuthRequestGate()
+    )
+
+    await #expect(throws: AuthDomainError.providerFailure) {
+      try await repository.credential()
+    }
+    #expect(signInCount == 2)
+  }
+
+  @Test("다른 도메인이나 코드는 재시도하지 않는다")
+  func unrelatedErrorsDoNotRetry() async {
+    for error in [
+      NSError(domain: "RBSServiceErrorDomain", code: 2),
+      NSError(domain: "OtherDomain", code: 1),
+    ] {
+      var signInCount = 0
+      let repository = GoogleOAuthRepositoryImpl(
+        configuration: { .init(clientID: "client", serverClientID: nil) },
+        presentingController: { UIViewController() },
+        signIn: { _, _ in signInCount += 1; throw error },
+        signOut: {}, gate: GoogleOAuthRequestGate()
+      )
+
+      await #expect(throws: AuthDomainError.providerFailure) {
+        try await repository.credential()
+      }
+      #expect(signInCount == 1)
+    }
+  }
+
+  @Test("SDK 취소 오류는 재시도하지 않는다")
+  func cancellationErrorDoesNotRetry() async {
+    var signInCount = 0
+    let repository = GoogleOAuthRepositoryImpl(
+      configuration: { .init(clientID: "client", serverClientID: nil) },
+      presentingController: { UIViewController() },
+      signIn: { _, _ in signInCount += 1; throw CancellationError() },
+      signOut: {}, gate: GoogleOAuthRequestGate()
+    )
+
+    await #expect(throws: AuthDomainError.userCancelled) {
+      try await repository.credential()
+    }
+    #expect(signInCount == 1)
+  }
+
+  @Test("RunningBoard 오류 직후 취소되면 재시도하지 않는다")
+  func cancellationAfterFirstAttempt() async {
+    var signInCount = 0
+    let (firstAttempt, signalFirstAttempt) = AsyncStream.makeStream(of: Void.self)
+    let repository = GoogleOAuthRepositoryImpl(
+      configuration: { .init(clientID: "client", serverClientID: nil) },
+      presentingController: { UIViewController() },
+      signIn: { _, _ in
+        signInCount += 1
+        signalFirstAttempt.yield(())
+        throw NSError(domain: "RBSServiceErrorDomain", code: 1)
+      },
+      signOut: {}, gate: GoogleOAuthRequestGate()
+    )
+    let request = Task { try await repository.credential() }
+    var firstAttemptIterator = firstAttempt.makeAsyncIterator()
+    _ = await firstAttemptIterator.next()
+    request.cancel()
+
+    await #expect(throws: AuthDomainError.userCancelled) {
+      try await request.value
+    }
+    #expect(signInCount == 1)
+  }
 }
