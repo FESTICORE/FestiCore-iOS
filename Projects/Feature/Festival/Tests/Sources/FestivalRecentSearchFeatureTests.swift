@@ -33,11 +33,11 @@ struct FestivalRecentSearchFeatureTests {
       )
     }
 
-    await store.send(.reloadBookmarks("user-a")) {
+    await store.send(.reloadBookmarks(userID: "user-a")) {
       $0.bookedUserID = "user-a"
       $0.recentSearches = ["A 검색"]
     }
-    await store.send(.reloadBookmarks("user-b")) {
+    await store.send(.reloadBookmarks(userID: "user-b")) {
       $0.bookedUserID = "user-b"
       $0.recentSearches = []
     }
