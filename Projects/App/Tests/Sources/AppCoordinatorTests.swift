@@ -73,12 +73,37 @@ struct AppCoordinatorTests {
       home.authFlow.isLoading = true
       $0 = .home(home)
     }
-    await store.receive(\.inner.profileLoaded) {
+    await store.receive(\.inner.sessionRestored) {
       guard case var .home(home) = $0 else { return }
-      home.authFlow.isLoading = false
       home.authFlow.presentation = .login
       $0 = .home(home)
     }
+    await store.receive(\.inner.profileLoaded) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.isLoading = false
+      $0 = .home(home)
+    }
+  }
+
+  @Test func authenticatedBookmarkDoesNotShowLoginDuringSessionRestore() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.pendingFestivalID = "festival"
+    home.authFlow.isLoading = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-a", isLoggedIn: true))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.lastVerifiedUserID = "user-a"
+      home.authFlow.hasSession = true
+      $0 = .home(home)
+    }
+    guard case let .home(restored) = store.state else { return }
+    #expect(restored.authFlow.presentation == nil)
+    #expect(restored.authFlow.pendingFestivalID == "festival")
   }
 
   @Test func offlineRestartRestoresAndSavesOnlyTheCurrentAccountsBookmarks() async {
@@ -995,10 +1020,14 @@ struct AppCoordinatorTests {
       home.authFlow.pendingFestivalID = "festival"
       $0 = .home(home)
     }
+    await store.receive(\.inner.sessionRestored) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.presentation = .login
+      $0 = .home(home)
+    }
     await store.receive(\.inner.profileLoaded) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
-      home.authFlow.presentation = .login
       $0 = .home(home)
     }
   }
