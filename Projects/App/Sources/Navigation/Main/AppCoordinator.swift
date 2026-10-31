@@ -299,6 +299,9 @@ private extension AppCoordinator {
       home.authFlow.verifiedUserID = eligibleID
       home.authFlow.lastVerifiedUserID = userID
       home.authFlow.hasSession = isLoggedIn
+      if !isLoggedIn, home.authFlow.pendingFestivalID != nil {
+        home.authFlow.presentation = .login
+      }
       state = .home(home)
       return .send(.scope(.home(.festival(.reloadBookmarks(userID: eligibleID)))))
 
@@ -585,6 +588,10 @@ private extension AppCoordinator {
       let isLoggedIn = await authService.isLoggedIn
       let userID = await authService.currentUserID
       await send(.inner(.sessionRestored(generation: generation, userID: userID, isLoggedIn: isLoggedIn)))
+      guard isLoggedIn else {
+        await send(.inner(.profileLoaded(generation: generation, .failure(.unauthenticated))))
+        return
+      }
       do {
         let profile = try await authUseCase.fetchProfile()
         await send(.inner(.profileLoaded(generation: generation, .success(profile))))
