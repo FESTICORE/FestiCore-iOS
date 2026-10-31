@@ -58,9 +58,11 @@ public struct FestivalFlagsFlagDTO: Decodable, Sendable {
   public let name: String
   public let thumbUrl: String?
   public let tags: [String]?
+  public let followerCount: Int?
+  public let homeZoneId: String?
 
   private enum CodingKeys: String, CodingKey {
-    case id, name, thumbUrl, tags
+    case id, name, thumbUrl, tags, followerCount, homeZoneId
   }
 
   public init(from decoder: Decoder) throws {
@@ -73,6 +75,8 @@ public struct FestivalFlagsFlagDTO: Decodable, Sendable {
     } else {
       tags = nil
     }
+    followerCount = try container.decodeIfPresent(Int.self, forKey: .followerCount)
+    homeZoneId = try container.decodeIfPresent(String.self, forKey: .homeZoneId)
   }
 
   private struct TagValue: Decodable {

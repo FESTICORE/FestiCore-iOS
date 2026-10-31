@@ -6,6 +6,7 @@
 //
 
 import Dependencies
+import Foundation
 import IssueReporting
 
 public enum AuthServiceDependency: TestDependencyKey {
@@ -42,8 +43,24 @@ private struct UnimplementedAuthService: AuthService {
     get async { nil }
   }
 
-  func signIn(accessToken: String, refreshToken: String) async {
+  func stageSession(accessToken: String, refreshToken: String) async -> UUID {
     reportIssue("authService 미등록")
+    return UUID()
+  }
+
+  func commitSession(_ id: UUID) async -> Bool {
+    reportIssue("authService 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    reportIssue("authService 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    reportIssue("authService 미등록")
+    return false
   }
 
   func rememberUserID(_ userID: String) async {

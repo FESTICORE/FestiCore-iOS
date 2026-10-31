@@ -1,6 +1,7 @@
 import FestiCoreDeviceInterface
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
+import FestivalDomain
 import FestivalDomainInterface
 import Foundation
 import Testing
@@ -91,7 +92,7 @@ struct FestivalLiveBoardTests {
     let liveCachePolicy = await client.liveCachePolicy
     let flagsCachePolicy = await client.flagsCachePolicy
     #expect(liveCachePolicy == .reloadIgnoringLocalCacheData)
-    #expect(flagsCachePolicy == nil)
+    #expect(flagsCachePolicy == .reloadIgnoringLocalCacheData)
   }
 
   @Test("선택 필드가 없는 응답과 null 집결 요청도 디코딩한다")
@@ -197,6 +198,77 @@ struct FestivalLiveBoardTests {
     #expect(board.followedFlags.map(\.tags) == [[], [], ["slam", "sing"]])
   }
 
+  @Test("디렉토리는 공개 목록 순서에 라이브 상태·팔로워 수·기본 구역을 합친다")
+  func mapsDirectoryFlags() async throws {
+    let client = LiveBoardStubClient(responses: [
+      "api/v1/festivals/fst_test/live": #"{"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test","serverAt":"2026-10-20T09:00:00Z","activeFlags":[{"flagId":"flg_b","status":"resting","zoneId":"zone_b","activity":"calm","updatedAt":"2026-10-20T08:59:00Z"}],"me":null}}"#,
+      "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"flg_a","name":"첫 깃발","tags":["slam"],"followerCount":1284,"homeZoneId":"zone_a"},{"id":"flg_b","name":"둘째 깃발","followerCount":null,"homeZoneId":null},{"id":"flg_a","name":"중복 깃발"}]}}"#,
+    ])
+    let service = NetworkFestivalLiveBoardService(
+      client: client,
+      auth: LiveBoardStubAuth(),
+      device: LiveBoardStubDevice(),
+      baseURL: nil
+    )
+
+    let board = try await service.refresh(for: "fst_test")
+
+    #expect(board.directoryFlags.map(\.name) == ["첫 깃발", "둘째 깃발"])
+    #expect(board.directoryFlags.map(\.status) == ["scheduled", "resting"])
+    #expect(board.directoryFlags.map(\.followerCount) == [1284, nil])
+    #expect(board.directoryFlags.map(\.homeZoneID) == ["zone_a", nil])
+    #expect(board.directoryFlags.last?.zoneID == "zone_b")
+    #expect(board.directoryFlags.last?.updatedAt == date("2026-10-20T08:59:00Z"))
+    #expect(board.activeFlags.first?.followerCount == nil)
+  }
+
+  @Test("공개 프로필의 팔로워 수와 기본 구역 타입 오류는 거부한다", arguments: [
+    #"{"followerCount":"많음"}"#,
+    #"{"homeZoneId":7}"#,
+  ])
+  func rejectsMalformedDirectoryMetadata(_ fields: String) {
+    let object = String(fields.dropFirst().dropLast())
+    let json = #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"flg_a","name":"깃발",\#(object)}]}}"#
+
+    #expect(throws: DecodingError.self) {
+      try JSONDecoder().decode(FestivalFlagsResponseDTO.self, from: Data(json.utf8))
+    }
+  }
+
+  @Test("잘못된 공개 프로필 타입은 라이브보드 응답 오류로 돌려준다")
+  func reportsMalformedDirectoryMetadata() async {
+    let client = LiveBoardStubClient(responses: [
+      "api/v1/festivals/fst_test/live": #"{"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test","serverAt":"2026-10-20T09:00:00Z","activeFlags":[],"me":null}}"#,
+      "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"flg_a","name":"깃발","followerCount":"많음"}]}}"#,
+    ])
+    let service = NetworkFestivalLiveBoardService(client: client, auth: LiveBoardStubAuth(), device: LiveBoardStubDevice(), baseURL: nil)
+
+    await #expect(throws: FestivalLiveBoardError.invalidResponse) {
+      try await service.refresh(for: "fst_test")
+    }
+  }
+
+  @Test("라이브 목록이 상한 50개면 빠진 깃발의 상태를 예정으로 단정하지 않는다")
+  func directoryStatusIsUnknownAtLiveLimit() async throws {
+    let active = (0..<50).map {
+      #"{"flagId":"flg_live\#($0)","status":"active","zoneId":null,"activity":null,"updatedAt":"2026-10-20T09:00:00Z"}"#
+    }.joined(separator: ",")
+    let client = LiveBoardStubClient(responses: [
+      "api/v1/festivals/fst_test/live": #"{"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test","serverAt":"2026-10-20T09:00:00Z","activeFlags":["# + active + #"],"me":null}}"#,
+      "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"flg_live0","name":"라이브"},{"id":"flg_quiet","name":"조용한 깃발"}]}}"#,
+    ])
+    let service = NetworkFestivalLiveBoardService(
+      client: client,
+      auth: LiveBoardStubAuth(),
+      device: LiveBoardStubDevice(),
+      baseURL: nil
+    )
+
+    let board = try await service.refresh(for: "fst_test")
+
+    #expect(board.directoryFlags.map(\.status) == ["active", "unknown"])
+  }
+
   @Test("공개 프로필의 위험한 썸네일 URL은 제외한다")
   func rejectsUnsafeProfileThumbnail() async throws {
     let client = LiveBoardStubClient(responses: [
@@ -258,14 +330,40 @@ struct FestivalLiveBoardTests {
         .init(statusCode: 304, data: Data()),
       ]
     )
-    let service = NetworkFestivalLiveBoardService(client: client, auth: LiveBoardStubAuth(), device: LiveBoardStubDevice(), baseURL: nil)
+    let clock = SequenceClock([Date(timeIntervalSince1970: 100), Date(timeIntervalSince1970: 400)])
+    let service = NetworkFestivalLiveBoardService(
+      client: client, auth: LiveBoardStubAuth(), device: LiveBoardStubDevice(), baseURL: nil, now: { clock.next() }
+    )
 
     let first = try await service.refresh(for: "fst_test")
     let second = try await service.refresh(for: "fst_test")
 
-    #expect(second == first)
+    #expect(second.serverAt == first.serverAt)
+    #expect(second.activeFlags == first.activeFlags)
+    // 304도 이 기기가 라이브 상태를 확인한 것이므로 확인 시각은 새로 기록한다.
+    #expect(first.receivedAt == Date(timeIntervalSince1970: 100))
+    #expect(second.receivedAt == Date(timeIntervalSince1970: 400))
     #expect(await client.liveRequestCount == 2)
     #expect(await client.lastIfNoneMatch == "\"version-1\"")
+  }
+
+  @Test("확인 시각은 공개 프로필 요청 전에 라이브 응답 기준으로 기록한다")
+  func recordsReceivedAtBeforeProfileRequest() async throws {
+    let clock = SequenceClock([Date(timeIntervalSince1970: 100), Date(timeIntervalSince1970: 400)])
+    let client = LiveBoardStubClient(
+      responses: [
+        "api/v1/festivals/fst_test/live": #"{"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test","serverAt":"2026-10-31T00:30:00Z","activeFlags":[],"me":null}}"#,
+        "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[]}}"#,
+      ],
+      onFlagsRequest: { _ = clock.next() }
+    )
+    let service = NetworkFestivalLiveBoardService(
+      client: client, auth: LiveBoardStubAuth(), device: LiveBoardStubDevice(), baseURL: nil, now: { clock.next() }
+    )
+
+    let board = try await service.refresh(for: "fst_test")
+
+    #expect(board.receivedAt == Date(timeIntervalSince1970: 100))
   }
 
   @Test("429 이후 Retry-After 동안 재요청하거나 개인화 캐시를 반환하지 않는다")
@@ -339,6 +437,17 @@ struct FestivalLiveBoardTests {
   }
 }
 
+private final class SequenceClock: @unchecked Sendable {
+  private let lock = NSLock()
+  private var dates: [Date]
+
+  init(_ dates: [Date]) { self.dates = dates }
+
+  func next() -> Date {
+    lock.withLock { dates.count > 1 ? dates.removeFirst() : dates[0] }
+  }
+}
+
 private actor LiveBoardStubAuth: AuthService {
   private var userID: String? = "user-a"
   var isLoggedIn: Bool { userID != nil }
@@ -346,7 +455,10 @@ private actor LiveBoardStubAuth: AuthService {
   var currentUserID: String? { userID }
 
   func setUserID(_ value: String?) { userID = value }
-  func signIn(accessToken _: String, refreshToken _: String) {}
+  func stageSession(accessToken _: String, refreshToken _: String) -> UUID { UUID() }
+  func commitSession(_: UUID) -> Bool { false }
+  func discardSession(_: UUID) -> Bool { false }
+  func signOut(ifSession _: UUID) -> Bool { false }
   func rememberUserID(_ value: String) { userID = value }
   func signOut() { userID = nil }
 }
@@ -372,10 +484,16 @@ private actor LiveBoardStubClient: FestiCoreRequestClient {
   private(set) var liveRequestCount = 0
   private(set) var liveCachePolicy: URLRequest.CachePolicy?
   private(set) var flagsCachePolicy: URLRequest.CachePolicy?
+  private let onFlagsRequest: (@Sendable () -> Void)?
 
-  init(responses: [String: String], liveResponses: [FestiCoreHTTPResponse] = []) {
+  init(
+    responses: [String: String],
+    liveResponses: [FestiCoreHTTPResponse] = [],
+    onFlagsRequest: (@Sendable () -> Void)? = nil
+  ) {
     self.responses = responses
     self.liveResponses = liveResponses
+    self.onFlagsRequest = onFlagsRequest
   }
 
   func send<R: FestiCoreDataRequest, T: Decodable & Sendable>(
@@ -390,12 +508,16 @@ private actor LiveBoardStubClient: FestiCoreRequestClient {
       liveCachePolicy = request.cachePolicy
     } else if request.path.hasSuffix("/flags") {
       flagsCachePolicy = request.cachePolicy
+      onFlagsRequest?()
     }
-    guard let value = responses[request.path],
-          let result = try? JSONDecoder().decode(R.Response.self, from: Data(value.utf8)) else {
+    guard let value = responses[request.path] else {
       throw .request(.invalidURL)
     }
-    return result
+    do {
+      return try JSONDecoder().decode(R.Response.self, from: Data(value.utf8))
+    } catch {
+      throw .decoding(.failed(error))
+    }
   }
 
   func sendResponse<R: FestiCoreDataRequest>(
