@@ -217,6 +217,43 @@ struct AuthTests {
     #expect(store.load() == renewed)
   }
 
+  @Test("토큰 쌍 저장이 실패하면 로그인을 확정하지 않고 부분 저장을 지운다", arguments: [SecureStorageKey.accessToken, .refreshToken])
+  func failedTokenSaveDoesNotCommitSession(failedKey: SecureStorageKey) async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage)
+    storage.failTokenSaveFor = failedKey
+
+    let id = await auth.stageSession(accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
+    #expect(await auth.commitSession(id) == false)
+    #expect(await auth.isLoggedIn == false)
+    #expect(storage.load(.accessToken) == nil)
+    #expect(storage.load(.refreshToken) == nil)
+
+    storage.failTokenSaveFor = nil
+    let retry = await auth.stageSession(accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
+    #expect(await auth.commitSession(retry))
+    #expect(await auth.isLoggedIn)
+  }
+
+  @Test("토큰 갱신 저장이 실패하면 교체 성공을 반환하지 않는다")
+  func failedTokenSaveRejectsRefreshReplacement() throws {
+    let storage = MemorySecureStorage()
+    let store = KeychainCredentialStore(storage: storage)
+    #expect(store.saveResult(old))
+    let revision = try #require(store.revision(matching: old))
+    storage.failTokenSaveFor = .refreshToken
+
+    #expect(store.replace(
+      FestiCoreCredential(accessToken: "new", refreshToken: "new-refresh"),
+      ifCurrent: old,
+      revision: revision
+    ) == false)
+    #expect(store.load() == nil)
+    #expect(storage.load(.accessToken) == nil)
+    #expect(storage.load(.refreshToken) == nil)
+  }
+
   @Test("로그인 응답은 확정 전까지 Keychain과 로그인 상태를 바꾸지 않는다")
   func stagedSessionIsNotPersistedUntilCommit() async {
     let storage = MemorySecureStorage()
@@ -330,6 +367,7 @@ private final class MemorySecureStorage: SecureStorage, @unchecked Sendable {
   private var stored: [SecureStorageKey: String] = [:]
   private var failsIdentityRemoval = false
   private var failsIdentitySave = false
+  private var tokenSaveFailureKey: SecureStorageKey?
 
   var failIdentityRemoval: Bool {
     get { values.withLock { failsIdentityRemoval } }
@@ -341,9 +379,15 @@ private final class MemorySecureStorage: SecureStorage, @unchecked Sendable {
     set { values.withLock { failsIdentitySave = newValue } }
   }
 
+  var failTokenSaveFor: SecureStorageKey? {
+    get { values.withLock { tokenSaveFailureKey } }
+    set { values.withLock { tokenSaveFailureKey = newValue } }
+  }
+
   func save(_ value: String, for key: SecureStorageKey) throws(SecureStorageError) {
     let failed = values.withLock {
       if key == .sessionUserID, failsIdentitySave { return true }
+      if let tokenSaveFailureKey, key == tokenSaveFailureKey { return true }
       stored[key] = value
       return false
     }

@@ -60,7 +60,10 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     staged = nil
     try? identityStorage.remove(.sessionUserID)
     store.allowSaves()
-    store.save(session.credential)
+    guard store.saveResult(session.credential) else {
+      clearCommittedSession()
+      return false
+    }
     credentials.update(session.credential)
     committedSessionID = session.id
     if let userID = session.userID {
