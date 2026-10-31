@@ -34,26 +34,28 @@ final class KeychainCredentialStore: CredentialStore {
     lock.withLock { loadUnlocked() == current ? currentRevision : nil }
   }
 
-  func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {
-    lock.withLock {
+  func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) throws -> Bool {
+    try lock.withLock {
       guard currentRevision == revision, loadUnlocked() == current else { return false }
       guard saveUnlocked(credential) else {
         currentRevision = UUID()
-        return false
+        throw CredentialStoreError.persistenceFailed
       }
       currentRevision = UUID()
       return true
     }
   }
 
-  func clear() {
+  @discardableResult
+  func clear() -> Bool {
     lock.withLock {
-      // 삭제가 일부 실패해도 기존 쌍을 다시 읽지 않도록 검증 값을 먼저 무효화한다.
-      try? storage.save("invalid:\(UUID())", for: .credentialIntegrity)
-      try? storage.remove(.accessToken)
-      try? storage.remove(.refreshToken)
-      try? storage.remove(.sessionUserID)
+      // 하나라도 실패하면 로그아웃 완료를 보고하지 않는다.
+      let invalidated = (try? storage.save("invalid:\(UUID())", for: .credentialIntegrity)) != nil
+      let accessRemoved = (try? storage.remove(.accessToken)) != nil
+      let refreshRemoved = (try? storage.remove(.refreshToken)) != nil
+      let identityRemoved = (try? storage.remove(.sessionUserID)) != nil
       currentRevision = UUID()
+      return invalidated && accessRemoved && refreshRemoved && identityRemoved
     }
   }
 

@@ -547,10 +547,11 @@ private final class ClientCredentialStore: CredentialStore, @unchecked Sendable 
     }
   }
 
-  func clear() {
+  func clear() -> Bool {
     lock.withLock {
       credential = nil
       currentRevision = UUID()
+      return true
     }
   }
 }

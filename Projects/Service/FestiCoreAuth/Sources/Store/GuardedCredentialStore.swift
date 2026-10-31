@@ -47,26 +47,29 @@ final class GuardedCredentialStore: CredentialStore {
     }
   }
 
-  func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {
-    state.withLock { state in
+  func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) throws -> Bool {
+    try state.withLock { state in
       guard !state.isBarred, state.revision == revision, base.load() == current else { return false }
       let saved = base.save(credential)
       if !saved {
         state.isBarred = true
-        // 무결성 값 첫 쓰기가 실패해도 이전 토큰 쌍이 다음 실행에서 복원되지 않게 한다.
-        base.clear()
+        // 이전 토큰 삭제를 시도하고 저장 실패를 호출자에게 전달한다.
+        _ = base.clear()
         state.onPersistenceFailure?()
+        state.revision = UUID()
+        throw CredentialStoreError.persistenceFailed
       }
       state.revision = UUID()
       return saved
     }
   }
 
-  func clear() {
+  @discardableResult
+  func clear() -> Bool {
     state.withLock { state in
       state.isBarred = true
       state.revision = UUID()
-      base.clear()
+      return base.clear()
     }
   }
 

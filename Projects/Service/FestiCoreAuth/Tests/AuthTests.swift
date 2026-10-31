@@ -148,7 +148,7 @@ struct AuthTests {
     let credentialStore = KeychainCredentialStore(storage: storage)
     let oldCredential = try #require(credentialStore.load())
     let revision = try #require(credentialStore.revision(matching: oldCredential))
-    #expect(credentialStore.replace(
+    #expect(try credentialStore.replace(
       FestiCoreCredential(accessToken: newToken, refreshToken: "refresh-a-rotated"),
       ifCurrent: oldCredential,
       revision: revision
@@ -172,6 +172,21 @@ struct AuthTests {
     #expect(storage.load(.accessToken) == nil)
   }
 
+  @Test("키체인 무효화와 삭제가 모두 실패하면 로그아웃 완료를 반환하지 않는다")
+  func failedClearReportsRestorableSession() {
+    let storage = MemorySecureStorage()
+    let guarded = GuardedCredentialStore(base: KeychainCredentialStore(storage: storage))
+    guarded.allowSaves()
+    #expect(guarded.save(old))
+    storage.failTokenSaveFor = .credentialIntegrity
+    storage.failTokenRemovalFor = [.accessToken, .refreshToken]
+    storage.failIdentityRemoval = true
+
+    #expect(guarded.clear() == false)
+    #expect(guarded.load() == nil)
+    #expect(KeychainCredentialStore(storage: storage).load() == old)
+  }
+
   @Test("로그아웃 및 재로그인 뒤에는 이전 토큰 갱신 결과를 교체하지 않는다")
   func guardedStoreRejectsPreviousSessionRefresh() throws {
     let storage = MemorySecureStorage()
@@ -182,20 +197,20 @@ struct AuthTests {
     let oldRevision = try #require(guarded.revision(matching: old))
 
     guarded.clear()
-    #expect(guarded.replace(late, ifCurrent: old, revision: oldRevision) == false)
+    #expect(try guarded.replace(late, ifCurrent: old, revision: oldRevision) == false)
     #expect(guarded.load() == nil)
 
     let replacement = FestiCoreCredential(accessToken: "signed-in", refreshToken: "other-refresh")
     guarded.allowSaves()
     guarded.save(replacement)
-    #expect(guarded.replace(late, ifCurrent: old, revision: oldRevision) == false)
+    #expect(try guarded.replace(late, ifCurrent: old, revision: oldRevision) == false)
     #expect(guarded.load() == replacement)
     #expect(storage.load(.accessToken) == "signed-in")
 
     guarded.clear()
     guarded.allowSaves()
     guarded.save(old)
-    #expect(guarded.replace(late, ifCurrent: old, revision: oldRevision) == false)
+    #expect(try guarded.replace(late, ifCurrent: old, revision: oldRevision) == false)
     #expect(guarded.load() == old)
   }
 
@@ -214,7 +229,7 @@ struct AuthTests {
 
     #expect(store.load() == current)
     let revision = try #require(store.revision(matching: current))
-    #expect(store.replace(renewed, ifCurrent: current, revision: revision))
+    #expect(try store.replace(renewed, ifCurrent: current, revision: revision))
     #expect(store.load() == renewed)
   }
 
@@ -237,7 +252,7 @@ struct AuthTests {
     #expect(await auth.isLoggedIn)
   }
 
-  @Test("토큰 갱신 저장이 실패하면 교체 성공을 반환하지 않는다")
+  @Test("토큰 갱신 저장이 실패하면 영속화 오류를 던진다")
   func failedTokenSaveRejectsRefreshReplacement() throws {
     let storage = MemorySecureStorage()
     let store = KeychainCredentialStore(storage: storage)
@@ -245,11 +260,11 @@ struct AuthTests {
     let revision = try #require(store.revision(matching: old))
     storage.failTokenSaveFor = .refreshToken
 
-    #expect(store.replace(
+    #expect(throws: CredentialStoreError.self) { try store.replace(
       FestiCoreCredential(accessToken: "new", refreshToken: "new-refresh"),
       ifCurrent: old,
       revision: revision
-    ) == false)
+    ) }
     #expect(store.load() == nil)
     #expect(storage.load(.accessToken) == nil)
     #expect(storage.load(.refreshToken) == nil)
@@ -264,11 +279,11 @@ struct AuthTests {
     let revision = try #require(store.revision(matching: old))
     storage.failTokenSaveFor = .credentialIntegrity
 
-    #expect(store.replace(
+    #expect(throws: CredentialStoreError.self) { try store.replace(
       FestiCoreCredential(accessToken: "new", refreshToken: "new-refresh"),
       ifCurrent: old,
       revision: revision
-    ) == false)
+    ) }
     #expect(store.load() == nil)
     #expect(KeychainCredentialStore(storage: storage).load() == nil)
     #expect(storage.load(.accessToken) == nil)
@@ -284,11 +299,11 @@ struct AuthTests {
     let revision = try #require(store.revision(matching: old))
     storage.failIntegritySaveAtAttempt = 2
 
-    #expect(store.replace(
+    #expect(throws: CredentialStoreError.self) { try store.replace(
       FestiCoreCredential(accessToken: "new", refreshToken: "new-refresh"),
       ifCurrent: old,
       revision: revision
-    ) == false)
+    ) }
     #expect(KeychainCredentialStore(storage: storage).load() == nil)
   }
 
@@ -310,11 +325,11 @@ struct AuthTests {
     storage.failTokenSaveFor = .refreshToken
     storage.failTokenRemovalFor = [.accessToken, .refreshToken]
 
-    #expect(store.replace(
+    #expect(throws: CredentialStoreError.self) { try store.replace(
       FestiCoreCredential(accessToken: "new", refreshToken: "new-refresh"),
       ifCurrent: old,
       revision: revision
-    ) == false)
+    ) }
     #expect(storage.load(.accessToken) == "new")
     #expect(storage.load(.refreshToken) == "old-refresh")
     #expect(store.load() == nil)
@@ -332,11 +347,11 @@ struct AuthTests {
     store.setPersistenceFailureHandler { failures.withLock { $0 += 1 } }
     storage.failTokenSaveFor = .refreshToken
 
-    #expect(store.replace(
+    #expect(throws: CredentialStoreError.self) { try store.replace(
       FestiCoreCredential(accessToken: "new", refreshToken: "new-refresh"),
       ifCurrent: old,
       revision: revision
-    ) == false)
+    ) }
     #expect(failures.withLock { $0 } == 1)
     #expect(store.load() == nil)
   }

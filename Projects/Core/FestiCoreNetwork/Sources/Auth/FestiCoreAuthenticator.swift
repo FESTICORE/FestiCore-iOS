@@ -42,7 +42,7 @@ final class FestiCoreAuthenticator: Authenticator {
     Task {
       do {
         let renewed = try await refresher.refresh(credential)
-        guard store.replace(renewed, ifCurrent: credential, revision: revision) else {
+        guard try store.replace(renewed, ifCurrent: credential, revision: revision) else {
           throw StaleRefreshError()
         }
         completion(.success(renewed))

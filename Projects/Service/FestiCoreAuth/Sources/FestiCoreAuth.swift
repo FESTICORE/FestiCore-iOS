@@ -122,7 +122,7 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
 private extension FestiCoreAuth {
   func clearCommittedSession() {
     committedSessionID = nil
-    store.clear()
+    _ = store.clear()
     try? identityStorage.remove(.sessionUserID)
     credentials.update(nil)
   }
