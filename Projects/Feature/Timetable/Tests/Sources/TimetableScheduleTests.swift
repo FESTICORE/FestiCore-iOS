@@ -263,7 +263,7 @@ struct TimetableScheduleTests {
     state.isSaving = true
     let clock = TestClock()
     let service = ScheduleServiceSpy(replaceDelay: { _ = try? await clock.sleep(for: .seconds(1)) })
-    let store = makeStore(state, service: service)
+    let store = makeStore(state, service: service, clock: clock)
     let previous = TimetableFeature.ScheduleSave(setIDs: ["lime"], clientAt: beforeFestival, generation: 0)
 
     await store.send(.accountChanged) {
@@ -278,6 +278,7 @@ struct TimetableScheduleTests {
     }
     await store.send(.view(.setScheduleToggled)) {
       $0.mySetIDs = ["noise"]
+      $0.isScheduleToastVisible = true
       $0.isSaving = true
       $0.lastClientAt = self.beforeFestival
     }
@@ -286,11 +287,15 @@ struct TimetableScheduleTests {
     await store.send(.scheduleSaved(festivalID: "fst", previous, .success(.init(setIDs: ["lime"]))))
     #expect(store.state.isSaving)
     #expect(store.state.mySetIDs == ["noise"])
-    await clock.run()
+    await clock.advance(by: .seconds(1))
     await store.receive(\.scheduleSaved) {
       $0.isSaving = false
     }
     await store.receive(scheduleSaved(festivalID: "fst", setIDs: ["noise"]))
+    await clock.advance(by: .seconds(1))
+    await store.receive(\.scheduleToastExpired) {
+      $0.isScheduleToastVisible = false
+    }
     #expect(store.state.mySetIDs == ["noise"])
     #expect(!store.state.isSaving)
   }
