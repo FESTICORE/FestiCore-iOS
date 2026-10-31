@@ -26,6 +26,7 @@ let project = Project.makeModule(
   ],
   hasDemo: true,
   demoDependencies: [
+    .domain(.auth, .interface),
     .ui(.designSystem),
     .SPM.composableArchitecture
   ]
