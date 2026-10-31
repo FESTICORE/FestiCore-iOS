@@ -18,11 +18,23 @@ public protocol CredentialStore: Sendable {
   func save(_ credential: FestiCoreCredential)
   /// 갱신 시작 시점의 세션 식별자. 토큰 값이 같아도 재로그인은 다른 세션이다.
   func revision(matching current: FestiCoreCredential) -> UUID?
+  /// 토큰, 세션 식별자, 저장소 변경 버전을 한 시점에서 확인한다.
+  func refreshContext(matching current: FestiCoreCredential) -> FestiCoreRefreshContext?
   /// 현재 세션이 갱신을 시작한 세션과 같을 때만 원자적으로 교체한다.
   @discardableResult
   func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool
   /// 토큰 삭제 (로그아웃 등)
   func clear()
+}
+
+public struct FestiCoreRefreshContext: Sendable, Equatable {
+  public let sessionID: UUID
+  public let revision: UUID
+
+  public init(sessionID: UUID, revision: UUID) {
+    self.sessionID = sessionID
+    self.revision = revision
+  }
 }
 
 public struct FestiCoreCredentialSession: Sendable, Equatable {

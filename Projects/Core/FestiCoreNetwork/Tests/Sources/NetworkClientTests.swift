@@ -577,7 +577,7 @@ private struct FileUploadRequest: FestiCoreFileUploadRequest {
 private struct ClientTokenRefresher: TokenRefreshing {
   let credential: FestiCoreCredential
 
-  func refresh(_: FestiCoreCredential) async throws(FestiCoreNetworkError) -> FestiCoreCredential {
+  func refresh(_: FestiCoreCredential, sessionID _: UUID) async throws(FestiCoreNetworkError) -> FestiCoreCredential {
     credential
   }
 }
@@ -612,6 +612,13 @@ private final class ClientCredentialStore: CredentialStore, @unchecked Sendable 
 
   func revision(matching current: FestiCoreCredential) -> UUID? {
     lock.withLock { credential == current ? currentRevision : nil }
+  }
+
+  func refreshContext(matching current: FestiCoreCredential) -> FestiCoreRefreshContext? {
+    lock.withLock {
+      guard credential == current else { return nil }
+      return FestiCoreRefreshContext(sessionID: currentSessionID, revision: currentRevision)
+    }
   }
 
   func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {

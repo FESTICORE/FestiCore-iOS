@@ -62,6 +62,13 @@ final class GuardedCredentialStore: CredentialStore {
     }
   }
 
+  func refreshContext(matching current: FestiCoreCredential) -> FestiCoreRefreshContext? {
+    state.withLock { state in
+      guard !state.isBarred, base.load() == current else { return nil }
+      return FestiCoreRefreshContext(sessionID: state.sessionID, revision: state.revision)
+    }
+  }
+
   func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {
     state.withLock { state in
       guard !state.isBarred, state.revision == revision, base.load() == current else { return false }

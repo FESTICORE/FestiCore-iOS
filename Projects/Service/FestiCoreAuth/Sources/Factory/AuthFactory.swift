@@ -22,10 +22,7 @@ public enum AuthFactory {
     let relay = AuthFailureRelay()
     let authenticated = NetworkClientFactory.unified(
       store: store,
-      refresher: TokenRefresher(client: refreshClient, sessionIDForCredential: { credential in
-        guard let session = store.sessionSnapshot(), session.credential == credential else { return nil }
-        return session.id
-      }) { credential, sessionID in
+      refresher: TokenRefresher(client: refreshClient) { credential, sessionID in
         await relay.fire(for: credential, sessionID: sessionID)
       },
       baseURL: baseURL

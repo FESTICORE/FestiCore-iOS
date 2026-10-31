@@ -40,6 +40,13 @@ final class KeychainCredentialStore: CredentialStore {
     lock.withLock { loadUnlocked() == current ? currentRevision : nil }
   }
 
+  func refreshContext(matching current: FestiCoreCredential) -> FestiCoreRefreshContext? {
+    lock.withLock {
+      guard loadUnlocked() == current else { return nil }
+      return FestiCoreRefreshContext(sessionID: currentSessionID, revision: currentRevision)
+    }
+  }
+
   func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {
     lock.withLock {
       guard currentRevision == revision, loadUnlocked() == current else { return false }
