@@ -15,6 +15,7 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
   private let auth: any AuthService
   private let device: any DeviceRegistrationService
   private let imageResolver: FestivalImageURLResolver
+  private let now: @Sendable () -> Date
   private var cachedBoards: [String: CachedBoard] = [:]
   private var retryNotBefore: [String: Date] = [:]
   private var cachedUserID: String?
@@ -23,12 +24,14 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
     client: any FestiCoreRequestClient,
     auth: any AuthService,
     device: any DeviceRegistrationService,
-    baseURL: URL?
+    baseURL: URL?,
+    now: @escaping @Sendable () -> Date = { Date() }
   ) {
     self.client = client
     self.auth = auth
     self.device = device
     imageResolver = FestivalImageURLResolver(baseURL: baseURL)
+    self.now = now
   }
 
   public func refresh(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
@@ -75,10 +78,16 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
     default:
       throw FestivalLiveBoardError.invalidResponse
     }
+    // 라이브 상태를 확인한 시각이다. 공개 프로필 요청이 오래 걸려도 그 뒤로 미루지 않는다.
+    let receivedAt = now()
 
     let profilesResponse = try await client.send(FestivalFlagsRequest(festivalID: festivalID))
     guard profilesResponse.code == "SUCCESS" else { throw FestivalLiveBoardError.invalidResponse }
-    let snapshot = try boardData.toDomain(profiles: profilesResponse.data, imageURL: imageResolver.resolve)
+    let snapshot = try boardData.toDomain(
+      profiles: profilesResponse.data,
+      imageURL: imageResolver.resolve,
+      receivedAt: receivedAt
+    )
     let latestUserID = await authenticatedUserID()
     guard cachedUserID == userID, latestUserID == userID else {
       throw FestivalLiveBoardError.invalidResponse
