@@ -52,7 +52,7 @@ public struct FestivalFlagDirectory {
   struct FollowOverride: Equatable {
     var isFollowing: Bool?
     var followerCount: Int?
-    /// 팔로우를 누를 때 스냅샷의 팔로워 수. 같은 값이 다시 오면 공개 캐시가 아직 바뀌지 않은 것이다.
+    /// 요청 직전 표시하던 팔로워 수. 같은 값이 다시 오면 공개 캐시가 아직 바뀌지 않은 것이다.
     let baseCount: Int?
     /// 성공 시점에 진행 중이던 조회는 팔로우 전 상태일 수 있어 한 번 건너뛴다.
     var skipsNextLoad = false
@@ -115,7 +115,8 @@ public struct FestivalFlagDirectory {
 
       case let .followTapped(id, follow, baseCount):
         guard !state.isPending(id) else { return .none }
-        state.pendingFollows[id] = .some(baseCount)
+        // 빠르게 다시 누르면 스냅샷보다 직전 성공 응답의 팔로워 수가 기준이다.
+        state.pendingFollows[id] = .some(state.followOverrides[id]?.followerCount ?? baseCount)
         return .run { [followService] send in
           do {
             let result = try await followService.setFollowing(follow, flagID: id)

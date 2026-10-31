@@ -251,6 +251,50 @@ struct FestivalFlagDirectoryTests {
     #expect(store.state.directory.rows(in: confirmed, isFailed: false).first?.isFollowing == isFollowing)
   }
 
+  @Test func rapidFollowThenUnfollowKeepsFinalCountThroughIntermediateCache() async {
+    let original = board([flag("a", count: 10)])
+    let intermediate = board([flag("a", count: 11)])
+    let confirmed = board([flag("a", count: 10)])
+    let store = TestStore(initialState: loadedState(original)) {
+      FestivalFlagFeature()
+    } withDependencies: {
+      $0.festivalFlagFollowService = ToggleFollowService()
+      $0.festivalLiveBoardService = SequenceLiveBoardService([intermediate, confirmed])
+    }
+
+    await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: 10))) {
+      $0.directory.pendingFollows["a"] = .some(10)
+    }
+    await store.receive(\.directory.followResponse) {
+      $0.directory.pendingFollows = [:]
+      $0.directory.followOverrides["a"] = .init(isFollowing: true, followerCount: 11, baseCount: 10)
+    }
+    // 화면이 가진 원본 스냅샷은 여전히 10명이다.
+    await store.send(.directory(.followTapped(id: "a", follow: false, baseCount: 10))) {
+      $0.directory.pendingFollows["a"] = .some(11)
+    }
+    await store.receive(\.directory.followResponse) {
+      $0.directory.pendingFollows = [:]
+      $0.directory.followOverrides["a"] = .init(isFollowing: false, followerCount: 10, baseCount: 11)
+    }
+
+    await store.send(.refresh) { $0.viewState = .loading }
+    await store.receive(\.loaded) {
+      $0.snapshot = intermediate
+      $0.viewState = .loaded
+      $0.directory.followOverrides["a"] = .init(isFollowing: nil, followerCount: 10, baseCount: 11)
+    }
+    #expect(store.state.directory.rows(in: intermediate, isFailed: false).first?.followersText == "팔로워 10")
+
+    await store.send(.refresh) { $0.viewState = .loading }
+    await store.receive(\.loaded) {
+      $0.snapshot = confirmed
+      $0.viewState = .loaded
+      $0.directory.followOverrides = [:]
+    }
+    #expect(store.state.directory.rows(in: confirmed, isFailed: false).first?.followersText == "팔로워 10")
+  }
+
   @Test func leavingTabCancelsRequestButKeepsFollowResultUntilConfirmed() async {
     let clock = TestClock()
     let snapshot = board([flag("a"), flag("b")])
@@ -375,6 +419,12 @@ private struct StubFollowService: FestivalFlagFollowService {
 
   func setFollowing(_: Bool, flagID _: String) async throws(FestivalFlagFollowError) -> FestivalFlagFollowResult {
     try result.get()
+  }
+}
+
+private struct ToggleFollowService: FestivalFlagFollowService {
+  func setFollowing(_ following: Bool, flagID: String) async throws(FestivalFlagFollowError) -> FestivalFlagFollowResult {
+    .init(flagID: flagID, isFollowing: following, followerCount: following ? 11 : 10)
   }
 }
 
