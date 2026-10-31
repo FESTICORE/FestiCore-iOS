@@ -36,6 +36,8 @@ struct AppCoordinator {
     var accountOperationGeneration: Int?
     var accountOperation: MyAccountOperation?
     var loginAttemptGeneration: Int?
+    /// 수락해 확정 중인 로그인 세션. 확정 전에 시트가 닫히면 이 세션을 버린다.
+    var pendingCommitSessionID: UUID?
     var verifiedUserID: String?
     var lastVerifiedUserID: String?
     var hasSession = false
@@ -119,6 +121,8 @@ struct AppCoordinator {
     case profileLoaded(generation: Int, Result<AuthProfile, ProfileFailure>)
     case profileUpdated(generation: Int, Result<AuthUser, ProfileFailure>)
     case myAccountFinished(generation: Int, operation: MyAccountOperation, result: Result<Void, ProfileFailure>)
+    case loginCommitted(AuthLoginResult, generation: Int, committed: Bool)
+    case staleLoginDiscarded
   }
 
   @CasePathable
@@ -229,11 +233,14 @@ private extension AppCoordinator {
       )
 
     case let .startLogin(provider):
+      // 수락한 로그인을 확정하는 동안 새 로그인을 시작하면 두 결과가 서로의 임시 세션을 무효로 만든다.
       guard case var .home(home) = state,
             home.authFlow.presentation == .login,
-            !home.loginState.isSigningIn else { return .none }
+            home.authFlow.pendingCommitSessionID == nil else { return .none }
       home.authFlow.loginAttemptGeneration = home.authFlow.generation
       state = .home(home)
+      // 닫았던 시트에서 시작한 로그인이 아직 진행 중이면 새로 시작하지 않고 그 결과를 이번 시도로 받는다.
+      guard !home.loginState.isSigningIn else { return .none }
       return .send(.scope(.home(.login(.view(.signIn(provider))))))
 
     case .dismissFlow:
@@ -247,8 +254,12 @@ private extension AppCoordinator {
       home.authFlow.loginAttemptGeneration = nil
       home.authFlow.presentation = nil
       home.authFlow.clearConsentAndRetryState()
+      let pendingCommit = home.authFlow.pendingCommitSessionID
+      home.authFlow.pendingCommitSessionID = nil
       state = .home(home)
-      return .none
+      // 확정 전이면 임시 세션을 버리고, 이미 확정됐다면 loginCommitted가 그 세션만 되돌린다.
+      guard let pendingCommit else { return .none }
+      return .run { _ in _ = await authService.discardSession(pendingCommit) }
 
     case let .nicknameChanged(nickname):
       guard case var .home(home) = state else { return .none }
@@ -556,6 +567,40 @@ private extension AppCoordinator {
         return .none
       }
 
+    case let .loginCommitted(result, generation, committed):
+      guard case var .home(home) = state else { return .none }
+      if home.authFlow.generation == generation, isActiveLoginAttempt(home.authFlow) {
+        home.authFlow.pendingCommitSessionID = nil
+        state = .home(home)
+        if committed { return acceptLogin(result, state: &state) }
+        // 확정 전에 세션이 정리됐다(예: 명시적 로그아웃). 로그인 전이 없이 현재 확정 세션을 다시 읽는다.
+        home.authFlow.loginAttemptGeneration = nil
+        home.authFlow.generation += 1
+        home.authFlow.isLoading = true
+        let next = home.authFlow.generation
+        state = .home(home)
+        return fetchProfile(generation: next)
+      }
+      // 확정하는 사이 시트가 닫혔다. 닫은 로그인의 세션은 그 식별자일 때만 되돌린다.
+      guard committed, let sessionID = result.sessionID else { return .none }
+      return .run { send in
+        if await authService.signOut(ifSession: sessionID) {
+          await send(.inner(.staleLoginDiscarded))
+        }
+      }
+
+    case .staleLoginDiscarded:
+      // 그 사이 포그라운드 복원이 되돌린 세션을 화면에 반영했다면 저장소 상태를 다시 읽는다.
+      guard case var .home(home) = state,
+            home.authFlow.hasSession,
+            home.authFlow.loginAttemptGeneration == nil,
+            home.authFlow.accountOperationGeneration == nil else { return .none }
+      home.authFlow.generation += 1
+      home.authFlow.isLoading = true
+      let next = home.authFlow.generation
+      state = .home(home)
+      return fetchProfile(generation: next)
+
     case let .myAccountFinished(generation, operation, result):
       guard case var .home(home) = state,
             home.authFlow.accountOperationGeneration == generation else { return .none }
@@ -618,31 +663,23 @@ private extension AppCoordinator {
       return fetchProfile(generation: generation)
 
     case let .home(.login(.delegate(.signedIn(result)))):
-      guard case var .home(home) = state,
-            home.authFlow.presentation == .login,
-            home.authFlow.loginAttemptGeneration == home.authFlow.generation else { return .none }
-      if let oldID = home.authFlow.verifiedUserID, oldID != result.user.id {
-        home.authFlow.pendingFestivalID = nil
-        home.authFlow.pendingOwnerID = nil
+      guard case let .home(home) = state else { return .none }
+      let accepted = isActiveLoginAttempt(home.authFlow)
+      guard let sessionID = result.sessionID else {
+        return accepted ? acceptLogin(result, state: &state) : .none
       }
-      if let oldID = home.authFlow.lastVerifiedUserID, oldID != result.user.id {
-        home.authFlow.pendingFestivalID = nil
-        home.authFlow.pendingOwnerID = nil
+      guard accepted else {
+        // 시트를 닫은 뒤 끝난 로그인은 확정하지 않고 그 임시 세션만 버린다.
+        return .run { _ in _ = await authService.discardSession(sessionID) }
       }
-      if let ownerID = home.authFlow.pendingOwnerID, ownerID != result.user.id {
-        home.authFlow.pendingFestivalID = nil
-        home.authFlow.pendingOwnerID = nil
-      }
-      home.authFlow.verifiedUserID = result.user.id
-      home.authFlow.hasSession = true
-      home.authFlow.profile = nil
-      home.authFlow.presentation = nil
-      home.authFlow.loginAttemptGeneration = nil
-      home.authFlow.generation += 1
-      home.authFlow.isLoading = true
+      var accepting = home
+      accepting.authFlow.pendingCommitSessionID = sessionID
+      state = .home(accepting)
       let generation = home.authFlow.generation
-      state = .home(home)
-      return fetchProfile(generation: generation)
+      return .run { send in
+        let committed = await authService.commitSession(sessionID)
+        await send(.inner(.loginCommitted(result, generation: generation, committed: committed)))
+      }
 
     case .home(.delegate(.myLoginRequested)):
       guard case var .home(home) = state,
@@ -719,6 +756,37 @@ private extension AppCoordinator {
         await send(.inner(.profileLoaded(generation: generation, .failure(ProfileFailure(error)))))
       }
     }
+  }
+
+  /// 시트가 열려 있고 현재 세대의 로그인 시도일 때만 결과를 받아들인다.
+  func isActiveLoginAttempt(_ flow: AuthFlow) -> Bool {
+    flow.presentation == .login && flow.loginAttemptGeneration == flow.generation
+  }
+
+  func acceptLogin(_ result: AuthLoginResult, state: inout State) -> Effect<Action> {
+    guard case var .home(home) = state else { return .none }
+      if let oldID = home.authFlow.verifiedUserID, oldID != result.user.id {
+        home.authFlow.pendingFestivalID = nil
+        home.authFlow.pendingOwnerID = nil
+      }
+      if let oldID = home.authFlow.lastVerifiedUserID, oldID != result.user.id {
+        home.authFlow.pendingFestivalID = nil
+        home.authFlow.pendingOwnerID = nil
+      }
+      if let ownerID = home.authFlow.pendingOwnerID, ownerID != result.user.id {
+        home.authFlow.pendingFestivalID = nil
+        home.authFlow.pendingOwnerID = nil
+      }
+      home.authFlow.verifiedUserID = result.user.id
+      home.authFlow.hasSession = true
+      home.authFlow.profile = nil
+      home.authFlow.presentation = nil
+      home.authFlow.loginAttemptGeneration = nil
+      home.authFlow.generation += 1
+      home.authFlow.isLoading = true
+      let generation = home.authFlow.generation
+      state = .home(home)
+      return fetchProfile(generation: generation)
   }
 
   func finishEligible(state: inout State, home: inout MainTabCoordinator.State) -> Effect<Action> {

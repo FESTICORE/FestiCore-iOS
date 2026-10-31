@@ -73,25 +73,28 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
         .onChange(of: item) { oldValue, newValue in
           let wasDismissing = pendingDismissal != nil
           cancelPendingDismissal()
-          if wasDismissing, oldValue != nil, newValue != nil {
-            present()
+          if newValue != nil, oldValue == nil || wasDismissing {
+            dragOffset = 0
+            dismissOffset = 0
+            isDragging = false
           }
         }
         .onDisappear {
           if item == nil { cancelPendingDismissal() }
         }
         .overlay {
-          if item != nil {
-            ZStack(alignment: .bottom) {
+          ZStack(alignment: .bottom) {
+            if item != nil {
               FestiCoreSemanticColor.materialDimmer.color
                 .ignoresSafeArea()
                 .transition(.opacity)
                 .onTapGesture { dismiss() }
                 .accessibilityLabel("닫기")
                 .accessibilityAddTraits(.isButton)
-              sheet(geometry: geometry)
             }
+            sheet(geometry: geometry)
           }
+          .animation(.easeOut(duration: Metric.longDuration), value: item != nil)
         }
     }
     .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -130,7 +133,7 @@ extension FCSheetModifier {
       .animation(isDragging ? nil : .easeOut(duration: Metric.shortDuration), value: dragOffset)
       .gesture(dragGesture)
       .ignoresSafeArea(edges: .bottom)
-      .onAppear { present() }
+      .transition(.asymmetric(insertion: .move(edge: .bottom), removal: .identity))
       .accessibilityAddTraits(.isModal)
     }
   }
@@ -173,15 +176,6 @@ extension FCSheetModifier {
   private func cancelPendingDismissal() {
     pendingDismissal?.cancel()
     pendingDismissal = nil
-  }
-
-  private func present() {
-    dragOffset = 0
-    isDragging = false
-    dismissOffset = Metric.slideDistance
-    withAnimation(.easeOut(duration: Metric.longDuration)) {
-      dismissOffset = 0
-    }
   }
 
   static func completeDismissal(of dismissedItem: Item, item: Binding<Item?>) {

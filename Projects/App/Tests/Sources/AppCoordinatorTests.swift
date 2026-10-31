@@ -58,11 +58,10 @@ struct AppCoordinatorTests {
     await store.send(.inner(.completeHomeTransition))
   }
 
-  @Test func unauthenticatedBookmarkOpensLoginWithoutSaving() async {
+  @Test func unauthenticatedBookmarkOpensLoginBeforeProfileFetch() async {
     let store = TestStore(initialState: AppCoordinator.State.home(.init())) {
       AppCoordinator()
     } withDependencies: {
-      $0.authUseCase = UnauthenticatedAuthUseCase()
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
     }
     store.exhaustivity = .off
@@ -1631,6 +1630,161 @@ struct AppCoordinatorTests {
     #expect(updated.flagState.viewState == .idle)
   }
 
+  @Test func acceptedLoginCommitsSessionBeforeSignedInTransition() async {
+    let sessionID = UUID()
+    let auth = SessionRecordingAuthService()
+    let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.authService = auth
+      $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-a"))
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.login(.delegate(.signedIn(loginResult(sessionID)))))))
+    guard case let .home(pending) = store.state else { return }
+    #expect(!pending.authFlow.hasSession)
+    await store.receive(\.inner.loginCommitted)
+    guard case let .home(committed) = store.state else { return }
+    #expect(committed.authFlow.hasSession)
+    #expect(committed.authFlow.verifiedUserID == "user-a")
+    #expect(await auth.committed == [sessionID])
+    await store.receive(\.inner.profileLoaded)
+  }
+
+  @Test func failedCommitDoesNotSignInAndRereadsSession() async {
+    let auth = SessionRecordingAuthService(commitResult: false)
+    let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.authService = auth
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.login(.delegate(.signedIn(loginResult(UUID())))))))
+    await store.receive(\.inner.loginCommitted)
+    guard case let .home(rejected) = store.state else { return }
+    #expect(!rejected.authFlow.hasSession)
+    #expect(rejected.authFlow.verifiedUserID == nil)
+    #expect(rejected.authFlow.loginAttemptGeneration == nil)
+    await store.receive(\.inner.profileLoaded)
+    guard case let .home(reread) = store.state else { return }
+    #expect(!reread.authFlow.hasSession)
+  }
+
+  @Test func loginFinishedAfterSheetDismissalDiscardsItsSession() async {
+    let sessionID = UUID()
+    let auth = SessionRecordingAuthService()
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 2
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.authService = auth
+    }
+
+    await store.send(.scope(.home(.login(.delegate(.signedIn(loginResult(sessionID)))))))
+    await store.finish()
+    #expect(await auth.discarded == [sessionID])
+    #expect(await auth.committed.isEmpty)
+  }
+
+  @Test func commitFinishedAfterDismissalDoesNotCloseNewLoginSheet() async {
+    let sessionID = UUID()
+    let auth = SessionRecordingAuthService(holdsCommit: true)
+    let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.authService = auth
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.login(.delegate(.signedIn(loginResult(sessionID)))))))
+    await auth.waitUntilCommitStarts()
+    await store.send(.view(.dismissFlow))
+    await store.send(.scope(.home(.delegate(.myLoginRequested))))
+    await auth.releaseCommit()
+    await store.receive(\.inner.loginCommitted)
+    await store.finish()
+    guard case let .home(reopened) = store.state else { return }
+    // 이전 확정은 새로 연 로그인 시트를 닫거나 프로필을 다시 읽지 않고, 닫은 로그인의 세션만 되돌린다.
+    #expect(reopened.authFlow.presentation == .login)
+    #expect(!reopened.authFlow.isLoading)
+    #expect(!reopened.authFlow.hasSession)
+    #expect(await auth.revoked == [sessionID])
+  }
+
+  @Test func commitFinishedAfterDismissalRevokesDismissedSession() async {
+    let sessionID = UUID()
+    let auth = SessionRecordingAuthService(holdsCommit: true)
+    let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.authService = auth
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.login(.delegate(.signedIn(loginResult(sessionID)))))))
+    await auth.waitUntilCommitStarts()
+    await store.send(.view(.dismissFlow))
+    await auth.releaseCommit()
+    await store.receive(\.inner.loginCommitted)
+    await store.receive(\.inner.staleLoginDiscarded)
+    await store.finish()
+    guard case let .home(dismissed) = store.state else { return }
+    // 닫힘이 확정보다 먼저면 임시 세션을 버리고, 확정이 먼저 끝났으면 그 세션만 되돌린다.
+    #expect(await auth.discarded == [sessionID])
+    #expect(await auth.revoked == [sessionID])
+    #expect(!dismissed.authFlow.hasSession)
+    #expect(await auth.isLoggedIn == false)
+  }
+
+  @Test func reopenedLoginTapAdoptsInFlightLogin() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 3
+    home.authFlow.presentation = .login
+    home.loginState.isSigningIn = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+
+    // 진행 중인 로그인을 새로 시작하지 않고 이번 시도로 받는다(효과 없음).
+    await store.send(.view(.startLogin(.apple))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.loginAttemptGeneration = 3
+      $0 = .home(home)
+    }
+  }
+
+  @Test func loginTapWhileCommittingDoesNotStartAnotherLogin() async {
+    var home = loginSheetHome()
+    home.authFlow.pendingCommitSessionID = UUID()
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+
+    // 확정 중에는 새 로그인을 시작하지 않는다(상태·효과 없음).
+    await store.send(.view(.startLogin(.google)))
+  }
+
+  @Test func revokedLoginRestoredByForegroundIsRereadAsSignedOut() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.hasSession = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.authService = StubAuthService(loggedIn: false, userID: nil)
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.staleLoginDiscarded))
+    await store.receive(\.inner.sessionRestored)
+    guard case let .home(reread) = store.state else { return }
+    #expect(!reread.authFlow.hasSession)
+  }
+
+  private func loginSheetHome() -> MainTabCoordinator.State {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.loginAttemptGeneration = 1
+    home.authFlow.presentation = .login
+    return home
+  }
+
+  private func loginResult(_ sessionID: UUID) -> AuthLoginResult {
+    AuthLoginResult(newUser: false, user: eligibleProfile(id: "user-a").user, sessionID: sessionID)
+  }
+
   @Test func timetableSaveUpdatesVisibleLiveBoard() async {
     var home = MainTabCoordinator.State()
     var board = FestivalFeature.State(selectedFestivalID: "festival")
@@ -1773,8 +1927,24 @@ private struct StubAuthService: AuthService {
     }
   }
 
-  func signIn(accessToken: String, refreshToken: String) async {
-    Issue.record("테스트에서 signIn 호출을 예상하지 않았어요")
+  func stageSession(accessToken: String, refreshToken: String) async -> UUID {
+    Issue.record("테스트에서 stageSession 호출을 예상하지 않았어요")
+    return UUID()
+  }
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("테스트에서 commitSession 호출을 예상하지 않았어요")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("테스트에서 discardSession 호출을 예상하지 않았어요")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("테스트에서 signOut(ifSession:) 호출을 예상하지 않았어요")
+    return false
   }
 
   func rememberUserID(_ userID: String) async {
@@ -1830,5 +2000,74 @@ private struct FixedLiveBoardService: FestivalLiveBoardService {
 
   func refresh(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
     snapshot
+  }
+}
+
+/// 세션 확정·폐기 호출을 기록하고, 필요하면 확정을 멈춰 두어 액션 순서를 조절한다.
+private actor SessionRecordingAuthService: AuthService {
+  private let commitResult: Bool
+  private let holdsCommit: Bool
+  private var loggedIn = false
+  private var activeSessionID = UUID()
+  private var commitStarted = false
+  private var release: CheckedContinuation<Void, Never>?
+  private(set) var committed: [UUID] = []
+  private(set) var discarded: [UUID] = []
+  private(set) var revoked: [UUID] = []
+
+  init(commitResult: Bool = true, holdsCommit: Bool = false) {
+    self.commitResult = commitResult
+    self.holdsCommit = holdsCommit
+  }
+
+  var isLoggedIn: Bool { loggedIn }
+  var sessionID: UUID { activeSessionID }
+  var authenticatedSessionID: UUID? { loggedIn ? activeSessionID : nil }
+  var refreshToken: String? { nil }
+  var currentUserID: String? { loggedIn ? "user-a" : nil }
+
+  func stageSession(accessToken: String, refreshToken: String) -> UUID { UUID() }
+
+  func commitSession(_ id: UUID) async -> Bool {
+    commitStarted = true
+    if holdsCommit { await withCheckedContinuation { release = $0 } }
+    committed.append(id)
+    if commitResult {
+      activeSessionID = UUID()
+      loggedIn = true
+    }
+    return commitResult
+  }
+
+  func discardSession(_ id: UUID) -> Bool {
+    discarded.append(id)
+    return true
+  }
+
+  func signOut(ifSession id: UUID) -> Bool {
+    guard committed.last == id, loggedIn else { return false }
+    revoked.append(id)
+    loggedIn = false
+    return true
+  }
+
+  func rememberUserID(_ userID: String) {}
+  func signOut() {
+    activeSessionID = UUID()
+    loggedIn = false
+  }
+  func signOut(ifSessionIDMatches expected: UUID) -> Bool {
+    guard activeSessionID == expected, loggedIn else { return false }
+    signOut()
+    return true
+  }
+
+  func waitUntilCommitStarts() async {
+    while !commitStarted || (holdsCommit && release == nil) { await Task.yield() }
+  }
+
+  func releaseCommit() {
+    release?.resume()
+    release = nil
   }
 }

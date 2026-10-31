@@ -32,8 +32,8 @@ public struct FCLoginButton: View {
         Text(provider == .apple ? "Apple로 계속" : "Google로 계속")
           .festiCoreFont(.baseCalloutBold)
           .lineLimit(1)
+          .foregroundStyle(provider == .apple ? FestiCoreSemanticColor.inverseLabel.color : FestiCoreSemanticColor.staticInk.color)
       }
-      .foregroundStyle(provider == .apple ? FestiCoreSemanticColor.inverseLabel.color : FestiCoreSemanticColor.staticInk.color)
       .frame(maxWidth: .infinity)
       .frame(height: Metric.height)
       .background(
@@ -61,6 +61,7 @@ private extension FCLoginButton {
         .renderingMode(.template)
         .resizable()
         .frame(width: Metric.appleLogoSize.width, height: Metric.appleLogoSize.height)
+        .foregroundStyle(FestiCoreSemanticColor.inverseLabel.color)
         .accessibilityHidden(true)
     case .google:
       // Google 로고는 브랜드 색을 그대로 써야 하므로 원본 렌더링을 유지한다.

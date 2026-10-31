@@ -85,7 +85,7 @@ struct AuthTests {
     let client = auth.authenticatedClient
     #expect((client as AnyObject) === (auth.authenticatedClient as AnyObject))
 
-    await auth.signIn(accessToken: jwt(subject: "user-a"), refreshToken: "old-refresh")
+    await signIn(auth, accessToken: jwt(subject: "user-a"), refreshToken: "old-refresh")
     await auth.rememberUserID("user-a")
     #expect(await auth.currentUserID == "user-a")
     #expect(storage.load(.accessToken) == jwt(subject: "user-a"))
@@ -94,7 +94,7 @@ struct AuthTests {
     let restored = AuthFactory.make(refreshClient: refreshClient, storage: storage)
     #expect(await restored.currentUserID == "user-a")
 
-    await auth.signIn(accessToken: jwt(subject: "user-b"), refreshToken: "new-refresh")
+    await signIn(auth, accessToken: jwt(subject: "user-b"), refreshToken: "new-refresh")
     #expect(await auth.currentUserID == nil)
     await auth.rememberUserID("user-b")
     #expect(await auth.currentUserID == "user-b")
@@ -115,13 +115,13 @@ struct AuthTests {
     let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
     let auth = AuthFactory.make(refreshClient: client, storage: storage)
 
-    await auth.signIn(accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
+    await signIn(auth, accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
     await auth.rememberUserID("user-a")
     #expect(await auth.currentUserID == "user-a")
 
     storage.failIdentityRemoval = true
     storage.failIdentitySave = true
-    await auth.signIn(accessToken: jwt(subject: "user-b"), refreshToken: "refresh-b")
+    await signIn(auth, accessToken: jwt(subject: "user-b"), refreshToken: "refresh-b")
     #expect(storage.load(.sessionUserID) == "user-a")
     #expect(await auth.currentUserID == nil)
     await auth.rememberUserID("user-b")
@@ -141,7 +141,7 @@ struct AuthTests {
     let auth = AuthFactory.make(refreshClient: client, storage: storage)
     let oldToken = jwt(subject: "user-a")
     let newToken = jwt(subject: "user-a", suffix: "renewed")
-    await auth.signIn(accessToken: oldToken, refreshToken: "refresh-a")
+    await signIn(auth, accessToken: oldToken, refreshToken: "refresh-a")
     await auth.rememberUserID("user-a")
     let sessionID = await auth.sessionID
 
@@ -164,12 +164,27 @@ struct AuthTests {
     let storage = MemorySecureStorage()
     let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
     let auth = AuthFactory.make(refreshClient: client, storage: storage)
-    await auth.signIn(accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
+    await signIn(auth, accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
     let oldSessionID = await auth.sessionID
 
-    await auth.signIn(accessToken: jwt(subject: "user-b"), refreshToken: "refresh-b")
+    await signIn(auth, accessToken: jwt(subject: "user-b"), refreshToken: "refresh-b")
     #expect(await auth.signOut(ifSessionIDMatches: oldSessionID) == false)
     #expect(await auth.isLoggedIn)
+    #expect(await auth.refreshToken == "refresh-b")
+  }
+
+  @Test("기존 세션의 조건부 로그아웃은 진행 중인 새 로그인을 폐기하지 않는다")
+  func conditionalSignOutKeepsStagedSession() async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage)
+    await signIn(auth, accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
+    let oldSessionID = await auth.sessionID
+    let next = await auth.stageSession(accessToken: jwt(subject: "user-b"), refreshToken: "refresh-b")
+
+    #expect(await auth.signOut(ifSessionIDMatches: oldSessionID))
+    #expect(await auth.isLoggedIn == false)
+    #expect(await auth.commitSession(next))
     #expect(await auth.refreshToken == "refresh-b")
   }
 
@@ -231,6 +246,108 @@ struct AuthTests {
     let revision = try #require(store.revision(matching: current))
     #expect(store.replace(renewed, ifCurrent: current, revision: revision))
     #expect(store.load() == renewed)
+  }
+
+  @Test("로그인 응답은 확정 전까지 Keychain과 로그인 상태를 바꾸지 않는다")
+  func stagedSessionIsNotPersistedUntilCommit() async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage)
+
+    let id = await auth.stageSession(accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
+    await auth.rememberUserID("user-a")
+    #expect(await auth.isLoggedIn == false)
+    #expect(storage.load(.accessToken) == nil)
+    #expect(await auth.commitSession(UUID()) == false)
+
+    #expect(await auth.commitSession(id))
+    #expect(await auth.isLoggedIn)
+    #expect(storage.load(.refreshToken) == "refresh-a")
+    #expect(await auth.currentUserID == "user-a")
+    #expect(await auth.commitSession(id) == false)
+  }
+
+  @Test("폐기는 같은 임시 세션만 지우고 확정 세션과 새 임시 세션은 남긴다")
+  func discardOnlyRemovesMatchingStagedSession() async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage)
+    await signIn(auth, accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
+    await auth.rememberUserID("user-a")
+
+    let stale = await auth.stageSession(accessToken: jwt(subject: "user-b"), refreshToken: "refresh-b")
+    let fresh = await auth.stageSession(accessToken: jwt(subject: "user-c"), refreshToken: "refresh-c")
+    #expect(await auth.discardSession(stale) == false)
+    #expect(await auth.commitSession(stale) == false)
+    #expect(storage.load(.refreshToken) == "refresh-a")
+    #expect(await auth.currentUserID == "user-a")
+
+    #expect(await auth.discardSession(fresh))
+    #expect(await auth.commitSession(fresh) == false)
+    #expect(await auth.isLoggedIn)
+    #expect(storage.load(.refreshToken) == "refresh-a")
+  }
+
+  @Test("확정 세션이 있어도 새 임시 세션의 계정 ID를 그 토큰으로 검증해 확정 때 저장한다")
+  func stagedSessionRemembersItsOwnUserID() async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage)
+    await signIn(auth, accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
+    await auth.rememberUserID("user-a")
+
+    let id = await auth.stageSession(accessToken: jwt(subject: "user-b"), refreshToken: "refresh-b")
+    await auth.rememberUserID("user-a")
+    await auth.rememberUserID("user-b")
+    #expect(await auth.currentUserID == "user-a")
+
+    #expect(await auth.commitSession(id))
+    #expect(await auth.currentUserID == "user-b")
+  }
+
+  @Test("로그아웃은 임시 세션도 비운다")
+  func signOutDropsStagedSession() async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage)
+    let id = await auth.stageSession(accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
+
+    await auth.signOut()
+    #expect(await auth.commitSession(id) == false)
+    #expect(await auth.isLoggedIn == false)
+  }
+
+  @Test("닫힌 로그인의 확정 세션은 그 식별자일 때만 되돌리고 진행 중인 임시 세션은 남긴다")
+  func conditionalSignOutOnlyRevokesMatchingCommittedSession() async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage)
+    let first = await auth.stageSession(accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
+    #expect(await auth.commitSession(first))
+    let next = await auth.stageSession(accessToken: jwt(subject: "user-b"), refreshToken: "refresh-b")
+
+    #expect(await auth.signOut(ifSession: UUID()) == false)
+    #expect(await auth.isLoggedIn)
+    #expect(await auth.signOut(ifSession: first))
+    #expect(await auth.isLoggedIn == false)
+    #expect(await auth.signOut(ifSession: first) == false)
+    #expect(await auth.commitSession(next))
+    #expect(storage.load(.refreshToken) == "refresh-b")
+  }
+
+  @Test("기존 세션의 자동 만료는 진행 중인 새 로그인의 임시 세션을 지우지 않는다")
+  func authFailureKeepsStagedSession() async throws {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let made = AuthFactory.make(refreshClient: client, storage: storage)
+    let auth = try #require(made as? FestiCoreAuth)
+    await signIn(auth, accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a")
+    let next = await auth.stageSession(accessToken: jwt(subject: "user-b"), refreshToken: "refresh-b")
+
+    await auth.handleAuthFailure(for: FestiCoreCredential(accessToken: jwt(subject: "user-a"), refreshToken: "refresh-a"))
+    #expect(await auth.isLoggedIn == false)
+    #expect(await auth.commitSession(next))
+    #expect(storage.load(.refreshToken) == "refresh-b")
   }
 }
 
@@ -328,4 +445,10 @@ private final class StubRefreshClient: FestiCoreRequestClient, @unchecked Sendab
   func sendResponse<R: FestiCoreDataRequest>(_: R) async throws(FestiCoreNetworkError) -> FestiCoreHTTPResponse {
     throw .request(.invalidURL)
   }
+}
+
+/// 실제 로그인처럼 임시 세션을 만든 뒤 바로 확정한다.
+private func signIn(_ auth: some AuthService, accessToken: String, refreshToken: String) async {
+  let id = await auth.stageSession(accessToken: accessToken, refreshToken: refreshToken)
+  _ = await auth.commitSession(id)
 }

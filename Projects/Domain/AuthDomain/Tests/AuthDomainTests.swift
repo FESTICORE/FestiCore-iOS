@@ -144,7 +144,7 @@ struct AuthDomainTests {
     #expect(await auth.isLoggedIn)
   }
 
-  @Test("로그인은 응답 토큰을 기존 인증 세션에 저장한다")
+  @Test("로그인은 응답 토큰을 확정 전 임시 세션으로 두고 그 식별자를 돌려준다")
   func signIn() async throws {
     let auth = StubAuthService()
     let client = StubClient(result: .success(loginBody))
@@ -157,7 +157,10 @@ struct AuthDomainTests {
 
     #expect(result.newUser)
     #expect(result.user.id == "user-1")
-    #expect(await auth.tokens == ["access", "refresh"])
+    #expect(await auth.stagedTokens == ["access", "refresh"])
+    #expect(result.sessionID == (await auth.stagedID))
+    #expect(await auth.tokens.isEmpty)
+    #expect(await auth.isLoggedIn == false)
     #expect(await client.calls == 1)
   }
 
@@ -191,6 +194,7 @@ struct AuthDomainTests {
 
     let result = try await useCase.signIn(with: .google(idToken: "id"))
     #expect(result.user.id == "user-1")
+    #expect(await auth.commitSession(try #require(result.sessionID)))
     #expect(await auth.isLoggedIn)
     // 두 번째 요청은 서버 로그아웃 응답이 필요하므로 별도 성공 대역을 등록한다.
     let logoutClient = StubClient(result: .success(Data(#"{"code":"SUCCESS","message":"OK","data":{"success":true}}"#.utf8)))
@@ -419,7 +423,8 @@ struct AuthDomainTests {
   func lateWithdrawalKeepsNewSession() async throws {
     let auth = StubAuthService(loggedIn: true)
     let client = StubClient(result: .success(Data())) {
-      await auth.signIn(accessToken: "new-access", refreshToken: "new-refresh")
+      let id = await auth.stageSession(accessToken: "new-access", refreshToken: "new-refresh")
+      _ = await auth.commitSession(id)
     }
     let repository = withDependencies {
       $0.networkClient = client
@@ -473,11 +478,34 @@ private actor StubAuthService: AuthService {
   var refreshToken: String? { tokens.last }
   var currentUserID: String? { nil }
 
-  func signIn(accessToken: String, refreshToken: String) {
-    sessionID = UUID()
-    tokens = [accessToken, refreshToken]
-    loggedIn = true
+  private(set) var stagedTokens: [String] = []
+  private(set) var stagedID: UUID?
+
+  func stageSession(accessToken: String, refreshToken: String) -> UUID {
+    let id = UUID()
+    stagedTokens = [accessToken, refreshToken]
+    stagedID = id
+    return id
   }
+
+  func commitSession(_ id: UUID) -> Bool {
+    guard stagedID == id else { return false }
+    sessionID = UUID()
+    tokens = stagedTokens
+    loggedIn = true
+    stagedTokens = []
+    stagedID = nil
+    return true
+  }
+
+  func discardSession(_ id: UUID) -> Bool {
+    guard stagedID == id else { return false }
+    stagedTokens = []
+    stagedID = nil
+    return true
+  }
+
+  func signOut(ifSession id: UUID) -> Bool { false }
 
   func rememberUserID(_ userID: String) {}
 
