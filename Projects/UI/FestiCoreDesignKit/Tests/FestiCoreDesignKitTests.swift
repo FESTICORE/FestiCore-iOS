@@ -43,6 +43,8 @@ struct FestiCoreDesignKitTests {
 
     try await Task.sleep(for: SheetTestTiming.resultWait)
     #expect(harness.box.item == .login)
+    let reopenedFrame = try #require(harness.box.sheetFrame)
+    #expect(reopenedFrame.minY < harness.window.bounds.height)
   }
 
   @Test @MainActor func pendingDismissalIsCancelledWhenModifierIsRemoved() async throws {
@@ -132,6 +134,21 @@ struct FestiCoreDesignKitTests {
     let dark = FestiCoreSemanticColor.primaryNormal.uiColor.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
     #expect(light.getRed() == 0x11)
     #expect(dark.getRed() == 0xC6)
+  }
+
+  @Test @MainActor func appleLoginLogoUsesContrastingDarkAppearance() throws {
+    let logo = try #require(UIImage(.appleLogo))
+    #expect(logo.renderingMode == .alwaysTemplate)
+
+    let dark = UITraitCollection(userInterfaceStyle: .dark)
+    let label = FestiCoreSemanticColor.inverseLabel.uiColor.resolvedColor(with: dark)
+    let background = FestiCoreSemanticColor.inverseBackground.uiColor.resolvedColor(with: dark)
+    #expect(label.getRed() == 0x11)
+    #expect(background.getRed() == 0xFF)
+
+    let controller = UIHostingController(rootView: FCLoginButton(.apple) {}
+      .environment(\.colorScheme, .dark))
+    #expect(controller.view != nil)
   }
 
   @Test @MainActor func swiftUISemanticColorsTrackColorScheme() {

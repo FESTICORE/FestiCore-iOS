@@ -61,6 +61,7 @@ private extension FCLoginButton {
         .renderingMode(.template)
         .resizable()
         .frame(width: Metric.appleLogoSize.width, height: Metric.appleLogoSize.height)
+        .foregroundStyle(FestiCoreSemanticColor.inverseLabel.color)
         .accessibilityHidden(true)
     case .google:
       // Google 로고는 브랜드 색을 그대로 써야 하므로 원본 렌더링을 유지한다.
