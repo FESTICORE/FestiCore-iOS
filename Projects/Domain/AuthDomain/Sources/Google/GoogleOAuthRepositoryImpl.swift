@@ -63,7 +63,7 @@ public final class GoogleOAuthRepositoryImpl: GoogleOAuthInterface {
       guard let presenter = presentingController() else {
         throw AuthDomainError.missingPresentingController
       }
-      let tokens = try await signIn(configuration, presenter)
+      let tokens = try await signInWithRetry(configuration, presenter)
       // Google SDK retains provider state; clear it even when cancellation arrived during sign-in.
       defer { signOut() }
       try Task.checkCancellation()
@@ -80,6 +80,18 @@ public final class GoogleOAuthRepositoryImpl: GoogleOAuthInterface {
         throw AuthDomainError.userCancelled
       }
       throw AuthDomainError.providerFailure
+    }
+  }
+
+  private func signInWithRetry(
+    _ configuration: GoogleOAuthConfiguration,
+    _ presenter: UIViewController
+  ) async throws -> GoogleOAuthTokens {
+    do {
+      return try await signIn(configuration, presenter)
+    } catch let error as NSError where error.domain == "RBSServiceErrorDomain" && error.code == 1 {
+      try await Task.sleep(for: .seconds(0.5))
+      return try await signIn(configuration, presenter)
     }
   }
 
