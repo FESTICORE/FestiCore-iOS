@@ -118,8 +118,8 @@ public struct TimetableSetDetail: Equatable, Sendable {
   public var time: String
   public var status: Status
   public var isScheduled: Bool
-  /// 시간이 겹치는 다른 내 일정 공연
-  public var overlappingArtists: [String]
+  /// 시간이 겹치는 다른 내 일정 공연 중 가장 먼저 시작하는 공연
+  public var overlap: TimetableSetOverlap?
   /// 바뀌기 전 시작 시각(`HH:mm`). 바뀌지 않았으면 nil이다.
   public var previousTime: String?
   public var change: String?
@@ -127,16 +127,39 @@ public struct TimetableSetDetail: Equatable, Sendable {
   public var relativeTime: String {
     switch status {
     case let .upcoming(minutes) where minutes < 60:
-      return "\(minutes)분 후 시작"
+      return "\(minutes)분 후"
     case let .upcoming(minutes):
       let hours = minutes / 60
       let rest = minutes % 60
-      return rest == 0 ? "\(hours)시간 후 시작" : "\(hours)시간 \(rest)분 후 시작"
+      return rest == 0 ? "\(hours)시간 후" : "\(hours)시간 \(rest)분 후"
     case .live:
       return "공연 중"
     case .ended:
       return "종료"
     }
+  }
+}
+
+/// 상세 시트의 겹침 경고에 쓰는 다른 내 일정 공연
+public struct TimetableSetOverlap: Equatable, Sendable {
+  public var artist: String
+  public var stage: String
+  /// `HH:mm–HH:mm`
+  public var time: String
+  /// 겹치는 시간(분)
+  public var minutes: Int
+
+  /// "크라잉버드(원더 스테이지 15:55–16:45)와 35분 겹쳐요"
+  public var warning: String {
+    "\(artist)(\(stage) \(time))\(particle) \(minutes)분 겹쳐요"
+  }
+
+  /// 이름 끝 글자가 한글이면 받침에 따라 `와`·`과`를 고르고, 아니면 `와`를 쓴다.
+  /// 자모가 나뉜 이름도 같은 글자로 보도록 완성형으로 바꿔 판단한다.
+  private var particle: String {
+    guard let last = artist.precomposedStringWithCanonicalMapping.unicodeScalars.last,
+          (0xAC00 ... 0xD7A3).contains(last.value) else { return "와" }
+    return (last.value - 0xAC00) % 28 == 0 ? "와" : "과"
   }
 }
 
@@ -162,6 +185,14 @@ enum TimetableTime {
   ) -> String {
     let crossesMidnight = start < 24 * 60 && end > 24 * 60
     return "\(clock(start))–\(crossesMidnight ? "다음날 " : "")\(clock(end))"
+  }
+
+  /// 공연 시각과 길이를 "17:00–17:50 · 50분"으로 적는다.
+  static func rangeWithDuration(
+    _ start: Int,
+    _ end: Int
+  ) -> String {
+    "\(range(start, end)) · \(end - start)분"
   }
 
   /// 바뀐 시작 시각을 "20분 미뤄짐"·"15분 당겨짐"으로 적는다.

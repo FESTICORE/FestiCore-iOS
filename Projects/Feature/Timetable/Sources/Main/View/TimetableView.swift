@@ -63,6 +63,8 @@ public struct TimetableView: View {
           setSheet(detail)
         }
       }
+    } accessory: { _ in
+      scheduleToast
     }
   }
 }
@@ -85,14 +87,26 @@ private extension TimetableView {
       helper: scheduleHelper
     )
     .scheduleDisabled(store.scheduleSync == .loading)
+    .source(store.source.isEmpty ? nil : store.source)
+  }
+
+  /// 내 일정에 넣은 직후 시트 위에 잠시 보인다.
+  var scheduleToast: some View {
+    ZStack {
+      if store.isScheduleToastVisible {
+        FCToast(.scheduleAdded())
+          .transition(.move(edge: .bottom).combined(with: .opacity))
+      }
+    }
+    .animation(.easeOut(duration: Metric.toastDuration), value: store.isScheduleToastVisible)
   }
 
   func sheetState(_ detail: TimetableSetDetail) -> FCSetSheet.State {
     if detail.status == .ended {
       return .ended
     }
-    if let artist = detail.overlappingArtists.first {
-      return .overlap(warning: "\(artist) 공연과 시간이 겹쳐요")
+    if let overlap = detail.overlap {
+      return .overlap(warning: overlap.warning)
     }
     if let previousTime = detail.previousTime, let change = detail.change {
       return .changed(oldTime: previousTime, change: change)
@@ -150,6 +164,13 @@ private extension TimetableView {
 
 private struct SelectedSet: Identifiable, Equatable {
   let id: String
+}
+
+private extension TimetableView {
+  enum Metric {
+    /// `fcToast`와 같은 등장·퇴장 시간
+    static let toastDuration = 0.25
+  }
 }
 
 #Preview("A. 기본") {
