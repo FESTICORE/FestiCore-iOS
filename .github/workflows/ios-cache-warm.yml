@@ -15,6 +15,9 @@ concurrency:
   group: ios-cache-warm
   cancel-in-progress: true
 
+env:
+  XCODE_COMPILATION_CACHE_ENABLED: 'NO'
+
 jobs:
   warm:
     runs-on: self-hosted
@@ -33,12 +36,14 @@ jobs:
           tuist-token: ${{ secrets.TUIST_TOKEN }}
           derived-data-directory: FestiCore-cache-warm
       - name: Setup Tuist cache
+        id: tuist-cache
         continue-on-error: true
         timeout-minutes: 3
-        run: mise exec -- tuist setup cache
+        run: bash Scripts/setup-tuist-cache.sh
       - name: Resolve dependencies
         run: mise exec -- tuist install
       - name: Warm external module cache
+        if: steps.tuist-cache.outputs.enabled == 'true'
         run: bash Scripts/warm-ci-module-cache.sh
       - name: Clean cache warm DerivedData
         if: always()

@@ -62,6 +62,11 @@ class WarmCIModuleCacheTests(unittest.TestCase):
         self.assertIn("--no-upload", calls[1])
         self.assertIn("::warning::", result.stdout)
 
+    def test_quota_failure_with_account_capitalization_retries(self):
+        result, calls = self.run_warm(1, QUOTA_MESSAGE.replace("festicore", "FestiCore"))
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(len(calls), 2)
+
     def test_other_failure_stays_failed(self):
         result, calls = self.run_warm(1, "Compilation failed")
         self.assertNotEqual(result.returncode, 0)

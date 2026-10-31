@@ -8,8 +8,7 @@ if mise exec -- tuist cache warm --cache-profile only-external --configuration S
   exit 0
 fi
 
-quota_message="The account 'festicore' has reached the limits of the plan 'Tuist Air' and requires upgrading to the plan 'Tuist Pro'."
-if ! grep -Fq "$quota_message" "$log_file"; then
+if ! grep -Fq 'has reached the limits of the plan' "$log_file"; then
   exit 1
 fi
 
