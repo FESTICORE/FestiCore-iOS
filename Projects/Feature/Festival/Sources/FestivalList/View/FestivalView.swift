@@ -28,9 +28,11 @@ public struct FestivalView: View {
 private extension FestivalView {
   var festivalListScreen: some View {
     VStack(spacing: .zero) {
-      if (store.connection != .live && store.connection != .unavailable) || store.cacheReadFailed {
-        status
-          .padding(.horizontal, FestiCoreSpacing.paddingP16)
+      if store.viewState == .loading || !store.festivals.isEmpty || store.cacheReadFailed {
+        if (store.connection != .live && store.connection != .unavailable) || store.cacheReadFailed {
+          status
+            .padding(.horizontal, FestiCoreSpacing.paddingP16)
+        }
       }
       festivalList
     }
