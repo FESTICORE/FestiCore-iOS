@@ -33,6 +33,7 @@ struct FestivalCoordinator {
     case reloadBookmarks(userID: String?)
     case accountChanged
     case sessionChanged(hasSession: Bool, userID: String?)
+    case myScheduleSaved(festivalID: String, setIDs: Set<String>)
   }
 
   enum Delegate {
@@ -73,6 +74,9 @@ struct FestivalCoordinator {
 
     case let .sessionChanged(hasSession, userID):
       return broadcast(state, .sessionChanged(hasSession: hasSession, userID: userID))
+
+    case let .myScheduleSaved(festivalID, setIDs):
+      return broadcast(state, .myScheduleSaved(festivalID: festivalID, setIDs: setIDs))
 
     case .delegate:
       return .none

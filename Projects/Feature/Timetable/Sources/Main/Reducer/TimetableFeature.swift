@@ -35,6 +35,7 @@ public struct TimetableFeature {
   public struct ScheduleSave: Equatable, Sendable {
     let setIDs: [String]
     let clientAt: Date
+    let generation: Int
   }
 
   enum CancelID {
@@ -65,6 +66,7 @@ public struct TimetableFeature {
     /// 내 일정에 넣은 직후 시트 위에 보이는 "내 일정에 추가됐어요" 토스트
     public var isScheduleToastVisible = false
     var loadRequestID = 0
+    var accountGeneration = 0
     var isSaving = false
     var needsSave = false
     var lastClientAt: Date?
@@ -175,6 +177,8 @@ public struct TimetableFeature {
     case delegate(TimetableDelegate)
     /// 선택한 축제가 바뀌었다. 팩이 없으면 nil이다.
     case festivalChanged(String?)
+    /// 인증 계정이 바뀌거나 세션을 잃었다.
+    case accountChanged
     /// 같은 축제의 팩이 갱신돼 공연 목록이 바뀌었다.
     case packUpdated
     /// 같은 축제로 타임테이블 탭에 다시 들어왔다.
@@ -210,6 +214,9 @@ public struct TimetableFeature {
 
       case let .festivalChanged(festivalID):
         return changeFestival(state: &state, to: festivalID)
+
+      case .accountChanged:
+        return changeAccount(state: &state)
 
       case .packUpdated:
         return trimSchedule(state: &state)

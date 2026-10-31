@@ -40,8 +40,10 @@ struct FestivalFlagFeatureTests {
       $0.festivalID = "new"
       $0.snapshot = nil
       $0.viewState = .idle
+      $0.generation = 1
     }
-    await store.send(.loaded("old", old))
+    await store.send(.loaded("old", generation: 0, old))
+    await store.send(.failed("old", generation: 0, .unavailable))
   }
 
   @Test func invalidResponseKeepsExistingFlagsForRecoveryDisplay() async {
@@ -104,6 +106,7 @@ struct FestivalFlagFeatureTests {
     await store.send(.accountChanged) {
       $0.snapshot = nil
       $0.viewState = .idle
+      $0.generation = 1
     }
   }
 
@@ -136,12 +139,51 @@ struct FestivalFlagFeatureTests {
     await store.send(.refresh) { $0.viewState = .loading }
     while !started.value { await Task.yield() }
     signedIn.setValue(false)
-    await store.send(.accountChanged) { $0.snapshot = nil }
+    await store.send(.accountChanged) {
+      $0.snapshot = nil
+      $0.generation = 1
+    }
     await store.receive(\.loaded) {
       $0.snapshot = current
       $0.viewState = .loaded
     }
+    await store.send(.loaded("festival", generation: 0, previous))
+    await store.send(.failed("festival", generation: 0, .unavailable))
     await clock.run()
+    #expect(store.state.snapshot == current)
+  }
+
+  @Test func previousFestivalGenerationIsIgnoredAfterReturningToSameFestival() async {
+    let previous = FestivalLiveBoardSnapshot(
+      festivalID: "festival", activeFlags: [],
+      followedFlags: [.init(id: "previous", name: "이전 깃발", status: "active", zoneID: nil, activity: nil, thumbnailURL: nil)],
+      crew: nil
+    )
+    let current = FestivalLiveBoardSnapshot(festivalID: "festival", activeFlags: [], followedFlags: [], crew: nil)
+    let store = TestStore(initialState: FestivalFlagFeature.State(festivalID: "festival")) {
+      FestivalFlagFeature()
+    } withDependencies: {
+      $0.festivalLiveBoardService = StubLiveBoardService(result: .success(current))
+    }
+
+    await store.send(.festivalChanged("other")) {
+      $0.festivalID = "other"
+      $0.generation = 1
+    }
+    await store.send(.festivalChanged("festival")) {
+      $0.festivalID = "festival"
+      $0.generation = 2
+    }
+    await store.send(.appeared) {
+      $0.isVisible = true
+      $0.viewState = .loading
+    }
+    await store.receive(\.loaded) {
+      $0.snapshot = current
+      $0.viewState = .loaded
+    }
+    await store.send(.loaded("festival", generation: 0, previous))
+    await store.send(.failed("festival", generation: 0, .unavailable))
     #expect(store.state.snapshot == current)
   }
 }

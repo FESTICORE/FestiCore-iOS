@@ -164,6 +164,7 @@ public struct FestivalFeature {
     case reloadBookmarks(userID: String?)
     case accountChanged
     case sessionChanged(hasSession: Bool, userID: String?)
+    case myScheduleSaved(festivalID: String, setIDs: Set<String>)
   }
 
   @CasePathable
@@ -391,6 +392,10 @@ public struct FestivalFeature {
 
       case let .sessionChanged(hasSession, userID):
         guard state.hasSession != hasSession || state.sessionUserID != userID else { return .none }
+        if let bookedUserID = state.bookedUserID, bookedUserID != userID {
+          state.bookedUserID = nil
+          state.bookedFestivalIDs = []
+        }
         state.hasSession = hasSession
         state.sessionUserID = userID
         state.accountGeneration += 1
@@ -402,6 +407,13 @@ public struct FestivalFeature {
           state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
           loadMySchedule(&state)
         )
+
+      case let .myScheduleSaved(festivalID, setIDs):
+        guard state.selectedFestivalID == festivalID,
+              state.hasSession, state.isLiveBoardVisible else { return .none }
+        state.myScheduleRequestID += 1
+        state.mySchedule = MySchedule(festivalID: festivalID, setIDs: setIDs)
+        return .cancel(id: CancelID.mySchedule)
 
       case .delegate:
         return .none

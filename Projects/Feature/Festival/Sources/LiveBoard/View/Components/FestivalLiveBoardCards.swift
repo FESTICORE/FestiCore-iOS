@@ -116,6 +116,7 @@ struct FestivalLiveBoardFlagTile: View {
     }
     .padding(FestiCoreSpacing.paddingP12)
     .frame(width: 156, alignment: .topLeading)
+    .frame(minHeight: 204, alignment: .top)
     .background(FestiCoreSemanticColor.backgroundElevated.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
     .accessibilityElement(children: .combine)
   }

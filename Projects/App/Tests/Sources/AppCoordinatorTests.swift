@@ -297,6 +297,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     }
+    store.exhaustivity = .off
 
     await store.send(.inner(.profileUpdated(generation: 1, .failure(.unauthenticated)))) {
       guard case var .home(home) = $0 else { return }
@@ -308,8 +309,17 @@ struct AppCoordinatorTests {
       $0 = .home(home)
     }
     await store.receive(\.scope.home.festival.accountChanged)
-    await store.receive(\.scope.home.flag.accountChanged)
-    await store.receive(\.scope.home.festival.router)
+    await store.receive(\.scope.home.flag.accountChanged) {
+      guard case var .home(home) = $0 else { return }
+      home.flagState.generation = 1
+      $0 = .home(home)
+    }
+    await store.receive {
+      guard case .scope(.home(.festival(.router(.routeAction(id: 0, action: .festivalList(.accountChanged)))))) = $0 else {
+        return false
+      }
+      return true
+    }
     guard case let .home(current) = store.state else {
       Issue.record("홈 상태가 아니에요")
       return
@@ -354,6 +364,7 @@ struct AppCoordinatorTests {
     home.flagState = FestivalFlagFeature.State(festivalID: "festival")
     home.flagState.snapshot = snapshot
     home.flagState.viewState = .loaded
+    home.timetableState.mySetIDs = ["set-a"]
     home.festivalState.routes = [.root(.festivalList(board), embedInNavigationView: true)]
     home.festivalState.routes.push(.liveBoard(board))
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
@@ -370,6 +381,9 @@ struct AppCoordinatorTests {
     }
     #expect(cleared.flagState.snapshot == nil)
     #expect(cleared.flagState.viewState == .idle)
+    await store.receive(\.scope.home.timetable.accountChanged)
+    guard case let .home(scheduleCleared) = store.state else { return }
+    #expect(scheduleCleared.timetableState.mySetIDs.isEmpty)
     for route in cleared.festivalState.routes {
       let screen: FestivalFeature.State
       switch route.screen {
@@ -796,7 +810,10 @@ struct AppCoordinatorTests {
 
     await store.send(.tabTapped(.flag))
     await store.receive(\.selectTab) { $0.selectedTab = .flag }
-    await store.receive(\.flag.festivalChanged) { $0.flagState.festivalID = "festival-a" }
+    await store.receive(\.flag.festivalChanged) {
+      $0.flagState.festivalID = "festival-a"
+      $0.flagState.generation = 1
+    }
   }
 
   @Test func myLogoutClearsVisibleAccountOnlyAfterSuccess() async {
@@ -1134,6 +1151,221 @@ struct AppCoordinatorTests {
     }
     guard case let .home(unchanged) = store.state else { return }
     #expect(unchanged.authFlow.profile?.user.id == "user-a")
+  }
+
+  @Test func sessionExpiryClearsAccountDataOnlyWhileSignedIn() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.hasSession = true
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.verifiedUserID = "user-a"
+    home.authFlow.lastVerifiedUserID = "user-a"
+    home.authFlow.presentation = .onboarding
+    home.authFlow.isLoading = true
+    home.authFlow.nickname = "작성 중"
+    home.authFlow.acceptedTerms = true
+    home.authFlow.consentedVersion = "2026-10"
+    home.authFlow.pushOptIn = true
+    home.authFlow.message = "이전 안내"
+    home.authFlow.hasRetriedTermsUpdate = true
+    home.authFlow.termsUpdateExhausted = true
+    home.flagState.snapshot = FestivalLiveBoardSnapshot(
+      festivalID: "festival", activeFlags: [], followedFlags: [], crew: nil
+    )
+    home.timetableState.mySetIDs = ["set-a"]
+    var board = FestivalFeature.State(selectedFestivalID: "festival")
+    board.hasSession = true
+    board.sessionUserID = "user-a"
+    board.bookedUserID = "user-a"
+    board.bookedFestivalIDs = ["festival"]
+    home.festivalState.routes.push(.liveBoard(board))
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.sessionExpired))
+    await store.receive {
+      guard case .scope(.home(.festival(.accountChanged))) = $0 else { return false }
+      return true
+    }
+    await store.receive {
+      guard case .scope(.home(.flag(.accountChanged))) = $0 else { return false }
+      return true
+    }
+    await store.receive {
+      guard case .scope(.home(.timetable(.accountChanged))) = $0 else { return false }
+      return true
+    }
+    guard case let .home(expired) = store.state else { return }
+    #expect(!expired.authFlow.hasSession)
+    #expect(expired.authFlow.profile == nil)
+    #expect(expired.authFlow.verifiedUserID == nil)
+    #expect(expired.authFlow.lastVerifiedUserID == nil)
+    #expect(expired.authFlow.generation == 1)
+    #expect(expired.authFlow.presentation == nil)
+    #expect(!expired.authFlow.isLoading)
+    #expect(expired.authFlow.nickname.isEmpty)
+    #expect(!expired.authFlow.acceptedTerms)
+    #expect(expired.authFlow.consentedVersion == nil)
+    #expect(!expired.authFlow.pushOptIn)
+    #expect(expired.authFlow.message == nil)
+    #expect(!expired.authFlow.hasRetriedTermsUpdate)
+    #expect(!expired.authFlow.termsUpdateExhausted)
+    #expect(expired.flagState.snapshot == nil)
+    #expect(expired.timetableState.mySetIDs.isEmpty)
+    #expect(expired.festivalState.routes.last?.screen.liveBoard?.bookedFestivalIDs.isEmpty == true)
+
+    await store.send(.inner(.sessionExpired))
+    guard case let .home(unchanged) = store.state else { return }
+    #expect(unchanged.authFlow.generation == 1)
+  }
+
+  @Test func signedOutProfileFailureKeepsLocalTimetableSelection() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.isLoading = true
+    home.timetableState.mySetIDs = ["local-set"]
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.profileLoaded(generation: 1, .failure(.unauthenticated))))
+    await store.finish()
+    guard case let .home(signedOut) = store.state else { return }
+    #expect(signedOut.timetableState.mySetIDs == ["local-set"])
+  }
+
+  @Test func sessionExpiryDuringLogoutKeepsAccountOperationInFlight() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.hasSession = true
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.generation = 2
+    home.authFlow.accountOperationGeneration = 2
+    home.authFlow.isLoading = true
+    home.timetableState.mySetIDs = ["set-a"]
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+
+    await store.send(.inner(.sessionExpired))
+    #expect(store.state == AppCoordinator.State.home(home))
+  }
+
+  @Test func expiryNotificationIsSubscribedAfterSplashTransition() async {
+    let (events, continuation) = AsyncStream<Void>.makeStream()
+    let store = TestStore(initialState: AppCoordinator.State()) { AppCoordinator() } withDependencies: {
+      $0.authSessionExpiryClient = AuthSessionExpiryClient(events: { events })
+      $0.festivalCatalogService = EmptyFestivalCatalogService()
+      $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-a"))
+      $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
+    }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.completeHomeTransition))
+    await store.receive(\.view.foregrounded)
+    await store.receive(\.inner.profileLoaded)
+    guard case let .home(signedIn) = store.state else { return }
+    #expect(signedIn.authFlow.hasSession)
+    continuation.yield(())
+    await store.receive(\.inner.sessionExpired)
+    guard case let .home(expired) = store.state else { return }
+    #expect(!expired.authFlow.hasSession)
+    #expect(expired.authFlow.profile == nil)
+    #expect(expired.authFlow.generation == signedIn.authFlow.generation + 1)
+    continuation.finish()
+    await store.finish()
+  }
+
+  @Test func verifiedAccountSwitchClearsFlagAndTimetableAndLoadsNewBookmarks() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.hasSession = true
+    home.authFlow.verifiedUserID = "user-a"
+    home.authFlow.generation = 1
+    home.flagState.snapshot = FestivalLiveBoardSnapshot(
+      festivalID: "festival", activeFlags: [], followedFlags: [], crew: nil
+    )
+    home.timetableState.mySetIDs = ["set-a"]
+    var board = FestivalFeature.State(selectedFestivalID: "festival")
+    board.hasSession = true
+    board.sessionUserID = "user-a"
+    board.bookedUserID = "user-a"
+    board.bookedFestivalIDs = ["booked-a"]
+    home.festivalState.routes.push(.liveBoard(board))
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.festivalBookedStore = FestivalBookedStore(
+        load: { $0 == "user-b" ? ["booked-b"] : ["booked-a"] },
+        save: { _, _ in },
+        offlineEligible: { _ in true }
+      )
+    }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-b", isLoggedIn: true)))
+    guard case let .home(switched) = store.state else { return }
+    #expect(switched.flagState.snapshot == nil)
+    await store.receive {
+      guard case .scope(.home(.festival(.reloadBookmarks(userID: "user-b")))) = $0 else { return false }
+      return true
+    }
+    await store.receive {
+      guard case .scope(.home(.flag(.accountChanged))) = $0 else { return false }
+      return true
+    }
+    await store.receive {
+      guard case .scope(.home(.timetable(.accountChanged))) = $0 else { return false }
+      return true
+    }
+    await store.receive {
+      guard case .scope(.home(.festival(.sessionChanged(hasSession: true, userID: "user-b")))) = $0 else { return false }
+      return true
+    }
+    await store.receive(\.scope.home.festival.router)
+    await store.receive(\.scope.home.festival.router)
+    await store.receive(\.scope.home.festival.router)
+    await store.receive(\.scope.home.festival.router)
+    guard case let .home(updated) = store.state else { return }
+    #expect(updated.timetableState.mySetIDs.isEmpty)
+    #expect(updated.festivalState.routes.last?.screen.liveBoard?.bookedUserID == "user-b")
+    #expect(updated.festivalState.routes.last?.screen.liveBoard?.bookedFestivalIDs == ["booked-b"])
+
+    await store.send(.inner(.profileLoaded(generation: 1, .failure(.offline))))
+    guard case let .home(offline) = store.state else { return }
+    #expect(offline.festivalState.routes.last?.screen.liveBoard?.bookedUserID == "user-b")
+    #expect(offline.festivalState.routes.last?.screen.liveBoard?.bookedFestivalIDs == ["booked-b"])
+  }
+
+  @Test func loginFromSignedOutDoesNotDiscardLocalTimetableSelection() async {
+    var home = MainTabCoordinator.State()
+    home.timetableState.mySetIDs = ["local-set"]
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in }, offlineEligible: { _ in true })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.sessionRestored(generation: 0, userID: "user-a", isLoggedIn: true)))
+    await store.receive {
+      guard case .scope(.home(.festival(.sessionChanged(hasSession: true, userID: "user-a")))) = $0 else { return false }
+      return true
+    }
+    guard case let .home(loggedIn) = store.state else { return }
+    #expect(loggedIn.timetableState.mySetIDs == ["local-set"])
+  }
+
+  @Test func timetableSaveUpdatesVisibleLiveBoard() async {
+    var home = MainTabCoordinator.State()
+    var board = FestivalFeature.State(selectedFestivalID: "festival")
+    board.hasSession = true
+    board.isLiveBoardVisible = true
+    home.festivalState.routes.push(.liveBoard(board))
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.timetable(.delegate(.scheduleSaved(festivalID: "festival", setIDs: ["set-a"]))))))
+    await store.receive {
+      guard case .scope(.home(.festival(.myScheduleSaved(festivalID: "festival", setIDs: ["set-a"])))) = $0 else { return false }
+      return true
+    }
+    await store.receive {
+      guard case .scope(.home(.festival(.router(.routeAction(id: 1, action: .liveBoard(.myScheduleSaved)))))) = $0 else { return false }
+      return true
+    }
+    guard case let .home(updated) = store.state else { return }
+    #expect(updated.festivalState.routes.last?.screen.liveBoard?.mySchedule?.setIDs == ["set-a"])
   }
 }
 

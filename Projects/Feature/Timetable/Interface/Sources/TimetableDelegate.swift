@@ -12,4 +12,5 @@ public enum TimetableDelegate: Equatable, Sendable {
   case showChanges
   case search
   case requestNotification
+  case scheduleSaved(festivalID: String, setIDs: Set<String>)
 }

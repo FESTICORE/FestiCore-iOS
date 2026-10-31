@@ -23,6 +23,7 @@ public struct FestivalFlagFeature {
     public var snapshot: FestivalLiveBoardSnapshot?
     public var viewState: ViewState = .idle
     public var isVisible = false
+    public var generation = 0
 
     public init(festivalID: String? = nil) {
       self.festivalID = festivalID
@@ -42,8 +43,8 @@ public struct FestivalFlagFeature {
     case festivalChanged(String?)
     case refresh
     case accountChanged
-    case loaded(String, FestivalLiveBoardSnapshot)
-    case failed(String, LoadFailure)
+    case loaded(String, generation: Int, FestivalLiveBoardSnapshot)
+    case failed(String, generation: Int, LoadFailure)
   }
 
   public enum LoadFailure: Equatable {
@@ -71,6 +72,7 @@ public struct FestivalFlagFeature {
         state.festivalID = id
         state.snapshot = nil
         state.viewState = .idle
+        state.generation += 1
         return state.isVisible ? load(&state) : .cancel(id: CancelID.refresh)
 
       case .refresh:
@@ -78,16 +80,17 @@ public struct FestivalFlagFeature {
 
       case .accountChanged:
         state.clearAccountData()
+        state.generation += 1
         return state.isVisible ? load(&state) : .cancel(id: CancelID.refresh)
 
-      case let .loaded(id, snapshot):
-        guard state.festivalID == id, state.isVisible else { return .none }
+      case let .loaded(id, generation, snapshot):
+        guard state.festivalID == id, state.generation == generation, state.isVisible else { return .none }
         state.snapshot = snapshot
         state.viewState = .loaded
         return .none
 
-      case let .failed(id, failure):
-        guard state.festivalID == id, state.isVisible else { return .none }
+      case let .failed(id, generation, failure):
+        guard state.festivalID == id, state.generation == generation, state.isVisible else { return .none }
         switch failure {
         case .deviceNotRegistered: state.viewState = .deviceNotRegistered
         case .invalidFestivalID: state.viewState = .invalidFestivalID
@@ -105,17 +108,18 @@ public struct FestivalFlagFeature {
       return .cancel(id: CancelID.refresh)
     }
     state.viewState = .loading
+    let generation = state.generation
     return .run { send in
       do {
-        await send(.loaded(id, try await liveBoardService.refresh(for: id)))
+        await send(.loaded(id, generation: generation, try await liveBoardService.refresh(for: id)))
       } catch FestivalLiveBoardError.deviceNotRegistered {
-        await send(.failed(id, .deviceNotRegistered))
+        await send(.failed(id, generation: generation, .deviceNotRegistered))
       } catch FestivalLiveBoardError.invalidFestivalID {
-        await send(.failed(id, .invalidFestivalID))
+        await send(.failed(id, generation: generation, .invalidFestivalID))
       } catch FestivalLiveBoardError.invalidResponse {
-        await send(.failed(id, .invalidResponse))
+        await send(.failed(id, generation: generation, .invalidResponse))
       } catch {
-        await send(.failed(id, .unavailable))
+        await send(.failed(id, generation: generation, .unavailable))
       }
     }
     .cancellable(id: CancelID.refresh, cancelInFlight: true)

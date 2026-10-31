@@ -17,6 +17,9 @@ struct AppCoordinator {
   @Dependency(\.authUseCase) private var authUseCase
   @Dependency(\.authService) private var authService
   @Dependency(\.festivalBookedStore) private var bookedStore
+  @Dependency(\.authSessionExpiryClient) private var authSessionExpiryClient
+
+  private enum CancelID { case sessionExpiry }
 
   struct AuthFlow: Equatable {
     enum Presentation: Equatable {
@@ -45,6 +48,14 @@ struct AppCoordinator {
     var hasRetriedTermsUpdate = false
     var termsUpdateExhausted = false
     var message: String?
+
+    mutating func clearConsentAndRetryState() {
+      acceptedTerms = false
+      consentedVersion = nil
+      message = nil
+      hasRetriedTermsUpdate = false
+      termsUpdateExhausted = false
+    }
   }
 
   @ObservableState
@@ -102,6 +113,7 @@ struct AppCoordinator {
   @CasePathable
   enum InnerAction {
     case completeHomeTransition
+    case sessionExpired
     case sessionRestored(generation: Int, userID: String?, isLoggedIn: Bool)
     case profileLoaded(generation: Int, Result<AuthProfile, ProfileFailure>)
     case profileUpdated(generation: Int, Result<AuthUser, ProfileFailure>)
@@ -162,11 +174,28 @@ struct AppCoordinator {
     }
     .ifCaseLet(\.splash, action: \.scope.splash) { SplashFeature() }
     .ifCaseLet(\.home, action: \.scope.home) { MainTabCoordinator() }
-    .onChange(of: \.festivalSession) { _, state in
+    .onChange(of: \.festivalSession) { previous, state in
       let session = state.festivalSession
-      return .send(.scope(.home(.festival(.sessionChanged(
+      let changed: Effect<Action> = .send(.scope(.home(.festival(.sessionChanged(
         hasSession: session.hasSession, userID: session.userID
       )))))
+      let switchedAccounts = previous.userID != nil && session.userID != nil
+        && previous.userID != session.userID
+      guard previous.hasSession else { return changed }
+      if switchedAccounts, case var .home(home) = state {
+        home.flagState.clearAccountData()
+        state = .home(home)
+        return .concatenate(
+          .send(.scope(.home(.flag(.accountChanged)))),
+          .send(.scope(.home(.timetable(.accountChanged)))),
+          changed
+        )
+      }
+      guard !session.hasSession else { return changed }
+      return .concatenate(
+        .send(.scope(.home(.timetable(.accountChanged)))),
+        changed
+      )
     }
   }
 }
@@ -211,11 +240,7 @@ private extension AppCoordinator {
       }
       home.authFlow.loginAttemptGeneration = nil
       home.authFlow.presentation = nil
-      home.authFlow.message = nil
-      home.authFlow.hasRetriedTermsUpdate = false
-      home.authFlow.termsUpdateExhausted = false
-      home.authFlow.acceptedTerms = false
-      home.authFlow.consentedVersion = nil
+      home.authFlow.clearConsentAndRetryState()
       state = .home(home)
       return .none
 
@@ -307,7 +332,38 @@ private extension AppCoordinator {
     case .completeHomeTransition:
       guard case .splash = state else { return .none }
       state = .home(.init())
-      return .send(.view(.foregrounded))
+      return .merge(
+        .send(.view(.foregrounded)),
+        .run { send in
+          for await _ in authSessionExpiryClient.events() {
+            await send(.inner(.sessionExpired))
+          }
+        }
+        .cancellable(id: CancelID.sessionExpiry, cancelInFlight: true)
+      )
+
+    case .sessionExpired:
+      guard case var .home(home) = state,
+            home.authFlow.hasSession,
+            home.authFlow.accountOperationGeneration == nil else { return .none }
+      home.authFlow.hasSession = false
+      home.authFlow.profile = nil
+      home.authFlow.verifiedUserID = nil
+      home.authFlow.lastVerifiedUserID = nil
+      home.authFlow.generation += 1
+      home.authFlow.isLoading = false
+      home.authFlow.loginAttemptGeneration = nil
+      home.authFlow.pendingFestivalID = nil
+      home.authFlow.pendingOwnerID = nil
+      if home.authFlow.presentation != .login {
+        home.authFlow.presentation = nil
+      }
+      home.authFlow.nickname = ""
+      home.authFlow.pushOptIn = false
+      home.authFlow.clearConsentAndRetryState()
+      let clear = clearAccountData(&home)
+      state = .home(home)
+      return clear
 
     case let .sessionRestored(generation, userID, isLoggedIn):
       guard case var .home(home) = state,
@@ -648,7 +704,7 @@ private extension AppCoordinator {
       ?? .send(.scope(.home(.festival(.reloadBookmarks(userID: userID)))))
   }
 
-  /// 이전 계정의 깃발·라이브 보드·예약 목록을 바로 비우고, 보이는 화면은 새 인증 상태로 다시 불러온다.
+  /// 이전 계정의 깃발·라이브 보드·예약 목록을 바로 비운다.
   func clearAccountData(_ home: inout MainTabCoordinator.State) -> Effect<Action> {
     home.flagState.clearAccountData()
     home.festivalState.clearAccountData()

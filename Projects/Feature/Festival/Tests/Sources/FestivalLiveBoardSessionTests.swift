@@ -202,15 +202,14 @@ struct FestivalLiveBoardSessionTests {
       $0.sessionUserID = nil
       $0.accountGeneration = 1
       $0.liveBoard = nil
+      $0.bookedUserID = nil
+      $0.bookedFestivalIDs = []
     }
     await store.receive(\.inner.liveBoardLoaded) {
       $0.liveBoard = emptyBoard
       $0.liveBoardReceivedAt = receivedAt
     }
-    await store.send(.accountChanged) {
-      $0.bookedUserID = nil
-      $0.bookedFestivalIDs = []
-    }
+    await store.send(.accountChanged)
     #expect(calls.value == 1)
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
@@ -224,6 +223,66 @@ struct FestivalLiveBoardSessionTests {
 
     await store.send(.view(.loginTapped))
     await store.receive(\.delegate.loginRequested)
+  }
+
+  @Test("예약 목록이 새 사용자 ID와 같으면 세션 변경에도 보존한다")
+  func sessionChangePreservesAlreadyReloadedBookmarks() async {
+    let store = TestStore(initialState: {
+      var state = FestivalFeature.State(selectedFestivalID: "fst")
+      state.bookedUserID = "user-b"
+      state.bookedFestivalIDs = ["fst"]
+      return state
+    }()) { FestivalFeature() }
+
+    await store.send(.sessionChanged(hasSession: true, userID: "user-b")) {
+      $0.hasSession = true
+      $0.sessionUserID = "user-b"
+      $0.accountGeneration = 1
+    }
+    #expect(store.state.bookedFestivalIDs == ["fst"])
+  }
+
+  @Test("사용자가 바뀌면 이전 사용자 예약 목록을 비운다")
+  func sessionChangeClearsDifferentUserBookmarks() async {
+    let store = TestStore(initialState: {
+      var state = FestivalFeature.State(selectedFestivalID: "fst")
+      state.hasSession = true
+      state.sessionUserID = "user-a"
+      state.bookedUserID = "user-a"
+      state.bookedFestivalIDs = ["fst"]
+      return state
+    }()) { FestivalFeature() }
+
+    await store.send(.sessionChanged(hasSession: true, userID: "user-b")) {
+      $0.bookedUserID = nil
+      $0.bookedFestivalIDs = []
+      $0.sessionUserID = "user-b"
+      $0.accountGeneration = 1
+    }
+  }
+
+  @Test("저장한 일정은 보이는 같은 축제의 라이브 보드에만 반영한다")
+  func savedScheduleUpdatesVisibleBoardOnly() async {
+    let store = TestStore(initialState: {
+      var state = FestivalFeature.State(selectedFestivalID: "fst")
+      state.hasSession = true
+      state.isLiveBoardVisible = true
+      state.myScheduleRequestID = 1
+      return state
+    }()) { FestivalFeature() }
+
+    await store.send(.myScheduleSaved(festivalID: "other", setIDs: ["other"]))
+    await store.send(.myScheduleSaved(festivalID: "fst", setIDs: ["set-a"])) {
+      $0.myScheduleRequestID = 2
+      $0.mySchedule = .init(festivalID: "fst", setIDs: ["set-a"])
+    }
+    await store.send(.inner(.myScheduleLoaded(festivalID: "fst", requestID: 1, generation: 0, ["stale"])))
+    await store.send(.view(.liveBoardOnDisappear)) {
+      $0.isLiveBoardVisible = false
+      $0.mySchedule = nil
+      $0.myScheduleRequestID = 3
+    }
+    await store.send(.myScheduleSaved(festivalID: "fst", setIDs: ["hidden"]))
   }
 }
 

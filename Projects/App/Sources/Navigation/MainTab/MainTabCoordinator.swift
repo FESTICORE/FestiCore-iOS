@@ -136,6 +136,9 @@ struct MainTabCoordinator {
         case .live, .my: return .none
         }
 
+      case let .timetable(.delegate(.scheduleSaved(id, ids))):
+        return .send(.festival(.myScheduleSaved(festivalID: id, setIDs: ids)))
+
       case .timetable:
         return .none
 
