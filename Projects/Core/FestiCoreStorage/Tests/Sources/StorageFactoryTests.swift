@@ -26,8 +26,9 @@ struct SecureStorageKeyTests {
   func 토큰_키를_각각_보유한다() {
     #expect(SecureStorageKey.accessToken.rawValue == "ACCESS_TOKEN")
     #expect(SecureStorageKey.refreshToken.rawValue == "REFRESH_TOKEN")
+    #expect(SecureStorageKey.credentialIntegrity.rawValue == "CREDENTIAL_INTEGRITY")
     #expect(SecureStorageKey.apnsToken.rawValue == "APNS_DEVICE_TOKEN")
     #expect(!SecureStorageKey.all.contains(.apnsToken))
-    #expect(Set(SecureStorageKey.all) == [.accessToken, .refreshToken, .sessionUserID])
+    #expect(Set(SecureStorageKey.all) == [.accessToken, .refreshToken, .credentialIntegrity, .sessionUserID])
   }
 }

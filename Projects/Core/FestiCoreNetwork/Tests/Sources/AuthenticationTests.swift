@@ -287,10 +287,11 @@ private final class RecordingCredentialStore: CredentialStore, @unchecked Sendab
     lock.withLock { credential }
   }
 
-  func save(_ credential: FestiCoreCredential) {
+  func save(_ credential: FestiCoreCredential) -> Bool {
     lock.withLock {
       self.credential = credential
       currentRevision = UUID()
+      return true
     }
   }
 

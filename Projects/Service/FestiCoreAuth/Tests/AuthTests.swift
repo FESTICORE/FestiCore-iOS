@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 import Testing
 import FestiCoreAuthInterface
 import FestiCoreNetwork
@@ -240,7 +241,7 @@ struct AuthTests {
   func failedTokenSaveRejectsRefreshReplacement() throws {
     let storage = MemorySecureStorage()
     let store = KeychainCredentialStore(storage: storage)
-    #expect(store.saveResult(old))
+    #expect(store.save(old))
     let revision = try #require(store.revision(matching: old))
     storage.failTokenSaveFor = .refreshToken
 
@@ -252,6 +253,46 @@ struct AuthTests {
     #expect(store.load() == nil)
     #expect(storage.load(.accessToken) == nil)
     #expect(storage.load(.refreshToken) == nil)
+  }
+
+  @Test("롤백 삭제가 실패해도 혼합 토큰 쌍을 재실행에서 복원하지 않는다")
+  func failedRollbackCannotRestoreMixedTokens() throws {
+    let storage = MemorySecureStorage()
+    let store = KeychainCredentialStore(storage: storage)
+    #expect(store.save(old))
+    let revision = try #require(store.revision(matching: old))
+    storage.failTokenSaveFor = .refreshToken
+    storage.failTokenRemovalFor = [.accessToken, .refreshToken]
+
+    #expect(store.replace(
+      FestiCoreCredential(accessToken: "new", refreshToken: "new-refresh"),
+      ifCurrent: old,
+      revision: revision
+    ) == false)
+    #expect(storage.load(.accessToken) == "new")
+    #expect(storage.load(.refreshToken) == "old-refresh")
+    #expect(store.load() == nil)
+    #expect(KeychainCredentialStore(storage: storage).load() == nil)
+  }
+
+  @Test("갱신 저장 실패는 공유 인증 세션 제거를 알린다")
+  func failedRefreshSaveInvokesPersistenceHandler() throws {
+    let storage = MemorySecureStorage()
+    let store = GuardedCredentialStore(base: KeychainCredentialStore(storage: storage))
+    store.allowSaves()
+    #expect(store.save(old))
+    let revision = try #require(store.revision(matching: old))
+    let failures = OSAllocatedUnfairLock(initialState: 0)
+    store.setPersistenceFailureHandler { failures.withLock { $0 += 1 } }
+    storage.failTokenSaveFor = .refreshToken
+
+    #expect(store.replace(
+      FestiCoreCredential(accessToken: "new", refreshToken: "new-refresh"),
+      ifCurrent: old,
+      revision: revision
+    ) == false)
+    #expect(failures.withLock { $0 } == 1)
+    #expect(store.load() == nil)
   }
 
   @Test("로그인 응답은 확정 전까지 Keychain과 로그인 상태를 바꾸지 않는다")
@@ -368,6 +409,7 @@ private final class MemorySecureStorage: SecureStorage, @unchecked Sendable {
   private var failsIdentityRemoval = false
   private var failsIdentitySave = false
   private var tokenSaveFailureKey: SecureStorageKey?
+  private var tokenRemovalFailureKeys: Set<SecureStorageKey> = []
 
   var failIdentityRemoval: Bool {
     get { values.withLock { failsIdentityRemoval } }
@@ -384,6 +426,11 @@ private final class MemorySecureStorage: SecureStorage, @unchecked Sendable {
     set { values.withLock { tokenSaveFailureKey = newValue } }
   }
 
+  var failTokenRemovalFor: Set<SecureStorageKey> {
+    get { values.withLock { tokenRemovalFailureKeys } }
+    set { values.withLock { tokenRemovalFailureKeys = newValue } }
+  }
+
   func save(_ value: String, for key: SecureStorageKey) throws(SecureStorageError) {
     let failed = values.withLock {
       if key == .sessionUserID, failsIdentitySave { return true }
@@ -397,6 +444,7 @@ private final class MemorySecureStorage: SecureStorage, @unchecked Sendable {
   func remove(_ key: SecureStorageKey) throws(SecureStorageError) {
     let failed = values.withLock {
       if key == .sessionUserID, failsIdentityRemoval { return true }
+      if tokenRemovalFailureKeys.contains(key) { return true }
       stored.removeValue(forKey: key)
       return false
     }

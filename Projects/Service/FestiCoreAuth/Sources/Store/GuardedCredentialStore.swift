@@ -17,6 +17,7 @@ final class GuardedCredentialStore: CredentialStore {
   private struct State {
     var isBarred: Bool
     var revision = UUID()
+    var onPersistenceFailure: (@Sendable () -> Void)?
   }
 
   init(base: KeychainCredentialStore) {
@@ -25,18 +26,14 @@ final class GuardedCredentialStore: CredentialStore {
   }
 
   func load() -> FestiCoreCredential? {
-    state.withLock { _ in base.load() }
-  }
-
-  func save(_ credential: FestiCoreCredential) {
-    _ = saveResult(credential)
+    state.withLock { state in state.isBarred ? nil : base.load() }
   }
 
   @discardableResult
-  func saveResult(_ credential: FestiCoreCredential) -> Bool {
+  func save(_ credential: FestiCoreCredential) -> Bool {
     state.withLock { state in
       guard !state.isBarred else { return false }
-      let saved = base.saveResult(credential)
+      let saved = base.save(credential)
       if !saved { state.isBarred = true }
       state.revision = UUID()
       return saved
@@ -53,8 +50,11 @@ final class GuardedCredentialStore: CredentialStore {
   func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {
     state.withLock { state in
       guard !state.isBarred, state.revision == revision, base.load() == current else { return false }
-      let saved = base.saveResult(credential)
-      if !saved { state.isBarred = true }
+      let saved = base.save(credential)
+      if !saved {
+        state.isBarred = true
+        state.onPersistenceFailure?()
+      }
       state.revision = UUID()
       return saved
     }
@@ -73,5 +73,9 @@ final class GuardedCredentialStore: CredentialStore {
       state.isBarred = false
       state.revision = UUID()
     }
+  }
+
+  func setPersistenceFailureHandler(_ handler: @escaping @Sendable () -> Void) {
+    state.withLock { $0.onPersistenceFailure = handler }
   }
 }

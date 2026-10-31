@@ -36,6 +36,10 @@ public enum AuthFactory {
     relay.set { [weak auth] credential in
       await auth?.handleAuthFailure(for: credential)
     }
+    store.setPersistenceFailureHandler { [weak auth, credentials = authenticated.credentials] in
+      credentials.update(nil)
+      Task { await auth?.handlePersistenceFailure() }
+    }
     return auth
   }
 }

@@ -12,8 +12,9 @@ import Foundation
 public protocol CredentialStore: Sendable {
   /// 저장된 토큰 (없으면 nil)
   func load() -> FestiCoreCredential?
-  /// 토큰 저장 (refresh 후 영속화)
-  func save(_ credential: FestiCoreCredential)
+  /// 토큰 저장 결과. 영속화 실패를 성공으로 취급하지 않는다.
+  @discardableResult
+  func save(_ credential: FestiCoreCredential) -> Bool
   /// 갱신 시작 시점의 세션 식별자. 토큰 값이 같아도 재로그인은 다른 세션이다.
   func revision(matching current: FestiCoreCredential) -> UUID?
   /// 현재 세션이 갱신을 시작한 세션과 같을 때만 원자적으로 교체한다.

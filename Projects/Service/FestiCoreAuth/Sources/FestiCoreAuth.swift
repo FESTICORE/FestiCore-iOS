@@ -60,7 +60,7 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     staged = nil
     try? identityStorage.remove(.sessionUserID)
     store.allowSaves()
-    guard store.saveResult(session.credential) else {
+    guard store.save(session.credential) else {
       clearCommittedSession()
       return false
     }
@@ -107,6 +107,14 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     guard store.load()?.refreshToken == attempted.refreshToken else { return }
     // 기존 세션의 자동 만료는 진행 중인 새 로그인의 임시 세션까지 무효로 만들지 않는다.
     clearCommittedSession()
+    NotificationCenter.default.post(name: .festiCoreAuthSessionDidExpire, object: nil)
+  }
+
+  func handlePersistenceFailure() {
+    guard store.load() == nil else { return }
+    committedSessionID = nil
+    try? identityStorage.remove(.sessionUserID)
+    credentials.update(nil)
     NotificationCenter.default.post(name: .festiCoreAuthSessionDidExpire, object: nil)
   }
 }

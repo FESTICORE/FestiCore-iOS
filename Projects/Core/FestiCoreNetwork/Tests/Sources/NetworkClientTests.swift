@@ -526,10 +526,11 @@ private final class ClientCredentialStore: CredentialStore, @unchecked Sendable 
     lock.withLock { credential }
   }
 
-  func save(_ credential: FestiCoreCredential) {
+  func save(_ credential: FestiCoreCredential) -> Bool {
     lock.withLock {
       self.credential = credential
       currentRevision = UUID()
+      return true
     }
   }
 
