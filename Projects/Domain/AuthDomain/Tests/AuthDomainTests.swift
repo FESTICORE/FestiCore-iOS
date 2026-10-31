@@ -276,7 +276,22 @@ struct AuthDomainTests {
     try await repository.signOut()
     #expect(await auth.signOutCalls == 2)
     #expect(await auth.isLoggedIn == false)
-    #expect(await client.calls == 2)
+    #expect(await client.calls == 1)
+  }
+
+  @Test("저널 준비 실패 시 로그아웃과 탈퇴 요청을 서버로 보내지 않는다")
+  func revocationJournalFailureDoesNotCallServer() async {
+    let auth = StubAuthService(loggedIn: true, prepareSucceeds: false)
+    let client = StubClient(result: .failure(.transport(.notConnected)))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.signOut() }
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.withdraw() }
+    #expect(await client.calls == 0)
+    #expect(await auth.isLoggedIn)
   }
 
   @Test("이미 로그아웃 상태라면 네트워크를 호출하지 않는다")
@@ -478,18 +493,24 @@ struct AuthDomainTests {
 private actor StubAuthService: AuthService {
   private var loggedIn: Bool
   private var clearSucceeds: Bool
+  private let prepareSucceeds: Bool
   private var withdrawalCleanupPending = false
+  private var signOutCleanupPending = false
   private(set) var tokens: [String] = []
   private(set) var signOutCalls = 0
 
-  init(loggedIn: Bool = false, clearSucceeds: Bool = true) {
+  init(loggedIn: Bool = false, clearSucceeds: Bool = true, prepareSucceeds: Bool = true) {
     self.loggedIn = loggedIn
     self.clearSucceeds = clearSucceeds
+    self.prepareSucceeds = prepareSucceeds
   }
 
   var isLoggedIn: Bool { loggedIn }
   var hasPendingWithdrawalCleanup: Bool { withdrawalCleanupPending }
+  var hasPendingSignOutCleanup: Bool { signOutCleanupPending }
   func setClearSucceeds(_ value: Bool) { clearSucceeds = value }
+  func prepareRevocation(_ kind: AuthRevocationKind) -> Bool { prepareSucceeds }
+  func cancelRevocation() -> Bool { true }
 
   func completeWithdrawal() -> Bool {
     withdrawalCleanupPending = true
@@ -534,6 +555,9 @@ private actor StubAuthService: AuthService {
     if clearSucceeds {
       loggedIn = false
       withdrawalCleanupPending = false
+      signOutCleanupPending = false
+    } else {
+      signOutCleanupPending = true
     }
     return clearSucceeds
   }

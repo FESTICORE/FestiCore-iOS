@@ -16,9 +16,11 @@ public enum AuthFactory {
   public static func make(
     refreshClient: any FestiCoreNetworkClient,
     storage: any SecureStorage,
-    baseURL: URL? = NetworkClientFactory.bundleBaseURL
+    baseURL: URL? = NetworkClientFactory.bundleBaseURL,
+    revocationJournalURL: URL? = nil
   ) -> any AuthService & AuthenticatedClientProvider {
-    let store = GuardedCredentialStore(base: KeychainCredentialStore(storage: storage))
+    let journal = SessionRevocationJournal(url: revocationJournalURL ?? defaultRevocationJournalURL)
+    let store = GuardedCredentialStore(base: KeychainCredentialStore(storage: storage, journal: journal))
     let relay = AuthFailureRelay()
     let authenticated = NetworkClientFactory.unified(
       store: store,
@@ -31,7 +33,8 @@ public enum AuthFactory {
       authenticatedClient: authenticated.client,
       store: store,
       credentials: authenticated.credentials,
-      identityStorage: storage
+      identityStorage: storage,
+      journal: journal
     )
     relay.set { [weak auth] credential in
       await auth?.handleAuthFailure(for: credential)
@@ -41,6 +44,13 @@ public enum AuthFactory {
       Task { await auth?.handlePersistenceFailure() }
     }
     return auth
+  }
+
+  private static var defaultRevocationJournalURL: URL {
+    let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+      ?? URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+        .appendingPathComponent("Library/Application Support", isDirectory: true)
+    return support.appendingPathComponent("FestiCore/session-revocation", isDirectory: false)
   }
 }
 

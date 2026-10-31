@@ -15,6 +15,7 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
   private let store: GuardedCredentialStore
   private let credentials: any CredentialUpdating
   private let identityStorage: any SecureStorage
+  private let journal: SessionRevocationJournal
   /// 코디네이터가 로그인을 수락하기 전까지 Keychain에 쓰지 않는 세션.
   private var staged: StagedSession?
   /// 이번 실행에서 확정한 세션의 식별자. 닫힌 로그인의 세션만 되돌릴 때 쓴다.
@@ -27,16 +28,25 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     authenticatedClient: any FestiCoreNetworkClient,
     store: GuardedCredentialStore,
     credentials: any CredentialUpdating,
-    identityStorage: any SecureStorage
+    identityStorage: any SecureStorage,
+    journal: SessionRevocationJournal
   ) {
     self.authenticatedClient = authenticatedClient
     self.store = store
     self.credentials = credentials
     self.identityStorage = identityStorage
+    self.journal = journal
   }
 
   var isLoggedIn: Bool { store.load() != nil || sessionClearPending }
-  var hasPendingWithdrawalCleanup: Bool { withdrawalCleanupPending }
+  var hasPendingWithdrawalCleanup: Bool {
+    if case .pending(.withdrawalCompleted) = journal.status { return true }
+    return withdrawalCleanupPending
+  }
+  var hasPendingSignOutCleanup: Bool {
+    guard case .pending(.signOutRequested) = journal.status else { return false }
+    return sessionClearPending || store.load() == nil
+  }
   var refreshToken: String? { store.load()?.refreshToken }
   var currentUserID: String? {
     guard let credential = store.load(),
@@ -61,6 +71,7 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
 
   func commitSession(_ id: UUID) -> Bool {
     guard let session = staged, session.id == id else { return false }
+    guard case .absent = journal.status else { return false }
     staged = nil
     try? identityStorage.remove(.sessionUserID)
     store.allowSaves()
@@ -106,8 +117,19 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     return cleared
   }
 
+  func prepareRevocation(_ kind: AuthRevocationKind) -> Bool {
+    guard case .absent = journal.status else { return false }
+    switch kind {
+    case .signOut: return journal.record(.signOutRequested)
+    case .withdrawal: return journal.record(.withdrawalRequested)
+    }
+  }
+
+  func cancelRevocation() -> Bool { journal.clear() }
+
   func completeWithdrawal() -> Bool {
     withdrawalCleanupPending = true
+    guard journal.record(.withdrawalCompleted) else { return false }
     return signOut()
   }
 
@@ -138,7 +160,8 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
 private extension FestiCoreAuth {
   @discardableResult
   func clearCommittedSession() -> Bool {
-    let cleared = store.clear()
+    let keychainCleared = store.clear()
+    let cleared = keychainCleared && journal.clear()
     if cleared { committedSessionID = nil }
     try? identityStorage.remove(.sessionUserID)
     credentials.update(nil)

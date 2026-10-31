@@ -12,10 +12,21 @@ import FestiCoreStorageInterface
 
 final class KeychainCredentialStore: CredentialStore {
   private let storage: any SecureStorage
+  private let journal: SessionRevocationJournal?
+  private var restorationBlocked: Bool
   private let lock = NSLock()
   private var currentRevision = UUID()
 
-  init(storage: any SecureStorage) { self.storage = storage }
+  init(storage: any SecureStorage, journal: SessionRevocationJournal? = nil) {
+    self.storage = storage
+    self.journal = journal
+    if let journal {
+      if case .absent = journal.status { restorationBlocked = false }
+      else { restorationBlocked = true }
+    } else {
+      restorationBlocked = false
+    }
+  }
 
   func load() -> FestiCoreCredential? {
     lock.withLock { loadUnlocked() }
@@ -25,6 +36,7 @@ final class KeychainCredentialStore: CredentialStore {
   func save(_ credential: FestiCoreCredential) -> Bool {
     lock.withLock {
       let saved = saveUnlocked(credential)
+      if saved { restorationBlocked = false }
       currentRevision = UUID()
       return saved
     }
@@ -42,6 +54,7 @@ final class KeychainCredentialStore: CredentialStore {
         throw CredentialStoreError.persistenceFailed
       }
       currentRevision = UUID()
+      restorationBlocked = false
       return true
     }
   }
@@ -60,6 +73,7 @@ final class KeychainCredentialStore: CredentialStore {
   }
 
   private func loadUnlocked() -> FestiCoreCredential? {
+    guard !restorationBlocked else { return nil }
     guard let accessToken = try? storage.load(.accessToken), !accessToken.isEmpty,
           let refreshToken = try? storage.load(.refreshToken), !refreshToken.isEmpty
     else { return nil }
@@ -78,6 +92,9 @@ final class KeychainCredentialStore: CredentialStore {
   }
 
   private func saveUnlocked(_ credential: FestiCoreCredential) -> Bool {
+    if restorationBlocked {
+      guard let journal, case .absent = journal.status else { return false }
+    }
     // 첫 쓰기가 실패하면 기존 토큰은 건드리지 않는다.
     do { try storage.save("invalid:\(UUID())", for: .credentialIntegrity) }
     catch { return false }
