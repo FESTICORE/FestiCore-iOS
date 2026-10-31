@@ -369,6 +369,7 @@ private extension AppCoordinator {
     case let .sessionRestored(generation, userID, isLoggedIn):
       guard case var .home(home) = state,
             home.authFlow.generation == generation else { return .none }
+      let shouldClearPreviousAccount = home.authFlow.hasSession && !isLoggedIn
       let eligibleID = userID.flatMap { bookedStore.offlineEligible($0) ? $0 : nil }
       if let ownerID = home.authFlow.pendingOwnerID,
          let userID,
@@ -382,8 +383,12 @@ private extension AppCoordinator {
       if !isLoggedIn, home.authFlow.pendingFestivalID != nil {
         home.authFlow.presentation = .login
       }
+      let clear: Effect<Action> = shouldClearPreviousAccount ? clearAccountData(&home) : .none
       state = .home(home)
-      return .send(.scope(.home(.festival(.reloadBookmarks(userID: eligibleID)))))
+      return .merge(
+        clear,
+        .send(.scope(.home(.festival(.reloadBookmarks(userID: eligibleID)))))
+      )
 
     case let .profileLoaded(generation, result):
       guard case var .home(home) = state,

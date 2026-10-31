@@ -1271,6 +1271,24 @@ struct AppCoordinatorTests {
     await store.finish()
   }
 
+  @Test func restoredLogoutClearsPreviousFlagImmediately() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.hasSession = true
+    home.authFlow.verifiedUserID = "user-a"
+    home.flagState.snapshot = FestivalLiveBoardSnapshot(
+      festivalID: "festival", activeFlags: [], followedFlags: [], crew: nil
+    )
+    home.flagState.viewState = .loaded
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.sessionRestored(generation: 1, userID: nil, isLoggedIn: false)))
+    guard case let .home(signedOut) = store.state else { return }
+    #expect(signedOut.flagState.snapshot == nil)
+    #expect(signedOut.flagState.viewState == .idle)
+  }
+
   @Test func verifiedAccountSwitchClearsFlagAndTimetableAndLoadsNewBookmarks() async {
     var home = MainTabCoordinator.State()
     home.authFlow.hasSession = true
