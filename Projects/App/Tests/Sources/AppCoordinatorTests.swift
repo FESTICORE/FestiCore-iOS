@@ -58,11 +58,10 @@ struct AppCoordinatorTests {
     await store.send(.inner(.completeHomeTransition))
   }
 
-  @Test func unauthenticatedBookmarkOpensLoginWithoutSaving() async {
+  @Test func unauthenticatedBookmarkOpensLoginBeforeProfileFetch() async {
     let store = TestStore(initialState: AppCoordinator.State.home(.init())) {
       AppCoordinator()
     } withDependencies: {
-      $0.authUseCase = UnauthenticatedAuthUseCase()
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
     }
     store.exhaustivity = .off
