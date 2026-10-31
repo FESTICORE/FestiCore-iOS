@@ -149,6 +149,8 @@ private final class NotificationPermissionState {
 private actor RecordingDeviceRegistrationService: DeviceRegistrationService {
   private(set) var registrations: [DeviceRegistrationMetadata] = []
 
+  func installationDeviceID() async throws -> String { "test-device" }
+
   func register(_ metadata: DeviceRegistrationMetadata) async throws -> DeviceAuthorization {
     registrations.append(metadata)
     return DeviceAuthorization(deviceID: "test-device", bearerToken: "test-token")

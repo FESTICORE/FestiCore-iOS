@@ -9,8 +9,39 @@ import Testing
 
 @Suite("축제 라이브 보드 통신")
 struct FestivalLiveBoardTests {
-  @Test("라이브 상태와 공개 프로필을 합쳐 크루·팔로우·활성 깃발을 반환한다")
+  @Test("미발행 축제 코드만 공개 전 오류로 구분한다")
+  func unpublishedFestivalCode() async {
+    let client = LiveBoardStubClient(responses: [:], liveResponses: [
+      .init(statusCode: 404, data: Data(#"{"code":"FESTIVAL_NOT_FOUND"}"#.utf8)),
+    ])
+    let service = NetworkFestivalLiveBoardService(
+      client: client, auth: LiveBoardStubAuth(), device: LiveBoardStubDevice(), baseURL: nil
+    )
+
+    await #expect(throws: FestivalLiveBoardError.festivalNotFound) {
+      try await service.refresh(for: "fst_test")
+    }
+    let sentDeviceID = await client.liveDeviceID
+    #expect(sentDeviceID == "00000000-0000-4000-8000-000000000001")
+  }
+
+  @Test("다른 404 코드는 기존 응답 오류로 유지한다")
+  func unrelatedNotFoundCode() async {
+    let client = LiveBoardStubClient(responses: [:], liveResponses: [
+      .init(statusCode: 404, data: Data(#"{"code":"FLAG_NOT_FOUND"}"#.utf8)),
+    ])
+    let service = NetworkFestivalLiveBoardService(
+      client: client, auth: LiveBoardStubAuth(), device: LiveBoardStubDevice(), baseURL: nil
+    )
+
+    await #expect(throws: FestivalLiveBoardError.invalidResponse) {
+      try await service.refresh(for: "fst_test")
+    }
+  }
+
+  @Test("등록 토큰 없이 설치 ID로 라이브 상태와 공개 프로필을 조회한다")
   func mapsLiveBoard() async throws {
+    #expect(try await LiveBoardStubDevice().authorization()?.deviceID == nil)
     let client = LiveBoardStubClient(responses: [
       "api/v1/festivals/fst_test/live": #"""
         {"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test",
@@ -202,6 +233,22 @@ struct FestivalLiveBoardTests {
     #expect(throws: DecodingError.self) {
       try JSONDecoder().decode(FestivalFlagsResponseDTO.self, from: Data(json.utf8))
     }
+  }
+
+  @Test("설치 ID 저장 오류를 기기 미등록으로 바꾸지 않고 전달한다")
+  func installationIDFailureIsNotReportedAsUnregistered() async {
+    let client = LiveBoardStubClient(responses: [:])
+    let service = NetworkFestivalLiveBoardService(
+      client: client,
+      auth: LiveBoardStubAuth(),
+      device: FailingInstallationDevice(),
+      baseURL: nil
+    )
+
+    await #expect(throws: InstallationIDFailure()) {
+      try await service.refresh(for: "fst_test")
+    }
+    #expect(await client.liveDeviceID == nil)
   }
 
   @Test("잘못된 공개 프로필 타입은 라이브보드 응답 오류로 돌려준다")
@@ -444,13 +491,27 @@ private actor LiveBoardStubAuth: AuthService {
 }
 
 private struct LiveBoardStubDevice: DeviceRegistrationService {
+  func installationDeviceID() async throws -> String { "00000000-0000-4000-8000-000000000001" }
+
   func register(_: DeviceRegistrationMetadata) async throws -> DeviceAuthorization {
     throw FestivalLiveBoardError.deviceNotRegistered
   }
 
   func authorization() async throws -> DeviceAuthorization? {
-    .init(deviceID: "00000000-0000-4000-8000-000000000001", bearerToken: "device-token")
+    nil
   }
+}
+
+private struct InstallationIDFailure: Error, Equatable {}
+
+private struct FailingInstallationDevice: DeviceRegistrationService {
+  func installationDeviceID() async throws -> String { throw InstallationIDFailure() }
+
+  func register(_: DeviceRegistrationMetadata) async throws -> DeviceAuthorization {
+    throw InstallationIDFailure()
+  }
+
+  func authorization() async throws -> DeviceAuthorization? { nil }
 }
 
 private actor LiveBoardStubClient: FestiCoreRequestClient {

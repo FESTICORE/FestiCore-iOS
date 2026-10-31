@@ -39,6 +39,7 @@ public struct FestivalFeature {
     public var selectedPack: FestivalPackDocument?
     public var liveBoard: FestivalLiveBoardSnapshot?
     public var liveBoardUnavailable = false
+    public var liveBoardUnpublished = false
     /// 현재 serverAt을 처음 받은 기기 시각. 304 응답에서도 서버 시각 보정 기준을 유지한다.
     public var liveBoardClockAnchorAt: Date?
     /// 마지막으로 라이브 보드가 정상 확인된 기기 시각. 304 응답도 포함한다.
@@ -130,6 +131,7 @@ public struct FestivalFeature {
     public mutating func clearAccountData() {
       liveBoard = nil
       liveBoardUnavailable = false
+      liveBoardUnpublished = false
       liveBoardClockAnchorAt = nil
       liveBoardReceivedAt = nil
       mySchedule = nil
@@ -204,6 +206,7 @@ public struct FestivalFeature {
     case liveActivityChanged
     case liveBoardLoaded(String, generation: Int, FestivalLiveBoardSnapshot)
     case liveBoardFailed(String, generation: Int)
+    case liveBoardUnpublished(String, generation: Int)
     case myScheduleLoaded(festivalID: String, requestID: Int, generation: Int, Set<String>)
     case myScheduleFailed(festivalID: String, requestID: Int, generation: Int)
   }
@@ -336,6 +339,7 @@ public struct FestivalFeature {
         state.selectedFestivalID = id
         state.liveBoard = nil
         state.liveBoardUnavailable = false
+        state.liveBoardUnpublished = false
         state.liveBoardClockAnchorAt = nil
         state.liveBoardReceivedAt = nil
         state.mySchedule = nil
@@ -364,7 +368,17 @@ public struct FestivalFeature {
         }
         state.liveBoard = snapshot
         state.liveBoardUnavailable = false
+        state.liveBoardUnpublished = false
         state.liveBoardReceivedAt = date.now
+        return .none
+
+      case let .inner(.liveBoardUnpublished(id, generation)):
+        guard state.selectedFestivalID == id, state.accountGeneration == generation else { return .none }
+        state.liveBoard = nil
+        state.liveBoardUnavailable = false
+        state.liveBoardUnpublished = true
+        state.liveBoardClockAnchorAt = nil
+        state.liveBoardReceivedAt = nil
         return .none
 
       case let .inner(.liveBoardFailed(id, generation)):
@@ -427,6 +441,7 @@ public struct FestivalFeature {
         state.accountGeneration += 1
         state.liveBoard = nil
         state.liveBoardUnavailable = false
+        state.liveBoardUnpublished = false
         state.liveBoardClockAnchorAt = nil
         state.liveBoardReceivedAt = nil
         state.mySchedule = nil
@@ -686,6 +701,8 @@ public struct FestivalFeature {
         do {
           let snapshot = try await liveBoardService.refresh(for: id)
           await send(.inner(.liveBoardLoaded(id, generation: generation, snapshot)))
+        } catch FestivalLiveBoardError.festivalNotFound {
+          await send(.inner(.liveBoardUnpublished(id, generation: generation)))
         } catch FestivalLiveBoardError.rateLimited(let retryAfter) {
           interval = max(interval, retryAfter)
           await send(.inner(.liveBoardFailed(id, generation: generation)))
