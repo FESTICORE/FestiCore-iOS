@@ -5,11 +5,13 @@
 //  Created by FestiCore on 10/22/26.
 //
 
+import Observation
 import Testing
 import UIKit
 import SwiftUI
 @testable import FestiCoreDesignKit
 
+@Suite(.serialized)
 struct FestiCoreDesignKitTests {
   @Test @MainActor func delayedDismissalCannotCloseReplacementSheet() {
     let box = TestSheetBox()
@@ -21,6 +23,95 @@ struct FestiCoreDesignKitTests {
 
     FCSheetModifier<TestSheet, Text>.completeDismissal(of: .onboarding, item: binding)
     #expect(box.item == nil)
+  }
+
+  @Test @MainActor func pendingDismissalSurvivesReopenWhileMounted() async throws {
+    let harness = SheetTestHarness(conditional: false)
+    defer { harness.close() }
+    try await harness.render()
+    let dismiss = try #require(harness.box.dismiss)
+    let clock = ContinuousClock()
+    let requested = clock.now
+
+    dismiss()
+    try await harness.render()
+    harness.box.item = nil
+    try await harness.render()
+    harness.box.item = .login
+    try await harness.render()
+    #expect(requested.duration(to: clock.now) < SheetTestTiming.preDeadlineLimit)
+
+    try await Task.sleep(for: SheetTestTiming.resultWait)
+    #expect(harness.box.item == .login)
+  }
+
+  @Test @MainActor func pendingDismissalIsCancelledWhenModifierIsRemoved() async throws {
+    let harness = SheetTestHarness(conditional: true)
+    defer { harness.close() }
+    try await harness.render()
+    let dismiss = try #require(harness.box.dismiss)
+    let clock = ContinuousClock()
+    let requested = clock.now
+
+    dismiss()
+    try await harness.render()
+    harness.box.item = nil
+    try await harness.render()
+    harness.box.item = .login
+    try await harness.render()
+    #expect(requested.duration(to: clock.now) < SheetTestTiming.preDeadlineLimit)
+
+    try await Task.sleep(for: SheetTestTiming.resultWait)
+    #expect(harness.box.item == .login)
+  }
+
+  @Test @MainActor func pendingDismissalKeepsReplacementSheet() async throws {
+    let harness = SheetTestHarness(conditional: false)
+    defer { harness.close() }
+    try await harness.render()
+    let dismiss = try #require(harness.box.dismiss)
+    let clock = ContinuousClock()
+    let requested = clock.now
+
+    dismiss()
+    try await harness.render()
+    harness.box.item = .onboarding
+    try await harness.render()
+    #expect(requested.duration(to: clock.now) < SheetTestTiming.preDeadlineLimit)
+
+    for _ in 0..<3 { try await harness.render() }
+    #expect(requested.duration(to: clock.now) < SheetTestTiming.preDeadlineLimit)
+    let beforeDeadline = try #require(harness.box.sheetFrame)
+    #expect(beforeDeadline.minY < harness.window.bounds.height)
+
+    try await Task.sleep(for: SheetTestTiming.resultWait)
+    #expect(harness.box.item == .onboarding)
+    let afterDeadline = try #require(harness.box.sheetFrame)
+    #expect(afterDeadline.minY < harness.window.bounds.height)
+  }
+
+  @Test @MainActor func replacementWithoutPendingDismissalKeepsPosition() async throws {
+    let harness = SheetTestHarness(conditional: false)
+    defer { harness.close() }
+    for _ in 0..<5 { try await harness.render() }
+    let beforeReplacement = try #require(harness.box.sheetFrame)
+
+    harness.box.item = .onboarding
+    try await harness.render()
+
+    let afterReplacement = try #require(harness.box.sheetFrame)
+    #expect(afterReplacement.minY == beforeReplacement.minY)
+  }
+
+  @Test @MainActor func delayedDismissalClosesUnchangedSheet() async throws {
+    let harness = SheetTestHarness(conditional: false)
+    defer { harness.close() }
+    try await harness.render()
+    let dismiss = try #require(harness.box.dismiss)
+
+    dismiss()
+    try await Task.sleep(for: SheetTestTiming.resultWait)
+    #expect(harness.box.item == nil)
   }
 
   @Test func pretendardRegistersForUIKitAndSwiftUI() {
@@ -139,6 +230,13 @@ struct FestiCoreDesignKitTests {
   }
 }
 
+private enum SheetTestTiming {
+  static let dismissalDelay: Double = 3.0
+  static let preDeadlineLimit: Duration = .milliseconds(2500)
+  static let resultWait: Duration = .milliseconds(3500)
+  static let renderWait: Duration = .milliseconds(100)
+}
+
 private enum TestSheet: Identifiable {
   case login
   case onboarding
@@ -147,8 +245,68 @@ private enum TestSheet: Identifiable {
 }
 
 @MainActor
+@Observable
 private final class TestSheetBox {
   var item: TestSheet? = .login
+  var dismiss: (() -> Void)?
+  @ObservationIgnored var sheetFrame: CGRect?
+}
+
+@MainActor
+private final class SheetTestHarness {
+  let box = TestSheetBox()
+  let controller: UIHostingController<SheetTestHost>
+  let window: UIWindow
+
+  init(conditional: Bool) {
+    controller = UIHostingController(rootView: SheetTestHost(box: box, conditional: conditional))
+    window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+    window.rootViewController = controller
+    window.makeKeyAndVisible()
+  }
+
+  func render() async throws {
+    controller.view.layoutIfNeeded()
+    try await Task.sleep(for: SheetTestTiming.renderWait)
+  }
+
+  func close() {
+    box.dismiss = nil
+    window.isHidden = true
+    window.rootViewController = nil
+  }
+}
+
+private struct SheetTestHost: View {
+  let box: TestSheetBox
+  let conditional: Bool
+
+  var body: some View {
+    Group {
+      if conditional && box.item == nil {
+        Color.clear
+      } else {
+        Color.clear.presentFCSheet(item: Binding(
+          get: { box.item },
+          set: { box.item = $0 }
+        )) { _ in
+          SheetTestContent(box: box)
+        }
+      }
+    }
+    .environment(\.fcSheetDismissalDelay, SheetTestTiming.dismissalDelay)
+  }
+}
+
+private struct SheetTestContent: View {
+  @Environment(\.fcSheetDismiss) private var dismiss
+  let box: TestSheetBox
+
+  var body: some View {
+    Text("Sheet")
+      .onAppear { box.dismiss = dismiss }
+      .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { box.sheetFrame = $0 }
+  }
 }
 
 private extension UIColor {
