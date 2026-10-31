@@ -88,6 +88,7 @@ public struct FestivalFlagDirectory {
     @CasePathable
     public enum Delegate: Equatable {
       case loginRequested
+      case termsAcceptanceRequested
     }
   }
 
@@ -140,6 +141,8 @@ public struct FestivalFlagDirectory {
           return .none
         case .failure(.loginRequired):
           return .send(.delegate(.loginRequested))
+        case .failure(.termsRequired):
+          return .send(.delegate(.termsAcceptanceRequested))
         case .failure(.limitReached):
           return showToast("팔로우는 100개까지 할 수 있어요", state: &state)
         case .failure:

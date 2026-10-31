@@ -145,6 +145,9 @@ struct MainTabCoordinator {
       case .flag(.directory(.delegate(.loginRequested))):
         return .send(.delegate(.myLoginRequested))
 
+      case .flag(.directory(.delegate(.termsAcceptanceRequested))):
+        return .send(.delegate(.myProfileRefreshRequested))
+
       case .flag, .delegate:
         return .none
 

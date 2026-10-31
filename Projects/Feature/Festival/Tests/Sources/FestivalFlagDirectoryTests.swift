@@ -123,6 +123,20 @@ struct FestivalFlagDirectoryTests {
     await store.receive(\.directory.delegate.loginRequested)
   }
 
+  @Test func termsRequiredFollowRequestsConsentFlow() async {
+    let store = TestStore(initialState: loadedState(board([flag("a")]))) {
+      FestivalFlagFeature()
+    } withDependencies: {
+      $0.festivalFlagFollowService = StubFollowService(result: .failure(.termsRequired))
+    }
+
+    await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: nil))) {
+      $0.directory.pendingFollows["a"] = .some(nil)
+    }
+    await store.receive(\.directory.followResponse) { $0.directory.pendingFollows = [:] }
+    await store.receive(\.directory.delegate.termsAcceptanceRequested)
+  }
+
   @Test(arguments: [
     (FestivalFlagFollowError.limitReached, "팔로우는 100개까지 할 수 있어요"),
     (.unavailable, "팔로우를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요"),

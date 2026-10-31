@@ -868,6 +868,16 @@ struct AppCoordinatorTests {
     }
   }
 
+  @Test func flagFollowTermsRequestRoutesToProfileRefresh() async {
+    let store = TestStore(initialState: MainTabCoordinator.State(selectedTab: .flag)) { MainTabCoordinator() }
+
+    await store.send(.flag(.directory(.delegate(.termsAcceptanceRequested))))
+    await store.receive {
+      guard case .delegate(.myProfileRefreshRequested) = $0 else { return false }
+      return true
+    }
+  }
+
   @Test func myLogoutClearsVisibleAccountOnlyAfterSuccess() async {
     var home = MainTabCoordinator.State(selectedTab: .my)
     home.authFlow.profile = eligibleProfile(id: "user-a")
