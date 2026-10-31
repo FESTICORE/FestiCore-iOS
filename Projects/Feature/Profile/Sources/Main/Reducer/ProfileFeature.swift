@@ -109,8 +109,8 @@ public struct ProfileFeature {
         return .none
       case .view(.refreshTapped): return .send(.delegate(.profileRefreshRequested))
       case .view(.logoutTapped):
+        if !state.isLogoutConfirmationPresented { state.dialogPresentationID += 1 }
         state.isLogoutConfirmationPresented = true
-        state.dialogPresentationID += 1
         return .none
       case .view(.logoutConfirmationDismissed):
         state.isLogoutConfirmationPresented = false
@@ -119,8 +119,8 @@ public struct ProfileFeature {
         state.isLogoutConfirmationPresented = false
         return .send(.delegate(.logoutRequested))
       case .view(.withdrawTapped):
+        if !state.isWithdrawalConfirmationPresented { state.dialogPresentationID += 1 }
         state.isWithdrawalConfirmationPresented = true
-        state.dialogPresentationID += 1
         return .none
       case .view(.withdrawalConfirmationDismissed):
         state.isWithdrawalConfirmationPresented = false
@@ -143,8 +143,8 @@ public struct ProfileFeature {
 
   private func openLegalURL(path: String, state: inout State) -> Effect<Action> {
     guard let legalBaseURL else {
+      if !state.isLegalLinkUnavailablePresented { state.dialogPresentationID += 1 }
       state.isLegalLinkUnavailablePresented = true
-      state.dialogPresentationID += 1
       return .none
     }
     return open(legalBaseURL.appending(path: path))

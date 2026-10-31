@@ -43,15 +43,11 @@ struct FCAlertStoreModifier: ViewModifier {
             ),
             onDismiss: {}
           )
-          // Store 인스턴스는 TCA가 재사용할 수 있어 내용으로 표시를 구분한다.
-          .id(presentationKey(state))
+          // Store 인스턴스는 TCA가 재사용할 수 있어 상태의 표시 ID로 구분한다.
+          .id(state.presentationID)
         }
       }
-      .animation(.fcModal, value: store.map { presentationKey($0.withState { $0 }) })
-  }
-
-  private func presentationKey(_ state: FCAlertState<FCAlertAction>) -> String {
-    [state.title, state.message, state.confirmTitle, state.cancelTitle].joined(separator: "\u{1F}")
+      .animation(.fcModal, value: store?.withState(\.presentationID))
   }
 }
 

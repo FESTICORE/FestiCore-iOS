@@ -90,5 +90,7 @@ struct ProfileFeatureTests {
       $0.isLegalLinkUnavailablePresented = true
       $0.dialogPresentationID = 2
     }
+    // 이미 떠 있는 팝업에 같은 동작이 다시 와도 새 표시로 세지 않는다.
+    await store.send(.view(.termsTapped))
   }
 }

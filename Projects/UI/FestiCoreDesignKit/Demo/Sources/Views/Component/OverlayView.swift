@@ -5,6 +5,7 @@
 //  Created by FestiCore on 10/30/26.
 //
 
+import ComposableArchitecture
 import FestiCoreDesignKit
 import FestiCoreSharedUI
 import SwiftUI
@@ -25,6 +26,7 @@ struct OverlayView: View {
   @State private var sheet: Sheet?
   @State private var dialog: FCDialogItem?
   @State private var dimDismissDialog: FCDialogItem?
+  @State private var alertDemo = Store(initialState: AlertDemoFeature.State()) { AlertDemoFeature() }
   @State private var toast: FCToast.Item?
   @State private var reportSelection: Int?
   @State private var checkOverlay: FCCheckOverlay.Item?
@@ -71,6 +73,9 @@ struct OverlayView: View {
         }
         .style(.secondary)
         .isFullWidth(true)
+        FCButton("확인 다이얼로그 (Store · fcAlert)") { alertDemo.send(.showTapped) }
+          .style(.secondary)
+          .isFullWidth(true)
         FCButton("로그인 시트") { sheet = .login }
           .style(.secondary)
           .isFullWidth(true)
@@ -151,6 +156,7 @@ struct OverlayView: View {
       }
     }
     .fcDialog(item: $dialog)
+    .modifier(AlertDemoPresenter(store: alertDemo))
     .overlay {
       if let dimDismissDialog {
         FCDialogOverlay(item: dimDismissDialog, dismissesOnDimTap: true) { self.dimDismissDialog = nil }
