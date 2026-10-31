@@ -839,6 +839,35 @@ struct AppCoordinatorTests {
     }
   }
 
+  @Test func flagTabUsesSelectedFestivalPackZoneNames() async throws {
+    let payload = #"{"id":"festival-a","zones":[{"id":"zone_a","name":"리벳 스테이지 앞 왼쪽"}]}"#
+    var festival = FestivalFeature.State(selectedFestivalID: "festival-a")
+    festival.selectedPack = try JSONDecoder().decode(FestivalPackDocument.self, from: Data(payload.utf8))
+    var state = MainTabCoordinator.State()
+    state.festivalState.routes.push(.liveBoard(festival))
+    let store = TestStore(initialState: state) { MainTabCoordinator() }
+
+    await store.send(.tabTapped(.flag))
+    await store.receive(\.selectTab) {
+      $0.selectedTab = .flag
+      $0.flagState.directory.zoneNames = ["zone_a": "리벳 스테이지 앞 왼쪽"]
+    }
+    await store.receive(\.flag.festivalChanged) {
+      $0.flagState.festivalID = "festival-a"
+      $0.flagState.generation = 1
+    }
+  }
+
+  @Test func flagFollowLoginRequestOpensAppLoginSheet() async {
+    let store = TestStore(initialState: MainTabCoordinator.State(selectedTab: .flag)) { MainTabCoordinator() }
+
+    await store.send(.flag(.directory(.delegate(.loginRequested))))
+    await store.receive {
+      guard case .delegate(.myLoginRequested) = $0 else { return false }
+      return true
+    }
+  }
+
   @Test func myLogoutClearsVisibleAccountOnlyAfterSuccess() async {
     var home = MainTabCoordinator.State(selectedTab: .my)
     home.authFlow.profile = eligibleProfile(id: "user-a")

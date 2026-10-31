@@ -90,8 +90,8 @@ private extension AppCoordinatorView {
   var loginSheet: some View {
     VStack {
       FCLoginSheet(
-        title: currentTabIsMy ? "계정 정보를 보려면 로그인이 필요해요" : "축제를 저장하려면 로그인이 필요해요",
-        message: currentTabIsMy ? "로그인 후 프로필을 확인할 수 있어요." : "로그인 후 선택한 축제를 저장할 수 있어요.",
+        title: loginCopy.title,
+        message: loginCopy.message,
         onApple: { store.send(.view(.startLogin(.apple))) },
         onGoogle: { store.send(.view(.startLogin(.google))) }
       )
@@ -188,9 +188,19 @@ private extension AppCoordinatorView {
     return home.authFlow
   }
 
-  var currentTabIsMy: Bool {
-    guard case let .home(home) = store.state else { return false }
-    return home.selectedTab == .my
+  /// 로그인을 요청한 탭에 맞춘 시트 문구
+  var loginCopy: (title: String, message: String) {
+    guard case let .home(home) = store.state else {
+      return ("축제를 저장하려면 로그인이 필요해요", "로그인 후 선택한 축제를 저장할 수 있어요.")
+    }
+    switch home.selectedTab {
+    case .my:
+      return ("계정 정보를 보려면 로그인이 필요해요", "로그인 후 프로필을 확인할 수 있어요.")
+    case .flag:
+      return ("깃발을 팔로우 하려면 로그인이 필요해요", "내 취향의 깃발을 팔로우하고,\n함께 페스티벌을 즐길 사람들과 크루를 만들어봐요.")
+    case .live, .timetable:
+      return ("축제를 저장하려면 로그인이 필요해요", "로그인 후 선택한 축제를 저장할 수 있어요.")
+    }
   }
 
   var legalBaseURL: URL? {
