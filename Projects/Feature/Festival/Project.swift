@@ -27,5 +27,10 @@ let project = Project.makeModule(
   hasInterface: true,
   interfaceDependencies: [
     .SPM.composableArchitecture
+  ],
+  hasDemo: true,
+  demoDependencies: [
+    .ui(.designSystem),
+    .SPM.composableArchitecture
   ]
 )
