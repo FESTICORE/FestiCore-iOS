@@ -48,12 +48,18 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     return withdrawalCleanupPending
   }
   var hasPendingSignOutCleanup: Bool {
-    guard case .pending(.signOutRequested) = journal.status else { return false }
+    guard case .pending(.signOutConfirmed) = journal.status else { return false }
     return sessionClearPending || store.load() == nil
   }
   var hasPendingWithdrawalAuthorizationCleanup: Bool {
-    guard case .pending(.withdrawalRequested) = journal.status else { return false }
+    guard case .pending(.withdrawalAuthorizationRejected) = journal.status else { return false }
     return sessionClearPending || store.load() == nil
+  }
+  var hasUnconfirmedRevocation: Bool {
+    switch journal.status {
+    case .pending(.signOutRequested), .pending(.withdrawalRequested): return store.load() == nil
+    case .absent, .unreadable, .pending: return false
+    }
   }
   var refreshToken: String? { recoveredCredential()?.refreshToken }
   var currentUserID: String? {
@@ -157,6 +163,12 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
 
   func finishRevocationRequest() { revocationInFlight = false }
 
+  func confirmSignOut() -> Bool { journal.record(.signOutConfirmed) }
+
+  func confirmWithdrawalAuthorizationRejected() -> Bool {
+    journal.record(.withdrawalAuthorizationRejected)
+  }
+
   func completeWithdrawal() -> Bool {
     revocationInFlight = false
     withdrawalCleanupPending = true
@@ -201,7 +213,8 @@ private extension FestiCoreAuth {
   @discardableResult
   func clearCommittedSession() -> Bool {
     let keychainCleared = store.clear()
-    let cleared = keychainCleared && journal.clear()
+    // 서버 응답 전 토큰 갱신 실패로 로컬 토큰이 지워져도 요청 결과 기록은 보존한다.
+    let cleared = keychainCleared && !revocationInFlight && journal.clear()
     if cleared { committedSessionID = nil }
     try? identityStorage.remove(.sessionUserID)
     credentials.update(nil)

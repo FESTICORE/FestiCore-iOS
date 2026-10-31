@@ -266,6 +266,7 @@ struct AuthTests {
     let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
     await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
     #expect(await auth.prepareRevocation(.signOut))
+    #expect(await auth.confirmSignOut())
     storage.failTokenSaveFor = .credentialIntegrity
     storage.failTokenRemovalFor = [.accessToken, .refreshToken]
     #expect(await auth.signOut() == false)
@@ -286,6 +287,7 @@ struct AuthTests {
     let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
     await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
     #expect(await auth.prepareRevocation(.withdrawal))
+    #expect(await auth.confirmWithdrawalAuthorizationRejected())
     storage.failTokenSaveFor = .credentialIntegrity
     storage.failTokenRemovalFor = [.accessToken, .refreshToken]
     #expect(await auth.signOut() == false)
@@ -296,6 +298,40 @@ struct AuthTests {
     storage.failTokenRemovalFor = []
     #expect(await restarted.signOut())
     #expect(FileManager.default.fileExists(atPath: storage.journalURL.path) == false)
+  }
+
+  @Test("서버 응답 전 재시작한 요청은 로컬 정리 완료로 취급하지 않는다")
+  func requestedRevocationAfterCrashIsUnconfirmed() async {
+    for kind in [AuthRevocationKind.signOut, .withdrawal] {
+      let storage = MemorySecureStorage()
+      let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+      let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+      await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
+      #expect(await auth.prepareRevocation(kind))
+
+      let restarted = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+      #expect(await restarted.isLoggedIn == false)
+      #expect(await restarted.hasUnconfirmedRevocation)
+      #expect(await restarted.hasPendingSignOutCleanup == false)
+      #expect(await restarted.hasPendingWithdrawalAuthorizationCleanup == false)
+      #expect(await restarted.hasPendingWithdrawalCleanup == false)
+    }
+  }
+
+  @Test("서버 응답 전 로컬 토큰 삭제가 먼저 일어나도 요청 결과 기록은 남는다")
+  func localClearDuringRequestKeepsUnconfirmedJournal() async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+    let id = await auth.stageSession(accessToken: old.accessToken, refreshToken: old.refreshToken)
+    #expect(await auth.commitSession(id))
+    #expect(await auth.prepareRevocation(.signOut))
+    #expect(await auth.signOut(ifSession: id) == false)
+
+    let restarted = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+    #expect(await restarted.hasUnconfirmedRevocation)
+    #expect(await restarted.hasPendingSignOutCleanup == false)
+    #expect(FileManager.default.fileExists(atPath: storage.journalURL.path))
   }
 
   @Test("저널 파일을 쓸 수 없으면 서버 요청 준비가 실패하고 토큰은 유지된다")

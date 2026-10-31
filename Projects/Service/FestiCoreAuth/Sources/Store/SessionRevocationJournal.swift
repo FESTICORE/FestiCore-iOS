@@ -11,7 +11,9 @@ import Foundation
 final class SessionRevocationJournal: Sendable {
   enum State: String {
     case signOutRequested
+    case signOutConfirmed
     case withdrawalRequested
+    case withdrawalAuthorizationRejected
     case withdrawalCompleted
   }
 

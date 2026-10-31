@@ -432,6 +432,26 @@ struct AuthDomainTests {
     #expect(await auth.isLoggedIn == false)
   }
 
+  @Test("응답 전 재시작한 로그아웃과 탈퇴는 성공으로 보고하지 않는다")
+  func requestedRevocationAfterCrashReportsUnknown() async {
+    for kind in [AuthRevocationKind.signOut, .withdrawal] {
+      let auth = StubAuthService(loggedIn: false, unconfirmedRevocation: true)
+      let client = StubClient(result: .failure(.transport(.notConnected)))
+      let repository = withDependencies {
+        $0.networkClient = client
+        $0.authService = auth
+      } operation: { AuthRepositoryImpl() }
+      switch kind {
+      case .signOut:
+        await #expect(throws: AuthDomainError.revocationOutcomeUnknown) { try await repository.signOut() }
+      case .withdrawal:
+        await #expect(throws: AuthDomainError.revocationOutcomeUnknown) { try await repository.withdraw() }
+      }
+      #expect(await client.calls == 0)
+      #expect(await auth.signOutCalls == 0)
+    }
+  }
+
   @Test("미로그인 상태는 회원 탈퇴 요청 전에 거부한다")
   func withdrawNotAuthenticated() async {
     let auth = StubAuthService()
@@ -515,6 +535,7 @@ private actor StubAuthService: AuthService {
   private var loggedIn: Bool
   private var clearSucceeds: Bool
   private let prepareSucceeds: Bool
+  private let unconfirmedRevocation: Bool
   private var withdrawalCleanupPending = false
   private var signOutCleanupPending = false
   private var withdrawalRequested = false
@@ -523,13 +544,20 @@ private actor StubAuthService: AuthService {
   private(set) var tokens: [String] = []
   private(set) var signOutCalls = 0
 
-  init(loggedIn: Bool = false, clearSucceeds: Bool = true, prepareSucceeds: Bool = true) {
+  init(
+    loggedIn: Bool = false,
+    clearSucceeds: Bool = true,
+    prepareSucceeds: Bool = true,
+    unconfirmedRevocation: Bool = false
+  ) {
     self.loggedIn = loggedIn
     self.clearSucceeds = clearSucceeds
     self.prepareSucceeds = prepareSucceeds
+    self.unconfirmedRevocation = unconfirmedRevocation
   }
 
   var isLoggedIn: Bool { loggedIn }
+  var hasUnconfirmedRevocation: Bool { unconfirmedRevocation }
   var hasPendingWithdrawalCleanup: Bool { withdrawalCleanupPending }
   var hasPendingWithdrawalAuthorizationCleanup: Bool { withdrawalRequested && signOutCleanupPending }
   var hasPendingSignOutCleanup: Bool { signOutCleanupPending }
@@ -541,6 +569,8 @@ private actor StubAuthService: AuthService {
     return true
   }
   func finishRevocationRequest() { finishedRevocationRequests += 1 }
+  func confirmSignOut() -> Bool { true }
+  func confirmWithdrawalAuthorizationRejected() -> Bool { true }
 
   func completeWithdrawal() -> Bool {
     withdrawalCleanupPending = true
