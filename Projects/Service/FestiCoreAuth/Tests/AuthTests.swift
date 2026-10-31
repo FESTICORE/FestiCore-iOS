@@ -855,7 +855,9 @@ struct AuthTests {
     let sessionBefore = await auth.authenticatedSessionID
     let prepared = await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: sessionID)
     let journalAfter = String(describing: journal.status)
+    let preparationDiagnostics = await auth.revocationPreparationDiagnostics
     if !prepared {
+      Issue.record("준비 진단: \(preparationDiagnostics)")
       let directRecord = journal.record(.withdrawalRequested)
       let sessionAfter = await auth.authenticatedSessionID
       Issue.record(
