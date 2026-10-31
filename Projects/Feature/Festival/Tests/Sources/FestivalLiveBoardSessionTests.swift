@@ -335,7 +335,7 @@ struct FestivalLiveBoardSessionTests {
           value += 1
           return value
         }
-        if attempt == 1 { throw .unavailable }
+        if attempt == 1 { throw FestivalScheduleError.unavailable }
         return ["set_a"]
       }
     }
@@ -381,10 +381,16 @@ private struct SessionLiveBoardService: FestivalLiveBoardService {
 }
 
 private struct SessionScheduleService: FestivalScheduleService {
-  let handler: @Sendable (String) async throws(FestivalScheduleError) -> [String]
+  let handler: @Sendable (String) async throws -> [String]
 
   func fetch(festivalID: String) async throws(FestivalScheduleError) -> FestivalSchedule {
-    FestivalSchedule(setIDs: try await handler(festivalID))
+    do {
+      return FestivalSchedule(setIDs: try await handler(festivalID))
+    } catch let error as FestivalScheduleError {
+      throw error
+    } catch {
+      throw .unavailable
+    }
   }
 
   func replace(festivalID _: String, setIDs: [String], clientAt _: Date) async throws(FestivalScheduleError) -> FestivalSchedule {
