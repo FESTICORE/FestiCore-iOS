@@ -34,4 +34,25 @@ enum FestivalListPresentation {
     return days > 0 ? .daysUntil(days) : .live
   }
 
+  /// 줄바꿈으로 저장한 최근 검색어를 최신순으로 돌려준다.
+  static func recentSearches(from storage: String) -> [String] {
+    storage
+      .split(separator: "\n")
+      .map(String.init)
+      .filter { !$0.isEmpty }
+  }
+
+  /// 검색어를 맨 앞에 넣고 중복을 없앤 뒤 최대 개수만 남긴 저장 문자열을 돌려준다.
+  static func recentSearchStorage(
+    adding keyword: String,
+    to storage: String,
+    limit: Int = 10
+  ) -> String {
+    let keyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !keyword.isEmpty else { return storage }
+    let existing = recentSearches(from: storage).filter { $0 != keyword }
+    return ([keyword] + existing)
+      .prefix(limit)
+      .joined(separator: "\n")
+  }
 }

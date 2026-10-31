@@ -18,6 +18,7 @@ public struct FCSearchResultRow: View {
   private var title: String
   private var meta: String
   private var action: () -> Void
+  private(set) var thumbnail: AnyView?
 
   public init(
     _ kind: Kind,
@@ -55,16 +56,20 @@ public struct FCSearchResultRow: View {
     .buttonStyle(.plain)
   }
 
-}
-
-private extension FCSearchResultRow {
   @ViewBuilder
-  var leading: some View {
+  private var leading: some View {
     switch kind {
     case let .festival(image, _):
-      FCThumbnail(image)
-        .placeholderIcon(.music20)
-        .size(Metric.leadingSize)
+      if let thumbnail {
+        thumbnail
+          .frame(width: Metric.leadingSize, height: Metric.leadingSize)
+          .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
+          .accessibilityHidden(true)
+      } else {
+        FCThumbnail(image)
+          .placeholderIcon(.music20)
+          .size(Metric.leadingSize)
+      }
     case let .artist(initial):
       FCAvatar(initial)
         .size(.large)
@@ -90,6 +95,17 @@ private extension FCSearchResultRow {
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         .accessibilityHidden(true)
     }
+  }
+}
+
+// MARK: - 체이닝 설정
+
+public extension FCSearchResultRow {
+  /// festival 썸네일 자리에 원격 이미지 같은 뷰를 넣은 사본을 돌려준다. 48pt 정사각형으로 자른다.
+  func thumbnail(_ view: some View) -> Self {
+    var copy = self
+    copy.thumbnail = AnyView(view)
+    return copy
   }
 }
 

@@ -23,23 +23,20 @@ public struct FestivalView: View {
       send(.foregroundChanged(phase == .active))
     }
   }
-}
 
-private extension FestivalView {
-  var festivalListScreen: some View {
+  private var festivalListScreen: some View {
     VStack(spacing: .zero) {
-      if store.viewState == .loading || !store.festivals.isEmpty || store.cacheReadFailed {
-        if (store.connection != .live && store.connection != .unavailable) || store.cacheReadFailed {
-          status
-            .padding(.horizontal, FestiCoreSpacing.paddingP16)
-        }
+      if (store.connection != .live && store.connection != .unavailable) || store.cacheReadFailed {
+        status
+          .padding(.horizontal, FestiCoreSpacing.paddingP16)
       }
       festivalList
     }
   }
 
-  var festivalList: some View {
+  private var festivalList: some View {
     FestivalListView(
+      userID: store.bookedUserID,
       festivals: store.festivals,
       bookedFestivalIDs: store.bookedFestivalIDs,
       imageRevision: store.imageRevision,
@@ -52,11 +49,11 @@ private extension FestivalView {
   }
 
 
-  func imageURL(_ value: String?) -> URL? {
+  private func imageURL(_ value: String?) -> URL? {
     store.state.imageURL(for: value)
   }
 
-  var status: some View {
+  private var status: some View {
     HStack(spacing: 8) {
       Image(systemName: store.connection == .live ? "wifi" : "square.and.arrow.down")
       Text(statusText)
@@ -67,7 +64,7 @@ private extension FestivalView {
     .accessibilityLabel(statusText)
   }
 
-  var statusText: String {
+  private var statusText: String {
     if store.cacheReadFailed {
       return store.selectedPack == nil
         ? "저장된 정보를 읽지 못했습니다 · 연결 후 다시 시도해 주세요"
