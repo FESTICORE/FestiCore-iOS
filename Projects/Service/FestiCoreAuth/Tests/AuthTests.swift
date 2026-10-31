@@ -854,9 +854,22 @@ struct AuthTests {
     let journalBefore = String(describing: journal.status)
     let sessionBefore = await auth.authenticatedSessionID
     let prepared = await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: sessionID)
+    let journalAfter = String(describing: journal.status)
+    if !prepared {
+      let probeURL = storage.journalURL.deletingLastPathComponent().appendingPathComponent("write-probe")
+      do {
+        try FileManager.default.createDirectory(at: probeURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("probe".utf8).write(to: probeURL, options: .atomic)
+        let readback = try Data(contentsOf: probeURL)
+        Issue.record("저널 디렉터리 쓰기 성공: \(String(decoding: readback, as: UTF8.self))")
+        try? FileManager.default.removeItem(at: probeURL)
+      } catch {
+        Issue.record("저널 디렉터리 쓰기 실패: \(error)")
+      }
+    }
     #expect(
       prepared,
-      "저널 이전: \(journalBefore), 이후: \(String(describing: journal.status)), 세션: \(String(describing: sessionBefore))"
+      "저널 이전: \(journalBefore), 이후: \(journalAfter), 세션: \(String(describing: sessionBefore))"
     )
 
     await auth.handleAuthFailure(
