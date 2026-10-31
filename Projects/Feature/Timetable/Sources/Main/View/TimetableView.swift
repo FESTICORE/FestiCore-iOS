@@ -43,7 +43,9 @@ public struct TimetableView: View {
           send(.notifyTapped)
         }
       }
-      FCSourceLine(store.source)
+      if !store.source.isEmpty {
+        FCSourceLine(store.source)
+      }
     }
     .frame(maxHeight: .infinity, alignment: .top)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
