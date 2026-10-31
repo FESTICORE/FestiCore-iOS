@@ -479,14 +479,14 @@ private actor LiveBoardStubAuth: AuthService {
   func discardSession(_: UUID) -> Bool { false }
   func signOut(ifSession _: UUID) -> Bool { false }
   func rememberUserID(_ value: String) { userID = value }
-  func signOut() {
+  func signOut() -> Bool {
     activeSessionID = UUID()
     userID = nil
+    return true
   }
   func signOut(ifSessionIDMatches expected: UUID) -> Bool {
     guard activeSessionID == expected else { return false }
-    signOut()
-    return true
+    return signOut()
   }
 }
 

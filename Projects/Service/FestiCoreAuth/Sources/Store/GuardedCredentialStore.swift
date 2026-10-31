@@ -16,42 +16,57 @@ final class GuardedCredentialStore: CredentialStore {
 
   private struct State {
     var isBarred: Bool
+    var canRecoverInitialCredential: Bool
     var revision = UUID()
+    var onPersistenceFailure: (@Sendable () -> Void)?
     var sessionID = UUID()
   }
 
-  init(base: any CredentialStore) {
+  init(base: any CredentialStore, recoverInitialCredential: Bool = false) {
     self.base = base
-    state = OSAllocatedUnfairLock(initialState: State(isBarred: base.load() == nil))
+    state = OSAllocatedUnfairLock(initialState: State(
+      isBarred: base.load() == nil,
+      canRecoverInitialCredential: recoverInitialCredential
+    ))
   }
 
   func load() -> FestiCoreCredential? {
-    state.withLock { _ in base.load() }
+    state.withLock { state in
+      if state.isBarred {
+        guard state.canRecoverInitialCredential, let restored = base.load() else { return nil }
+        state.isBarred = false
+        state.canRecoverInitialCredential = false
+        return restored
+      }
+      return base.load()
+    }
   }
 
   var sessionID: UUID { state.withLock { $0.sessionID } }
 
   func sessionSnapshot() -> FestiCoreCredentialSession? {
     state.withLock { state in
-      guard !state.isBarred, let credential = base.load() else { return nil }
+      if state.isBarred {
+        guard state.canRecoverInitialCredential, let restored = base.load() else { return nil }
+        state.isBarred = false
+        state.canRecoverInitialCredential = false
+        return FestiCoreCredentialSession(credential: restored, id: state.sessionID)
+      }
+      guard let credential = base.load() else { return nil }
       return FestiCoreCredentialSession(credential: credential, id: state.sessionID)
     }
   }
 
-  func startSession(_ credential: FestiCoreCredential) {
+  @discardableResult
+  func save(_ credential: FestiCoreCredential) -> Bool {
     state.withLock { state in
+      guard !state.isBarred else { return false }
+      state.canRecoverInitialCredential = false
+      let saved = base.save(credential)
+      if !saved { state.isBarred = true }
+      state.revision = UUID()
       state.sessionID = UUID()
-      state.revision = UUID()
-      state.isBarred = false
-      base.save(credential)
-    }
-  }
-
-  func save(_ credential: FestiCoreCredential) {
-    state.withLock { state in
-      guard !state.isBarred else { return }
-      base.save(credential)
-      state.revision = UUID()
+      return saved
     }
   }
 
@@ -69,29 +84,45 @@ final class GuardedCredentialStore: CredentialStore {
     }
   }
 
-  func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {
-    state.withLock { state in
+  func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) throws -> Bool {
+    try state.withLock { state in
       guard !state.isBarred, state.revision == revision, base.load() == current else { return false }
-      base.save(credential)
+      let saved = base.save(credential)
+      if !saved {
+        state.isBarred = true
+        state.canRecoverInitialCredential = false
+        // 이전 토큰 삭제를 시도하고 저장 실패를 호출자에게 전달한다.
+        _ = base.clear()
+        state.onPersistenceFailure?()
+        state.revision = UUID()
+        throw CredentialStoreError.persistenceFailed
+      }
       state.revision = UUID()
-      return true
+      return saved
     }
   }
 
-  func clear() {
+  @discardableResult
+  func clear() -> Bool {
     state.withLock { state in
       state.isBarred = true
+      state.canRecoverInitialCredential = false
       state.revision = UUID()
       state.sessionID = UUID()
-      base.clear()
+      return base.clear()
     }
   }
 
   func allowSaves() {
     state.withLock { state in
       state.isBarred = false
+      state.canRecoverInitialCredential = false
       state.revision = UUID()
       state.sessionID = UUID()
     }
+  }
+
+  func setPersistenceFailureHandler(_ handler: @escaping @Sendable () -> Void) {
+    state.withLock { $0.onPersistenceFailure = handler }
   }
 }

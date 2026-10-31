@@ -265,6 +265,56 @@ struct AuthDomainTests {
     #expect(await client.lastRequestBoundSessionID == sessionID)
   }
 
+  @Test("서버 로그아웃 성공 뒤 로컬 자격 증명 삭제 실패를 전파한다")
+  func signOutReportsLocalClearFailure() async throws {
+    let auth = StubAuthService(loggedIn: true, clearSucceeds: false)
+    let client = StubClient(result: .success(Data(#"{"code":"SUCCESS","message":"OK","data":{"success":true}}"#.utf8)))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.signOut() }
+    #expect(await auth.signOutCalls == 1)
+    #expect(await auth.isLoggedIn)
+
+    await auth.setClearSucceeds(true)
+    try await repository.signOut()
+    #expect(await auth.signOutCalls == 2)
+    #expect(await auth.isLoggedIn == false)
+    #expect(await client.calls == 1)
+  }
+
+  @Test("저널 준비 실패 시 로그아웃과 탈퇴 요청을 서버로 보내지 않는다")
+  func revocationJournalFailureDoesNotCallServer() async {
+    let auth = StubAuthService(loggedIn: true, prepareSucceeds: false)
+    let client = StubClient(result: .failure(.transport(.notConnected)))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.signOut() }
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.withdraw() }
+    #expect(await client.calls == 0)
+    #expect(await auth.isLoggedIn)
+  }
+
+  @Test("서버 로그아웃 성공 뒤 확인 기록 실패는 요청 잠금을 풀고 오류를 반환한다")
+  func failedSignOutConfirmationFinishesRequest() async {
+    let auth = StubAuthService(loggedIn: true, confirmSignOutSucceeds: false)
+    let client = StubClient(result: .success(Data(#"{"code":"SUCCESS","message":"OK","data":{"success":true}}"#.utf8)))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.signOut() }
+    #expect(await client.calls == 1)
+    #expect(await auth.signOutCalls == 0)
+    #expect(await auth.finishedRevocationRequests == 1)
+  }
+
   @Test("이미 로그아웃 상태라면 네트워크를 호출하지 않는다")
   func alreadySignedOut() async throws {
     let auth = StubAuthService()
@@ -304,6 +354,8 @@ struct AuthDomainTests {
     await #expect(throws: FestiCoreNetworkError.self) { try await repository.signOut() }
     #expect(await auth.isLoggedIn)
     #expect(await auth.signOutCalls == 0)
+    #expect(await auth.revocationPending)
+    #expect(await auth.finishedRevocationRequests == 1)
   }
 
   @Test("토큰 갱신이 먼저 세션을 지웠으면 전송 오류여도 로그아웃이 완료된다")
@@ -340,6 +392,104 @@ struct AuthDomainTests {
     #expect(await client.lastRequestParametersAreNil)
     #expect(await auth.isLoggedIn == false)
     #expect(await auth.signOutCalls == 1)
+  }
+
+  @Test("회원 탈퇴 응답 뒤 로컬 자격 증명 삭제 실패를 전파한다")
+  func withdrawReportsLocalClearFailure() async {
+    let auth = StubAuthService(loggedIn: true, clearSucceeds: false)
+    let client = StubClient(result: .success(Data()))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.withdraw() }
+    #expect(await auth.signOutCalls == 1)
+    #expect(await auth.isLoggedIn)
+  }
+
+  @Test("회원 탈퇴 뒤 로컬 삭제는 서버 오류와 관계없이 재시도한다", arguments: [0, 401, 500])
+  func withdrawRetriesPendingLocalClear(status: Int) async throws {
+    let auth = StubAuthService(loggedIn: true, clearSucceeds: false)
+    let successfulClient = StubClient(result: .success(Data()))
+    let first = withDependencies {
+      $0.networkClient = successfulClient
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await first.withdraw() }
+
+    let networkError: FestiCoreNetworkError = status == 0
+      ? .transport(.notConnected)
+      : .response(ResponseError(httpStatus: status))
+    let unavailableClient = StubClient(result: .failure(networkError))
+    let retry = withDependencies {
+      $0.networkClient = unavailableClient
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await retry.withdraw() }
+    #expect(await auth.isLoggedIn)
+    #expect(await unavailableClient.calls == 0)
+
+    await auth.setClearSucceeds(true)
+    try await retry.withdraw()
+    #expect(await auth.isLoggedIn == false)
+    #expect(await auth.signOutCalls == 3)
+    #expect(await unavailableClient.calls == 0)
+  }
+
+  @Test("탈퇴 401 뒤 Keychain 삭제 실패는 다음 시도에서 서버 없이 로컬 정리를 완료한다")
+  func withdrawalUnauthorizedCleanupRetriesOffline() async {
+    let auth = StubAuthService(loggedIn: true, clearSucceeds: false)
+    let client = StubClient(result: .failure(.response(ResponseError(httpStatus: 401))))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.withdraw() }
+    #expect(await client.calls == 1)
+
+    await auth.setClearSucceeds(true)
+    await #expect(throws: AuthDomainError.notAuthenticated) { try await repository.withdraw() }
+    #expect(await client.calls == 1)
+    #expect(await auth.isLoggedIn == false)
+  }
+
+  @Test("응답 전 재시작한 로그아웃과 탈퇴는 성공으로 보고하지 않는다")
+  func requestedRevocationAfterCrashReportsUnknown() async {
+    for kind in [AuthRevocationKind.signOut, .withdrawal] {
+      let auth = StubAuthService(loggedIn: false, unconfirmedRevocation: true)
+      let client = StubClient(result: .failure(.transport(.notConnected)))
+      let repository = withDependencies {
+        $0.networkClient = client
+        $0.authService = auth
+      } operation: { AuthRepositoryImpl() }
+      switch kind {
+      case .signOut:
+        await #expect(throws: AuthDomainError.revocationOutcomeUnknown) { try await repository.signOut() }
+      case .withdrawal:
+        await #expect(throws: AuthDomainError.revocationOutcomeUnknown) { try await repository.withdraw() }
+      }
+      #expect(await client.calls == 0)
+      #expect(await auth.signOutCalls == 0)
+      #expect(await auth.localCleanupRetryCalls == 1)
+    }
+  }
+
+  @Test("결과가 불명확한 탈퇴의 로컬 삭제 실패는 서버 호출 없이 다시 시도한다")
+  func unconfirmedWithdrawalRetriesLocalCleanupOffline() async {
+    let auth = StubAuthService(loggedIn: false, clearSucceeds: false, unconfirmedRevocation: true)
+    let client = StubClient(result: .failure(.transport(.notConnected)))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.withdraw() }
+    await auth.setClearSucceeds(true)
+    await #expect(throws: AuthDomainError.revocationOutcomeUnknown) { try await repository.withdraw() }
+    #expect(await client.calls == 0)
+    #expect(await auth.signOutCalls == 0)
+    #expect(await auth.localCleanupRetryCalls == 2)
   }
 
   @Test("미로그인 상태는 회원 탈퇴 요청 전에 거부한다")
@@ -390,6 +540,8 @@ struct AuthDomainTests {
     #expect(await client.calls == 1)
     #expect(await auth.isLoggedIn == (status != 401))
     #expect(await auth.signOutCalls == (status == 401 ? 1 : 0))
+    #expect(await auth.revocationPending == (status != 401))
+    #expect(await auth.finishedRevocationRequests == 1)
   }
 
   @Test("회원 탈퇴 중 토큰 갱신 실패가 세션을 지워도 원래 전송 오류를 전파한다")
@@ -424,7 +576,7 @@ struct AuthDomainTests {
     let auth = StubAuthService(loggedIn: true)
     let client = StubClient(result: .success(Data())) {
       let id = await auth.stageSession(accessToken: "new-access", refreshToken: "new-refresh")
-      _ = await auth.commitSession(id)
+      #expect(await auth.commitSession(id) == false)
     }
     let repository = withDependencies {
       $0.networkClient = client
@@ -433,9 +585,31 @@ struct AuthDomainTests {
 
     try await repository.withdraw()
 
+    #expect(await auth.isLoggedIn == false)
+    let stagedID = try #require(await auth.stagedID)
+    #expect(await auth.commitSession(stagedID))
     #expect(await auth.isLoggedIn)
     #expect(await auth.refreshToken == "new-refresh")
-    #expect(await auth.signOutCalls == 0)
+    #expect(await auth.signOutCalls == 1)
+  }
+
+  @Test("세션을 읽은 뒤 새 로그인으로 바뀌면 폐기 요청과 서버 호출을 시작하지 않는다", arguments: [false, true])
+  func staleRevocationDoesNotReachServer(withdrawal: Bool) async {
+    let auth = StubAuthService(loggedIn: true, switchSessionBeforePrepare: true)
+    let client = StubClient(result: .success(Data()))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    if withdrawal {
+      await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.withdraw() }
+    } else {
+      await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.signOut() }
+    }
+    #expect(await client.calls == 0)
+    #expect(await auth.revocationPending == false)
+    #expect(await auth.isLoggedIn)
   }
 
   @Test("회원 탈퇴 UseCase는 저장소의 성공 결과를 전달한다")
@@ -467,14 +641,73 @@ struct AuthDomainTests {
 
 private actor StubAuthService: AuthService {
   private var loggedIn: Bool
+  private var clearSucceeds: Bool
+  private let prepareSucceeds: Bool
+  private let unconfirmedRevocation: Bool
+  private let confirmSignOutSucceeds: Bool
+  private var withdrawalCleanupPending = false
+  private var signOutCleanupPending = false
+  private var withdrawalRequested = false
+  private var revocationInFlight = false
+  private var switchSessionBeforePrepare: Bool
+  private(set) var revocationPending = false
+  private(set) var finishedRevocationRequests = 0
   private(set) var sessionID = UUID()
   private(set) var tokens: [String] = []
   private(set) var signOutCalls = 0
+  private(set) var localCleanupRetryCalls = 0
 
-  init(loggedIn: Bool = false) { self.loggedIn = loggedIn }
+  init(
+    loggedIn: Bool = false,
+    clearSucceeds: Bool = true,
+    prepareSucceeds: Bool = true,
+    unconfirmedRevocation: Bool = false,
+    confirmSignOutSucceeds: Bool = true,
+    switchSessionBeforePrepare: Bool = false
+  ) {
+    self.loggedIn = loggedIn
+    self.clearSucceeds = clearSucceeds
+    self.prepareSucceeds = prepareSucceeds
+    self.unconfirmedRevocation = unconfirmedRevocation
+    self.confirmSignOutSucceeds = confirmSignOutSucceeds
+    self.switchSessionBeforePrepare = switchSessionBeforePrepare
+  }
 
   var isLoggedIn: Bool { loggedIn }
+  var hasUnconfirmedRevocation: Bool { unconfirmedRevocation }
+  func retryUnconfirmedLocalCleanup() -> Bool {
+    localCleanupRetryCalls += 1
+    return clearSucceeds
+  }
+  var hasPendingWithdrawalCleanup: Bool { withdrawalCleanupPending }
+  var hasPendingWithdrawalAuthorizationCleanup: Bool { withdrawalRequested && signOutCleanupPending }
+  var hasPendingSignOutCleanup: Bool { signOutCleanupPending }
+  func setClearSucceeds(_ value: Bool) { clearSucceeds = value }
+  func prepareRevocation(_ kind: AuthRevocationKind, ifSessionIDMatches expected: UUID) -> Bool {
+    if switchSessionBeforePrepare {
+      sessionID = UUID()
+      tokens = ["new-access", "new-refresh"]
+      switchSessionBeforePrepare = false
+    }
+    guard prepareSucceeds, loggedIn, sessionID == expected, !revocationInFlight else { return false }
+    revocationPending = true
+    revocationInFlight = true
+    if case .withdrawal = kind { withdrawalRequested = true }
+    return true
+  }
+  func finishRevocationRequest() {
+    finishedRevocationRequests += 1
+    revocationInFlight = false
+  }
+  func confirmSignOut() -> Bool { confirmSignOutSucceeds }
+  func confirmWithdrawalAuthorizationRejected() -> Bool { true }
+
+  func completeWithdrawal() -> Bool {
+    withdrawalCleanupPending = true
+    return signOut()
+  }
   var authenticatedSessionID: UUID? { loggedIn ? sessionID : nil }
+  var hasPendingLocalClear: Bool { signOutCleanupPending }
   var refreshToken: String? { tokens.last }
   var currentUserID: String? { nil }
 
@@ -489,7 +722,7 @@ private actor StubAuthService: AuthService {
   }
 
   func commitSession(_ id: UUID) -> Bool {
-    guard stagedID == id else { return false }
+    guard stagedID == id, !revocationInFlight else { return false }
     sessionID = UUID()
     tokens = stagedTokens
     loggedIn = true
@@ -509,17 +742,26 @@ private actor StubAuthService: AuthService {
 
   func rememberUserID(_ userID: String) {}
 
-  func signOut() {
+  func signOut() -> Bool {
     sessionID = UUID()
     tokens = []
-    loggedIn = false
     signOutCalls += 1
+    if clearSucceeds {
+      loggedIn = false
+      withdrawalCleanupPending = false
+      signOutCleanupPending = false
+      withdrawalRequested = false
+      revocationPending = false
+      revocationInFlight = false
+    } else {
+      signOutCleanupPending = true
+    }
+    return clearSucceeds
   }
 
   func signOut(ifSessionIDMatches expected: UUID) -> Bool {
     guard sessionID == expected else { return false }
-    signOut()
-    return true
+    return signOut()
   }
 }
 

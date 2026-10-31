@@ -6,16 +6,39 @@
 //
 
 import Foundation
+import CryptoKit
 import FestiCoreNetworkInterface
 import FestiCoreStorageInterface
 
 final class KeychainCredentialStore: CredentialStore {
   private let storage: any SecureStorage
+  private let journal: SessionRevocationJournal?
+  let initialJournalUnreadable: Bool
+  private var restorationBlocked: Bool
   private let lock = NSLock()
   private var currentRevision = UUID()
   private var currentSessionID = UUID()
 
-  init(storage: any SecureStorage) { self.storage = storage }
+  init(storage: any SecureStorage, journal: SessionRevocationJournal? = nil) {
+    self.storage = storage
+    self.journal = journal
+    if let journal {
+      switch journal.status {
+      case .absent:
+        initialJournalUnreadable = false
+        restorationBlocked = false
+      case .pending:
+        initialJournalUnreadable = false
+        restorationBlocked = true
+      case .unreadable:
+        initialJournalUnreadable = true
+        restorationBlocked = true
+      }
+    } else {
+      initialJournalUnreadable = false
+      restorationBlocked = false
+    }
+  }
 
   func load() -> FestiCoreCredential? {
     lock.withLock { loadUnlocked() }
@@ -28,11 +51,14 @@ final class KeychainCredentialStore: CredentialStore {
     }
   }
 
-  func save(_ credential: FestiCoreCredential) {
+  @discardableResult
+  func save(_ credential: FestiCoreCredential) -> Bool {
     lock.withLock {
-      saveUnlocked(credential)
+      let saved = saveUnlocked(credential)
+      if saved, let journal, case .absent = journal.status { restorationBlocked = false }
       currentRevision = UUID()
-      currentSessionID = UUID()
+      if saved { currentSessionID = UUID() }
+      return saved
     }
   }
 
@@ -47,29 +73,48 @@ final class KeychainCredentialStore: CredentialStore {
     }
   }
 
-  func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {
-    lock.withLock {
+  func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) throws -> Bool {
+    try lock.withLock {
       guard currentRevision == revision, loadUnlocked() == current else { return false }
-      saveUnlocked(credential)
+      guard saveUnlocked(credential) else {
+        currentRevision = UUID()
+        throw CredentialStoreError.persistenceFailed
+      }
       currentRevision = UUID()
+      restorationBlocked = false
       return true
     }
   }
 
-  func clear() {
+  @discardableResult
+  func clear() -> Bool {
     lock.withLock {
-      try? storage.remove(.accessToken)
-      try? storage.remove(.refreshToken)
-      try? storage.remove(.sessionUserID)
+      // 하나라도 실패하면 로그아웃 완료를 보고하지 않는다.
+      let invalidated = (try? storage.save("invalid:\(UUID())", for: .credentialIntegrity)) != nil
+      let accessRemoved = (try? storage.remove(.accessToken)) != nil
+      let refreshRemoved = (try? storage.remove(.refreshToken)) != nil
+      let identityRemoved = (try? storage.remove(.sessionUserID)) != nil
       currentRevision = UUID()
       currentSessionID = UUID()
+      return invalidated && accessRemoved && refreshRemoved && identityRemoved
     }
   }
 
   private func loadUnlocked() -> FestiCoreCredential? {
+    if restorationBlocked {
+      guard let journal, case .absent = journal.status else { return nil }
+      restorationBlocked = false
+    }
     guard let accessToken = try? storage.load(.accessToken), !accessToken.isEmpty,
           let refreshToken = try? storage.load(.refreshToken), !refreshToken.isEmpty
     else { return nil }
+    do {
+      // 기존 설치의 토큰 쌍은 검증 값이 없을 수 있다. 새 저장부터 검증 값을 기록한다.
+      if let integrity = try storage.load(.credentialIntegrity),
+         integrity != integrityValue(accessToken: accessToken, refreshToken: refreshToken) {
+        return nil
+      }
+    } catch { return nil }
     return FestiCoreCredential(
       accessToken: accessToken,
       refreshToken: refreshToken,
@@ -77,8 +122,29 @@ final class KeychainCredentialStore: CredentialStore {
     )
   }
 
-  private func saveUnlocked(_ credential: FestiCoreCredential) {
-    try? storage.save(credential.accessToken, for: .accessToken)
-    try? storage.save(credential.refreshToken, for: .refreshToken)
+  private func saveUnlocked(_ credential: FestiCoreCredential) -> Bool {
+    // 첫 쓰기가 실패하면 기존 토큰은 건드리지 않는다.
+    do { try storage.save("invalid:\(UUID())", for: .credentialIntegrity) }
+    catch { return false }
+    do {
+      try storage.save(credential.accessToken, for: .accessToken)
+      try storage.save(credential.refreshToken, for: .refreshToken)
+      try storage.save(
+        integrityValue(accessToken: credential.accessToken, refreshToken: credential.refreshToken),
+        for: .credentialIntegrity
+      )
+      return true
+    } catch {
+      // 삭제까지 실패해도 invalid 검증 값이 혼합 토큰 쌍의 복원을 막는다.
+      try? storage.remove(.accessToken)
+      try? storage.remove(.refreshToken)
+      return false
+    }
+  }
+
+  private func integrityValue(accessToken: String, refreshToken: String) -> String {
+    let value = "\(accessToken.utf8.count):\(accessToken)\(refreshToken)"
+    let digest = SHA256.hash(data: Data(value.utf8))
+    return "sha256:\(digest.map { String(format: "%02x", $0) }.joined())"
   }
 }

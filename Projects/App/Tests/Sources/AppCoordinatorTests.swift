@@ -1651,7 +1651,7 @@ struct AppCoordinatorTests {
     await store.receive(\.inner.profileLoaded)
   }
 
-  @Test func failedCommitDoesNotSignInAndRereadsSession() async {
+  @Test func failedCommitKeepsLoginOpenWithError() async {
     let auth = SessionRecordingAuthService(commitResult: false)
     let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
       $0.authService = auth
@@ -1665,9 +1665,9 @@ struct AppCoordinatorTests {
     #expect(!rejected.authFlow.hasSession)
     #expect(rejected.authFlow.verifiedUserID == nil)
     #expect(rejected.authFlow.loginAttemptGeneration == nil)
-    await store.receive(\.inner.profileLoaded)
-    guard case let .home(reread) = store.state else { return }
-    #expect(!reread.authFlow.hasSession)
+    #expect(rejected.authFlow.presentation == .login)
+    #expect(rejected.authFlow.message == "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요.")
+    #expect(!rejected.authFlow.isLoading)
   }
 
   @Test func loginFinishedAfterSheetDismissalDiscardsItsSession() async {
@@ -1951,8 +1951,9 @@ private struct StubAuthService: AuthService {
     Issue.record("테스트에서 rememberUserID 호출을 예상하지 않았어요")
   }
 
-  func signOut() async {
+  func signOut() async -> Bool {
     Issue.record("테스트에서 signOut 호출을 예상하지 않았어요")
+    return false
   }
 
   func signOut(ifSessionIDMatches _: UUID) async -> Bool {
@@ -2052,14 +2053,14 @@ private actor SessionRecordingAuthService: AuthService {
   }
 
   func rememberUserID(_ userID: String) {}
-  func signOut() {
+  func signOut() -> Bool {
     activeSessionID = UUID()
     loggedIn = false
+    return true
   }
   func signOut(ifSessionIDMatches expected: UUID) -> Bool {
     guard activeSessionID == expected, loggedIn else { return false }
-    signOut()
-    return true
+    return signOut()
   }
 
   func waitUntilCommitStarts() async {

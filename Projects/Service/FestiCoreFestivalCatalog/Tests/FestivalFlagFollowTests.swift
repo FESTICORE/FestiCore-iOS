@@ -111,7 +111,7 @@ private actor FollowStubAuth: AuthService {
   func signOut(ifSession _: UUID) -> Bool { false }
   func signOut(ifSessionIDMatches _: UUID) -> Bool { false }
   func rememberUserID(_: String) {}
-  func signOut() {}
+  func signOut() -> Bool { true }
 }
 
 private actor FollowStubClient: FestiCoreRequestClient {

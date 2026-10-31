@@ -238,6 +238,7 @@ private extension AppCoordinator {
             home.authFlow.presentation == .login,
             home.authFlow.pendingCommitSessionID == nil else { return .none }
       home.authFlow.loginAttemptGeneration = home.authFlow.generation
+      home.authFlow.message = nil
       state = .home(home)
       // 닫았던 시트에서 시작한 로그인이 아직 진행 중이면 새로 시작하지 않고 그 결과를 이번 시도로 받는다.
       guard !home.loginState.isSigningIn else { return .none }
@@ -573,13 +574,12 @@ private extension AppCoordinator {
         home.authFlow.pendingCommitSessionID = nil
         state = .home(home)
         if committed { return acceptLogin(result, state: &state) }
-        // 확정 전에 세션이 정리됐다(예: 명시적 로그아웃). 로그인 전이 없이 현재 확정 세션을 다시 읽는다.
+        // 저장에 실패한 로그인은 시트를 유지해 다시 시도할 수 있게 한다.
         home.authFlow.loginAttemptGeneration = nil
-        home.authFlow.generation += 1
-        home.authFlow.isLoading = true
-        let next = home.authFlow.generation
+        home.authFlow.isLoading = false
+        home.authFlow.message = "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."
         state = .home(home)
-        return fetchProfile(generation: next)
+        return .none
       }
       // 확정하는 사이 시트가 닫혔다. 닫은 로그인의 세션은 그 식별자일 때만 되돌린다.
       guard committed, let sessionID = result.sessionID else { return .none }
