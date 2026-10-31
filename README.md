@@ -10,7 +10,7 @@
 ![Swift](https://img.shields.io/badge/Swift-6-FA7343.svg?logo=swift&logoColor=white)
 ![iOS](https://img.shields.io/badge/iOS-18.0+-34C759.svg)
 ![Architecture](https://img.shields.io/badge/Architecture-TCA-purple.svg)
-![Tuist](https://img.shields.io/badge/Tuist-4.206.0-blue.svg)
+![Tuist](https://img.shields.io/badge/Tuist-4.214.1-blue.svg)
 
 [아키텍처](#아키텍처) · [빠른 시작](#빠른-시작) · [개발 명령어](#개발-명령어) · [개발 가이드](#개발-가이드)
 
@@ -139,7 +139,7 @@ Point-Free Dependencies를 사용합니다. `ServiceAssembly`가 네트워크·�
 | --- | --- |
 | 언어·UI | Swift 6, SwiftUI |
 | 상태 관리·내비게이션 | The Composable Architecture, TCAFlow |
-| 프로젝트 | Tuist 4.206.0, Mise |
+| 프로젝트 | Tuist 4.214.1, Mise |
 | 의존성 주입 | Point-Free Dependencies |
 | 네트워크·저장소 | Alamofire, Keychain |
 | 디자인·이미지 | FestiCoreDesignKit, Pretendard, Kingfisher 패키지 |
