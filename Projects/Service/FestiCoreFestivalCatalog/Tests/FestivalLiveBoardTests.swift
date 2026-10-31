@@ -8,8 +8,9 @@ import Testing
 
 @Suite("축제 라이브 보드 통신")
 struct FestivalLiveBoardTests {
-  @Test("라이브 상태와 공개 프로필을 합쳐 크루·팔로우·활성 깃발을 반환한다")
+  @Test("등록 토큰 없이 설치 ID로 라이브 상태와 공개 프로필을 조회한다")
   func mapsLiveBoard() async throws {
+    #expect(try await LiveBoardStubDevice().authorization()?.deviceID == nil)
     let client = LiveBoardStubClient(responses: [
       "api/v1/festivals/fst_test/live": #"""
         {"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test",
@@ -321,12 +322,14 @@ private actor LiveBoardStubAuth: AuthService {
 }
 
 private struct LiveBoardStubDevice: DeviceRegistrationService {
+  func installationDeviceID() async throws -> String { "00000000-0000-4000-8000-000000000001" }
+
   func register(_: DeviceRegistrationMetadata) async throws -> DeviceAuthorization {
     throw FestivalLiveBoardError.deviceNotRegistered
   }
 
   func authorization() async throws -> DeviceAuthorization? {
-    .init(deviceID: "00000000-0000-4000-8000-000000000001", bearerToken: "device-token")
+    nil
   }
 }
 

@@ -37,9 +37,7 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
             || ($0 >= 97 && $0 <= 122) || $0 == 45 || $0 == 95 }) else {
       throw FestivalLiveBoardError.invalidFestivalID
     }
-    guard let deviceID = try await device.authorization()?.deviceID else {
-      throw FestivalLiveBoardError.deviceNotRegistered
-    }
+    let deviceID = try await device.installationDeviceID()
     let userID = await authenticatedUserID()
     if cachedUserID != userID {
       cachedBoards.removeAll()
