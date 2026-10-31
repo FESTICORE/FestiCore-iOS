@@ -6,11 +6,19 @@
 //
 
 import Foundation
+import os
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
 import FestiCoreStorageInterface
 
+enum AuthFailureHandlingResult: Equatable {
+  case ignored
+  case invalidated
+  case persistenceFailed
+}
+
 actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
+  private static let logger = Logger(subsystem: "io.festiCore.co", category: "Auth")
   nonisolated let authenticatedClient: any FestiCoreNetworkClient
   private let store: GuardedCredentialStore
   private let credentials: any CredentialUpdating
@@ -210,18 +218,28 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     return cleared
   }
 
-  func handleAuthFailure(for attempted: FestiCoreCredential, sessionID: UUID) {
+  @discardableResult
+  func handleAuthFailure(for attempted: FestiCoreCredential, sessionID: UUID) -> AuthFailureHandlingResult {
     guard let session = store.sessionSnapshot(),
           session.id == sessionID,
           session.credential.refreshToken == attempted.refreshToken
-    else { return }
+    else { return .ignored }
     // 기존 세션의 자동 만료는 진행 중인 새 로그인의 임시 세션까지 무효로 만들지 않는다.
-    // 만료된 토큰의 Keychain 삭제가 실패해도 다음 실행에서 복원하지 않는다.
     // 진행 중인 서버 요청의 결과 기록은 덮어쓰지 않는다.
-    if case .absent = journal.status { _ = journal.record(.sessionExpired) }
+    let journalProtectsRestoration: Bool
+    if case .absent = journal.status {
+      journalProtectsRestoration = journal.record(.sessionExpired)
+    } else {
+      journalProtectsRestoration = true
+    }
     let cleared = clearCommittedSession()
     sessionClearPending = !cleared
     NotificationCenter.default.post(name: .festiCoreAuthSessionDidExpire, object: nil)
+    guard journalProtectsRestoration || cleared else {
+      Self.logger.fault("인증 만료 후 저널 기록과 Keychain 정리가 모두 실패했습니다. 재시작 시 세션 복원을 차단할 수 없습니다.")
+      return .persistenceFailed
+    }
+    return .invalidated
   }
 
   func handlePersistenceFailure() {

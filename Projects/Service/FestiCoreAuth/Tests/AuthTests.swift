@@ -838,6 +838,37 @@ struct AuthTests {
     #expect(FileManager.default.fileExists(atPath: storage.journalURL.path) == false)
   }
 
+  @Test("저널 기록과 Keychain 정리가 함께 실패하면 호출자에게 실패를 알리고 현재 세션을 차단한다")
+  func authFailureReportsDualPersistenceFailure() async throws {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let made = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+    let auth = try #require(made as? FestiCoreAuth)
+    let accessToken = jwt(subject: "user-a")
+    await signIn(auth, accessToken: accessToken, refreshToken: "refresh-a")
+    let sessionID = await auth.sessionID
+    let journalDirectory = storage.journalURL.deletingLastPathComponent()
+    try FileManager.default.createDirectory(at: journalDirectory, withIntermediateDirectories: true)
+    try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: journalDirectory.path)
+    defer {
+      try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: journalDirectory.path)
+    }
+    storage.failTokenSaveFor = .credentialIntegrity
+    storage.failTokenRemovalFor = [.accessToken, .refreshToken]
+
+    let result = await auth.handleAuthFailure(
+      for: FestiCoreCredential(accessToken: accessToken, refreshToken: "refresh-a"),
+      sessionID: sessionID
+    )
+
+    #expect(result == .persistenceFailed)
+    #expect(await auth.isLoggedIn == false)
+    #expect(await auth.refreshToken == nil)
+    #expect(await auth.hasPendingLocalClear)
+    #expect(storage.load(.refreshToken) == "refresh-a")
+    #expect(FileManager.default.fileExists(atPath: storage.journalURL.path) == false)
+  }
+
   @Test("탈퇴 요청 중 인증 만료는 미확정 서버 결과 기록을 유지한다")
   func authFailureDuringWithdrawalPreservesRequestJournal() async throws {
     let storage = MemorySecureStorage()

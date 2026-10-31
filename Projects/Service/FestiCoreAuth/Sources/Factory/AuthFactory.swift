@@ -42,7 +42,7 @@ public enum AuthFactory {
       initialJournalUnreadable: base.initialJournalUnreadable
     )
     relay.set { [weak auth] credential, sessionID in
-      await auth?.handleAuthFailure(for: credential, sessionID: sessionID)
+      _ = await auth?.handleAuthFailure(for: credential, sessionID: sessionID)
     }
     store.setPersistenceFailureHandler { [weak auth, credentials = authenticated.credentials] in
       credentials.update(nil)
