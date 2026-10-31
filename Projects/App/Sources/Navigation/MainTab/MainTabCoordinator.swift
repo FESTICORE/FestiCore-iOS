@@ -126,12 +126,18 @@ struct MainTabCoordinator {
         _ = tab
         return .none
 
+      case .festival(.delegate(.loginRequested)):
+        return .send(.delegate(.myLoginRequested))
+
       case .festival:
         switch state.selectedTab {
         case .timetable: return syncTimetable(state: &state, appearing: false)
         case .flag: return syncFlag(state: &state)
         case .live, .my: return .none
         }
+
+      case let .timetable(.delegate(.scheduleSaved(id, ids))):
+        return .send(.festival(.myScheduleSaved(festivalID: id, setIDs: ids)))
 
       case .timetable:
         return .none

@@ -11,6 +11,7 @@ public struct FestivalFeature {
   @Dependency(\.festivalBookedStore) private var bookedStore
   @Dependency(\.packSyncService) private var packService
   @Dependency(\.festivalLiveBoardService) private var liveBoardService
+  @Dependency(\.festivalScheduleService) private var scheduleService
   @Dependency(\.festivalImagePrefetchClient) private var imagePrefetchClient
   @Dependency(\.festivalLiveActivityClient) private var liveActivityClient
   @Dependency(\.date) private var date
@@ -38,7 +39,20 @@ public struct FestivalFeature {
     public var selectedPack: FestivalPackDocument?
     public var liveBoard: FestivalLiveBoardSnapshot?
     public var liveBoardUnavailable = false
+    /// 현재 serverAt을 처음 받은 기기 시각. 304 응답에서도 서버 시각 보정 기준을 유지한다.
+    public var liveBoardClockAnchorAt: Date?
+    /// 마지막으로 라이브 보드가 정상 확인된 기기 시각. 304 응답도 포함한다.
+    public var liveBoardReceivedAt: Date?
     public var isLiveBoardVisible = false
+    /// 인증 세션이 있는지. 사용자 ID를 확인하지 못한 세션도 true다.
+    public var hasSession = false
+    /// 확인된 사용자 ID. 크루의 `나` 표시에만 쓴다.
+    public var sessionUserID: String?
+    /// 세션이 바뀔 때마다 올려 이전 세션의 응답을 버린다.
+    public var accountGeneration = 0
+    public var mySchedule: MySchedule?
+    public var myScheduleUnavailable = false
+    var myScheduleRequestID = 0
     public var connection: Connection = .loading
     public var hasStarted = false
     public var isForeground = true
@@ -116,9 +130,19 @@ public struct FestivalFeature {
     public mutating func clearAccountData() {
       liveBoard = nil
       liveBoardUnavailable = false
+      liveBoardClockAnchorAt = nil
+      liveBoardReceivedAt = nil
+      mySchedule = nil
+      myScheduleUnavailable = false
       bookedUserID = nil
       bookedFestivalIDs = []
     }
+  }
+
+  /// 서버에 저장된 내 일정 중 한 축제의 공연 ID.
+  public struct MySchedule: Equatable {
+    public let festivalID: String
+    public let setIDs: Set<String>
   }
 
   public enum Connection: Equatable {
@@ -144,6 +168,8 @@ public struct FestivalFeature {
     case delegate(FestivalDelegate)
     case reloadBookmarks(userID: String?)
     case accountChanged
+    case sessionChanged(hasSession: Bool, userID: String?)
+    case myScheduleSaved(festivalID: String, setIDs: Set<String>)
   }
 
   @CasePathable
@@ -157,7 +183,9 @@ public struct FestivalFeature {
     case liveActivityOnAppear
     case liveBoardOnAppear
     case liveBoardOnDisappear
+    case retryMySchedule
     case liveActivityTapped
+    case loginTapped
   }
 
   @CasePathable
@@ -174,11 +202,15 @@ public struct FestivalFeature {
     case liveActivityFailed(String)
     case liveActivityBoundary
     case liveActivityChanged
-    case liveBoardLoaded(String, FestivalLiveBoardSnapshot)
-    case liveBoardFailed(String)
+    case liveBoardLoaded(String, generation: Int, FestivalLiveBoardSnapshot)
+    case liveBoardFailed(String, generation: Int)
+    case myScheduleLoaded(festivalID: String, requestID: Int, generation: Int, Set<String>)
+    case myScheduleFailed(festivalID: String, requestID: Int, generation: Int)
   }
 
-  private enum CancelID { case packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary, liveBoard }
+  private enum CancelID {
+    case packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary, liveBoard, mySchedule
+  }
   private struct LiveActivitySyncID: Hashable { let id: String }
 
   public var body: some ReducerOf<Self> {
@@ -204,11 +236,20 @@ public struct FestivalFeature {
 
       case .view(.liveBoardOnAppear):
         state.isLiveBoardVisible = true
-        return watchLiveBoard(state)
+        return .merge(watchLiveBoard(state), loadMySchedule(&state))
 
       case .view(.liveBoardOnDisappear):
         state.isLiveBoardVisible = false
-        return .cancel(id: CancelID.liveBoard)
+        state.mySchedule = nil
+        state.myScheduleUnavailable = false
+        state.myScheduleRequestID += 1
+        return .merge(.cancel(id: CancelID.liveBoard), .cancel(id: CancelID.mySchedule))
+
+      case .view(.retryMySchedule):
+        return loadMySchedule(&state)
+
+      case .view(.loginTapped):
+        return .send(.delegate(.loginRequested))
 
       case .view(.liveActivityTapped):
         guard state.liveActivityReady,
@@ -279,7 +320,8 @@ public struct FestivalFeature {
           return .merge(
             refreshCatalog(), watchSelectedPack(state), prefetchImages(state),
             state.liveActivityReady ? loadLiveActivities(revision: state.liveActivityRevision) : .none,
-            state.isLiveBoardVisible ? watchLiveBoard(state) : .none
+            state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
+            loadMySchedule(&state)
           )
         }
         return .merge(
@@ -294,6 +336,10 @@ public struct FestivalFeature {
         state.selectedFestivalID = id
         state.liveBoard = nil
         state.liveBoardUnavailable = false
+        state.liveBoardClockAnchorAt = nil
+        state.liveBoardReceivedAt = nil
+        state.mySchedule = nil
+        state.myScheduleUnavailable = false
         state.liveActivityError = nil
         if state.liveActivityReady { state.liveActivityNow = date.now }
         state.packWatchFailed = false
@@ -303,6 +349,7 @@ public struct FestivalFeature {
           .run { _ in selectionStore.save(id) },
           watchSelectedPack(state),
           state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
+          loadMySchedule(&state),
           prefetchImages(state),
           liveActivityBoundary(state)
         )
@@ -310,15 +357,37 @@ public struct FestivalFeature {
       case .view(.backToFestivalList):
         return .none
 
-      case let .inner(.liveBoardLoaded(id, snapshot)):
-        guard state.selectedFestivalID == id else { return .none }
+      case let .inner(.liveBoardLoaded(id, generation, snapshot)):
+        guard state.selectedFestivalID == id, state.accountGeneration == generation else { return .none }
+        if state.liveBoard?.serverAt != snapshot.serverAt || state.liveBoardClockAnchorAt == nil {
+          state.liveBoardClockAnchorAt = date.now
+        }
         state.liveBoard = snapshot
         state.liveBoardUnavailable = false
+        state.liveBoardReceivedAt = date.now
         return .none
 
-      case let .inner(.liveBoardFailed(id)):
-        guard state.selectedFestivalID == id else { return .none }
+      case let .inner(.liveBoardFailed(id, generation)):
+        guard state.selectedFestivalID == id, state.accountGeneration == generation else { return .none }
         state.liveBoardUnavailable = true
+        return .none
+
+      case let .inner(.myScheduleLoaded(festivalID, requestID, generation, setIDs)):
+        guard state.selectedFestivalID == festivalID,
+              state.myScheduleRequestID == requestID,
+              state.accountGeneration == generation,
+              state.isLiveBoardVisible, state.hasSession else { return .none }
+        state.mySchedule = MySchedule(festivalID: festivalID, setIDs: setIDs)
+        state.myScheduleUnavailable = false
+        return .none
+
+      case let .inner(.myScheduleFailed(festivalID, requestID, generation)):
+        guard state.selectedFestivalID == festivalID,
+              state.myScheduleRequestID == requestID,
+              state.accountGeneration == generation,
+              state.isLiveBoardVisible, state.hasSession else { return .none }
+        state.mySchedule = nil
+        state.myScheduleUnavailable = true
         return .none
 
 
@@ -332,8 +401,48 @@ public struct FestivalFeature {
         return .none
 
       case .accountChanged:
+        // 같은 로그아웃 전환의 `sessionChanged`가 먼저 처리됐다면 라이브 보드는 이미 비우고 다시 불렀다.
+        guard state.hasSession || state.sessionUserID != nil else {
+          state.bookedUserID = nil
+          state.bookedFestivalIDs = []
+          return .none
+        }
         state.clearAccountData()
-        return state.isLiveBoardVisible ? watchLiveBoard(state) : .none
+        state.hasSession = false
+        state.sessionUserID = nil
+        state.accountGeneration += 1
+        return .merge(
+          state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
+          .cancel(id: CancelID.mySchedule)
+        )
+
+      case let .sessionChanged(hasSession, userID):
+        guard state.hasSession != hasSession || state.sessionUserID != userID else { return .none }
+        if let bookedUserID = state.bookedUserID, bookedUserID != userID {
+          state.bookedUserID = nil
+          state.bookedFestivalIDs = []
+        }
+        state.hasSession = hasSession
+        state.sessionUserID = userID
+        state.accountGeneration += 1
+        state.liveBoard = nil
+        state.liveBoardUnavailable = false
+        state.liveBoardClockAnchorAt = nil
+        state.liveBoardReceivedAt = nil
+        state.mySchedule = nil
+        state.myScheduleUnavailable = false
+        return .merge(
+          state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
+          loadMySchedule(&state)
+        )
+
+      case let .myScheduleSaved(festivalID, setIDs):
+        guard state.selectedFestivalID == festivalID,
+              state.hasSession, state.isLiveBoardVisible else { return .none }
+        state.myScheduleRequestID += 1
+        state.mySchedule = MySchedule(festivalID: festivalID, setIDs: setIDs)
+        state.myScheduleUnavailable = false
+        return .cancel(id: CancelID.mySchedule)
 
       case .delegate:
         return .none
@@ -570,22 +679,47 @@ public struct FestivalFeature {
           let id = state.selectedFestivalID else {
       return .cancel(id: CancelID.liveBoard)
     }
+    let generation = state.accountGeneration
     return .run { send in
       while !Task.isCancelled {
         var interval: TimeInterval = 35
         do {
           let snapshot = try await liveBoardService.refresh(for: id)
-          await send(.inner(.liveBoardLoaded(id, snapshot)))
+          await send(.inner(.liveBoardLoaded(id, generation: generation, snapshot)))
         } catch FestivalLiveBoardError.rateLimited(let retryAfter) {
           interval = max(interval, retryAfter)
-          await send(.inner(.liveBoardFailed(id)))
+          await send(.inner(.liveBoardFailed(id, generation: generation)))
         } catch {
-          await send(.inner(.liveBoardFailed(id)))
+          await send(.inner(.liveBoardFailed(id, generation: generation)))
         }
         try await clock.sleep(for: .seconds(interval))
       }
     }
     .cancellable(id: CancelID.liveBoard, cancelInFlight: true)
+  }
+
+  /// 세션이 있고 라이브 보드가 보일 때 내 일정을 불러온다.
+  private func loadMySchedule(_ state: inout State) -> Effect<Action> {
+    guard state.hasSession, state.isLiveBoardVisible, let id = state.selectedFestivalID else {
+      return .cancel(id: CancelID.mySchedule)
+    }
+    state.myScheduleRequestID += 1
+    state.myScheduleUnavailable = false
+    let requestID = state.myScheduleRequestID
+    let generation = state.accountGeneration
+    return .run { send in
+      do {
+        let setIDs = try await scheduleService.fetch(festivalID: id).setIDs
+        await send(.inner(.myScheduleLoaded(
+          festivalID: id, requestID: requestID, generation: generation, Set(setIDs)
+        )))
+      } catch {
+        await send(.inner(.myScheduleFailed(
+          festivalID: id, requestID: requestID, generation: generation
+        )))
+      }
+    }
+    .cancellable(id: CancelID.mySchedule, cancelInFlight: true)
   }
 
   private func watchSelectedPack(_ state: State) -> Effect<Action> {

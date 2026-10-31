@@ -17,6 +17,9 @@ struct AppCoordinator {
   @Dependency(\.authUseCase) private var authUseCase
   @Dependency(\.authService) private var authService
   @Dependency(\.festivalBookedStore) private var bookedStore
+  @Dependency(\.authSessionExpiryClient) private var authSessionExpiryClient
+
+  private enum CancelID { case sessionExpiry }
 
   struct AuthFlow: Equatable {
     enum Presentation: Equatable {
@@ -45,6 +48,14 @@ struct AppCoordinator {
     var hasRetriedTermsUpdate = false
     var termsUpdateExhausted = false
     var message: String?
+
+    mutating func clearConsentAndRetryState() {
+      acceptedTerms = false
+      consentedVersion = nil
+      message = nil
+      hasRetriedTermsUpdate = false
+      termsUpdateExhausted = false
+    }
   }
 
   @ObservableState
@@ -60,6 +71,23 @@ struct AppCoordinator {
       case .home: "home"
       }
     }
+
+    /// 라이브 보드에 전달할 세션. 세션 여부와 확인된 사용자 ID가 바뀌면 `FestivalFeature`에 알린다.
+    var festivalSession: FestivalSession {
+      guard case let .home(home) = self, home.authFlow.hasSession else {
+        return FestivalSession(hasSession: false, userID: nil)
+      }
+      let flow = home.authFlow
+      return FestivalSession(
+        hasSession: true,
+        userID: flow.profile?.user.id ?? flow.verifiedUserID ?? flow.lastVerifiedUserID
+      )
+    }
+  }
+
+  struct FestivalSession: Equatable {
+    let hasSession: Bool
+    let userID: String?
   }
 
   enum Action: ViewAction {
@@ -85,6 +113,7 @@ struct AppCoordinator {
   @CasePathable
   enum InnerAction {
     case completeHomeTransition
+    case sessionExpired
     case sessionRestored(generation: Int, userID: String?, isLoggedIn: Bool)
     case profileLoaded(generation: Int, Result<AuthProfile, ProfileFailure>)
     case profileUpdated(generation: Int, Result<AuthUser, ProfileFailure>)
@@ -145,6 +174,34 @@ struct AppCoordinator {
     }
     .ifCaseLet(\.splash, action: \.scope.splash) { SplashFeature() }
     .ifCaseLet(\.home, action: \.scope.home) { MainTabCoordinator() }
+    .onChange(of: \.festivalSession) { previous, state in
+      let session = state.festivalSession
+      let changed: Effect<Action> = .send(.scope(.home(.festival(.sessionChanged(
+        hasSession: session.hasSession, userID: session.userID
+      )))))
+      // 로그인 중 확인된 계정 ID가 사라져도(A→nil) 다음에 올 계정이 같다고 보장할 수 없어 전환으로 본다.
+      let switchedAccounts = previous.userID != nil && previous.userID != session.userID
+      // 깃발 계정 데이터는 여기서만 비운다. `Effect.send`는 같은 send 호출 안에서 처리되어 이전 계정 깃발이 화면에 남지 않는다.
+      let flagChanged: Effect<Action> = .send(.scope(.home(.flag(.accountChanged))))
+      guard previous.hasSession else {
+        // 로그아웃 상태에서 받은 깃발에는 내 팔로우 정보가 없어 로그인한 계정으로 다시 불러온다.
+        guard session.hasSession else { return changed }
+        return .concatenate(flagChanged, changed)
+      }
+      if switchedAccounts {
+        return .concatenate(
+          flagChanged,
+          .send(.scope(.home(.timetable(.accountChanged)))),
+          changed
+        )
+      }
+      guard !session.hasSession else { return changed }
+      return .concatenate(
+        flagChanged,
+        .send(.scope(.home(.timetable(.accountChanged)))),
+        changed
+      )
+    }
   }
 }
 
@@ -188,11 +245,7 @@ private extension AppCoordinator {
       }
       home.authFlow.loginAttemptGeneration = nil
       home.authFlow.presentation = nil
-      home.authFlow.message = nil
-      home.authFlow.hasRetriedTermsUpdate = false
-      home.authFlow.termsUpdateExhausted = false
-      home.authFlow.acceptedTerms = false
-      home.authFlow.consentedVersion = nil
+      home.authFlow.clearConsentAndRetryState()
       state = .home(home)
       return .none
 
@@ -284,11 +337,43 @@ private extension AppCoordinator {
     case .completeHomeTransition:
       guard case .splash = state else { return .none }
       state = .home(.init())
-      return .send(.view(.foregrounded))
+      return .merge(
+        .send(.view(.foregrounded)),
+        .run { send in
+          for await _ in authSessionExpiryClient.events() {
+            await send(.inner(.sessionExpired))
+          }
+        }
+        .cancellable(id: CancelID.sessionExpiry, cancelInFlight: true)
+      )
+
+    case .sessionExpired:
+      guard case var .home(home) = state,
+            home.authFlow.hasSession,
+            home.authFlow.accountOperationGeneration == nil else { return .none }
+      home.authFlow.hasSession = false
+      home.authFlow.profile = nil
+      home.authFlow.verifiedUserID = nil
+      home.authFlow.lastVerifiedUserID = nil
+      home.authFlow.generation += 1
+      home.authFlow.isLoading = false
+      home.authFlow.loginAttemptGeneration = nil
+      home.authFlow.pendingFestivalID = nil
+      home.authFlow.pendingOwnerID = nil
+      if home.authFlow.presentation != .login {
+        home.authFlow.presentation = nil
+      }
+      home.authFlow.nickname = ""
+      home.authFlow.pushOptIn = false
+      home.authFlow.clearConsentAndRetryState()
+      let clear = clearAccountData(&home)
+      state = .home(home)
+      return clear
 
     case let .sessionRestored(generation, userID, isLoggedIn):
       guard case var .home(home) = state,
             home.authFlow.generation == generation else { return .none }
+      let shouldClearPreviousAccount = home.authFlow.hasSession && !isLoggedIn
       let eligibleID = userID.flatMap { bookedStore.offlineEligible($0) ? $0 : nil }
       if let ownerID = home.authFlow.pendingOwnerID,
          let userID,
@@ -302,8 +387,12 @@ private extension AppCoordinator {
       if !isLoggedIn, home.authFlow.pendingFestivalID != nil {
         home.authFlow.presentation = .login
       }
+      let clear: Effect<Action> = shouldClearPreviousAccount ? clearAccountData(&home) : .none
       state = .home(home)
-      return .send(.scope(.home(.festival(.reloadBookmarks(userID: eligibleID)))))
+      return .merge(
+        clear,
+        .send(.scope(.home(.festival(.reloadBookmarks(userID: eligibleID)))))
+      )
 
     case let .profileLoaded(generation, result):
       guard case var .home(home) = state,
@@ -350,12 +439,16 @@ private extension AppCoordinator {
         return .send(.scope(.home(.festival(.reloadBookmarks(userID: nil)))))
 
       case .failure(.unauthenticated):
+        let hadSession = home.authFlow.hasSession
         home.authFlow.verifiedUserID = nil
         home.authFlow.lastVerifiedUserID = nil
         home.authFlow.hasSession = false
         home.authFlow.profile = nil
         home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .login
-        let clear = clearAccountData(&home)
+        // 같은 로그아웃을 `sessionRestored`가 이미 비웠다면 그 뒤 받은 비로그인 라이브 보드를 다시 지우지 않고 예약 목록만 정리한다.
+        let clear = hadSession
+          ? clearAccountData(&home)
+          : .send(.scope(.home(.festival(.accountChanged))))
         state = .home(home)
         return clear
 
@@ -397,10 +490,12 @@ private extension AppCoordinator {
       switch result {
       case let .success(user):
         guard user.id == previous.user.id else {
+          // 다른 계정 응답은 신뢰하지 않는다. 계정 ID를 모두 지워 세션 변경 감지가 이전 계정 데이터를 비우게 한다.
           home.authFlow.pendingFestivalID = nil
           home.authFlow.pendingOwnerID = nil
           home.authFlow.presentation = nil
           home.authFlow.verifiedUserID = nil
+          home.authFlow.lastVerifiedUserID = nil
           home.authFlow.profile = nil
           state = .home(home)
           return .none
@@ -625,14 +720,12 @@ private extension AppCoordinator {
       ?? .send(.scope(.home(.festival(.reloadBookmarks(userID: userID)))))
   }
 
-  /// 이전 계정의 깃발·라이브 보드·예약 목록을 바로 비우고, 보이는 화면은 새 인증 상태로 다시 불러온다.
+  /// 이전 계정의 라이브 보드·예약 목록을 바로 비운다.
   func clearAccountData(_ home: inout MainTabCoordinator.State) -> Effect<Action> {
-    home.flagState.clearAccountData()
+    // 세션이 이미 끊긴 뒤 처리되는 `accountChanged`는 예약 목록만 비우므로 라이브 보드 개인 데이터는 여기서 바로 지운다.
+    // 자식 액션은 진행 중 요청 취소와 새 계정 갱신을 맡는다. 깃발은 세션 변경 감지에서 비운다.
     home.festivalState.clearAccountData()
-    return .merge(
-      .send(.scope(.home(.festival(.accountChanged)))),
-      .send(.scope(.home(.flag(.accountChanged))))
-    )
+    return .send(.scope(.home(.festival(.accountChanged))))
   }
 
   func isBooked(_ id: String, in festival: FestivalCoordinator.State) -> Bool {

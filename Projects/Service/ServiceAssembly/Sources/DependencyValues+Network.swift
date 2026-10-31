@@ -6,6 +6,7 @@
 //
 
 import Dependencies
+import FestiCoreAuth
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
 
@@ -19,4 +20,8 @@ extension AuthServiceDependency: DependencyKey {
   public static var liveValue: any AuthService {
     NetworkContainer.authService
   }
+}
+
+extension AuthSessionExpiryDependency: DependencyKey {
+  public static var liveValue: AuthSessionExpiryClient { .live() }
 }

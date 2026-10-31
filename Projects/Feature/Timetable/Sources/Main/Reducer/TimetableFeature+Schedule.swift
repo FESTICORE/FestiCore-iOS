@@ -19,20 +19,35 @@ extension TimetableFeature {
   ) -> Effect<Action> {
     guard festivalID != state.festivalID else { return .none }
     state.festivalID = festivalID
-    state.mySetIDs = []
     state.selectedSetID = nil
+    return .concatenate(
+      .cancel(id: CancelID.load),
+      .cancel(id: CancelID.save),
+      resetSchedule(state: &state),
+      loadSchedule(state: &state)
+    )
+  }
+
+  func changeAccount(state: inout State) -> Effect<Action> {
+    state.accountGeneration += 1
+    state.loadRequestID += 1
+    return .concatenate(
+      .cancel(id: CancelID.load),
+      .cancel(id: CancelID.save),
+      resetSchedule(state: &state),
+      loadSchedule(state: &state)
+    )
+  }
+
+  func resetSchedule(state: inout State) -> Effect<Action> {
+    state.mySetIDs = []
     state.scheduleSync = .idle
     state.isScheduleLimitReached = false
     state.isSaving = false
     state.needsSave = false
     state.lastClientAt = nil
     state.uncertainSave = nil
-    return .concatenate(
-      .cancel(id: CancelID.load),
-      .cancel(id: CancelID.save),
-      hideScheduleToast(state: &state),
-      loadSchedule(state: &state)
-    )
+    return hideScheduleToast(state: &state)
   }
 
   func toggleSchedule(state: inout State) -> Effect<Action> {
@@ -124,7 +139,7 @@ extension TimetableFeature {
     // 서버는 같은 시각의 다른 목록을 충돌로 보므로 이전 요청보다 1ms 이상 늦춘다.
     let clientAt = max(now, (state.lastClientAt ?? .distantPast).addingTimeInterval(0.001))
     state.lastClientAt = clientAt
-    return startSave(ScheduleSave(setIDs: state.mySetIDs.sorted(), clientAt: clientAt), state: &state)
+    return startSave(ScheduleSave(setIDs: state.mySetIDs.sorted(), clientAt: clientAt, generation: state.accountGeneration), state: &state)
   }
 
   func applyLoadedSchedule(
@@ -153,16 +168,22 @@ extension TimetableFeature {
     save: ScheduleSave,
     result: Result<FestivalSchedule, FestivalScheduleError>
   ) -> Effect<Action> {
-    guard festivalID == state.festivalID else { return .none }
+    guard festivalID == state.festivalID,
+          save.generation == state.accountGeneration,
+          state.isSaving else { return .none }
     state.isSaving = false
     let needsSave = state.needsSave
     state.needsSave = false
     switch result {
     case .success:
-      return needsSave ? saveSchedule(state: &state) : .none
+      let delegate = Effect<Action>.send(.delegate(.scheduleSaved(festivalID: festivalID, setIDs: Set(save.setIDs))))
+      return needsSave ? .concatenate(delegate, saveSchedule(state: &state)) : delegate
     case let .failure(.stale(server)):
       state.mySetIDs = Set(server.setIDs).intersection(state.allSetIDs)
-      return hideScheduleToastIfReverted(state: &state)
+      return .concatenate(
+        hideScheduleToastIfReverted(state: &state),
+        .send(.delegate(.scheduleSaved(festivalID: festivalID, setIDs: state.mySetIDs)))
+      )
     case .failure(.unauthorized):
       state.scheduleSync = .localOnly
       return .none

@@ -4,44 +4,74 @@ import FestiCoreUtility
 import FestivalDomainInterface
 import SwiftUI
 
+/// S01 라이브 보드. 시각은 서버 시각으로 보정하고 30초마다 다시 계산한다.
 struct FestivalLiveBoardScreen: View {
   let festival: FestivalOverview
   let pack: FestivalPackDocument?
   let liveBoard: FestivalLiveBoardSnapshot?
   let liveBoardUnavailable: Bool
+  let liveBoardClockAnchorAt: Date?
+  let liveBoardReceivedAt: Date?
+  let hasSession: Bool
+  let sessionUserID: String?
+  let mySetIDs: Set<String>
+  let myScheduleUnavailable: Bool
   let liveActivityState: FestivalFeature.LiveActivityControlState
   let onLiveActivityTap: () -> Void
+  let onLoginTap: () -> Void
+  let onRetryMySchedule: () -> Void
   let onSwipeBack: () -> Void
 
   var body: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
-        header
-        festivalHeader
-        if liveBoardUnavailable && liveBoard != nil {
-          Text("실시간 정보 갱신이 지연되고 있습니다.")
-            .festiCoreFont(.baseCaption1Regular)
-            .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+    TimelineView(.periodic(from: .now, by: 30)) { timeline in
+      let now = FestivalLiveBoardPresentation.serverNow(
+        serverAt: liveBoard?.serverAt, clockAnchorAt: liveBoardClockAnchorAt, deviceNow: timeline.date
+      )
+      VStack(spacing: .zero) {
+        FCTopBar(.back, title: "라이브 보드")
+          .onBack(onSwipeBack)
+        if liveBoardUnavailable, liveBoard != nil {
+          FCOfflineBadge(FestivalLiveBoardPresentation.offlineText(
+            receivedAt: liveBoardReceivedAt, deviceNow: timeline.date
+          ))
         }
-        TimelineView(.periodic(from: .now, by: 30)) { timeline in
-          let stages = pack.map { FestivalLiveBoardSchedule.resolve(pack: $0, now: timeline.date) } ?? []
-          nextSchedule(stages: stages, now: timeline.date)
+        ScrollView {
+          VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
+            festivalHeader(now: now)
+            scheduleCards(now: now, deviceNow: timeline.date)
+            if myScheduleUnavailable {
+              HStack(spacing: FestiCoreSpacing.paddingP8) {
+                Text("내 일정을 불러오지 못했습니다.")
+                  .frame(maxWidth: .infinity, alignment: .leading)
+                Button("다시 시도", action: onRetryMySchedule)
+                  .festiCoreFont(.baseCaption1Bold)
+              }
+              .festiCoreFont(.baseCaption1Regular)
+              .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+            }
+            FestivalLiveBoardView(
+              rows: pack.map {
+                FestivalLiveBoardPresentation.stageRows(
+                  FestivalLiveBoardSchedule.resolve(pack: $0, now: now), mySetIDs: mySetIDs
+                )
+              } ?? [],
+              updated: FestivalLiveBoardPresentation.relativeTime(liveBoardReceivedAt, now: timeline.date),
+              source: FestivalLiveBoardPresentation.sourceLine(pack?.source)
+            )
+            crewSection(now: now)
+            if pack?.flagsEnabled != false {
+              followedSection(now: now)
+              activeSection(now: now)
+            }
+            liveActivityControl
+          }
+          .padding(.horizontal, FestiCoreSpacing.paddingP16)
+          .padding(.top, FestiCoreSpacing.paddingP16)
+          .padding(.bottom, FestiCoreSpacing.paddingP24)
         }
-        if let pack {
-          FestivalLiveBoardView(pack: pack)
-        } else {
-          emptySection(title: "지금 무대", message: "공연 시간표를 불러오면 무대 현황을 볼 수 있습니다.")
-        }
-        crewSection
-        flagSection(title: "팔로우한 깃발", flags: liveBoard?.followedFlags ?? [])
-        flagSection(title: "활성 깃발", flags: liveBoard?.activeFlags ?? [], updatedAt: liveBoard?.serverAt)
-        liveActivityControl
+        .scrollIndicators(.hidden)
       }
-      .padding(.horizontal, FestiCoreSpacing.paddingP20)
-      .padding(.top, FestiCoreSpacing.paddingP16)
-      .padding(.bottom, FestiCoreSpacing.paddingP24)
     }
-    .scrollIndicators(.hidden)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
     .toolbar(.hidden, for: .navigationBar)
     .overlay(alignment: .leading) {
@@ -62,157 +92,112 @@ struct FestivalLiveBoardScreen: View {
 }
 
 private extension FestivalLiveBoardScreen {
-  var header: some View {
-    HStack(spacing: FestiCoreSpacing.paddingP12) {
-      Text("FESTICORE")
-        .festiCoreFont(.baseTitle3Bold)
-        .tracking(-0.5)
-      Spacer()
-      Image(systemName: "bell")
-        .festiCoreFont(.baseTitle3Medium)
-        .accessibilityHidden(true)
-    }
-    .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-  }
-
-  var festivalHeader: some View {
+  func festivalHeader(now: Date) -> some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
       Text(festival.name)
-        .festiCoreFont(.baseTitle1Bold)
+        .festiCoreFont(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .lineLimit(2)
         .fixedSize(horizontal: false, vertical: true)
-      if let dayLabel, let dateLabel {
-        Text("\(dayLabel) · \(dateLabel)")
-          .festiCoreFont(.baseSubheadlineRegular)
+      if let dayLine = FestivalLiveBoardPresentation.dayLine(pack: pack, festival: festival, now: now) {
+        Text(dayLine)
+          .festiCoreFont(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 
-  func nextSchedule(stages: [FestivalLiveBoardSchedule.Stage], now: Date) -> some View {
-    let next = stages.compactMap { stage -> (FestivalLiveBoardSchedule.Stage, FestivalLiveBoardSchedule.Slot)? in
-      stage.next.map { (stage, $0) }
-    }.min { $0.1.startsAt < $1.1.startsAt }
+  @ViewBuilder
+  func scheduleCards(now: Date, deviceNow: Date) -> some View {
+    let countdown = FestivalLiveBoardPresentation.countdown(pack: pack, festival: festival, now: now)
+    if let countdown {
+      FCCountdownCard(label: "개장까지", time: countdown.time, sub: countdown.sub)
+    }
+    if let card = FestivalLiveBoardPresentation.setCard(
+      pack: pack, mySetIDs: mySetIDs, isBeforeOpening: countdown != nil, now: now
+    ) {
+      FCNextSetCard(
+        artist: card.artist,
+        meta: card.meta,
+        remain: card.remain,
+        updated: FestivalLiveBoardPresentation.updatedText(receivedAt: liveBoardReceivedAt, deviceNow: deviceNow),
+        progress: card.progress
+      )
+      .label(card.label)
+    } else {
+      FCEmptyCard(
+        icon: .music24,
+        title: "다음 공연이 없습니다",
+        message: pack == nil ? "시간표를 불러오면 다음 공연을 볼 수 있어요." : "공식 시간표에 예정된 공연이 없습니다."
+      )
+    }
+  }
 
-    return Group {
-      if let next {
-        FCNextSetCard(
-          artist: next.1.artist,
-          meta: "\(next.0.name) · \(next.1.startsAt.formatted(.time))",
-          remain: remainingTime(until: next.1.startsAt, now: now),
-          updated: "시간표 기준",
-          progress: next.0.previous?.progress(toward: next.1.startsAt, at: now) ?? 0
-        )
-        .label("다음 공연")
+  @ViewBuilder
+  func crewSection(now: Date) -> some View {
+    if !hasSession {
+      FestivalLiveBoardLoginCard(title: "크루와 함께 보려면 로그인", action: onLoginTap)
+    } else if let crew = liveBoard?.crew {
+      FestivalLiveBoardCrewCard(crew: FestivalLiveBoardPresentation.crew(
+        crew, sessionUserID: sessionUserID, zoneName: { pack?.zoneName(for: $0) }, now: now
+      ))
+    } else if liveBoard == nil {
+      FCEmptyCard(title: "내 크루", message: loadingMessage)
+    } else {
+      FCEmptyCard(title: "아직 크루가 없어요", message: "친구를 초대하면 서로 어느 존에 있는지 바로 볼 수 있어요.")
+    }
+  }
+
+  func followedSection(now: Date) -> some View {
+    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
+      FCSectionHeader("팔로우한 깃발")
+      if !hasSession {
+        FestivalLiveBoardLoginCard(title: "깃발을 팔로우하려면 로그인", action: onLoginTap)
+      } else if let followed = liveBoard?.followedFlags, !followed.isEmpty {
+        ScrollView(.horizontal) {
+          HStack(alignment: .top, spacing: FestiCoreSpacing.paddingP12) {
+            ForEach(followed) { flag in
+              FestivalLiveBoardFlagTile(flag: presentation(flag, now: now))
+            }
+          }
+          .padding(.trailing, FestiCoreSpacing.paddingP16)
+        }
+        .scrollIndicators(.hidden)
+      } else if liveBoard == nil {
+        FCEmptyCard(icon: .flag20, title: "팔로우한 깃발", message: loadingMessage)
       } else {
-        FCEmptyCard(
-          title: "다음 공연이 없습니다",
-          message: pack == nil ? "시간표를 불러오면 다음 공연을 볼 수 있어요." : "공식 시간표에 예정된 공연이 없습니다."
-        )
+        FCEmptyCard(icon: .flag20, title: "만나보고 싶은 깃발이 있나요?", message: "팔로우하면 깃발이 움직일 때 조용히 알려 드려요.")
       }
     }
   }
 
-  func remainingTime(until date: Date, now: Date) -> String {
-    let minutes = max(0, Int(date.timeIntervalSince(now) / 60))
-    if minutes < 60 { return "\(minutes)분 후" }
-    let hours = minutes / 60
-    return hours < 24 ? "\(hours)시간 후" : "\(hours / 24)일 후"
-  }
-
-  func emptySection(title: String, message: String) -> some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
-      Text(title)
-        .festiCoreFont(.baseTitle3Bold)
-        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-      FCEmptyCard(title: title, message: message)
-    }
-  }
-
-  var crewSection: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
-      Text("내 크루 · 확인이들")
-        .festiCoreFont(.baseTitle3Bold)
-        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-      if let crew = liveBoard?.crew {
-        VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
-          Text(crew.name)
-            .festiCoreFont(.baseHeadlineBold)
-          ForEach(crew.members) { member in
-            HStack {
-              Text(member.nickname)
-              Spacer()
-              Text(member.zoneID ?? member.state ?? "")
-                .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-            }
-            .festiCoreFont(.baseSubheadlineRegular)
+  func activeSection(now: Date) -> some View {
+    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
+      FCSectionHeader("활성 깃발")
+        .action("최근 업데이트 순")
+      if let active = liveBoard?.activeFlags, !active.isEmpty {
+        VStack(spacing: .zero) {
+          ForEach(FestivalLiveBoardPresentation.sortedActiveFlags(active)) { flag in
+            FestivalLiveBoardActiveFlagRow(flag: presentation(flag, now: now))
           }
         }
-        .padding(FestiCoreSpacing.paddingP16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FestiCoreSemanticColor.backgroundElevated.color,
-                    in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
+        .background(FestiCoreSemanticColor.backgroundElevated.color)
+        .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
+      } else if liveBoard == nil {
+        FCEmptyCard(icon: .flag20, title: "활성 깃발", message: loadingMessage)
       } else {
-        FCEmptyCard(title: "내 크루", message: liveBoardMessage(empty: "참여 중인 크루가 없습니다."))
-      }
-    }
-    .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-  }
-
-  func flagSection(title: String, flags: [FestivalLiveBoardSnapshot.Flag], updatedAt: Date? = nil) -> some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
-      HStack(alignment: .firstTextBaseline) {
-        Text(title)
-          .festiCoreFont(.baseTitle3Bold)
-          .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-        Spacer()
-        if let updatedAt {
-          Text("\(updatedAt.formatted(date: .omitted, time: .shortened)) 기준")
-            .festiCoreFont(.baseCaption1Regular)
-            .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-        }
-      }
-      if flags.isEmpty {
-        FCEmptyCard(title: title, message: liveBoardMessage(empty: "표시할 깃발이 없습니다."))
-      } else {
-        ForEach(flags) { flag in
-          HStack(spacing: FestiCoreSpacing.paddingP12) {
-            FCRemoteImage(url: flag.thumbnailURL)
-              .frame(width: 48, height: 48)
-              .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
-            VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
-              Text(flag.name)
-                .festiCoreFont(.baseSubheadlineBold)
-                .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-              Text([flag.zoneID, flag.activity, flagStatus(flag.status)]
-                .compactMap { $0 }.joined(separator: " · "))
-                .festiCoreFont(.baseCaption1Regular)
-                .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-            }
-            Spacer(minLength: 0)
-          }
-          .padding(FestiCoreSpacing.paddingP12)
-          .background(FestiCoreSemanticColor.backgroundElevated.color,
-                      in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
-        }
+        FCEmptyCard(icon: .flag20, title: "활동 중인 깃발이 없어요", message: "깃발이 움직이면 여기에서 바로 보여 드려요.")
       }
     }
   }
 
-  func liveBoardMessage(empty: String) -> String {
-    guard liveBoard == nil else { return empty }
-    return liveBoardUnavailable ? "실시간 정보를 불러올 수 없습니다. 잠시 후 다시 시도합니다." : "실시간 정보를 불러오는 중입니다."
+  func presentation(_ flag: FestivalLiveBoardSnapshot.Flag, now: Date) -> FestivalLiveBoardPresentation.Flag {
+    FestivalLiveBoardPresentation.flag(flag, zoneName: { pack?.zoneName(for: $0) }, now: now)
   }
 
-  func flagStatus(_ status: String) -> String? {
-    switch status {
-    case "active": "활동 중"
-    case "resting": "휴식 중"
-    case "ended": "종료"
-    default: nil
-    }
+  var loadingMessage: String {
+    liveBoardUnavailable ? "실시간 정보를 불러올 수 없습니다. 잠시 후 다시 시도합니다." : "실시간 정보를 불러오는 중입니다."
   }
 
   var liveActivityControl: some View {
@@ -232,27 +217,5 @@ private extension FestivalLiveBoardScreen {
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
       }
     }
-  }
-
-  var dates: [String] {
-    let packDays = (pack?.days ?? []).compactMap(\.date).filter { $0.date(as: .day) != nil }
-    if !packDays.isEmpty { return Array(Set(packDays)).sorted() }
-    return [festival.firstDate, festival.lastDate].compactMap { $0 }
-      .filter { $0.date(as: .day) != nil }
-  }
-
-  var selectedDate: String? {
-    let today = FestivalDateFormat.calendar.startOfDay(for: .now)
-    return dates.first { $0.date(as: .day) == today } ?? dates.first
-  }
-
-  var dayLabel: String? {
-    guard let selectedDate, let index = dates.firstIndex(of: selectedDate) else { return nil }
-    return "DAY \(index + 1)"
-  }
-
-  var dateLabel: String? {
-    guard let selectedDate else { return nil }
-    return selectedDate.date(as: .day)?.formatted(.festivalDay)
   }
 }

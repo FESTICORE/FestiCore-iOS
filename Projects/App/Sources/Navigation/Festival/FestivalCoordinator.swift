@@ -32,17 +32,25 @@ struct FestivalCoordinator {
     case delegate(Delegate)
     case reloadBookmarks(userID: String?)
     case accountChanged
+    case sessionChanged(hasSession: Bool, userID: String?)
+    case myScheduleSaved(festivalID: String, setIDs: Set<String>)
   }
 
   enum Delegate {
     case bookmarkRequested(String)
+    case loginRequested
   }
 
   func handleRoute(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case let .router(.routeAction(id: _, action: .festivalList(.view(.selectFestival(festivalID))))):
       var board = FestivalFeature.State(selectedFestivalID: festivalID)
-      board.bookedUserID = state.routes.first?.screen.festivalList?.bookedUserID
+      if let list = state.routes.first?.screen.festivalList {
+        board.bookedUserID = list.bookedUserID
+        board.hasSession = list.hasSession
+        board.sessionUserID = list.sessionUserID
+        board.accountGeneration = list.accountGeneration
+      }
       state.routes.push(.liveBoard(board))
       return .none
 
@@ -54,11 +62,21 @@ struct FestivalCoordinator {
          let .router(.routeAction(id: _, action: .liveBoard(.delegate(.bookmarkRequested(festivalID))))):
       return .send(.delegate(.bookmarkRequested(festivalID)))
 
+    case .router(.routeAction(id: _, action: .festivalList(.delegate(.loginRequested)))),
+         .router(.routeAction(id: _, action: .liveBoard(.delegate(.loginRequested)))):
+      return .send(.delegate(.loginRequested))
+
     case let .reloadBookmarks(userID):
       return broadcast(state, .reloadBookmarks(userID: userID))
 
     case .accountChanged:
       return broadcast(state, .accountChanged)
+
+    case let .sessionChanged(hasSession, userID):
+      return broadcast(state, .sessionChanged(hasSession: hasSession, userID: userID))
+
+    case let .myScheduleSaved(festivalID, setIDs):
+      return broadcast(state, .myScheduleSaved(festivalID: festivalID, setIDs: setIDs))
 
     case .delegate:
       return .none
