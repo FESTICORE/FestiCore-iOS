@@ -374,9 +374,14 @@ private extension AppCoordinator {
       home.authFlow.accountOperationGeneration = nil
       home.authFlow.accountOperation = nil
       home.authFlow.loginAttemptGeneration = nil
-      home.authFlow.pendingFestivalID = nil
-      home.authFlow.pendingOwnerID = nil
-      if home.authFlow.presentation != .login {
+      // 프로필 401 처리와 같이, 로그인이 필요해 멈춘 예약이 있으면 유지하고 로그인 시트를 띄운다.
+      // 요청 계정을 모르면 다른 계정에 적용되지 않도록 버린다.
+      if home.authFlow.pendingOwnerID == nil {
+        home.authFlow.pendingFestivalID = nil
+      }
+      if home.authFlow.pendingFestivalID != nil {
+        home.authFlow.presentation = .login
+      } else if home.authFlow.presentation != .login {
         home.authFlow.presentation = nil
       }
       home.authFlow.nickname = ""
