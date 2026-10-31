@@ -74,10 +74,20 @@ enum FestivalLiveBoardPresentation {
 // MARK: - 시각
 
 extension FestivalLiveBoardPresentation {
-  /// 서버 시각에 수신 후 흐른 기기 시간을 더한다. 서버 시각이 없으면 기기 시각을 쓴다.
-  static func serverNow(serverAt: Date?, receivedAt: Date?, deviceNow: Date) -> Date {
-    guard let serverAt, let receivedAt else { return deviceNow }
-    return serverAt.addingTimeInterval(deviceNow.timeIntervalSince(receivedAt))
+  static func sortedActiveFlags(
+    _ flags: [FestivalLiveBoardSnapshot.Flag]
+  ) -> [FestivalLiveBoardSnapshot.Flag] {
+    flags.sorted {
+      let left = $0.updatedAt ?? .distantPast
+      let right = $1.updatedAt ?? .distantPast
+      return left == right ? $0.id < $1.id : left > right
+    }
+  }
+
+  /// 서버 시각에 첫 수신 후 흐른 기기 시간을 더한다. 304 확인은 기준점을 바꾸지 않는다.
+  static func serverNow(serverAt: Date?, clockAnchorAt: Date?, deviceNow: Date) -> Date {
+    guard let serverAt, let clockAnchorAt else { return deviceNow }
+    return serverAt.addingTimeInterval(deviceNow.timeIntervalSince(clockAnchorAt))
   }
 
   static func relativeTime(_ date: Date?, now: Date) -> String? {

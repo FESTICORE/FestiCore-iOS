@@ -39,7 +39,9 @@ public struct FestivalFeature {
     public var selectedPack: FestivalPackDocument?
     public var liveBoard: FestivalLiveBoardSnapshot?
     public var liveBoardUnavailable = false
-    /// 라이브 보드 스냅샷을 받은 기기 시각. 서버 시각 보정과 오프라인 경과 시간에 쓴다.
+    /// 현재 serverAt을 처음 받은 기기 시각. 304 응답에서도 서버 시각 보정 기준을 유지한다.
+    public var liveBoardClockAnchorAt: Date?
+    /// 마지막으로 라이브 보드가 정상 확인된 기기 시각. 304 응답도 포함한다.
     public var liveBoardReceivedAt: Date?
     public var isLiveBoardVisible = false
     /// 인증 세션이 있는지. 사용자 ID를 확인하지 못한 세션도 true다.
@@ -49,6 +51,7 @@ public struct FestivalFeature {
     /// 세션이 바뀔 때마다 올려 이전 세션의 응답을 버린다.
     public var accountGeneration = 0
     public var mySchedule: MySchedule?
+    public var myScheduleUnavailable = false
     var myScheduleRequestID = 0
     public var connection: Connection = .loading
     public var hasStarted = false
@@ -127,8 +130,10 @@ public struct FestivalFeature {
     public mutating func clearAccountData() {
       liveBoard = nil
       liveBoardUnavailable = false
+      liveBoardClockAnchorAt = nil
       liveBoardReceivedAt = nil
       mySchedule = nil
+      myScheduleUnavailable = false
       bookedUserID = nil
       bookedFestivalIDs = []
     }
@@ -178,6 +183,7 @@ public struct FestivalFeature {
     case liveActivityOnAppear
     case liveBoardOnAppear
     case liveBoardOnDisappear
+    case retryMySchedule
     case liveActivityTapped
     case loginTapped
   }
@@ -198,7 +204,8 @@ public struct FestivalFeature {
     case liveActivityChanged
     case liveBoardLoaded(String, generation: Int, FestivalLiveBoardSnapshot)
     case liveBoardFailed(String, generation: Int)
-    case myScheduleLoaded(festivalID: String, requestID: Int, generation: Int, Set<String>?)
+    case myScheduleLoaded(festivalID: String, requestID: Int, generation: Int, Set<String>)
+    case myScheduleFailed(festivalID: String, requestID: Int, generation: Int)
   }
 
   private enum CancelID {
@@ -234,8 +241,12 @@ public struct FestivalFeature {
       case .view(.liveBoardOnDisappear):
         state.isLiveBoardVisible = false
         state.mySchedule = nil
+        state.myScheduleUnavailable = false
         state.myScheduleRequestID += 1
         return .merge(.cancel(id: CancelID.liveBoard), .cancel(id: CancelID.mySchedule))
+
+      case .view(.retryMySchedule):
+        return loadMySchedule(&state)
 
       case .view(.loginTapped):
         return .send(.delegate(.loginRequested))
@@ -325,8 +336,10 @@ public struct FestivalFeature {
         state.selectedFestivalID = id
         state.liveBoard = nil
         state.liveBoardUnavailable = false
+        state.liveBoardClockAnchorAt = nil
         state.liveBoardReceivedAt = nil
         state.mySchedule = nil
+        state.myScheduleUnavailable = false
         state.liveActivityError = nil
         if state.liveActivityReady { state.liveActivityNow = date.now }
         state.packWatchFailed = false
@@ -346,6 +359,9 @@ public struct FestivalFeature {
 
       case let .inner(.liveBoardLoaded(id, generation, snapshot)):
         guard state.selectedFestivalID == id, state.accountGeneration == generation else { return .none }
+        if state.liveBoard?.serverAt != snapshot.serverAt || state.liveBoardClockAnchorAt == nil {
+          state.liveBoardClockAnchorAt = date.now
+        }
         state.liveBoard = snapshot
         state.liveBoardUnavailable = false
         state.liveBoardReceivedAt = date.now
@@ -361,7 +377,17 @@ public struct FestivalFeature {
               state.myScheduleRequestID == requestID,
               state.accountGeneration == generation,
               state.isLiveBoardVisible, state.hasSession else { return .none }
-        state.mySchedule = setIDs.map { MySchedule(festivalID: festivalID, setIDs: $0) }
+        state.mySchedule = MySchedule(festivalID: festivalID, setIDs: setIDs)
+        state.myScheduleUnavailable = false
+        return .none
+
+      case let .inner(.myScheduleFailed(festivalID, requestID, generation)):
+        guard state.selectedFestivalID == festivalID,
+              state.myScheduleRequestID == requestID,
+              state.accountGeneration == generation,
+              state.isLiveBoardVisible, state.hasSession else { return .none }
+        state.mySchedule = nil
+        state.myScheduleUnavailable = true
         return .none
 
 
@@ -401,8 +427,10 @@ public struct FestivalFeature {
         state.accountGeneration += 1
         state.liveBoard = nil
         state.liveBoardUnavailable = false
+        state.liveBoardClockAnchorAt = nil
         state.liveBoardReceivedAt = nil
         state.mySchedule = nil
+        state.myScheduleUnavailable = false
         return .merge(
           state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
           loadMySchedule(&state)
@@ -413,6 +441,7 @@ public struct FestivalFeature {
               state.hasSession, state.isLiveBoardVisible else { return .none }
         state.myScheduleRequestID += 1
         state.mySchedule = MySchedule(festivalID: festivalID, setIDs: setIDs)
+        state.myScheduleUnavailable = false
         return .cancel(id: CancelID.mySchedule)
 
       case .delegate:
@@ -669,19 +698,26 @@ public struct FestivalFeature {
     .cancellable(id: CancelID.liveBoard, cancelInFlight: true)
   }
 
-  /// 세션이 있고 라이브 보드가 보일 때 내 일정을 한 번 불러온다. 실패하면 내 일정 없이 표시한다.
+  /// 세션이 있고 라이브 보드가 보일 때 내 일정을 불러온다.
   private func loadMySchedule(_ state: inout State) -> Effect<Action> {
     guard state.hasSession, state.isLiveBoardVisible, let id = state.selectedFestivalID else {
       return .cancel(id: CancelID.mySchedule)
     }
     state.myScheduleRequestID += 1
+    state.myScheduleUnavailable = false
     let requestID = state.myScheduleRequestID
     let generation = state.accountGeneration
     return .run { send in
-      let setIDs = try? await scheduleService.fetch(festivalID: id).setIDs
-      await send(.inner(.myScheduleLoaded(
-        festivalID: id, requestID: requestID, generation: generation, setIDs.map(Set.init)
-      )))
+      do {
+        let setIDs = try await scheduleService.fetch(festivalID: id).setIDs
+        await send(.inner(.myScheduleLoaded(
+          festivalID: id, requestID: requestID, generation: generation, Set(setIDs)
+        )))
+      } catch {
+        await send(.inner(.myScheduleFailed(
+          festivalID: id, requestID: requestID, generation: generation
+        )))
+      }
     }
     .cancellable(id: CancelID.mySchedule, cancelInFlight: true)
   }

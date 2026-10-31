@@ -10,22 +10,26 @@ struct FestivalLiveBoardScreen: View {
   let pack: FestivalPackDocument?
   let liveBoard: FestivalLiveBoardSnapshot?
   let liveBoardUnavailable: Bool
+  let liveBoardClockAnchorAt: Date?
   let liveBoardReceivedAt: Date?
   let hasSession: Bool
   let sessionUserID: String?
   let mySetIDs: Set<String>
+  let myScheduleUnavailable: Bool
   let liveActivityState: FestivalFeature.LiveActivityControlState
   let onLiveActivityTap: () -> Void
   let onLoginTap: () -> Void
+  let onRetryMySchedule: () -> Void
   let onSwipeBack: () -> Void
 
   var body: some View {
     TimelineView(.periodic(from: .now, by: 30)) { timeline in
       let now = FestivalLiveBoardPresentation.serverNow(
-        serverAt: liveBoard?.serverAt, receivedAt: liveBoardReceivedAt, deviceNow: timeline.date
+        serverAt: liveBoard?.serverAt, clockAnchorAt: liveBoardClockAnchorAt, deviceNow: timeline.date
       )
       VStack(spacing: .zero) {
-        FCTopBar(.logo)
+        FCTopBar(.back, title: "라이브 보드")
+          .onBack(onSwipeBack)
         if liveBoardUnavailable, liveBoard != nil {
           FCOfflineBadge(FestivalLiveBoardPresentation.offlineText(
             receivedAt: liveBoardReceivedAt, deviceNow: timeline.date
@@ -35,6 +39,16 @@ struct FestivalLiveBoardScreen: View {
           VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
             festivalHeader(now: now)
             scheduleCards(now: now, deviceNow: timeline.date)
+            if myScheduleUnavailable {
+              HStack(spacing: FestiCoreSpacing.paddingP8) {
+                Text("내 일정을 불러오지 못했습니다.")
+                  .frame(maxWidth: .infinity, alignment: .leading)
+                Button("다시 시도", action: onRetryMySchedule)
+                  .festiCoreFont(.baseCaption1Bold)
+              }
+              .festiCoreFont(.baseCaption1Regular)
+              .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+            }
             FestivalLiveBoardView(
               rows: pack.map {
                 FestivalLiveBoardPresentation.stageRows(
@@ -164,7 +178,7 @@ private extension FestivalLiveBoardScreen {
         .action("최근 업데이트 순")
       if let active = liveBoard?.activeFlags, !active.isEmpty {
         VStack(spacing: .zero) {
-          ForEach(active) { flag in
+          ForEach(FestivalLiveBoardPresentation.sortedActiveFlags(active)) { flag in
             FestivalLiveBoardActiveFlagRow(flag: presentation(flag, now: now))
           }
         }

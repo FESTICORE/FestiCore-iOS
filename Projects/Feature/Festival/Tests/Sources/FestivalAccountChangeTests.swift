@@ -72,6 +72,7 @@ struct FestivalAccountChangeTests {
     }
     await store.receive(\.inner.liveBoardLoaded) {
       $0.liveBoard = current
+      $0.liveBoardClockAnchorAt = receivedAt
       $0.liveBoardReceivedAt = receivedAt
     }
     await clock.advance(by: .seconds(1))

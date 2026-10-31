@@ -163,6 +163,7 @@ struct FestivalLiveBoardSessionTests {
     }
     await store.receive(\.inner.liveBoardLoaded) {
       $0.liveBoard = emptyBoard
+      $0.liveBoardClockAnchorAt = receivedAt
       $0.liveBoardReceivedAt = receivedAt
     }
     // AppCoordinator의 세션 변화 감지가 같은 전환으로 보내는 값은 무시된다.
@@ -207,6 +208,7 @@ struct FestivalLiveBoardSessionTests {
     }
     await store.receive(\.inner.liveBoardLoaded) {
       $0.liveBoard = emptyBoard
+      $0.liveBoardClockAnchorAt = receivedAt
       $0.liveBoardReceivedAt = receivedAt
     }
     await store.send(.accountChanged)
@@ -284,6 +286,81 @@ struct FestivalLiveBoardSessionTests {
     }
     await store.send(.myScheduleSaved(festivalID: "fst", setIDs: ["hidden"]))
   }
+
+  @Test("304로 같은 서버 시각을 다시 받아도 시계 기준점은 유지한다")
+  func cachedLiveBoardDoesNotResetClock() async {
+    let serverAt = Date(timeIntervalSince1970: 1_000)
+    let firstReceivedAt = Date(timeIntervalSince1970: 2_000)
+    let revalidatedAt = firstReceivedAt.addingTimeInterval(35)
+    let board = FestivalLiveBoardSnapshot(
+      festivalID: "fst", activeFlags: [], followedFlags: [], crew: nil, serverAt: serverAt
+    )
+    let store = TestStore(initialState: {
+      var state = FestivalFeature.State(selectedFestivalID: "fst")
+      state.liveBoard = board
+      state.liveBoardClockAnchorAt = firstReceivedAt
+      state.liveBoardReceivedAt = firstReceivedAt
+      return state
+    }()) { FestivalFeature() } withDependencies: {
+      $0.date = .constant(revalidatedAt)
+    }
+
+    await store.send(.inner(.liveBoardLoaded("fst", generation: 0, board))) {
+      $0.liveBoardReceivedAt = revalidatedAt
+    }
+    #expect(store.state.liveBoardClockAnchorAt == firstReceivedAt)
+    #expect(FestivalLiveBoardPresentation.serverNow(
+      serverAt: board.serverAt,
+      clockAnchorAt: store.state.liveBoardClockAnchorAt,
+      deviceNow: revalidatedAt
+    ) == serverAt.addingTimeInterval(35))
+  }
+
+  @Test("내 일정 조회 실패를 표시하고 다시 시도해 복구한다")
+  func failedMyScheduleCanRetry() async {
+    let clock = TestClock()
+    let attempts = LockIsolated(0)
+    let store = TestStore(initialState: {
+      var state = FestivalFeature.State(selectedFestivalID: "fst")
+      state.hasSession = true
+      return state
+    }()) { FestivalFeature() } withDependencies: {
+      $0.continuousClock = clock
+      $0.festivalLiveBoardService = SessionLiveBoardService { _ in
+        try await clock.sleep(for: .seconds(60))
+        return emptyBoard
+      }
+      $0.festivalScheduleService = SessionScheduleService { _ in
+        let attempt = attempts.withValue { value in
+          value += 1
+          return value
+        }
+        if attempt == 1 { throw .unavailable }
+        return ["set_a"]
+      }
+    }
+
+    await store.send(.view(.liveBoardOnAppear)) {
+      $0.isLiveBoardVisible = true
+      $0.myScheduleRequestID = 1
+    }
+    await store.receive(\.inner.myScheduleFailed) {
+      $0.myScheduleUnavailable = true
+    }
+    await store.send(.view(.retryMySchedule)) {
+      $0.myScheduleUnavailable = false
+      $0.myScheduleRequestID = 2
+    }
+    await store.receive(\.inner.myScheduleLoaded) {
+      $0.mySchedule = .init(festivalID: "fst", setIDs: ["set_a"])
+    }
+    #expect(attempts.value == 2)
+    await store.send(.view(.liveBoardOnDisappear)) {
+      $0.isLiveBoardVisible = false
+      $0.mySchedule = nil
+      $0.myScheduleRequestID = 3
+    }
+  }
 }
 
 private let emptyBoard = FestivalLiveBoardSnapshot(festivalID: "fst", activeFlags: [], followedFlags: [], crew: nil)
@@ -304,10 +381,10 @@ private struct SessionLiveBoardService: FestivalLiveBoardService {
 }
 
 private struct SessionScheduleService: FestivalScheduleService {
-  let handler: @Sendable (String) async -> [String]
+  let handler: @Sendable (String) async throws(FestivalScheduleError) -> [String]
 
   func fetch(festivalID: String) async throws(FestivalScheduleError) -> FestivalSchedule {
-    FestivalSchedule(setIDs: await handler(festivalID))
+    FestivalSchedule(setIDs: try await handler(festivalID))
   }
 
   func replace(festivalID _: String, setIDs: [String], clientAt _: Date) async throws(FestivalScheduleError) -> FestivalSchedule {

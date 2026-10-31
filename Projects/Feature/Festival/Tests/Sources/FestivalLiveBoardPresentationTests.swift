@@ -4,23 +4,37 @@ import Testing
 @testable import Festival
 
 struct FestivalLiveBoardPresentationTests {
+  @Test("활성 깃발은 최신 갱신 시각 순으로 정렬한다")
+  func activeFlagsAreSortedByUpdateTime() {
+    let older = FestivalLiveBoardSnapshot.Flag(
+      id: "old", name: "이전", status: "active", zoneID: nil,
+      activity: nil, thumbnailURL: nil, updatedAt: Date(timeIntervalSince1970: 100)
+    )
+    let newer = FestivalLiveBoardSnapshot.Flag(
+      id: "new", name: "최신", status: "active", zoneID: nil,
+      activity: nil, thumbnailURL: nil, updatedAt: Date(timeIntervalSince1970: 200)
+    )
+
+    #expect(FestivalLiveBoardPresentation.sortedActiveFlags([older, newer]).map(\.id) == ["new", "old"])
+  }
+
   @Test("서버 시각은 수신 후 흐른 기기 시간만큼 앞으로 간다")
   func serverNowCorrectsDeviceClockSkew() {
     let serverAt = date("2026-10-20T15:00:00+09:00")
     // 기기 시계가 10분 빠르다.
     let receivedAt = serverAt.addingTimeInterval(600)
     #expect(FestivalLiveBoardPresentation.serverNow(
-      serverAt: serverAt, receivedAt: receivedAt, deviceNow: receivedAt
+      serverAt: serverAt, clockAnchorAt: receivedAt, deviceNow: receivedAt
     ) == serverAt)
     #expect(FestivalLiveBoardPresentation.serverNow(
-      serverAt: serverAt, receivedAt: receivedAt, deviceNow: receivedAt.addingTimeInterval(120)
+      serverAt: serverAt, clockAnchorAt: receivedAt, deviceNow: receivedAt.addingTimeInterval(120)
     ) == serverAt.addingTimeInterval(120))
     // 기기 시계가 10분 느려도 같다.
     let slow = serverAt.addingTimeInterval(-600)
     #expect(FestivalLiveBoardPresentation.serverNow(
-      serverAt: serverAt, receivedAt: slow, deviceNow: slow.addingTimeInterval(60)
+      serverAt: serverAt, clockAnchorAt: slow, deviceNow: slow.addingTimeInterval(60)
     ) == serverAt.addingTimeInterval(60))
-    #expect(FestivalLiveBoardPresentation.serverNow(serverAt: nil, receivedAt: slow, deviceNow: slow) == slow)
+    #expect(FestivalLiveBoardPresentation.serverNow(serverAt: nil, clockAnchorAt: slow, deviceNow: slow) == slow)
   }
 
   @Test("상대 시간과 오프라인 문구")
