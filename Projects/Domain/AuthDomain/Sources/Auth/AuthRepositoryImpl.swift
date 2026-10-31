@@ -88,6 +88,9 @@ public struct AuthRepositoryImpl: AuthInterface {
 
   public func signOut() async throws {
     if await authService.hasUnconfirmedRevocation {
+      guard await authService.retryUnconfirmedLocalCleanup() else {
+        throw AuthDomainError.localSessionClearFailed
+      }
       throw AuthDomainError.revocationOutcomeUnknown
     }
     if await authService.hasPendingSignOutCleanup {
@@ -138,12 +141,15 @@ public struct AuthRepositoryImpl: AuthInterface {
   }
 
   public func withdraw() async throws {
-    if await authService.hasUnconfirmedRevocation {
-      throw AuthDomainError.revocationOutcomeUnknown
-    }
     if await authService.hasPendingWithdrawalCleanup {
       guard await authService.completeWithdrawal() else { throw AuthDomainError.localSessionClearFailed }
       return
+    }
+    if await authService.hasUnconfirmedRevocation {
+      guard await authService.retryUnconfirmedLocalCleanup() else {
+        throw AuthDomainError.localSessionClearFailed
+      }
+      throw AuthDomainError.revocationOutcomeUnknown
     }
     if await authService.hasPendingWithdrawalAuthorizationCleanup {
       guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }

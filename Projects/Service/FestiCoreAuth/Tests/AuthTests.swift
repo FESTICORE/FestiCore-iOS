@@ -318,6 +318,44 @@ struct AuthTests {
     }
   }
 
+  @Test("탈퇴 200 뒤 완료 기록 실패는 토큰을 폐기하고 재시작 뒤 로컬 삭제만 재시도한다")
+  func failedWithdrawalCompletionJournalKeepsLocalCleanupAvailable() async throws {
+    for clearFails in [false, true] {
+      let storage = MemorySecureStorage()
+      let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+      let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+      await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
+      #expect(await auth.prepareRevocation(.withdrawal))
+
+      try FileManager.default.removeItem(at: storage.journalURL)
+      try FileManager.default.createDirectory(at: storage.journalURL, withIntermediateDirectories: false)
+      if clearFails {
+        storage.failTokenSaveFor = .credentialIntegrity
+        storage.failTokenRemovalFor = [.accessToken, .refreshToken]
+      }
+      #expect(await auth.completeWithdrawal() == false)
+      #expect(storage.load(.accessToken) == (clearFails ? old.accessToken : nil))
+
+      let restarted = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+      #expect(await restarted.isLoggedIn == false)
+      #expect(await restarted.hasUnconfirmedRevocation)
+      if clearFails {
+        #expect(await restarted.retryUnconfirmedLocalCleanup() == false)
+        storage.failTokenSaveFor = nil
+        storage.failTokenRemovalFor = []
+      }
+      #expect(await restarted.retryUnconfirmedLocalCleanup())
+      #expect(storage.load(.accessToken) == nil)
+      #expect(storage.load(.refreshToken) == nil)
+      #expect(await restarted.hasUnconfirmedRevocation)
+
+      try FileManager.default.removeItem(at: storage.journalURL)
+      let newSession = await restarted.stageSession(accessToken: "new-access", refreshToken: "new-refresh")
+      #expect(await restarted.commitSession(newSession))
+      #expect(await restarted.refreshToken == "new-refresh")
+    }
+  }
+
   @Test("서버 응답 전 로컬 토큰 삭제가 먼저 일어나도 요청 결과 기록은 남는다")
   func localClearDuringRequestKeepsUnconfirmedJournal() async {
     let storage = MemorySecureStorage()

@@ -57,8 +57,9 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
   }
   var hasUnconfirmedRevocation: Bool {
     switch journal.status {
-    case .pending(.signOutRequested), .pending(.withdrawalRequested): return store.load() == nil
-    case .absent, .unreadable, .pending: return false
+    case .pending(.signOutRequested), .pending(.withdrawalRequested), .unreadable:
+      return store.load() == nil
+    case .absent, .pending: return false
     }
   }
   var refreshToken: String? { recoveredCredential()?.refreshToken }
@@ -165,6 +166,11 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
 
   func finishRevocationRequest() { revocationInFlight = false }
 
+  func retryUnconfirmedLocalCleanup() -> Bool {
+    guard hasUnconfirmedRevocation else { return false }
+    return clearCredentialPreservingJournal()
+  }
+
   func confirmSignOut() -> Bool { journal.record(.signOutConfirmed) }
 
   func confirmWithdrawalAuthorizationRejected() -> Bool {
@@ -174,6 +180,8 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
   func completeWithdrawal() -> Bool {
     withdrawalCleanupPending = true
     guard journal.record(.withdrawalCompleted) else {
+      // 서버 성공은 이 실행에서만 알고 있다. 저널을 지우지 않은 채 로컬 토큰부터 폐기한다.
+      _ = clearCredentialPreservingJournal()
       revocationInFlight = false
       return false
     }
@@ -205,6 +213,15 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
 }
 
 private extension FestiCoreAuth {
+  func clearCredentialPreservingJournal() -> Bool {
+    let cleared = store.clear()
+    if cleared { committedSessionID = nil }
+    try? identityStorage.remove(.sessionUserID)
+    credentials.update(nil)
+    sessionClearPending = !cleared
+    return cleared
+  }
+
   func recoveredCredential() -> FestiCoreCredential? {
     guard let credential = store.load() else { return nil }
     if initialJournalRecoveryPending {

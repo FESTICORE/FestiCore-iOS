@@ -464,7 +464,25 @@ struct AuthDomainTests {
       }
       #expect(await client.calls == 0)
       #expect(await auth.signOutCalls == 0)
+      #expect(await auth.localCleanupRetryCalls == 1)
     }
+  }
+
+  @Test("결과가 불명확한 탈퇴의 로컬 삭제 실패는 서버 호출 없이 다시 시도한다")
+  func unconfirmedWithdrawalRetriesLocalCleanupOffline() async {
+    let auth = StubAuthService(loggedIn: false, clearSucceeds: false, unconfirmedRevocation: true)
+    let client = StubClient(result: .failure(.transport(.notConnected)))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.withdraw() }
+    await auth.setClearSucceeds(true)
+    await #expect(throws: AuthDomainError.revocationOutcomeUnknown) { try await repository.withdraw() }
+    #expect(await client.calls == 0)
+    #expect(await auth.signOutCalls == 0)
+    #expect(await auth.localCleanupRetryCalls == 2)
   }
 
   @Test("미로그인 상태는 회원 탈퇴 요청 전에 거부한다")
@@ -559,6 +577,7 @@ private actor StubAuthService: AuthService {
   private(set) var finishedRevocationRequests = 0
   private(set) var tokens: [String] = []
   private(set) var signOutCalls = 0
+  private(set) var localCleanupRetryCalls = 0
 
   init(
     loggedIn: Bool = false,
@@ -576,6 +595,10 @@ private actor StubAuthService: AuthService {
 
   var isLoggedIn: Bool { loggedIn }
   var hasUnconfirmedRevocation: Bool { unconfirmedRevocation }
+  func retryUnconfirmedLocalCleanup() -> Bool {
+    localCleanupRetryCalls += 1
+    return clearSucceeds
+  }
   var hasPendingWithdrawalCleanup: Bool { withdrawalCleanupPending }
   var hasPendingWithdrawalAuthorizationCleanup: Bool { withdrawalRequested && signOutCleanupPending }
   var hasPendingSignOutCleanup: Bool { signOutCleanupPending }

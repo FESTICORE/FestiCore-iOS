@@ -37,6 +37,8 @@ public protocol AuthService: Sendable {
   func confirmWithdrawalAuthorizationRejected() async -> Bool
   /// 요청만 기록되고 서버 결과가 확인되지 않은 채 인증 토큰을 복원할 수 없는 상태다.
   var hasUnconfirmedRevocation: Bool { get async }
+  /// 서버 결과가 불명확한 요청의 로컬 토큰만 다시 삭제하고 요청 기록은 유지한다.
+  func retryUnconfirmedLocalCleanup() async -> Bool
   /// 서버 로그아웃 뒤 또는 재시작 뒤 로컬 토큰 삭제만 남았는지 확인한다.
   var hasPendingSignOutCleanup: Bool { get async }
   /// 탈퇴 완료 여부를 확인할 수 없는 상태에서 로컬 토큰 정리만 남았는지 확인한다.
@@ -54,6 +56,7 @@ public extension AuthService {
   func confirmSignOut() async -> Bool { false }
   func confirmWithdrawalAuthorizationRejected() async -> Bool { false }
   var hasUnconfirmedRevocation: Bool { get async { false } }
+  func retryUnconfirmedLocalCleanup() async -> Bool { false }
   var hasPendingSignOutCleanup: Bool { get async { false } }
   var hasPendingWithdrawalAuthorizationCleanup: Bool { get async { false } }
   var hasPendingWithdrawalCleanup: Bool { get async { false } }
