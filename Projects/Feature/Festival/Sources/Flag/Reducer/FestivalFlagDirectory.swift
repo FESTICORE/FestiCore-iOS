@@ -256,6 +256,7 @@ public extension FestivalFlagDirectory.State {
 extension FestivalFlagDirectory.State {
   /// 부모가 받아들인 새 스냅샷으로 덮어쓰기 값을 서버 값에 넘긴다.
   mutating func reconcile(with snapshot: FestivalLiveBoardSnapshot) {
+    let followedIDs = Set(snapshot.followedFlags.map(\.id))
     let serverCounts = Dictionary(
       snapshot.directoryFlags.map { ($0.id, $0.followerCount) }, uniquingKeysWith: { first, _ in first }
     )
@@ -263,7 +264,10 @@ extension FestivalFlagDirectory.State {
       if override.skipsNextLoad {
         override.skipsNextLoad = false
       } else {
-        override.isFollowing = nil
+        // 304 재사용 응답은 팔로우 전 상태일 수 있으므로 일치할 때만 서버 값에 넘긴다.
+        if override.isFollowing == followedIDs.contains(id) {
+          override.isFollowing = nil
+        }
         // 공개 목록은 최대 10분 캐시된다. 팔로우 전과 같은 수면 아직 바뀌지 않은 응답이다.
         if serverCounts[id].flatMap({ $0 }) != override.baseCount {
           override.followerCount = nil

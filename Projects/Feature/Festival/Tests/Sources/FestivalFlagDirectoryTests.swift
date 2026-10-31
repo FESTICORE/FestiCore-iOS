@@ -202,6 +202,41 @@ struct FestivalFlagDirectoryTests {
     await store.send(.loaded("another-festival", generation: 0, board([flag("a")])))
   }
 
+  @Test(arguments: [true, false])
+  func staleRefreshKeepsFollowResultUntilSnapshotConfirmsIt(isFollowing: Bool) async {
+    let stale = board([flag("a", count: 10)], followed: isFollowing ? [] : ["a"])
+    let confirmed = board(
+      [flag("a", count: isFollowing ? 11 : 9)],
+      followed: isFollowing ? ["a"] : []
+    )
+    var initial = loadedState(stale)
+    initial.directory.followOverrides["a"] = .init(
+      isFollowing: isFollowing,
+      followerCount: isFollowing ? 11 : 9,
+      baseCount: 10
+    )
+    let store = TestStore(initialState: initial) {
+      FestivalFlagFeature()
+    } withDependencies: {
+      $0.festivalLiveBoardService = SequenceLiveBoardService([stale, confirmed])
+    }
+
+    await store.send(.refresh) { $0.viewState = .loading }
+    await store.receive(\.loaded) {
+      $0.snapshot = stale
+      $0.viewState = .loaded
+    }
+    #expect(store.state.directory.rows(in: stale, isFailed: false).first?.isFollowing == isFollowing)
+
+    await store.send(.refresh) { $0.viewState = .loading }
+    await store.receive(\.loaded) {
+      $0.snapshot = confirmed
+      $0.viewState = .loaded
+      $0.directory.followOverrides = [:]
+    }
+    #expect(store.state.directory.rows(in: confirmed, isFailed: false).first?.isFollowing == isFollowing)
+  }
+
   @Test func leavingTabCancelsRequestButKeepsFollowResultUntilConfirmed() async {
     let clock = TestClock()
     let snapshot = board([flag("a"), flag("b")])
