@@ -37,7 +37,7 @@ public protocol AuthService: Sendable {
   /// 오래된 요청이 새 로그인 세션을 지우지 않도록 현재 세션을 원자적으로 확인한다.
   func signOut(ifSessionIDMatches sessionID: UUID) async -> Bool
   /// 서버 요청 전에 복원 차단 기록을 디스크에 확인한 뒤 요청을 허용한다.
-  func prepareRevocation(_ kind: AuthRevocationKind) async -> Bool
+  func prepareRevocation(_ kind: AuthRevocationKind, ifSessionIDMatches sessionID: UUID) async -> Bool
   /// 서버 결과가 불명확해도 기록은 유지하고 이번 요청만 종료한다.
   func finishRevocationRequest() async
   /// 서버 결과를 확인했음을 디스크에 기록한다. 기록 실패 시 로컬 완료로 보고하지 않는다.
@@ -60,7 +60,7 @@ public protocol AuthService: Sendable {
 
 public extension AuthService {
   var hasPendingLocalClear: Bool { get async { false } }
-  func prepareRevocation(_ kind: AuthRevocationKind) async -> Bool { false }
+  func prepareRevocation(_ kind: AuthRevocationKind, ifSessionIDMatches _: UUID) async -> Bool { false }
   func finishRevocationRequest() async {}
   func confirmSignOut() async -> Bool { false }
   func confirmWithdrawalAuthorizationRejected() async -> Bool { false }

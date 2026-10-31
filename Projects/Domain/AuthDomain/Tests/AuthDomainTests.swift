@@ -576,7 +576,7 @@ struct AuthDomainTests {
     let auth = StubAuthService(loggedIn: true)
     let client = StubClient(result: .success(Data())) {
       let id = await auth.stageSession(accessToken: "new-access", refreshToken: "new-refresh")
-      _ = await auth.commitSession(id)
+      #expect(await auth.commitSession(id) == false)
     }
     let repository = withDependencies {
       $0.networkClient = client
@@ -585,9 +585,31 @@ struct AuthDomainTests {
 
     try await repository.withdraw()
 
+    #expect(await auth.isLoggedIn == false)
+    let stagedID = try #require(await auth.stagedID)
+    #expect(await auth.commitSession(stagedID))
     #expect(await auth.isLoggedIn)
     #expect(await auth.refreshToken == "new-refresh")
-    #expect(await auth.signOutCalls == 0)
+    #expect(await auth.signOutCalls == 1)
+  }
+
+  @Test("세션을 읽은 뒤 새 로그인으로 바뀌면 폐기 요청과 서버 호출을 시작하지 않는다", arguments: [false, true])
+  func staleRevocationDoesNotReachServer(withdrawal: Bool) async {
+    let auth = StubAuthService(loggedIn: true, switchSessionBeforePrepare: true)
+    let client = StubClient(result: .success(Data()))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    if withdrawal {
+      await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.withdraw() }
+    } else {
+      await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.signOut() }
+    }
+    #expect(await client.calls == 0)
+    #expect(await auth.revocationPending == false)
+    #expect(await auth.isLoggedIn)
   }
 
   @Test("회원 탈퇴 UseCase는 저장소의 성공 결과를 전달한다")
@@ -626,6 +648,8 @@ private actor StubAuthService: AuthService {
   private var withdrawalCleanupPending = false
   private var signOutCleanupPending = false
   private var withdrawalRequested = false
+  private var revocationInFlight = false
+  private var switchSessionBeforePrepare: Bool
   private(set) var revocationPending = false
   private(set) var finishedRevocationRequests = 0
   private(set) var sessionID = UUID()
@@ -638,13 +662,15 @@ private actor StubAuthService: AuthService {
     clearSucceeds: Bool = true,
     prepareSucceeds: Bool = true,
     unconfirmedRevocation: Bool = false,
-    confirmSignOutSucceeds: Bool = true
+    confirmSignOutSucceeds: Bool = true,
+    switchSessionBeforePrepare: Bool = false
   ) {
     self.loggedIn = loggedIn
     self.clearSucceeds = clearSucceeds
     self.prepareSucceeds = prepareSucceeds
     self.unconfirmedRevocation = unconfirmedRevocation
     self.confirmSignOutSucceeds = confirmSignOutSucceeds
+    self.switchSessionBeforePrepare = switchSessionBeforePrepare
   }
 
   var isLoggedIn: Bool { loggedIn }
@@ -657,13 +683,22 @@ private actor StubAuthService: AuthService {
   var hasPendingWithdrawalAuthorizationCleanup: Bool { withdrawalRequested && signOutCleanupPending }
   var hasPendingSignOutCleanup: Bool { signOutCleanupPending }
   func setClearSucceeds(_ value: Bool) { clearSucceeds = value }
-  func prepareRevocation(_ kind: AuthRevocationKind) -> Bool {
-    guard prepareSucceeds else { return false }
+  func prepareRevocation(_ kind: AuthRevocationKind, ifSessionIDMatches expected: UUID) -> Bool {
+    if switchSessionBeforePrepare {
+      sessionID = UUID()
+      tokens = ["new-access", "new-refresh"]
+      switchSessionBeforePrepare = false
+    }
+    guard prepareSucceeds, loggedIn, sessionID == expected, !revocationInFlight else { return false }
     revocationPending = true
+    revocationInFlight = true
     if case .withdrawal = kind { withdrawalRequested = true }
     return true
   }
-  func finishRevocationRequest() { finishedRevocationRequests += 1 }
+  func finishRevocationRequest() {
+    finishedRevocationRequests += 1
+    revocationInFlight = false
+  }
   func confirmSignOut() -> Bool { confirmSignOutSucceeds }
   func confirmWithdrawalAuthorizationRejected() -> Bool { true }
 
@@ -687,7 +722,7 @@ private actor StubAuthService: AuthService {
   }
 
   func commitSession(_ id: UUID) -> Bool {
-    guard stagedID == id else { return false }
+    guard stagedID == id, !revocationInFlight else { return false }
     sessionID = UUID()
     tokens = stagedTokens
     loggedIn = true
@@ -717,6 +752,7 @@ private actor StubAuthService: AuthService {
       signOutCleanupPending = false
       withdrawalRequested = false
       revocationPending = false
+      revocationInFlight = false
     } else {
       signOutCleanupPending = true
     }

@@ -45,7 +45,10 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
   var isLoggedIn: Bool { recoveredCredential() != nil || sessionClearPending }
   var sessionID: UUID { store.sessionID }
   var authenticatedSessionID: UUID? { store.sessionSnapshot()?.id }
-  var hasPendingLocalClear: Bool { sessionClearPending }
+  var hasPendingLocalClear: Bool {
+    if case .pending(.sessionExpired) = journal.status { return true }
+    return sessionClearPending
+  }
   var hasPendingWithdrawalCleanup: Bool {
     if case .pending(.withdrawalCompleted) = journal.status { return true }
     return withdrawalCleanupPending
@@ -147,8 +150,8 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     return cleared
   }
 
-  func prepareRevocation(_ kind: AuthRevocationKind) -> Bool {
-    guard !revocationInFlight else { return false }
+  func prepareRevocation(_ kind: AuthRevocationKind, ifSessionIDMatches sessionID: UUID) -> Bool {
+    guard !revocationInFlight, store.sessionSnapshot()?.id == sessionID else { return false }
     let requested: SessionRevocationJournal.State
     switch kind {
     case .signOut: requested = .signOutRequested
@@ -213,7 +216,11 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
           session.credential.refreshToken == attempted.refreshToken
     else { return }
     // 기존 세션의 자동 만료는 진행 중인 새 로그인의 임시 세션까지 무효로 만들지 않는다.
-    clearCommittedSession()
+    // 만료된 토큰의 Keychain 삭제가 실패해도 다음 실행에서 복원하지 않는다.
+    // 진행 중인 서버 요청의 결과 기록은 덮어쓰지 않는다.
+    if case .absent = journal.status { _ = journal.record(.sessionExpired) }
+    let cleared = clearCommittedSession()
+    sessionClearPending = !cleared
     NotificationCenter.default.post(name: .festiCoreAuthSessionDidExpire, object: nil)
   }
 

@@ -275,7 +275,7 @@ struct AuthTests {
     let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
     let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
     await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
-    #expect(await auth.prepareRevocation(.withdrawal))
+    #expect(await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: await auth.sessionID))
     storage.failTokenSaveFor = .credentialIntegrity
     storage.failTokenRemovalFor = [.accessToken, .refreshToken]
     storage.failIdentityRemoval = true
@@ -303,7 +303,7 @@ struct AuthTests {
     let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
     let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
     await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
-    #expect(await auth.prepareRevocation(.signOut))
+    #expect(await auth.prepareRevocation(.signOut, ifSessionIDMatches: await auth.sessionID))
     #expect(await auth.confirmSignOut())
     storage.failTokenSaveFor = .credentialIntegrity
     storage.failTokenRemovalFor = [.accessToken, .refreshToken]
@@ -324,7 +324,7 @@ struct AuthTests {
     let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
     let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
     await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
-    #expect(await auth.prepareRevocation(.withdrawal))
+    #expect(await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: await auth.sessionID))
     #expect(await auth.confirmWithdrawalAuthorizationRejected())
     storage.failTokenSaveFor = .credentialIntegrity
     storage.failTokenRemovalFor = [.accessToken, .refreshToken]
@@ -345,7 +345,7 @@ struct AuthTests {
       let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
       let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
       await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
-      #expect(await auth.prepareRevocation(kind))
+      #expect(await auth.prepareRevocation(kind, ifSessionIDMatches: await auth.sessionID))
 
       let restarted = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
       #expect(await restarted.isLoggedIn == false)
@@ -363,7 +363,7 @@ struct AuthTests {
       let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
       let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
       await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
-      #expect(await auth.prepareRevocation(.withdrawal))
+      #expect(await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: await auth.sessionID))
 
       try FileManager.default.removeItem(at: storage.journalURL)
       try FileManager.default.createDirectory(at: storage.journalURL, withIntermediateDirectories: false)
@@ -401,7 +401,7 @@ struct AuthTests {
     let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
     let id = await auth.stageSession(accessToken: old.accessToken, refreshToken: old.refreshToken)
     #expect(await auth.commitSession(id))
-    #expect(await auth.prepareRevocation(.signOut))
+    #expect(await auth.prepareRevocation(.signOut, ifSessionIDMatches: await auth.sessionID))
     #expect(await auth.signOut(ifSession: id))
 
     let restarted = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
@@ -416,7 +416,7 @@ struct AuthTests {
     let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
     let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
     await signIn(auth, accessToken: "account-a", refreshToken: "refresh-a")
-    #expect(await auth.prepareRevocation(.withdrawal))
+    #expect(await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: await auth.sessionID))
 
     let newSession = await auth.stageSession(accessToken: "account-b", refreshToken: "refresh-b")
     #expect(await auth.signOut()) // 다른 API의 401이 기존 세션만 지운 상황
@@ -434,13 +434,13 @@ struct AuthTests {
     let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
     let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
     await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
-    #expect(await auth.prepareRevocation(.signOut))
+    #expect(await auth.prepareRevocation(.signOut, ifSessionIDMatches: await auth.sessionID))
     try FileManager.default.removeItem(at: storage.journalURL)
     try FileManager.default.createDirectory(at: storage.journalURL, withIntermediateDirectories: false)
     #expect(await auth.confirmSignOut() == false)
     await auth.finishRevocationRequest()
     try FileManager.default.removeItem(at: storage.journalURL)
-    #expect(await auth.prepareRevocation(.signOut))
+    #expect(await auth.prepareRevocation(.signOut, ifSessionIDMatches: await auth.sessionID))
   }
 
   @Test("저널 파일을 쓸 수 없으면 서버 요청 준비가 실패하고 토큰은 유지된다")
@@ -452,7 +452,7 @@ struct AuthTests {
     try FileManager.default.createDirectory(at: storage.journalURL, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: storage.journalURL) }
 
-    #expect(await auth.prepareRevocation(.withdrawal) == false)
+    #expect(await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: await auth.sessionID) == false)
     #expect(await auth.isLoggedIn)
     #expect(storage.load(.accessToken) == old.accessToken)
   }
@@ -481,7 +481,7 @@ struct AuthTests {
       let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
       let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
       await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
-      #expect(await auth.prepareRevocation(kind))
+      #expect(await auth.prepareRevocation(kind, ifSessionIDMatches: await auth.sessionID))
       let concurrentID = await auth.stageSession(accessToken: "early", refreshToken: "early-refresh")
       #expect(await auth.commitSession(concurrentID) == false)
 
@@ -506,7 +506,7 @@ struct AuthTests {
     let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
     let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
     await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
-    #expect(await auth.prepareRevocation(.withdrawal))
+    #expect(await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: await auth.sessionID))
     let id = await auth.stageSession(accessToken: "new-access", refreshToken: "new-refresh")
     #expect(await auth.commitSession(id) == false)
 
@@ -803,6 +803,57 @@ struct AuthTests {
     #expect(await auth.isLoggedIn == false)
     #expect(await auth.commitSession(next))
     #expect(storage.load(.refreshToken) == "refresh-b")
+  }
+
+  @Test("인증 만료 중 Keychain 삭제가 실패해도 재시작 뒤 이전 토큰을 복원하지 않는다")
+  func authFailureClearFailureBlocksRestoration() async throws {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let made = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+    let auth = try #require(made as? FestiCoreAuth)
+    let accessToken = jwt(subject: "user-a")
+    await signIn(auth, accessToken: accessToken, refreshToken: "refresh-a")
+    let sessionID = await auth.sessionID
+    storage.failTokenSaveFor = .credentialIntegrity
+    storage.failTokenRemovalFor = [.accessToken, .refreshToken]
+
+    await auth.handleAuthFailure(
+      for: FestiCoreCredential(accessToken: accessToken, refreshToken: "refresh-a"),
+      sessionID: sessionID
+    )
+
+    #expect(await auth.hasPendingLocalClear)
+    #expect(storage.load(.refreshToken) == "refresh-a")
+    #expect(FileManager.default.fileExists(atPath: storage.journalURL.path))
+    let restarted = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+    #expect(await restarted.isLoggedIn == false)
+    #expect(await restarted.refreshToken == nil)
+    #expect(await restarted.hasPendingLocalClear)
+    storage.failTokenSaveFor = nil
+    storage.failTokenRemovalFor = []
+    #expect(await restarted.signOut())
+    #expect(FileManager.default.fileExists(atPath: storage.journalURL.path) == false)
+  }
+
+  @Test("탈퇴 요청 중 인증 만료는 미확정 서버 결과 기록을 유지한다")
+  func authFailureDuringWithdrawalPreservesRequestJournal() async throws {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let made = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+    let auth = try #require(made as? FestiCoreAuth)
+    let accessToken = jwt(subject: "user-a")
+    await signIn(auth, accessToken: accessToken, refreshToken: "refresh-a")
+    let sessionID = await auth.sessionID
+    #expect(await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: sessionID))
+
+    await auth.handleAuthFailure(
+      for: FestiCoreCredential(accessToken: accessToken, refreshToken: "refresh-a"),
+      sessionID: sessionID
+    )
+
+    let restarted = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+    #expect(await restarted.hasUnconfirmedRevocation)
+    #expect(await restarted.isLoggedIn == false)
   }
 
   @Test("이전 세션의 갱신 401은 같은 토큰으로 다시 로그인한 세션을 종료하지 않는다")

@@ -108,7 +108,7 @@ public struct AuthRepositoryImpl: AuthInterface {
       guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
       return
     }
-    guard await authService.prepareRevocation(.signOut) else {
+    guard await authService.prepareRevocation(.signOut, ifSessionIDMatches: sessionID) else {
       throw AuthDomainError.localSessionClearFailed
     }
 
@@ -165,7 +165,7 @@ public struct AuthRepositoryImpl: AuthInterface {
     guard let sessionID = await authService.authenticatedSessionID else {
       throw AuthDomainError.notAuthenticated
     }
-    guard await authService.prepareRevocation(.withdrawal) else {
+    guard await authService.prepareRevocation(.withdrawal, ifSessionIDMatches: sessionID) else {
       throw AuthDomainError.localSessionClearFailed
     }
 

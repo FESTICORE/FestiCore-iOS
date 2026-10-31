@@ -10,6 +10,7 @@ import Foundation
 /// Keychain 삭제가 실패해도 다음 실행에서 이전 토큰을 복원하지 않도록 남기는 기록.
 final class SessionRevocationJournal: Sendable {
   enum State: String {
+    case sessionExpired
     case signOutRequested
     case signOutConfirmed
     case withdrawalRequested
