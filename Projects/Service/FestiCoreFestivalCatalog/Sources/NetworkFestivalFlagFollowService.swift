@@ -63,13 +63,16 @@ private extension NetworkFestivalFlagFollowService {
       if responseError.isUnauthorized { return .loginRequired }
       switch (responseError.httpStatus, responseError.code) {
       case (404, _): return .notFound
+      case (403, "TERMS_REQUIRED"): return .termsRequired
       // 409는 멱등 키 충돌(IDEMPOTENCY_CONFLICT)도 있으므로 한도 초과 코드만 구분한다.
       case (409, "FOLLOW_LIMIT"): return .limitReached
       default: return .unavailable
       }
     case .decoding:
       return .invalidResponse
-    case .request, .transport:
+    case .request:
+      return .invalidResponse
+    case .transport:
       return .unavailable
     }
   }

@@ -24,6 +24,8 @@ public struct FestivalFlagFollowResult: Equatable, Sendable {
 public enum FestivalFlagFollowError: Error, Equatable, Sendable {
   /// 로그아웃 상태이거나 토큰 갱신 후에도 인증되지 않았다.
   case loginRequired
+  /// 팔로우 전에 최신 약관에 다시 동의해야 한다.
+  case termsRequired
   /// 팔로우할 수 있는 깃발 수(100개)를 넘었다.
   case limitReached
   /// 공개되지 않은 깃발이다.

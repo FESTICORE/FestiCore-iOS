@@ -1,6 +1,7 @@
 import FestiCoreDeviceInterface
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
+import FestivalDomain
 import FestivalDomainInterface
 import Foundation
 import Testing
@@ -60,7 +61,7 @@ struct FestivalLiveBoardTests {
     let liveCachePolicy = await client.liveCachePolicy
     let flagsCachePolicy = await client.flagsCachePolicy
     #expect(liveCachePolicy == .reloadIgnoringLocalCacheData)
-    #expect(flagsCachePolicy == nil)
+    #expect(flagsCachePolicy == .reloadIgnoringLocalCacheData)
   }
 
   @Test("선택 필드가 없는 응답과 null 집결 요청도 디코딩한다")
@@ -170,7 +171,7 @@ struct FestivalLiveBoardTests {
   func mapsDirectoryFlags() async throws {
     let client = LiveBoardStubClient(responses: [
       "api/v1/festivals/fst_test/live": #"{"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test","serverAt":"2026-10-20T09:00:00Z","activeFlags":[{"flagId":"flg_b","status":"resting","zoneId":"zone_b","activity":"calm","updatedAt":"2026-10-20T08:59:00Z"}],"me":null}}"#,
-      "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"flg_a","name":"첫 깃발","tags":["slam"],"followerCount":1284,"homeZoneId":"zone_a"},{"id":"flg_b","name":"둘째 깃발","followerCount":"많음","homeZoneId":7},{"id":"flg_a","name":"중복 깃발"}]}}"#,
+      "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"flg_a","name":"첫 깃발","tags":["slam"],"followerCount":1284,"homeZoneId":"zone_a"},{"id":"flg_b","name":"둘째 깃발","followerCount":null,"homeZoneId":null},{"id":"flg_a","name":"중복 깃발"}]}}"#,
     ])
     let service = NetworkFestivalLiveBoardService(
       client: client,
@@ -188,6 +189,19 @@ struct FestivalLiveBoardTests {
     #expect(board.directoryFlags.last?.zoneID == "zone_b")
     #expect(board.directoryFlags.last?.updatedAt == date("2026-10-20T08:59:00Z"))
     #expect(board.activeFlags.first?.followerCount == nil)
+  }
+
+  @Test("공개 프로필의 팔로워 수와 기본 구역 타입 오류는 거부한다", arguments: [
+    #"{"followerCount":"많음"}"#,
+    #"{"homeZoneId":7}"#,
+  ])
+  func rejectsMalformedDirectoryMetadata(_ fields: String) {
+    let object = String(fields.dropFirst().dropLast())
+    let json = #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"flg_a","name":"깃발",\#(object)}]}}"#
+
+    #expect(throws: DecodingError.self) {
+      try JSONDecoder().decode(FestivalFlagsResponseDTO.self, from: Data(json.utf8))
+    }
   }
 
   @Test("라이브 목록이 상한 50개면 빠진 깃발의 상태를 예정으로 단정하지 않는다")

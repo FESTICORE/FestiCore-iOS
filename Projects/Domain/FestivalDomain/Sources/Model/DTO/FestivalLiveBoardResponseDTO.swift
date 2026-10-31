@@ -75,8 +75,8 @@ public struct FestivalFlagsFlagDTO: Decodable, Sendable {
     } else {
       tags = nil
     }
-    followerCount = try? container.decodeIfPresent(Int.self, forKey: .followerCount)
-    homeZoneId = try? container.decodeIfPresent(String.self, forKey: .homeZoneId)
+    followerCount = try container.decodeIfPresent(Int.self, forKey: .followerCount)
+    homeZoneId = try container.decodeIfPresent(String.self, forKey: .homeZoneId)
   }
 
   private struct TagValue: Decodable {

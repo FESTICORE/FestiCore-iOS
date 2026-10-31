@@ -48,12 +48,14 @@ struct FestivalFlagFollowTests {
 
   @Test(arguments: [
     (FestiCoreNetworkError.response(ResponseError(httpStatus: 401)), FestivalFlagFollowError.loginRequired),
+    (.response(ResponseError(httpStatus: 403, code: "TERMS_REQUIRED")), .termsRequired),
     (.response(ResponseError(httpStatus: 404)), .notFound),
     (.response(ResponseError(httpStatus: 409, code: "FOLLOW_LIMIT")), .limitReached),
     (.response(ResponseError(httpStatus: 409, code: "IDEMPOTENCY_CONFLICT")), .unavailable),
     (.response(ResponseError(httpStatus: 500)), .unavailable),
     (.transport(.timedOut), .unavailable),
     (.decoding(.dataMissing), .invalidResponse),
+    (.request(.invalidURL), .invalidResponse),
   ])
   func mapsFailures(error: FestiCoreNetworkError, expected: FestivalFlagFollowError) async {
     let client = FollowStubClient(result: .failure(error))

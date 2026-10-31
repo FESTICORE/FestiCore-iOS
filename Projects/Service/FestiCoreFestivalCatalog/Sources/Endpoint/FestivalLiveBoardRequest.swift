@@ -28,5 +28,7 @@ struct FestivalFlagsRequest: FestiCoreDataRequest {
   var path: String { "api/v1/festivals/\(festivalID)/flags" }
   var method: HTTPMethod { .get }
   var authorization: FestiCoreAuthorization { .none }
+  // 팔로우 직후 공개 프로필의 팔로워 수가 이전 URLCache 값으로 되돌아가지 않게 한다.
+  var cachePolicy: URLRequest.CachePolicy? { .reloadIgnoringLocalCacheData }
   var parameters: (any Encodable & Sendable)? { nil }
 }
