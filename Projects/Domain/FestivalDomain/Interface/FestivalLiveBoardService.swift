@@ -102,6 +102,7 @@ public protocol FestivalLiveBoardService: Sendable {
 
 public enum FestivalLiveBoardError: Error, Equatable, Sendable {
   case deviceNotRegistered
+  case festivalNotFound
   case invalidFestivalID
   case invalidResponse
   case rateLimited(retryAfter: TimeInterval)

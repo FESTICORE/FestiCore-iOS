@@ -8,6 +8,36 @@ import Testing
 
 @Suite("축제 라이브 보드 통신")
 struct FestivalLiveBoardTests {
+  @Test("미발행 축제 코드만 공개 전 오류로 구분한다")
+  func unpublishedFestivalCode() async {
+    let client = LiveBoardStubClient(responses: [:], liveResponses: [
+      .init(statusCode: 404, data: Data(#"{"code":"FESTIVAL_NOT_FOUND"}"#.utf8)),
+    ])
+    let service = NetworkFestivalLiveBoardService(
+      client: client, auth: LiveBoardStubAuth(), device: LiveBoardStubDevice(), baseURL: nil
+    )
+
+    await #expect(throws: FestivalLiveBoardError.festivalNotFound) {
+      try await service.refresh(for: "fst_test")
+    }
+    let sentDeviceID = await client.liveDeviceID
+    #expect(sentDeviceID == "00000000-0000-4000-8000-000000000001")
+  }
+
+  @Test("다른 404 코드는 기존 응답 오류로 유지한다")
+  func unrelatedNotFoundCode() async {
+    let client = LiveBoardStubClient(responses: [:], liveResponses: [
+      .init(statusCode: 404, data: Data(#"{"code":"FLAG_NOT_FOUND"}"#.utf8)),
+    ])
+    let service = NetworkFestivalLiveBoardService(
+      client: client, auth: LiveBoardStubAuth(), device: LiveBoardStubDevice(), baseURL: nil
+    )
+
+    await #expect(throws: FestivalLiveBoardError.invalidResponse) {
+      try await service.refresh(for: "fst_test")
+    }
+  }
+
   @Test("등록 토큰 없이 설치 ID로 라이브 상태와 공개 프로필을 조회한다")
   func mapsLiveBoard() async throws {
     #expect(try await LiveBoardStubDevice().authorization()?.deviceID == nil)
