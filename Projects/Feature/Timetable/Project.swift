@@ -18,5 +18,9 @@ let project = Project.makeModule(
     .ui(.sharedUI),
     .SPM.composableArchitecture
   ],
-  hasTests: true
+  hasTests: true,
+  hasInterface: true,
+  interfaceDependencies: [
+    .SPM.composableArchitecture
+  ]
 )

@@ -7,6 +7,7 @@
 
 import ComposableArchitecture
 import Foundation
+import ProfileInterface
 import UIKit
 
 /// 화면에 실제로 전달된 팩만 표시한다. 데이터가 없으면 빈 목록으로 남는다.
@@ -49,7 +50,7 @@ public struct ProfileFeature {
   @CasePathable
   public enum Action: ViewAction, Equatable {
     case view(View)
-    case delegate(Delegate)
+    case delegate(ProfileDelegate)
   }
 
   @CasePathable
@@ -72,19 +73,6 @@ public struct ProfileFeature {
     case termsTapped
     case privacyTapped
     case legalLinkUnavailableDismissed
-  }
-
-  @CasePathable
-  public enum Delegate: Equatable {
-    case bearerRequested
-    case searchRequested
-    case packRequested(String)
-    case lockScreenRequested
-    case loginRequested
-    case profileRefreshRequested
-    case logoutRequested
-    case withdrawRequested
-    case noticeRequested
   }
 
   public var body: some ReducerOf<Self> {
