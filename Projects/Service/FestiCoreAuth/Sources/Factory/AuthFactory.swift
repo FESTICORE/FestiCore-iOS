@@ -14,7 +14,7 @@ import FestiCoreStorageInterface
 
 public enum AuthFactory {
   public static func make(
-    refreshClient: any FestiCoreNetworkClient,
+    refreshClient: any FestiCoreRequestClient,
     storage: any SecureStorage,
     baseURL: URL? = NetworkClientFactory.bundleBaseURL
   ) -> any AuthService & AuthenticatedClientProvider {
