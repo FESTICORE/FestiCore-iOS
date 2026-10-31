@@ -850,7 +850,14 @@ struct AuthTests {
     let sessionID = await auth.sessionID
     #expect(await auth.authenticatedSessionID == sessionID)
     #expect(await auth.isLoggedIn)
-    #expect(await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: sessionID))
+    let journal = SessionRevocationJournal(url: storage.journalURL)
+    let journalBefore = String(describing: journal.status)
+    let sessionBefore = await auth.authenticatedSessionID
+    let prepared = await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: sessionID)
+    #expect(
+      prepared,
+      "저널 이전: \(journalBefore), 이후: \(String(describing: journal.status)), 세션: \(String(describing: sessionBefore))"
+    )
 
     await auth.handleAuthFailure(
       for: FestiCoreCredential(accessToken: accessToken, refreshToken: "refresh-a"),
