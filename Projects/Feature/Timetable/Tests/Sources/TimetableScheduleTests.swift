@@ -258,11 +258,14 @@ struct TimetableScheduleTests {
     #expect(service.fetchCount.value == 1)
   }
 
-  @Test func previousAccountSaveCannotOverwriteCurrentSave() async throws {
+  @Test func previousAccountSaveCannotOverwriteCurrentSave() async {
     var state = readyState(mine: ["lime"], selected: "noise")
     state.isSaving = true
     let clock = TestClock()
-    let service = ScheduleServiceSpy(replaceDelay: { _ = try? await clock.sleep(for: .seconds(1)) })
+    let (saveGate, saveContinuation) = AsyncStream<Void>.makeStream()
+    let service = ScheduleServiceSpy(replaceDelay: {
+      for await _ in saveGate { break }
+    })
     let store = makeStore(state, service: service, clock: clock)
     let previous = TimetableFeature.ScheduleSave(setIDs: ["lime"], clientAt: beforeFestival, generation: 0)
 
@@ -282,26 +285,23 @@ struct TimetableScheduleTests {
       $0.isSaving = true
       $0.lastClientAt = self.beforeFestival
     }
-    for _ in 0..<500 {
-      guard service.replaced.value.isEmpty else { break }
-      try await Task.sleep(for: .milliseconds(10))
-    }
-    try #require(!service.replaced.value.isEmpty)
     await store.send(.scheduleSaved(festivalID: "fst", previous, .failure(.stale(.init(setIDs: ["lime"])))))
     await store.send(.scheduleSaved(festivalID: "fst", previous, .success(.init(setIDs: ["lime"]))))
     #expect(store.state.isSaving)
     #expect(store.state.mySetIDs == ["noise"])
-    await clock.advance(by: .seconds(1))
+    saveContinuation.yield(())
+    saveContinuation.finish()
     await store.receive(\.scheduleSaved) {
       $0.isSaving = false
     }
     await store.receive(scheduleSaved(festivalID: "fst", setIDs: ["noise"]))
-    await clock.advance(by: .seconds(1))
+    await clock.advance(by: .seconds(2))
     await store.receive(\.scheduleToastExpired) {
       $0.isScheduleToastVisible = false
     }
     #expect(store.state.mySetIDs == ["noise"])
     #expect(!store.state.isSaving)
+    #expect(service.replaced.value.map(\.setIDs) == [["noise"]])
   }
 
   @Test func successfulSaveDelegatesSavedSnapshot() async {
