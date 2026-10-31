@@ -27,6 +27,8 @@ public protocol FestiCoreEndpoint {
   var headers: HTTPHeaders { get }
   /// 타임아웃(초). nil 이면 세션 기본값 사용.
   var timeoutInterval: TimeInterval? { get }
+  /// 요청 캐시 정책. nil 이면 URLRequest 기본값 사용.
+  var cachePolicy: URLRequest.CachePolicy? { get }
   /// 최대 재시도 횟수 (0 = 재시도 안 함)
   var maxRetryAttempts: Int { get }
   /// 인증 정책. 기본값 `.automatic` — 예외 엔드포인트만 선언한다.
@@ -39,6 +41,10 @@ public extension FestiCoreEndpoint {
   }
 
   var timeoutInterval: TimeInterval? {
+    return nil
+  }
+
+  var cachePolicy: URLRequest.CachePolicy? {
     return nil
   }
 

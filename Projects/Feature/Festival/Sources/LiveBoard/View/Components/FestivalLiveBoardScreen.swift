@@ -144,7 +144,7 @@ private extension FestivalLiveBoardScreen {
             HStack {
               Text(member.nickname)
               Spacer()
-              Text(member.zoneID ?? member.state)
+              Text(member.zoneID ?? member.state ?? "")
                 .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
             }
             .festiCoreFont(.baseSubheadlineRegular)

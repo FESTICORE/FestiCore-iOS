@@ -20,6 +20,9 @@ public extension FestiCoreDataRequest {
     if let timeoutInterval {
       urlRequest.timeoutInterval = timeoutInterval
     }
+    if let cachePolicy {
+      urlRequest.cachePolicy = cachePolicy
+    }
 
     guard let parameters else { return urlRequest }
     return try encode(parameters, using: resolvedEncoder, into: urlRequest)
