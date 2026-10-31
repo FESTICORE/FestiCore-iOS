@@ -294,6 +294,21 @@ struct AuthDomainTests {
     #expect(await auth.isLoggedIn)
   }
 
+  @Test("서버 로그아웃 성공 뒤 확인 기록 실패는 요청 잠금을 풀고 오류를 반환한다")
+  func failedSignOutConfirmationFinishesRequest() async {
+    let auth = StubAuthService(loggedIn: true, confirmSignOutSucceeds: false)
+    let client = StubClient(result: .success(Data(#"{"code":"SUCCESS","message":"OK","data":{"success":true}}"#.utf8)))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+
+    await #expect(throws: AuthDomainError.localSessionClearFailed) { try await repository.signOut() }
+    #expect(await client.calls == 1)
+    #expect(await auth.signOutCalls == 0)
+    #expect(await auth.finishedRevocationRequests == 1)
+  }
+
   @Test("이미 로그아웃 상태라면 네트워크를 호출하지 않는다")
   func alreadySignedOut() async throws {
     let auth = StubAuthService()
@@ -536,6 +551,7 @@ private actor StubAuthService: AuthService {
   private var clearSucceeds: Bool
   private let prepareSucceeds: Bool
   private let unconfirmedRevocation: Bool
+  private let confirmSignOutSucceeds: Bool
   private var withdrawalCleanupPending = false
   private var signOutCleanupPending = false
   private var withdrawalRequested = false
@@ -548,12 +564,14 @@ private actor StubAuthService: AuthService {
     loggedIn: Bool = false,
     clearSucceeds: Bool = true,
     prepareSucceeds: Bool = true,
-    unconfirmedRevocation: Bool = false
+    unconfirmedRevocation: Bool = false,
+    confirmSignOutSucceeds: Bool = true
   ) {
     self.loggedIn = loggedIn
     self.clearSucceeds = clearSucceeds
     self.prepareSucceeds = prepareSucceeds
     self.unconfirmedRevocation = unconfirmedRevocation
+    self.confirmSignOutSucceeds = confirmSignOutSucceeds
   }
 
   var isLoggedIn: Bool { loggedIn }
@@ -569,7 +587,7 @@ private actor StubAuthService: AuthService {
     return true
   }
   func finishRevocationRequest() { finishedRevocationRequests += 1 }
-  func confirmSignOut() -> Bool { true }
+  func confirmSignOut() -> Bool { confirmSignOutSucceeds }
   func confirmWithdrawalAuthorizationRejected() -> Bool { true }
 
   func completeWithdrawal() -> Bool {

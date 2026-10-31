@@ -133,9 +133,11 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
   }
 
   func signOut() -> Bool {
-    revocationInFlight = false
-    staged = nil
+    let requestIsInFlight = revocationInFlight
+    let requestIsUnconfirmed = requestIsInFlight && journal.hasRequestedRevocation
+    if !requestIsInFlight { staged = nil }
     let cleared = clearCommittedSession()
+    if !requestIsUnconfirmed { revocationInFlight = false }
     sessionClearPending = !cleared
     if cleared { withdrawalCleanupPending = false }
     return cleared
@@ -170,9 +172,11 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
   }
 
   func completeWithdrawal() -> Bool {
-    revocationInFlight = false
     withdrawalCleanupPending = true
-    guard journal.record(.withdrawalCompleted) else { return false }
+    guard journal.record(.withdrawalCompleted) else {
+      revocationInFlight = false
+      return false
+    }
     return signOut()
   }
 
@@ -214,7 +218,8 @@ private extension FestiCoreAuth {
   func clearCommittedSession() -> Bool {
     let keychainCleared = store.clear()
     // 서버 응답 전 토큰 갱신 실패로 로컬 토큰이 지워져도 요청 결과 기록은 보존한다.
-    let cleared = keychainCleared && !revocationInFlight && journal.clear()
+    let preserveRequest = revocationInFlight && journal.hasRequestedRevocation
+    let cleared = keychainCleared && (preserveRequest || journal.clear())
     if cleared { committedSessionID = nil }
     try? identityStorage.remove(.sessionUserID)
     credentials.update(nil)

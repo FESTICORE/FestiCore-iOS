@@ -111,7 +111,10 @@ public struct AuthRepositoryImpl: AuthInterface {
       if let networkError = error as? FestiCoreNetworkError,
          case let .response(response) = networkError,
          response.isUnauthorized {
-        guard await authService.confirmSignOut() else { throw AuthDomainError.localSessionClearFailed }
+        guard await authService.confirmSignOut() else {
+          await authService.finishRevocationRequest()
+          throw AuthDomainError.localSessionClearFailed
+        }
         guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
         return
       }
@@ -127,7 +130,10 @@ public struct AuthRepositoryImpl: AuthInterface {
       await authService.finishRevocationRequest()
       throw error
     }
-    guard await authService.confirmSignOut() else { throw AuthDomainError.localSessionClearFailed }
+    guard await authService.confirmSignOut() else {
+      await authService.finishRevocationRequest()
+      throw AuthDomainError.localSessionClearFailed
+    }
     guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
   }
 
@@ -155,6 +161,7 @@ public struct AuthRepositoryImpl: AuthInterface {
          case let .response(response) = networkError,
          response.isUnauthorized {
         guard await authService.confirmWithdrawalAuthorizationRejected() else {
+          await authService.finishRevocationRequest()
           throw AuthDomainError.localSessionClearFailed
         }
       }

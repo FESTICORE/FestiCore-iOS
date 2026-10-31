@@ -326,12 +326,45 @@ struct AuthTests {
     let id = await auth.stageSession(accessToken: old.accessToken, refreshToken: old.refreshToken)
     #expect(await auth.commitSession(id))
     #expect(await auth.prepareRevocation(.signOut))
-    #expect(await auth.signOut(ifSession: id) == false)
+    #expect(await auth.signOut(ifSession: id))
 
     let restarted = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
     #expect(await restarted.hasUnconfirmedRevocation)
     #expect(await restarted.hasPendingSignOutCleanup == false)
     #expect(FileManager.default.fileExists(atPath: storage.journalURL.path))
+  }
+
+  @Test("탈퇴 중 일반 로그아웃은 요청 잠금과 다음 로그인 세션을 보존한다")
+  func localSignOutDuringWithdrawalPreservesNewSession() async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+    await signIn(auth, accessToken: "account-a", refreshToken: "refresh-a")
+    #expect(await auth.prepareRevocation(.withdrawal))
+
+    let newSession = await auth.stageSession(accessToken: "account-b", refreshToken: "refresh-b")
+    #expect(await auth.signOut()) // 다른 API의 401이 기존 세션만 지운 상황
+    #expect(await auth.hasUnconfirmedRevocation)
+    #expect(await auth.commitSession(newSession) == false)
+    #expect(await auth.completeWithdrawal()) // 늦게 도착한 기존 세션의 탈퇴 성공
+    #expect(await auth.commitSession(newSession))
+    #expect(await auth.refreshToken == "refresh-b")
+    #expect(storage.load(.refreshToken) == "refresh-b")
+  }
+
+  @Test("로그아웃 확인 기록 실패 뒤 요청 잠금은 종료할 수 있다")
+  func failedConfirmationCanFinishRequest() async throws {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
+    await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
+    #expect(await auth.prepareRevocation(.signOut))
+    try FileManager.default.removeItem(at: storage.journalURL)
+    try FileManager.default.createDirectory(at: storage.journalURL, withIntermediateDirectories: false)
+    #expect(await auth.confirmSignOut() == false)
+    await auth.finishRevocationRequest()
+    try FileManager.default.removeItem(at: storage.journalURL)
+    #expect(await auth.prepareRevocation(.signOut))
   }
 
   @Test("저널 파일을 쓸 수 없으면 서버 요청 준비가 실패하고 토큰은 유지된다")

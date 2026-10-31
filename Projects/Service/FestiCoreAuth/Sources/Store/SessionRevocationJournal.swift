@@ -40,6 +40,13 @@ final class SessionRevocationJournal: Sendable {
     }
   }
 
+  var hasRequestedRevocation: Bool {
+    switch status {
+    case .pending(.signOutRequested), .pending(.withdrawalRequested): true
+    case .absent, .unreadable, .pending: false
+    }
+  }
+
   func record(_ state: State) -> Bool {
     do {
       try FileManager.default.createDirectory(
