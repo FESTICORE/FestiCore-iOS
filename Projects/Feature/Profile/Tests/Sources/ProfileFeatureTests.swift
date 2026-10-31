@@ -76,6 +76,24 @@ struct ProfileFeatureTests {
     }
   }
 
+  @Test func dismissedConfirmationIgnoresLateConfirmTap() async {
+    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
+
+    await store.send(.view(.accountTapped(isSignedIn: true))) { $0.isAccountPresented = true }
+    await store.send(.view(.withdrawTapped)) {
+      $0.isWithdrawalConfirmationPresented = true
+      $0.dialogPresentationID = 1
+    }
+    await store.send(.view(.withdrawalConfirmationDismissed)) { $0.isWithdrawalConfirmationPresented = false }
+    await store.send(.view(.confirmWithdrawTapped))
+    await store.send(.view(.logoutTapped)) {
+      $0.isLogoutConfirmationPresented = true
+      $0.dialogPresentationID = 2
+    }
+    await store.send(.view(.logoutConfirmationDismissed)) { $0.isLogoutConfirmationPresented = false }
+    await store.send(.view(.confirmLogoutTapped))
+  }
+
   @Test func missingLegalConfigurationShowsDismissibleError() async {
     let store = TestStore(initialState: ProfileFeature.State()) {
       ProfileFeature(legalBaseURL: nil)

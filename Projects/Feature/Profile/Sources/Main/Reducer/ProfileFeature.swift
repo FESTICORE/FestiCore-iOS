@@ -116,6 +116,8 @@ public struct ProfileFeature {
         state.isLogoutConfirmationPresented = false
         return .none
       case .view(.confirmLogoutTapped):
+        // 닫히는 중인 팝업의 버튼이 늦게 눌려도 실행하지 않는다.
+        guard state.isLogoutConfirmationPresented else { return .none }
         state.isLogoutConfirmationPresented = false
         return .send(.delegate(.logoutRequested))
       case .view(.withdrawTapped):
@@ -126,6 +128,7 @@ public struct ProfileFeature {
         state.isWithdrawalConfirmationPresented = false
         return .none
       case .view(.confirmWithdrawTapped):
+        guard state.isWithdrawalConfirmationPresented else { return .none }
         state.isWithdrawalConfirmationPresented = false
         return .send(.delegate(.withdrawRequested))
       case .view(.noticeTapped): return .send(.delegate(.noticeRequested))
