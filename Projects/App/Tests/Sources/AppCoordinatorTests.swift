@@ -1958,6 +1958,11 @@ private struct StubAuthService: AuthService {
 
   var isLoggedIn: Bool { get async { loggedIn } }
   var authenticatedSessionID: UUID? { get async { loggedIn ? sessionID : nil } }
+  var hasPendingLocalClear: Bool { get async { false } }
+  var hasUnconfirmedRevocation: Bool { get async { false } }
+  var hasPendingSignOutCleanup: Bool { get async { false } }
+  var hasPendingWithdrawalAuthorizationCleanup: Bool { get async { false } }
+  var hasPendingWithdrawalCleanup: Bool { get async { false } }
   var currentUserID: String? { get async { userID } }
   var refreshToken: String? {
     get async {
@@ -1999,6 +2004,13 @@ private struct StubAuthService: AuthService {
     Issue.record("테스트에서 조건부 signOut 호출을 예상하지 않았어요")
     return false
   }
+
+  func prepareRevocation(_: AuthRevocationKind, ifSessionIDMatches _: UUID) async -> Bool { false }
+  func finishRevocationRequest() async {}
+  func confirmSignOut() async -> Bool { false }
+  func confirmWithdrawalAuthorizationRejected() async -> Bool { false }
+  func retryUnconfirmedLocalCleanup() async -> Bool { false }
+  func completeWithdrawal() async -> Bool { false }
 }
 
 private func eligibleProfile(id: String) -> AuthProfile {
@@ -2063,6 +2075,11 @@ private actor SessionRecordingAuthService: AuthService {
   var isLoggedIn: Bool { loggedIn }
   var sessionID: UUID { activeSessionID }
   var authenticatedSessionID: UUID? { loggedIn ? activeSessionID : nil }
+  var hasPendingLocalClear: Bool { false }
+  var hasUnconfirmedRevocation: Bool { false }
+  var hasPendingSignOutCleanup: Bool { false }
+  var hasPendingWithdrawalAuthorizationCleanup: Bool { false }
+  var hasPendingWithdrawalCleanup: Bool { false }
   var refreshToken: String? { nil }
   var currentUserID: String? { loggedIn ? "user-a" : nil }
 
@@ -2101,6 +2118,13 @@ private actor SessionRecordingAuthService: AuthService {
     guard activeSessionID == expected, loggedIn else { return false }
     return signOut()
   }
+
+  func prepareRevocation(_: AuthRevocationKind, ifSessionIDMatches _: UUID) -> Bool { false }
+  func finishRevocationRequest() {}
+  func confirmSignOut() -> Bool { false }
+  func confirmWithdrawalAuthorizationRejected() -> Bool { false }
+  func retryUnconfirmedLocalCleanup() -> Bool { false }
+  func completeWithdrawal() -> Bool { false }
 
   func waitUntilCommitStarts() async {
     while !commitStarted || (holdsCommit && release == nil) { await Task.yield() }

@@ -102,6 +102,11 @@ private actor FollowStubAuth: AuthService {
   init(isLoggedIn: Bool = true) { loggedIn = isLoggedIn }
   var isLoggedIn: Bool { loggedIn }
   var authenticatedSessionID: UUID? { loggedIn ? sessionID : nil }
+  var hasPendingLocalClear: Bool { false }
+  var hasUnconfirmedRevocation: Bool { false }
+  var hasPendingSignOutCleanup: Bool { false }
+  var hasPendingWithdrawalAuthorizationCleanup: Bool { false }
+  var hasPendingWithdrawalCleanup: Bool { false }
   var refreshToken: String? { nil }
   var currentUserID: String? { loggedIn ? "user-a" : nil }
 
@@ -112,6 +117,12 @@ private actor FollowStubAuth: AuthService {
   func signOut(ifSessionIDMatches _: UUID) -> Bool { false }
   func rememberUserID(_: String) {}
   func signOut() -> Bool { true }
+  func prepareRevocation(_: AuthRevocationKind, ifSessionIDMatches _: UUID) -> Bool { false }
+  func finishRevocationRequest() {}
+  func confirmSignOut() -> Bool { false }
+  func confirmWithdrawalAuthorizationRejected() -> Bool { false }
+  func retryUnconfirmedLocalCleanup() -> Bool { false }
+  func completeWithdrawal() -> Bool { false }
 }
 
 private actor FollowStubClient: FestiCoreRequestClient {

@@ -58,22 +58,6 @@ public protocol AuthService: Sendable {
   func completeWithdrawal() async -> Bool
 }
 
-public extension AuthService {
-  var hasPendingLocalClear: Bool { get async { false } }
-  func prepareRevocation(_ kind: AuthRevocationKind, ifSessionIDMatches _: UUID) async -> Bool { false }
-  func finishRevocationRequest() async {}
-  func confirmSignOut() async -> Bool { false }
-  func confirmWithdrawalAuthorizationRejected() async -> Bool { false }
-  var hasUnconfirmedRevocation: Bool { get async { false } }
-  func retryUnconfirmedLocalCleanup() async -> Bool { false }
-  var hasPendingSignOutCleanup: Bool { get async { false } }
-  var hasPendingWithdrawalAuthorizationCleanup: Bool { get async { false } }
-  var hasPendingWithdrawalCleanup: Bool { get async { false } }
-
-  @discardableResult
-  func completeWithdrawal() async -> Bool { await signOut() }
-}
-
 public extension Notification.Name {
   static let festiCoreAuthSessionDidExpire = Notification.Name("festicore.auth.session.didExpire")
 }

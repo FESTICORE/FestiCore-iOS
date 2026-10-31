@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import os
 
 /// Keychain 삭제가 실패해도 다음 실행에서 이전 토큰을 복원하지 않도록 남기는 기록.
 final class SessionRevocationJournal: Sendable {
@@ -26,8 +25,6 @@ final class SessionRevocationJournal: Sendable {
   }
 
   let url: URL
-  private let recordFailure = OSAllocatedUnfairLock<String?>(initialState: nil)
-  var lastRecordFailure: String? { recordFailure.withLock { $0 } }
 
   init(url: URL) { self.url = url }
 
@@ -52,7 +49,6 @@ final class SessionRevocationJournal: Sendable {
   }
 
   func record(_ state: State) -> Bool {
-    recordFailure.withLock { $0 = nil }
     do {
       try FileManager.default.createDirectory(
         at: url.deletingLastPathComponent(),
@@ -60,17 +56,9 @@ final class SessionRevocationJournal: Sendable {
       )
       // 상태만 담는 저널은 잠금 중에도 읽혀야 토큰 복원을 차단할 수 있다.
       try Data(state.rawValue.utf8).write(to: url, options: .atomic)
-      let savedStatus = status
-      guard case let .pending(saved) = savedStatus, saved == state else {
-        recordFailure.withLock { $0 = "쓰기 후 상태: \(String(describing: savedStatus))" }
-        return false
-      }
+      guard case let .pending(saved) = status, saved == state else { return false }
       return true
-    } catch {
-      let error = error as NSError
-      recordFailure.withLock { $0 = "\(error.domain) \(error.code): \(error.localizedDescription)" }
-      return false
-    }
+    } catch { return false }
   }
 
   func clear() -> Bool {

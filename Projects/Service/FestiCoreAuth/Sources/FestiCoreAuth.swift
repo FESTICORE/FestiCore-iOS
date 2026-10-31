@@ -45,9 +45,6 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
   var isLoggedIn: Bool { recoveredCredential() != nil }
   var sessionID: UUID { store.sessionID }
   var authenticatedSessionID: UUID? { store.sessionSnapshot()?.id }
-  var revocationPreparationDiagnostics: String {
-    "진행 중: \(revocationInFlight), 세션: \(String(describing: store.sessionSnapshot()?.id)), 저널: \(String(describing: journal.status)), 오류: \(journal.lastRecordFailure ?? "없음")"
-  }
   var hasPendingLocalClear: Bool {
     if case .pending(.sessionExpired) = journal.status { return true }
     return sessionClearPending

@@ -57,6 +57,41 @@ private struct UnimplementedAuthService: AuthService {
     }
   }
 
+  var hasPendingLocalClear: Bool {
+    get async {
+      reportIssue("authService 미등록")
+      return false
+    }
+  }
+
+  var hasUnconfirmedRevocation: Bool {
+    get async {
+      reportIssue("authService 미등록")
+      return false
+    }
+  }
+
+  var hasPendingSignOutCleanup: Bool {
+    get async {
+      reportIssue("authService 미등록")
+      return false
+    }
+  }
+
+  var hasPendingWithdrawalAuthorizationCleanup: Bool {
+    get async {
+      reportIssue("authService 미등록")
+      return false
+    }
+  }
+
+  var hasPendingWithdrawalCleanup: Bool {
+    get async {
+      reportIssue("authService 미등록")
+      return false
+    }
+  }
+
   func stageSession(accessToken: String, refreshToken: String) async -> UUID {
     reportIssue("authService 미등록")
     return UUID()
@@ -87,6 +122,35 @@ private struct UnimplementedAuthService: AuthService {
   }
 
   func signOut(ifSessionIDMatches _: UUID) async -> Bool {
+    reportIssue("authService 미등록")
+    return false
+  }
+
+  func prepareRevocation(_: AuthRevocationKind, ifSessionIDMatches _: UUID) async -> Bool {
+    reportIssue("authService 미등록")
+    return false
+  }
+
+  func finishRevocationRequest() async {
+    reportIssue("authService 미등록")
+  }
+
+  func confirmSignOut() async -> Bool {
+    reportIssue("authService 미등록")
+    return false
+  }
+
+  func confirmWithdrawalAuthorizationRejected() async -> Bool {
+    reportIssue("authService 미등록")
+    return false
+  }
+
+  func retryUnconfirmedLocalCleanup() async -> Bool {
+    reportIssue("authService 미등록")
+    return false
+  }
+
+  func completeWithdrawal() async -> Bool {
     reportIssue("authService 미등록")
     return false
   }

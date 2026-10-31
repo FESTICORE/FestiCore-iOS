@@ -850,43 +850,7 @@ struct AuthTests {
     let sessionID = await auth.sessionID
     #expect(await auth.authenticatedSessionID == sessionID)
     #expect(await auth.isLoggedIn)
-    let journal = SessionRevocationJournal(url: storage.journalURL)
-    let journalBefore = String(describing: journal.status)
-    let sessionBefore = await auth.authenticatedSessionID
-    let prepared = await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: sessionID)
-    let journalAfter = String(describing: journal.status)
-    let preparationDiagnostics = await auth.revocationPreparationDiagnostics
-    if !prepared {
-      Issue.record("준비 진단: \(preparationDiagnostics)")
-      let directRecord = journal.record(.withdrawalRequested)
-      let sessionAfter = await auth.authenticatedSessionID
-      Issue.record(
-        "직접 저널 기록: \(directRecord), 상태: \(String(describing: journal.status)), 세션 후: \(String(describing: sessionAfter))"
-      )
-      if !directRecord {
-        do {
-          try Data("withdrawalRequested".utf8).write(to: storage.journalURL, options: .atomic)
-          Issue.record("정확한 저널 경로 쓰기 성공: \(String(describing: journal.status))")
-        } catch {
-          let error = error as NSError
-          Issue.record("정확한 저널 경로 쓰기 실패: \(error.domain) \(error.code) \(error.localizedDescription)")
-        }
-      }
-      let probeURL = storage.journalURL.deletingLastPathComponent().appendingPathComponent("write-probe")
-      do {
-        try FileManager.default.createDirectory(at: probeURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data("probe".utf8).write(to: probeURL, options: .atomic)
-        let readback = try Data(contentsOf: probeURL)
-        Issue.record("저널 디렉터리 쓰기 성공: \(String(decoding: readback, as: UTF8.self))")
-        try? FileManager.default.removeItem(at: probeURL)
-      } catch {
-        Issue.record("저널 디렉터리 쓰기 실패: \(error)")
-      }
-    }
-    #expect(
-      prepared,
-      "저널 이전: \(journalBefore), 이후: \(journalAfter), 세션: \(String(describing: sessionBefore))"
-    )
+    #expect(await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: sessionID))
 
     await auth.handleAuthFailure(
       for: FestiCoreCredential(accessToken: accessToken, refreshToken: "refresh-a"),
