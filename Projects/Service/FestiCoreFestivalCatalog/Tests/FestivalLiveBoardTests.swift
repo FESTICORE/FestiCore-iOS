@@ -204,6 +204,19 @@ struct FestivalLiveBoardTests {
     }
   }
 
+  @Test("잘못된 공개 프로필 타입은 라이브보드 응답 오류로 돌려준다")
+  func reportsMalformedDirectoryMetadata() async {
+    let client = LiveBoardStubClient(responses: [
+      "api/v1/festivals/fst_test/live": #"{"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test","serverAt":"2026-10-20T09:00:00Z","activeFlags":[],"me":null}}"#,
+      "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"flg_a","name":"깃발","followerCount":"많음"}]}}"#,
+    ])
+    let service = NetworkFestivalLiveBoardService(client: client, auth: LiveBoardStubAuth(), device: LiveBoardStubDevice(), baseURL: nil)
+
+    await #expect(throws: FestivalLiveBoardError.invalidResponse) {
+      try await service.refresh(for: "fst_test")
+    }
+  }
+
   @Test("라이브 목록이 상한 50개면 빠진 깃발의 상태를 예정으로 단정하지 않는다")
   func directoryStatusIsUnknownAtLiveLimit() async throws {
     let active = (0..<50).map {
@@ -461,11 +474,14 @@ private actor LiveBoardStubClient: FestiCoreRequestClient {
       flagsCachePolicy = request.cachePolicy
       onFlagsRequest?()
     }
-    guard let value = responses[request.path],
-          let result = try? JSONDecoder().decode(R.Response.self, from: Data(value.utf8)) else {
+    guard let value = responses[request.path] else {
       throw .request(.invalidURL)
     }
-    return result
+    do {
+      return try JSONDecoder().decode(R.Response.self, from: Data(value.utf8))
+    } catch {
+      throw .decoding(.failed(error))
+    }
   }
 
   func sendResponse<R: FestiCoreDataRequest>(

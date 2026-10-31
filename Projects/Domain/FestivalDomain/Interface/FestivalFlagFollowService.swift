@@ -32,6 +32,8 @@ public enum FestivalFlagFollowError: Error, Equatable, Sendable {
   case notFound
   /// 응답 형식이 계약과 다르다.
   case invalidResponse
+  /// 요청 URL이나 본문을 만들 수 없어 서버에 전송하지 못했다.
+  case invalidRequest
   /// 연결 오류·5xx처럼 결과를 알 수 없다.
   case unavailable
 }

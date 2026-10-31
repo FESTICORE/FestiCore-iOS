@@ -81,7 +81,12 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
     // 라이브 상태를 확인한 시각이다. 공개 프로필 요청이 오래 걸려도 그 뒤로 미루지 않는다.
     let receivedAt = now()
 
-    let profilesResponse = try await client.send(FestivalFlagsRequest(festivalID: festivalID))
+    let profilesResponse: FestivalFlagsResponseDTO
+    do {
+      profilesResponse = try await client.send(FestivalFlagsRequest(festivalID: festivalID))
+    } catch FestiCoreNetworkError.decoding {
+      throw FestivalLiveBoardError.invalidResponse
+    }
     guard profilesResponse.code == "SUCCESS" else { throw FestivalLiveBoardError.invalidResponse }
     let snapshot = try boardData.toDomain(
       profiles: profilesResponse.data,

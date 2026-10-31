@@ -55,7 +55,7 @@ struct FestivalFlagFollowTests {
     (.response(ResponseError(httpStatus: 500)), .unavailable),
     (.transport(.timedOut), .unavailable),
     (.decoding(.dataMissing), .invalidResponse),
-    (.request(.invalidURL), .invalidResponse),
+    (.request(.invalidURL), .invalidRequest),
   ])
   func mapsFailures(error: FestiCoreNetworkError, expected: FestivalFlagFollowError) async {
     let client = FollowStubClient(result: .failure(error))

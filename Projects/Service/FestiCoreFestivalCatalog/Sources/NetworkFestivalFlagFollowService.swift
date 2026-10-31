@@ -71,7 +71,7 @@ private extension NetworkFestivalFlagFollowService {
     case .decoding:
       return .invalidResponse
     case .request:
-      return .invalidResponse
+      return .invalidRequest
     case .transport:
       return .unavailable
     }
