@@ -6,10 +6,11 @@ import Testing
 
 @MainActor
 struct FestivalLiveBoardSessionTests {
-  @Test("미발행 축제는 공개 전 상태를 표시하고 재시도 오류로 처리하지 않는다")
-  func unpublishedFestivalStopsPolling() async {
+  @Test("미발행 축제는 공개 전 상태를 표시하고 발행 후 자동으로 보드를 보여준다")
+  func unpublishedFestivalBecomesAvailableOnNextPoll() async {
     let clock = TestClock()
     let calls = LockIsolated(0)
+    let receivedAt = Date(timeIntervalSince1970: 2_000)
     let store = TestStore(initialState: {
       var state = FestivalFeature.State(selectedFestivalID: "fst")
       state.liveBoard = previousAccountBoard
@@ -17,9 +18,14 @@ struct FestivalLiveBoardSessionTests {
       return state
     }()) { FestivalFeature() } withDependencies: {
       $0.continuousClock = clock
+      $0.date = .constant(receivedAt)
       $0.festivalLiveBoardService = SessionLiveBoardService { _ in
-        calls.withValue { $0 += 1 }
-        throw FestivalLiveBoardError.festivalNotFound
+        let attempt = calls.withValue { count in
+          count += 1
+          return count
+        }
+        if attempt == 1 { throw FestivalLiveBoardError.festivalNotFound }
+        return emptyBoard
       }
     }
 
@@ -30,7 +36,13 @@ struct FestivalLiveBoardSessionTests {
       $0.liveBoardReceivedAt = nil
     }
     await clock.advance(by: .seconds(35))
-    #expect(calls.value == 1)
+    await store.receive(\.inner.liveBoardLoaded) {
+      $0.liveBoard = emptyBoard
+      $0.liveBoardUnpublished = false
+      $0.liveBoardClockAnchorAt = receivedAt
+      $0.liveBoardReceivedAt = receivedAt
+    }
+    #expect(calls.value == 2)
     #expect(!store.state.liveBoardUnavailable)
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false

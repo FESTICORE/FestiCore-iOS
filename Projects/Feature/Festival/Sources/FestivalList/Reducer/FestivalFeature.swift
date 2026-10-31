@@ -703,7 +703,6 @@ public struct FestivalFeature {
           await send(.inner(.liveBoardLoaded(id, generation: generation, snapshot)))
         } catch FestivalLiveBoardError.festivalNotFound {
           await send(.inner(.liveBoardUnpublished(id, generation: generation)))
-          return
         } catch FestivalLiveBoardError.rateLimited(let retryAfter) {
           interval = max(interval, retryAfter)
           await send(.inner(.liveBoardFailed(id, generation: generation)))
