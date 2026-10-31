@@ -10,4 +10,5 @@ import ComposableArchitecture
 @CasePathable
 public enum FestivalDelegate: Equatable, Sendable {
   case bookmarkRequested(String)
+  case loginRequested
 }
