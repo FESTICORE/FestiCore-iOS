@@ -1,35 +1,9 @@
 import Dependencies
-import FestiCoreLiveActivity
+import FestivalDomainInterface
 import Foundation
 
-public struct FestivalLiveActivityRecord: Equatable, Sendable {
-  let id: String
-  let festivalID: String
-  let phase: FestivalLiveActivitySchedule.Phase
-  let startDate: Date
-  let endDate: Date?
-}
-
-struct FestivalLiveActivityClient: Sendable {
-  var activities: @Sendable () async -> [FestivalLiveActivityRecord]
-  var changes: @Sendable () -> AsyncStream<Void>
-  var start: @Sendable (String, String, Date, Date, FestivalLiveActivitySchedule.Phase) async throws -> String
-  var update: @Sendable (String, FestivalLiveActivitySchedule.Phase, Date, Date) async -> Void
-  var finish: @Sendable (String, Date) async -> Void
-  var end: @Sendable (String) async -> Void
-}
-
 extension FestivalLiveActivityClient: DependencyKey {
-  static let testValue = Self(
-    activities: { [] },
-    changes: { AsyncStream { $0.finish() } },
-    start: { _, _, _, _, _ in "test-activity" },
-    update: { _, _, _, _ in },
-    finish: { _, _ in },
-    end: { _ in }
-  )
-
-  static let liveValue = Self(
+  public static let liveValue = Self(
     activities: {
       FestiCoreFestivalLiveActivity.activities().map {
         FestivalLiveActivityRecord(
@@ -65,11 +39,4 @@ extension FestivalLiveActivityClient: DependencyKey {
     },
     end: { id in await FestiCoreFestivalLiveActivity.end(id: id) }
   )
-}
-
-extension DependencyValues {
-  var festivalLiveActivityClient: FestivalLiveActivityClient {
-    get { self[FestivalLiveActivityClient.self] }
-    set { self[FestivalLiveActivityClient.self] = newValue }
-  }
 }

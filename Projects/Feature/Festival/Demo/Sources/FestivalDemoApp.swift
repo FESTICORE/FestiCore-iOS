@@ -12,6 +12,9 @@
 
 import ComposableArchitecture
 import Festival
+import FestivalDomain
+import FestivalDomainInterface
+import FestiCoreLiveActivity
 import FestiCoreDesignKit
 import SwiftUI
 
@@ -33,6 +36,10 @@ private struct FestivalDemoRoot: View {
     FestivalFeature()
   } withDependencies: {
     $0.context = .preview
+    $0.festivalBookedStore = .liveValue
+    $0.festivalSelectionStore = .liveValue
+    $0.festivalImagePrefetchClient = .liveValue
+    $0.festivalLiveActivityClient = .liveValue
   }
 
   var body: some View {

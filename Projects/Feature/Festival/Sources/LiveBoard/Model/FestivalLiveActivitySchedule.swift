@@ -1,11 +1,8 @@
 import Foundation
+import FestivalDomainInterface
 
 struct FestivalLiveActivitySchedule: Equatable, Sendable {
-  enum Phase: String, Equatable, Sendable {
-    case upcoming
-    case ongoing
-    case finished
-  }
+  typealias Phase = FestivalLiveActivityPhase
 
   let startDate: Date
   let endDate: Date

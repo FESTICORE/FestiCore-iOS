@@ -4,6 +4,7 @@ import FestivalDomainInterface
 @Reducer
 public struct FestivalFlagFeature {
   @Dependency(\.festivalLiveBoardService) private var liveBoardService
+  @Dependency(\.continuousClock) private var clock
 
   public init() {}
 
@@ -19,6 +20,7 @@ public struct FestivalFlagFeature {
       case invalidResponse
     }
 
+    public var directory = FestivalFlagDirectory.State()
     public var festivalID: String?
     public var snapshot: FestivalLiveBoardSnapshot?
     public var viewState: ViewState = .idle
@@ -40,6 +42,7 @@ public struct FestivalFlagFeature {
   public enum Action: Equatable {
     case appeared
     case disappeared
+    case directory(FestivalFlagDirectory.Action)
     case festivalChanged(String?)
     case refresh
     case accountChanged
@@ -57,6 +60,7 @@ public struct FestivalFlagFeature {
   private enum CancelID { case refresh }
 
   public var body: some ReducerOf<Self> {
+    Scope(state: \.directory, action: \.directory) { FestivalFlagDirectory() }
     Reduce { state, action in
       switch action {
       case .appeared:
@@ -66,6 +70,9 @@ public struct FestivalFlagFeature {
       case .disappeared:
         state.isVisible = false
         return .cancel(id: CancelID.refresh)
+
+      case .directory:
+        return .none
 
       case let .festivalChanged(id):
         guard state.festivalID != id else { return .none }
@@ -100,6 +107,7 @@ public struct FestivalFlagFeature {
         return .none
       }
     }
+    .syncFlagDirectory()
   }
 
   private func load(_ state: inout State) -> Effect<Action> {
@@ -118,6 +126,10 @@ public struct FestivalFlagFeature {
         await send(.failed(id, generation: generation, .invalidFestivalID))
       } catch FestivalLiveBoardError.invalidResponse {
         await send(.failed(id, generation: generation, .invalidResponse))
+      } catch let FestivalLiveBoardError.rateLimited(retryAfter) {
+        // 라이브 보드와 같이 이전 목록을 유지한 채 기다렸다가 다시 불러온다.
+        try await clock.sleep(for: .seconds(retryAfter))
+        await send(.refresh)
       } catch {
         await send(.failed(id, generation: generation, .unavailable))
       }

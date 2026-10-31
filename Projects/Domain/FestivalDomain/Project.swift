@@ -8,7 +8,10 @@ let project = Project.makeModule(
   product: .framework,
   dependencies: [
     .core(.network, .interface),
+    .SPM.kingfisher,
+    .SPM.dependencies,
   ],
+  hasTests: true,
   hasInterface: true,
   interfaceDependencies: [
     .SPM.dependencies

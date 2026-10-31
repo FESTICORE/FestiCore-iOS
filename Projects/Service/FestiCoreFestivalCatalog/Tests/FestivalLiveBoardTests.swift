@@ -9,6 +9,117 @@ import Testing
 
 @Suite("축제 라이브 보드 통신")
 struct FestivalLiveBoardTests {
+  @Test("로그아웃 상태에서는 인증과 조건부 캐시 없이 설치 ID로 요청한다")
+  func loggedOutRequestIsAnonymous() async throws {
+    let client = LiveBoardStubClient(responses: [
+      "api/v1/festivals/fst_test/live": #"""
+        {"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test",
+        "serverAt":"2026-10-31T00:30:00Z","activeFlags":[],"me":null}}
+        """#,
+      "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[]}}"#
+    ])
+    let auth = LiveBoardStubAuth()
+    await auth.signOut()
+    let service = NetworkFestivalLiveBoardService(
+      client: client, auth: auth, device: LiveBoardStubDevice(), baseURL: nil
+    )
+
+    _ = try await service.refresh(for: "fst_test")
+
+    let requests = await client.liveRequests
+    #expect(requests.count == 1)
+    #expect(requests[0].authorization == .none)
+    #expect(requests[0].deviceID == "00000000-0000-4000-8000-000000000001")
+    #expect(requests[0].etag == nil)
+  }
+
+  @Test("로그인 세션에 사용자 ID가 없어도 인증 요청을 유지한다")
+  func authenticatedSessionWithoutUserID() async throws {
+    let client = LiveBoardStubClient(responses: [
+      "api/v1/festivals/fst_test/live": #"""
+        {"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test",
+        "serverAt":"2026-10-31T00:30:00Z","activeFlags":[],"me":null}}
+        """#,
+      "api/v1/festivals/fst_test/flags": #"{"code":"SUCCESS","message":"OK","data":{"items":[]}}"#
+    ])
+    let auth = LiveBoardStubAuth()
+    await auth.clearUserIDKeepingSession()
+    let service = NetworkFestivalLiveBoardService(
+      client: client, auth: auth, device: LiveBoardStubDevice(), baseURL: nil
+    )
+
+    _ = try await service.refresh(for: "fst_test")
+
+    let requests = await client.liveRequests
+    #expect(requests.count == 1)
+    #expect(requests[0].authorization == .automatic)
+    #expect(requests[0].deviceID == "00000000-0000-4000-8000-000000000001")
+  }
+
+  @Test("토큰 갱신 401은 익명 재요청 없이 호출자에게 전달한다")
+  func refreshFailurePropagates() async {
+    let client = LiveBoardStubClient(
+      responses: [:],
+      liveErrors: [0: .transport(.unknown(ResponseError(httpStatus: 401, code: "REFRESH_EXPIRED")))]
+    )
+    let service = NetworkFestivalLiveBoardService(
+      client: client, auth: LiveBoardStubAuth(), device: LiveBoardStubDevice(), baseURL: nil
+    )
+
+    do {
+      _ = try await service.refresh(for: "fst_test")
+      Issue.record("토큰 갱신 실패가 전달되어야 한다")
+    } catch FestiCoreNetworkError.transport(.unknown(let underlying)) {
+      #expect((underlying as? ResponseError)?.code == "REFRESH_EXPIRED")
+    } catch {
+      Issue.record("토큰 갱신 실패의 원인이 유지되어야 한다")
+    }
+    #expect(await client.liveRequests.map(\.authorization) == [.automatic])
+  }
+
+  @Test("서버 401 응답은 익명 재요청 없이 오류로 처리한다")
+  func unauthorizedResponseDoesNotRetry() async {
+    let client = LiveBoardStubClient(
+      responses: [:], liveResponses: [.init(statusCode: 401, data: Data())]
+    )
+    let service = NetworkFestivalLiveBoardService(
+      client: client, auth: LiveBoardStubAuth(), device: LiveBoardStubDevice(), baseURL: nil
+    )
+
+    do {
+      _ = try await service.refresh(for: "fst_test")
+      Issue.record("서버 401이 전달되어야 한다")
+    } catch FestiCoreNetworkError.response(let error) {
+      #expect(error.httpStatus == 401)
+    } catch {
+      Issue.record("서버 401의 상태 코드가 유지되어야 한다")
+    }
+    #expect(await client.liveRequests.map(\.authorization) == [.automatic])
+  }
+
+  @Test("서버 401의 코드와 메시지를 보존한다")
+  func unauthorizedResponsePreservesServerError() async {
+    let body = #"{"code":"ACCESS_EXPIRED","message":"로그인이 만료되었습니다"}"#
+    let client = LiveBoardStubClient(
+      responses: [:], liveResponses: [.init(statusCode: 401, data: Data(body.utf8))]
+    )
+    let service = NetworkFestivalLiveBoardService(
+      client: client, auth: LiveBoardStubAuth(), device: LiveBoardStubDevice(), baseURL: nil
+    )
+
+    do {
+      _ = try await service.refresh(for: "fst_test")
+      Issue.record("서버 401이 전달되어야 한다")
+    } catch FestiCoreNetworkError.response(let error) {
+      #expect(error.httpStatus == 401)
+      #expect(error.code == "ACCESS_EXPIRED")
+      #expect(error.message == "로그인이 만료되었습니다")
+    } catch {
+      Issue.record("서버 401 응답 정보가 유지되어야 한다")
+    }
+    #expect(await client.liveRequests.map(\.authorization) == [.automatic])
+  }
+
   @Test("미발행 축제 코드만 공개 전 오류로 구분한다")
   func unpublishedFestivalCode() async {
     let client = LiveBoardStubClient(responses: [:], liveResponses: [
@@ -419,8 +530,8 @@ struct FestivalLiveBoardTests {
     }
   }
 
-  @Test("계정 변경 후 이전 사용자의 ETag와 팔로우 상태를 재사용하지 않는다")
-  func clearsPersonalizedCacheOnAccountChange() async throws {
+  @Test("같은 사용자의 새 로그인 세션에도 이전 ETag와 팔로우 상태를 재사용하지 않는다")
+  func clearsPersonalizedCacheOnSessionChange() async throws {
     let firstLive = #"{"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test","serverAt":"2026-10-31T00:30:00Z","activeFlags":[],"me":{"following":["flg_a"],"crew":null}}}"#
     let secondLive = #"{"code":"SUCCESS","message":"OK","data":{"festivalId":"fst_test","serverAt":"2026-10-31T00:31:00Z","activeFlags":[],"me":{"following":[],"crew":null}}}"#
     let client = LiveBoardStubClient(
@@ -436,7 +547,7 @@ struct FestivalLiveBoardTests {
     let service = NetworkFestivalLiveBoardService(client: client, auth: auth, device: LiveBoardStubDevice(), baseURL: nil)
 
     let first = try await service.refresh(for: "fst_test")
-    await auth.setUserID("user-b")
+    await auth.setUserID("user-a")
     let second = try await service.refresh(for: "fst_test")
 
     #expect(first.followedFlags.map(\.id) == ["flg_a"])
@@ -466,14 +577,20 @@ private final class SequenceClock: @unchecked Sendable {
 
 private actor LiveBoardStubAuth: AuthService {
   private var userID: String? = "user-a"
+  private var loggedIn = true
   private var activeSessionID = UUID()
-  var isLoggedIn: Bool { userID != nil }
+  var isLoggedIn: Bool { loggedIn }
   var refreshToken: String? { nil }
   var currentUserID: String? { userID }
   var sessionID: UUID { activeSessionID }
-  var authenticatedSessionID: UUID? { userID == nil ? nil : activeSessionID }
+  var authenticatedSessionID: UUID? { loggedIn ? activeSessionID : nil }
 
-  func setUserID(_ value: String?) { userID = value }
+  func setUserID(_ value: String?) {
+    userID = value
+    loggedIn = value != nil
+    activeSessionID = UUID()
+  }
+  func clearUserIDKeepingSession() { userID = nil }
   func stageSession(accessToken _: String, refreshToken _: String) -> UUID { UUID() }
   func commitSession(_: UUID) -> Bool { false }
   func discardSession(_: UUID) -> Bool { false }
@@ -482,6 +599,7 @@ private actor LiveBoardStubAuth: AuthService {
   func signOut() -> Bool {
     activeSessionID = UUID()
     userID = nil
+    loggedIn = false
     return true
   }
   func signOut(ifSessionIDMatches expected: UUID) -> Bool {
@@ -515,9 +633,17 @@ private struct FailingInstallationDevice: DeviceRegistrationService {
 }
 
 private actor LiveBoardStubClient: FestiCoreRequestClient {
+  struct LiveRequest: Sendable {
+    let authorization: FestiCoreAuthorization
+    let deviceID: String?
+    let etag: String?
+  }
+
   private let responses: [String: String]
   private let liveResponses: [FestiCoreHTTPResponse]
+  private let liveErrors: [Int: FestiCoreNetworkError]
   private var nextLiveResponseIndex = 0
+  private(set) var liveRequests: [LiveRequest] = []
   private(set) var liveDeviceID: String?
   private(set) var lastIfNoneMatch: String?
   private(set) var liveRequestCount = 0
@@ -528,10 +654,12 @@ private actor LiveBoardStubClient: FestiCoreRequestClient {
   init(
     responses: [String: String],
     liveResponses: [FestiCoreHTTPResponse] = [],
+    liveErrors: [Int: FestiCoreNetworkError] = [:],
     onFlagsRequest: (@Sendable () -> Void)? = nil
   ) {
     self.responses = responses
     self.liveResponses = liveResponses
+    self.liveErrors = liveErrors
     self.onFlagsRequest = onFlagsRequest
   }
 
@@ -567,6 +695,12 @@ private actor LiveBoardStubClient: FestiCoreRequestClient {
     lastIfNoneMatch = request.headers.value(for: "If-None-Match")
     liveCachePolicy = request.cachePolicy
     liveRequestCount += 1
+    liveRequests.append(LiveRequest(
+      authorization: request.authorization,
+      deviceID: request.headers.value(for: "X-Device-Id"),
+      etag: request.headers.value(for: "If-None-Match")
+    ))
+    if let error = liveErrors[liveRequestCount - 1] { throw error }
     if nextLiveResponseIndex < liveResponses.count {
       defer { nextLiveResponseIndex += 1 }
       return liveResponses[nextLiveResponseIndex]

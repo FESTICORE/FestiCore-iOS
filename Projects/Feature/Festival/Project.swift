@@ -16,10 +16,8 @@ let project = Project.makeModule(
     .core(.utility),
     .domain(.festival, .interface),
     .service(.pack, .interface),
-    .ui(.liveActivity),
     .ui(.designSystem),
     .ui(.sharedUI),
-    .SPM.kingfisher,
     .SPM.composableArchitecture,
     .SPM.dependencies
   ],
@@ -30,6 +28,9 @@ let project = Project.makeModule(
   ],
   hasDemo: true,
   demoDependencies: [
+    .domain(.festival),
+    .domain(.festival, .interface),
+    .ui(.liveActivity),
     .ui(.designSystem),
     .SPM.composableArchitecture
   ]
