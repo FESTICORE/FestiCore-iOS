@@ -315,7 +315,10 @@ private actor LiveBoardStubAuth: AuthService {
   var currentUserID: String? { userID }
 
   func setUserID(_ value: String?) { userID = value }
-  func signIn(accessToken _: String, refreshToken _: String) {}
+  func stageSession(accessToken _: String, refreshToken _: String) -> UUID { UUID() }
+  func commitSession(_: UUID) -> Bool { false }
+  func discardSession(_: UUID) -> Bool { false }
+  func signOut(ifSession _: UUID) -> Bool { false }
   func rememberUserID(_ value: String) { userID = value }
   func signOut() { userID = nil }
 }
