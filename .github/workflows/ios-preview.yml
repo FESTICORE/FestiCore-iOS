@@ -20,6 +20,9 @@ concurrency:
   group: ios-preview-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  XCODE_COMPILATION_CACHE_ENABLED: 'NO'
+
 jobs:
   share:
     if: ${{ github.event_name != 'workflow_dispatch' || !(inputs.provision_live_activity_profile || inputs.force_regenerate_profiles) }}
@@ -48,17 +51,9 @@ jobs:
       - name: Verify Tuist authentication
         run: test -n "$TUIST_TOKEN"
       - name: Setup Tuist cache
-        id: tuist-cache
         continue-on-error: true
         timeout-minutes: 3
-        run: mise exec -- tuist setup cache
-      - name: Configure compilation cache fallback
-        run: |
-          if [[ "${{ steps.tuist-cache.outcome }}" == "success" ]]; then
-            echo "XCODE_COMPILATION_CACHE_ENABLED=YES" >> "$GITHUB_ENV"
-          else
-            echo "XCODE_COMPILATION_CACHE_ENABLED=NO" >> "$GITHUB_ENV"
-          fi
+        run: bash Scripts/setup-tuist-cache.sh
       - name: Setup Tuist insights
         continue-on-error: true
         timeout-minutes: 3

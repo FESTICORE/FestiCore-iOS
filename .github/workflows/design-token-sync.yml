@@ -9,6 +9,9 @@ concurrency:
   group: design-token-sync
   cancel-in-progress: false
 
+env:
+  XCODE_COMPILATION_CACHE_ENABLED: 'NO'
+
 permissions: {}
 
 jobs:
@@ -88,11 +91,16 @@ jobs:
         with:
           plist-base64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
 
+      - name: Setup Tuist cache
+        if: steps.source.outputs.already_current != 'true'
+        continue-on-error: true
+        timeout-minutes: 3
+        run: bash Scripts/setup-tuist-cache.sh
+
       - name: Generate and test full Stage plan with coverage
         if: steps.source.outputs.already_current != 'true'
         run: |
           set -euo pipefail
-          mise exec -- tuist setup cache
           mise exec -- tuist install
           ./make generate --no-open
           SIMULATOR_DESTINATION="$(python3 Scripts/select-ios-simulator.py --ci-duo)"
@@ -107,6 +115,7 @@ jobs:
             -derivedDataPath "$CI_DERIVED_DATA" \
             -enableCodeCoverage YES \
             CODE_SIGNING_ALLOWED=NO \
+            COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED" \
             SWIFT_ENABLE_PREFIX_MAPPING=NO \
             SWIFT_ENABLE_PROJECT_PREFIX_MAPPING=NO \
             CLANG_ENABLE_PREFIX_MAPPING=NO \
@@ -121,6 +130,7 @@ jobs:
             -resultBundlePath "$RUNNER_TEMP/design-token-stage.xcresult" \
             -enableCodeCoverage YES \
             CODE_SIGNING_ALLOWED=NO \
+            COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED" \
             SWIFT_ENABLE_PREFIX_MAPPING=NO \
             SWIFT_ENABLE_PROJECT_PREFIX_MAPPING=NO \
             CLANG_ENABLE_PREFIX_MAPPING=NO \

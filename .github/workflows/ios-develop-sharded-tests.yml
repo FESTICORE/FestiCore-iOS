@@ -11,6 +11,7 @@ concurrency:
 
 env:
   TUIST_TOKEN: ${{ secrets.TUIST_TOKEN }}
+  XCODE_COMPILATION_CACHE_ENABLED: 'NO'
   TUIST_BUILD_TAGS: ci,develop,sharded
   TUIST_BUILD_VALUE_COMMIT: ${{ github.sha }}
   LANG: en_US.UTF-8
@@ -43,19 +44,9 @@ jobs:
           plist-base64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
 
       - name: Setup Tuist cache
-        id: tuist-cache
         continue-on-error: true
         timeout-minutes: 3
-        run: mise exec -- tuist setup cache
-
-      - name: Configure compilation cache fallback
-        run: |
-          if [[ "${{ steps.tuist-cache.outcome }}" == "success" ]]; then
-            echo "XCODE_COMPILATION_CACHE_ENABLED=YES" >> "$GITHUB_ENV"
-          else
-            echo "XCODE_COMPILATION_CACHE_ENABLED=NO" >> "$GITHUB_ENV"
-            echo "Tuist cache를 사용할 수 없어 이번 실행은 Xcode compilation cache 없이 진행합니다."
-          fi
+        run: bash Scripts/setup-tuist-cache.sh
 
       # Build Insights가 빌드 중 CPU/메모리 같은 러너 메트릭도 함께 수집하게 한다.
       - name: Setup Tuist insights
@@ -255,12 +246,12 @@ jobs:
         id: tuist-cache
         continue-on-error: true
         timeout-minutes: 3
-        run: mise exec -- tuist setup cache
+        run: bash Scripts/setup-tuist-cache.sh
 
       # develop의 검증된 소스를 Stage 바이너리 캐시 생산자로 사용한다.
       # tuist cache는 workspace를 변경하므로 후속 빌드와 분리된 마지막 job에서 실행한다.
       - name: Warm module cache
-        if: steps.tuist-cache.outcome == 'success'
+        if: steps.tuist-cache.outputs.enabled == 'true'
         run: bash Scripts/warm-ci-module-cache.sh
 
       - name: Clean cache warm DerivedData
