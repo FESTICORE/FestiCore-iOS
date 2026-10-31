@@ -218,7 +218,7 @@ struct AuthTests {
     #expect(store.load() == renewed)
   }
 
-  @Test("토큰 쌍 저장이 실패하면 로그인을 확정하지 않고 부분 저장을 지운다", arguments: [SecureStorageKey.accessToken, .refreshToken])
+  @Test("토큰 쌍 저장이 실패하면 로그인을 확정하지 않고 부분 저장을 지운다", arguments: [SecureStorageKey.credentialIntegrity, .accessToken, .refreshToken])
   func failedTokenSaveDoesNotCommitSession(failedKey: SecureStorageKey) async {
     let storage = MemorySecureStorage()
     let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
@@ -253,6 +253,52 @@ struct AuthTests {
     #expect(store.load() == nil)
     #expect(storage.load(.accessToken) == nil)
     #expect(storage.load(.refreshToken) == nil)
+  }
+
+  @Test("무결성 값 첫 쓰기가 실패해도 이전 세션을 다시 읽지 않는다")
+  func failedIntegrityPrewriteCannotRestoreOldSession() throws {
+    let storage = MemorySecureStorage()
+    let store = GuardedCredentialStore(base: KeychainCredentialStore(storage: storage))
+    store.allowSaves()
+    #expect(store.save(old))
+    let revision = try #require(store.revision(matching: old))
+    storage.failTokenSaveFor = .credentialIntegrity
+
+    #expect(store.replace(
+      FestiCoreCredential(accessToken: "new", refreshToken: "new-refresh"),
+      ifCurrent: old,
+      revision: revision
+    ) == false)
+    #expect(store.load() == nil)
+    #expect(KeychainCredentialStore(storage: storage).load() == nil)
+    #expect(storage.load(.accessToken) == nil)
+    #expect(storage.load(.refreshToken) == nil)
+  }
+
+  @Test("무결성 값 최종 쓰기가 실패해도 토큰 쌍을 복원하지 않는다")
+  func failedFinalIntegrityWriteCannotRestoreMixedSession() throws {
+    let storage = MemorySecureStorage()
+    let store = GuardedCredentialStore(base: KeychainCredentialStore(storage: storage))
+    store.allowSaves()
+    #expect(store.save(old))
+    let revision = try #require(store.revision(matching: old))
+    storage.failIntegritySaveAtAttempt = 2
+
+    #expect(store.replace(
+      FestiCoreCredential(accessToken: "new", refreshToken: "new-refresh"),
+      ifCurrent: old,
+      revision: revision
+    ) == false)
+    #expect(KeychainCredentialStore(storage: storage).load() == nil)
+  }
+
+  @Test("기존 설치의 검증 값 없는 토큰 쌍을 읽는다")
+  func legacyCredentialWithoutIntegrityLoads() throws {
+    let storage = MemorySecureStorage()
+    try storage.save(old.accessToken, for: .accessToken)
+    try storage.save(old.refreshToken, for: .refreshToken)
+
+    #expect(KeychainCredentialStore(storage: storage).load() == old)
   }
 
   @Test("롤백 삭제가 실패해도 혼합 토큰 쌍을 재실행에서 복원하지 않는다")
@@ -409,6 +455,8 @@ private final class MemorySecureStorage: SecureStorage, @unchecked Sendable {
   private var failsIdentityRemoval = false
   private var failsIdentitySave = false
   private var tokenSaveFailureKey: SecureStorageKey?
+  private var integritySaveFailureAttempt: Int?
+  private var integritySaveAttempts = 0
   private var tokenRemovalFailureKeys: Set<SecureStorageKey> = []
 
   var failIdentityRemoval: Bool {
@@ -426,6 +474,16 @@ private final class MemorySecureStorage: SecureStorage, @unchecked Sendable {
     set { values.withLock { tokenSaveFailureKey = newValue } }
   }
 
+  var failIntegritySaveAtAttempt: Int? {
+    get { values.withLock { integritySaveFailureAttempt } }
+    set {
+      values.withLock {
+        integritySaveFailureAttempt = newValue
+        integritySaveAttempts = 0
+      }
+    }
+  }
+
   var failTokenRemovalFor: Set<SecureStorageKey> {
     get { values.withLock { tokenRemovalFailureKeys } }
     set { values.withLock { tokenRemovalFailureKeys = newValue } }
@@ -435,6 +493,11 @@ private final class MemorySecureStorage: SecureStorage, @unchecked Sendable {
     let failed = values.withLock {
       if key == .sessionUserID, failsIdentitySave { return true }
       if let tokenSaveFailureKey, key == tokenSaveFailureKey { return true }
+      if key == .credentialIntegrity {
+        integritySaveAttempts += 1
+        if let integritySaveFailureAttempt,
+           integritySaveAttempts == integritySaveFailureAttempt { return true }
+      }
       stored[key] = value
       return false
     }

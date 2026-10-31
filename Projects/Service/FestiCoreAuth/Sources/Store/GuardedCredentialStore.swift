@@ -53,6 +53,8 @@ final class GuardedCredentialStore: CredentialStore {
       let saved = base.save(credential)
       if !saved {
         state.isBarred = true
+        // 무결성 값 첫 쓰기가 실패해도 이전 토큰 쌍이 다음 실행에서 복원되지 않게 한다.
+        base.clear()
         state.onPersistenceFailure?()
       }
       state.revision = UUID()

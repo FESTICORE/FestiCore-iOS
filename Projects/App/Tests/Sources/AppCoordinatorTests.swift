@@ -1555,7 +1555,7 @@ struct AppCoordinatorTests {
     await store.receive(\.inner.profileLoaded)
   }
 
-  @Test func failedCommitDoesNotSignInAndRereadsSession() async {
+  @Test func failedCommitKeepsLoginOpenWithError() async {
     let auth = SessionRecordingAuthService(commitResult: false)
     let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
       $0.authService = auth
@@ -1569,9 +1569,9 @@ struct AppCoordinatorTests {
     #expect(!rejected.authFlow.hasSession)
     #expect(rejected.authFlow.verifiedUserID == nil)
     #expect(rejected.authFlow.loginAttemptGeneration == nil)
-    await store.receive(\.inner.profileLoaded)
-    guard case let .home(reread) = store.state else { return }
-    #expect(!reread.authFlow.hasSession)
+    #expect(rejected.authFlow.presentation == .login)
+    #expect(rejected.authFlow.message == "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요.")
+    #expect(!rejected.authFlow.isLoading)
   }
 
   @Test func loginFinishedAfterSheetDismissalDiscardsItsSession() async {
