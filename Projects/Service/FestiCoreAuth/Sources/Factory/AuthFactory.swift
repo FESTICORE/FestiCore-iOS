@@ -14,7 +14,7 @@ import FestiCoreStorageInterface
 
 public enum AuthFactory {
   public static func make(
-    refreshClient: any FestiCoreNetworkClient,
+    refreshClient: any FestiCoreRequestClient,
     storage: any SecureStorage,
     baseURL: URL? = NetworkClientFactory.bundleBaseURL
   ) -> any AuthService & AuthenticatedClientProvider {
@@ -22,8 +22,8 @@ public enum AuthFactory {
     let relay = AuthFailureRelay()
     let authenticated = NetworkClientFactory.unified(
       store: store,
-      refresher: TokenRefresher(client: refreshClient) { credential in
-        await relay.fire(for: credential)
+      refresher: TokenRefresher(client: refreshClient) { credential, sessionID in
+        await relay.fire(for: credential, sessionID: sessionID)
       },
       baseURL: baseURL
     )
@@ -33,22 +33,22 @@ public enum AuthFactory {
       credentials: authenticated.credentials,
       identityStorage: storage
     )
-    relay.set { [weak auth] credential in
-      await auth?.handleAuthFailure(for: credential)
+    relay.set { [weak auth] credential, sessionID in
+      await auth?.handleAuthFailure(for: credential, sessionID: sessionID)
     }
     return auth
   }
 }
 
 private final class AuthFailureRelay: Sendable {
-  private let handler = OSAllocatedUnfairLock<(@Sendable (FestiCoreCredential) async -> Void)?>(initialState: nil)
+  private let handler = OSAllocatedUnfairLock<(@Sendable (FestiCoreCredential, UUID) async -> Void)?>(initialState: nil)
 
-  func set(_ handler: @escaping @Sendable (FestiCoreCredential) async -> Void) {
+  func set(_ handler: @escaping @Sendable (FestiCoreCredential, UUID) async -> Void) {
     self.handler.withLock { $0 = handler }
   }
 
-  func fire(for credential: FestiCoreCredential) async {
+  func fire(for credential: FestiCoreCredential, sessionID: UUID) async {
     let handler = handler.withLock { $0 }
-    await handler?(credential)
+    await handler?(credential, sessionID)
   }
 }

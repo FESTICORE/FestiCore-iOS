@@ -34,6 +34,8 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
 
   var isLoggedIn: Bool { store.load() != nil }
   var refreshToken: String? { store.load()?.refreshToken }
+  var sessionID: UUID { store.sessionID }
+  var authenticatedSessionID: UUID? { store.sessionSnapshot()?.id }
   var currentUserID: String? {
     guard let credential = store.load(),
           let stored = try? identityStorage.load(.sessionUserID),
@@ -59,8 +61,7 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     guard let session = staged, session.id == id else { return false }
     staged = nil
     try? identityStorage.remove(.sessionUserID)
-    store.allowSaves()
-    store.save(session.credential)
+    store.startSession(session.credential)
     credentials.update(session.credential)
     committedSessionID = session.id
     if let userID = session.userID {
@@ -100,8 +101,17 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     return true
   }
 
-  func handleAuthFailure(for attempted: FestiCoreCredential) {
-    guard store.load()?.refreshToken == attempted.refreshToken else { return }
+  func signOut(ifSessionIDMatches sessionID: UUID) -> Bool {
+    guard store.sessionSnapshot()?.id == sessionID else { return false }
+    clearCommittedSession()
+    return true
+  }
+
+  func handleAuthFailure(for attempted: FestiCoreCredential, sessionID: UUID) {
+    guard let session = store.sessionSnapshot(),
+          session.id == sessionID,
+          session.credential.refreshToken == attempted.refreshToken
+    else { return }
     // 기존 세션의 자동 만료는 진행 중인 새 로그인의 임시 세션까지 무효로 만들지 않는다.
     clearCommittedSession()
     NotificationCenter.default.post(name: .festiCoreAuthSessionDidExpire, object: nil)

@@ -466,9 +466,12 @@ private final class SequenceClock: @unchecked Sendable {
 
 private actor LiveBoardStubAuth: AuthService {
   private var userID: String? = "user-a"
+  private var activeSessionID = UUID()
   var isLoggedIn: Bool { userID != nil }
   var refreshToken: String? { nil }
   var currentUserID: String? { userID }
+  var sessionID: UUID { activeSessionID }
+  var authenticatedSessionID: UUID? { userID == nil ? nil : activeSessionID }
 
   func setUserID(_ value: String?) { userID = value }
   func stageSession(accessToken _: String, refreshToken _: String) -> UUID { UUID() }
@@ -476,7 +479,15 @@ private actor LiveBoardStubAuth: AuthService {
   func discardSession(_: UUID) -> Bool { false }
   func signOut(ifSession _: UUID) -> Bool { false }
   func rememberUserID(_ value: String) { userID = value }
-  func signOut() { userID = nil }
+  func signOut() {
+    activeSessionID = UUID()
+    userID = nil
+  }
+  func signOut(ifSessionIDMatches expected: UUID) -> Bool {
+    guard activeSessionID == expected else { return false }
+    signOut()
+    return true
+  }
 }
 
 private struct LiveBoardStubDevice: DeviceRegistrationService {

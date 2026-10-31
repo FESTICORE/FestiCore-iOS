@@ -17,6 +17,7 @@ final class GuardedCredentialStore: CredentialStore {
   private struct State {
     var isBarred: Bool
     var revision = UUID()
+    var sessionID = UUID()
   }
 
   init(base: any CredentialStore) {
@@ -26,6 +27,24 @@ final class GuardedCredentialStore: CredentialStore {
 
   func load() -> FestiCoreCredential? {
     state.withLock { _ in base.load() }
+  }
+
+  var sessionID: UUID { state.withLock { $0.sessionID } }
+
+  func sessionSnapshot() -> FestiCoreCredentialSession? {
+    state.withLock { state in
+      guard !state.isBarred, let credential = base.load() else { return nil }
+      return FestiCoreCredentialSession(credential: credential, id: state.sessionID)
+    }
+  }
+
+  func startSession(_ credential: FestiCoreCredential) {
+    state.withLock { state in
+      state.sessionID = UUID()
+      state.revision = UUID()
+      state.isBarred = false
+      base.save(credential)
+    }
   }
 
   func save(_ credential: FestiCoreCredential) {
@@ -43,6 +62,13 @@ final class GuardedCredentialStore: CredentialStore {
     }
   }
 
+  func refreshContext(matching current: FestiCoreCredential) -> FestiCoreRefreshContext? {
+    state.withLock { state in
+      guard !state.isBarred, base.load() == current else { return nil }
+      return FestiCoreRefreshContext(sessionID: state.sessionID, revision: state.revision)
+    }
+  }
+
   func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {
     state.withLock { state in
       guard !state.isBarred, state.revision == revision, base.load() == current else { return false }
@@ -56,6 +82,7 @@ final class GuardedCredentialStore: CredentialStore {
     state.withLock { state in
       state.isBarred = true
       state.revision = UUID()
+      state.sessionID = UUID()
       base.clear()
     }
   }
@@ -64,6 +91,7 @@ final class GuardedCredentialStore: CredentialStore {
     state.withLock { state in
       state.isBarred = false
       state.revision = UUID()
+      state.sessionID = UUID()
     }
   }
 }

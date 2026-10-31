@@ -35,7 +35,7 @@ enum SessionFactory {
       credential: store.load()
     )
     return (
-      AuthorizingInterceptor(base: interceptor),
+      AuthorizingInterceptor(base: interceptor, store: store),
       CredentialUpdater(interceptor: interceptor)
     )
   }

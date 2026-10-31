@@ -206,7 +206,7 @@ jobs:
           fi
 
       - name: Clean shard build DerivedData
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           bash Scripts/clean-ci-derived-data.sh FestiCore-pr-build-shards
           rm -rf \
@@ -316,7 +316,7 @@ jobs:
           fi
 
       - name: Clean test shard DerivedData
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           bash Scripts/clean-ci-derived-data.sh "FestiCore-pr-shard-${{ matrix.shard }}"
           rm -rf \
@@ -332,7 +332,7 @@ jobs:
   bundle-insights:
     name: Bundle insights
     needs: test-shards
-    if: always() && needs.test-shards.result != 'cancelled'
+    if: ${{ !cancelled() && needs.test-shards.result != 'cancelled' }}
     runs-on: self-hosted
     timeout-minutes: 20
 
@@ -476,7 +476,7 @@ jobs:
           retention-days: 7
 
       - name: Clean bundle DerivedData
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           bash Scripts/clean-ci-derived-data.sh FestiCore-pr-bundle
           rm -rf \

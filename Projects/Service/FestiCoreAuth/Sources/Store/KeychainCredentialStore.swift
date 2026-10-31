@@ -13,6 +13,7 @@ final class KeychainCredentialStore: CredentialStore {
   private let storage: any SecureStorage
   private let lock = NSLock()
   private var currentRevision = UUID()
+  private var currentSessionID = UUID()
 
   init(storage: any SecureStorage) { self.storage = storage }
 
@@ -20,15 +21,30 @@ final class KeychainCredentialStore: CredentialStore {
     lock.withLock { loadUnlocked() }
   }
 
+  func sessionSnapshot() -> FestiCoreCredentialSession? {
+    lock.withLock {
+      guard let credential = loadUnlocked() else { return nil }
+      return FestiCoreCredentialSession(credential: credential, id: currentSessionID)
+    }
+  }
+
   func save(_ credential: FestiCoreCredential) {
     lock.withLock {
       saveUnlocked(credential)
       currentRevision = UUID()
+      currentSessionID = UUID()
     }
   }
 
   func revision(matching current: FestiCoreCredential) -> UUID? {
     lock.withLock { loadUnlocked() == current ? currentRevision : nil }
+  }
+
+  func refreshContext(matching current: FestiCoreCredential) -> FestiCoreRefreshContext? {
+    lock.withLock {
+      guard loadUnlocked() == current else { return nil }
+      return FestiCoreRefreshContext(sessionID: currentSessionID, revision: currentRevision)
+    }
   }
 
   func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {
@@ -46,6 +62,7 @@ final class KeychainCredentialStore: CredentialStore {
       try? storage.remove(.refreshToken)
       try? storage.remove(.sessionUserID)
       currentRevision = UUID()
+      currentSessionID = UUID()
     }
   }
 

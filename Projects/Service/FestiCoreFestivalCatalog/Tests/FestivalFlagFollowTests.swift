@@ -98,8 +98,10 @@ private struct SentFollowRequest: Sendable {
 
 private actor FollowStubAuth: AuthService {
   private let loggedIn: Bool
+  let sessionID = UUID()
   init(isLoggedIn: Bool = true) { loggedIn = isLoggedIn }
   var isLoggedIn: Bool { loggedIn }
+  var authenticatedSessionID: UUID? { loggedIn ? sessionID : nil }
   var refreshToken: String? { nil }
   var currentUserID: String? { loggedIn ? "user-a" : nil }
 
@@ -107,6 +109,7 @@ private actor FollowStubAuth: AuthService {
   func commitSession(_: UUID) -> Bool { false }
   func discardSession(_: UUID) -> Bool { false }
   func signOut(ifSession _: UUID) -> Bool { false }
+  func signOut(ifSessionIDMatches _: UUID) -> Bool { false }
   func rememberUserID(_: String) {}
   func signOut() {}
 }

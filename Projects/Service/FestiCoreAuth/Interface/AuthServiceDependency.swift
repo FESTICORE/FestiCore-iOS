@@ -43,6 +43,20 @@ private struct UnimplementedAuthService: AuthService {
     get async { nil }
   }
 
+  var sessionID: UUID {
+    get async {
+      reportIssue("authService 미등록")
+      return UUID()
+    }
+  }
+
+  var authenticatedSessionID: UUID? {
+    get async {
+      reportIssue("authService 미등록")
+      return nil
+    }
+  }
+
   func stageSession(accessToken: String, refreshToken: String) async -> UUID {
     reportIssue("authService 미등록")
     return UUID()
@@ -69,5 +83,10 @@ private struct UnimplementedAuthService: AuthService {
 
   func signOut() async {
     reportIssue("authService 미등록")
+  }
+
+  func signOut(ifSessionIDMatches _: UUID) async -> Bool {
+    reportIssue("authService 미등록")
+    return false
   }
 }

@@ -856,6 +856,7 @@ struct AppCoordinatorTests {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 1
       home.authFlow.accountOperationGeneration = 1
+      home.authFlow.accountOperation = .signOut
       home.authFlow.isLoading = true
       $0 = .home(home)
     }
@@ -909,18 +910,21 @@ struct AppCoordinatorTests {
       AppCoordinator()
     } withDependencies: {
       $0.authUseCase = FailingMyAuthUseCase()
+      $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
     }
 
     await store.send(.scope(.home(.delegate(.myWithdrawRequested)))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 1
       home.authFlow.accountOperationGeneration = 1
+      home.authFlow.accountOperation = .withdraw
       home.authFlow.isLoading = true
       $0 = .home(home)
     }
     await store.receive(\.inner.myAccountFinished) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.accountOperationGeneration = nil
+      home.authFlow.accountOperation = nil
       home.authFlow.isLoading = false
       home.authFlow.message = "회원 탈퇴에 실패했습니다. 다시 시도해 주세요."
       $0 = .home(home)
@@ -928,6 +932,37 @@ struct AppCoordinatorTests {
     guard case let .home(unchanged) = store.state else { return }
     #expect(unchanged.authFlow.profile?.user.id == "user-a")
     #expect(unchanged.profileState.isAccountPresented)
+  }
+
+  @Test func withdrawalRefreshFailureClearsPreviousAccountWithoutExpiryEvent() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.hasSession = true
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.verifiedUserID = "user-a"
+    home.profileState.isAccountPresented = true
+    var board = FestivalFeature.State(selectedFestivalID: "festival")
+    board.bookedUserID = "user-a"
+    board.bookedFestivalIDs = ["festival"]
+    home.festivalState.routes.push(.liveBoard(board))
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.authUseCase = FailingMyAuthUseCase(withdrawError: .transport(.notConnected))
+      $0.authService = StubAuthService(loggedIn: false, userID: nil)
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.delegate(.myWithdrawRequested))))
+    await store.receive(\.inner.sessionExpired)
+    guard case let .home(cleared) = store.state else { return }
+    #expect(!cleared.authFlow.hasSession)
+    #expect(cleared.authFlow.profile == nil)
+    #expect(cleared.authFlow.verifiedUserID == nil)
+    #expect(!cleared.profileState.isAccountPresented)
+    #expect(cleared.authFlow.accountOperationGeneration == nil)
+    #expect(cleared.authFlow.message?.contains("결과를 확인할 수 없어요") == true)
+    #expect(cleared.festivalState.routes.last?.screen.liveBoard?.bookedFestivalIDs.isEmpty == true)
   }
 
   @Test func unauthenticatedWithdrawalClearsAccount() async {
@@ -954,6 +989,7 @@ struct AppCoordinatorTests {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
       home.authFlow.generation = 1
+      home.authFlow.message = "로그인이 만료되어 회원 탈퇴 결과를 확인할 수 없어요. 다시 로그인해 계정 상태를 확인해 주세요."
       home.profileState = .init()
       $0 = .home(home)
     }
@@ -1022,6 +1058,7 @@ struct AppCoordinatorTests {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 3
       home.authFlow.accountOperationGeneration = 3
+      home.authFlow.accountOperation = .signOut
       home.authFlow.isLoading = true
       $0 = .home(home)
     }
@@ -1048,6 +1085,7 @@ struct AppCoordinatorTests {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 1
       home.authFlow.accountOperationGeneration = 1
+      home.authFlow.accountOperation = .signOut
       home.authFlow.isLoading = true
       home.authFlow.message = nil
       $0 = .home(home)
@@ -1256,18 +1294,76 @@ struct AppCoordinatorTests {
     #expect(signedOut.timetableState.mySetIDs == ["local-set"])
   }
 
-  @Test func sessionExpiryDuringLogoutKeepsAccountOperationInFlight() async {
+  @Test func sessionExpiryDuringAccountOperationDiscardsLateCompletionAfterNewLogin() async {
     var home = MainTabCoordinator.State()
     home.authFlow.hasSession = true
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.generation = 2
     home.authFlow.accountOperationGeneration = 2
+    home.authFlow.accountOperation = .withdraw
     home.authFlow.isLoading = true
+    home.profileState.isAccountPresented = true
     home.timetableState.mySetIDs = ["set-a"]
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    home.flagState.snapshot = FestivalLiveBoardSnapshot(
+      festivalID: "festival", activeFlags: [], followedFlags: [], crew: nil
+    )
+    var board = FestivalFeature.State(selectedFestivalID: "festival")
+    board.bookedUserID = "user-a"
+    board.bookedFestivalIDs = ["festival"]
+    home.festivalState.routes.push(.liveBoard(board))
+    let store = Store(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
 
-    await store.send(.inner(.sessionExpired))
-    #expect(store.state == AppCoordinator.State.home(home))
+    store.send(.inner(.sessionExpired))
+    guard case let .home(expired) = store.withState({ $0 }) else { return }
+    #expect(!expired.authFlow.hasSession)
+    #expect(expired.authFlow.profile == nil)
+    #expect(!expired.profileState.isAccountPresented)
+    #expect(expired.timetableState.mySetIDs.isEmpty)
+    #expect(expired.flagState.snapshot == nil)
+    #expect(expired.festivalState.routes.last?.screen.liveBoard?.bookedFestivalIDs.isEmpty == true)
+    #expect(expired.authFlow.accountOperationGeneration == nil)
+    #expect(expired.authFlow.accountOperation == nil)
+    #expect(expired.authFlow.message?.contains("결과를 확인할 수 없어요") == true)
+
+    store.send(.inner(.sessionRestored(generation: 3, userID: "user-b", isLoggedIn: true)))
+    store.send(.inner(.myAccountFinished(generation: 2, operation: .withdraw, result: .success(()))))
+    guard case let .home(newAccount) = store.withState({ $0 }) else { return }
+    #expect(newAccount.authFlow.hasSession)
+    #expect(newAccount.authFlow.lastVerifiedUserID == "user-b")
+  }
+
+  @Test func withdrawalFailureAfterExpiryCannotRestorePreviousAccount() async {
+    let (started, signal) = AsyncStream<Void>.makeStream()
+    let gate = WithdrawalGate(started: signal)
+    var iterator = started.makeAsyncIterator()
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.hasSession = true
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.verifiedUserID = "user-a"
+    home.profileState.isAccountPresented = true
+    let store = Store(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.authUseCase = SuspendedWithdrawalAuthUseCase(gate: gate)
+      $0.authService = StubAuthService(loggedIn: false, userID: nil)
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+
+    let operation = store.send(.scope(.home(.delegate(.myWithdrawRequested))))
+    guard await iterator.next() != nil else {
+      Issue.record("회원 탈퇴 요청이 시작되지 않았어요")
+      return
+    }
+    store.send(.inner(.sessionExpired))
+    await gate.fail()
+    await operation.finish()
+
+    guard case let .home(expired) = store.withState({ $0 }) else { return }
+    #expect(!expired.authFlow.hasSession)
+    #expect(expired.authFlow.profile == nil)
+    #expect(!expired.profileState.isAccountPresented)
+    #expect(expired.authFlow.accountOperationGeneration == nil)
+    #expect(expired.authFlow.message?.contains("결과를 확인할 수 없어요") == true)
   }
 
   @Test func expiryNotificationIsSubscribedAfterSplashTransition() async {
@@ -1713,13 +1809,45 @@ struct AppCoordinatorTests {
 }
 
 private struct FailingMyAuthUseCase: AuthUseCaseInterface {
+  var withdrawError: FestiCoreNetworkError = .response(ResponseError(httpStatus: 503))
   func signIn(with credential: AuthCredential) async throws -> AuthLoginResult { throw AuthDomainError.notAuthenticated }
   func fetchProfile() async throws -> AuthProfile { throw AuthDomainError.notAuthenticated }
   func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser {
     throw AuthDomainError.notAuthenticated
   }
   func signOut() async throws { throw FestiCoreNetworkError.response(ResponseError(httpStatus: 503)) }
-  func withdraw() async throws { throw FestiCoreNetworkError.response(ResponseError(httpStatus: 503)) }
+  func withdraw() async throws { throw withdrawError }
+}
+
+private actor WithdrawalGate {
+  private let started: AsyncStream<Void>.Continuation
+  private var continuation: CheckedContinuation<Void, Error>?
+
+  init(started: AsyncStream<Void>.Continuation) { self.started = started }
+
+  func wait() async throws {
+    try await withCheckedThrowingContinuation { continuation in
+      self.continuation = continuation
+      started.yield(())
+    }
+  }
+
+  func fail() {
+    continuation?.resume(throwing: FestiCoreNetworkError.transport(.notConnected))
+    continuation = nil
+  }
+}
+
+private struct SuspendedWithdrawalAuthUseCase: AuthUseCaseInterface {
+  let gate: WithdrawalGate
+
+  func signIn(with credential: AuthCredential) async throws -> AuthLoginResult { throw AuthDomainError.notAuthenticated }
+  func fetchProfile() async throws -> AuthProfile { throw AuthDomainError.notAuthenticated }
+  func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser {
+    throw AuthDomainError.notAuthenticated
+  }
+  func signOut() async throws { throw AuthDomainError.notAuthenticated }
+  func withdraw() async throws { try await gate.wait() }
 }
 
 private struct UnauthenticatedAuthUseCase: AuthUseCaseInterface {
@@ -1787,8 +1915,10 @@ private struct OutdatedTermsAuthUseCase: AuthUseCaseInterface {
 private struct StubAuthService: AuthService {
   let loggedIn: Bool
   let userID: String?
+  let sessionID = UUID()
 
   var isLoggedIn: Bool { get async { loggedIn } }
+  var authenticatedSessionID: UUID? { get async { loggedIn ? sessionID : nil } }
   var currentUserID: String? { get async { userID } }
   var refreshToken: String? {
     get async {
@@ -1823,6 +1953,11 @@ private struct StubAuthService: AuthService {
 
   func signOut() async {
     Issue.record("테스트에서 signOut 호출을 예상하지 않았어요")
+  }
+
+  func signOut(ifSessionIDMatches _: UUID) async -> Bool {
+    Issue.record("테스트에서 조건부 signOut 호출을 예상하지 않았어요")
+    return false
   }
 }
 
@@ -1873,6 +2008,7 @@ private actor SessionRecordingAuthService: AuthService {
   private let commitResult: Bool
   private let holdsCommit: Bool
   private var loggedIn = false
+  private var activeSessionID = UUID()
   private var commitStarted = false
   private var release: CheckedContinuation<Void, Never>?
   private(set) var committed: [UUID] = []
@@ -1885,6 +2021,8 @@ private actor SessionRecordingAuthService: AuthService {
   }
 
   var isLoggedIn: Bool { loggedIn }
+  var sessionID: UUID { activeSessionID }
+  var authenticatedSessionID: UUID? { loggedIn ? activeSessionID : nil }
   var refreshToken: String? { nil }
   var currentUserID: String? { loggedIn ? "user-a" : nil }
 
@@ -1894,7 +2032,10 @@ private actor SessionRecordingAuthService: AuthService {
     commitStarted = true
     if holdsCommit { await withCheckedContinuation { release = $0 } }
     committed.append(id)
-    if commitResult { loggedIn = true }
+    if commitResult {
+      activeSessionID = UUID()
+      loggedIn = true
+    }
     return commitResult
   }
 
@@ -1911,7 +2052,15 @@ private actor SessionRecordingAuthService: AuthService {
   }
 
   func rememberUserID(_ userID: String) {}
-  func signOut() { loggedIn = false }
+  func signOut() {
+    activeSessionID = UUID()
+    loggedIn = false
+  }
+  func signOut(ifSessionIDMatches expected: UUID) -> Bool {
+    guard activeSessionID == expected, loggedIn else { return false }
+    signOut()
+    return true
+  }
 
   func waitUntilCommitStarts() async {
     while !commitStarted || (holdsCommit && release == nil) { await Task.yield() }
