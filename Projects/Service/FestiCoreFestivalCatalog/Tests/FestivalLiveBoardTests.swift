@@ -235,6 +235,22 @@ struct FestivalLiveBoardTests {
     }
   }
 
+  @Test("설치 ID 저장 오류를 기기 미등록으로 바꾸지 않고 전달한다")
+  func installationIDFailureIsNotReportedAsUnregistered() async {
+    let client = LiveBoardStubClient(responses: [:])
+    let service = NetworkFestivalLiveBoardService(
+      client: client,
+      auth: LiveBoardStubAuth(),
+      device: FailingInstallationDevice(),
+      baseURL: nil
+    )
+
+    await #expect(throws: InstallationIDFailure()) {
+      try await service.refresh(for: "fst_test")
+    }
+    #expect(await client.liveDeviceID == nil)
+  }
+
   @Test("잘못된 공개 프로필 타입은 라이브보드 응답 오류로 돌려준다")
   func reportsMalformedDirectoryMetadata() async {
     let client = LiveBoardStubClient(responses: [
@@ -473,6 +489,18 @@ private struct LiveBoardStubDevice: DeviceRegistrationService {
   func authorization() async throws -> DeviceAuthorization? {
     nil
   }
+}
+
+private struct InstallationIDFailure: Error, Equatable {}
+
+private struct FailingInstallationDevice: DeviceRegistrationService {
+  func installationDeviceID() async throws -> String { throw InstallationIDFailure() }
+
+  func register(_: DeviceRegistrationMetadata) async throws -> DeviceAuthorization {
+    throw InstallationIDFailure()
+  }
+
+  func authorization() async throws -> DeviceAuthorization? { nil }
 }
 
 private actor LiveBoardStubClient: FestiCoreRequestClient {
