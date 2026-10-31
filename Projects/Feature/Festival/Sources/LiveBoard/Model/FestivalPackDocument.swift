@@ -49,6 +49,35 @@ public struct FestivalPackDocument: Decodable, Equatable {
   public let timetable: [Performance]?
   public let sets: [Performance]?
   public let stages: [Stage]?
+  public let flagsEnabled: Bool?
+  public let zones: [Zone]?
+  public let source: Source?
+
+  private enum CodingKeys: String, CodingKey {
+    case id, name, venue, thumbUrl, days, artists, timetable, sets, stages
+    case flagsEnabled, zones, source
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    id = try container.decode(String.self, forKey: .id)
+    name = try container.decodeIfPresent(String.self, forKey: .name)
+    venue = try container.decodeIfPresent(String.self, forKey: .venue)
+    thumbUrl = try container.decodeIfPresent(String.self, forKey: .thumbUrl)
+    days = try container.decodeIfPresent([Day].self, forKey: .days)
+    artists = try container.decodeIfPresent([Artist].self, forKey: .artists)
+    timetable = try container.decodeIfPresent([Performance].self, forKey: .timetable)
+    sets = try container.decodeIfPresent([Performance].self, forKey: .sets)
+    stages = try container.decodeIfPresent([Stage].self, forKey: .stages)
+    flagsEnabled = try container.decodeIfPresent(Bool.self, forKey: .flagsEnabled)
+    zones = (try? container.decode([LossyZone].self, forKey: .zones))?.compactMap(\.value)
+    source = try? container.decodeIfPresent(Source.self, forKey: .source)
+  }
+
+  public func zoneName(for id: String?) -> String? {
+    guard let id else { return nil }
+    return zones?.first { $0.id == id }?.name
+  }
 
   public var performances: [Performance] {
     if let timetable, !timetable.isEmpty { return timetable }
@@ -70,6 +99,38 @@ public struct FestivalPackDocument: Decodable, Equatable {
 
   public struct Day: Decodable, Equatable {
     public let date: String?
+    public let startsAt: String?
+    public let endsAt: String?
+  }
+
+  public struct Zone: Decodable, Equatable {
+    public let id: String
+    public let name: String
+  }
+
+  private struct LossyZone: Decodable {
+    let value: Zone?
+
+    init(from decoder: Decoder) throws {
+      value = try? Zone(from: decoder)
+    }
+  }
+
+  public struct Source: Decodable, Equatable {
+    public let name: String?
+    public let url: String?
+    public let verifiedAt: String?
+
+    private enum CodingKeys: String, CodingKey {
+      case name, url, verifiedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      name = try? container.decodeIfPresent(String.self, forKey: .name)
+      url = try? container.decodeIfPresent(String.self, forKey: .url)
+      verifiedAt = try? container.decodeIfPresent(String.self, forKey: .verifiedAt)
+    }
   }
 
   public struct Artist: Decodable, Equatable {
