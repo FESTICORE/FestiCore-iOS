@@ -179,21 +179,25 @@ struct AppCoordinator {
       let changed: Effect<Action> = .send(.scope(.home(.festival(.sessionChanged(
         hasSession: session.hasSession, userID: session.userID
       )))))
-      let switchedAccounts = previous.userID != nil && session.userID != nil
-        && previous.userID != session.userID
-      guard previous.hasSession else { return changed }
-      if switchedAccounts, case var .home(home) = state {
-        // 자식 액션이 처리되기 전에도 이전 계정의 깃발을 화면에서 바로 지운다.
-        home.flagState.clearAccountData()
-        state = .home(home)
+      // 로그인 중 확인된 계정 ID가 사라져도(A→nil) 다음에 올 계정이 같다고 보장할 수 없어 전환으로 본다.
+      let switchedAccounts = previous.userID != nil && previous.userID != session.userID
+      // 깃발 계정 데이터는 여기서만 비운다. `Effect.send`는 같은 send 호출 안에서 처리되어 이전 계정 깃발이 화면에 남지 않는다.
+      let flagChanged: Effect<Action> = .send(.scope(.home(.flag(.accountChanged))))
+      guard previous.hasSession else {
+        // 로그아웃 상태에서 받은 깃발에는 내 팔로우 정보가 없어 로그인한 계정으로 다시 불러온다.
+        guard session.hasSession else { return changed }
+        return .concatenate(flagChanged, changed)
+      }
+      if switchedAccounts {
         return .concatenate(
-          .send(.scope(.home(.flag(.accountChanged)))),
+          flagChanged,
           .send(.scope(.home(.timetable(.accountChanged)))),
           changed
         )
       }
       guard !session.hasSession else { return changed }
       return .concatenate(
+        flagChanged,
         .send(.scope(.home(.timetable(.accountChanged)))),
         changed
       )
@@ -435,12 +439,16 @@ private extension AppCoordinator {
         return .send(.scope(.home(.festival(.reloadBookmarks(userID: nil)))))
 
       case .failure(.unauthenticated):
+        let hadSession = home.authFlow.hasSession
         home.authFlow.verifiedUserID = nil
         home.authFlow.lastVerifiedUserID = nil
         home.authFlow.hasSession = false
         home.authFlow.profile = nil
         home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .login
-        let clear = clearAccountData(&home)
+        // 같은 로그아웃을 `sessionRestored`가 이미 비웠다면 그 뒤 받은 비로그인 라이브 보드를 다시 지우지 않고 예약 목록만 정리한다.
+        let clear = hadSession
+          ? clearAccountData(&home)
+          : .send(.scope(.home(.festival(.accountChanged))))
         state = .home(home)
         return clear
 
@@ -482,10 +490,12 @@ private extension AppCoordinator {
       switch result {
       case let .success(user):
         guard user.id == previous.user.id else {
+          // 다른 계정 응답은 신뢰하지 않는다. 계정 ID를 모두 지워 세션 변경 감지가 이전 계정 데이터를 비우게 한다.
           home.authFlow.pendingFestivalID = nil
           home.authFlow.pendingOwnerID = nil
           home.authFlow.presentation = nil
           home.authFlow.verifiedUserID = nil
+          home.authFlow.lastVerifiedUserID = nil
           home.authFlow.profile = nil
           state = .home(home)
           return .none
@@ -710,15 +720,12 @@ private extension AppCoordinator {
       ?? .send(.scope(.home(.festival(.reloadBookmarks(userID: userID)))))
   }
 
-  /// 이전 계정의 깃발·라이브 보드·예약 목록을 바로 비운다.
+  /// 이전 계정의 라이브 보드·예약 목록을 바로 비운다.
   func clearAccountData(_ home: inout MainTabCoordinator.State) -> Effect<Action> {
-    // 상태는 즉시 비우고, 자식 액션은 진행 중 요청 취소와 새 계정 갱신을 맡는다.
-    home.flagState.clearAccountData()
+    // 세션이 이미 끊긴 뒤 처리되는 `accountChanged`는 예약 목록만 비우므로 라이브 보드 개인 데이터는 여기서 바로 지운다.
+    // 자식 액션은 진행 중 요청 취소와 새 계정 갱신을 맡는다. 깃발은 세션 변경 감지에서 비운다.
     home.festivalState.clearAccountData()
-    return .merge(
-      .send(.scope(.home(.festival(.accountChanged)))),
-      .send(.scope(.home(.flag(.accountChanged))))
-    )
+    return .send(.scope(.home(.festival(.accountChanged))))
   }
 
   func isBooked(_ id: String, in festival: FestivalCoordinator.State) -> Bool {
