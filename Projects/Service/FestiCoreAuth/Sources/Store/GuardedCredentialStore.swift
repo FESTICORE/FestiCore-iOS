@@ -11,7 +11,7 @@ import FestiCoreNetworkInterface
 
 /// 로그아웃 뒤 늦게 도착한 refresh 저장을 차단한다.
 final class GuardedCredentialStore: CredentialStore {
-  private let base: KeychainCredentialStore
+  private let base: any CredentialStore
   private let state: OSAllocatedUnfairLock<State>
 
   private struct State {
@@ -20,7 +20,7 @@ final class GuardedCredentialStore: CredentialStore {
     var onPersistenceFailure: (@Sendable () -> Void)?
   }
 
-  init(base: KeychainCredentialStore) {
+  init(base: any CredentialStore) {
     self.base = base
     state = OSAllocatedUnfairLock(initialState: State(isBarred: base.load() == nil))
   }
