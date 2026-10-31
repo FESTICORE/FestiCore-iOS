@@ -47,8 +47,11 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
       retryNotBefore.removeAll()
       cachedSessionID = sessionID
     }
-    if let retryDate = retryNotBefore[festivalID], retryDate > Date() {
-      throw FestivalLiveBoardError.rateLimited(retryAfter: retryDate.timeIntervalSinceNow)
+    if let retryDate = retryNotBefore[festivalID] {
+      let remaining = retryDate.timeIntervalSince(now())
+      if remaining > 0 {
+        throw FestivalLiveBoardError.rateLimited(retryAfter: remaining)
+      }
     }
 
     let response = try await client.sendResponse(FestivalLiveRequest(
@@ -113,7 +116,7 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
       ))
     case 429:
       let retryAfter = Self.retryAfter(response.header("Retry-After"))
-      retryNotBefore[festivalID] = Date().addingTimeInterval(retryAfter)
+      retryNotBefore[festivalID] = now().addingTimeInterval(retryAfter)
       throw FestivalLiveBoardError.rateLimited(retryAfter: retryAfter)
     default:
       throw FestivalLiveBoardError.invalidResponse
