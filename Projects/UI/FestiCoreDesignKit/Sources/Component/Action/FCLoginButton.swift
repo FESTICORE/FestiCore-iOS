@@ -58,6 +58,7 @@ private extension FCLoginButton {
     switch provider {
     case .apple:
       Image(asset: .appleLogo)
+        .renderingMode(.template)
         .resizable()
         .frame(width: Metric.appleLogoSize.width, height: Metric.appleLogoSize.height)
         .accessibilityHidden(true)
