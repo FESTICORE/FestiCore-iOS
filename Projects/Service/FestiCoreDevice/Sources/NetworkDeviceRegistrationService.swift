@@ -25,13 +25,7 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
   }
 
   public func register(_ metadata: DeviceRegistrationMetadata) async throws -> DeviceAuthorization {
-    let deviceID: String
-    if let storedID = try storage.load(.deviceID) {
-      deviceID = storedID
-    } else {
-      deviceID = UUID().uuidString.lowercased()
-      try storage.save(deviceID, for: .deviceID)
-    }
+    let deviceID = try installationID()
     let currentToken = try storage.load(.deviceAccessToken)
     let response = try await client.send(DeviceRegistrationRequest(
       deviceID: deviceID,
@@ -48,6 +42,14 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
       try storage.save(token, for: .deviceAccessToken)
     }
     return DeviceAuthorization(deviceID: deviceID, bearerToken: token)
+  }
+
+  /// actor 안에서 조회와 저장 사이에 대기가 없어, 동시에 불려도 설치 ID가 하나로 유지된다.
+  public func installationID() throws -> String {
+    if let storedID = try storage.load(.deviceID) { return storedID }
+    let deviceID = UUID().uuidString.lowercased()
+    try storage.save(deviceID, for: .deviceID)
+    return deviceID
   }
 
   public func authorization() async throws -> DeviceAuthorization? {

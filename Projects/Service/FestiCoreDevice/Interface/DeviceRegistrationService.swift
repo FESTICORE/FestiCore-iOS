@@ -43,6 +43,8 @@ public struct DeviceRegistrationMetadata: Sendable, Equatable {
 public protocol DeviceRegistrationService: Sendable {
   func register(_ metadata: DeviceRegistrationMetadata) async throws -> DeviceAuthorization
   func authorization() async throws -> DeviceAuthorization?
+  /// 서버 등록과 관계없이 이 설치를 식별하는 UUID. 없으면 만들어 저장한다.
+  func installationID() async throws -> String
 }
 
 public enum DeviceRegistrationServiceDependency: TestDependencyKey {
@@ -66,6 +68,10 @@ private struct UnimplementedDeviceRegistrationService: DeviceRegistrationService
   }
 
   func authorization() async throws -> DeviceAuthorization? {
+    throw TestDeviceRegistrationUnavailable()
+  }
+
+  func installationID() async throws -> String {
     throw TestDeviceRegistrationUnavailable()
   }
 }

@@ -155,6 +155,7 @@ private actor RecordingDeviceRegistrationService: DeviceRegistrationService {
   }
 
   func authorization() async throws -> DeviceAuthorization? { nil }
+  func installationID() async throws -> String { "test-device" }
 }
 
 private final class MemoryNotificationStorage: SecureStorage, @unchecked Sendable {

@@ -40,9 +40,8 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
             || ($0 >= 97 && $0 <= 122) || $0 == 45 || $0 == 95 }) else {
       throw FestivalLiveBoardError.invalidFestivalID
     }
-    guard let deviceID = try await device.authorization()?.deviceID else {
-      throw FestivalLiveBoardError.deviceNotRegistered
-    }
+    // 공개 라이브 조회는 서버 기기 등록 없이 설치 UUID만 있으면 된다. 저장소 오류는 그대로 전달한다.
+    let deviceID = try await device.installationID()
     let userID = await authenticatedUserID()
     if cachedUserID != userID {
       cachedBoards.removeAll()

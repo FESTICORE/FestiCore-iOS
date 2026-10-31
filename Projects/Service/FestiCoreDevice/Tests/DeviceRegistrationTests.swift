@@ -109,6 +109,24 @@ struct DeviceRegistrationTests {
     #expect(try await service.authorization()?.deviceID == first.deviceID)
     #expect(client.bearerTokens == [nil, "issued-token"])
   }
+
+  @Test("설치 ID는 서버 등록 없이 만들어 저장하고 이후 등록도 같은 ID를 쓴다")
+  func installationIDWithoutRegistration() async throws {
+    let storage = MemoryDeviceStorage()
+    let client = StubDeviceClient()
+    let service = NetworkDeviceRegistrationService(client: client, storage: storage)
+
+    let id = try await service.installationID()
+    #expect(UUID(uuidString: id) != nil)
+    #expect(id == id.lowercased())
+    #expect(storage.load(.deviceID) == id)
+    #expect(try await service.authorization() == nil)
+    #expect(try await service.installationID() == id)
+    #expect(client.bearerTokens.isEmpty)
+
+    let registered = try await service.register(metadata)
+    #expect(registered.deviceID == id)
+  }
 }
 
 private final class MemoryDeviceStorage: SecureStorage, @unchecked Sendable {
