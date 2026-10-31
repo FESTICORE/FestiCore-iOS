@@ -856,6 +856,20 @@ struct AuthTests {
     let prepared = await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: sessionID)
     let journalAfter = String(describing: journal.status)
     if !prepared {
+      let directRecord = journal.record(.withdrawalRequested)
+      let sessionAfter = await auth.authenticatedSessionID
+      Issue.record(
+        "직접 저널 기록: \(directRecord), 상태: \(String(describing: journal.status)), 세션 후: \(String(describing: sessionAfter))"
+      )
+      if !directRecord {
+        do {
+          try Data("withdrawalRequested".utf8).write(to: storage.journalURL, options: .atomic)
+          Issue.record("정확한 저널 경로 쓰기 성공: \(String(describing: journal.status))")
+        } catch {
+          let error = error as NSError
+          Issue.record("정확한 저널 경로 쓰기 실패: \(error.domain) \(error.code) \(error.localizedDescription)")
+        }
+      }
       let probeURL = storage.journalURL.deletingLastPathComponent().appendingPathComponent("write-probe")
       do {
         try FileManager.default.createDirectory(at: probeURL.deletingLastPathComponent(), withIntermediateDirectories: true)
