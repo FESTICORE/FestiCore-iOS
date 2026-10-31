@@ -183,6 +183,7 @@ struct AppCoordinator {
         && previous.userID != session.userID
       guard previous.hasSession else { return changed }
       if switchedAccounts, case var .home(home) = state {
+        // 자식 액션이 처리되기 전에도 이전 계정의 깃발을 화면에서 바로 지운다.
         home.flagState.clearAccountData()
         state = .home(home)
         return .concatenate(
@@ -706,6 +707,7 @@ private extension AppCoordinator {
 
   /// 이전 계정의 깃발·라이브 보드·예약 목록을 바로 비운다.
   func clearAccountData(_ home: inout MainTabCoordinator.State) -> Effect<Action> {
+    // 상태는 즉시 비우고, 자식 액션은 진행 중 요청 취소와 새 계정 갱신을 맡는다.
     home.flagState.clearAccountData()
     home.festivalState.clearAccountData()
     return .merge(
