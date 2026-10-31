@@ -154,6 +154,11 @@ struct OverlayView: View {
           onSelect: { activityID = $0.id }
         )
       }
+    } accessory: { sheet in
+      // S03 B처럼 내 일정에 넣으면 시트 위에 토스트를 붙인다.
+      if sheet == .set, isScheduled {
+        FCToast(.scheduleAdded())
+      }
     }
     .fcDialog(item: $dialog)
     .modifier(AlertDemoPresenter(store: alertDemo))

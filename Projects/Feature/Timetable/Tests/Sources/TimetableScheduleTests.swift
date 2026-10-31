@@ -49,12 +49,14 @@ struct TimetableScheduleTests {
     state.isSaving = true
     state.lastClientAt = beforeFestival
     let service = ScheduleServiceSpy()
-    let store = makeStore(state, service: service)
+    let clock = TestClock()
+    let store = makeStore(state, service: service, clock: clock)
     let inFlight = TimetableFeature.ScheduleSave(setIDs: [], clientAt: beforeFestival)
 
     await store.send(.view(.setScheduleToggled)) {
       $0.mySetIDs = ["lime"]
       $0.needsSave = true
+      $0.isScheduleToastVisible = true
     }
     await store.send(.scheduleSaved(festivalID: "fst", inFlight, .success(.init(setIDs: [])))) {
       $0.needsSave = false
@@ -65,6 +67,10 @@ struct TimetableScheduleTests {
     }
     // 같은 시각에 이어진 저장도 서버 충돌을 피하도록 1ms 늦춘다.
     #expect(service.replaced.value == [.init(setIDs: ["lime"], clientAt: beforeFestival.addingTimeInterval(0.001))])
+    await clock.advance(by: .seconds(2))
+    await store.receive(\.scheduleToastExpired) {
+      $0.isScheduleToastVisible = false
+    }
   }
 
   @Test func staleSaveAdoptsServerScheduleAndDropsPendingChange() async {
@@ -85,7 +91,8 @@ struct TimetableScheduleTests {
 
   @Test func unauthorizedLoadKeepsScheduleOnDevice() async {
     let service = ScheduleServiceSpy(fetchResults: [.failure(.unauthorized)])
-    let store = makeStore(TimetableFeature.State.sample(), service: service)
+    let clock = TestClock()
+    let store = makeStore(TimetableFeature.State.sample(), service: service, clock: clock)
 
     await store.send(.festivalChanged("fst")) {
       $0.festivalID = "fst"
@@ -101,8 +108,13 @@ struct TimetableScheduleTests {
     }
     await store.send(.view(.setScheduleToggled)) {
       $0.mySetIDs = ["lime"]
+      $0.isScheduleToastVisible = true
     }
     #expect(service.replaced.value.isEmpty)
+    await clock.advance(by: .seconds(2))
+    await store.receive(\.scheduleToastExpired) {
+      $0.isScheduleToastVisible = false
+    }
   }
 
   @Test func rejectedSaveReloadsServerSchedule() async {
@@ -216,10 +228,11 @@ struct TimetableScheduleTests {
     let firstDay = Date(timeIntervalSince1970: 1_786_028_400)
 
     let upcoming = state.setDetail(now: firstDay.addingTimeInterval(TimeInterval(15 * 60 * 60 + 28 * 60)))
-    #expect(upcoming?.relativeTime == "1시간 32분 후 시작")
+    #expect(upcoming?.relativeTime == "1시간 32분 후")
     #expect(upcoming?.stage == "리벳 스테이지")
-    #expect(upcoming?.time == "17:00–17:50")
-    #expect(state.setDetail(now: firstDay.addingTimeInterval(TimeInterval(16 * 60 * 60 + 20 * 60)))?.relativeTime == "40분 후 시작")
+    #expect(upcoming?.time == "17:00–17:50 · 50분")
+    #expect(state.setDetail(now: firstDay.addingTimeInterval(TimeInterval(16 * 60 * 60 + 20 * 60)))?.relativeTime == "40분 후")
+    #expect(state.setDetail(now: firstDay.addingTimeInterval(TimeInterval(16 * 60 * 60)))?.relativeTime == "1시간 후")
     #expect(state.setDetail(now: firstDay.addingTimeInterval(TimeInterval(17 * 60 * 60 + 10 * 60)))?.status == .live)
     #expect(state.setDetail(now: firstDay.addingTimeInterval(TimeInterval(18 * 60 * 60)))?.status == .ended)
   }
@@ -232,8 +245,194 @@ struct TimetableScheduleTests {
     state.mySetIDs = ["midnight", "dawn"] // 1일차 23:30–다음날 01:30, 2일차 00:30–01:30
     state.selectedSetID = "midnight"
 
-    #expect(state.setDetail(now: beforeFestival)?.overlappingArtists == ["새벽 세션"])
+    let overlap = state.setDetail(now: beforeFestival)?.overlap
+    #expect(overlap == TimetableSetOverlap(artist: "새벽 세션", stage: "리벳 스테이지", time: "00:30–01:30", minutes: 60))
+    #expect(overlap?.warning == "새벽 세션(리벳 스테이지 00:30–01:30)과 60분 겹쳐요")
     #expect(state.overlaps == [TimetableOverlap(start: 1470, end: 1530)])
+  }
+}
+
+// MARK: - 상세 시트 문구
+
+extension TimetableScheduleTests {
+  @Test func overlapWarningNamesStageTimeAndSharedMinutes() {
+    var state = TimetableFeature.State.sample()
+    state.mySetIDs = ["noise-returns", "cryingbird"] // 리벳 15:40–16:30, 원더 15:55–16:45
+    state.selectedSetID = "noise-returns"
+
+    #expect(state.setDetail(now: beforeFestival)?.overlap?.warning == "크라잉버드(원더 스테이지 15:55–16:45)와 35분 겹쳐요")
+  }
+
+  @Test func changedSetShowsPreviousTimeAndDuration() {
+    var state = TimetableFeature.State.sample(variant: .changed)
+    state.selectedSetID = "lime" // 16:40 → 17:00–17:50
+
+    let detail = state.setDetail(now: beforeFestival)
+    #expect(detail?.previousTime == "16:40")
+    #expect(detail?.change == "20분 미뤄짐")
+    #expect(detail?.time == "17:00–17:50 · 50분")
+  }
+
+  @Test func overlapWarningUsesParticleForNonHangulName() {
+    let overlap = TimetableSetOverlap(artist: "NELL", stage: "원더 스테이지", time: "15:55–16:45", minutes: 35)
+
+    #expect(overlap.warning == "NELL(원더 스테이지 15:55–16:45)와 35분 겹쳐요")
+  }
+
+  @Test func overlapWarningUsesParticleForDecomposedHangulName() {
+    let decomposed = "새벽 세션".decomposedStringWithCanonicalMapping
+    let overlap = TimetableSetOverlap(artist: decomposed, stage: "리벳 스테이지", time: "00:30–01:30", minutes: 60)
+
+    #expect(overlap.warning.hasSuffix(")과 60분 겹쳐요"))
+  }
+}
+
+// MARK: - 내 일정 토스트
+
+extension TimetableScheduleTests {
+  @Test func addingShowsToastForTwoSeconds() async {
+    let clock = TestClock()
+    let store = makeStore(readyState(selected: "lime"), service: ScheduleServiceSpy(), clock: clock)
+
+    await store.send(.view(.setScheduleToggled)) {
+      $0.mySetIDs = ["lime"]
+      $0.isScheduleToastVisible = true
+      $0.isSaving = true
+      $0.lastClientAt = self.beforeFestival
+    }
+    await store.receive(\.scheduleSaved) {
+      $0.isSaving = false
+    }
+    await clock.advance(by: .milliseconds(1999))
+    #expect(store.state.isScheduleToastVisible)
+    await clock.advance(by: .milliseconds(1))
+    await store.receive(\.scheduleToastExpired) {
+      $0.isScheduleToastVisible = false
+    }
+  }
+
+  @Test func removingHidesToastImmediately() async {
+    let clock = TestClock()
+    var state = readyState(selected: "lime")
+    state.scheduleSync = .localOnly
+    let store = makeStore(state, service: ScheduleServiceSpy(), clock: clock)
+
+    await store.send(.view(.setScheduleToggled)) {
+      $0.mySetIDs = ["lime"]
+      $0.isScheduleToastVisible = true
+    }
+    await store.send(.view(.setScheduleToggled)) {
+      $0.mySetIDs = []
+      $0.isScheduleToastVisible = false
+    }
+    await clock.run()
+  }
+
+  @Test func dismissingSheetHidesToast() async {
+    let clock = TestClock()
+    var state = readyState(selected: "lime")
+    state.scheduleSync = .localOnly
+    let store = makeStore(state, service: ScheduleServiceSpy(), clock: clock)
+
+    await store.send(.view(.setScheduleToggled)) {
+      $0.mySetIDs = ["lime"]
+      $0.isScheduleToastVisible = true
+    }
+    await store.send(.view(.setDetailDismissed)) {
+      $0.selectedSetID = nil
+      $0.isScheduleToastVisible = false
+    }
+    await clock.run()
+  }
+
+  @Test func selectingAnotherSetHidesToast() async {
+    let clock = TestClock()
+    var state = readyState(selected: "lime")
+    state.scheduleSync = .localOnly
+    let store = makeStore(state, service: ScheduleServiceSpy(), clock: clock)
+
+    await store.send(.view(.setScheduleToggled)) {
+      $0.mySetIDs = ["lime"]
+      $0.isScheduleToastVisible = true
+    }
+    await store.send(.view(.setTapped("noise"))) {
+      $0.selectedSetID = "noise"
+      $0.isScheduleToastVisible = false
+    }
+    await clock.run()
+  }
+
+  @Test func festivalChangeHidesToast() async {
+    let clock = TestClock()
+    var state = readyState(selected: "lime")
+    state.scheduleSync = .localOnly
+    let store = makeStore(state, service: ScheduleServiceSpy(), clock: clock)
+
+    await store.send(.view(.setScheduleToggled)) {
+      $0.mySetIDs = ["lime"]
+      $0.isScheduleToastVisible = true
+    }
+    await store.send(.festivalChanged("next")) {
+      $0.festivalID = "next"
+      $0.mySetIDs = []
+      $0.selectedSetID = nil
+      $0.scheduleSync = .loading
+      $0.loadRequestID = 1
+      $0.isScheduleToastVisible = false
+    }
+    await store.receive(\.scheduleLoaded) {
+      $0.scheduleSync = .ready
+    }
+    await clock.run()
+  }
+
+  @Test func packUpdateClosingSelectedSetHidesToast() async {
+    var state = readyState(selected: "gone")
+    state.isScheduleToastVisible = true
+    let store = makeStore(state, service: ScheduleServiceSpy())
+
+    await store.send(.packUpdated) {
+      $0.selectedSetID = nil
+      $0.isScheduleToastVisible = false
+    }
+  }
+
+  @Test func staleSaveRemovingAddedSetHidesToast() async {
+    let clock = TestClock()
+    let store = makeStore(readyState(selected: "lime"), service: StaleScheduleService(), clock: clock)
+
+    await store.send(.view(.setScheduleToggled)) {
+      $0.mySetIDs = ["lime"]
+      $0.isScheduleToastVisible = true
+      $0.isSaving = true
+      $0.lastClientAt = self.beforeFestival
+    }
+    await store.receive(\.scheduleSaved) {
+      $0.isSaving = false
+      $0.mySetIDs = []
+      $0.isScheduleToastVisible = false
+    }
+    await clock.run()
+  }
+
+  @Test func reloadAfterRejectedSaveRemovingAddedSetHidesToast() async {
+    let clock = TestClock()
+    var state = readyState(mine: ["lime"], selected: "lime")
+    state.isSaving = true
+    state.isScheduleToastVisible = true
+    let store = makeStore(state, service: ScheduleServiceSpy(fetchResults: [.success(.init(setIDs: []))]), clock: clock)
+    let save = TimetableFeature.ScheduleSave(setIDs: ["lime"], clientAt: beforeFestival)
+
+    await store.send(.scheduleSaved(festivalID: "fst", save, .failure(.rejected))) {
+      $0.isSaving = false
+      $0.scheduleSync = .loading
+      $0.loadRequestID = 1
+    }
+    await store.receive(\.scheduleLoaded) {
+      $0.mySetIDs = []
+      $0.scheduleSync = .ready
+      $0.isScheduleToastVisible = false
+    }
   }
 }
 
@@ -252,13 +451,15 @@ private extension TimetableScheduleTests {
 
   func makeStore(
     _ state: TimetableFeature.State,
-    service: ScheduleServiceSpy
+    service: some FestivalScheduleService,
+    clock: TestClock<Duration> = TestClock()
   ) -> TestStoreOf<TimetableFeature> {
     TestStore(initialState: state) {
       TimetableFeature()
     } withDependencies: {
       $0.festivalScheduleService = service
       $0.date.now = beforeFestival
+      $0.continuousClock = clock
     }
   }
 }
@@ -285,5 +486,20 @@ private struct ScheduleServiceSpy: FestivalScheduleService {
   ) async throws(FestivalScheduleError) -> FestivalSchedule {
     replaced.withValue { $0.append(.init(setIDs: setIDs, clientAt: clientAt)) }
     return .init(setIDs: setIDs)
+  }
+}
+
+/// 저장하면 다른 기기가 먼저 저장한 빈 목록을 돌려준다.
+private struct StaleScheduleService: FestivalScheduleService {
+  func fetch(festivalID _: String) async throws(FestivalScheduleError) -> FestivalSchedule {
+    .init(setIDs: [])
+  }
+
+  func replace(
+    festivalID _: String,
+    setIDs _: [String],
+    clientAt _: Date
+  ) async throws(FestivalScheduleError) -> FestivalSchedule {
+    throw .stale(.init(setIDs: []))
   }
 }

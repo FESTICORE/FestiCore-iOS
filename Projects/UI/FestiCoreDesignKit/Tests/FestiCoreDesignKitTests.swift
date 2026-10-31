@@ -18,10 +18,10 @@ struct FestiCoreDesignKitTests {
     let binding = Binding<TestSheet?>(get: { box.item }, set: { box.item = $0 })
 
     box.item = .onboarding
-    FCSheetModifier<TestSheet, Text>.completeDismissal(of: .login, item: binding)
+    FCSheetModifier<TestSheet, Text, EmptyView>.completeDismissal(of: .login, item: binding)
     #expect(box.item == .onboarding)
 
-    FCSheetModifier<TestSheet, Text>.completeDismissal(of: .onboarding, item: binding)
+    FCSheetModifier<TestSheet, Text, EmptyView>.completeDismissal(of: .onboarding, item: binding)
     #expect(box.item == nil)
   }
 

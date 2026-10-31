@@ -39,11 +39,13 @@ public enum FCSheetHeight: Sendable {
 
 /// 아래에서 올라오는 바텀시트. 위쪽 손잡이, 반경 24 모서리, 딤 배경을 그리고 아래로 끌거나 딤을 누르면 닫힌다.
 /// `item`이 `nil`이 되면 닫히므로 TCA 상태(예: `destination`)와 바로 연결할 수 있다.
-public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View>: ViewModifier {
+/// `accessory`는 시트 위쪽 가장자리 16pt 위에 붙어 시트와 함께 움직이고, 닫기가 시작되면 바로 감춰진다(토스트 등).
+public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View, Accessory: View>: ViewModifier {
   @Binding var item: Item?
   let height: FCSheetHeight
   let showsGrabber: Bool
   let sheetContent: (Item) -> SheetContent
+  let accessory: (Item) -> Accessory
 
   @Environment(\.fcSheetDismissalDelay) private var dismissalDelay
   @State private var dragOffset: CGFloat = 0
@@ -55,12 +57,14 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
     item: Binding<Item?>,
     height: FCSheetHeight = .auto,
     showsGrabber: Bool = true,
-    @ViewBuilder content: @escaping (Item) -> SheetContent
+    @ViewBuilder content: @escaping (Item) -> SheetContent,
+    @ViewBuilder accessory: @escaping (Item) -> Accessory
   ) {
     _item = item
     self.height = height
     self.showsGrabber = showsGrabber
     sheetContent = content
+    self.accessory = accessory
   }
 
   public func body(content: Content) -> some View {
@@ -115,6 +119,11 @@ extension FCSheetModifier {
       .padding(.bottom, geometry.safeAreaInsets.bottom)
       .background(FestiCoreSemanticColor.backgroundElevated.color)
       .clipShape(UnevenRoundedRectangle(topLeadingRadius: FestiCoreRadius.r24, topTrailingRadius: FestiCoreRadius.r24))
+      .overlay(alignment: .top) {
+        accessory(currentItem)
+          .alignmentGuide(.top) { $0[.bottom] + FestiCoreSpacing.paddingP16 }
+          .opacity(pendingDismissal == nil ? 1 : 0)
+      }
       // 이동 중 배경과 내부 요소가 같은 기하 변환을 적용받도록 한다.
       .geometryGroup()
       .offset(y: dragOffset + dismissOffset)
@@ -190,6 +199,23 @@ extension FCSheetModifier {
   }
 }
 
+public extension FCSheetModifier where Accessory == EmptyView {
+  init(
+    item: Binding<Item?>,
+    height: FCSheetHeight = .auto,
+    showsGrabber: Bool = true,
+    @ViewBuilder content: @escaping (Item) -> SheetContent
+  ) {
+    self.init(
+      item: item,
+      height: height,
+      showsGrabber: showsGrabber,
+      content: content,
+      accessory: { _ in EmptyView() }
+    )
+  }
+}
+
 public extension View {
   /// `item`이 있으면 바텀시트를 띄운다.
   func presentFCSheet<Item: Identifiable & Equatable, SheetContent: View>(
@@ -204,6 +230,25 @@ public extension View {
         height: height,
         showsGrabber: showsGrabber,
         content: content
+      )
+    )
+  }
+
+  /// `item`이 있으면 바텀시트를 띄우고 시트 위에 `accessory`(토스트 등)를 붙인다.
+  func presentFCSheet<Item: Identifiable & Equatable, SheetContent: View, Accessory: View>(
+    item: Binding<Item?>,
+    height: FCSheetHeight = .auto,
+    showsGrabber: Bool = true,
+    @ViewBuilder content: @escaping (Item) -> SheetContent,
+    @ViewBuilder accessory: @escaping (Item) -> Accessory
+  ) -> some View {
+    modifier(
+      FCSheetModifier(
+        item: item,
+        height: height,
+        showsGrabber: showsGrabber,
+        content: content,
+        accessory: accessory
       )
     )
   }

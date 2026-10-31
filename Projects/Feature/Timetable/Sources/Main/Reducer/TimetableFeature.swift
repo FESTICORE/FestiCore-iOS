@@ -14,6 +14,7 @@ import TimetableInterface
 public struct TimetableFeature {
   @Dependency(\.festivalScheduleService) var scheduleService
   @Dependency(\.date.now) var now
+  @Dependency(\.continuousClock) var clock
 
   public init() {}
 
@@ -39,6 +40,7 @@ public struct TimetableFeature {
   enum CancelID {
     case load
     case save
+    case toast
   }
 
   @ObservableState
@@ -60,6 +62,8 @@ public struct TimetableFeature {
     public var scheduleSync: ScheduleSync = .idle
     /// 60개를 넘겨 추가하지 못했다.
     public var isScheduleLimitReached = false
+    /// 내 일정에 넣은 직후 시트 위에 보이는 "내 일정에 추가됐어요" 토스트
+    public var isScheduleToastVisible = false
     var loadRequestID = 0
     var isSaving = false
     var needsSave = false
@@ -111,7 +115,7 @@ public struct TimetableFeature {
 
     func isOverlapping(_ set: TimetableSet) -> Bool {
       guard mySetIDs.contains(set.id), let day = selectedDay else { return false }
-      return !overlappingArtists(of: set, in: day).isEmpty
+      return !overlaps(of: set, in: day).isEmpty
     }
 
     /// 상세 시트 정보. 시각이 흐르면 상태가 바뀌므로 화면이 현재 시각을 넘긴다.
@@ -131,10 +135,10 @@ public struct TimetableFeature {
       return TimetableSetDetail(
         artist: set.artist,
         stage: day.stages.first { $0.id == set.stageID }?.name ?? "무대 미정",
-        time: TimetableTime.range(set.start, set.end),
+        time: TimetableTime.rangeWithDuration(set.start, set.end),
         status: status,
         isScheduled: mySetIDs.contains(id),
-        overlappingArtists: overlappingArtists(of: set, in: day),
+        overlap: overlaps(of: set, in: day).first,
         previousTime: set.previousStart.map(TimetableTime.clock),
         change: set.previousStart.map { TimetableTime.change(from: $0, to: set.start) }
       )
@@ -148,11 +152,21 @@ public struct TimetableFeature {
         .sorted { $0.interval.start < $1.interval.start }
     }
 
-    private func overlappingArtists(of set: TimetableSet, in day: TimetableDay) -> [String] {
+    /// 시간이 겹치는 다른 내 일정 공연. 시작 시각순이다.
+    private func overlaps(of set: TimetableSet, in day: TimetableDay) -> [TimetableSetOverlap] {
       let interval = day.interval(of: set)
-      return myIntervals
-        .filter { $0.set.id != set.id && ($0.interval.intersection(with: interval)?.duration ?? 0) > 0 }
-        .map(\.set.artist)
+      return myIntervals.compactMap { mine in
+        guard mine.set.id != set.id,
+              let shared = mine.interval.intersection(with: interval),
+              shared.duration > 0 else { return nil }
+        let stages = days.first { $0.id == mine.dayID }?.stages ?? []
+        return TimetableSetOverlap(
+          artist: mine.set.artist,
+          stage: stages.first { $0.id == mine.set.stageID }?.name ?? "무대 미정",
+          time: TimetableTime.range(mine.set.start, mine.set.end),
+          minutes: Int((shared.duration / 60).rounded())
+        )
+      }
     }
   }
 
@@ -167,6 +181,7 @@ public struct TimetableFeature {
     case timetableAppeared
     case scheduleLoaded(festivalID: String, requestID: Int, Result<FestivalSchedule, FestivalScheduleError>)
     case scheduleSaved(festivalID: String, ScheduleSave, Result<FestivalSchedule, FestivalScheduleError>)
+    case scheduleToastExpired
   }
 
   @CasePathable
@@ -208,6 +223,10 @@ public struct TimetableFeature {
 
       case let .scheduleSaved(festivalID, save, result):
         return applySavedSchedule(state: &state, festivalID: festivalID, save: save, result: result)
+
+      case .scheduleToastExpired:
+        state.isScheduleToastVisible = false
+        return .none
       }
     }
   }
@@ -230,12 +249,12 @@ private extension TimetableFeature {
 
     case let .setTapped(id):
       state.selectedSetID = id
-      return .none
+      return hideScheduleToast(state: &state)
 
     case .setDetailDismissed:
       state.selectedSetID = nil
       state.isScheduleLimitReached = false
-      return .none
+      return hideScheduleToast(state: &state)
 
     case .setScheduleToggled:
       return toggleSchedule(state: &state)
