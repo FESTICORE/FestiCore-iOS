@@ -42,7 +42,7 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     initialJournalRecoveryPending = initialJournalUnreadable
   }
 
-  var isLoggedIn: Bool { recoveredCredential() != nil || sessionClearPending }
+  var isLoggedIn: Bool { recoveredCredential() != nil }
   var sessionID: UUID { store.sessionID }
   var authenticatedSessionID: UUID? { store.sessionSnapshot()?.id }
   var hasPendingLocalClear: Bool {

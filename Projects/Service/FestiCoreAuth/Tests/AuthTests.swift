@@ -237,7 +237,9 @@ struct AuthTests {
     storage.failIdentityRemoval = true
 
     #expect(await auth.signOut() == false)
-    #expect(await auth.isLoggedIn)
+    #expect(await auth.isLoggedIn == false)
+    #expect(await auth.hasPendingLocalClear)
+    #expect(await auth.refreshToken == nil)
     #expect(await auth.hasPendingWithdrawalCleanup == false)
     #expect(KeychainCredentialStore(storage: storage).load() == old)
 
@@ -260,7 +262,8 @@ struct AuthTests {
 
     #expect(await auth.completeWithdrawal() == false)
     #expect(await auth.hasPendingWithdrawalCleanup)
-    #expect(await auth.isLoggedIn)
+    #expect(await auth.isLoggedIn == false)
+    #expect(await auth.refreshToken == nil)
 
     storage.failTokenSaveFor = nil
     storage.failTokenRemovalFor = []
