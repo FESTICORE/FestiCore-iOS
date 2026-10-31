@@ -21,6 +21,7 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
   private var committedSessionID: UUID?
   /// 키체인 삭제 실패 뒤 서버에서 끝난 세션의 로컬 정리가 남아 있다.
   private var sessionClearPending = false
+  private var withdrawalCleanupPending = false
 
   init(
     authenticatedClient: any FestiCoreNetworkClient,
@@ -35,6 +36,7 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
   }
 
   var isLoggedIn: Bool { store.load() != nil || sessionClearPending }
+  var hasPendingWithdrawalCleanup: Bool { withdrawalCleanupPending }
   var refreshToken: String? { store.load()?.refreshToken }
   var currentUserID: String? {
     guard let credential = store.load(),
@@ -69,6 +71,7 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     credentials.update(session.credential)
     committedSessionID = session.id
     sessionClearPending = false
+    withdrawalCleanupPending = false
     if let userID = session.userID {
       try? identityStorage.save(userID, for: .sessionUserID)
     }
@@ -99,13 +102,20 @@ actor FestiCoreAuth: AuthService, AuthenticatedClientProvider {
     staged = nil
     let cleared = clearCommittedSession()
     sessionClearPending = !cleared
+    if cleared { withdrawalCleanupPending = false }
     return cleared
+  }
+
+  func completeWithdrawal() -> Bool {
+    withdrawalCleanupPending = true
+    return signOut()
   }
 
   func signOut(ifSession id: UUID) -> Bool {
     guard committedSessionID == id else { return false }
     let cleared = clearCommittedSession()
     sessionClearPending = !cleared
+    if cleared { withdrawalCleanupPending = false }
     return cleared
   }
 

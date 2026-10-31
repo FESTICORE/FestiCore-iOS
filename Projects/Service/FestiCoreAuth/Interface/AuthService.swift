@@ -23,6 +23,18 @@ public protocol AuthService: Sendable {
   /// 로컬 자격 증명 삭제가 완료되었을 때만 true를 반환한다.
   @discardableResult
   func signOut() async -> Bool
+  /// 서버 탈퇴가 성공했지만 로컬 자격 증명 정리가 남아 있는지 확인한다.
+  var hasPendingWithdrawalCleanup: Bool { get async }
+  /// 서버 탈퇴 성공 뒤 로컬 자격 증명을 정리하고, 실패 시 재시도 상태를 유지한다.
+  @discardableResult
+  func completeWithdrawal() async -> Bool
+}
+
+public extension AuthService {
+  var hasPendingWithdrawalCleanup: Bool { get async { false } }
+
+  @discardableResult
+  func completeWithdrawal() async -> Bool { await signOut() }
 }
 
 public extension Notification.Name {

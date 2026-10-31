@@ -199,6 +199,7 @@ struct AuthTests {
 
     #expect(await auth.signOut() == false)
     #expect(await auth.isLoggedIn)
+    #expect(await auth.hasPendingWithdrawalCleanup == false)
     #expect(KeychainCredentialStore(storage: storage).load() == old)
 
     storage.failTokenSaveFor = nil
@@ -207,6 +208,26 @@ struct AuthTests {
     #expect(await auth.signOut())
     #expect(await auth.isLoggedIn == false)
     #expect(KeychainCredentialStore(storage: storage).load() == nil)
+  }
+
+  @Test("탈퇴 후 로컬 삭제 실패만 탈퇴 정리 재시도 상태로 남긴다")
+  func withdrawalCleanupIsTrackedSeparately() async {
+    let storage = MemorySecureStorage()
+    let client = NetworkClientFactory.plain(baseURL: URL(string: "https://festicore.test"))
+    let auth = AuthFactory.make(refreshClient: client, storage: storage)
+    await signIn(auth, accessToken: old.accessToken, refreshToken: old.refreshToken)
+    storage.failTokenSaveFor = .credentialIntegrity
+    storage.failTokenRemovalFor = [.accessToken, .refreshToken]
+
+    #expect(await auth.completeWithdrawal() == false)
+    #expect(await auth.hasPendingWithdrawalCleanup)
+    #expect(await auth.isLoggedIn)
+
+    storage.failTokenSaveFor = nil
+    storage.failTokenRemovalFor = []
+    #expect(await auth.completeWithdrawal())
+    #expect(await auth.hasPendingWithdrawalCleanup == false)
+    #expect(await auth.isLoggedIn == false)
   }
 
   @Test("로그아웃 및 재로그인 뒤에는 이전 토큰 갱신 결과를 교체하지 않는다")

@@ -369,8 +369,8 @@ struct AuthDomainTests {
     #expect(await auth.isLoggedIn)
   }
 
-  @Test("회원 탈퇴 뒤 로컬 삭제가 남으면 401 재시도에서도 삭제 성공 전까지 완료하지 않는다")
-  func withdrawRetriesPendingLocalClear() async {
+  @Test("회원 탈퇴 뒤 로컬 삭제는 서버 오류와 관계없이 재시도한다", arguments: [0, 401, 500])
+  func withdrawRetriesPendingLocalClear(status: Int) async throws {
     let auth = StubAuthService(loggedIn: true, clearSucceeds: false)
     let successfulClient = StubClient(result: .success(Data()))
     let first = withDependencies {
@@ -379,18 +379,23 @@ struct AuthDomainTests {
     } operation: { AuthRepositoryImpl() }
     await #expect(throws: AuthDomainError.localSessionClearFailed) { try await first.withdraw() }
 
-    let unauthorizedClient = StubClient(result: .failure(.response(ResponseError(httpStatus: 401))))
+    let networkError: FestiCoreNetworkError = status == 0
+      ? .transport(.notConnected)
+      : .response(ResponseError(httpStatus: status))
+    let unavailableClient = StubClient(result: .failure(networkError))
     let retry = withDependencies {
-      $0.networkClient = unauthorizedClient
+      $0.networkClient = unavailableClient
       $0.authService = auth
     } operation: { AuthRepositoryImpl() }
     await #expect(throws: AuthDomainError.localSessionClearFailed) { try await retry.withdraw() }
     #expect(await auth.isLoggedIn)
+    #expect(await unavailableClient.calls == 0)
 
     await auth.setClearSucceeds(true)
-    await #expect(throws: FestiCoreNetworkError.self) { try await retry.withdraw() }
+    try await retry.withdraw()
     #expect(await auth.isLoggedIn == false)
     #expect(await auth.signOutCalls == 3)
+    #expect(await unavailableClient.calls == 0)
   }
 
   @Test("미로그인 상태는 회원 탈퇴 요청 전에 거부한다")
@@ -473,6 +478,7 @@ struct AuthDomainTests {
 private actor StubAuthService: AuthService {
   private var loggedIn: Bool
   private var clearSucceeds: Bool
+  private var withdrawalCleanupPending = false
   private(set) var tokens: [String] = []
   private(set) var signOutCalls = 0
 
@@ -482,7 +488,13 @@ private actor StubAuthService: AuthService {
   }
 
   var isLoggedIn: Bool { loggedIn }
+  var hasPendingWithdrawalCleanup: Bool { withdrawalCleanupPending }
   func setClearSucceeds(_ value: Bool) { clearSucceeds = value }
+
+  func completeWithdrawal() -> Bool {
+    withdrawalCleanupPending = true
+    return signOut()
+  }
   var refreshToken: String? { tokens.last }
   var currentUserID: String? { nil }
 
@@ -519,7 +531,10 @@ private actor StubAuthService: AuthService {
   func signOut() -> Bool {
     tokens = []
     signOutCalls += 1
-    if clearSucceeds { loggedIn = false }
+    if clearSucceeds {
+      loggedIn = false
+      withdrawalCleanupPending = false
+    }
     return clearSucceeds
   }
 }

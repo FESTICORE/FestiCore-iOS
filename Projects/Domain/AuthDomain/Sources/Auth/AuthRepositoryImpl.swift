@@ -115,14 +115,18 @@ public struct AuthRepositoryImpl: AuthInterface {
   }
 
   public func withdraw() async throws {
+    if await authService.hasPendingWithdrawalCleanup {
+      guard await authService.completeWithdrawal() else { throw AuthDomainError.localSessionClearFailed }
+      return
+    }
     guard await authService.isLoggedIn else { throw AuthDomainError.notAuthenticated }
 
     do {
       _ = try await client.send(AuthRequest.withdraw, as: FestiCoreEmptyResponse.self)
-      guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
     } catch {
       try await clearUnauthorizedSession(error)
       throw error
     }
+    guard await authService.completeWithdrawal() else { throw AuthDomainError.localSessionClearFailed }
   }
 }
