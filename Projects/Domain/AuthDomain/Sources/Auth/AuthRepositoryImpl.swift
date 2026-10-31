@@ -134,7 +134,6 @@ public struct AuthRepositoryImpl: AuthInterface {
       }
       // 갱신 실패가 먼저 세션을 지웠다면 요청 오류와 관계없이 로그아웃을 마친 상태다.
       guard await authService.isLoggedIn else {
-        guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
         return
       }
       await authService.finishRevocationRequest()

@@ -842,8 +842,11 @@ struct AuthTests {
     let made = AuthFactory.make(refreshClient: client, storage: storage, revocationJournalURL: storage.journalURL)
     let auth = try #require(made as? FestiCoreAuth)
     let accessToken = jwt(subject: "user-a")
-    await signIn(auth, accessToken: accessToken, refreshToken: "refresh-a")
+    let stagedSessionID = await auth.stageSession(accessToken: accessToken, refreshToken: "refresh-a")
+    #expect(await auth.commitSession(stagedSessionID))
     let sessionID = await auth.sessionID
+    #expect(await auth.authenticatedSessionID == sessionID)
+    #expect(await auth.isLoggedIn)
     #expect(await auth.prepareRevocation(.withdrawal, ifSessionIDMatches: sessionID))
 
     await auth.handleAuthFailure(
