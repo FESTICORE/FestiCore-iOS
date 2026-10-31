@@ -11,6 +11,7 @@ let project = Project.makeModule(
     .SPM.kingfisher,
     .SPM.dependencies,
   ],
+  hasTests: true,
   hasInterface: true,
   interfaceDependencies: [
     .SPM.dependencies

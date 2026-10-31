@@ -1,7 +1,5 @@
 import ComposableArchitecture
-import Dependencies
 import FestivalDomainInterface
-import FestivalDomain
 import FestiCorePackInterface
 import Foundation
 import Testing
@@ -12,15 +10,6 @@ struct HomeOfflineTests {
     let catalog = FestivalCatalogServiceDependency.testValue
     #expect(try await catalog.cachedFestivals().isEmpty)
     #expect(try await catalog.refresh().isEmpty)
-  }
-
-  @Test func liveImagePrefetchDependencyIsRegistered() async {
-    func requireLiveDependency<Key: DependencyKey>(_: Key.Type) {}
-    requireLiveDependency(FestivalImagePrefetchClient.self)
-
-    let client = FestivalImagePrefetchClient.liveValue
-    await client.start([])
-    await client.stop()
   }
 
   @Test @MainActor func cachedPackAppearsBeforeFailedRefresh() async {
