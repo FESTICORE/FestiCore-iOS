@@ -44,31 +44,6 @@ struct FestivalListPresentationTests {
     #expect("2026-02-30".date(as: .day) == nil)
   }
 
-  @Test func recentSearchesKeepNewestFirstWithoutDuplicates() {
-    var storage = ""
-    for keyword in ["펜타포트", "원더리벳", " 펜타포트 ", ""] {
-      storage = FestivalListPresentation.recentSearchStorage(
-        adding: keyword,
-        to: storage
-      )
-    }
-
-    #expect(FestivalListPresentation.recentSearches(from: storage) == ["펜타포트", "원더리벳"])
-  }
-
-  @Test func recentSearchesKeepOnlyTheLimit() {
-    let storage = (1...12).reduce("") { storage, number in
-      FestivalListPresentation.recentSearchStorage(
-        adding: "검색\(number)",
-        to: storage
-      )
-    }
-    let searches = FestivalListPresentation.recentSearches(from: storage)
-
-    #expect(searches.count == 10)
-    #expect(searches.first == "검색12")
-  }
-
   private func festival(
     id: String, name: String, venue: String?,
     firstDate: String? = nil, lastDate: String? = nil

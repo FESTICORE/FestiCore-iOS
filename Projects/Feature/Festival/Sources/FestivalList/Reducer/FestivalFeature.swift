@@ -9,6 +9,7 @@ public struct FestivalFeature {
   @Dependency(\.festivalCatalogService) private var catalogService
   @Dependency(\.festivalSelectionStore) private var selectionStore
   @Dependency(\.festivalBookedStore) private var bookedStore
+  @Dependency(\.festivalRecentSearchStore) private var recentSearchStore
   @Dependency(\.packSyncService) private var packService
   @Dependency(\.festivalLiveBoardService) private var liveBoardService
   @Dependency(\.festivalScheduleService) private var scheduleService
@@ -36,6 +37,7 @@ public struct FestivalFeature {
     public var selectedFestivalID: String?
     public var bookedFestivalIDs: Set<String> = []
     public var bookedUserID: String?
+    public var recentSearches: [String] = []
     public var selectedPack: FestivalPackDocument?
     public var liveBoard: FestivalLiveBoardSnapshot?
     public var liveBoardUnavailable = false
@@ -182,6 +184,9 @@ public struct FestivalFeature {
     case selectFestival(String)
     case backToFestivalList
     case toggleBookedFestival(String)
+    case recentSearchSubmitted(String)
+    case recentSearchRemoved(String)
+    case recentSearchesCleared
     case liveActivityOnAppear
     case liveBoardOnAppear
     case liveBoardOnDisappear
@@ -221,6 +226,7 @@ public struct FestivalFeature {
       switch action {
       case .view(.onAppear):
         state.bookedFestivalIDs = state.bookedUserID.map { bookedStore.load(for: $0) } ?? []
+        state.recentSearches = recentSearchStore.load(for: state.bookedUserID)
         guard !state.hasStarted else { return .none }
         state.hasStarted = true
         return .run { send in
@@ -409,9 +415,23 @@ public struct FestivalFeature {
         guard state.festivals.contains(where: { $0.id == id }) else { return .none }
         return .send(.delegate(.bookmarkRequested(id)))
 
+      case let .view(.recentSearchSubmitted(query)):
+        state.recentSearches = recentSearchStore.add(query, for: state.bookedUserID)
+        return .none
+
+      case let .view(.recentSearchRemoved(query)):
+        state.recentSearches = recentSearchStore.remove(query, for: state.bookedUserID)
+        return .none
+
+      case .view(.recentSearchesCleared):
+        recentSearchStore.clear(for: state.bookedUserID)
+        state.recentSearches = []
+        return .none
+
       case let .reloadBookmarks(userID):
         state.bookedUserID = userID
         state.bookedFestivalIDs = userID.map { bookedStore.load(for: $0) } ?? []
+        state.recentSearches = recentSearchStore.load(for: userID)
         return .none
 
       case .accountChanged:
@@ -419,9 +439,11 @@ public struct FestivalFeature {
         guard state.hasSession || state.sessionUserID != nil else {
           state.bookedUserID = nil
           state.bookedFestivalIDs = []
+          state.recentSearches = recentSearchStore.load(for: nil)
           return .none
         }
         state.clearAccountData()
+        state.recentSearches = recentSearchStore.load(for: nil)
         state.hasSession = false
         state.sessionUserID = nil
         state.accountGeneration += 1
@@ -436,6 +458,7 @@ public struct FestivalFeature {
           state.bookedUserID = nil
           state.bookedFestivalIDs = []
         }
+        state.recentSearches = recentSearchStore.load(for: state.bookedUserID)
         state.hasSession = hasSession
         state.sessionUserID = userID
         state.accountGeneration += 1

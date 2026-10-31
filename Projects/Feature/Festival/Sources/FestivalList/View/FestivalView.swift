@@ -37,6 +37,7 @@ public struct FestivalView: View {
   private var festivalList: some View {
     FestivalListView(
       userID: store.bookedUserID,
+      recentSearches: store.recentSearches,
       festivals: store.festivals,
       bookedFestivalIDs: store.bookedFestivalIDs,
       imageRevision: store.imageRevision,
@@ -44,7 +45,10 @@ public struct FestivalView: View {
       imageURL: imageURL,
       onSelect: { send(.selectFestival($0)) },
       onToggleBooked: { send(.toggleBookedFestival($0)) },
-      onRefresh: { send(.refreshRequested) }
+      onRefresh: { send(.refreshRequested) },
+      onRecentSearchSubmitted: { send(.recentSearchSubmitted($0)) },
+      onRecentSearchRemoved: { send(.recentSearchRemoved($0)) },
+      onRecentSearchesCleared: { send(.recentSearchesCleared) }
     )
   }
 

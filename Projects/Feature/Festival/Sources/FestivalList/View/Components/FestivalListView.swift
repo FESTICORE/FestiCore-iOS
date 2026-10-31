@@ -5,6 +5,7 @@ import SwiftUI
 /// Figma S00 페스티벌 목록. 전체·예매 완료 탭과 검색(최근 검색·다가오는 페스티벌·결과·결과 없음)을 보여 준다.
 struct FestivalListView: View {
   let userID: String?
+  let recentSearches: [String]
   let festivals: [FestivalOverview]
   let bookedFestivalIDs: Set<String>
   let imageRevision: Int
@@ -13,18 +14,13 @@ struct FestivalListView: View {
   let onSelect: (String) -> Void
   let onToggleBooked: (String) -> Void
   let onRefresh: () -> Void
+  let onRecentSearchSubmitted: (String) -> Void
+  let onRecentSearchRemoved: (String) -> Void
+  let onRecentSearchesCleared: () -> Void
 
   @State private var selectedFilter = 0
   @State private var isSearching = false
   @State private var query = ""
-  @State private var recentSearchStorage = ""
-  @State private var loadedSearchKey: String?
-  @State private var lastAccountKey: String?
-
-  private var recentSearchKey: String {
-    userID.map { "FestiCore.festivalRecentSearches.user.\($0)" }
-      ?? "FestiCore.festivalRecentSearches.anonymous"
-  }
 
   private var trimmedQuery: String {
     query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -55,11 +51,6 @@ struct FestivalListView: View {
       }
       return false
     }
-  }
-
-  private var recentSearches: [String] {
-    guard loadedSearchKey == recentSearchKey else { return [] }
-    return FestivalListPresentation.recentSearches(from: recentSearchStorage)
   }
 
   var body: some View {
@@ -94,19 +85,10 @@ struct FestivalListView: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .animation(.easeOut(duration: Metric.duration), value: isSearching)
-    .task(id: userID) {
-      if let lastAccountKey, lastAccountKey != recentSearchKey {
-        isSearching = false
-        query = ""
-        selectedFilter = 0
-      }
-      lastAccountKey = recentSearchKey
-      recentSearchStorage = UserDefaults.standard.string(forKey: recentSearchKey) ?? ""
-      loadedSearchKey = recentSearchKey
-    }
-    .onChange(of: recentSearchStorage) { _, value in
-      guard loadedSearchKey == recentSearchKey else { return }
-      UserDefaults.standard.set(value, forKey: recentSearchKey)
+    .onChange(of: userID) { _, _ in
+      isSearching = false
+      query = ""
+      selectedFilter = 0
     }
   }
 
@@ -207,7 +189,7 @@ struct FestivalListView: View {
       VStack(alignment: .leading, spacing: .zero) {
         if !recentSearches.isEmpty {
           FCSectionHeader("최근 검색")
-            .action("전체 삭제") { recentSearchStorage = "" }
+            .action("전체 삭제", perform: onRecentSearchesCleared)
             .padding(.top, FestiCoreSpacing.paddingP20)
             .padding(.bottom, FestiCoreSpacing.paddingP8)
             .padding(.horizontal, FestiCoreSpacing.paddingP16)
@@ -217,7 +199,7 @@ struct FestivalListView: View {
                 FCRecentKeyword(
                   keyword,
                   onSelect: { query = keyword },
-                  onDelete: { removeRecentSearch(keyword) }
+                  onDelete: { onRecentSearchRemoved(keyword) }
                 )
               }
             }
@@ -273,17 +255,8 @@ struct FestivalListView: View {
   }
 
   private func saveRecentSearch() {
-    guard loadedSearchKey == recentSearchKey else { return }
-    recentSearchStorage = FestivalListPresentation.recentSearchStorage(
-      adding: trimmedQuery,
-      to: recentSearchStorage
-    )
-  }
-
-  private func removeRecentSearch(_ keyword: String) {
-    recentSearchStorage = recentSearches
-      .filter { $0 != keyword }
-      .joined(separator: "\n")
+    guard !trimmedQuery.isEmpty else { return }
+    onRecentSearchSubmitted(trimmedQuery)
   }
 
   // MARK: - 표시 문구
