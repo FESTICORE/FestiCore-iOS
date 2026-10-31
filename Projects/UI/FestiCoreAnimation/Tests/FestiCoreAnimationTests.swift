@@ -21,6 +21,12 @@ struct FestiCoreAnimationTests {
     #expect(layers.contains { $0["nm"] as? String == "Background #111113" && $0["sc"] as? String == "#111113" })
   }
 
+  @Test func modalTransitionMatchesAttendanceSpring() {
+    let expected = String(reflecting: Animation.spring(response: 0.42, dampingFraction: 0.88))
+    #expect(String(reflecting: FestiCoreAnimations.modalTransition) == expected)
+    #expect(String(reflecting: Animation.fcModal) == expected)
+  }
+
   @Test @MainActor func viewAcceptsCallerBundleAndPausedBinding() {
     let view = FestiCoreAnimationView(name: "loading.gif", bundle: .main, isAnimating: .constant(false))
     let controller = UIHostingController(rootView: view)

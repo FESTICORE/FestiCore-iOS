@@ -33,12 +33,14 @@ struct MainTabView: View {
       .overlay {
         if store.selectedTab == .timetable, store.timetableState.selectedSetID != nil {
           timetableView.modalOverlay
-        } else if store.selectedTab == .my,
-                  store.profileState.isAccountPresented
-                    || store.profileState.isLogoutConfirmationPresented
-                    || store.profileState.isWithdrawalConfirmationPresented
-                    || store.profileState.isLegalLinkUnavailablePresented {
+        } else if store.selectedTab == .my, store.profileState.isAccountPresented {
           profileView.modalOverlay
+        }
+      }
+      .overlay {
+        // 확인 팝업은 시트 위층의 고정 호스트에서 넣고 빼야 닫힘 애니메이션이 잘리지 않는다.
+        if store.selectedTab == .my {
+          profileView.dialogOverlay
         }
       }
   }

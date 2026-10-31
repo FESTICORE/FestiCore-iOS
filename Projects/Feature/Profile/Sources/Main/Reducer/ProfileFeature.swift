@@ -40,6 +40,8 @@ public struct ProfileFeature {
     public var isLogoutConfirmationPresented = false
     public var isWithdrawalConfirmationPresented = false
     public var isLegalLinkUnavailablePresented = false
+    /// 확인 팝업을 띄울 때마다 바뀌는 값. 같은 팝업을 닫고 바로 다시 열어도 등장 애니메이션을 다시 재생한다.
+    public var dialogPresentationID = 0
 
     public init() {}
   }
@@ -108,6 +110,7 @@ public struct ProfileFeature {
       case .view(.refreshTapped): return .send(.delegate(.profileRefreshRequested))
       case .view(.logoutTapped):
         state.isLogoutConfirmationPresented = true
+        state.dialogPresentationID += 1
         return .none
       case .view(.logoutConfirmationDismissed):
         state.isLogoutConfirmationPresented = false
@@ -117,6 +120,7 @@ public struct ProfileFeature {
         return .send(.delegate(.logoutRequested))
       case .view(.withdrawTapped):
         state.isWithdrawalConfirmationPresented = true
+        state.dialogPresentationID += 1
         return .none
       case .view(.withdrawalConfirmationDismissed):
         state.isWithdrawalConfirmationPresented = false
@@ -140,6 +144,7 @@ public struct ProfileFeature {
   private func openLegalURL(path: String, state: inout State) -> Effect<Action> {
     guard let legalBaseURL else {
       state.isLegalLinkUnavailablePresented = true
+      state.dialogPresentationID += 1
       return .none
     }
     return open(legalBaseURL.appending(path: path))

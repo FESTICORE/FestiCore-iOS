@@ -23,13 +23,19 @@ struct ProfileFeatureTests {
     let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
 
     await store.send(.view(.accountTapped(isSignedIn: true))) { $0.isAccountPresented = true }
-    await store.send(.view(.logoutTapped)) { $0.isLogoutConfirmationPresented = true }
+    await store.send(.view(.logoutTapped)) {
+      $0.isLogoutConfirmationPresented = true
+      $0.dialogPresentationID = 1
+    }
     await store.send(.view(.confirmLogoutTapped)) {
       $0.isLogoutConfirmationPresented = false
     }
     await store.receive(\.delegate.logoutRequested)
     #expect(store.state.isAccountPresented)
-    await store.send(.view(.logoutTapped)) { $0.isLogoutConfirmationPresented = true }
+    await store.send(.view(.logoutTapped)) {
+      $0.isLogoutConfirmationPresented = true
+      $0.dialogPresentationID = 2
+    }
   }
 
   @Test func packTapPreservesSelectedIdentity() async {
@@ -43,7 +49,10 @@ struct ProfileFeatureTests {
     let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
 
     await store.send(.view(.accountTapped(isSignedIn: true))) { $0.isAccountPresented = true }
-    await store.send(.view(.withdrawTapped)) { $0.isWithdrawalConfirmationPresented = true }
+    await store.send(.view(.withdrawTapped)) {
+      $0.isWithdrawalConfirmationPresented = true
+      $0.dialogPresentationID = 1
+    }
     await store.send(.view(.accountDismissed)) {
       $0.isAccountPresented = false
       $0.isWithdrawalConfirmationPresented = false
@@ -54,11 +63,17 @@ struct ProfileFeatureTests {
     let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
 
     await store.send(.view(.accountTapped(isSignedIn: true))) { $0.isAccountPresented = true }
-    await store.send(.view(.withdrawTapped)) { $0.isWithdrawalConfirmationPresented = true }
+    await store.send(.view(.withdrawTapped)) {
+      $0.isWithdrawalConfirmationPresented = true
+      $0.dialogPresentationID = 1
+    }
     await store.send(.view(.confirmWithdrawTapped)) { $0.isWithdrawalConfirmationPresented = false }
     await store.receive(\.delegate.withdrawRequested)
     #expect(store.state.isAccountPresented)
-    await store.send(.view(.withdrawTapped)) { $0.isWithdrawalConfirmationPresented = true }
+    await store.send(.view(.withdrawTapped)) {
+      $0.isWithdrawalConfirmationPresented = true
+      $0.dialogPresentationID = 2
+    }
   }
 
   @Test func missingLegalConfigurationShowsDismissibleError() async {
@@ -66,8 +81,14 @@ struct ProfileFeatureTests {
       ProfileFeature(legalBaseURL: nil)
     }
 
-    await store.send(.view(.termsTapped)) { $0.isLegalLinkUnavailablePresented = true }
+    await store.send(.view(.termsTapped)) {
+      $0.isLegalLinkUnavailablePresented = true
+      $0.dialogPresentationID = 1
+    }
     await store.send(.view(.legalLinkUnavailableDismissed)) { $0.isLegalLinkUnavailablePresented = false }
-    await store.send(.view(.privacyTapped)) { $0.isLegalLinkUnavailablePresented = true }
+    await store.send(.view(.privacyTapped)) {
+      $0.isLegalLinkUnavailablePresented = true
+      $0.dialogPresentationID = 2
+    }
   }
 }

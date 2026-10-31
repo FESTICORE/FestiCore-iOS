@@ -24,6 +24,7 @@ struct OverlayView: View {
 
   @State private var sheet: Sheet?
   @State private var dialog: FCDialogItem?
+  @State private var dimDismissDialog: FCDialogItem?
   @State private var toast: FCToast.Item?
   @State private var reportSelection: Int?
   @State private var checkOverlay: FCCheckOverlay.Item?
@@ -55,6 +56,16 @@ struct OverlayView: View {
           dialog = FCDialogItem(
             title: "이 안내를 숨길까요?",
             message: "마이 > 설정에서 다시 켤 수 있어요.",
+            onConfirm: {}
+          )
+        }
+        .style(.secondary)
+        .isFullWidth(true)
+        FCButton("확인 다이얼로그 (딤 탭으로 닫기)") {
+          dimDismissDialog = FCDialogItem(
+            title: "로그아웃",
+            message: "이 기기에서 로그아웃하시겠습니까?",
+            confirmTitle: "로그아웃",
             onConfirm: {}
           )
         }
@@ -139,13 +150,14 @@ struct OverlayView: View {
         )
       }
     }
+    .fcDialog(item: $dialog)
     .overlay {
-      if let dialog {
-        FCDialog(dialog) { self.dialog = nil }
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
-          .background(FestiCoreSemanticColor.materialDimmer.color)
+      if let dimDismissDialog {
+        FCDialogOverlay(item: dimDismissDialog, dismissesOnDimTap: true) { self.dimDismissDialog = nil }
+          .id(dimDismissDialog.id)
       }
     }
+    .animation(.spring(response: 0.42, dampingFraction: 0.88), value: dimDismissDialog)
     .fcToast(item: $toast)
     .fcCheckOverlay(item: $checkOverlay)
   }

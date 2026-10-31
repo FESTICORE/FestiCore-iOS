@@ -7,6 +7,7 @@
 
 import AuthDomainInterface
 import ComposableArchitecture
+import FestiCoreAnimation
 import FestiCoreDesignKit
 import FestiCoreSharedUI
 import SwiftUI
@@ -85,7 +86,7 @@ public struct ProfileView: View {
     }
   }
 
-  /// 탭 화면 전체 위에 올려 탭바 영역까지 시트와 확인창이 덮도록 한다.
+  /// 탭 화면 전체 위에 올려 탭바 영역까지 시트가 덮도록 한다.
   public var modalOverlay: some View {
     Color.clear
       .presentFCSheet(item: accountItem) { _ in
@@ -98,7 +99,18 @@ public struct ProfileView: View {
           onWithdraw: { store.send(.view(.withdrawTapped)) }
         )
       }
-      .overlay { confirmationOverlay }
+  }
+
+  /// 로그아웃·탈퇴·링크 안내 확인 팝업. 시트 위층에 항상 두어 닫힘 애니메이션이 잘리지 않게 한다.
+  public var dialogOverlay: some View {
+    ZStack {
+      confirmationOverlay
+        .id(store.dialogPresentationID)
+    }
+    .animation(.fcModal, value: store.dialogPresentationID)
+    .animation(.fcModal, value: store.isLogoutConfirmationPresented)
+    .animation(.fcModal, value: store.isWithdrawalConfirmationPresented)
+    .animation(.fcModal, value: store.isLegalLinkUnavailablePresented)
   }
 }
 
@@ -226,21 +238,17 @@ private extension ProfileView {
     onConfirm: @escaping () -> Void,
     onDismiss: @escaping () -> Void
   ) -> some View {
-    ZStack {
-      FestiCoreSemanticColor.materialDimmer.color
-        .ignoresSafeArea()
-        .onTapGesture(perform: onDismiss)
-      FCDialog(
-        FCDialogItem(
-          title: title,
-          message: message,
-          confirmTitle: confirmTitle,
-          onConfirm: onConfirm,
-          onCancel: {}
-        ),
-        onDismiss: onDismiss
-      )
-    }
+    FCDialogOverlay(
+      item: FCDialogItem(
+        title: title,
+        message: message,
+        confirmTitle: confirmTitle,
+        onConfirm: onConfirm,
+        onCancel: {}
+      ),
+      dismissesOnDimTap: true,
+      onDismiss: onDismiss
+    )
   }
 
   func sectionTitle(_ title: String) -> some View {
