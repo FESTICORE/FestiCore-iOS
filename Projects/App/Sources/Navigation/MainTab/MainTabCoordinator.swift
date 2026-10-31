@@ -143,6 +143,12 @@ struct MainTabCoordinator {
       case .timetable:
         return .none
 
+      case .flag(.directory(.delegate(.loginRequested))):
+        return .send(.delegate(.myLoginRequested))
+
+      case .flag(.directory(.delegate(.termsAcceptanceRequested))):
+        return .send(.delegate(.myProfileRefreshRequested))
+
       case .flag, .delegate:
         return .none
 
@@ -172,13 +178,25 @@ struct MainTabCoordinator {
 
   private func syncFlag(state: inout State) -> Effect<Action> {
     let selectedID: String?
+    let pack: FestivalPackDocument?
     if let screen = state.festivalState.routes.last?.screen {
       switch screen {
-      case let .festivalList(festival): selectedID = festival.selectedFestivalID
-      case let .liveBoard(festival): selectedID = festival.selectedFestivalID
+      case let .festivalList(festival):
+        selectedID = festival.selectedFestivalID
+        pack = festival.selectedPack
+      case let .liveBoard(festival):
+        selectedID = festival.selectedFestivalID
+        pack = festival.selectedPack
       }
     } else {
       selectedID = nil
+      pack = nil
+    }
+    // 깃발 카드의 구역 칩은 선택 축제 팩의 구역 이름을 쓴다. 다른 축제의 팩이면 비운다.
+    let zones = pack?.id == selectedID ? pack?.zones ?? [] : []
+    let zoneNames = Dictionary(zones.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+    if state.flagState.directory.zoneNames != zoneNames {
+      state.flagState.directory.zoneNames = zoneNames
     }
     return selectedID == state.flagState.festivalID
       ? .none : .send(.flag(.festivalChanged(selectedID)))
