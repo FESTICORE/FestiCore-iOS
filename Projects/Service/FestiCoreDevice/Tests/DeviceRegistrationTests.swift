@@ -135,6 +135,20 @@ struct DeviceRegistrationTests {
     #expect(try await service.authorization()?.deviceID == nil)
     #expect(try await service.installationDeviceID() == deviceID)
   }
+
+  @Test("서버 등록 전에 만든 설치 UUID를 이후 등록에도 사용한다")
+  func installationIDBeforeRegistrationIsReused() async throws {
+    let storage = MemoryDeviceStorage()
+    let service = NetworkDeviceRegistrationService(client: StubDeviceClient(), storage: storage)
+
+    let deviceID = try await service.installationDeviceID()
+    #expect(UUID(uuidString: deviceID) != nil)
+    #expect(storage.load(.deviceID) == deviceID)
+    #expect(try await service.authorization() == nil)
+
+    let authorization = try await service.register(metadata)
+    #expect(authorization.deviceID == deviceID)
+  }
 }
 
 private final class MemoryDeviceStorage: SecureStorage, @unchecked Sendable {
