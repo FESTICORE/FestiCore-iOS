@@ -148,7 +148,11 @@ public extension Project {
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .default,
         buildableFolders: ["Demo"],
-        dependencies: [.target(name: name)] + demoDependencies
+        dependencies: [.target(name: name)] + demoDependencies,
+        settings: .settings(base: [
+          "CODE_SIGN_STYLE": "Automatic",
+          "DEVELOPMENT_TEAM": .string(Environment.organizationTeamId)
+        ])
       ))
     }
 
