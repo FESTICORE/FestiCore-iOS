@@ -10,6 +10,7 @@ let project = Project.makeModule(
     .core(.network, .interface),
     .domain(.festival, .interface),
     .domain(.festival),
+    .service(.auth, .interface),
     .service(.device, .interface),
     .SPM.alamofire,
   ],
