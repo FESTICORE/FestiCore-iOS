@@ -1,6 +1,7 @@
 import Alamofire
 import FestivalDomain
 import FestiCoreNetworkInterface
+import Foundation
 
 struct FestivalLiveRequest: FestiCoreDataRequest {
   typealias Response = FestivalLiveBoardResponseDTO
