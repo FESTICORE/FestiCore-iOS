@@ -41,6 +41,7 @@ public struct DeviceRegistrationMetadata: Sendable, Equatable {
 }
 
 public protocol DeviceRegistrationService: Sendable {
+  func installationDeviceID() async throws -> String
   func register(_ metadata: DeviceRegistrationMetadata) async throws -> DeviceAuthorization
   func authorization() async throws -> DeviceAuthorization?
 }
@@ -61,6 +62,10 @@ public extension DependencyValues {
 }
 
 private struct UnimplementedDeviceRegistrationService: DeviceRegistrationService {
+  func installationDeviceID() async throws -> String {
+    throw TestDeviceRegistrationUnavailable()
+  }
+
   func register(_: DeviceRegistrationMetadata) async throws -> DeviceAuthorization {
     throw TestDeviceRegistrationUnavailable()
   }

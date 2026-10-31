@@ -6,6 +6,50 @@ import Testing
 
 @MainActor
 struct FestivalLiveBoardSessionTests {
+  @Test("미발행 축제는 공개 전 상태를 표시하고 발행 후 자동으로 보드를 보여준다")
+  func unpublishedFestivalBecomesAvailableOnNextPoll() async {
+    let clock = TestClock()
+    let calls = LockIsolated(0)
+    let receivedAt = Date(timeIntervalSince1970: 2_000)
+    let store = TestStore(initialState: {
+      var state = FestivalFeature.State(selectedFestivalID: "fst")
+      state.liveBoard = previousAccountBoard
+      state.liveBoardReceivedAt = Date(timeIntervalSince1970: 1_000)
+      return state
+    }()) { FestivalFeature() } withDependencies: {
+      $0.continuousClock = clock
+      $0.date = .constant(receivedAt)
+      $0.festivalLiveBoardService = SessionLiveBoardService { _ in
+        let attempt = calls.withValue { count in
+          count += 1
+          return count
+        }
+        if attempt == 1 { throw FestivalLiveBoardError.festivalNotFound }
+        return emptyBoard
+      }
+    }
+
+    await store.send(.view(.liveBoardOnAppear)) { $0.isLiveBoardVisible = true }
+    await store.receive(\.inner.liveBoardUnpublished) {
+      $0.liveBoard = nil
+      $0.liveBoardUnpublished = true
+      $0.liveBoardReceivedAt = nil
+    }
+    await clock.advance(by: .seconds(35))
+    await store.receive(\.inner.liveBoardLoaded) {
+      $0.liveBoard = emptyBoard
+      $0.liveBoardUnpublished = false
+      $0.liveBoardClockAnchorAt = receivedAt
+      $0.liveBoardReceivedAt = receivedAt
+    }
+    #expect(calls.value == 2)
+    #expect(!store.state.liveBoardUnavailable)
+    await store.send(.view(.liveBoardOnDisappear)) {
+      $0.isLiveBoardVisible = false
+      $0.myScheduleRequestID = 1
+    }
+  }
+
   @Test("사용자 ID를 확인하지 못한 세션도 라이브 보드가 보이면 내 일정을 불러온다")
   func sessionWithoutUserIDLoadsMySchedule() async {
     let clock = TestClock()

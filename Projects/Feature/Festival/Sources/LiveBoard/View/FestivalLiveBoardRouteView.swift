@@ -19,6 +19,7 @@ public struct FestivalLiveBoardRouteView: View {
           pack: store.selectedPack,
           liveBoard: store.liveBoard,
           liveBoardUnavailable: store.liveBoardUnavailable,
+          liveBoardUnpublished: store.liveBoardUnpublished,
           liveBoardClockAnchorAt: store.liveBoardClockAnchorAt,
           liveBoardReceivedAt: store.liveBoardReceivedAt,
           hasSession: store.hasSession,
