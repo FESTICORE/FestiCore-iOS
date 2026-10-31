@@ -36,12 +36,13 @@ public struct AuthRepositoryImpl: AuthInterface {
           !response.data.refreshToken.isEmpty else {
       throw AuthDomainError.invalidResponse
     }
-    await authService.signIn(
+    let sessionID = await authService.stageSession(
       accessToken: response.data.accessToken,
       refreshToken: response.data.refreshToken
     )
     await authService.rememberUserID(response.data.user.id)
-    return response.data.toDomain()
+    let result = response.data.toDomain()
+    return AuthLoginResult(newUser: result.newUser, user: result.user, sessionID: sessionID)
   }
 
   public func fetchProfile() async throws -> AuthProfile {
