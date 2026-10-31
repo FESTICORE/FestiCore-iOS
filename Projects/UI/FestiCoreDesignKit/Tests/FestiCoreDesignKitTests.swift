@@ -221,6 +221,19 @@ struct FestiCoreDesignKitTests {
     #expect(FCPagination(count: -1, current: 1).accessibilityText == nil)
   }
 
+  @Test @MainActor func flagCardFollowButtonMatchesFigmaVariants() {
+    #expect(FCFlagCard<FCThumbnail>.followStyle(isFollowing: false) == .inverse)
+    #expect(FCFlagCard<FCThumbnail>.followStyle(isFollowing: true) == .secondary)
+    let card = FCFlagCard(
+      name: "호락호락",
+      status: nil,
+      zone: "리벳 스테이지 앞 왼쪽",
+      context: .directory(followers: "팔로워 1,284", tags: ["슬램"], isFollowing: false) {}
+    )
+    #expect(card.isFollowEnabled)
+    #expect(card.followEnabled(false).isFollowEnabled == false)
+  }
+
   @Test @MainActor func missingImageAssetUsesAttendanceFallback() {
     let asset = ImageAsset(rawValue: "missing-image")
     #expect(UIImage(asset) == nil)
