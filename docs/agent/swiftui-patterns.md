@@ -1,6 +1,6 @@
 # SwiftUI View 패턴
 
-Attendance의 `AttendanceCheckView`처럼 타입 본문은 저장 속성, 초기화, `body`에 집중한다. 화면 섹션, 하위 뷰 빌더, UI 전용 계산 값과 액션 헬퍼는 같은 파일의 `private extension`으로 내린다. 실제 구조는 `Projects/Feature/Timetable/Sources/TimetableView.swift`의 `TimetableView`와 `private extension TimetableView`를 참고한다. Attendance의 `ProfileView`처럼 기존 테스트가 접근하는 내부 헬퍼가 있으면 일반 `extension`을 쓰고 비공개 멤버에 각각 `private`를 붙인다.
+Attendance의 `AttendanceCheckView`처럼 타입 본문은 저장 속성, 초기화, `body`에 집중한다. 화면 섹션, 하위 뷰 빌더, UI 전용 계산 값과 액션 헬퍼는 같은 파일의 `private extension`으로 내린다. 실제 구조는 `Projects/Feature/Timetable/Sources/Main/View/TimetableView.swift`의 `TimetableView`와 `private extension TimetableView`를 참고한다. Attendance의 `ProfileView`처럼 기존 테스트가 접근하는 내부 헬퍼가 있으면 일반 `extension`을 쓰고 비공개 멤버에 각각 `private`를 붙인다.
 
 이 규칙은 앱·Feature·Widget 화면과 DesignKit·SharedUI 컴포넌트에 함께 적용한다. 외부에서 호출하는 체이닝 설정은 `public extension`에 유지한다.
 
