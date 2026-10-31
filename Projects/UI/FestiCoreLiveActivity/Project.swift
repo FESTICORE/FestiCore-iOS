@@ -7,8 +7,14 @@
 
 import ProjectDescription
 import ProjectTemplatePlugin
+import DependencyPlugin
+import DependencyPackagePlugin
 
 let project = Project.makeModule(
   name: "FestiCoreLiveActivity",
-  targetSettings: .settings(base: ["APPLICATION_EXTENSION_API_ONLY": "YES"])
+  targetSettings: .settings(base: ["APPLICATION_EXTENSION_API_ONLY": "YES"]),
+  dependencies: [
+    .domain(.festival, .interface),
+    .SPM.dependencies
+  ]
 )

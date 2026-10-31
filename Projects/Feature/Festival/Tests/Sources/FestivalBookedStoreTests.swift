@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import FestivalDomainInterface
+import FestivalDomain
 import Foundation
 import Testing
 @testable import Festival

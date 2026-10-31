@@ -14,19 +14,12 @@ public struct FestivalSelectionStore: Sendable {
   }
 }
 
-extension FestivalSelectionStore: DependencyKey {
-  private static let key = "FestiCore.selectedFestivalID"
-
-  public static let liveValue = Self(
-    load: { UserDefaults.standard.string(forKey: key) },
-    save: { UserDefaults.standard.set($0, forKey: key) }
-  )
-
+extension FestivalSelectionStore: TestDependencyKey {
   public static let testValue = Self(load: { nil }, save: { _ in })
 }
 
-public extension DependencyValues {
-  var festivalSelectionStore: FestivalSelectionStore {
+extension DependencyValues {
+  public var festivalSelectionStore: FestivalSelectionStore {
     get { self[FestivalSelectionStore.self] }
     set { self[FestivalSelectionStore.self] = newValue }
   }
