@@ -54,6 +54,8 @@ let packageSettings = PackageSettings(
   baseSettings: packageBaseSettings,
   targetSettings: [
     "Sharing": .settings(base: ["PRODUCT_NAME": "FestiCorePointFreeSharing"]),
+    // xctest-dynamic-overlay 호환 타깃과 swift-issue-reporting의 출력 이름 충돌을 피한다.
+    "_IssueReporting": .settings(base: ["PRODUCT_NAME": "FestiCoreIssueReportingCompatibility"]),
     // SVGKit은 모르는 기기(arm64 시뮬레이터·신형 iPhone)의 PPI를 NSAssert로 막아 SVG 파싱이 실패한다.
     "SVGKit": .settings(base: ["ENABLE_NS_ASSERTIONS": "NO"])
   ]
@@ -67,7 +69,7 @@ let package = Package(
     .package(url: "https://github.com/google/GoogleSignIn-iOS", exact: "9.2.0"),
     .package(url: "https://github.com/SDWebImage/SDWebImageSwiftUI.git", exact: "3.1.4"),
     .package(url: "https://github.com/pointfreeco/swift-composable-architecture", exact: "1.26.2"),
-    .package(url: "https://github.com/pointfreeco/xctest-dynamic-overlay", exact: "1.11.0"),
+    .package(url: "https://github.com/pointfreeco/xctest-dynamic-overlay", exact: "1.13.1"),
     .package(url: "https://github.com/pointfreeco/sqlite-data", exact: "1.11.0"),
     .package(url: "https://github.com/pointfreeco/swift-structured-queries", exact: "0.36.0"),
     .package(url: "https://github.com/Roy-wonji/TCAFlow.git", exact: "1.2.0"),
