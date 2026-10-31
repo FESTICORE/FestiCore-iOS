@@ -18,7 +18,7 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
   private let now: @Sendable () -> Date
   private var cachedBoards: [String: CachedBoard] = [:]
   private var retryNotBefore: [String: Date] = [:]
-  private var cachedUserID: String?
+  private var cachedSessionID: UUID?
 
   public init(
     client: any FestiCoreRequestClient,
@@ -41,11 +41,11 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
       throw FestivalLiveBoardError.invalidFestivalID
     }
     let deviceID = try await device.installationDeviceID()
-    let userID = await authenticatedUserID()
-    if cachedUserID != userID {
+    let sessionID = await auth.authenticatedSessionID
+    if cachedSessionID != sessionID {
       cachedBoards.removeAll()
       retryNotBefore.removeAll()
-      cachedUserID = userID
+      cachedSessionID = sessionID
     }
     if let retryDate = retryNotBefore[festivalID], retryDate > Date() {
       throw FestivalLiveBoardError.rateLimited(retryAfter: retryDate.timeIntervalSinceNow)
@@ -54,32 +54,10 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
     let response = try await client.sendResponse(FestivalLiveRequest(
       festivalID: festivalID,
       deviceID: deviceID,
-      etag: userID == nil ? nil : cachedBoards[festivalID]?.etag
+      etag: sessionID == nil ? nil : cachedBoards[festivalID]?.etag,
+      authorization: sessionID == nil ? .none : .automatic
     ))
-    if (try? JSONDecoder().decode(LiveBoardErrorDTO.self, from: response.data))?.code == "FESTIVAL_NOT_FOUND" {
-      cachedBoards[festivalID] = nil
-      throw FestivalLiveBoardError.festivalNotFound
-    }
-    let boardData: FestivalLiveBoardDataDTO
-    switch response.statusCode {
-    case 200:
-      let boardResponse = try JSONDecoder().decode(FestivalLiveBoardResponseDTO.self, from: response.data)
-      guard boardResponse.code == "SUCCESS", boardResponse.data.festivalId == festivalID else {
-        throw FestivalLiveBoardError.invalidResponse
-      }
-      boardData = boardResponse.data
-    case 304:
-      guard userID != nil, let cached = cachedBoards[festivalID] else {
-        throw FestivalLiveBoardError.invalidResponse
-      }
-      boardData = cached.data
-    case 429:
-      let retryAfter = Self.retryAfter(response.header("Retry-After"))
-      retryNotBefore[festivalID] = Date().addingTimeInterval(retryAfter)
-      throw FestivalLiveBoardError.rateLimited(retryAfter: retryAfter)
-    default:
-      throw FestivalLiveBoardError.invalidResponse
-    }
+    let boardData = try decodeBoardData(response, festivalID: festivalID, sessionID: sessionID)
     // 라이브 상태를 확인한 시각이다. 공개 프로필 요청이 오래 걸려도 그 뒤로 미루지 않는다.
     let receivedAt = now()
 
@@ -95,11 +73,11 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
       imageURL: imageResolver.resolve,
       receivedAt: receivedAt
     )
-    let latestUserID = await authenticatedUserID()
-    guard cachedUserID == userID, latestUserID == userID else {
+    let latestSessionID = await auth.authenticatedSessionID
+    guard cachedSessionID == sessionID, latestSessionID == sessionID else {
       throw FestivalLiveBoardError.invalidResponse
     }
-    if userID != nil {
+    if sessionID != nil {
       cachedBoards[festivalID] = CachedBoard(
         etag: response.statusCode == 304 ? cachedBoards[festivalID]?.etag : response.header("ETag"),
         data: boardData
@@ -109,9 +87,37 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
     return snapshot
   }
 
-  private func authenticatedUserID() async -> String? {
-    guard await auth.isLoggedIn else { return nil }
-    return await auth.currentUserID
+  private func decodeBoardData(
+    _ response: FestiCoreHTTPResponse, festivalID: String, sessionID: UUID?
+  ) throws -> FestivalLiveBoardDataDTO {
+    if (try? JSONDecoder().decode(LiveBoardErrorDTO.self, from: response.data))?.code == "FESTIVAL_NOT_FOUND" {
+      cachedBoards[festivalID] = nil
+      throw FestivalLiveBoardError.festivalNotFound
+    }
+    switch response.statusCode {
+    case 200:
+      let boardResponse = try JSONDecoder().decode(FestivalLiveBoardResponseDTO.self, from: response.data)
+      guard boardResponse.code == "SUCCESS", boardResponse.data.festivalId == festivalID else {
+        throw FestivalLiveBoardError.invalidResponse
+      }
+      return boardResponse.data
+    case 304:
+      guard sessionID != nil, let cached = cachedBoards[festivalID] else {
+        throw FestivalLiveBoardError.invalidResponse
+      }
+      return cached.data
+    case 401:
+      let error = try? JSONDecoder().decode(LiveBoardErrorDTO.self, from: response.data)
+      throw FestiCoreNetworkError.response(ResponseError(
+        httpStatus: 401, code: error?.code, message: error?.message
+      ))
+    case 429:
+      let retryAfter = Self.retryAfter(response.header("Retry-After"))
+      retryNotBefore[festivalID] = Date().addingTimeInterval(retryAfter)
+      throw FestivalLiveBoardError.rateLimited(retryAfter: retryAfter)
+    default:
+      throw FestivalLiveBoardError.invalidResponse
+    }
   }
 
   private static func retryAfter(_ value: String?) -> TimeInterval {
@@ -121,5 +127,6 @@ public actor NetworkFestivalLiveBoardService: FestivalLiveBoardService {
 }
 
 private struct LiveBoardErrorDTO: Decodable {
-  let code: String
+  let code: String?
+  let message: String?
 }
