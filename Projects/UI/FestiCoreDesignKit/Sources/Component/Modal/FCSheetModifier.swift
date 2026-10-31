@@ -19,6 +19,17 @@ public extension EnvironmentValues {
   }
 }
 
+private struct FCSheetDismissalDelayKey: EnvironmentKey {
+  static let defaultValue = Metric.mediumDuration
+}
+
+extension EnvironmentValues {
+  var fcSheetDismissalDelay: Double {
+    get { self[FCSheetDismissalDelayKey.self] }
+    set { self[FCSheetDismissalDelayKey.self] = newValue }
+  }
+}
+
 /// 바텀시트 높이.
 public enum FCSheetHeight: Sendable {
   case fraction(CGFloat)
@@ -34,9 +45,11 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
   let showsGrabber: Bool
   let sheetContent: (Item) -> SheetContent
 
+  @Environment(\.fcSheetDismissalDelay) private var dismissalDelay
   @State private var dragOffset: CGFloat = 0
   @State private var dismissOffset: CGFloat = 0
   @State private var isDragging = false
+  @State private var pendingDismissal: DispatchWorkItem?
 
   public init(
     item: Binding<Item?>,
@@ -53,6 +66,16 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
   public func body(content: Content) -> some View {
     GeometryReader { geometry in
       content
+        .onChange(of: item) { oldValue, newValue in
+          let wasDismissing = pendingDismissal != nil
+          cancelPendingDismissal()
+          if wasDismissing, oldValue != nil, newValue != nil {
+            present()
+          }
+        }
+        .onDisappear {
+          if item == nil { cancelPendingDismissal() }
+        }
         .overlay {
           if item != nil {
             ZStack(alignment: .bottom) {
@@ -98,12 +121,7 @@ extension FCSheetModifier {
       .animation(isDragging ? nil : .easeOut(duration: Metric.shortDuration), value: dragOffset)
       .gesture(dragGesture)
       .ignoresSafeArea(edges: .bottom)
-      .onAppear {
-        dismissOffset = Metric.slideDistance
-        withAnimation(.easeOut(duration: Metric.longDuration)) {
-          dismissOffset = 0
-        }
-      }
+      .onAppear { present() }
       .accessibilityAddTraits(.isModal)
     }
   }
@@ -128,12 +146,31 @@ extension FCSheetModifier {
 
   private func dismiss() {
     guard let dismissedItem = item else { return }
+    cancelPendingDismissal()
     withAnimation(.easeOut(duration: Metric.mediumDuration)) {
       dismissOffset = Metric.slideDistance
     }
     dragOffset = 0
-    DispatchQueue.main.asyncAfter(deadline: .now() + Metric.mediumDuration) {
+    let work = DispatchWorkItem {
+      guard item == dismissedItem else { return }
       Self.completeDismissal(of: dismissedItem, item: $item)
+      dismissOffset = 0
+      pendingDismissal = nil
+    }
+    pendingDismissal = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + dismissalDelay, execute: work)
+  }
+
+  private func cancelPendingDismissal() {
+    pendingDismissal?.cancel()
+    pendingDismissal = nil
+  }
+
+  private func present() {
+    dragOffset = 0
+    isDragging = false
+    dismissOffset = Metric.slideDistance
+    withAnimation(.easeOut(duration: Metric.longDuration)) {
       dismissOffset = 0
     }
   }
