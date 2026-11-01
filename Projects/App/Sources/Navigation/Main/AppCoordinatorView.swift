@@ -14,6 +14,7 @@ import UIKit
 struct AppCoordinatorView: View {
   @Bindable var store: StoreOf<AppCoordinator>
   @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.openURL) private var openURL
   @State private var keyboardInset: CGFloat = 0
 
   private enum AuthSheet: String, Identifiable {
@@ -47,7 +48,7 @@ struct AppCoordinatorView: View {
       .spring(response: 0.52, dampingFraction: 0.94, blendDuration: 0.14),
       value: store.state.animationID
     )
-    .presentFCSheet(item: sheet) { sheet in
+    .presentFCSheet(item: sheet, height: sheet.wrappedValue == .onboarding ? .fraction(1) : .auto) { sheet in
       switch sheet {
       case .login: loginSheet
       case .onboarding: onboardingSheet
@@ -104,58 +105,93 @@ private extension AppCoordinatorView {
     }
   }
 
+  /// Figma S14-2 가입 정보(닉네임·약관 동의)
   var onboardingSheet: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 16) {
-        Text("가입을 완료해 주세요")
-          .font(.title2.bold())
-        Text("축제를 저장하려면 약관에 동의하고 닉네임을 설정해야 해요.")
-        TextField("닉네임 (1~12자)", text: Binding(
-          get: { currentFlow?.nickname ?? "" },
-          set: { store.send(.view(.nicknameChanged($0))) }
-        ))
-        .textInputAutocapitalization(.never)
-        .autocorrectionDisabled()
-        .textFieldStyle(.roundedBorder)
-        HStack {
-          Toggle("이용약관 및 개인정보처리방침에 동의해요 (필수)", isOn: Binding(
-            get: { currentFlow?.acceptedTerms ?? false },
-            set: { store.send(.view(.termsAcceptanceChanged($0))) }
-          ))
-        }
-        if let baseURL = legalBaseURL {
-          HStack(spacing: 20) {
-            Link("이용약관 보기", destination: baseURL.appending(path: "terms"))
-            Link("개인정보처리방침 보기", destination: baseURL.appending(path: "privacy"))
+    VStack(spacing: .zero) {
+      FCTopBar(.back)
+        .onBack { store.send(.view(.dismissFlow)) }
+      ScrollView {
+        VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
+          Text("반가워요!\n어떻게 불러 드릴까요?")
+            .festiCoreFont(.baseTitle2Bold)
+            .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+            .frame(maxWidth: .infinity, alignment: .leading)
+          FCTextField(
+            text: Binding(
+              get: { currentFlow?.nickname ?? "" },
+              set: { store.send(.view(.nicknameChanged($0))) }
+            ),
+            placeholder: "닉네임"
+          )
+          .label("닉네임")
+          .maxLength(12)
+          .helper("크루원과 깃발에 보이는 이름이에요. 나중에 마이에서 바꿀 수 있어요.")
+          consentBox
+          if let message = currentFlow?.message {
+            Text(message)
+              .festiCoreFont(.baseCaption1Regular)
+              .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
           }
-          .font(.footnote)
         }
-        Toggle("알림 받기 (선택)", isOn: Binding(
-          get: { currentFlow?.pushOptIn ?? false },
-          set: { store.send(.view(.pushOptInChanged($0))) }
-        ))
-        if let message = currentFlow?.message {
-          Text(message).foregroundStyle(.red)
-        }
-        Button("완료하고 축제 저장") {
-          store.send(.view(.submitOnboarding))
-        }
-        .buttonStyle(.borderedProminent)
-        .disabled(
-          currentFlow?.isLoading == true
-            || currentFlow?.termsUpdateExhausted == true
-            || currentFlow?.acceptedTerms != true
-            || currentFlow?.consentedVersion != currentFlow?.profile?.currentTermsVersion
-            || legalBaseURL == nil
-        )
-        Button("나중에 하기") { store.send(.view(.dismissFlow)) }
-          .buttonStyle(.plain)
+        .padding(FestiCoreSpacing.paddingP16)
       }
-      .padding(24)
+      .scrollDismissesKeyboard(.interactively)
+      FCPrimaryButton("시작하기", isEnabled: canSubmitOnboarding) {
+        store.send(.view(.submitOnboarding))
+      }
+      .padding(.horizontal, FestiCoreSpacing.paddingP16)
+      .padding(.top, FestiCoreSpacing.paddingP12)
+      .padding(.bottom, FestiCoreSpacing.paddingP8)
     }
-    .frame(maxHeight: max(180, min(540, UIScreen.main.bounds.height - keyboardInset - 80)))
     .padding(.bottom, keyboardInset)
-    .scrollDismissesKeyboard(.interactively)
+  }
+
+  var consentBox: some View {
+    VStack(spacing: .zero) {
+      FCConsentAll(isChecked: currentFlow?.isAllConsented ?? false) {
+        store.send(.view(.allConsentToggled))
+      }
+      FestiCoreSemanticColor.lineNormal.color
+        .frame(height: 1)
+      VStack(spacing: .zero) {
+        FCConsentRow("서비스 이용약관", isChecked: currentFlow?.acceptedServiceTerms ?? false) {
+          store.send(.view(.serviceTermsChanged(!(currentFlow?.acceptedServiceTerms ?? false))))
+        }
+        .tag("필수")
+        .onDetail(legalLink("terms"))
+        FCConsentRow("개인정보 수집 · 이용", isChecked: currentFlow?.acceptedPrivacyTerms ?? false) {
+          store.send(.view(.privacyTermsChanged(!(currentFlow?.acceptedPrivacyTerms ?? false))))
+        }
+        .tag("필수")
+        .onDetail(legalLink("privacy"))
+        FCConsentRow("알림 받기", isChecked: currentFlow?.pushOptIn ?? false) {
+          store.send(.view(.pushOptInChanged(!(currentFlow?.pushOptIn ?? false))))
+        }
+        .tag("선택")
+        .sub("공연 10분 전 · 팔로우한 깃발 · 크루 소식")
+      }
+      .padding(.vertical, FestiCoreSpacing.paddingP8)
+    }
+    .overlay {
+      RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
+        .strokeBorder(FestiCoreSemanticColor.lineNormal.color, lineWidth: 1)
+    }
+  }
+
+  var canSubmitOnboarding: Bool {
+    guard let flow = currentFlow else { return false }
+    return !flow.isLoading
+      && !flow.termsUpdateExhausted
+      && flow.acceptedTerms
+      && flow.consentedVersion == flow.profile?.currentTermsVersion
+      && legalBaseURL != nil
+      && !flow.nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  }
+
+  /// 약관 상세 링크. 기준 주소가 없으면 화살표를 숨긴다.
+  func legalLink(_ path: String) -> (() -> Void)? {
+    guard let baseURL = legalBaseURL else { return nil }
+    return { openURL(baseURL.appending(path: path)) }
   }
 
   var migrationSheet: some View {
