@@ -18,6 +18,6 @@ struct FestivalLiveBoardSkeletonView: View {
     }
     .accessibilityElement(children: .ignore)
     .accessibilityLabel("라이브 보드를 불러오는 중")
-    .accessibilityIdentifier("festivalLiveBoardSkeleton")
+    .accessibilityIdentifier(FestivalAccessibilityID.liveBoardSkeleton)
   }
 }

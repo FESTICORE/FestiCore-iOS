@@ -20,6 +20,6 @@ struct FestivalListSkeletonView: View {
                     in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
       }
     }
-    .accessibilityIdentifier("festivalListSkeleton")
+    .accessibilityIdentifier(FestivalAccessibilityID.listSkeleton)
   }
 }

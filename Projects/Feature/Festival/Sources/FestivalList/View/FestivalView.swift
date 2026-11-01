@@ -26,7 +26,11 @@ public struct FestivalView: View {
     }
   }
 
-  private var festivalListScreen: some View {
+
+}
+
+private extension FestivalView {
+  var festivalListScreen: some View {
     VStack(spacing: .zero) {
       if (store.connection != .live && store.connection != .unavailable) || store.cacheReadFailed {
         status
@@ -36,7 +40,7 @@ public struct FestivalView: View {
     }
   }
 
-  private var festivalList: some View {
+  var festivalList: some View {
     FestivalListView(
       userID: store.bookedUserID,
       recentSearches: store.recentSearches,
@@ -61,8 +65,7 @@ public struct FestivalView: View {
     )
   }
 
-
-  private var toast: some View {
+  var toast: some View {
     ZStack {
       if let message = store.toast {
         FCToast(.init(icon: .circleInfo16, message: message))
@@ -73,11 +76,11 @@ public struct FestivalView: View {
     .animation(.easeOut(duration: 0.2), value: store.toast)
   }
 
-  private func imageURL(_ value: String?) -> URL? {
+  func imageURL(_ value: String?) -> URL? {
     store.state.imageURL(for: value)
   }
 
-  private var status: some View {
+  var status: some View {
     HStack(spacing: 8) {
       Image(systemName: store.connection == .live ? "wifi" : "square.and.arrow.down")
       Text(statusText)
@@ -88,7 +91,7 @@ public struct FestivalView: View {
     .accessibilityLabel(statusText)
   }
 
-  private var statusText: String {
+  var statusText: String {
     if store.cacheReadFailed {
       return store.selectedPack == nil
         ? "저장된 정보를 읽지 못했습니다 · 연결 후 다시 시도해 주세요"
@@ -110,5 +113,4 @@ public struct FestivalView: View {
     case .unavailable: "이 축제의 오프라인 팩은 아직 없습니다"
     }
   }
-
 }

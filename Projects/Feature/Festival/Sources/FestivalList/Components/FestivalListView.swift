@@ -23,40 +23,6 @@ struct FestivalListView: View {
   @State private var isSearching = false
   @State private var query = ""
 
-  private var trimmedQuery: String {
-    query.trimmingCharacters(in: .whitespacesAndNewlines)
-  }
-
-  private var visibleFestivals: [FestivalOverview] {
-    FestivalListPresentation.sorted(
-      FestivalListPresentation.visible(
-        festivals,
-        query: "",
-        bookedIDs: bookedFestivalIDs,
-        onlyBooked: selectedFilter == 1
-      ),
-      now: .now
-    )
-  }
-
-  private var searchResults: [FestivalOverview] {
-    FestivalListPresentation.visible(
-      festivals,
-      query: trimmedQuery,
-      bookedIDs: bookedFestivalIDs,
-      onlyBooked: false
-    )
-  }
-
-  private var upcomingFestivals: [FestivalOverview] {
-    festivals.filter {
-      if case .daysUntil = FestivalListPresentation.timing(for: $0, now: .now) {
-        return true
-      }
-      return false
-    }
-  }
-
   var body: some View {
     VStack(spacing: .zero) {
       if isSearching {
@@ -98,8 +64,48 @@ struct FestivalListView: View {
 
   // MARK: - 목록
 
+  // MARK: - 검색
+
+  // MARK: - 표시 문구
+}
+
+private extension FestivalListView {
+  var trimmedQuery: String {
+    query.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  var visibleFestivals: [FestivalOverview] {
+    FestivalListPresentation.sorted(
+      FestivalListPresentation.visible(
+        festivals,
+        query: "",
+        bookedIDs: bookedFestivalIDs,
+        onlyBooked: selectedFilter == 1
+      ),
+      now: .now
+    )
+  }
+
+  var searchResults: [FestivalOverview] {
+    FestivalListPresentation.visible(
+      festivals,
+      query: trimmedQuery,
+      bookedIDs: bookedFestivalIDs,
+      onlyBooked: false
+    )
+  }
+
+  var upcomingFestivals: [FestivalOverview] {
+    festivals.filter {
+      if case .daysUntil = FestivalListPresentation.timing(for: $0, now: .now) {
+        return true
+      }
+      return false
+    }
+  }
+
   /// 목록을 좌우로 밀면 전체·예매 완료 탭을 바꾼다.
-  private var filterSwipe: some Gesture {
+  var filterSwipe: some Gesture {
     DragGesture(minimumDistance: Metric.swipeMinimumDistance)
       .onEnded { value in
         let horizontal = value.translation.width
@@ -111,7 +117,7 @@ struct FestivalListView: View {
   }
 
   @ViewBuilder
-  private var listContent: some View {
+  var listContent: some View {
     Text(selectedFilter == 0 ? Copy.allGuide : Copy.bookedGuide)
       .festiCoreFont(.baseSubheadlineMedium)
       .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
@@ -127,7 +133,7 @@ struct FestivalListView: View {
   }
 
   @ViewBuilder
-  private var emptyCard: some View {
+  var emptyCard: some View {
     if festivals.isEmpty {
       FCEmptyCard(
         icon: .bell,
@@ -149,7 +155,7 @@ struct FestivalListView: View {
     }
   }
 
-  private func festivalCard(_ festival: FestivalOverview) -> some View {
+  func festivalCard(_ festival: FestivalOverview) -> some View {
     FCFestivalCard(
       title: festival.name,
       meta: meta(for: festival),
@@ -167,12 +173,10 @@ struct FestivalListView: View {
     )
     .ticketLink { onTicketLink(festival) }
     .onTapGesture { onSelect(festival.id) }
-    .accessibilityIdentifier("festivalCard_\(festival.id)")
+    .accessibilityIdentifier(FestivalAccessibilityID.card(festival.id))
   }
 
-  // MARK: - 검색
-
-  private var searchBar: some View {
+  var searchBar: some View {
     FCTopBar(.search(text: $query))
       .searchPlaceholder("페스티벌, 장소 검색")
       .onCancel {
@@ -183,7 +187,7 @@ struct FestivalListView: View {
   }
 
   @ViewBuilder
-  private var searchContent: some View {
+  var searchContent: some View {
     if trimmedQuery.isEmpty {
       VStack(alignment: .leading, spacing: .zero) {
         if !recentSearches.isEmpty {
@@ -228,7 +232,7 @@ struct FestivalListView: View {
     }
   }
 
-  private func resultRows(_ items: [FestivalOverview]) -> some View {
+  func resultRows(_ items: [FestivalOverview]) -> some View {
     LazyVStack(spacing: .zero) {
       ForEach(items) { festival in
         FCSearchResultRow(
@@ -253,14 +257,12 @@ struct FestivalListView: View {
     }
   }
 
-  private func saveRecentSearch() {
+  func saveRecentSearch() {
     guard !trimmedQuery.isEmpty else { return }
     onRecentSearchSubmitted(trimmedQuery)
   }
 
-  // MARK: - 표시 문구
-
-  private func status(for festival: FestivalOverview) -> FCFestivalCard<FestivalPosterView>.Status {
+  func status(for festival: FestivalOverview) -> FCFestivalCard<FestivalPosterView>.Status {
     switch FestivalListPresentation.cardStatus(for: festival, now: .now) {
     case let .dDay(label): .dDay(label)
     case let .closing(label): .closing(label)
@@ -269,7 +271,7 @@ struct FestivalListView: View {
     }
   }
 
-  private func pack(for festival: FestivalOverview) -> FCFestivalCard<FestivalPosterView>.Pack {
+  func pack(for festival: FestivalOverview) -> FCFestivalCard<FestivalPosterView>.Pack {
     let copy = FestivalListPresentation.packCopy(
       for: festival,
       isBooked: bookedFestivalIDs.contains(festival.id),
@@ -283,7 +285,7 @@ struct FestivalListView: View {
     }
   }
 
-  private func dDay(for festival: FestivalOverview) -> String? {
+  func dDay(for festival: FestivalOverview) -> String? {
     switch FestivalListPresentation.timing(for: festival, now: .now) {
     case let .daysUntil(days): "D-\(days)"
     case .live: "진행 중"
@@ -291,7 +293,7 @@ struct FestivalListView: View {
     }
   }
 
-  private func meta(for festival: FestivalOverview) -> String {
+  func meta(for festival: FestivalOverview) -> String {
     let dates = [festival.firstDate, festival.lastDate]
       .compactMap { $0?.date(as: .day)?.formatted(.festivalDay) }
       .joined(separator: " – ")
