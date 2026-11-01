@@ -1347,6 +1347,7 @@ struct AppCoordinatorTests {
     home.authFlow.hasSession = true
     home.authFlow.isLoading = true
     home.authFlow.pendingFestivalID = "festival"
+    home.authFlow.pendingShouldBeBooked = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
     store.exhaustivity = .off
 
@@ -1354,7 +1355,23 @@ struct AppCoordinatorTests {
     guard case let .home(expired) = store.state else { return }
     #expect(expired.authFlow.pendingFestivalID == nil)
     #expect(expired.authFlow.pendingOwnerID == nil)
+    #expect(!expired.authFlow.pendingShouldBeBooked)
     #expect(expired.authFlow.presentation == nil)
+  }
+
+  @Test func sessionLossOnRestoreDropsPendingBookmarkWithoutKnownOwner() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.hasSession = true
+    home.authFlow.pendingFestivalID = "festival"
+    home.authFlow.pendingShouldBeBooked = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.sessionRestored(generation: 0, userID: nil, isLoggedIn: false)))
+    guard case let .home(restored) = store.state else { return }
+    #expect(restored.authFlow.pendingFestivalID == nil)
+    #expect(!restored.authFlow.pendingShouldBeBooked)
+    #expect(restored.authFlow.presentation == nil)
   }
 
   @Test func signedOutProfileFailureKeepsLocalTimetableSelection() async {

@@ -28,6 +28,20 @@ struct TimetableFeatureTests {
     await store.send(.view(.daySelected(3)))
   }
 
+  @Test func pinchZoomIsKeptAcrossDayChanges() async {
+    let store = TestStore(initialState: TimetableFeature.State.sample()) {
+      TimetableFeature()
+    }
+
+    await store.send(.view(.zoomChanged(1.8))) {
+      $0.zoom = 1.8
+    }
+    await store.send(.view(.daySelected(1))) {
+      $0.selectedDayIndex = 1
+    }
+    #expect(store.state.zoom == 1.8)
+  }
+
   @Test func bannerAsksParentToShowChanges() async {
     let store = TestStore(initialState: TimetableFeature.State.sample(variant: .changed)) {
       TimetableFeature()
