@@ -308,6 +308,7 @@ private extension FestivalLiveBoardPresentation {
   static func duration(from now: Date, to date: Date) -> String {
     let minutes = max(0, Int(date.timeIntervalSince(now) / 60))
     let hours = minutes / 60
+    if hours >= 24 { return "\(hours / 24)일 \(hours % 24)시간" }
     return hours > 0 ? "\(hours)시간 \(minutes % 60)분" : "\(minutes)분"
   }
 
