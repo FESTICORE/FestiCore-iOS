@@ -13,7 +13,15 @@ files=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep -E '\
 if command -v swiftformat >/dev/null 2>&1; then
   while IFS= read -r file; do
     [ -f "$file" ] || continue
-    swiftformat "$file" >/dev/null 2>&1
+    # 스테이징하지 않은 변경이 함께 커밋되지 않도록, 작업 트리와 인덱스가 같은 파일만 포맷한다.
+    if ! git diff --quiet -- "$file"; then
+      printf '[SwiftFormat] %s에 스테이징하지 않은 변경이 있어 자동 포맷을 건너뜁니다.\n' "$file" >&2
+      continue
+    fi
+    if ! out=$(swiftformat "$file" 2>&1 >/dev/null); then
+      printf '[SwiftFormat] %s 포맷에 실패해 커밋을 차단했습니다.\n%s\n' "$file" "$out" >&2
+      exit 2
+    fi
     git add -- "$file" || exit 2
   done <<EOF
 $files

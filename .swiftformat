@@ -1,0 +1,6 @@
+# 저장소 스타일(2칸 들여쓰기)을 유지한다. 커밋 전 훅이 기존 코드를 다시 쓰지 않도록,
+# 현재 코드와 다르게 고치는 규칙은 끈다.
+--swiftversion 6.0
+--indent 2
+--exclude **/Derived,Tuist/.build,**/*.generated.swift
+--disable andOperator,blankLinesAroundMark,blankLinesAtEndOfScope,blankLinesBetweenImports,blankLinesBetweenScopes,braces,conditionalAssignment,consecutiveBlankLines,consistentSwitchCaseSpacing,docComments,elseOnSameLine,enumNamespaces,environmentEntry,extensionAccessControl,hoistAwait,hoistPatternLet,hoistTry,indent,noForceUnwrapInTests,numberFormatting,opaqueGenericParameters,preferKeyPath,redundantAsync,redundantClosure,redundantMemberwiseInit,redundantOptionalBinding,redundantParens,redundantReturn,redundantSelf,redundantThrows,redundantType,sortImports,spaceAroundOperators,swiftTestingTestCaseNames,trailingCommas,trailingSpace,unusedArguments,wrapArguments,wrapFunctionBodies,wrapIfStatementBodies,wrapLoopBodies,wrapMultilineStatementBraces,wrapPropertyBodies
