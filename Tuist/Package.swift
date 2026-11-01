@@ -72,7 +72,7 @@ let package = Package(
     .package(url: "https://github.com/pointfreeco/xctest-dynamic-overlay", exact: "1.13.1"),
     .package(url: "https://github.com/pointfreeco/sqlite-data", exact: "1.11.0"),
     .package(url: "https://github.com/pointfreeco/swift-structured-queries", exact: "0.36.0"),
-    .package(url: "https://github.com/Roy-wonji/TCAFlow.git", exact: "1.2.0"),
+    .package(url: "https://github.com/Roy-wonji/TCAFlow.git", exact: "1.2.1"),
     .package(url: "https://github.com/openid/AppAuth-iOS.git", exact: "2.1.0"),
     .package(url: "https://github.com/Alamofire/Alamofire", exact: "5.12.0"),
     .package(url: "https://github.com/onevcat/Kingfisher.git", exact: "8.14.0"),
