@@ -407,6 +407,11 @@ private extension AppCoordinator {
         home.authFlow.pendingFestivalID = nil
         home.authFlow.pendingOwnerID = nil
       }
+      // 세션이 끊길 때 요청 계정을 모르는 예약은 sessionExpired와 같이 버린다.
+      if shouldClearPreviousAccount, home.authFlow.pendingOwnerID == nil {
+        home.authFlow.pendingFestivalID = nil
+        home.authFlow.pendingShouldBeBooked = true
+      }
       home.authFlow.verifiedUserID = eligibleID
       home.authFlow.lastVerifiedUserID = userID
       home.authFlow.hasSession = isLoggedIn
