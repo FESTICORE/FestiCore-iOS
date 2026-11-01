@@ -45,16 +45,78 @@ struct AppCoordinator {
     var profile: AuthProfile?
     var presentation: Presentation?
     var nickname = ""
+    /// 두 필수 약관(서비스 이용약관·개인정보 수집 이용)이 모두 체크됐을 때만 true다.
     var acceptedTerms = false
+    var acceptedServiceTerms = false
+    var acceptedPrivacyTerms = false
     var consentedVersion: String?
     var pushOptIn = false
+    /// 가입 초안(닉네임·약관·알림)을 만든 계정. 계정이 확인될 때 다르면 초안을 버린다.
+    var draftOwnerID: String?
+    /// 필수 약관을 체크할 때의 약관 버전. 새 버전 프로필이 오면 체크를 지운다.
+    var termsDraftVersion: String?
+    /// 사용자가 닉네임을 직접 고쳤는지. 고친 값(빈 값 포함)은 프로필 닉네임으로 덮어쓰지 않는다.
+    var nicknameEdited = false
     var isLoading = false
     var hasRetriedTermsUpdate = false
     var termsUpdateExhausted = false
     var message: String?
 
+    var isAllConsented: Bool {
+      acceptedServiceTerms && acceptedPrivacyTerms && pushOptIn
+    }
+
+    var hasDraft: Bool {
+      !nickname.isEmpty || nicknameEdited || acceptedServiceTerms || acceptedPrivacyTerms || acceptedTerms || pushOptIn
+    }
+
+    /// 두 필수 약관이 모두 체크됐을 때만 현재 약관 버전에 동의한 것으로 본다.
+    mutating func syncRequiredTerms() {
+      if acceptedServiceTerms || acceptedPrivacyTerms {
+        if termsDraftVersion == nil { termsDraftVersion = profile?.currentTermsVersion }
+      } else {
+        termsDraftVersion = nil
+      }
+      acceptedTerms = acceptedServiceTerms && acceptedPrivacyTerms
+      consentedVersion = acceptedTerms ? termsDraftVersion : nil
+    }
+
+    /// 초안을 처음 바꿀 때 현재 계정을 소유자로 기록한다.
+    mutating func claimDraft() {
+      if draftOwnerID == nil { draftOwnerID = profile?.user.id }
+    }
+
+    /// 약관 버전이 바뀌었을 때처럼 닉네임은 두고 필수 약관 체크만 지운다.
+    mutating func clearRequiredTerms() {
+      acceptedTerms = false
+      acceptedServiceTerms = false
+      acceptedPrivacyTerms = false
+      termsDraftVersion = nil
+      consentedVersion = nil
+    }
+
+    mutating func clearDraft() {
+      nickname = ""
+      nicknameEdited = false
+      pushOptIn = false
+      draftOwnerID = nil
+      clearConsentAndRetryState()
+    }
+
+    /// 계정이 확인될 때 다른 계정이 만들었거나 소유자를 모르는 초안은 버린다.
+    mutating func reconcileDraft(userID: String) {
+      if hasDraft, draftOwnerID != userID {
+        clearDraft()
+      } else if !hasDraft {
+        draftOwnerID = nil
+      }
+    }
+
     mutating func clearConsentAndRetryState() {
       acceptedTerms = false
+      acceptedServiceTerms = false
+      acceptedPrivacyTerms = false
+      termsDraftVersion = nil
       consentedVersion = nil
       message = nil
       hasRetriedTermsUpdate = false
@@ -108,6 +170,9 @@ struct AppCoordinator {
     case dismissFlow
     case nicknameChanged(String)
     case termsAcceptanceChanged(Bool)
+    case serviceTermsChanged(Bool)
+    case privacyTermsChanged(Bool)
+    case allConsentToggled
     case pushOptInChanged(Bool)
     case submitOnboarding
     case retryProfile
@@ -265,19 +330,51 @@ private extension AppCoordinator {
 
     case let .nicknameChanged(nickname):
       guard case var .home(home) = state else { return .none }
+      home.authFlow.claimDraft()
       home.authFlow.nickname = nickname
+      home.authFlow.nicknameEdited = true
       state = .home(home)
       return .none
 
     case let .termsAcceptanceChanged(accepted):
       guard case var .home(home) = state else { return .none }
-      home.authFlow.acceptedTerms = accepted
-      home.authFlow.consentedVersion = accepted ? home.authFlow.profile?.currentTermsVersion : nil
+      home.authFlow.claimDraft()
+      home.authFlow.acceptedServiceTerms = accepted
+      home.authFlow.acceptedPrivacyTerms = accepted
+      home.authFlow.syncRequiredTerms()
+      state = .home(home)
+      return .none
+
+    case let .serviceTermsChanged(accepted):
+      guard case var .home(home) = state else { return .none }
+      home.authFlow.claimDraft()
+      home.authFlow.acceptedServiceTerms = accepted
+      home.authFlow.syncRequiredTerms()
+      state = .home(home)
+      return .none
+
+    case let .privacyTermsChanged(accepted):
+      guard case var .home(home) = state else { return .none }
+      home.authFlow.claimDraft()
+      home.authFlow.acceptedPrivacyTerms = accepted
+      home.authFlow.syncRequiredTerms()
+      state = .home(home)
+      return .none
+
+    case .allConsentToggled:
+      guard case var .home(home) = state else { return .none }
+      home.authFlow.claimDraft()
+      let accepted = !home.authFlow.isAllConsented
+      home.authFlow.acceptedServiceTerms = accepted
+      home.authFlow.acceptedPrivacyTerms = accepted
+      home.authFlow.pushOptIn = accepted
+      home.authFlow.syncRequiredTerms()
       state = .home(home)
       return .none
 
     case let .pushOptInChanged(optedIn):
       guard case var .home(home) = state else { return .none }
+      home.authFlow.claimDraft()
       home.authFlow.pushOptIn = optedIn
       state = .home(home)
       return .none
@@ -385,9 +482,7 @@ private extension AppCoordinator {
       } else if home.authFlow.presentation != .login {
         home.authFlow.presentation = nil
       }
-      home.authFlow.nickname = ""
-      home.authFlow.pushOptIn = false
-      home.authFlow.clearConsentAndRetryState()
+      home.authFlow.clearDraft()
       if interruptedOperation == .withdraw {
         home.authFlow.message = "로그인이 만료되어 회원 탈퇴 결과를 확인할 수 없어요. 다시 로그인해 계정 상태를 확인해 주세요."
       }
@@ -435,17 +530,14 @@ private extension AppCoordinator {
         if let oldID = home.authFlow.verifiedUserID, oldID != profile.user.id {
           home.authFlow.pendingFestivalID = nil
           home.authFlow.pendingOwnerID = nil
-          home.authFlow.nickname = ""
-          home.authFlow.acceptedTerms = false
-          home.authFlow.consentedVersion = nil
+          home.authFlow.clearDraft()
         }
         if let oldID = home.authFlow.lastVerifiedUserID, oldID != profile.user.id {
           home.authFlow.pendingFestivalID = nil
           home.authFlow.pendingOwnerID = nil
-          home.authFlow.nickname = ""
-          home.authFlow.acceptedTerms = false
-          home.authFlow.consentedVersion = nil
+          home.authFlow.clearDraft()
         }
+        home.authFlow.reconcileDraft(userID: profile.user.id)
         if let ownerID = home.authFlow.pendingOwnerID, ownerID != profile.user.id {
           home.authFlow.pendingFestivalID = nil
           home.authFlow.pendingOwnerID = nil
@@ -458,11 +550,18 @@ private extension AppCoordinator {
           return finishEligible(state: &state, home: &home)
         }
         home.authFlow.presentation = .onboarding
-        if home.authFlow.nickname.isEmpty {
-          home.authFlow.nickname = profile.user.nickname ?? ""
+        if !home.authFlow.nicknameEdited, home.authFlow.nickname.isEmpty,
+           let nickname = profile.user.nickname, !nickname.isEmpty {
+          home.authFlow.nickname = nickname
+          home.authFlow.claimDraft()
+        }
+        // 약관 버전이 바뀌면 이전 버전에 체크한 필수 항목을 모두 지운다.
+        if let draftVersion = home.authFlow.termsDraftVersion, draftVersion != profile.currentTermsVersion {
+          home.authFlow.clearRequiredTerms()
         }
         home.authFlow.acceptedTerms = home.authFlow.acceptedTerms
           && home.authFlow.consentedVersion == profile.currentTermsVersion
+        if !home.authFlow.acceptedTerms { home.authFlow.consentedVersion = nil }
         home.authFlow.message = home.authFlow.hasRetriedTermsUpdate
           ? "변경된 약관을 확인하고 다시 동의해 주세요."
           : nil
@@ -475,6 +574,8 @@ private extension AppCoordinator {
         home.authFlow.lastVerifiedUserID = nil
         home.authFlow.hasSession = false
         home.authFlow.profile = nil
+        // 로그인을 잃으면 다른 계정이 이어받지 않도록 가입 초안을 모두 지운다.
+        home.authFlow.clearDraft()
         home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .login
         // 같은 로그아웃을 `sessionRestored`가 이미 비웠다면 그 뒤 받은 비로그인 라이브 보드를 다시 지우지 않고 예약 목록만 정리한다.
         let clear = hadSession
@@ -524,6 +625,7 @@ private extension AppCoordinator {
           // 다른 계정 응답은 신뢰하지 않는다. 계정 ID를 모두 지워 세션 변경 감지가 이전 계정 데이터를 비우게 한다.
           home.authFlow.pendingFestivalID = nil
           home.authFlow.pendingOwnerID = nil
+          home.authFlow.clearDraft()
           home.authFlow.presentation = nil
           home.authFlow.verifiedUserID = nil
           home.authFlow.lastVerifiedUserID = nil
@@ -543,15 +645,13 @@ private extension AppCoordinator {
       case .failure(.termsOutdated):
         guard !home.authFlow.hasRetriedTermsUpdate else {
           home.authFlow.termsUpdateExhausted = true
-          home.authFlow.acceptedTerms = false
-          home.authFlow.consentedVersion = nil
+          home.authFlow.clearRequiredTerms()
           home.authFlow.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
           state = .home(home)
           return .none
         }
         home.authFlow.hasRetriedTermsUpdate = true
-        home.authFlow.acceptedTerms = false
-        home.authFlow.consentedVersion = nil
+        home.authFlow.clearRequiredTerms()
         home.authFlow.message = "약관이 변경됐어요. 내용을 확인하고 다시 동의해 주세요."
         home.authFlow.generation += 1
         home.authFlow.isLoading = true
@@ -564,6 +664,7 @@ private extension AppCoordinator {
         home.authFlow.lastVerifiedUserID = nil
         home.authFlow.hasSession = false
         home.authFlow.profile = nil
+        home.authFlow.clearDraft()
         home.authFlow.presentation = .login
         let clear = clearAccountData(&home)
         state = .home(home)

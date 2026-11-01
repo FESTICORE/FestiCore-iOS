@@ -460,8 +460,11 @@ struct AppCoordinatorTests {
     home.authFlow.verifiedUserID = "user-a"
     home.authFlow.presentation = .onboarding
     home.authFlow.nickname = "테스터"
+    home.authFlow.acceptedServiceTerms = true
+    home.authFlow.acceptedPrivacyTerms = true
     home.authFlow.acceptedTerms = true
     home.authFlow.consentedVersion = "2026-09"
+    home.authFlow.draftOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
@@ -511,8 +514,11 @@ struct AppCoordinatorTests {
     home.authFlow.lastVerifiedUserID = "user-a"
     home.authFlow.presentation = .onboarding
     home.authFlow.nickname = "작성 중"
+    home.authFlow.acceptedServiceTerms = true
+    home.authFlow.acceptedPrivacyTerms = true
     home.authFlow.acceptedTerms = true
     home.authFlow.consentedVersion = "2026-10"
+    home.authFlow.draftOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
@@ -538,6 +544,195 @@ struct AppCoordinatorTests {
       home.authFlow.presentation = .onboarding
       $0 = .home(home)
     }
+    guard case let .home(refreshed) = store.state else { return }
+    #expect(refreshed.authFlow.nickname == "작성 중")
+    #expect(refreshed.authFlow.acceptedTerms)
+    #expect(refreshed.authFlow.acceptedServiceTerms && refreshed.authFlow.acceptedPrivacyTerms)
+  }
+
+  @Test func requiredTermsCountOnlyWhenBothRowsAreChecked() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
+    home.authFlow.presentation = .onboarding
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.view(.serviceTermsChanged(true)))
+    guard case let .home(one) = store.state else { return }
+    #expect(!one.authFlow.acceptedTerms)
+    #expect(one.authFlow.consentedVersion == nil)
+    #expect(one.authFlow.draftOwnerID == "user-a")
+
+    await store.send(.view(.privacyTermsChanged(true)))
+    guard case let .home(both) = store.state else { return }
+    #expect(both.authFlow.acceptedTerms)
+    #expect(both.authFlow.consentedVersion == "2026-10")
+    #expect(!both.authFlow.isAllConsented)
+
+    // 필수 2개만 켜진 일부 선택 상태에서 전체 동의를 누르면 선택 알림까지 모두 켠다.
+    await store.send(.view(.allConsentToggled))
+    guard case let .home(all) = store.state else { return }
+    #expect(all.authFlow.isAllConsented)
+
+    await store.send(.view(.allConsentToggled))
+    guard case let .home(none) = store.state else { return }
+    #expect(!none.authFlow.acceptedServiceTerms && !none.authFlow.acceptedPrivacyTerms && !none.authFlow.pushOptIn)
+    #expect(!none.authFlow.acceptedTerms)
+    #expect(none.authFlow.consentedVersion == nil)
+  }
+
+  @Test func draftFromAnotherAccountIsClearedWhenProfileLoads() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.isLoading = true
+    home.authFlow.nickname = "A의 초안"
+    home.authFlow.acceptedServiceTerms = true
+    home.authFlow.pushOptIn = true
+    home.authFlow.draftOwnerID = "user-a"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    let profile = AuthProfile(user: signUpUser("user-b"), currentTermsVersion: "2026-10")
+    await store.send(.inner(.profileLoaded(generation: 1, .success(profile))))
+    guard case let .home(loaded) = store.state else { return }
+    #expect(loaded.authFlow.nickname.isEmpty)
+    #expect(!loaded.authFlow.acceptedServiceTerms)
+    #expect(!loaded.authFlow.pushOptIn)
+    #expect(loaded.authFlow.draftOwnerID == nil)
+  }
+
+  @Test func unownedDraftIsClearedWhenProfileLoads() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.nickname = "주인 없음"
+    home.authFlow.acceptedPrivacyTerms = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    let profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
+    await store.send(.inner(.profileLoaded(generation: 1, .success(profile))))
+    guard case let .home(loaded) = store.state else { return }
+    #expect(loaded.authFlow.nickname.isEmpty)
+    #expect(!loaded.authFlow.acceptedPrivacyTerms)
+  }
+
+  @Test func termsVersionChangeClearsBothRequiredRows() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
+    home.authFlow.verifiedUserID = "user-a"
+    home.authFlow.lastVerifiedUserID = "user-a"
+    home.authFlow.acceptedServiceTerms = true
+    home.authFlow.acceptedPrivacyTerms = true
+    home.authFlow.acceptedTerms = true
+    home.authFlow.consentedVersion = "2026-10"
+    home.authFlow.termsDraftVersion = "2026-10"
+    home.authFlow.draftOwnerID = "user-a"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    let profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-11")
+    await store.send(.inner(.profileLoaded(generation: 1, .success(profile))))
+    guard case let .home(loaded) = store.state else { return }
+    #expect(!loaded.authFlow.acceptedServiceTerms && !loaded.authFlow.acceptedPrivacyTerms)
+    #expect(!loaded.authFlow.acceptedTerms)
+    #expect(loaded.authFlow.consentedVersion == nil)
+  }
+
+  @Test func partialCheckFromOldVersionIsClearedAfterRefreshWithoutProfile() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
+    home.authFlow.presentation = .onboarding
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.view(.serviceTermsChanged(true)))
+    // 포그라운드 갱신처럼 프로필을 비운 뒤 새 약관 버전 프로필을 받는다.
+    store.exhaustivity = .off
+    guard case var .home(refreshing) = store.state else { return }
+    refreshing.authFlow.profile = nil
+    refreshing.authFlow.generation = 1
+    let refreshed = TestStore(initialState: AppCoordinator.State.home(refreshing)) { AppCoordinator() }
+    refreshed.exhaustivity = .off
+    let newProfile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-11")
+    await refreshed.send(.inner(.profileLoaded(generation: 1, .success(newProfile))))
+    await refreshed.send(.view(.privacyTermsChanged(true)))
+    guard case let .home(after) = refreshed.state else { return }
+    #expect(!after.authFlow.acceptedServiceTerms)
+    #expect(!after.authFlow.acceptedTerms)
+    #expect(after.authFlow.consentedVersion == nil)
+  }
+
+  @Test func clearedNicknameIsNotRefilledFromSameAccountProfile() async {
+    let user = AuthUser(
+      id: "user-a", provider: "apple", email: nil, nickname: "서버 닉네임",
+      nicknameConfirmed: false, termsAcceptedAt: nil, termsVersion: nil,
+      pushOptIn: false, profileImageURL: nil
+    )
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.profile = AuthProfile(user: user, currentTermsVersion: "2026-10")
+    home.authFlow.presentation = .onboarding
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.view(.nicknameChanged("")))
+    await store.send(.inner(.profileLoaded(generation: 1, .success(AuthProfile(user: user, currentTermsVersion: "2026-10")))))
+    guard case let .home(loaded) = store.state else { return }
+    #expect(loaded.authFlow.nickname.isEmpty)
+  }
+
+  @Test func clearedNicknameDraftFromAnotherAccountLetsNewAccountUseServerNickname() async {
+    let userB = AuthUser(
+      id: "user-b", provider: "apple", email: nil, nickname: "B 닉네임",
+      nicknameConfirmed: false, termsAcceptedAt: nil, termsVersion: nil,
+      pushOptIn: false, profileImageURL: nil
+    )
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.nicknameEdited = true
+    home.authFlow.draftOwnerID = "user-a"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.profileLoaded(generation: 1, .success(AuthProfile(user: userB, currentTermsVersion: "2026-10")))))
+    guard case let .home(loaded) = store.state else { return }
+    #expect(loaded.authFlow.nickname == "B 닉네임")
+    #expect(loaded.authFlow.draftOwnerID == "user-b")
+  }
+
+  @Test func unauthenticatedProfileUpdateClearsSignUpDraft() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.hasSession = true
+    home.authFlow.profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
+    home.authFlow.presentation = .onboarding
+    home.authFlow.nickname = "A의 초안"
+    home.authFlow.nicknameEdited = true
+    home.authFlow.acceptedServiceTerms = true
+    home.authFlow.acceptedPrivacyTerms = true
+    home.authFlow.acceptedTerms = true
+    home.authFlow.consentedVersion = "2026-10"
+    home.authFlow.pushOptIn = true
+    home.authFlow.draftOwnerID = "user-a"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.profileUpdated(generation: 1, .failure(.unauthenticated))))
+    guard case let .home(after) = store.state else { return }
+    #expect(after.authFlow.nickname.isEmpty)
+    #expect(!after.authFlow.nicknameEdited)
+    #expect(!after.authFlow.acceptedTerms && !after.authFlow.acceptedServiceTerms && !after.authFlow.acceptedPrivacyTerms)
+    #expect(!after.authFlow.pushOptIn)
+    #expect(after.authFlow.draftOwnerID == nil)
+  }
+
+  private func signUpUser(_ id: String) -> AuthUser {
+    AuthUser(
+      id: id, provider: "apple", email: nil, nickname: nil,
+      nicknameConfirmed: false, termsAcceptedAt: nil, termsVersion: nil,
+      pushOptIn: false, profileImageURL: nil
+    )
   }
 
   @Test func secondOutdatedTermsResponseStopsResubmission() async {
