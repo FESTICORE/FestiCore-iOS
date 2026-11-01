@@ -503,18 +503,27 @@ struct FestivalLiveBoardTests {
       liveResponses: [
         .init(statusCode: 200, data: Data(live.utf8)),
         .init(statusCode: 429, data: Data(), headers: ["Retry-After": "90"]),
+        .init(statusCode: 200, data: Data(live.utf8)),
       ]
     )
-    let service = NetworkFestivalLiveBoardService(client: client, auth: LiveBoardStubAuth(), device: LiveBoardStubDevice(), baseURL: nil)
+    let clock = SequenceClock([100.0, 200.0, 289.0, 290.0, 291.0].map(Date.init(timeIntervalSince1970:)))
+    let service = NetworkFestivalLiveBoardService(
+      client: client, auth: LiveBoardStubAuth(), device: LiveBoardStubDevice(), baseURL: nil,
+      now: { clock.next() }
+    )
 
     _ = try await service.refresh(for: "fst_test")
     await #expect(throws: FestivalLiveBoardError.rateLimited(retryAfter: 90)) {
       try await service.refresh(for: "fst_test")
     }
-    await #expect(throws: FestivalLiveBoardError.self) {
+    await #expect(throws: FestivalLiveBoardError.rateLimited(retryAfter: 1)) {
       try await service.refresh(for: "fst_test")
     }
     #expect(await client.liveRequestCount == 2)
+
+    let resumed = try await service.refresh(for: "fst_test")
+    #expect(resumed.receivedAt == Date(timeIntervalSince1970: 291))
+    #expect(await client.liveRequestCount == 3)
   }
 
   @Test("캐시 없는 429는 대기 시간을 반환한다")
