@@ -94,9 +94,13 @@ public struct ProfileView: View {
       }
     }
   }
+}
 
+// MARK: - 상위 화면이 함께 그리는 오버레이
+
+public extension ProfileView {
   /// 탭 화면 전체 위에 올려 탭바 영역까지 시트가 덮도록 한다.
-  public var modalOverlay: some View {
+  var modalOverlay: some View {
     Color.clear
       .presentFCSheet(item: accountItem) { _ in
         ProfileAccountSheet(
@@ -111,7 +115,7 @@ public struct ProfileView: View {
   }
 
   /// 로그아웃·탈퇴·링크 안내 확인 팝업. 시트 위층에 항상 두어 닫힘 애니메이션이 잘리지 않게 한다.
-  public var dialogOverlay: some View {
+  var dialogOverlay: some View {
     ZStack {
       confirmationOverlay
         .id(store.dialogPresentationID)
