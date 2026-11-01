@@ -13,6 +13,7 @@ public enum FeatureModule: String, CaseIterable {
   case login = "Login"
   case profile = "Profile"
   case timetable = "Timetable"
+  case web = "Web"
 
   var path: Path { .relativeToFeature(rawValue) }
 }

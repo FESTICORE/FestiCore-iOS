@@ -24,6 +24,7 @@
     { "target": { "containerPath": "container:Projects/Feature/Login/Login.xcodeproj", "identifier": "8EC12D40A59F4E845C71699F", "name": "LoginTests" } },
     { "target": { "containerPath": "container:Projects/Feature/Profile/Profile.xcodeproj", "identifier": "68EACFC189B2CF16BE7CDC81", "name": "ProfileTests" } },
     { "target": { "containerPath": "container:Projects/Feature/Timetable/Timetable.xcodeproj", "identifier": "CC5B22DA2F1C1E33014D1C02", "name": "TimetableTests" } },
+    { "target": { "containerPath": "container:Projects/Feature/Web/Web.xcodeproj", "identifier": "6D382536AF2997299B8D088A", "name": "WebTests" } },
     { "target": { "containerPath": "container:Projects/Service/FestiCoreAnalytics/FestiCoreAnalytics.xcodeproj", "identifier": "2F7655471E814E2CABCA1BCF", "name": "FestiCoreAnalyticsTests" } },
     { "target": { "containerPath": "container:Projects/Service/API/API.xcodeproj", "identifier": "FD9B4FE2EA3923F7DD822AD4", "name": "APITests" } },
     { "target": { "containerPath": "container:Projects/Service/APIEndpoint/APIEndpoint.xcodeproj", "identifier": "9F29EBA035376AB47820DAD4", "name": "APIEndpointTests" } },
