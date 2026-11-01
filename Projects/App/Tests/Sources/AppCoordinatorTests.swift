@@ -701,6 +701,42 @@ struct AppCoordinatorTests {
     #expect(loaded.authFlow.draftOwnerID == "user-b")
   }
 
+  @Test func unauthenticatedProfileResultsDropPendingBookmarkWithoutKnownOwner() async {
+    for result in [
+      AppCoordinator.Action.inner(.profileLoaded(generation: 1, .failure(.unauthenticated))),
+      .inner(.profileUpdated(generation: 1, .failure(.unauthenticated)))
+    ] {
+      var home = MainTabCoordinator.State()
+      home.authFlow.generation = 1
+      home.authFlow.hasSession = true
+      home.authFlow.profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
+      home.authFlow.pendingFestivalID = "festival"
+      home.authFlow.pendingShouldBeBooked = true
+      let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+      store.exhaustivity = .off
+
+      await store.send(result)
+      guard case let .home(after) = store.state else { return }
+      #expect(after.authFlow.pendingFestivalID == nil)
+      #expect(!after.authFlow.pendingShouldBeBooked)
+    }
+  }
+
+  @Test func unauthenticatedProfileLoadKeepsPendingBookmarkWithKnownOwner() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.hasSession = true
+    home.authFlow.pendingFestivalID = "festival"
+    home.authFlow.pendingOwnerID = "user-a"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.profileLoaded(generation: 1, .failure(.unauthenticated))))
+    guard case let .home(after) = store.state else { return }
+    #expect(after.authFlow.pendingFestivalID == "festival")
+    #expect(after.authFlow.presentation == .login)
+  }
+
   @Test func unauthenticatedProfileUpdateClearsSignUpDraft() async {
     var home = MainTabCoordinator.State()
     home.authFlow.generation = 1

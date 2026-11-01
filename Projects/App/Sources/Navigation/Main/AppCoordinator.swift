@@ -86,6 +86,13 @@ struct AppCoordinator {
       if draftOwnerID == nil { draftOwnerID = profile?.user.id }
     }
 
+    /// 요청 계정을 모르는 대기 예약은 다른 계정에 적용되지 않도록 버린다.
+    mutating func dropUnownedPendingBookmark() {
+      guard pendingOwnerID == nil else { return }
+      pendingFestivalID = nil
+      pendingShouldBeBooked = false
+    }
+
     /// 약관 버전이 바뀌었을 때처럼 닉네임은 두고 필수 약관 체크만 지운다.
     mutating func clearRequiredTerms() {
       acceptedTerms = false
@@ -473,10 +480,7 @@ private extension AppCoordinator {
       home.authFlow.loginAttemptGeneration = nil
       // 프로필 401 처리와 같이, 로그인이 필요해 멈춘 예약이 있으면 유지하고 로그인 시트를 띄운다.
       // 요청 계정을 모르면 다른 계정에 적용되지 않도록 버린다.
-      if home.authFlow.pendingOwnerID == nil {
-        home.authFlow.pendingFestivalID = nil
-        home.authFlow.pendingShouldBeBooked = false
-      }
+      home.authFlow.dropUnownedPendingBookmark()
       if home.authFlow.pendingFestivalID != nil {
         home.authFlow.presentation = .login
       } else if home.authFlow.presentation != .login {
@@ -503,10 +507,7 @@ private extension AppCoordinator {
         home.authFlow.pendingOwnerID = nil
       }
       // 세션이 끊길 때 요청 계정을 모르는 예약은 sessionExpired와 같이 버린다.
-      if shouldClearPreviousAccount, home.authFlow.pendingOwnerID == nil {
-        home.authFlow.pendingFestivalID = nil
-        home.authFlow.pendingShouldBeBooked = false
-      }
+      if shouldClearPreviousAccount { home.authFlow.dropUnownedPendingBookmark() }
       home.authFlow.verifiedUserID = eligibleID
       home.authFlow.lastVerifiedUserID = userID
       home.authFlow.hasSession = isLoggedIn
@@ -574,8 +575,9 @@ private extension AppCoordinator {
         home.authFlow.lastVerifiedUserID = nil
         home.authFlow.hasSession = false
         home.authFlow.profile = nil
-        // 로그인을 잃으면 다른 계정이 이어받지 않도록 가입 초안을 모두 지운다.
+        // 로그인을 잃으면 다른 계정이 이어받지 않도록 가입 초안과 소유자 없는 대기 예약을 지운다.
         home.authFlow.clearDraft()
+        home.authFlow.dropUnownedPendingBookmark()
         home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .login
         // 같은 로그아웃을 `sessionRestored`가 이미 비웠다면 그 뒤 받은 비로그인 라이브 보드를 다시 지우지 않고 예약 목록만 정리한다.
         let clear = hadSession
@@ -665,6 +667,7 @@ private extension AppCoordinator {
         home.authFlow.hasSession = false
         home.authFlow.profile = nil
         home.authFlow.clearDraft()
+        home.authFlow.dropUnownedPendingBookmark()
         home.authFlow.presentation = .login
         let clear = clearAccountData(&home)
         state = .home(home)
