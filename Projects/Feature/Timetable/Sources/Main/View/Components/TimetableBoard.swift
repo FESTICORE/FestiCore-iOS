@@ -9,10 +9,14 @@ import FestiCoreDesignKit
 import SwiftUI
 
 /// 무대 헤더와 시간 격자. 무대가 3개 이상이면 가로로도 스크롤한다.
+/// 두 손가락으로 벌리거나 모으면 시간축을 확대·축소한다.
 struct TimetableBoard: View {
   let state: TimetableFeature.State
   let day: TimetableDay
   let onSetTap: (String) -> Void
+
+  @State private var zoom: CGFloat = 1
+  @State private var settledZoom: CGFloat = 1
 
   var body: some View {
     ScrollView(isWide ? [.horizontal, .vertical] : .vertical) {
@@ -25,8 +29,17 @@ struct TimetableBoard: View {
       }
       .frame(width: isWide ? wideWidth : nil)
     }
+    .scrollIndicators(.hidden)
+    .simultaneousGesture(
+      MagnifyGesture()
+        .onChanged { value in
+          zoom = min(max(settledZoom * value.magnification, Metric.minZoom), Metric.maxZoom)
+        }
+        .onEnded { _ in
+          settledZoom = zoom
+        }
+    )
   }
-
 }
 
 private extension TimetableBoard {
@@ -80,6 +93,8 @@ private extension TimetableBoard {
     }
     .frame(height: gridHeight, alignment: .topLeading)
     .frame(maxWidth: .infinity, alignment: .leading)
+    // 첫 시각 라벨은 선 위로 반만큼 올라가므로 고정된 무대 헤더에 가리지 않게 띄운다.
+    .padding(.top, Metric.hourLabelHalfHeight)
   }
 
   private var hourLines: some View {
@@ -129,7 +144,8 @@ private extension TimetableBoard {
         )
       )
       .state(blockState(set))
-      .frame(height: FCSetBlock.height(minutes: set.end - set.start) - Metric.blockInset * 2)
+      // 축소해도 아주 짧은 공연이 사라지지 않게 최소 높이를 둔다.
+      .frame(height: max(Metric.minBlockHeight, y(set.end) - y(set.start) - Metric.blockInset * 2))
     }
     .buttonStyle(.plain)
     .opacity(opacity(set))
@@ -190,13 +206,16 @@ private extension TimetableBoard {
   }
 
   private func y(_ minute: Int) -> CGFloat {
-    CGFloat(minute - startHour * 60) * Metric.pointsPerMinute
+    CGFloat(minute - startHour * 60) * Metric.pointsPerMinute * zoom
   }
 }
 
 private extension TimetableBoard {
   enum Metric {
     static let pointsPerMinute = FCSetBlock.height(minutes: 1)
+    static let minZoom: CGFloat = 0.5
+    static let maxZoom: CGFloat = 2
+    static let minBlockHeight: CGFloat = 8
     static let fillingStageCount = 2
     static let defaultStart = 12 * 60
     static let defaultEnd = 24 * 60
