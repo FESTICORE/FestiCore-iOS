@@ -29,10 +29,25 @@ struct WebFeatureTests {
     await store.send(.view(.loadFinished(loadID: 2))) { $0.phase = .loaded }
   }
 
+  @Test func initialStateStartsLoadingWithoutRequest() {
+    let state = WebFeature.State(url: url, title: "개인정보 수집 · 이용")
+    #expect(state.phase == .loading)
+    #expect(state.loadID == 0)
+    #expect(state.id == url)
+  }
+
+  @Test func failureWithoutRetryKeepsFailedUntilRetried() async {
+    let store = TestStore(initialState: WebFeature.State(url: url, title: "약관")) { WebFeature() }
+
+    await store.send(.view(.onAppear)) { $0.loadID = 1 }
+    await store.send(.view(.loadFailed(loadID: 1))) { $0.phase = .failed }
+    await store.send(.view(.onAppear))
+  }
+
   @Test func closeAsksParentToDismiss() async {
     let store = TestStore(initialState: WebFeature.State(url: url, title: "약관")) { WebFeature() }
 
     await store.send(.view(.closeTapped))
-    await store.receive(\.delegate.close)
+    await store.receive(\.delegate.backToRoot)
   }
 }

@@ -74,7 +74,7 @@ public struct WebFeature {
         return .none
 
       case .view(.closeTapped):
-        return .send(.delegate(.close))
+        return .send(.delegate(.backToRoot))
 
       case .delegate:
         return .none

@@ -25,5 +25,6 @@ struct WebNavigationPolicyTests {
     #expect(!WebNavigationPolicy.acceptsResponse(statusCode: 404, isMainFrame: true))
     #expect(!WebNavigationPolicy.acceptsResponse(statusCode: 500, isMainFrame: true))
     #expect(WebNavigationPolicy.acceptsResponse(statusCode: 404, isMainFrame: false))
+    #expect(!WebNavigationPolicy.acceptsResponse(statusCode: nil, isMainFrame: true))
   }
 }

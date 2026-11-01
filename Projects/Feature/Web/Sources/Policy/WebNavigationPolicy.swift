@@ -25,10 +25,10 @@ enum WebNavigationPolicy {
     return isNewWindow ? .loadInPlace(url) : .allow
   }
 
-  /// main frame 응답이 성공 상태일 때만 문서를 보여 준다.
+  /// main frame 응답은 HTTP 상태가 200..<300일 때만 문서로 보여 준다. 상태가 없는 응답도 거절한다.
   static func acceptsResponse(statusCode: Int?, isMainFrame: Bool) -> Bool {
     guard isMainFrame else { return true }
-    guard let statusCode else { return true }
+    guard let statusCode else { return false }
     return (200..<300).contains(statusCode)
   }
 }
