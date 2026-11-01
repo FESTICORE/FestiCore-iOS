@@ -62,6 +62,15 @@ struct FestivalListPresentationTests {
     ) == .ended)
   }
 
+  @Test func pastLastDateEndsFestivalEvenWithoutValidFirstDate() {
+    let now = utc("2026-11-01T03:00:00Z")
+    #expect(FestivalListPresentation.timing(for: festival(id: "a", lastDate: "2026-10-02"), now: now) == .ended)
+    #expect(FestivalListPresentation.timing(
+      for: festival(id: "b", firstDate: "2026-02-30", lastDate: "2026-10-02"), now: now
+    ) == .ended)
+    #expect(FestivalListPresentation.timing(for: festival(id: "c", lastDate: "2026-12-02"), now: now) == .undated)
+  }
+
   @Test func packCopyDependsOnTimingBookingAndCachedVersion() {
     let now = utc("2026-11-01T03:00:00Z")
     func copy(_ festival: FestivalOverview, booked: Bool = true, onlyBooked: Bool = false) -> FestivalListPresentation.PackCopy {

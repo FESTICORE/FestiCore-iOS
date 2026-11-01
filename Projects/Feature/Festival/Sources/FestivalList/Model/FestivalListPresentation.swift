@@ -26,9 +26,14 @@ enum FestivalListPresentation {
 
   static func timing(for festival: FestivalOverview, now: Date) -> Timing {
     let calendar = AppDateFormat.calendar
-    guard let firstDate = festival.firstDate, let first = firstDate.date(as: .day) else { return .undated }
     let today = calendar.startOfDay(for: now)
-    let last = festival.lastDate?.date(as: .day) ?? first
+    let validLast = festival.lastDate?.date(as: .day)
+    guard let firstDate = festival.firstDate, let first = firstDate.date(as: .day) else {
+      // 시작일이 없거나 잘못돼도 지난 종료일이 있으면 종료로 본다.
+      if let validLast, today > validLast { return .ended }
+      return .undated
+    }
+    let last = validLast ?? first
     if today > last { return .ended }
     let days = calendar.dateComponents([.day], from: today, to: first).day ?? 0
     return days > 0 ? .daysUntil(days) : .live
