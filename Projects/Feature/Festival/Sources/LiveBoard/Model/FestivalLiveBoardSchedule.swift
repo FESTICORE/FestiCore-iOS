@@ -1,3 +1,4 @@
+import FestiCoreUtility
 import Foundation
 
 struct FestivalLiveBoardSchedule {
@@ -93,10 +94,6 @@ struct FestivalLiveBoardSchedule {
       of: #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"#,
       options: .regularExpression
     ) != nil else { return nil }
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let date = formatter.date(from: value) { return date }
-    formatter.formatOptions = [.withInternetDateTime]
-    return formatter.date(from: value)
+    return value.isoDate
   }
 }

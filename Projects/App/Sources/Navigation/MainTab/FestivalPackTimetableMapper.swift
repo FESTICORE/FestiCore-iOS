@@ -1,15 +1,10 @@
 import FeatureAssembly
+import FestiCoreUtility
 import Foundation
 
 enum FestivalPackTimetableMapper {
   static func days(from pack: FestivalPackDocument) -> [TimetableDay] {
-    var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
-    let dateFormatter = DateFormatter()
-    dateFormatter.calendar = calendar
-    dateFormatter.timeZone = calendar.timeZone
-    dateFormatter.locale = Locale(identifier: "ko_KR")
-    dateFormatter.dateFormat = "M/d(E)"
+    let calendar = AppDateFormat.calendar
 
     let performances = pack.performances.compactMap { performance -> (Date, Date, FestivalPackDocument.Performance)? in
       guard let startsAt = parseDate(performance.startsAt),
@@ -38,8 +33,8 @@ enum FestivalPackTimetableMapper {
         )
       }
       return TimetableDay(
-        id: dayID(dayStart, calendar: calendar),
-        title: dateFormatter.string(from: dayStart),
+        id: dayStart.formatted(.day),
+        title: dayStart.formatted(.festivalDay),
         date: dayStart,
         stages: stages,
         sets: sets
@@ -48,16 +43,6 @@ enum FestivalPackTimetableMapper {
   }
 
   private static func parseDate(_ value: String?) -> Date? {
-    guard let value else { return nil }
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let date = formatter.date(from: value) { return date }
-    formatter.formatOptions = [.withInternetDateTime]
-    return formatter.date(from: value)
-  }
-
-  private static func dayID(_ date: Date, calendar: Calendar) -> String {
-    let components = calendar.dateComponents([.year, .month, .day], from: date)
-    return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 0, components.day ?? 0)
+    value?.isoDate
   }
 }

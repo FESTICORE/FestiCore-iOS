@@ -118,7 +118,7 @@ extension FestivalLiveBoardPresentation {
   static func dayLine(pack: FestivalPackDocument?, festival: FestivalOverview, now: Date) -> String? {
     guard let day = selectedDay(pack: pack, festival: festival, now: now) else { return nil }
     var parts = ["DAY \(day.index + 1)"]
-    if let date = day.date.date(as: .day) { parts.append(dayFormatter.string(from: date)) }
+    if let date = day.date.date(as: .day) { parts.append(date.formatted(.liveBoardDay)) }
     if let start = day.startsAt, let end = day.endsAt {
       parts.append("\(start.formatted(.time))–\(end.formatted(.time))")
     }
@@ -185,7 +185,7 @@ extension FestivalLiveBoardPresentation {
   static func sourceLine(_ source: FestivalPackDocument.Source?) -> String? {
     guard let name = source?.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return nil }
     guard let verifiedAt = source?.verifiedAt.flatMap(FestivalLiveBoardSchedule.parse) else { return "출처: \(name)" }
-    return "출처: \(name) · 확인 \(verifiedFormatter.string(from: verifiedAt))"
+    return "출처: \(name) · 확인 \(verifiedAt.formatted(.monthDayTime))"
   }
 }
 
@@ -270,22 +270,6 @@ private extension FestivalLiveBoardPresentation {
     let endsAt: Date?
   }
 
-  /// Figma S01 표기 `10.17 (토)`.
-  static let dayFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "ko_KR")
-    formatter.timeZone = FestivalDateFormat.timeZone
-    formatter.dateFormat = "MM.dd (E)"
-    return formatter
-  }()
-
-  static let verifiedFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "en_US_POSIX")
-    formatter.timeZone = FestivalDateFormat.timeZone
-    formatter.dateFormat = "MM/dd HH:mm"
-    return formatter
-  }()
 
   static func selectedDay(pack: FestivalPackDocument?, festival: FestivalOverview, now: Date) -> Day? {
     let packDays = (pack?.days ?? []).filter { $0.date?.date(as: .day) != nil }
@@ -293,7 +277,7 @@ private extension FestivalLiveBoardPresentation {
       ? [festival.firstDate, festival.lastDate].compactMap { $0 }.filter { $0.date(as: .day) != nil }
       : packDays.compactMap(\.date)
     let sorted = Array(Set(dates)).sorted()
-    let today = FestivalDateFormat.calendar.startOfDay(for: now)
+    let today = AppDateFormat.calendar.startOfDay(for: now)
     guard let date = sorted.first(where: { $0.date(as: .day) == today }) ?? sorted.first,
           let index = sorted.firstIndex(of: date) else { return nil }
     let packDay = packDays.first { $0.date == date }

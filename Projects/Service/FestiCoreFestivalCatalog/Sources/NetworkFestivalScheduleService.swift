@@ -7,6 +7,7 @@
 
 import Alamofire
 import FestiCoreNetworkInterface
+import FestiCoreUtility
 import FestivalDomain
 import FestivalDomainInterface
 import Foundation
@@ -59,10 +60,7 @@ public struct NetworkFestivalScheduleService: FestivalScheduleService {
 extension NetworkFestivalScheduleService {
   /// 서버는 ms 단위로 비교하므로 소수점 3자리까지 보낸다.
   static func clientAtString(_ date: Date) -> String {
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
-    return formatter.string(from: date)
+    date.isoString
   }
 }
 
