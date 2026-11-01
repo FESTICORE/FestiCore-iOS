@@ -16,4 +16,6 @@ public enum AuthDomainError: Error, Sendable, Equatable {
   case userCancelled
   case requestInProgress
   case providerFailure
+  case localSessionClearFailed
+  case revocationOutcomeUnknown
 }

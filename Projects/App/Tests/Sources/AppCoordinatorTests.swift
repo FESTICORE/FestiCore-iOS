@@ -1690,7 +1690,7 @@ struct AppCoordinatorTests {
     await store.receive(\.inner.profileLoaded)
   }
 
-  @Test func failedCommitDoesNotSignInAndRereadsSession() async {
+  @Test func failedCommitKeepsLoginOpenWithError() async {
     let auth = SessionRecordingAuthService(commitResult: false)
     let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
       $0.authService = auth
@@ -1704,9 +1704,9 @@ struct AppCoordinatorTests {
     #expect(!rejected.authFlow.hasSession)
     #expect(rejected.authFlow.verifiedUserID == nil)
     #expect(rejected.authFlow.loginAttemptGeneration == nil)
-    await store.receive(\.inner.profileLoaded)
-    guard case let .home(reread) = store.state else { return }
-    #expect(!reread.authFlow.hasSession)
+    #expect(rejected.authFlow.presentation == .login)
+    #expect(rejected.authFlow.message == "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요.")
+    #expect(!rejected.authFlow.isLoading)
   }
 
   @Test func loginFinishedAfterSheetDismissalDiscardsItsSession() async {
@@ -1958,6 +1958,11 @@ private struct StubAuthService: AuthService {
 
   var isLoggedIn: Bool { get async { loggedIn } }
   var authenticatedSessionID: UUID? { get async { loggedIn ? sessionID : nil } }
+  var hasPendingLocalClear: Bool { get async { false } }
+  var hasUnconfirmedRevocation: Bool { get async { false } }
+  var hasPendingSignOutCleanup: Bool { get async { false } }
+  var hasPendingWithdrawalAuthorizationCleanup: Bool { get async { false } }
+  var hasPendingWithdrawalCleanup: Bool { get async { false } }
   var currentUserID: String? { get async { userID } }
   var refreshToken: String? {
     get async {
@@ -1990,14 +1995,22 @@ private struct StubAuthService: AuthService {
     Issue.record("테스트에서 rememberUserID 호출을 예상하지 않았어요")
   }
 
-  func signOut() async {
+  func signOut() async -> Bool {
     Issue.record("테스트에서 signOut 호출을 예상하지 않았어요")
+    return false
   }
 
   func signOut(ifSessionIDMatches _: UUID) async -> Bool {
     Issue.record("테스트에서 조건부 signOut 호출을 예상하지 않았어요")
     return false
   }
+
+  func prepareRevocation(_: AuthRevocationKind, ifSessionIDMatches _: UUID) async -> Bool { false }
+  func finishRevocationRequest() async {}
+  func confirmSignOut() async -> Bool { false }
+  func confirmWithdrawalAuthorizationRejected() async -> Bool { false }
+  func retryUnconfirmedLocalCleanup() async -> Bool { false }
+  func completeWithdrawal() async -> Bool { false }
 }
 
 private func eligibleProfile(id: String) -> AuthProfile {
@@ -2062,6 +2075,11 @@ private actor SessionRecordingAuthService: AuthService {
   var isLoggedIn: Bool { loggedIn }
   var sessionID: UUID { activeSessionID }
   var authenticatedSessionID: UUID? { loggedIn ? activeSessionID : nil }
+  var hasPendingLocalClear: Bool { false }
+  var hasUnconfirmedRevocation: Bool { false }
+  var hasPendingSignOutCleanup: Bool { false }
+  var hasPendingWithdrawalAuthorizationCleanup: Bool { false }
+  var hasPendingWithdrawalCleanup: Bool { false }
   var refreshToken: String? { nil }
   var currentUserID: String? { loggedIn ? "user-a" : nil }
 
@@ -2091,15 +2109,22 @@ private actor SessionRecordingAuthService: AuthService {
   }
 
   func rememberUserID(_ userID: String) {}
-  func signOut() {
+  func signOut() -> Bool {
     activeSessionID = UUID()
     loggedIn = false
+    return true
   }
   func signOut(ifSessionIDMatches expected: UUID) -> Bool {
     guard activeSessionID == expected, loggedIn else { return false }
-    signOut()
-    return true
+    return signOut()
   }
+
+  func prepareRevocation(_: AuthRevocationKind, ifSessionIDMatches _: UUID) -> Bool { false }
+  func finishRevocationRequest() {}
+  func confirmSignOut() -> Bool { false }
+  func confirmWithdrawalAuthorizationRejected() -> Bool { false }
+  func retryUnconfirmedLocalCleanup() -> Bool { false }
+  func completeWithdrawal() -> Bool { false }
 
   func waitUntilCommitStarts() async {
     while !commitStarted || (holdsCommit && release == nil) { await Task.yield() }

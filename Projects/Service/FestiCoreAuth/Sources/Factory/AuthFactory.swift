@@ -16,9 +16,15 @@ public enum AuthFactory {
   public static func make(
     refreshClient: any FestiCoreRequestClient,
     storage: any SecureStorage,
-    baseURL: URL? = NetworkClientFactory.bundleBaseURL
+    baseURL: URL? = NetworkClientFactory.bundleBaseURL,
+    revocationJournalURL: URL? = nil
   ) -> any AuthService & AuthenticatedClientProvider {
-    let store = GuardedCredentialStore(base: KeychainCredentialStore(storage: storage))
+    let journal = SessionRevocationJournal(url: revocationJournalURL ?? defaultRevocationJournalURL)
+    let base = KeychainCredentialStore(storage: storage, journal: journal)
+    let store = GuardedCredentialStore(
+      base: base,
+      recoverInitialCredential: base.initialJournalUnreadable
+    )
     let relay = AuthFailureRelay()
     let authenticated = NetworkClientFactory.unified(
       store: store,
@@ -31,12 +37,25 @@ public enum AuthFactory {
       authenticatedClient: authenticated.client,
       store: store,
       credentials: authenticated.credentials,
-      identityStorage: storage
+      identityStorage: storage,
+      journal: journal,
+      initialJournalUnreadable: base.initialJournalUnreadable
     )
     relay.set { [weak auth] credential, sessionID in
-      await auth?.handleAuthFailure(for: credential, sessionID: sessionID)
+      _ = await auth?.handleAuthFailure(for: credential, sessionID: sessionID)
+    }
+    store.setPersistenceFailureHandler { [weak auth, credentials = authenticated.credentials] in
+      credentials.update(nil)
+      Task { await auth?.handlePersistenceFailure() }
     }
     return auth
+  }
+
+  private static var defaultRevocationJournalURL: URL {
+    let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+      ?? URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+        .appendingPathComponent("Library/Application Support", isDirectory: true)
+    return support.appendingPathComponent("FestiCore/session-revocation", isDirectory: false)
   }
 }
 

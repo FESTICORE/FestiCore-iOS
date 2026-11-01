@@ -584,6 +584,11 @@ private actor LiveBoardStubAuth: AuthService {
   var currentUserID: String? { userID }
   var sessionID: UUID { activeSessionID }
   var authenticatedSessionID: UUID? { loggedIn ? activeSessionID : nil }
+  var hasPendingLocalClear: Bool { false }
+  var hasUnconfirmedRevocation: Bool { false }
+  var hasPendingSignOutCleanup: Bool { false }
+  var hasPendingWithdrawalAuthorizationCleanup: Bool { false }
+  var hasPendingWithdrawalCleanup: Bool { false }
 
   func setUserID(_ value: String?) {
     userID = value
@@ -596,16 +601,22 @@ private actor LiveBoardStubAuth: AuthService {
   func discardSession(_: UUID) -> Bool { false }
   func signOut(ifSession _: UUID) -> Bool { false }
   func rememberUserID(_ value: String) { userID = value }
-  func signOut() {
+  func signOut() -> Bool {
     activeSessionID = UUID()
     userID = nil
     loggedIn = false
+    return true
   }
   func signOut(ifSessionIDMatches expected: UUID) -> Bool {
     guard activeSessionID == expected else { return false }
-    signOut()
-    return true
+    return signOut()
   }
+  func prepareRevocation(_: AuthRevocationKind, ifSessionIDMatches _: UUID) -> Bool { false }
+  func finishRevocationRequest() {}
+  func confirmSignOut() -> Bool { false }
+  func confirmWithdrawalAuthorizationRejected() -> Bool { false }
+  func retryUnconfirmedLocalCleanup() -> Bool { false }
+  func completeWithdrawal() -> Bool { false }
 }
 
 private struct LiveBoardStubDevice: DeviceRegistrationService {

@@ -96,7 +96,7 @@ private extension AppCoordinatorView {
         onGoogle: { store.send(.view(.startLogin(.google))) }
       )
       if case let .home(home) = store.state,
-         let message = home.loginState.errorMessage {
+         let message = home.authFlow.message ?? home.loginState.errorMessage {
         Text(message)
           .foregroundStyle(.red)
           .padding(.bottom, 16)

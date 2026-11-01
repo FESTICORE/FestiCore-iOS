@@ -83,6 +83,24 @@ struct AuthenticationTests {
     #expect(store.saved == renewed)
   }
 
+  @Test("토큰 갱신 영속화 실패는 오래된 갱신 오류로 바꾸지 않는다")
+  func refreshPropagatesPersistenceFailure() async {
+    let store = RecordingCredentialStore(initial: current, failReplacement: true)
+    let authenticator = FestiCoreAuthenticator(
+      refresher: StubTokenRefresher(result: .success(renewed)),
+      store: store
+    )
+
+    do {
+      _ = try await refresh(authenticator, credential: current)
+      Issue.record("영속화 실패가 전달되어야 한다")
+    } catch is CredentialStoreError {
+      #expect(store.saved == current)
+    } catch {
+      Issue.record("영속화 오류 기대: \(error)")
+    }
+  }
+
   @Test("토큰 갱신 실패를 그대로 전달하고 저장하지 않는다")
   func refreshPropagatesFailure() async {
     let store = RecordingCredentialStore(initial: current)
@@ -354,11 +372,13 @@ private final class RecordingCredentialStore: CredentialStore, @unchecked Sendab
   private let lock = NSLock()
   private var credential: FestiCoreCredential?
   private var currentRevision = UUID()
+  private let failReplacement: Bool
   private var currentSessionID = UUID()
   private var shouldReloginAfterRefreshContext = false
 
-  init(initial: FestiCoreCredential? = nil) {
+  init(initial: FestiCoreCredential? = nil, failReplacement: Bool = false) {
     credential = initial
+    self.failReplacement = failReplacement
   }
 
   var saved: FestiCoreCredential? {
@@ -375,11 +395,12 @@ private final class RecordingCredentialStore: CredentialStore, @unchecked Sendab
     }
   }
 
-  func save(_ credential: FestiCoreCredential) {
+  func save(_ credential: FestiCoreCredential) -> Bool {
     lock.withLock {
       self.credential = credential
       currentRevision = UUID()
       currentSessionID = UUID()
+      return true
     }
   }
 
@@ -404,20 +425,22 @@ private final class RecordingCredentialStore: CredentialStore, @unchecked Sendab
     lock.withLock { shouldReloginAfterRefreshContext = true }
   }
 
-  func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) -> Bool {
-    lock.withLock {
+  func replace(_ credential: FestiCoreCredential, ifCurrent current: FestiCoreCredential, revision: UUID) throws -> Bool {
+    try lock.withLock {
       guard self.credential == current, currentRevision == revision else { return false }
+      if failReplacement { throw CredentialStoreError.persistenceFailed }
       self.credential = credential
       currentRevision = UUID()
       return true
     }
   }
 
-  func clear() {
+  func clear() -> Bool {
     lock.withLock {
       credential = nil
       currentRevision = UUID()
       currentSessionID = UUID()
+      return true
     }
   }
 }

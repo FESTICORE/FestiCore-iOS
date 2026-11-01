@@ -56,7 +56,7 @@ public struct AuthRepositoryImpl: AuthInterface {
       }
       return response.data.toDomain()
     } catch {
-      await clearUnauthorizedSession(error, sessionID: sessionID)
+      try await clearUnauthorizedSession(error, sessionID: sessionID)
       throw error
     }
   }
@@ -77,52 +77,112 @@ public struct AuthRepositoryImpl: AuthInterface {
       guard response.code == "SUCCESS" else { throw AuthDomainError.invalidResponse }
       return response.data.toDomain()
     } catch {
-      await clearUnauthorizedSession(error, sessionID: sessionID)
+      try await clearUnauthorizedSession(error, sessionID: sessionID)
       throw error
     }
   }
 
-  private func clearUnauthorizedSession(_ error: any Error, sessionID: UUID) async {
+  private func clearUnauthorizedSession(_ error: any Error, sessionID: UUID) async throws {
     if let networkError = error as? FestiCoreNetworkError,
        case let .response(response) = networkError,
        response.isUnauthorized {
-      _ = await authService.signOut(ifSessionIDMatches: sessionID)
+      let cleared = await authService.signOut(ifSessionIDMatches: sessionID)
+      if !cleared, await authService.hasPendingLocalClear {
+        throw AuthDomainError.localSessionClearFailed
+      }
     }
   }
 
   public func signOut() async throws {
-    guard let sessionID = await authService.authenticatedSessionID else { return }
+    if await authService.hasUnconfirmedRevocation {
+      guard await authService.retryUnconfirmedLocalCleanup() else {
+        throw AuthDomainError.localSessionClearFailed
+      }
+      throw AuthDomainError.revocationOutcomeUnknown
+    }
+    if await authService.hasPendingSignOutCleanup {
+      guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
+      return
+    }
+    guard let sessionID = await authService.authenticatedSessionID else {
+      guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
+      return
+    }
+    guard await authService.prepareRevocation(.signOut, ifSessionIDMatches: sessionID) else {
+      throw AuthDomainError.localSessionClearFailed
+    }
 
     do {
       let response = try await client.send(AuthRequest.logout(sessionID: sessionID), as: AuthLogoutResponseDTO.self)
       guard response.code == "SUCCESS", response.data.success else {
         throw AuthDomainError.invalidResponse
       }
-      _ = await authService.signOut(ifSessionIDMatches: sessionID)
     } catch {
-      // 갱신 실패가 먼저 세션을 지웠다면 요청 오류와 관계없이 로그아웃을 마친 상태다.
-      guard await authService.isLoggedIn else { return }
       if let networkError = error as? FestiCoreNetworkError,
          case let .response(response) = networkError,
          response.isUnauthorized {
-        _ = await authService.signOut(ifSessionIDMatches: sessionID)
+        guard await authService.confirmSignOut() else {
+          await authService.finishRevocationRequest()
+          throw AuthDomainError.localSessionClearFailed
+        }
+        guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
         return
       }
+      if await authService.hasUnconfirmedRevocation {
+        await authService.finishRevocationRequest()
+        throw AuthDomainError.revocationOutcomeUnknown
+      }
+      // 갱신 실패가 먼저 세션을 지웠다면 요청 오류와 관계없이 로그아웃을 마친 상태다.
+      guard await authService.isLoggedIn else {
+        return
+      }
+      await authService.finishRevocationRequest()
       throw error
     }
+    guard await authService.confirmSignOut() else {
+      await authService.finishRevocationRequest()
+      throw AuthDomainError.localSessionClearFailed
+    }
+    guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
   }
 
   public func withdraw() async throws {
+    if await authService.hasPendingWithdrawalCleanup {
+      guard await authService.completeWithdrawal() else { throw AuthDomainError.localSessionClearFailed }
+      return
+    }
+    if await authService.hasUnconfirmedRevocation {
+      guard await authService.retryUnconfirmedLocalCleanup() else {
+        throw AuthDomainError.localSessionClearFailed
+      }
+      throw AuthDomainError.revocationOutcomeUnknown
+    }
+    if await authService.hasPendingWithdrawalAuthorizationCleanup {
+      guard await authService.signOut() else { throw AuthDomainError.localSessionClearFailed }
+      throw AuthDomainError.notAuthenticated
+    }
     guard let sessionID = await authService.authenticatedSessionID else {
       throw AuthDomainError.notAuthenticated
+    }
+    guard await authService.prepareRevocation(.withdrawal, ifSessionIDMatches: sessionID) else {
+      throw AuthDomainError.localSessionClearFailed
     }
 
     do {
       _ = try await client.send(AuthRequest.withdraw(sessionID: sessionID), as: FestiCoreEmptyResponse.self)
-      _ = await authService.signOut(ifSessionIDMatches: sessionID)
     } catch {
-      await clearUnauthorizedSession(error, sessionID: sessionID)
+      if let networkError = error as? FestiCoreNetworkError,
+         case let .response(response) = networkError,
+         response.isUnauthorized {
+        guard await authService.confirmWithdrawalAuthorizationRejected() else {
+          await authService.finishRevocationRequest()
+          throw AuthDomainError.localSessionClearFailed
+        }
+      }
+      try await clearUnauthorizedSession(error, sessionID: sessionID)
+      await authService.finishRevocationRequest()
       throw error
     }
+    guard await authService.completeWithdrawal() else { throw AuthDomainError.localSessionClearFailed }
   }
 }
