@@ -378,6 +378,7 @@ private extension AppCoordinator {
       // 요청 계정을 모르면 다른 계정에 적용되지 않도록 버린다.
       if home.authFlow.pendingOwnerID == nil {
         home.authFlow.pendingFestivalID = nil
+        home.authFlow.pendingShouldBeBooked = true
       }
       if home.authFlow.pendingFestivalID != nil {
         home.authFlow.presentation = .login

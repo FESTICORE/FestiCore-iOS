@@ -52,6 +52,8 @@ public struct TimetableFeature {
     public var selectedDayIndex = 0
     public var mySetIDs: Set<String> = []
     public var showsMineOnly = false
+    /// 핀치로 확정한 시간축 배율. 날짜를 바꾸거나 화면을 다시 그려도 유지한다.
+    public var zoom: Double = 1
     /// 현재 시각(분). 오늘이 아니면 nil이다.
     public var nowMinute: Int?
     /// 오프라인일 때 보여 줄 안내. 온라인이면 nil이다.
@@ -193,6 +195,7 @@ public struct TimetableFeature {
     case daySelected(Int)
     case mineOnlyToggled
     case setTapped(String)
+    case zoomChanged(Double)
     case setDetailDismissed
     case setScheduleToggled
     case changeBannerTapped
@@ -257,6 +260,10 @@ private extension TimetableFeature {
     case let .setTapped(id):
       state.selectedSetID = id
       return hideScheduleToast(state: &state)
+
+    case let .zoomChanged(zoom):
+      state.zoom = zoom
+      return .none
 
     case .setDetailDismissed:
       state.selectedSetID = nil

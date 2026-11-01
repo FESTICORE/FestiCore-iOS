@@ -14,9 +14,10 @@ struct TimetableBoard: View {
   let state: TimetableFeature.State
   let day: TimetableDay
   let onSetTap: (String) -> Void
+  let onZoomEnd: (Double) -> Void
 
-  @State private var zoom: CGFloat = 1
-  @State private var settledZoom: CGFloat = 1
+  /// 손가락을 움직이는 동안의 배율. 손을 떼면 리듀서에 확정값을 보낸다.
+  @State private var gestureZoom: CGFloat?
 
   var body: some View {
     ScrollView(isWide ? [.horizontal, .vertical] : .vertical) {
@@ -33,16 +34,21 @@ struct TimetableBoard: View {
     .simultaneousGesture(
       MagnifyGesture()
         .onChanged { value in
-          zoom = min(max(settledZoom * value.magnification, Metric.minZoom), Metric.maxZoom)
+          gestureZoom = min(max(CGFloat(state.zoom) * value.magnification, Metric.minZoom), Metric.maxZoom)
         }
         .onEnded { _ in
-          settledZoom = zoom
+          if let gestureZoom { onZoomEnd(Double(gestureZoom)) }
+          gestureZoom = nil
         }
     )
   }
 }
 
 private extension TimetableBoard {
+  var zoom: CGFloat {
+    gestureZoom ?? CGFloat(state.zoom)
+  }
+
   var isWide: Bool {
     day.stages.count > Metric.fillingStageCount
   }

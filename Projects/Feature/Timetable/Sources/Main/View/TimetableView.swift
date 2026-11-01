@@ -36,7 +36,8 @@ public struct TimetableView: View {
         TimetableBoard(
           state: store.state,
           day: day,
-          onSetTap: { send(.setTapped($0)) }
+          onSetTap: { send(.setTapped($0)) },
+          onZoomEnd: { send(.zoomChanged($0)) }
         )
       } else {
         TimetableUnpublishedView(lineup: store.lineup) {

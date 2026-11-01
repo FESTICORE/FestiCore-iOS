@@ -1347,6 +1347,7 @@ struct AppCoordinatorTests {
     home.authFlow.hasSession = true
     home.authFlow.isLoading = true
     home.authFlow.pendingFestivalID = "festival"
+    home.authFlow.pendingShouldBeBooked = false
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
     store.exhaustivity = .off
 
@@ -1354,6 +1355,7 @@ struct AppCoordinatorTests {
     guard case let .home(expired) = store.state else { return }
     #expect(expired.authFlow.pendingFestivalID == nil)
     #expect(expired.authFlow.pendingOwnerID == nil)
+    #expect(expired.authFlow.pendingShouldBeBooked)
     #expect(expired.authFlow.presentation == nil)
   }
 
