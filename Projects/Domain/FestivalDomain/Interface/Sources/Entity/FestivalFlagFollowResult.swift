@@ -1,0 +1,38 @@
+//
+//  FestivalFlagFollowResult.swift
+//  FestivalDomainInterface
+//
+//  Created by FestiCore on 11/2/26.
+//
+
+import Foundation
+
+/// 팔로우·해제 뒤 서버가 돌려준 깃발 상태.
+public struct FestivalFlagFollowResult: Equatable, Sendable {
+  public let flagID: String
+  public let isFollowing: Bool
+  public let followerCount: Int
+
+  public init(flagID: String, isFollowing: Bool, followerCount: Int) {
+    self.flagID = flagID
+    self.isFollowing = isFollowing
+    self.followerCount = followerCount
+  }
+}
+
+public enum FestivalFlagFollowError: Error, Equatable, Sendable {
+  /// 로그아웃 상태이거나 토큰 갱신 후에도 인증되지 않았다.
+  case loginRequired
+  /// 팔로우 전에 최신 약관에 다시 동의해야 한다.
+  case termsRequired
+  /// 팔로우할 수 있는 깃발 수(100개)를 넘었다.
+  case limitReached
+  /// 공개되지 않은 깃발이다.
+  case notFound
+  /// 응답 형식이 계약과 다르다.
+  case invalidResponse
+  /// 요청 URL이나 본문을 만들 수 없어 서버에 전송하지 못했다.
+  case invalidRequest
+  /// 연결 오류·5xx처럼 결과를 알 수 없다.
+  case unavailable
+}
