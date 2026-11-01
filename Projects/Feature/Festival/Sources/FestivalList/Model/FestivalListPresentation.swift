@@ -107,7 +107,9 @@ extension FestivalListPresentation {
   private static func sortKey(for festival: FestivalOverview, now: Date) -> (rank: Int, order: Int) {
     let timing = timing(for: festival, now: now)
     if timing == .ended {
-      let last = (festival.lastDate ?? festival.firstDate)?.date(as: .day).map { Int($0.timeIntervalSince1970) } ?? 0
+      // timing과 같이 파싱에 성공한 종료일, 없으면 시작일을 쓴다.
+      let lastDay = festival.lastDate?.date(as: .day) ?? festival.firstDate?.date(as: .day)
+      let last = lastDay.map { Int($0.timeIntervalSince1970) } ?? 0
       return (3, -last)
     }
     if isOpeningSoon(festival) {

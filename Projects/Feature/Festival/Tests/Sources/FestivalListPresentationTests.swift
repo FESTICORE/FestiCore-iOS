@@ -71,6 +71,16 @@ struct FestivalListPresentationTests {
     #expect(FestivalListPresentation.timing(for: festival(id: "c", lastDate: "2026-12-02"), now: now) == .undated)
   }
 
+  @Test func endedOrderFallsBackToFirstDateWhenLastDateIsInvalid() {
+    let now = utc("2026-11-10T03:00:00Z")
+    let festivals = [
+      festival(id: "early", firstDate: "2026-10-01", lastDate: "2026-10-02"),
+      festival(id: "lateInvalidEnd", firstDate: "2026-10-31", lastDate: "2026-02-30")
+    ]
+
+    #expect(FestivalListPresentation.sorted(festivals, now: now).map(\.id) == ["lateInvalidEnd", "early"])
+  }
+
   @Test func packCopyDependsOnTimingBookingAndCachedVersion() {
     let now = utc("2026-11-01T03:00:00Z")
     func copy(_ festival: FestivalOverview, booked: Bool = true, onlyBooked: Bool = false) -> FestivalListPresentation.PackCopy {
