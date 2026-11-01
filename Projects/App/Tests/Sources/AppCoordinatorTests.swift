@@ -1319,6 +1319,44 @@ struct AppCoordinatorTests {
     #expect(unchanged.authFlow.generation == 1)
   }
 
+  @Test func sessionExpiryKeepsPendingBookmarkAndPresentsLogin() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.hasSession = true
+    home.authFlow.verifiedUserID = "user-a"
+    home.authFlow.lastVerifiedUserID = "user-a"
+    home.authFlow.isLoading = true
+    home.authFlow.pendingFestivalID = "festival"
+    home.authFlow.pendingOwnerID = "user-a"
+    home.authFlow.pendingShouldBeBooked = false
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    // 토큰 갱신 401은 프로필 실패 응답보다 만료 알림이 먼저 도착한다.
+    await store.send(.inner(.sessionExpired))
+    guard case let .home(expired) = store.state else { return }
+    #expect(expired.authFlow.presentation == .login)
+    #expect(expired.authFlow.pendingFestivalID == "festival")
+    #expect(expired.authFlow.pendingOwnerID == "user-a")
+    #expect(expired.authFlow.pendingShouldBeBooked == false)
+    #expect(!expired.authFlow.hasSession)
+    #expect(!expired.authFlow.isLoading)
+  }
+
+  @Test func sessionExpiryDropsPendingBookmarkWithoutKnownOwner() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.hasSession = true
+    home.authFlow.isLoading = true
+    home.authFlow.pendingFestivalID = "festival"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.sessionExpired))
+    guard case let .home(expired) = store.state else { return }
+    #expect(expired.authFlow.pendingFestivalID == nil)
+    #expect(expired.authFlow.pendingOwnerID == nil)
+    #expect(expired.authFlow.presentation == nil)
+  }
+
   @Test func signedOutProfileFailureKeepsLocalTimetableSelection() async {
     var home = MainTabCoordinator.State()
     home.authFlow.generation = 1
