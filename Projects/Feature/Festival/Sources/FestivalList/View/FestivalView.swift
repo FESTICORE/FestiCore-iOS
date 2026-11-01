@@ -5,6 +5,7 @@ import SwiftUI
 @ViewAction(for: FestivalFeature.self)
 public struct FestivalView: View {
   @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.openURL) private var openURL
   @Bindable public var store: StoreOf<FestivalFeature>
 
   public init(store: StoreOf<FestivalFeature>) {
@@ -13,6 +14,7 @@ public struct FestivalView: View {
 
   public var body: some View {
     festivalListScreen
+    .overlay(alignment: .bottom) { toast }
     .background(FestiCoreSemanticColor.backgroundNormal.color)
     .toolbar(.hidden, for: .navigationBar)
     .task {
@@ -45,6 +47,13 @@ public struct FestivalView: View {
       imageURL: imageURL,
       onSelect: { send(.selectFestival($0)) },
       onToggleBooked: { send(.toggleBookedFestival($0)) },
+      onTicketLink: { festival in
+        if let url = festival.ticketURL {
+          openURL(url)
+        } else {
+          send(.ticketLinkMissing)
+        }
+      },
       onRefresh: { send(.refreshRequested) },
       onRecentSearchSubmitted: { send(.recentSearchSubmitted($0)) },
       onRecentSearchRemoved: { send(.recentSearchRemoved($0)) },
@@ -52,6 +61,17 @@ public struct FestivalView: View {
     )
   }
 
+
+  private var toast: some View {
+    ZStack {
+      if let message = store.toast {
+        FCToast(.init(icon: .circleInfo16, message: message))
+          .padding(.bottom, FestiCoreSpacing.paddingP16)
+          .transition(.move(edge: .bottom).combined(with: .opacity))
+      }
+    }
+    .animation(.easeOut(duration: 0.2), value: store.toast)
+  }
 
   private func imageURL(_ value: String?) -> URL? {
     store.state.imageURL(for: value)

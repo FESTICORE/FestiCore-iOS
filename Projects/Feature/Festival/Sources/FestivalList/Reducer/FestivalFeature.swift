@@ -38,6 +38,8 @@ public struct FestivalFeature {
     public var bookedFestivalIDs: Set<String> = []
     public var bookedUserID: String?
     public var recentSearches: [String] = []
+    /// 목록 하단에 2초 동안 보이는 안내
+    public var toast: String?
     public var selectedPack: FestivalPackDocument?
     public var liveBoard: FestivalLiveBoardSnapshot?
     public var liveBoardUnavailable = false
@@ -77,7 +79,11 @@ public struct FestivalFeature {
     }
 
     public var festivals: [FestivalOverview] {
-      var result = catalog.map { FestivalOverview(item: $0, isCached: cachedPacks[$0.id] != nil) }
+      var result = catalog.map {
+        FestivalOverview(
+          item: $0, isCached: cachedPacks[$0.id] != nil, cachedPackVersion: cachedPacks[$0.id]?.packVersion
+        )
+      }
       let known = Set(result.map(\.id))
       result += cachedPacks.values
         .filter { !known.contains($0.festivalID) }
@@ -202,6 +208,7 @@ public struct FestivalFeature {
     case retryMySchedule
     case liveActivityTapped
     case loginTapped
+    case ticketLinkMissing
   }
 
   @CasePathable
@@ -223,10 +230,11 @@ public struct FestivalFeature {
     case liveBoardUnpublished(String, generation: Int)
     case myScheduleLoaded(festivalID: String, requestID: Int, generation: Int, Set<String>)
     case myScheduleFailed(festivalID: String, requestID: Int, generation: Int)
+    case toastExpired
   }
 
   private enum CancelID {
-    case packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary, liveBoard, mySchedule
+    case packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary, liveBoard, mySchedule, toast
   }
   private struct LiveActivitySyncID: Hashable { let id: String }
 
@@ -374,6 +382,18 @@ public struct FestivalFeature {
         )
 
       case .view(.backToFestivalList):
+        return .none
+
+      case .view(.ticketLinkMissing):
+        state.toast = "예매처 정보가 없습니다"
+        return .run { send in
+          try await clock.sleep(for: .seconds(2))
+          await send(.inner(.toastExpired))
+        }
+        .cancellable(id: CancelID.toast, cancelInFlight: true)
+
+      case .inner(.toastExpired):
+        state.toast = nil
         return .none
 
       case let .inner(.liveBoardLoaded(id, generation, snapshot)):

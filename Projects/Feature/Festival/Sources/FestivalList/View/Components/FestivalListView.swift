@@ -13,6 +13,7 @@ struct FestivalListView: View {
   let imageURL: (String?) -> URL?
   let onSelect: (String) -> Void
   let onToggleBooked: (String) -> Void
+  let onTicketLink: (FestivalOverview) -> Void
   let onRefresh: () -> Void
   let onRecentSearchSubmitted: (String) -> Void
   let onRecentSearchRemoved: (String) -> Void
@@ -27,11 +28,14 @@ struct FestivalListView: View {
   }
 
   private var visibleFestivals: [FestivalOverview] {
-    FestivalListPresentation.visible(
-      festivals,
-      query: "",
-      bookedIDs: bookedFestivalIDs,
-      onlyBooked: selectedFilter == 1
+    FestivalListPresentation.sorted(
+      FestivalListPresentation.visible(
+        festivals,
+        query: "",
+        bookedIDs: bookedFestivalIDs,
+        onlyBooked: selectedFilter == 1
+      ),
+      now: .now
     )
   }
 
@@ -156,17 +160,12 @@ struct FestivalListView: View {
         imageRevision: imageRevision
       )
     }
-    .pack(
-      festival.isCached
-        ? .received("오프라인 팩 저장됨")
-        : festival.packVersion > 0
-        ? .ready(action: { onSelect(festival.id) })
-        : .unavailable("오프라인 팩 공개 전")
-    )
+    .pack(pack(for: festival))
     .booked(
       bookedFestivalIDs.contains(festival.id),
       onToggle: { onToggleBooked(festival.id) }
     )
+    .ticketLink { onTicketLink(festival) }
     .onTapGesture { onSelect(festival.id) }
     .accessibilityIdentifier("festivalCard_\(festival.id)")
   }
@@ -262,11 +261,25 @@ struct FestivalListView: View {
   // MARK: - 표시 문구
 
   private func status(for festival: FestivalOverview) -> FCFestivalCard<FestivalPosterView>.Status {
-    switch FestivalListPresentation.timing(for: festival, now: .now) {
-    case let .daysUntil(days): .dDay("D-\(days)")
-    case .live: .dDay("진행 중")
-    case .ended: .ended("종료")
-    case .undated: .upcoming("일정 확인")
+    switch FestivalListPresentation.cardStatus(for: festival, now: .now) {
+    case let .dDay(label): .dDay(label)
+    case let .closing(label): .closing(label)
+    case .upcoming: .upcoming()
+    case .ended: .ended()
+    }
+  }
+
+  private func pack(for festival: FestivalOverview) -> FCFestivalCard<FestivalPosterView>.Pack {
+    let copy = FestivalListPresentation.packCopy(
+      for: festival,
+      isBooked: bookedFestivalIDs.contains(festival.id),
+      onlyBooked: selectedFilter == 1,
+      now: .now
+    )
+    return switch copy {
+    case let .unavailable(text): .unavailable(text)
+    case let .ready(title): .ready(title: title, action: { onSelect(festival.id) })
+    case let .received(text): .received(text)
     }
   }
 

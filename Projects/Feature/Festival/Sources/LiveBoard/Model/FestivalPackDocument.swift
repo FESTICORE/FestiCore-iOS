@@ -11,8 +11,14 @@ public struct FestivalOverview: Equatable, Identifiable {
   public let thumbnailURL: URL?
   public let packVersion: Int
   public let isCached: Bool
+  /// 기기에 저장된 팩 버전. 저장된 팩이 없으면 nil이다.
+  public let cachedPackVersion: Int?
+  /// 카탈로그 상태(`discovered`, `upcoming`, `live`, `ended`). 팩만 있는 항목은 nil이다.
+  public let catalogStatus: String?
+  /// 첫 번째 예매처 주소
+  public let ticketURL: URL?
 
-  init(item: FestivalCatalogItem, isCached: Bool) {
+  init(item: FestivalCatalogItem, isCached: Bool, cachedPackVersion: Int? = nil) {
     id = item.id
     name = item.name
     venue = item.venue
@@ -21,6 +27,9 @@ public struct FestivalOverview: Equatable, Identifiable {
     thumbnailURL = item.thumbnailURL
     packVersion = item.packVersion
     self.isCached = isCached
+    self.cachedPackVersion = cachedPackVersion
+    catalogStatus = item.status
+    ticketURL = item.ticketLinks.first?.url
   }
 
   init?(pack: CachedFestivalPack) {
@@ -36,6 +45,9 @@ public struct FestivalOverview: Equatable, Identifiable {
     thumbnailURL = document.thumbUrl.flatMap(URL.init(string:))
     packVersion = pack.packVersion
     isCached = true
+    cachedPackVersion = pack.packVersion
+    catalogStatus = nil
+    ticketURL = document.ticketLinks?.lazy.compactMap(\.httpsURL).first
   }
 }
 
@@ -52,10 +64,11 @@ public struct FestivalPackDocument: Decodable, Equatable {
   public let flagsEnabled: Bool?
   public let zones: [Zone]?
   public let source: Source?
+  public let ticketLinks: [TicketLink]?
 
   private enum CodingKeys: String, CodingKey {
     case id, name, venue, thumbUrl, days, artists, timetable, sets, stages
-    case flagsEnabled, zones, source
+    case flagsEnabled, zones, source, ticketLinks
   }
 
   public init(from decoder: Decoder) throws {
@@ -72,6 +85,22 @@ public struct FestivalPackDocument: Decodable, Equatable {
     flagsEnabled = try container.decodeIfPresent(Bool.self, forKey: .flagsEnabled)
     zones = (try? container.decode([LossyZone].self, forKey: .zones))?.compactMap(\.value)
     source = try? container.decodeIfPresent(Source.self, forKey: .source)
+    ticketLinks = Self.lossyTicketLinks(in: container)
+  }
+
+  /// null·형식이 다른 원소는 버리고 나머지 예매처만 읽는다.
+  private static func lossyTicketLinks(in container: KeyedDecodingContainer<CodingKeys>) -> [TicketLink]? {
+    guard var list = try? container.nestedUnkeyedContainer(forKey: .ticketLinks) else { return nil }
+    var links: [TicketLink] = []
+    while !list.isAtEnd {
+      if (try? list.decodeNil()) == true { continue }
+      if let link = try? list.decode(TicketLink.self) {
+        links.append(link)
+      } else {
+        _ = try? list.decode(Skipped.self)
+      }
+    }
+    return links
   }
 
   public func zoneName(for id: String?) -> String? {
@@ -101,6 +130,22 @@ public struct FestivalPackDocument: Decodable, Equatable {
     public let date: String?
     public let startsAt: String?
     public let endsAt: String?
+  }
+
+  public struct TicketLink: Decodable, Equatable {
+    public let label: String
+    public let url: String
+
+    /// 이름이 있고 https인 주소만 돌려준다.
+    var httpsURL: URL? {
+      guard !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            let url = URL(string: url), url.scheme?.lowercased() == "https", url.host != nil else { return nil }
+      return url
+    }
+  }
+
+  private struct Skipped: Decodable {
+    init(from decoder: Decoder) throws {}
   }
 
   public struct Zone: Decodable, Equatable {
