@@ -109,6 +109,10 @@ struct FestivalLiveBoardPresentationTests {
     let now = date("2026-10-20T10:46:00+09:00")
     let countdown = try #require(FestivalLiveBoardPresentation.countdown(pack: pack, festival: festival, now: now))
     #expect(countdown.time == "2시간 14분")
+    let daysAhead = try #require(FestivalLiveBoardPresentation.countdown(
+      pack: pack, festival: festival, now: date("2026-10-02T10:46:00+09:00")
+    ))
+    #expect(daysAhead.time == "18일 2시간")
     #expect(countdown.sub == "13:00 개장 · 첫 공연 15:00 메인")
     let mine = try #require(FestivalLiveBoardPresentation.setCard(
       pack: pack, mySetIDs: ["set_next"], isBeforeOpening: true, now: now
