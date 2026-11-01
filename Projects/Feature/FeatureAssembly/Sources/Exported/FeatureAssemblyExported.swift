@@ -11,3 +11,4 @@
 @_exported import Profile
 @_exported import ServiceAssembly
 @_exported import Timetable
+@_exported import Web

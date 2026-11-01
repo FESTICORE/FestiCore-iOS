@@ -17,6 +17,7 @@ let project = Project.makeModule(
     .feature(.login),
     .feature(.profile),
     .feature(.timetable),
+    .feature(.web),
     .domain(.auth),
     .domain(.festival),
     .service(.assembly),
