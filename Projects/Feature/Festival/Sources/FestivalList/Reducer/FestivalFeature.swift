@@ -119,6 +119,15 @@ public struct FestivalFeature {
       )
     }
 
+    /// 선택 축제의 팩을 아직 받는 중이다. 이때는 공연 영역에 빈 상태 대신 스켈레톤을 보여 준다.
+    /// 카탈로그 요청 실패(`connection == .offline`)와 무관하게 팩 감시 결과로만 판단한다.
+    var isPackLoading: Bool {
+      selectedPack == nil
+        && !packWatchFailed
+        && connection != .unavailable
+        && (selectedFestival?.packVersion ?? 0) > 0
+    }
+
     func pack(for festivalID: String) -> FestivalPackDocument? {
       if selectedFestivalID == festivalID { return selectedPack }
       guard let cached = cachedPacks[festivalID] else { return nil }

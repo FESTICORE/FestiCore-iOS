@@ -12,6 +12,38 @@ struct HomeOfflineTests {
     #expect(try await catalog.refresh().isEmpty)
   }
 
+  @Test func packLoadingFollowsPackWatchNotCatalogConnection() throws {
+    var state = FestivalFeature.State(selectedFestivalID: "fst_a")
+    state.catalog = [
+      FestivalCatalogItem(id: "fst_a", name: "팩 있는 축제", packVersion: 1),
+      FestivalCatalogItem(id: "fst_b", name: "팩 없는 축제", packVersion: 0),
+    ]
+    state.connection = .connecting
+    #expect(state.isPackLoading, "팩을 기다리는 동안 스켈레톤을 보여 준다")
+
+    // 카탈로그 갱신이 팩보다 먼저 실패해도 팩 감시가 끝나기 전까지는 로딩이다.
+    state.connection = .offline
+    #expect(state.isPackLoading)
+
+    state.packWatchFailed = true
+    #expect(!state.isPackLoading, "팩 감시가 실패하면 빈 상태를 보여 준다")
+
+    state.packWatchFailed = false
+    state.connection = .unavailable
+    #expect(!state.isPackLoading, "받은 팩을 읽지 못하면 빈 상태를 보여 준다")
+
+    state.connection = .connecting
+    state.selectedPack = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: Data(#"{"id":"fst_a","name":"팩 있는 축제","packVersion":1}"#.utf8)
+    )
+    #expect(!state.isPackLoading, "받은 팩이 있으면 재연결 중에도 내용을 보여 준다")
+
+    state.selectedPack = nil
+    state.selectedFestivalID = "fst_b"
+    #expect(!state.isPackLoading, "팩이 공개되지 않은 축제는 기다리지 않는다")
+  }
+
   @Test @MainActor func cachedPackAppearsBeforeFailedRefresh() async {
     let pack = CachedFestivalPack(
       festivalID: "fst_cached", packVersion: 1, etag: "\"v1\"",
