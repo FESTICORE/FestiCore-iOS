@@ -116,6 +116,8 @@ public struct ProfileView: View {
       confirmationOverlay
         .id(store.dialogPresentationID)
     }
+    // 팝업이 빠질 때 호스트가 0 크기로 줄면 닫히는 팝업이 따라 움직이므로 화면 크기로 고정한다.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .animation(.fcModal, value: store.dialogPresentationID)
     .animation(.fcModal, value: store.isLogoutConfirmationPresented)
     .animation(.fcModal, value: store.isWithdrawalConfirmationPresented)
@@ -151,7 +153,9 @@ private extension ProfileView {
             .frame(maxWidth: .infinity, minHeight: 68)
         } else {
           ForEach(packs) { pack in
-            if pack.id != packs.first?.id { rowDivider }
+            if pack.id != packs.first?.id {
+              rowDivider
+            }
             packRow(pack)
           }
         }
@@ -201,13 +205,19 @@ private extension ProfileView {
   enum AccountSheet: String, Identifiable {
     case account
 
-    var id: String { rawValue }
+    var id: String {
+      rawValue
+    }
   }
 
   var accountItem: Binding<AccountSheet?> {
     Binding(
       get: { store.isAccountPresented ? .account : nil },
-      set: { if $0 == nil { store.send(.view(.accountDismissed)) } }
+      set: {
+        if $0 == nil {
+          store.send(.view(.accountDismissed))
+        }
+      }
     )
   }
 
