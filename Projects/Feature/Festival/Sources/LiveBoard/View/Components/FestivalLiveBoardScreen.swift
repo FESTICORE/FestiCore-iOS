@@ -11,6 +11,7 @@ struct FestivalLiveBoardScreen: View {
   let liveBoard: FestivalLiveBoardSnapshot?
   let liveBoardUnavailable: Bool
   let liveBoardUnpublished: Bool
+  let isPackLoading: Bool
   let liveBoardClockAnchorAt: Date?
   let liveBoardReceivedAt: Date?
   let hasSession: Bool
@@ -46,7 +47,11 @@ struct FestivalLiveBoardScreen: View {
                 message: "축제 라이브 보드가 아직 공개되지 않았어요. 공개 후 공연과 깃발 현황을 확인해 주세요."
               )
             } else {
-              scheduleCards(now: now, deviceNow: timeline.date)
+              if isPackLoading {
+                FestivalLiveBoardSkeletonView()
+              } else {
+                scheduleCards(now: now, deviceNow: timeline.date)
+              }
               if myScheduleUnavailable {
                 HStack(spacing: FestiCoreSpacing.paddingP8) {
                   Text("내 일정을 불러오지 못했습니다.")
@@ -57,15 +62,17 @@ struct FestivalLiveBoardScreen: View {
                 .festiCoreFont(.baseCaption1Regular)
                 .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
               }
-              FestivalLiveBoardView(
-                rows: pack.map {
-                  FestivalLiveBoardPresentation.stageRows(
-                    FestivalLiveBoardSchedule.resolve(pack: $0, now: now), mySetIDs: mySetIDs
-                  )
-                } ?? [],
-                updated: FestivalLiveBoardPresentation.relativeTime(liveBoardReceivedAt, now: timeline.date),
-                source: FestivalLiveBoardPresentation.sourceLine(pack?.source)
-              )
+              if !isPackLoading {
+                FestivalLiveBoardView(
+                  rows: pack.map {
+                    FestivalLiveBoardPresentation.stageRows(
+                      FestivalLiveBoardSchedule.resolve(pack: $0, now: now), mySetIDs: mySetIDs
+                    )
+                  } ?? [],
+                  updated: FestivalLiveBoardPresentation.relativeTime(liveBoardReceivedAt, now: timeline.date),
+                  source: FestivalLiveBoardPresentation.sourceLine(pack?.source)
+                )
+              }
               crewSection(now: now)
               if pack?.flagsEnabled != false {
                 followedSection(now: now)
