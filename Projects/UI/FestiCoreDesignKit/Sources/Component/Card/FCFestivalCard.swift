@@ -59,6 +59,8 @@ public struct FCFestivalCard<Media: View>: View {
         .frame(maxWidth: .infinity)
         .frame(height: Metric.mediaHeight)
         .clipped()
+        // 채우기 이미지가 넘친 만큼 터치 영역이 커지지 않게 미디어 영역으로 제한한다.
+        .contentShape(Rectangle())
         .opacity(mediaOpacity)
         .overlay { mediaDim }
         .overlay(alignment: .topTrailing) { bookmarkButton }
