@@ -25,7 +25,7 @@ enum FestivalListPresentation {
   }
 
   static func timing(for festival: FestivalOverview, now: Date) -> Timing {
-    let calendar = FestivalDateFormat.calendar
+    let calendar = AppDateFormat.calendar
     guard let firstDate = festival.firstDate, let first = firstDate.date(as: .day) else { return .undated }
     let today = calendar.startOfDay(for: now)
     let last = festival.lastDate?.date(as: .day) ?? first

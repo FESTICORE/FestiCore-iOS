@@ -8,6 +8,7 @@ let project = Project.makeModule(
   product: .framework,
   dependencies: [
     .core(.network, .interface),
+    .core(.utility),
     .domain(.festival, .interface),
     .domain(.festival),
     .service(.auth, .interface),

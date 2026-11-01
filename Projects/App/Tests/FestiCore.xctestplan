@@ -17,6 +17,7 @@
     { "target": { "containerPath": "container:Projects/Core/FestiCoreLogger/FestiCoreLogger.xcodeproj", "identifier": "6587E7CD20D518868CF1C33A", "name": "FestiCoreLoggerTests" } },
     { "target": { "containerPath": "container:Projects/Core/FestiCoreNetwork/FestiCoreNetwork.xcodeproj", "identifier": "34D54AFA2FE302A132BBB075", "name": "FestiCoreNetworkTests" } },
     { "target": { "containerPath": "container:Projects/Core/FestiCoreStorage/FestiCoreStorage.xcodeproj", "identifier": "C3A7A4C878250A948210E6AB", "name": "FestiCoreStorageTests" } },
+    { "target": { "containerPath": "container:Projects/Core/FestiCoreUtility/FestiCoreUtility.xcodeproj", "identifier": "AFB50645B1817FE375A8436D", "name": "FestiCoreUtilityTests" } },
     { "target": { "containerPath": "container:Projects/Domain/AuthDomain/AuthDomain.xcodeproj", "identifier": "92D89059A9988A659FDC727D", "name": "AuthDomainTests" } },
     { "target": { "containerPath": "container:Projects/Domain/FestivalDomain/FestivalDomain.xcodeproj", "identifier": "89E046966CF68F753955E773", "name": "FestivalDomainTests" } },
     { "target": { "containerPath": "container:Projects/Feature/Festival/Festival.xcodeproj", "identifier": "14E2A2C6211439F59D79E957", "name": "FestivalTests" } },

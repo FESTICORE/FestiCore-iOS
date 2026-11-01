@@ -26,6 +26,7 @@ let project = Project.makeAppModule(
     .ui(.animation),
     .ui(.liveActivity),
     .core(.logger),
+    .core(.utility),
     .core(.assembly),
     .service(.analytics),
     .service(.assembly),
