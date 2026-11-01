@@ -30,8 +30,7 @@ struct FestivalLiveBoardScreen: View {
         serverAt: liveBoard?.serverAt, clockAnchorAt: liveBoardClockAnchorAt, deviceNow: timeline.date
       )
       VStack(spacing: .zero) {
-        FCTopBar(.back, title: "라이브 보드")
-          .onBack(onSwipeBack)
+        FCTopBar(.logo)
         if liveBoardUnavailable, liveBoard != nil {
           FCOfflineBadge(FestivalLiveBoardPresentation.offlineText(
             receivedAt: liveBoardReceivedAt, deviceNow: timeline.date
