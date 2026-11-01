@@ -32,7 +32,10 @@ public enum AppDateFormat: String, CaseIterable, Sendable {
 }
 
 /// 포매터는 한 번만 만들고 이후 설정을 바꾸지 않는다.
+/// 공유 인스턴스는 `lock` 안에서만 읽고 쓴다.
 private enum AppDateFormatter {
+  static let lock = NSLock()
+
   nonisolated(unsafe) static let formatters: [AppDateFormat: DateFormatter] = Dictionary(
     uniqueKeysWithValues: AppDateFormat.allCases.map { format in
       let formatter = DateFormatter()
@@ -65,17 +68,27 @@ private enum AppDateFormatter {
     return formatter
   }()
 
-  static subscript(format: AppDateFormat) -> DateFormatter {
-    formatters[format]!
+  static func string(from date: Date, as format: AppDateFormat) -> String {
+    lock.withLock { formatters[format]!.string(from: date) }
   }
 
   /// 서버 날짜는 형식이 정확히 일치할 때만 받아들인다.
   static func date(from value: String, as format: AppDateFormat) -> Date? {
-    let formatter = self[format]
-    guard let date = formatter.date(from: value), formatter.string(from: date) == value else {
-      return nil
+    lock.withLock {
+      let formatter = formatters[format]!
+      guard let date = formatter.date(from: value), formatter.string(from: date) == value else {
+        return nil
+      }
+      return date
     }
-    return date
+  }
+
+  static func isoDate(from value: String) -> Date? {
+    lock.withLock { isoFractionalParser.date(from: value) ?? isoParser.date(from: value) }
+  }
+
+  static func isoString(from date: Date) -> String {
+    lock.withLock { isoSeoulWriter.string(from: date) }
   }
 }
 
@@ -86,17 +99,17 @@ public extension String {
 
   /// ISO 8601 시각. 소수초가 있든 없든 받아들인다.
   var isoDate: Date? {
-    AppDateFormatter.isoFractionalParser.date(from: self) ?? AppDateFormatter.isoParser.date(from: self)
+    AppDateFormatter.isoDate(from: self)
   }
 }
 
 public extension Date {
   func formatted(_ format: AppDateFormat) -> String {
-    AppDateFormatter[format].string(from: self)
+    AppDateFormatter.string(from: self, as: format)
   }
 
   /// `yyyy-MM-ddTHH:mm:ss.SSS+09:00`
   var isoString: String {
-    AppDateFormatter.isoSeoulWriter.string(from: self)
+    AppDateFormatter.isoString(from: self)
   }
 }
