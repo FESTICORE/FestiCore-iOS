@@ -682,6 +682,51 @@ struct AppCoordinatorTests {
     #expect(loaded.authFlow.nickname.isEmpty)
   }
 
+  @Test func clearedNicknameDraftFromAnotherAccountLetsNewAccountUseServerNickname() async {
+    let userB = AuthUser(
+      id: "user-b", provider: "apple", email: nil, nickname: "B 닉네임",
+      nicknameConfirmed: false, termsAcceptedAt: nil, termsVersion: nil,
+      pushOptIn: false, profileImageURL: nil
+    )
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.nicknameEdited = true
+    home.authFlow.draftOwnerID = "user-a"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.profileLoaded(generation: 1, .success(AuthProfile(user: userB, currentTermsVersion: "2026-10")))))
+    guard case let .home(loaded) = store.state else { return }
+    #expect(loaded.authFlow.nickname == "B 닉네임")
+    #expect(loaded.authFlow.draftOwnerID == "user-b")
+  }
+
+  @Test func unauthenticatedProfileUpdateClearsSignUpDraft() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.hasSession = true
+    home.authFlow.profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
+    home.authFlow.presentation = .onboarding
+    home.authFlow.nickname = "A의 초안"
+    home.authFlow.nicknameEdited = true
+    home.authFlow.acceptedServiceTerms = true
+    home.authFlow.acceptedPrivacyTerms = true
+    home.authFlow.acceptedTerms = true
+    home.authFlow.consentedVersion = "2026-10"
+    home.authFlow.pushOptIn = true
+    home.authFlow.draftOwnerID = "user-a"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.profileUpdated(generation: 1, .failure(.unauthenticated))))
+    guard case let .home(after) = store.state else { return }
+    #expect(after.authFlow.nickname.isEmpty)
+    #expect(!after.authFlow.nicknameEdited)
+    #expect(!after.authFlow.acceptedTerms && !after.authFlow.acceptedServiceTerms && !after.authFlow.acceptedPrivacyTerms)
+    #expect(!after.authFlow.pushOptIn)
+    #expect(after.authFlow.draftOwnerID == nil)
+  }
+
   private func signUpUser(_ id: String) -> AuthUser {
     AuthUser(
       id: id, provider: "apple", email: nil, nickname: nil,

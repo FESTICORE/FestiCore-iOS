@@ -67,7 +67,7 @@ struct AppCoordinator {
     }
 
     var hasDraft: Bool {
-      !nickname.isEmpty || acceptedServiceTerms || acceptedPrivacyTerms || acceptedTerms || pushOptIn
+      !nickname.isEmpty || nicknameEdited || acceptedServiceTerms || acceptedPrivacyTerms || acceptedTerms || pushOptIn
     }
 
     /// 두 필수 약관이 모두 체크됐을 때만 현재 약관 버전에 동의한 것으로 본다.
@@ -84,6 +84,15 @@ struct AppCoordinator {
     /// 초안을 처음 바꿀 때 현재 계정을 소유자로 기록한다.
     mutating func claimDraft() {
       if draftOwnerID == nil { draftOwnerID = profile?.user.id }
+    }
+
+    /// 약관 버전이 바뀌었을 때처럼 닉네임은 두고 필수 약관 체크만 지운다.
+    mutating func clearRequiredTerms() {
+      acceptedTerms = false
+      acceptedServiceTerms = false
+      acceptedPrivacyTerms = false
+      termsDraftVersion = nil
+      consentedVersion = nil
     }
 
     mutating func clearDraft() {
@@ -542,9 +551,7 @@ private extension AppCoordinator {
         }
         // 약관 버전이 바뀌면 이전 버전에 체크한 필수 항목을 모두 지운다.
         if let draftVersion = home.authFlow.termsDraftVersion, draftVersion != profile.currentTermsVersion {
-          home.authFlow.acceptedServiceTerms = false
-          home.authFlow.acceptedPrivacyTerms = false
-          home.authFlow.termsDraftVersion = nil
+          home.authFlow.clearRequiredTerms()
         }
         home.authFlow.acceptedTerms = home.authFlow.acceptedTerms
           && home.authFlow.consentedVersion == profile.currentTermsVersion
@@ -561,6 +568,8 @@ private extension AppCoordinator {
         home.authFlow.lastVerifiedUserID = nil
         home.authFlow.hasSession = false
         home.authFlow.profile = nil
+        // 로그인을 잃으면 다른 계정이 이어받지 않도록 가입 초안을 모두 지운다.
+        home.authFlow.clearDraft()
         home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .login
         // 같은 로그아웃을 `sessionRestored`가 이미 비웠다면 그 뒤 받은 비로그인 라이브 보드를 다시 지우지 않고 예약 목록만 정리한다.
         let clear = hadSession
@@ -630,19 +639,13 @@ private extension AppCoordinator {
       case .failure(.termsOutdated):
         guard !home.authFlow.hasRetriedTermsUpdate else {
           home.authFlow.termsUpdateExhausted = true
-          home.authFlow.acceptedTerms = false
-          home.authFlow.acceptedServiceTerms = false
-          home.authFlow.acceptedPrivacyTerms = false
-          home.authFlow.consentedVersion = nil
+          home.authFlow.clearRequiredTerms()
           home.authFlow.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
           state = .home(home)
           return .none
         }
         home.authFlow.hasRetriedTermsUpdate = true
-        home.authFlow.acceptedTerms = false
-        home.authFlow.acceptedServiceTerms = false
-        home.authFlow.acceptedPrivacyTerms = false
-        home.authFlow.consentedVersion = nil
+        home.authFlow.clearRequiredTerms()
         home.authFlow.message = "약관이 변경됐어요. 내용을 확인하고 다시 동의해 주세요."
         home.authFlow.generation += 1
         home.authFlow.isLoading = true
@@ -655,6 +658,7 @@ private extension AppCoordinator {
         home.authFlow.lastVerifiedUserID = nil
         home.authFlow.hasSession = false
         home.authFlow.profile = nil
+        home.authFlow.clearDraft()
         home.authFlow.presentation = .login
         let clear = clearAccountData(&home)
         state = .home(home)
