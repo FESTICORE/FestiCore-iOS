@@ -34,18 +34,22 @@ public struct FestivalLiveBoardRouteView: View {
           onSwipeBack: { send(.backToFestivalList) }
         )
       } else {
-        Group {
-          if store.viewState == .loading {
-            FestivalLiveBoardSkeletonView()
-          } else {
-            FCEmptyCard(
-              icon: .music24,
-              title: "페스티벌 정보를 찾을 수 없어요",
-              message: "목록으로 돌아가 다시 선택해 주세요."
-            )
+        VStack(spacing: .zero) {
+          FCTopBar(.back, title: "라이브 보드")
+            .onBack { send(.backToFestivalList) }
+          Group {
+            if store.viewState == .loading {
+              FestivalLiveBoardSkeletonView()
+            } else {
+              FCEmptyCard(
+                icon: .music24,
+                title: "페스티벌 정보를 찾을 수 없어요",
+                message: "목록으로 돌아가 다시 선택해 주세요."
+              )
+            }
           }
-        }
           .padding(FestiCoreSpacing.paddingP16)
+        }
           .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
           .background(FestiCoreSemanticColor.backgroundNormal.color)
       }

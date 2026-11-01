@@ -12,7 +12,7 @@ struct HomeOfflineTests {
     #expect(try await catalog.refresh().isEmpty)
   }
 
-  @Test func packLoadingFollowsPackWatchNotCatalogConnection() throws {
+  @Test func packLoadingShowsOnlyWhileFirstConnecting() throws {
     var state = FestivalFeature.State(selectedFestivalID: "fst_a")
     state.catalog = [
       FestivalCatalogItem(id: "fst_a", name: "팩 있는 축제", packVersion: 1),
@@ -21,9 +21,12 @@ struct HomeOfflineTests {
     state.connection = .connecting
     #expect(state.isPackLoading, "팩을 기다리는 동안 스켈레톤을 보여 준다")
 
-    // 카탈로그 갱신이 팩보다 먼저 실패해도 팩 감시가 끝나기 전까지는 로딩이다.
+    // 오프라인·재연결 중에는 팩 서비스가 재시도만 하므로 스켈레톤을 남기지 않는다.
     state.connection = .offline
-    #expect(state.isPackLoading)
+    #expect(!state.isPackLoading)
+    state.connection = .reconnecting
+    #expect(!state.isPackLoading)
+    state.connection = .connecting
 
     state.packWatchFailed = true
     #expect(!state.isPackLoading, "팩 감시가 실패하면 빈 상태를 보여 준다")
