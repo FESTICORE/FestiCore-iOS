@@ -48,7 +48,12 @@ struct AppCoordinatorView: View {
       .spring(response: 0.52, dampingFraction: 0.94, blendDuration: 0.14),
       value: store.state.animationID
     )
-    .presentFCSheet(item: sheet, height: sheet.wrappedValue == .onboarding ? .fraction(1) : .auto) { sheet in
+    // 가입 화면은 Figma처럼 그래버 없이 화면 높이로 연다. 그래버와 간격만큼 상단 안전 영역을 넘지 않는다.
+    .presentFCSheet(
+      item: sheet,
+      height: sheet.wrappedValue == .onboarding ? .fraction(1) : .auto,
+      showsGrabber: sheet.wrappedValue != .onboarding
+    ) { sheet in
       switch sheet {
       case .login: loginSheet
       case .onboarding: onboardingSheet

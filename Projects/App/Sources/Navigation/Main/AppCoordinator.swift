@@ -53,6 +53,10 @@ struct AppCoordinator {
     var pushOptIn = false
     /// 가입 초안(닉네임·약관·알림)을 만든 계정. 계정이 확인될 때 다르면 초안을 버린다.
     var draftOwnerID: String?
+    /// 필수 약관을 체크할 때의 약관 버전. 새 버전 프로필이 오면 체크를 지운다.
+    var termsDraftVersion: String?
+    /// 사용자가 닉네임을 직접 고쳤는지. 고친 값(빈 값 포함)은 프로필 닉네임으로 덮어쓰지 않는다.
+    var nicknameEdited = false
     var isLoading = false
     var hasRetriedTermsUpdate = false
     var termsUpdateExhausted = false
@@ -68,8 +72,13 @@ struct AppCoordinator {
 
     /// 두 필수 약관이 모두 체크됐을 때만 현재 약관 버전에 동의한 것으로 본다.
     mutating func syncRequiredTerms() {
+      if acceptedServiceTerms || acceptedPrivacyTerms {
+        if termsDraftVersion == nil { termsDraftVersion = profile?.currentTermsVersion }
+      } else {
+        termsDraftVersion = nil
+      }
       acceptedTerms = acceptedServiceTerms && acceptedPrivacyTerms
-      consentedVersion = acceptedTerms ? profile?.currentTermsVersion : nil
+      consentedVersion = acceptedTerms ? termsDraftVersion : nil
     }
 
     /// 초안을 처음 바꿀 때 현재 계정을 소유자로 기록한다.
@@ -79,6 +88,7 @@ struct AppCoordinator {
 
     mutating func clearDraft() {
       nickname = ""
+      nicknameEdited = false
       pushOptIn = false
       draftOwnerID = nil
       clearConsentAndRetryState()
@@ -97,6 +107,7 @@ struct AppCoordinator {
       acceptedTerms = false
       acceptedServiceTerms = false
       acceptedPrivacyTerms = false
+      termsDraftVersion = nil
       consentedVersion = nil
       message = nil
       hasRetriedTermsUpdate = false
@@ -312,6 +323,7 @@ private extension AppCoordinator {
       guard case var .home(home) = state else { return .none }
       home.authFlow.claimDraft()
       home.authFlow.nickname = nickname
+      home.authFlow.nicknameEdited = true
       state = .home(home)
       return .none
 
@@ -511,7 +523,6 @@ private extension AppCoordinator {
           home.authFlow.clearDraft()
         }
         home.authFlow.reconcileDraft(userID: profile.user.id)
-        let previousTermsVersion = home.authFlow.profile?.currentTermsVersion
         if let ownerID = home.authFlow.pendingOwnerID, ownerID != profile.user.id {
           home.authFlow.pendingFestivalID = nil
           home.authFlow.pendingOwnerID = nil
@@ -524,14 +535,16 @@ private extension AppCoordinator {
           return finishEligible(state: &state, home: &home)
         }
         home.authFlow.presentation = .onboarding
-        if home.authFlow.nickname.isEmpty, let nickname = profile.user.nickname, !nickname.isEmpty {
+        if !home.authFlow.nicknameEdited, home.authFlow.nickname.isEmpty,
+           let nickname = profile.user.nickname, !nickname.isEmpty {
           home.authFlow.nickname = nickname
           home.authFlow.claimDraft()
         }
         // 약관 버전이 바뀌면 이전 버전에 체크한 필수 항목을 모두 지운다.
-        if let previousTermsVersion, previousTermsVersion != profile.currentTermsVersion {
+        if let draftVersion = home.authFlow.termsDraftVersion, draftVersion != profile.currentTermsVersion {
           home.authFlow.acceptedServiceTerms = false
           home.authFlow.acceptedPrivacyTerms = false
+          home.authFlow.termsDraftVersion = nil
         }
         home.authFlow.acceptedTerms = home.authFlow.acceptedTerms
           && home.authFlow.consentedVersion == profile.currentTermsVersion
