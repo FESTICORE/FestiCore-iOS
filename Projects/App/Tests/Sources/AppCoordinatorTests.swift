@@ -466,12 +466,11 @@ struct AppCoordinatorTests {
     home.authFlow.profile = AuthProfile(user: user, currentTermsVersion: "2026-09")
     home.authFlow.verifiedUserID = "user-a"
     home.authFlow.presentation = .onboarding
-    home.authFlow.nickname = "테스터"
-    home.authFlow.acceptedServiceTerms = true
-    home.authFlow.acceptedPrivacyTerms = true
-    home.authFlow.acceptedTerms = true
-    home.authFlow.consentedVersion = "2026-09"
-    home.authFlow.draftOwnerID = "user-a"
+    home.authFlow.signUp.nickname = "테스터"
+    home.authFlow.signUp.acceptedServiceTerms = true
+    home.authFlow.signUp.acceptedPrivacyTerms = true
+    home.authFlow.signUp.termsDraftVersion = "2026-09"
+    home.authFlow.signUp.draftOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
@@ -482,7 +481,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.view(.submitOnboarding)) {
+    await store.send(.scope(.home(.signUp(.view(.submitTapped)))))
+    await store.receive(\.scope.home.signUp.delegate.submitRequested) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = true
       $0 = .home(home)
@@ -491,8 +491,9 @@ struct AppCoordinatorTests {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = true
       home.authFlow.hasRetriedTermsUpdate = true
-      home.authFlow.acceptedTerms = false
-      home.authFlow.consentedVersion = nil
+      home.authFlow.signUp.acceptedServiceTerms = false
+      home.authFlow.signUp.acceptedPrivacyTerms = false
+      home.authFlow.signUp.termsDraftVersion = nil
       home.authFlow.message = "약관이 변경됐어요. 내용을 확인하고 다시 동의해 주세요."
       home.authFlow.generation = 2
       $0 = .home(home)
@@ -502,7 +503,7 @@ struct AppCoordinatorTests {
       home.authFlow.isLoading = false
       home.authFlow.profile = AuthProfile(user: user, currentTermsVersion: "2026-10")
       home.authFlow.lastVerifiedUserID = "user-a"
-      home.authFlow.nickname = "테스터"
+      home.authFlow.signUp.nickname = "테스터"
       home.authFlow.message = "변경된 약관을 확인하고 다시 동의해 주세요."
       $0 = .home(home)
     }
@@ -520,12 +521,11 @@ struct AppCoordinatorTests {
     home.authFlow.verifiedUserID = "user-a"
     home.authFlow.lastVerifiedUserID = "user-a"
     home.authFlow.presentation = .onboarding
-    home.authFlow.nickname = "작성 중"
-    home.authFlow.acceptedServiceTerms = true
-    home.authFlow.acceptedPrivacyTerms = true
-    home.authFlow.acceptedTerms = true
-    home.authFlow.consentedVersion = "2026-10"
-    home.authFlow.draftOwnerID = "user-a"
+    home.authFlow.signUp.nickname = "작성 중"
+    home.authFlow.signUp.acceptedServiceTerms = true
+    home.authFlow.signUp.acceptedPrivacyTerms = true
+    home.authFlow.signUp.termsDraftVersion = "2026-10"
+    home.authFlow.signUp.draftOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
@@ -552,9 +552,9 @@ struct AppCoordinatorTests {
       $0 = .home(home)
     }
     guard case let .home(refreshed) = store.state else { return }
-    #expect(refreshed.authFlow.nickname == "작성 중")
-    #expect(refreshed.authFlow.acceptedTerms)
-    #expect(refreshed.authFlow.acceptedServiceTerms && refreshed.authFlow.acceptedPrivacyTerms)
+    #expect(refreshed.authFlow.signUp.nickname == "작성 중")
+    #expect(refreshed.authFlow.signUp.acceptedTerms)
+    #expect(refreshed.authFlow.signUp.acceptedServiceTerms && refreshed.authFlow.signUp.acceptedPrivacyTerms)
   }
 
   @Test func requiredTermsCountOnlyWhenBothRowsAreChecked() async {
@@ -564,63 +564,85 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
     store.exhaustivity = .off
 
-    await store.send(.view(.serviceTermsChanged(true)))
+    await store.send(.scope(.home(.signUp(.view(.serviceTermsChanged(true))))))
     guard case let .home(one) = store.state else { return }
-    #expect(!one.authFlow.acceptedTerms)
-    #expect(one.authFlow.consentedVersion == nil)
-    #expect(one.authFlow.draftOwnerID == "user-a")
+    #expect(!one.authFlow.signUp.acceptedTerms)
+    #expect(one.authFlow.signUp.consentedVersion == nil)
+    #expect(one.authFlow.signUp.draftOwnerID == "user-a")
 
-    await store.send(.view(.privacyTermsChanged(true)))
+    await store.send(.scope(.home(.signUp(.view(.privacyTermsChanged(true))))))
     guard case let .home(both) = store.state else { return }
-    #expect(both.authFlow.acceptedTerms)
-    #expect(both.authFlow.consentedVersion == "2026-10")
-    #expect(!both.authFlow.isAllConsented)
+    #expect(both.authFlow.signUp.acceptedTerms)
+    #expect(both.authFlow.signUp.consentedVersion == "2026-10")
+    #expect(!both.authFlow.signUp.isAllConsented)
 
     // 필수 2개만 켜진 일부 선택 상태에서 전체 동의를 누르면 선택 알림까지 모두 켠다.
-    await store.send(.view(.allConsentToggled))
+    await store.send(.scope(.home(.signUp(.view(.allConsentToggled)))))
     guard case let .home(all) = store.state else { return }
-    #expect(all.authFlow.isAllConsented)
+    #expect(all.authFlow.signUp.isAllConsented)
 
-    await store.send(.view(.allConsentToggled))
+    await store.send(.scope(.home(.signUp(.view(.allConsentToggled)))))
     guard case let .home(none) = store.state else { return }
-    #expect(!none.authFlow.acceptedServiceTerms && !none.authFlow.acceptedPrivacyTerms && !none.authFlow.pushOptIn)
-    #expect(!none.authFlow.acceptedTerms)
-    #expect(none.authFlow.consentedVersion == nil)
+    #expect(!none.authFlow.signUp.acceptedServiceTerms && !none.authFlow.signUp.acceptedPrivacyTerms && !none.authFlow.signUp.pushOptIn)
+    #expect(!none.authFlow.signUp.acceptedTerms)
+    #expect(none.authFlow.signUp.consentedVersion == nil)
   }
 
   @Test func draftFromAnotherAccountIsClearedWhenProfileLoads() async {
     var home = MainTabCoordinator.State()
     home.authFlow.generation = 1
     home.authFlow.isLoading = true
-    home.authFlow.nickname = "A의 초안"
-    home.authFlow.acceptedServiceTerms = true
-    home.authFlow.pushOptIn = true
-    home.authFlow.draftOwnerID = "user-a"
+    home.authFlow.signUp.nickname = "A의 초안"
+    home.authFlow.signUp.acceptedServiceTerms = true
+    home.authFlow.signUp.pushOptIn = true
+    home.authFlow.signUp.draftOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
     store.exhaustivity = .off
 
     let profile = AuthProfile(user: signUpUser("user-b"), currentTermsVersion: "2026-10")
     await store.send(.inner(.profileLoaded(generation: 1, .success(profile))))
     guard case let .home(loaded) = store.state else { return }
-    #expect(loaded.authFlow.nickname.isEmpty)
-    #expect(!loaded.authFlow.acceptedServiceTerms)
-    #expect(!loaded.authFlow.pushOptIn)
-    #expect(loaded.authFlow.draftOwnerID == nil)
+    #expect(loaded.authFlow.signUp.nickname.isEmpty)
+    #expect(!loaded.authFlow.signUp.acceptedServiceTerms)
+    #expect(!loaded.authFlow.signUp.pushOptIn)
+    #expect(loaded.authFlow.signUp.draftOwnerID == nil)
+  }
+
+  @Test func accountSwitchDropsPreviousRetryStateAndMessage() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.isLoading = true
+    home.authFlow.profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
+    home.authFlow.presentation = .onboarding
+    home.authFlow.signUp.nickname = "A의 초안"
+    home.authFlow.signUp.draftOwnerID = "user-a"
+    home.authFlow.hasRetriedTermsUpdate = true
+    home.authFlow.termsUpdateExhausted = true
+    home.authFlow.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.profileUpdated(generation: 1, .success(signUpUser("user-b")))))
+    guard case let .home(after) = store.state else { return }
+    #expect(after.authFlow.signUp.nickname.isEmpty)
+    #expect(!after.authFlow.hasRetriedTermsUpdate)
+    #expect(!after.authFlow.termsUpdateExhausted)
+    #expect(after.authFlow.message == nil)
   }
 
   @Test func unownedDraftIsClearedWhenProfileLoads() async {
     var home = MainTabCoordinator.State()
     home.authFlow.generation = 1
-    home.authFlow.nickname = "주인 없음"
-    home.authFlow.acceptedPrivacyTerms = true
+    home.authFlow.signUp.nickname = "주인 없음"
+    home.authFlow.signUp.acceptedPrivacyTerms = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
     store.exhaustivity = .off
 
     let profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
     await store.send(.inner(.profileLoaded(generation: 1, .success(profile))))
     guard case let .home(loaded) = store.state else { return }
-    #expect(loaded.authFlow.nickname.isEmpty)
-    #expect(!loaded.authFlow.acceptedPrivacyTerms)
+    #expect(loaded.authFlow.signUp.nickname.isEmpty)
+    #expect(!loaded.authFlow.signUp.acceptedPrivacyTerms)
   }
 
   @Test func termsVersionChangeClearsBothRequiredRows() async {
@@ -629,21 +651,19 @@ struct AppCoordinatorTests {
     home.authFlow.profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
     home.authFlow.verifiedUserID = "user-a"
     home.authFlow.lastVerifiedUserID = "user-a"
-    home.authFlow.acceptedServiceTerms = true
-    home.authFlow.acceptedPrivacyTerms = true
-    home.authFlow.acceptedTerms = true
-    home.authFlow.consentedVersion = "2026-10"
-    home.authFlow.termsDraftVersion = "2026-10"
-    home.authFlow.draftOwnerID = "user-a"
+    home.authFlow.signUp.acceptedServiceTerms = true
+    home.authFlow.signUp.acceptedPrivacyTerms = true
+    home.authFlow.signUp.termsDraftVersion = "2026-10"
+    home.authFlow.signUp.draftOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
     store.exhaustivity = .off
 
     let profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-11")
     await store.send(.inner(.profileLoaded(generation: 1, .success(profile))))
     guard case let .home(loaded) = store.state else { return }
-    #expect(!loaded.authFlow.acceptedServiceTerms && !loaded.authFlow.acceptedPrivacyTerms)
-    #expect(!loaded.authFlow.acceptedTerms)
-    #expect(loaded.authFlow.consentedVersion == nil)
+    #expect(!loaded.authFlow.signUp.acceptedServiceTerms && !loaded.authFlow.signUp.acceptedPrivacyTerms)
+    #expect(!loaded.authFlow.signUp.acceptedTerms)
+    #expect(loaded.authFlow.signUp.consentedVersion == nil)
   }
 
   @Test func partialCheckFromOldVersionIsClearedAfterRefreshWithoutProfile() async {
@@ -653,7 +673,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
     store.exhaustivity = .off
 
-    await store.send(.view(.serviceTermsChanged(true)))
+    await store.send(.scope(.home(.signUp(.view(.serviceTermsChanged(true))))))
     // 포그라운드 갱신처럼 프로필을 비운 뒤 새 약관 버전 프로필을 받는다.
     store.exhaustivity = .off
     guard case var .home(refreshing) = store.state else { return }
@@ -663,11 +683,11 @@ struct AppCoordinatorTests {
     refreshed.exhaustivity = .off
     let newProfile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-11")
     await refreshed.send(.inner(.profileLoaded(generation: 1, .success(newProfile))))
-    await refreshed.send(.view(.privacyTermsChanged(true)))
+    await refreshed.send(.scope(.home(.signUp(.view(.privacyTermsChanged(true))))))
     guard case let .home(after) = refreshed.state else { return }
-    #expect(!after.authFlow.acceptedServiceTerms)
-    #expect(!after.authFlow.acceptedTerms)
-    #expect(after.authFlow.consentedVersion == nil)
+    #expect(!after.authFlow.signUp.acceptedServiceTerms)
+    #expect(!after.authFlow.signUp.acceptedTerms)
+    #expect(after.authFlow.signUp.consentedVersion == nil)
   }
 
   @Test func clearedNicknameIsNotRefilledFromSameAccountProfile() async {
@@ -683,10 +703,10 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
     store.exhaustivity = .off
 
-    await store.send(.view(.nicknameChanged("")))
+    await store.send(.scope(.home(.signUp(.view(.nicknameChanged(""))))))
     await store.send(.inner(.profileLoaded(generation: 1, .success(AuthProfile(user: user, currentTermsVersion: "2026-10")))))
     guard case let .home(loaded) = store.state else { return }
-    #expect(loaded.authFlow.nickname.isEmpty)
+    #expect(loaded.authFlow.signUp.nickname.isEmpty)
   }
 
   @Test func clearedNicknameDraftFromAnotherAccountLetsNewAccountUseServerNickname() async {
@@ -697,15 +717,15 @@ struct AppCoordinatorTests {
     )
     var home = MainTabCoordinator.State()
     home.authFlow.generation = 1
-    home.authFlow.nicknameEdited = true
-    home.authFlow.draftOwnerID = "user-a"
+    home.authFlow.signUp.nicknameEdited = true
+    home.authFlow.signUp.draftOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
     store.exhaustivity = .off
 
     await store.send(.inner(.profileLoaded(generation: 1, .success(AuthProfile(user: userB, currentTermsVersion: "2026-10")))))
     guard case let .home(loaded) = store.state else { return }
-    #expect(loaded.authFlow.nickname == "B 닉네임")
-    #expect(loaded.authFlow.draftOwnerID == "user-b")
+    #expect(loaded.authFlow.signUp.nickname == "B 닉네임")
+    #expect(loaded.authFlow.signUp.draftOwnerID == "user-b")
   }
 
   @Test func unauthenticatedProfileResultsDropPendingBookmarkWithoutKnownOwner() async {
@@ -750,24 +770,23 @@ struct AppCoordinatorTests {
     home.authFlow.hasSession = true
     home.authFlow.profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
     home.authFlow.presentation = .onboarding
-    home.authFlow.nickname = "A의 초안"
-    home.authFlow.nicknameEdited = true
-    home.authFlow.acceptedServiceTerms = true
-    home.authFlow.acceptedPrivacyTerms = true
-    home.authFlow.acceptedTerms = true
-    home.authFlow.consentedVersion = "2026-10"
-    home.authFlow.pushOptIn = true
-    home.authFlow.draftOwnerID = "user-a"
+    home.authFlow.signUp.nickname = "A의 초안"
+    home.authFlow.signUp.nicknameEdited = true
+    home.authFlow.signUp.acceptedServiceTerms = true
+    home.authFlow.signUp.acceptedPrivacyTerms = true
+    home.authFlow.signUp.termsDraftVersion = "2026-10"
+    home.authFlow.signUp.pushOptIn = true
+    home.authFlow.signUp.draftOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
     store.exhaustivity = .off
 
     await store.send(.inner(.profileUpdated(generation: 1, .failure(.unauthenticated))))
     guard case let .home(after) = store.state else { return }
-    #expect(after.authFlow.nickname.isEmpty)
-    #expect(!after.authFlow.nicknameEdited)
-    #expect(!after.authFlow.acceptedTerms && !after.authFlow.acceptedServiceTerms && !after.authFlow.acceptedPrivacyTerms)
-    #expect(!after.authFlow.pushOptIn)
-    #expect(after.authFlow.draftOwnerID == nil)
+    #expect(after.authFlow.signUp.nickname.isEmpty)
+    #expect(!after.authFlow.signUp.nicknameEdited)
+    #expect(!after.authFlow.signUp.acceptedTerms && !after.authFlow.signUp.acceptedServiceTerms && !after.authFlow.signUp.acceptedPrivacyTerms)
+    #expect(!after.authFlow.signUp.pushOptIn)
+    #expect(after.authFlow.signUp.draftOwnerID == nil)
   }
 
   private func signUpUser(_ id: String) -> AuthUser {
@@ -790,8 +809,9 @@ struct AppCoordinatorTests {
     home.authFlow.presentation = .onboarding
     home.authFlow.isLoading = true
     home.authFlow.hasRetriedTermsUpdate = true
-    home.authFlow.acceptedTerms = true
-    home.authFlow.consentedVersion = "2026-10"
+    home.authFlow.signUp.acceptedServiceTerms = true
+    home.authFlow.signUp.acceptedPrivacyTerms = true
+    home.authFlow.signUp.termsDraftVersion = "2026-10"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     }
@@ -800,8 +820,9 @@ struct AppCoordinatorTests {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       home.authFlow.termsUpdateExhausted = true
-      home.authFlow.acceptedTerms = false
-      home.authFlow.consentedVersion = nil
+      home.authFlow.signUp.acceptedServiceTerms = false
+      home.authFlow.signUp.acceptedPrivacyTerms = false
+      home.authFlow.signUp.termsDraftVersion = nil
       home.authFlow.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
       $0 = .home(home)
     }
@@ -1499,10 +1520,11 @@ struct AppCoordinatorTests {
     home.authFlow.lastVerifiedUserID = "user-a"
     home.authFlow.presentation = .onboarding
     home.authFlow.isLoading = true
-    home.authFlow.nickname = "작성 중"
-    home.authFlow.acceptedTerms = true
-    home.authFlow.consentedVersion = "2026-10"
-    home.authFlow.pushOptIn = true
+    home.authFlow.signUp.nickname = "작성 중"
+    home.authFlow.signUp.acceptedServiceTerms = true
+    home.authFlow.signUp.acceptedPrivacyTerms = true
+    home.authFlow.signUp.termsDraftVersion = "2026-10"
+    home.authFlow.signUp.pushOptIn = true
     home.authFlow.message = "이전 안내"
     home.authFlow.hasRetriedTermsUpdate = true
     home.authFlow.termsUpdateExhausted = true
@@ -1541,10 +1563,10 @@ struct AppCoordinatorTests {
     #expect(expired.authFlow.generation == 1)
     #expect(expired.authFlow.presentation == nil)
     #expect(!expired.authFlow.isLoading)
-    #expect(expired.authFlow.nickname.isEmpty)
-    #expect(!expired.authFlow.acceptedTerms)
-    #expect(expired.authFlow.consentedVersion == nil)
-    #expect(!expired.authFlow.pushOptIn)
+    #expect(expired.authFlow.signUp.nickname.isEmpty)
+    #expect(!expired.authFlow.signUp.acceptedTerms)
+    #expect(expired.authFlow.signUp.consentedVersion == nil)
+    #expect(!expired.authFlow.signUp.pushOptIn)
     #expect(expired.authFlow.message == nil)
     #expect(!expired.authFlow.hasRetriedTermsUpdate)
     #expect(!expired.authFlow.termsUpdateExhausted)
