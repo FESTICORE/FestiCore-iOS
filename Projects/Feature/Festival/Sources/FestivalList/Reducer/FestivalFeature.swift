@@ -314,16 +314,12 @@ public struct FestivalFeature {
         }
 
       case let .inner(.cachedLoaded(catalog, packs, savedID, catalogReadFailed, packReadFailed)):
-        state.catalog = FestivalCatalogUseCase.unique(catalog)
+        state.catalog = State.uniqueCatalog(catalog)
         state.cachedPacks = Dictionary(uniqueKeysWithValues: packs.map { ($0.festivalID, $0) })
         if !state.festivals.isEmpty { state.viewState = .loaded }
         state.catalogCacheReadFailed = catalogReadFailed
         state.packCacheReadFailed = packReadFailed
-        state.selectedFestivalID = FestivalCatalogUseCase.initialSelection(
-          from: state.festivals,
-          currentID: state.selectedFestivalID,
-          savedID: savedID
-        )
+        state.selectedFestivalID = state.initialSelectedFestivalID(savedID: savedID)
         showCachedPack(in: &state)
         resolveImageURLs(in: &state)
         return .merge(refreshCatalog(), watchSelectedPack(state), prefetchImages(state), syncLiveActivities(state))
@@ -520,7 +516,7 @@ public struct FestivalFeature {
         let previouslyAvailable = (state.selectedFestival?.packVersion ?? 0) > 0
         let restartFailedWatch = state.packWatchFailed
         state.packWatchFailed = false
-        state.catalog = FestivalCatalogUseCase.unique(catalog)
+        state.catalog = State.uniqueCatalog(catalog)
         retryImagesAfterRecovery(in: &state)
         state.catalogCacheReadFailed = false
         if state.selectedFestival == nil, let first = state.festivals.first(where: { $0.isCached || $0.packVersion > 0 }) ?? state.festivals.first {
@@ -715,11 +711,7 @@ public struct FestivalFeature {
       return .run { _ in await imagePrefetchClient.stop() }
         .cancellable(id: CancelID.imagePrefetch, cancelInFlight: true)
     }
-    let urls = FestivalImageUseCase.prefetchURLs(
-      festivals: state.festivals,
-      selectedPack: state.selectedPack,
-      resolvedURL: state.imageURL(for:)
-    )
+    let urls = state.prefetchImageURLs
     return .run { _ in await imagePrefetchClient.start(urls) }
       .cancellable(id: CancelID.imagePrefetch, cancelInFlight: true)
   }
@@ -732,10 +724,7 @@ public struct FestivalFeature {
 
   private func resolveImageURLs(in state: inout State) {
     var urls: [String: URL] = [:]
-    for value in FestivalImageUseCase.sourceValues(
-      festivals: state.festivals,
-      selectedPack: state.selectedPack
-    ) {
+    for value in state.imageSourceValues {
       urls[value] = catalogService.imageURL(for: value)
     }
     state.imageURLs = urls
@@ -817,5 +806,50 @@ public struct FestivalFeature {
       state.selectedPack = nil
       state.connection = state.selectedFestival?.packVersion == 0 ? .unavailable : .connecting
     }
+  }
+}
+
+extension FestivalFeature.State {
+  /// 같은 ID가 다시 오면 처음 항목만 남긴다.
+  static func uniqueCatalog(_ items: [FestivalCatalogItem]) -> IdentifiedArrayOf<FestivalCatalogItem> {
+    var result: IdentifiedArrayOf<FestivalCatalogItem> = []
+    for item in items where result[id: item.id] == nil {
+      result.append(item)
+    }
+    return result
+  }
+
+  /// 현재 선택, 저장한 선택, 캐시된 축제, 팩이 있는 축제, 첫 축제 순서로 고른다.
+  func initialSelectedFestivalID(savedID: String?) -> String? {
+    let festivals = self.festivals
+    return festivals.first { $0.id == selectedFestivalID }?.id
+      ?? festivals.first { $0.id == savedID }?.id
+      ?? festivals.first { $0.isCached }?.id
+      ?? festivals.first { $0.packVersion > 0 }?.id
+      ?? festivals.first?.id
+  }
+
+  /// 축제 썸네일과 선택 팩 이미지의 원본 값. 중복은 처음 값만 남긴다.
+  var imageSourceValues: [String] {
+    let festivalValues = festivals.compactMap { $0.thumbnailURL?.absoluteString }
+    let packValues = selectedPack.map { pack in
+      [pack.thumbUrl].compactMap { $0 }
+        + (pack.artists ?? []).compactMap(\.imageUrl)
+        + pack.performances.compactMap(\.imageUrl)
+    } ?? []
+    var seen = Set<String>()
+    return (festivalValues + packValues).filter { seen.insert($0).inserted }
+  }
+
+  /// 미리 받을 이미지 URL. 선택 팩 이미지를 먼저 두고 100개까지만 받는다.
+  var prefetchImageURLs: [URL] {
+    let packValues = selectedPack.map { pack in
+      [pack.thumbUrl].compactMap(imageURL(for:))
+        + (pack.artists ?? []).compactMap { imageURL(for: $0.imageUrl) }
+        + pack.performances.compactMap { imageURL(for: $0.imageUrl) }
+    } ?? []
+    let festivalValues = festivals.compactMap { imageURL(for: $0.thumbnailURL?.absoluteString) }
+    var seen = Set<URL>()
+    return Array((packValues + festivalValues).filter { seen.insert($0).inserted }.prefix(100))
   }
 }
