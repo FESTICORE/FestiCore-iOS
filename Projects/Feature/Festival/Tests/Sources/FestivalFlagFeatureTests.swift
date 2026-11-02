@@ -34,7 +34,7 @@ struct FestivalFlagFeatureTests {
       return state
     }()) { FestivalFlagFeature() }
 
-    await store.send(.inner(.festivalChanged("new"))) {
+    await store.send(.view(.festivalChanged("new"))) {
       $0.festivalID = "new"
       $0.snapshot = nil
       $0.viewState = .idle
@@ -98,7 +98,7 @@ struct FestivalFlagFeatureTests {
       return state
     }()) { FestivalFlagFeature() }
 
-    await store.send(.inner(.accountChanged)) {
+    await store.send(.view(.accountChanged)) {
       $0.snapshot = nil
       $0.viewState = .idle
       $0.generation = 1
@@ -135,7 +135,7 @@ struct FestivalFlagFeatureTests {
     await store.receive(\.async.load) { $0.viewState = .loading }
     while !started.value { await Task.yield() }
     signedIn.setValue(false)
-    await store.send(.inner(.accountChanged)) {
+    await store.send(.view(.accountChanged)) {
       $0.snapshot = nil
       $0.viewState = .idle
       $0.generation = 1
@@ -164,11 +164,11 @@ struct FestivalFlagFeatureTests {
       $0.festivalFlagUseCase = stubFlagUseCase(result: .success(current))
     }
 
-    await store.send(.inner(.festivalChanged("other"))) {
+    await store.send(.view(.festivalChanged("other"))) {
       $0.festivalID = "other"
       $0.generation = 1
     }
-    await store.send(.inner(.festivalChanged("festival"))) {
+    await store.send(.view(.festivalChanged("festival"))) {
       $0.festivalID = "festival"
       $0.generation = 2
     }
