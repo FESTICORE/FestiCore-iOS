@@ -13,8 +13,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: self-hosted
-    # 준비 15분 + 빌드·업로드 50분 + 내부 배포 45분 + 정리 여유
-    timeout-minutes: 120
+    # 준비 15분 + 빌드·업로드 50분 + 내부 배포 45분 + 외부 배포 15분 + 정리 여유
+    timeout-minutes: 135
     permissions:
       contents: read
     env:

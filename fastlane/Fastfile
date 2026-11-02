@@ -330,11 +330,31 @@ platform :ios do
     build.add_beta_groups(beta_groups: [group])
 
     # 그룹을 붙인 뒤의 외부 상태를 다시 읽어, 제출이 필요한 상태일 때만 심사에 제출한다.
+    # 처리 중·수출 규정 검토 중은 곧 바뀌는 상태라 5분까지 기다린다.
     states = Spaceship::ConnectAPI::BuildBetaDetail::ExternalState
-    build = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: version, build_number: build_number).first
-    external = build&.build_beta_detail&.external_build_state
+    transient = [states::PROCESSING, states::IN_EXPORT_COMPLIANCE_REVIEW]
+    deadline = Time.now + 5 * 60
+    build = nil
+    external = nil
+    loop do
+      build = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: version, build_number: build_number).first
+      external = build&.build_beta_detail&.external_build_state
+      break unless transient.include?(external) && Time.now < deadline
+      UI.message("#{EXTERNAL_TESTFLIGHT_GROUP} 외부 상태 대기 중: #{build_number} (#{external})")
+      sleep(30)
+    end
+
     case external
     when states::READY_FOR_BETA_SUBMISSION
+      # Apple은 한 버전에 심사 중인 빌드를 하나만 받는다. 이전 빌드가 심사 중이면 제출하지 않고 알린다.
+      reviewing = [states::WAITING_FOR_BETA_REVIEW, states::IN_BETA_REVIEW]
+      pending = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: version).find do |candidate|
+        candidate.id != build.id && reviewing.include?(candidate.build_beta_detail&.external_build_state)
+      end
+      if pending
+        UI.important("#{version} 버전의 빌드 #{pending.version}이 베타 심사 중이라 #{build_number}은 외부 그룹에만 넣고 제출하지 않습니다. 심사 승인 뒤 App Store Connect에서 제출하세요.")
+        next
+      end
       build.post_beta_app_review_submission
       UI.success("#{EXTERNAL_TESTFLIGHT_GROUP} 외부 테스트 그룹에 넣고 베타 심사에 제출: #{version} (#{build_number})")
     when states::WAITING_FOR_BETA_REVIEW, states::IN_BETA_REVIEW, states::BETA_APPROVED,
