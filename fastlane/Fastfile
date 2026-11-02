@@ -146,6 +146,8 @@ end
 def signed_ipa(scheme, configuration, version, build_number, api_key)
   sentry_dsn = ENV["FESTICORE_SENTRY_DSN"]
   sentry_arg = sentry_dsn.to_s.empty? ? "" : " FESTICORE_SENTRY_DSN=#{Shellwords.escape(sentry_dsn)}"
+  mixpanel_token = ENV["FESTICORE_MIXPANEL_TOKEN"]
+  mixpanel_arg = mixpanel_token.to_s.empty? ? "" : " FESTICORE_MIXPANEL_TOKEN=#{Shellwords.escape(mixpanel_token)}"
   # 배포 archive는 서명되지 않은 Tuist 바이너리 캐시를 쓰지 않고 소스에서 빌드한다.
   prepare_workspace(cache_profile: "none")
   prepare_signing_keychain
@@ -201,7 +203,7 @@ def signed_ipa(scheme, configuration, version, build_number, api_key)
       # CI에서는 실행별 DerivedData를 써야 Clean deploy DerivedData 단계가 정리한다. 로컬은 기본 경로.
       derived_data_path: ENV["CI_DERIVED_DATA"],
       xcodebuild_formatter: "",
-      xcargs: "FESTICORE_VERSION=#{version} FESTICORE_BUILD_NUMBER=#{build_number} FESTICORE_APNS_ENVIRONMENT=production#{sentry_arg}",
+      xcargs: "FESTICORE_VERSION=#{version} FESTICORE_BUILD_NUMBER=#{build_number} FESTICORE_APNS_ENVIRONMENT=production#{sentry_arg}#{mixpanel_arg}",
       export_options: {
         signingStyle: "manual",
         teamID: TEAM_ID,
