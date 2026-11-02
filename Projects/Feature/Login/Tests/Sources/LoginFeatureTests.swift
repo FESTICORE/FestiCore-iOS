@@ -19,6 +19,8 @@ struct LoginFeatureTests {
     }
 
     await store.send(.view(.signIn(.google))) { $0.isSigningIn = true }
+
+    await store.receive(\.async.signIn)
     await store.receive(\.inner.signInSucceeded) { $0.isSigningIn = false }
     await store.receive(.delegate(.signedIn(loginResult(newUser: true))))
   }
@@ -32,6 +34,8 @@ struct LoginFeatureTests {
     }
 
     await store.send(.view(.signIn(.google))) { $0.isSigningIn = true }
+
+    await store.receive(\.async.signIn)
     await oauth.waitUntilStarted()
     await store.send(.view(.signIn(.apple)))
     #expect(await oauth.callCount == 1)
@@ -49,6 +53,8 @@ struct LoginFeatureTests {
     }
 
     await store.send(.view(.signIn(.apple))) { $0.isSigningIn = true }
+
+    await store.receive(\.async.signIn)
     await store.receive(\.inner.signInFailed) {
       $0.isSigningIn = false
       $0.errorMessage = "로그인에 실패했습니다. 다시 시도해 주세요."
@@ -63,6 +69,8 @@ struct LoginFeatureTests {
     }
 
     await store.send(.view(.signIn(.google))) { $0.isSigningIn = true }
+
+    await store.receive(\.async.signIn)
     await store.receive(\.inner.signInFailed) {
       $0.isSigningIn = false
       $0.errorMessage = "로그인에 실패했습니다. 다시 시도해 주세요."
@@ -78,6 +86,8 @@ struct LoginFeatureTests {
     }
 
     await store.send(.view(.signIn(.google))) { $0.isSigningIn = true }
+
+    await store.receive(\.async.signIn)
     await store.receive(\.inner.signInFailed) { $0.isSigningIn = false }
     #expect(store.state.errorMessage == nil)
   }

@@ -6,8 +6,8 @@
 //
 
 import ComposableArchitecture
+import FeatureAssembly
 import FestiCoreDesignKit
-import FestiCoreSharedUI
 import SwiftUI
 import UIKit
 
@@ -94,109 +94,31 @@ private extension AppCoordinatorView {
   }
 
   var loginSheet: some View {
-    VStack {
-      FCLoginSheet(
-        title: loginCopy.title,
-        message: loginCopy.message,
-        onApple: { store.send(.view(.startLogin(.apple))) },
-        onGoogle: { store.send(.view(.startLogin(.google))) }
-      )
-      if case let .home(home) = store.state,
-         let message = home.authFlow.message ?? home.loginState.errorMessage {
-        Text(message)
-          .foregroundStyle(.red)
-          .padding(.bottom, 16)
-      }
-    }
+    LoginView(
+      title: loginCopy.title,
+      message: loginCopy.message,
+      errorMessage: currentFlow?.message ?? loginErrorMessage,
+      onApple: { store.send(.view(.startLogin(.apple))) },
+      onGoogle: { store.send(.view(.startLogin(.google))) }
+    )
   }
 
-  /// Figma S14-2 가입 정보(닉네임·약관 동의)
+  @ViewBuilder
   var onboardingSheet: some View {
-    VStack(spacing: .zero) {
-      FCTopBar(.back)
-        .onBack { store.send(.view(.dismissFlow)) }
-      ScrollView {
-        VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
-          Text("반가워요!\n어떻게 불러 드릴까요?")
-            .festiCoreFont(.baseTitle2Bold)
-            .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-            .frame(maxWidth: .infinity, alignment: .leading)
-          FCTextField(
-            text: Binding(
-              get: { currentFlow?.nickname ?? "" },
-              set: { store.send(.view(.nicknameChanged($0))) }
-            ),
-            placeholder: "닉네임"
-          )
-          .label("닉네임")
-          .maxLength(12)
-          .helper("크루원과 깃발에 보이는 이름이에요. 나중에 마이에서 바꿀 수 있어요.")
-          consentBox
-          if let message = currentFlow?.message {
-            Text(message)
-              .festiCoreFont(.baseCaption1Regular)
-              .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
-          }
+    if let signUpStore = store.scope(\.home, action: \.scope.home)?.scope(state: \.authFlow.signUp, action: \.signUp) {
+      SignUpView(
+        store: signUpStore,
+        isSubmitting: currentFlow?.isLoading ?? false,
+        message: currentFlow?.message,
+        termsUpdateExhausted: currentFlow?.termsUpdateExhausted ?? false,
+        legalBaseURL: legalBaseURL,
+        keyboardInset: keyboardInset,
+        onLegalLink: { document in
+          guard let legalBaseURL else { return }
+          openURL(legalBaseURL.appending(path: document.path))
         }
-        .padding(FestiCoreSpacing.paddingP16)
-      }
-      .scrollDismissesKeyboard(.interactively)
-      FCPrimaryButton("시작하기", isEnabled: canSubmitOnboarding) {
-        store.send(.view(.submitOnboarding))
-      }
-      .padding(.horizontal, FestiCoreSpacing.paddingP16)
-      .padding(.top, FestiCoreSpacing.paddingP12)
-      .padding(.bottom, FestiCoreSpacing.paddingP8)
+      )
     }
-    .padding(.bottom, keyboardInset)
-  }
-
-  var consentBox: some View {
-    VStack(spacing: .zero) {
-      FCConsentAll(isChecked: currentFlow?.isAllConsented ?? false) {
-        store.send(.view(.allConsentToggled))
-      }
-      FestiCoreSemanticColor.lineNormal.color
-        .frame(height: 1)
-      VStack(spacing: .zero) {
-        FCConsentRow("서비스 이용약관", isChecked: currentFlow?.acceptedServiceTerms ?? false) {
-          store.send(.view(.serviceTermsChanged(!(currentFlow?.acceptedServiceTerms ?? false))))
-        }
-        .tag("필수")
-        .onDetail(legalLink("terms"))
-        FCConsentRow("개인정보 수집 · 이용", isChecked: currentFlow?.acceptedPrivacyTerms ?? false) {
-          store.send(.view(.privacyTermsChanged(!(currentFlow?.acceptedPrivacyTerms ?? false))))
-        }
-        .tag("필수")
-        .onDetail(legalLink("privacy"))
-        FCConsentRow("알림 받기", isChecked: currentFlow?.pushOptIn ?? false) {
-          store.send(.view(.pushOptInChanged(!(currentFlow?.pushOptIn ?? false))))
-        }
-        .tag("선택")
-        .sub("공연 10분 전 · 팔로우한 깃발 · 크루 소식")
-      }
-      .padding(.vertical, FestiCoreSpacing.paddingP8)
-    }
-    .overlay {
-      RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
-        .strokeBorder(FestiCoreSemanticColor.lineNormal.color, lineWidth: 1)
-    }
-  }
-
-  var canSubmitOnboarding: Bool {
-    guard let flow = currentFlow else { return false }
-    return !flow.isLoading
-      && !flow.termsUpdateExhausted
-      && flow.acceptedTerms
-      && flow.consentedVersion == flow.profile?.currentTermsVersion
-      && legalBaseURL != nil
-      && !flow.nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-  }
-
-  /// 약관 상세 링크. 기준 주소가 없으면 화살표를 숨긴다.
-  func legalLink(_ path: String) -> (() -> Void)? {
-    guard let baseURL = legalBaseURL else { return nil }
-    return { openURL(baseURL.appending(path: path)) }
   }
 
   var migrationSheet: some View {
@@ -227,6 +149,11 @@ private extension AppCoordinatorView {
   var currentFlow: AppCoordinator.AuthFlow? {
     guard case let .home(home) = store.state else { return nil }
     return home.authFlow
+  }
+
+  var loginErrorMessage: String? {
+    guard case let .home(home) = store.state else { return nil }
+    return home.loginState.errorMessage
   }
 
   /// 로그인을 요청한 탭에 맞춘 시트 문구
