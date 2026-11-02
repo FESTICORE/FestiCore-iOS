@@ -16,13 +16,11 @@ let project = Project.makeModule(
   dependencies: [
     .core(.logger),
     .SPM.mixpanel,
-    .SPM.sentry,
-    .SPM.dependencies
+    .SPM.sentry
   ],
   hasTests: true,
   hasInterface: true,
   interfaceDependencies: [
-    .SPM.dependencies,
-    .external(name: "IssueReporting")
+    .SPM.composableArchitecture
   ]
 )
