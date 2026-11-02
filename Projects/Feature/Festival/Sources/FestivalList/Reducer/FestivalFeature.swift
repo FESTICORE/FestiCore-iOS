@@ -195,6 +195,11 @@ public struct FestivalFeature {
     case liveActivityTapped
     case loginTapped
     case ticketLinkMissing
+    /// 코디네이터가 계정·세션·내 일정 변경을 알린다.
+    case reloadBookmarks(userID: String?)
+    case accountChanged
+    case sessionChanged(hasSession: Bool, userID: String?)
+    case myScheduleSaved(festivalID: String, setIDs: Set<String>)
   }
 
   // MARK: - AsyncAction
@@ -218,11 +223,6 @@ public struct FestivalFeature {
 
   @CasePathable
   public enum InnerAction: Equatable {
-    /// 코디네이터가 계정·세션·내 일정 변경을 알린다.
-    case reloadBookmarks(userID: String?)
-    case accountChanged
-    case sessionChanged(hasSession: Bool, userID: String?)
-    case myScheduleSaved(festivalID: String, setIDs: Set<String>)
     case cachedLoaded([FestivalCatalogItem], [CachedFestivalPack], String?, Bool, Bool)
     case catalogRefreshed([FestivalCatalogItem])
     case catalogFailed
@@ -394,6 +394,60 @@ extension FestivalFeature {
     case .ticketLinkMissing:
       state.toast = "예매처 정보가 없습니다"
       return .send(.async(.expireToast))
+
+    case let .reloadBookmarks(userID):
+      state.bookedUserID = userID
+      state.bookedFestivalIDs = userID.map { libraryUseCase.bookedFestivalIDs(for: $0) } ?? []
+      state.recentSearches = libraryUseCase.recentSearches(for: userID)
+      return .none
+
+    case .accountChanged:
+      // 같은 로그아웃 전환의 `sessionChanged`가 먼저 처리됐다면 라이브 보드는 이미 비우고 다시 불렀다.
+      guard state.hasSession || state.sessionUserID != nil else {
+        state.bookedUserID = nil
+        state.bookedFestivalIDs = []
+        state.recentSearches = libraryUseCase.recentSearches(for: nil)
+        return .none
+      }
+      state.clearAccountData()
+      state.recentSearches = libraryUseCase.recentSearches(for: nil)
+      state.hasSession = false
+      state.sessionUserID = nil
+      state.accountGeneration += 1
+      return .merge(
+        state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
+        .cancel(id: CancelID.mySchedule)
+      )
+
+    case let .sessionChanged(hasSession, userID):
+      guard state.hasSession != hasSession || state.sessionUserID != userID else { return .none }
+      if let bookedUserID = state.bookedUserID, bookedUserID != userID {
+        state.bookedUserID = nil
+        state.bookedFestivalIDs = []
+      }
+      state.recentSearches = libraryUseCase.recentSearches(for: state.bookedUserID)
+      state.hasSession = hasSession
+      state.sessionUserID = userID
+      state.accountGeneration += 1
+      state.liveBoard = nil
+      state.liveBoardUnavailable = false
+      state.liveBoardUnpublished = false
+      state.liveBoardClockAnchorAt = nil
+      state.liveBoardReceivedAt = nil
+      state.mySchedule = nil
+      state.myScheduleUnavailable = false
+      return .merge(
+        state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
+        loadMySchedule(&state)
+      )
+
+    case let .myScheduleSaved(festivalID, setIDs):
+      guard state.selectedFestivalID == festivalID,
+            state.hasSession, state.isLiveBoardVisible else { return .none }
+      state.myScheduleRequestID += 1
+      state.mySchedule = MySchedule(festivalID: festivalID, setIDs: setIDs)
+      state.myScheduleUnavailable = false
+      return .cancel(id: CancelID.mySchedule)
     }
   }
 
@@ -451,7 +505,11 @@ extension FestivalFeature {
       guard let festival = state.festivals.first(where: { $0.id == festivalID }),
             let schedule = FestivalLiveActivitySchedule.resolve(
               festival: festival, pack: state.pack(for: festivalID), now: state.liveActivityNow
-            ) else { return .none }
+            ) else {
+        // 시작할 수 없게 됐으면 버튼이 처리 중에 멈추지 않도록 잠금을 푼다.
+        if state.liveActivityBusyFestivalID == festivalID { state.liveActivityBusyFestivalID = nil }
+        return .none
+      }
       return .run { send in
         do {
           let id = try await liveActivityUseCase.start(
@@ -490,60 +548,6 @@ extension FestivalFeature {
     action: InnerAction
   ) -> Effect<Action> {
     switch action {
-    case let .reloadBookmarks(userID):
-      state.bookedUserID = userID
-      state.bookedFestivalIDs = userID.map { libraryUseCase.bookedFestivalIDs(for: $0) } ?? []
-      state.recentSearches = libraryUseCase.recentSearches(for: userID)
-      return .none
-
-    case .accountChanged:
-      // 같은 로그아웃 전환의 `sessionChanged`가 먼저 처리됐다면 라이브 보드는 이미 비우고 다시 불렀다.
-      guard state.hasSession || state.sessionUserID != nil else {
-        state.bookedUserID = nil
-        state.bookedFestivalIDs = []
-        state.recentSearches = libraryUseCase.recentSearches(for: nil)
-        return .none
-      }
-      state.clearAccountData()
-      state.recentSearches = libraryUseCase.recentSearches(for: nil)
-      state.hasSession = false
-      state.sessionUserID = nil
-      state.accountGeneration += 1
-      return .merge(
-        state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
-        .cancel(id: CancelID.mySchedule)
-      )
-
-    case let .sessionChanged(hasSession, userID):
-      guard state.hasSession != hasSession || state.sessionUserID != userID else { return .none }
-      if let bookedUserID = state.bookedUserID, bookedUserID != userID {
-        state.bookedUserID = nil
-        state.bookedFestivalIDs = []
-      }
-      state.recentSearches = libraryUseCase.recentSearches(for: state.bookedUserID)
-      state.hasSession = hasSession
-      state.sessionUserID = userID
-      state.accountGeneration += 1
-      state.liveBoard = nil
-      state.liveBoardUnavailable = false
-      state.liveBoardUnpublished = false
-      state.liveBoardClockAnchorAt = nil
-      state.liveBoardReceivedAt = nil
-      state.mySchedule = nil
-      state.myScheduleUnavailable = false
-      return .merge(
-        state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
-        loadMySchedule(&state)
-      )
-
-    case let .myScheduleSaved(festivalID, setIDs):
-      guard state.selectedFestivalID == festivalID,
-            state.hasSession, state.isLiveBoardVisible else { return .none }
-      state.myScheduleRequestID += 1
-      state.mySchedule = MySchedule(festivalID: festivalID, setIDs: setIDs)
-      state.myScheduleUnavailable = false
-      return .cancel(id: CancelID.mySchedule)
-
     case let .cachedLoaded(catalog, packs, savedID, catalogReadFailed, packReadFailed):
       state.catalog = State.uniqueCatalog(catalog)
       state.cachedPacks = Dictionary(uniqueKeysWithValues: packs.map { ($0.festivalID, $0) })

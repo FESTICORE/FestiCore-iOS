@@ -339,7 +339,7 @@ struct AppCoordinatorTests {
       $0 = .home(home)
     }
     await store.receive {
-      guard case .scope(.home(.festival(.router(.routeAction(id: 0, action: .festivalList(.inner(.accountChanged))))))) = $0 else {
+      guard case .scope(.home(.festival(.router(.routeAction(id: 0, action: .festivalList(.view(.accountChanged))))))) = $0 else {
         return false
       }
       return true
@@ -2446,7 +2446,7 @@ struct AppCoordinatorTests {
       return true
     }
     await store.receive {
-      guard case .scope(.home(.festival(.router(.routeAction(id: 1, action: .liveBoard(.inner(.myScheduleSaved))))))) = $0 else { return false }
+      guard case .scope(.home(.festival(.router(.routeAction(id: 1, action: .liveBoard(.view(.myScheduleSaved))))))) = $0 else { return false }
       return true
     }
     guard case let .home(updated) = store.state else { return }
