@@ -48,16 +48,14 @@ struct FestivalUseCaseTests {
     #expect(results == [.updated(pack)])
   }
 
-  @Test func liveBoardUseCaseLoadsBoardAndMySchedule() async throws {
+  @Test func liveBoardUseCaseLoadsBoard() async throws {
     let useCase = withDependencies {
       $0.festivalLiveBoardService = StubLiveBoardService()
-      $0.festivalScheduleService = StubScheduleService()
     } operation: {
       FestivalLiveBoardUseCaseImpl()
     }
 
     #expect(try await useCase.liveBoard(for: "fst").festivalID == "fst")
-    #expect(try await useCase.mySchedule(festivalID: "fst").setIDs == ["set_fst"])
   }
 
   @Test func libraryUseCaseUsesAccountScopedStores() {
@@ -157,7 +155,7 @@ struct FestivalUseCaseTests {
       _ = try? await FestivalPackUseCaseDependency.testValue.cachedPacks()
     }
     await withKnownIssue("festivalLiveBoardUseCase 미등록") {
-      _ = try? await FestivalLiveBoardUseCaseDependency.testValue.mySchedule(festivalID: "fst")
+      _ = try? await FestivalLiveBoardUseCaseDependency.testValue.liveBoard(for: "fst")
     }
     withKnownIssue("festivalLibraryUseCase 미등록") {
       _ = FestivalLibraryUseCaseDependency.testValue.recentSearches(for: nil)
@@ -199,18 +197,6 @@ private struct StubPackService: PackSyncService {
 private struct StubLiveBoardService: FestivalLiveBoardService {
   func refresh(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
     .init(festivalID: festivalID, activeFlags: [], followedFlags: [], crew: nil)
-  }
-}
-
-private struct StubScheduleService: FestivalScheduleService {
-  func fetch(festivalID: String) async throws(FestivalScheduleError) -> FestivalSchedule {
-    .init(setIDs: ["set_\(festivalID)"])
-  }
-
-  func replace(
-    festivalID _: String, setIDs: [String], clientAt _: Date
-  ) async throws(FestivalScheduleError) -> FestivalSchedule {
-    .init(setIDs: setIDs)
   }
 }
 
