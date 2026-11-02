@@ -36,6 +36,31 @@ public extension View {
   }
 }
 
+public extension View {
+  /// `fcModal`과 같고, 시트 위쪽 가장자리에 붙어 함께 움직이는 `accessory`(토스트 등)를 더한다.
+  /// 닫기가 시작되면 `accessory`는 바로 감춰진다.
+  func fcModal<State, Action>(
+    _ store: Binding<Store<State, Action>?>,
+    height: FCSheetHeight = .auto,
+    showsGrabber: Bool = true,
+    @ViewBuilder content: @escaping (Store<State, Action>) -> some View,
+    @ViewBuilder accessory: @escaping (Store<State, Action>) -> some View
+  ) -> some View {
+    presentFCSheet(
+      item: Binding(
+        get: { store.wrappedValue.map(FCModalItem.init) },
+        set: { if $0 == nil { store.wrappedValue = nil } }
+      ),
+      height: height,
+      showsGrabber: showsGrabber
+    ) { item in
+      content(item.store)
+    } accessory: { item in
+      accessory(item.store)
+    }
+  }
+}
+
 /// 바텀시트가 표시 대상을 구분할 수 있게 스토어를 감싼다.
 private struct FCModalItem<State, Action>: Identifiable, Equatable {
   let store: Store<State, Action>

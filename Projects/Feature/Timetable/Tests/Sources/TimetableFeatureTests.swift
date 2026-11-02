@@ -1,20 +1,61 @@
 import ComposableArchitecture
+import Foundation
 import Testing
 @testable import Timetable
 
 @MainActor
 struct TimetableFeatureTests {
   @Test func tappingSetOpensDetailWithoutChangingSchedule() async {
+    // 샘플 첫날(2026-08-07 KST) 정오. lime(17:00–17:50)은 5시간 뒤 시작한다.
+    let now = Date(timeIntervalSince1970: 1_786_028_400 + 12 * 60 * 60)
     let store = TestStore(initialState: TimetableFeature.State.sample()) {
       TimetableFeature()
+    } withDependencies: {
+      $0.date.now = now
     }
 
     await store.send(.view(.setTapped("lime"))) {
-      $0.selectedSetID = "lime"
+      $0.setDetail = TimetableSetDetailFeature.State(
+        setID: "lime",
+        content: .init(
+          detail: TimetableSetDetail(
+            artist: "라임플래그스",
+            stage: "리벳 스테이지",
+            time: "17:00–17:50 · 50분",
+            status: .upcoming(minutes: 300),
+            isScheduled: false
+          ),
+          interval: DateInterval(
+            start: now.addingTimeInterval(5 * 60 * 60),
+            end: now.addingTimeInterval(5 * 60 * 60 + 50 * 60)
+          ),
+          source: $0.source,
+          isScheduleLoading: false,
+          isScheduleLimitReached: false
+        )
+      )
     }
-    await store.send(.view(.setDetailDismissed)) {
-      $0.selectedSetID = nil
+    await store.send(.scope(.setDetail(.dismiss))) {
+      $0.setDetail = nil
     }
+  }
+
+  @Test func detailViewToggleAsksParentToSave() async {
+    let store = TestStore(initialState: TimetableSetDetailFeature.State(setID: "lime", content: .sample)) {
+      TimetableSetDetailFeature()
+    }
+
+    await store.send(.view(.scheduleToggled))
+    await store.receive(\.delegate.scheduleToggled)
+  }
+
+  @Test func detailStatusFollowsCurrentTime() {
+    let state = TimetableSetDetailFeature.State(setID: "lime", content: .sample)
+    let start = TimetableSetDetailFeature.Content.sample.interval.start
+
+    #expect(state.detail(now: start.addingTimeInterval(-90 * 60)).relativeTime == "1시간 30분 후")
+    #expect(state.detail(now: start.addingTimeInterval(10 * 60)).status == .live)
+    #expect(state.detail(now: start.addingTimeInterval(50 * 60)).status == .ended)
   }
 
   @Test func outOfRangeDayIsIgnored() async {
@@ -77,4 +118,20 @@ struct TimetableFeatureTests {
     #expect(!state.isPublished)
     #expect(state.lineup.map(\.artists.count) == [5, 4])
   }
+}
+
+private extension TimetableSetDetailFeature.Content {
+  static let sample = Self(
+    detail: TimetableSetDetail(
+      artist: "라임",
+      stage: "리벳 스테이지",
+      time: "17:00–17:50 · 50분",
+      status: .upcoming(minutes: 30),
+      isScheduled: false
+    ),
+    interval: DateInterval(start: Date(timeIntervalSince1970: 1_786_089_600), duration: 50 * 60),
+    source: "",
+    isScheduleLoading: false,
+    isScheduleLimitReached: false
+  )
 }

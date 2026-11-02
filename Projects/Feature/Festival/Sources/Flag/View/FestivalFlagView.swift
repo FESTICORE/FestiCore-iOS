@@ -42,7 +42,7 @@ public struct FestivalFlagView: View {
       .scrollIndicators(.hidden)
       .refreshable { store.send(.view(.refresh)) }
       .simultaneousGesture(
-        TapGesture().onEnded { store.send(.scope(.directory(.view(.sortMenuDismissed)))) },
+        TapGesture().onEnded { store.send(.directory(.view(.sortMenuDismissed)))) },
         isEnabled: store.directory.isSortMenuPresented
       )
     }
@@ -69,10 +69,10 @@ private extension FestivalFlagView {
   var filterChips: some View {
     ScrollView(.horizontal) {
       HStack(spacing: FestiCoreSpacing.paddingP8) {
-        FCChip("전체") { store.send(.scope(.directory(.view(.tagSelected(nil))))) }
+        FCChip("전체") { store.send(.directory(.view(.tagSelected(nil))))) }
           .isSelected(store.directory.tag == nil)
         ForEach(FestivalFlagDirectory.Tag.allCases, id: \.self) { tag in
-          FCChip(tag.title) { store.send(.scope(.directory(.view(.tagSelected(tag))))) }
+          FCChip(tag.title) { store.send(.directory(.view(.tagSelected(tag))))) }
             .isSelected(store.directory.tag == tag)
         }
       }
@@ -127,7 +127,7 @@ private extension FestivalFlagView {
     return VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
       HStack {
         Spacer(minLength: 0)
-        FCSortButton(store.directory.sort.title) { store.send(.scope(.directory(.view(.sortTapped)))) }
+        FCSortButton(store.directory.sort.title) { store.send(.directory(.view(.sortTapped)))) }
       }
       .overlay(alignment: .topTrailing) { sortMenu }
       .zIndex(1)
@@ -155,7 +155,7 @@ private extension FestivalFlagView {
       FCSortMenu(
         selection: Binding(
           get: { FestivalFlagDirectory.Sort.allCases.firstIndex(of: store.directory.sort) ?? 0 },
-          set: { store.send(.scope(.directory(.view(.sortSelected(FestivalFlagDirectory.Sort.allCases[$0]))))) }
+          set: { store.send(.directory(.view(.sortSelected(FestivalFlagDirectory.Sort.allCases[$0]))))) }
         ),
         items: FestivalFlagDirectory.Sort.allCases.map(\.title)
       )
@@ -170,7 +170,7 @@ private extension FestivalFlagView {
       status: row.status.map(chipStatus),
       zone: row.zone,
       context: .directory(followers: row.followersText, tags: row.tags, isFollowing: row.isFollowing) {
-        store.send(.scope(.directory(.view(.followTapped(id: row.id, follow: !row.isFollowing, baseCount: row.serverFollowerCount)))))
+        store.send(.directory(.view(.followTapped(id: row.id, follow: !row.isFollowing, baseCount: row.serverFollowerCount)))))
       }
     ) {
       if let url = row.thumbnailURL {

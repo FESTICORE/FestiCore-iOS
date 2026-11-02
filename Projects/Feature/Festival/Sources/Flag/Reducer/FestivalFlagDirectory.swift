@@ -426,13 +426,13 @@ private struct FlagDirectorySync<Base: Reducer>: Reducer
       if wasLoading, state.viewState == .loaded, let snapshot = state.snapshot {
         state.directory.reconcile(with: snapshot)
       }
-    case let .scope(.directory(.inner(.followResponse(id, .success)))):
+    case let .directory(.inner(.followResponse(id, .success))):
       if state.viewState == .loading {
         state.directory.followOverrides[id]?.skipsNextLoad = true
       }
     case .view(.disappeared):
       return .merge(effect, cancel(state.directory.leaveTab()))
-    case .inner(.festivalChanged), .inner(.accountChanged):
+    case .view(.festivalChanged), .view(.accountChanged):
       return .merge(effect, cancel(state.directory.resetContext()))
     default:
       break

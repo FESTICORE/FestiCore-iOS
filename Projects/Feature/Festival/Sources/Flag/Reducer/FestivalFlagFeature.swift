@@ -39,7 +39,7 @@ public struct FestivalFlagFeature {
     case view(View)
     case async(AsyncAction)
     case inner(InnerAction)
-    case scope(ScopeAction)
+    case directory(FestivalFlagDirectory.Action)
   }
 
   // MARK: - ViewAction
@@ -49,6 +49,10 @@ public struct FestivalFlagFeature {
     case appeared
     case disappeared
     case refresh
+    /// 부모가 선택 축제가 바뀌었음을 알린다.
+    case festivalChanged(String?)
+    /// 부모가 로그인 계정이 바뀌었음을 알린다.
+    case accountChanged
   }
 
   // MARK: - AsyncAction
@@ -62,17 +66,8 @@ public struct FestivalFlagFeature {
 
   @CasePathable
   public enum InnerAction: Equatable {
-    case festivalChanged(String?)
-    case accountChanged
     case loaded(String, generation: Int, FestivalLiveBoardSnapshot)
     case failed(String, generation: Int, LoadFailure)
-  }
-
-  // MARK: - ScopeAction
-
-  @CasePathable
-  public enum ScopeAction: Equatable {
-    case directory(FestivalFlagDirectory.Action)
   }
 
   public enum LoadFailure: Equatable {
@@ -88,7 +83,7 @@ public struct FestivalFlagFeature {
   @Dependency(\.continuousClock) private var clock
 
   public var body: some ReducerOf<Self> {
-    Scope(state: \.directory, action: \.scope.directory) { FestivalFlagDirectory() }
+    Scope(state: \.directory, action: \.directory) { FestivalFlagDirectory() }
     Reduce { state, action in
       switch action {
       case let .view(viewAction):
@@ -100,7 +95,7 @@ public struct FestivalFlagFeature {
       case let .inner(innerAction):
         return handleInnerAction(state: &state, action: innerAction)
 
-      case .scope:
+      default:
         return .none
       }
     }
@@ -124,6 +119,19 @@ extension FestivalFlagFeature {
 
     case .refresh:
       return .send(.async(.load))
+
+    case let .festivalChanged(id):
+      guard state.festivalID != id else { return .none }
+      state.festivalID = id
+      state.snapshot = nil
+      state.viewState = .idle
+      state.generation += 1
+      return state.isVisible ? .send(.async(.load)) : .cancel(id: CancelID.refresh)
+
+    case .accountChanged:
+      state.clearAccountData()
+      state.generation += 1
+      return state.isVisible ? .send(.async(.load)) : .cancel(id: CancelID.refresh)
     }
   }
 
@@ -165,19 +173,6 @@ extension FestivalFlagFeature {
     action: InnerAction
   ) -> Effect<Action> {
     switch action {
-    case let .festivalChanged(id):
-      guard state.festivalID != id else { return .none }
-      state.festivalID = id
-      state.snapshot = nil
-      state.viewState = .idle
-      state.generation += 1
-      return state.isVisible ? .send(.async(.load)) : .cancel(id: CancelID.refresh)
-
-    case .accountChanged:
-      state.clearAccountData()
-      state.generation += 1
-      return state.isVisible ? .send(.async(.load)) : .cancel(id: CancelID.refresh)
-
     case let .loaded(id, generation, snapshot):
       guard state.festivalID == id, state.generation == generation, state.isVisible else { return .none }
       state.snapshot = snapshot

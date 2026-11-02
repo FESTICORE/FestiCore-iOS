@@ -252,6 +252,7 @@ public struct FestivalFeature {
   @Dependency(\.festivalPackUseCase) private var packUseCase
   @Dependency(\.festivalLibraryUseCase) private var libraryUseCase
   @Dependency(\.festivalLiveBoardUseCase) private var liveBoardUseCase
+  @Dependency(\.festivalScheduleUseCase) private var scheduleUseCase
   @Dependency(\.festivalImageUseCase) private var imageUseCase
   @Dependency(\.festivalLiveActivityUseCase) private var liveActivityUseCase
   @Dependency(\.date) private var date
@@ -861,7 +862,7 @@ extension FestivalFeature {
     let generation = state.accountGeneration
     return .run { send in
       do {
-        let setIDs = try await liveBoardUseCase.mySchedule(festivalID: id).setIDs
+        let setIDs = try await scheduleUseCase.mySchedule(festivalID: id).setIDs
         await send(.inner(.myScheduleLoaded(
           festivalID: id, requestID: requestID, generation: generation, Set(setIDs)
         )))

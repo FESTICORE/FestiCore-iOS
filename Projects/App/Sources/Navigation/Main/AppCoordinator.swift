@@ -8,6 +8,7 @@
 import AuthDomainInterface
 import ComposableArchitecture
 import FeatureAssembly
+import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
@@ -19,6 +20,7 @@ struct AppCoordinator {
   @Dependency(\.authService) private var authService
   @Dependency(\.festivalBookedStore) private var bookedStore
   @Dependency(\.authSessionExpiryClient) private var authSessionExpiryClient
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
 
   private enum CancelID { case sessionExpiry, accountOperation }
 
@@ -43,19 +45,34 @@ struct AppCoordinator {
     var lastVerifiedUserID: String?
     var hasSession = false
     var profile: AuthProfile? {
-      // 가입 초안 규칙이 현재 계정과 약관 버전을 따르도록 프로필이 바뀔 때마다 알린다.
-      didSet {
-        signUp.currentUserID = profile?.user.id
-        signUp.currentTermsVersion = profile?.currentTermsVersion
-      }
+      didSet { syncSignUpSheet() }
     }
-    var presentation: Presentation?
+    var presentation: Presentation? {
+      // 가입 화면이 닫히는 모든 경로에서 그 위의 약관 상세도 닫는다.
+      didSet { if presentation != .onboarding { signUp.legalDocument = nil } }
+    }
     /// 가입 정보 초안(닉네임·약관·알림)
-    var signUp = SignUpFeature.State()
-    var isLoading = false
+    var signUp = SignUpFeature.State(legalBaseURL: AppCoordinatorView.configuredLegalBaseURL)
+    var isLoading = false {
+      didSet { syncSignUpSheet() }
+    }
     var hasRetriedTermsUpdate = false
-    var termsUpdateExhausted = false
-    var message: String?
+    var termsUpdateExhausted = false {
+      didSet { syncSignUpSheet() }
+    }
+    var message: String? {
+      didSet { syncSignUpSheet() }
+    }
+
+    /// 가입 시트가 따르는 흐름 값(계정·약관 버전·제출 중·문구)을 가입 State에 맞춘다.
+    /// 부모가 가입 State에 흐름 값을 넣는 곳은 여기뿐이다.
+    private mutating func syncSignUpSheet() {
+      signUp.currentUserID = profile?.user.id
+      signUp.currentTermsVersion = profile?.currentTermsVersion
+      signUp.isSubmitting = isLoading
+      signUp.message = message
+      signUp.termsUpdateExhausted = termsUpdateExhausted
+    }
 
     /// 요청 계정을 모르는 대기 예약은 다른 계정에 적용되지 않도록 버린다.
     mutating func dropUnownedPendingBookmark() {
@@ -96,6 +113,20 @@ struct AppCoordinator {
       }
     }
 
+    /// 로그인 시트가 따르는 부모 값. 바뀌면 `syncLoginSheet`가 로그인 State에 넣는다.
+    var loginSheetInput: LoginSheetInput? {
+      guard case let .home(home) = self else { return nil }
+      let context: LoginFeature.State.Context = switch home.selectedTab {
+      case .my: .profile
+      case .flag: .flag
+      case .live, .timetable: .bookmark
+      }
+      return LoginSheetInput(
+        context: context,
+        flowMessage: home.authFlow.presentation == .login ? home.authFlow.message : nil
+      )
+    }
+
     /// 라이브 보드에 전달할 세션. 세션 여부와 확인된 사용자 ID가 바뀌면 `FestivalFeature`에 알린다.
     var festivalSession: FestivalSession {
       guard case let .home(home) = self, home.authFlow.hasSession else {
@@ -114,6 +145,11 @@ struct AppCoordinator {
     let userID: String?
   }
 
+  struct LoginSheetInput: Equatable {
+    let context: LoginFeature.State.Context
+    let flowMessage: String?
+  }
+
   enum Action: ViewAction {
     case view(View)
     case inner(InnerAction)
@@ -124,6 +160,7 @@ struct AppCoordinator {
   enum View {
     case presentHome
     case foregrounded
+    /// 로그인 시트의 로그인 요청(`LoginDelegate.signInRequested`)도 여기서 시트 상태를 확인한다.
     case startLogin(OAuthProvider)
     case dismissFlow
     case retryProfile
@@ -196,6 +233,14 @@ struct AppCoordinator {
     }
     .ifCaseLet(\.splash, action: \.scope.splash) { SplashFeature() }
     .ifCaseLet(\.home, action: \.scope.home) { MainTabCoordinator() }
+    .onChange(of: \.loginSheetInput) { _, input in
+      Reduce { state, _ in
+        guard let input, case var .home(home) = state else { return .none }
+        syncLoginSheet(&home, input: input)
+        state = .home(home)
+        return .none
+      }
+    }
     .onChange(of: \.festivalSession) { previous, state in
       let session = state.festivalSession
       let changed: Effect<Action> = .send(.scope(.home(.festival(.sessionChanged(
@@ -204,7 +249,7 @@ struct AppCoordinator {
       // 로그인 중 확인된 계정 ID가 사라져도(A→nil) 다음에 올 계정이 같다고 보장할 수 없어 전환으로 본다.
       let switchedAccounts = previous.userID != nil && previous.userID != session.userID
       // 깃발 계정 데이터는 여기서만 비운다. `Effect.send`는 같은 send 호출 안에서 처리되어 이전 계정 깃발이 화면에 남지 않는다.
-      let flagChanged: Effect<Action> = .send(.scope(.home(.flag(.inner(.accountChanged)))))
+      let flagChanged: Effect<Action> = .send(.scope(.home(.flag(.view(.accountChanged)))))
       guard previous.hasSession else {
         // 로그아웃 상태에서 받은 깃발에는 내 팔로우 정보가 없어 로그인한 계정으로 다시 불러온다.
         guard session.hasSession else { return changed }
@@ -213,14 +258,14 @@ struct AppCoordinator {
       if switchedAccounts {
         return .concatenate(
           flagChanged,
-          .send(.scope(.home(.timetable(.accountChanged)))),
+          .send(.scope(.home(.timetable(.inner(.accountChanged))))),
           changed
         )
       }
       guard !session.hasSession else { return changed }
       return .concatenate(
         flagChanged,
-        .send(.scope(.home(.timetable(.accountChanged)))),
+        .send(.scope(.home(.timetable(.inner(.accountChanged))))),
         changed
       )
     }
@@ -582,6 +627,8 @@ private extension AppCoordinator {
       home.authFlow.isLoading = false
       switch result {
       case .success:
+        // 계정 분리 — 다음 사용자와 섞이지 않게 분석 식별자와 슈퍼 프로퍼티를 초기화한다.
+        analyticsUseCase.reset()
         var cleared = AuthFlow()
         cleared.generation = max(home.authFlow.generation, generation)
         home.authFlow = cleared
@@ -590,6 +637,7 @@ private extension AppCoordinator {
         state = .home(home)
         return clear
       case .failure(.unauthenticated):
+        analyticsUseCase.reset()
         var cleared = AuthFlow()
         cleared.generation = max(home.authFlow.generation, generation)
         if operation == .withdraw {
@@ -669,6 +717,9 @@ private extension AppCoordinator {
 
     case .home(.signUp(.delegate(.closeRequested))):
       return handleViewAction(state: &state, action: .dismissFlow)
+
+    case let .home(.login(.delegate(.signInRequested(provider)))):
+      return handleViewAction(state: &state, action: .startLogin(provider))
 
     case let .home(.login(.delegate(.signedIn(result)))):
       guard case let .home(home) = state else { return .none }
@@ -790,6 +841,11 @@ private extension AppCoordinator {
       home.authFlow.profile = nil
       home.authFlow.presentation = nil
       home.authFlow.loginAttemptGeneration = nil
+      // 로그인이 확정된 직후 사용자 ID를 분석 도구에 연결하고, 신규 계정이면 sign_up을 남긴다.
+      analyticsUseCase.identify(result.user.id, result.user.provider)
+      if result.newUser, let provider = AnalyticsProvider(rawValue: result.user.provider) {
+        analyticsUseCase.track(.signUp(method: provider))
+      }
       home.authFlow.generation += 1
       home.authFlow.isLoading = true
       let generation = home.authFlow.generation
@@ -819,6 +875,12 @@ private extension AppCoordinator {
     state = .home(home)
     return pending.map { .send(.scope(.home(.completePendingBookmark(id: $0, userID: userID, shouldBeBooked: shouldBeBooked)))) }
       ?? .send(.scope(.home(.festival(.reloadBookmarks(userID: userID)))))
+  }
+
+  /// 로그인 시트 문구와 흐름 문구를 로그인 State에 맞춘다. 부모가 로그인 State에 값을 넣는 곳은 여기뿐이다.
+  func syncLoginSheet(_ home: inout MainTabCoordinator.State, input: LoginSheetInput) {
+    home.loginState.context = input.context
+    home.loginState.flowMessage = input.flowMessage
   }
 
   /// 이전 계정의 라이브 보드·예약 목록을 바로 비운다.

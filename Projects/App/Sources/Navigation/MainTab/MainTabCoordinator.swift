@@ -45,7 +45,7 @@ struct MainTabCoordinator {
       case .live:
         return festivalState.routes.count == 1
       case .timetable:
-        return timetableState.selectedSetID != nil
+        return timetableState.setDetail != nil
       case .my:
         return profileState.isAccountPresented
           || profileState.isLogoutConfirmationPresented
@@ -147,10 +147,10 @@ struct MainTabCoordinator {
       case .timetable:
         return .none
 
-      case .flag(.scope(.directory(.delegate(.loginRequested)))):
+      case .flag(.directory(.delegate(.loginRequested)))):
         return .send(.delegate(.myLoginRequested))
 
-      case .flag(.scope(.directory(.delegate(.termsAcceptanceRequested)))):
+      case .flag(.directory(.delegate(.termsAcceptanceRequested)))):
         return .send(.delegate(.myProfileRefreshRequested))
 
       case .flag, .delegate:
@@ -203,7 +203,7 @@ struct MainTabCoordinator {
       state.flagState.directory.zoneNames = zoneNames
     }
     return selectedID == state.flagState.festivalID
-      ? .none : .send(.flag(.inner(.festivalChanged(selectedID))))
+      ? .none : .send(.flag(.view(.festivalChanged(selectedID))))
   }
 
   /// 라이브 보드에서 고른 축제의 팩을 타임테이블에 옮긴다.
@@ -229,14 +229,14 @@ struct MainTabCoordinator {
 
     let festivalID = selected?.festivalID
     if festivalID != state.timetableState.festivalID {
-      return .send(.timetable(.festivalChanged(festivalID)))
+      return .send(.timetable(.inner(.festivalChanged(festivalID))))
     }
     var effects: [Effect<Action>] = []
     if daysChanged {
-      effects.append(.send(.timetable(.packUpdated)))
+      effects.append(.send(.timetable(.inner(.packUpdated))))
     }
     if appearing {
-      effects.append(.send(.timetable(.timetableAppeared)))
+      effects.append(.send(.timetable(.inner(.timetableAppeared))))
     }
     return .concatenate(effects)
   }
