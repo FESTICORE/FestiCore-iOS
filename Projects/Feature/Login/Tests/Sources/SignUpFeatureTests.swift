@@ -9,9 +9,66 @@ import ComposableArchitecture
 import Foundation
 import LoginInterface
 import Testing
+import Web
 @testable import Login
 
 struct SignUpFeatureTests {
+  @Test @MainActor func legalDetailOpensWebAndKeepsDraftAfterClose() async {
+    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    state.nickname = "테스터"
+    state.acceptedServiceTerms = true
+    state.pushOptIn = true
+    let store = TestStore(initialState: state) { SignUpFeature() }
+
+    await store.send(.view(.legalDocumentTapped(.terms))) {
+      $0.legalDocument = WebFeature.State(
+        url: URL(string: "https://example.com/api/v1/legal/terms")!,
+        title: "서비스 이용약관"
+      )
+    }
+    // Web을 닫으면 닉네임·약관 체크·알림 선택은 그대로다(TestStore가 나머지 상태 변화를 함께 확인한다).
+    await store.send(.scope(.legalDocument(.presented(.view(.closeTapped)))))
+    await store.receive(\.scope.legalDocument.presented.delegate.backToRoot) {
+      $0.legalDocument = nil
+    }
+  }
+
+  @Test @MainActor func legalDetailTapWithoutBaseURLDoesNothing() async {
+    let store = TestStore(initialState: SignUpFeature.State()) { SignUpFeature() }
+
+    await store.send(.view(.legalDocumentTapped(.privacy)))
+  }
+
+  @Test func submitNeedsCurrentConsentNicknameAndIdleFlow() {
+    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    state.currentTermsVersion = "2026-10"
+    state.nickname = "테스터"
+    state.acceptedServiceTerms = true
+    state.acceptedPrivacyTerms = true
+    state.termsDraftVersion = "2026-10"
+    #expect(state.canSubmit)
+
+    state.isSubmitting = true
+    #expect(!state.canSubmit)
+    state.isSubmitting = false
+    state.termsUpdateExhausted = true
+    #expect(!state.canSubmit)
+    state.termsUpdateExhausted = false
+    state.nickname = "  "
+    #expect(!state.canSubmit)
+    state.nickname = "테스터"
+    state.currentTermsVersion = "2026-11"
+    #expect(!state.canSubmit)
+
+    var withoutLegal = SignUpFeature.State()
+    withoutLegal.currentTermsVersion = "2026-10"
+    withoutLegal.nickname = "테스터"
+    withoutLegal.acceptedServiceTerms = true
+    withoutLegal.acceptedPrivacyTerms = true
+    withoutLegal.termsDraftVersion = "2026-10"
+    #expect(!withoutLegal.canSubmit)
+  }
+
   @Test @MainActor func submitSendsTrimmedNicknameWithValidity() async {
     var state = SignUpFeature.State()
     state.nickname = "  테스터 "
