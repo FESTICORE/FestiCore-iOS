@@ -1098,6 +1098,19 @@ struct AppCoordinatorTests {
     #expect(days.first?.sets.first?.end == 780)
   }
 
+  @Test func timetableSetCarriesResolvedArtistImage() throws {
+    let payload = #"{"id":"festival","stages":[{"id":"main","name":"메인 무대"}],"timetable":[{"id":"with-image","artist":"가수","stageId":"main","startsAt":"2026-10-30T12:00:00+09:00","endsAt":"2026-10-30T13:00:00+09:00","imageUrl":"/api/v1/festivals/images/a.webp"},{"id":"no-image","artist":"밴드","stageId":"main","startsAt":"2026-10-30T13:00:00+09:00","endsAt":"2026-10-30T14:00:00+09:00"}]}"#
+    let pack = try JSONDecoder().decode(FestivalPackDocument.self, from: Data(payload.utf8))
+    let resolved = try #require(URL(string: "https://example.com/api/v1/festivals/images/a.webp"))
+
+    let sets = FestivalPackTimetableMapper.days(from: pack) { value in
+      value == "/api/v1/festivals/images/a.webp" ? resolved : nil
+    }.first?.sets ?? []
+
+    #expect(sets.first { $0.id == "with-image" }?.imageURL == resolved)
+    #expect(sets.first { $0.id == "no-image" }?.imageURL == nil)
+  }
+
   @Test func flagTabFollowsSelectedFestival() async {
     var state = MainTabCoordinator.State()
     state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival-a")))
