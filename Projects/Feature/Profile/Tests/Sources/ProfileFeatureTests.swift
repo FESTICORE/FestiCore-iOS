@@ -7,12 +7,96 @@
 
 import ComposableArchitecture
 import FestiCoreSharedUI
+import FestivalDomainInterface
 import Foundation
 import Testing
 @testable import Profile
 
 @MainActor
 struct ProfileFeatureTests {
+  @Test func appearLoadsLocalPacksThenRefreshesUpdates() async {
+    let local = [FestivalReceivedPack(id: "fst_a", name: "원더리벳 2026", packVersion: 12, latestPackVersion: 12)]
+    let refreshed = [FestivalReceivedPack(id: "fst_a", name: "원더리벳 2026", packVersion: 12, latestPackVersion: 13)]
+    let store = TestStore(initialState: ProfileFeature.State()) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.festivalReceivedPackUseCase = MockFestivalReceivedPackUseCase(
+        receivedPacks: { local },
+        refreshReceivedPacks: { refreshed }
+      )
+    }
+
+    await store.send(.view(.onAppear)) { $0.packLoad = .loading }
+    await store.receive(\.async.fetchPacks)
+    await store.receive(\.inner.packsLoaded) {
+      $0.packs = local
+      $0.packLoad = .loaded
+    }
+    await store.receive(\.inner.packsRefreshed) { $0.packs = refreshed }
+    #expect(store.state.packs.first?.hasUpdate == true)
+  }
+
+  @Test func refreshFailureKeepsLocalPacks() async {
+    let local = [FestivalReceivedPack(id: "fst_a", name: "A", packVersion: 1)]
+    let store = TestStore(initialState: ProfileFeature.State()) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.festivalReceivedPackUseCase = MockFestivalReceivedPackUseCase(
+        receivedPacks: { local },
+        refreshReceivedPacks: { throw URLError(.notConnectedToInternet) }
+      )
+    }
+
+    await store.send(.view(.onAppear)) { $0.packLoad = .loading }
+    await store.receive(\.async.fetchPacks)
+    await store.receive(\.inner.packsLoaded) {
+      $0.packs = local
+      $0.packLoad = .loaded
+    }
+  }
+
+  @Test func localPackFailureShowsRetry() async {
+    let attempts = LockIsolated(0)
+    let store = TestStore(initialState: ProfileFeature.State()) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.festivalReceivedPackUseCase = MockFestivalReceivedPackUseCase(
+        receivedPacks: {
+          attempts.withValue { $0 += 1 }
+          if attempts.value == 1 { throw URLError(.cannotOpenFile) }
+          return []
+        },
+        refreshReceivedPacks: { [] }
+      )
+    }
+
+    await store.send(.view(.onAppear)) { $0.packLoad = .loading }
+    await store.receive(\.async.fetchPacks)
+    await store.receive(\.inner.packsFailed) { $0.packLoad = .failed }
+    await store.send(.view(.packsRetryTapped)) { $0.packLoad = .loading }
+    await store.receive(\.async.fetchPacks)
+    await store.receive(\.inner.packsLoaded) { $0.packLoad = .loaded }
+    await store.receive(\.inner.packsRefreshed)
+  }
+
+  @Test func reappearKeepsShownPacksWhileReloading() async {
+    var state = ProfileFeature.State()
+    state.packs = [FestivalReceivedPack(id: "fst_a", name: "A", packVersion: 1)]
+    state.packLoad = .loaded
+    let store = TestStore(initialState: state) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.festivalReceivedPackUseCase = MockFestivalReceivedPackUseCase(
+        receivedPacks: { throw URLError(.cannotOpenFile) },
+        refreshReceivedPacks: { [] }
+      )
+    }
+
+    await store.send(.view(.onAppear))
+    await store.receive(\.async.fetchPacks)
+    await store.receive(\.inner.packsFailed)
+  }
+
   @Test func guestAccountRequestsLogin() async {
     let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
 

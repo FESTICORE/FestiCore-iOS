@@ -7,12 +7,21 @@ public struct CachedFestivalPack: Sendable, Equatable {
   public let packVersion: Int
   public let etag: String
   public let pack: Data
+  /// 서버와 마지막으로 버전을 맞춘 시각. 디스크에서 읽은 팩에만 있다.
+  public let checkedAt: Date?
 
-  public init(festivalID: String, packVersion: Int, etag: String, pack: Data) {
+  public init(festivalID: String, packVersion: Int, etag: String, pack: Data, checkedAt: Date? = nil) {
     self.festivalID = festivalID
     self.packVersion = packVersion
     self.etag = etag
     self.pack = pack
+    self.checkedAt = checkedAt
+  }
+
+  /// 확인 시각은 저장 메타데이터라 같은 팩인지 비교할 때 보지 않는다.
+  public static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.festivalID == rhs.festivalID && lhs.packVersion == rhs.packVersion
+      && lhs.etag == rhs.etag && lhs.pack == rhs.pack
   }
 }
 

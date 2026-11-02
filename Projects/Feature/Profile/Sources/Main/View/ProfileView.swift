@@ -9,6 +9,7 @@ import AuthDomainInterface
 import ComposableArchitecture
 import FestiCoreDesignKit
 import FestiCoreSharedUI
+import FestivalDomainInterface
 import SwiftUI
 
 @ViewAction(for: ProfileFeature.self)
@@ -56,6 +57,7 @@ public struct ProfileView: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
+    .onAppear { send(.onAppear) }
   }
 }
 
@@ -95,17 +97,24 @@ private extension ProfileView {
       HStack {
         sectionTitle("내가 받은 팩")
         Spacer()
-        sectionTitle("\(store.packs.count)개")
+        if store.packLoad == .loaded {
+          sectionTitle("\(store.packs.count)개")
+        }
       }
       .padding(.horizontal, FestiCoreSpacing.paddingP4)
 
       VStack(spacing: .zero) {
-        if store.packs.isEmpty {
+        switch store.packLoad {
+        case .idle, .loading:
+          packSkeletonRow
+        case .failed:
+          packFailure
+        case .loaded where store.packs.isEmpty:
           Text("받은 팩이 없습니다")
             .festiCoreFont(.baseBodyRegular)
             .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
             .frame(maxWidth: .infinity, minHeight: 68)
-        } else {
+        case .loaded:
           ForEach(store.packs) { pack in
             if pack.id != store.packs.first?.id {
               rowDivider
@@ -118,17 +127,77 @@ private extension ProfileView {
         RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
           .fill(FestiCoreSemanticColor.backgroundElevated.color)
       }
+      .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
     }
   }
 
-  func packRow(_ pack: ProfileReceivedPack) -> some View {
-    let image: Image? = pack.imageName.map { Image($0) }
-    return FCPackRow(name: pack.name, meta: pack.detail) {
+  func packRow(_ pack: FestivalReceivedPack) -> some View {
+    FCPackRow(name: pack.name, meta: packMeta(pack)) {
       send(.packTapped(pack.id))
     }
-    .image(image)
     .hasUpdate(pack.hasUpdate)
+    // FCPackRow는 로컬 이미지만 받으므로 서버 썸네일은 같은 자리에 겹쳐 그린다.
+    .overlay(alignment: .leading) {
+      if let url = pack.thumbnailURL {
+        FCRemoteImage(url: url)
+          .frame(width: Metric.packThumbnailSize, height: Metric.packThumbnailSize)
+          .clipShape(RoundedRectangle(cornerRadius: Metric.packThumbnailRadius))
+          .padding(.leading, FestiCoreSpacing.paddingP16)
+          .allowsHitTesting(false)
+          .accessibilityHidden(true)
+      }
+    }
     .allowsHitTesting(store.isPackNavigationAvailable)
+  }
+
+  var packSkeletonRow: some View {
+    HStack(spacing: FestiCoreSpacing.paddingP12) {
+      FCSkeletonView(.round())
+        .frame(width: Metric.packThumbnailSize, height: Metric.packThumbnailSize)
+      VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
+        FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r4))
+          .frame(width: 140, height: 16)
+        FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r4))
+          .frame(width: 180, height: 12)
+      }
+      Spacer()
+    }
+    .padding(.vertical, FestiCoreSpacing.paddingP12)
+    .padding(.horizontal, FestiCoreSpacing.paddingP16)
+  }
+
+  var packFailure: some View {
+    VStack(spacing: FestiCoreSpacing.paddingP8) {
+      Text("받은 팩을 불러오지 못했어요")
+        .festiCoreFont(.baseSubheadlineRegular)
+        .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+      FCButton("다시 시도") { send(.packsRetryTapped) }
+        .style(.secondary)
+        .size(.medium)
+    }
+    .frame(maxWidth: .infinity)
+    .padding(.vertical, FestiCoreSpacing.paddingP16)
+  }
+
+  /// 새 버전이 있으면 버전을, 아니면 마지막 확인 시각을 보여 준다.
+  func packMeta(_ pack: FestivalReceivedPack) -> String {
+    if pack.hasUpdate, let latest = pack.latestPackVersion {
+      return "새 버전이 있어요 · v\(latest)"
+    }
+    guard let checkedAt = pack.checkedAt else { return "최신 버전 · v\(pack.packVersion)" }
+    return "최신 버전 · \(checkedAt.formatted(Self.checkedAtFormat)) 확인"
+  }
+
+  static let checkedAtFormat = Date.FormatStyle()
+    .month(.defaultDigits)
+    .day(.defaultDigits)
+    .hour(.twoDigits(amPM: .omitted))
+    .minute(.twoDigits)
+    .locale(Locale(identifier: "en_US_POSIX"))
+
+  enum Metric {
+    static let packThumbnailSize: CGFloat = 44
+    static let packThumbnailRadius: CGFloat = 12 * 44 / 56
   }
 
   var settings: some View {

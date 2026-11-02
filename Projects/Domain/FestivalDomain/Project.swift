@@ -9,6 +9,7 @@ let project = Project.makeModule(
   dependencies: [
     .core(.network, .interface),
     .core(.utility),
+    .service(.pack, .interface),
     .SPM.kingfisher,
     .SPM.dependencies,
   ],

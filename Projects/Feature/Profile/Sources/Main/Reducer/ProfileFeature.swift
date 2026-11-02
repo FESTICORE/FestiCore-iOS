@@ -8,26 +8,10 @@
 import AuthDomainInterface
 import ComposableArchitecture
 import FestiCoreSharedUI
+import FestivalDomainInterface
 import Foundation
 import ProfileInterface
 import UIKit
-
-/// 화면에 실제로 전달된 팩만 표시한다. 데이터가 없으면 빈 목록으로 남는다.
-public struct ProfileReceivedPack: Equatable, Identifiable {
-  public let id: String
-  public let name: String
-  public let detail: String
-  public let imageName: String?
-  public let hasUpdate: Bool
-
-  public init(id: String, name: String, detail: String, imageName: String? = nil, hasUpdate: Bool = false) {
-    self.id = id
-    self.name = name
-    self.detail = detail
-    self.imageName = imageName
-    self.hasUpdate = hasUpdate
-  }
-}
 
 @Reducer
 public struct ProfileFeature {
@@ -44,7 +28,9 @@ public struct ProfileFeature {
     public var hasSession = false
     public var isLoading = false
     public var message: String?
-    public var packs: [ProfileReceivedPack] = []
+    /// 기기에 받아 둔 팩
+    public var packs: [FestivalReceivedPack] = []
+    public var packLoad = PackLoad.idle
     /// 아직 연결되지 않은 이동은 누를 수 없게 둔다.
     public var isBearerNavigationAvailable = false
     public var isSearchAvailable = false
@@ -61,6 +47,16 @@ public struct ProfileFeature {
     public init() {}
   }
 
+  /// 받은 팩 목록을 읽는 상태. 처음 읽는 동안만 스켈레톤을 보인다.
+  public enum PackLoad: Equatable {
+    case idle
+    case loading
+    case loaded
+    case failed
+  }
+
+  private enum CancelID { case packs }
+
   public enum Confirmation: Equatable, Sendable {
     case logout
     case withdraw
@@ -76,6 +72,8 @@ public struct ProfileFeature {
   public enum Action: ViewAction, Equatable {
     case destination(PresentationAction<Destination.Action>)
     case view(View)
+    case async(AsyncAction)
+    case inner(InnerAction)
     case delegate(DelegateAction)
   }
 
@@ -85,6 +83,8 @@ public struct ProfileFeature {
   public enum View: Equatable {
     /// 앱 코디네이터가 계정 상태가 바뀔 때 보내는 입력
     case accountChanged(profile: AuthProfile?, hasSession: Bool, isLoading: Bool, message: String?)
+    case onAppear
+    case packsRetryTapped
     case bearerTapped
     case searchTapped
     case packTapped(String)
@@ -100,10 +100,29 @@ public struct ProfileFeature {
     case privacyTapped
   }
 
+  // MARK: - AsyncAction 비동기 처리 액션
+
+  @CasePathable
+  public enum AsyncAction: Equatable {
+    case fetchPacks
+  }
+
+  // MARK: - 앱내에서 사용하는 액션
+
+  @CasePathable
+  public enum InnerAction: Equatable {
+    case packsLoaded([FestivalReceivedPack])
+    /// 서버 목록으로 새 버전 여부를 갱신한 결과
+    case packsRefreshed([FestivalReceivedPack])
+    case packsFailed
+  }
+
   // MARK: - DelegateAction
 
   /// 이동 계약은 ProfileInterface에 있다.
   public typealias DelegateAction = ProfileDelegate
+
+  @Dependency(\.festivalReceivedPackUseCase) private var receivedPackUseCase
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -113,6 +132,12 @@ public struct ProfileFeature {
 
       case .view(let viewAction):
         return handleViewAction(state: &state, action: viewAction)
+
+      case .async(let asyncAction):
+        return handleAsyncAction(state: &state, action: asyncAction)
+
+      case .inner(let innerAction):
+        return handleInnerAction(state: &state, action: innerAction)
 
       case .delegate(let delegateAction):
         return handleDelegateAction(state: &state, action: delegateAction)
@@ -142,6 +167,17 @@ extension ProfileFeature {
         return .send(.view(.accountDismissed))
       }
       return .none
+
+    case .onAppear:
+      guard state.packLoad != .loading else { return .none }
+      // 이미 보여 준 목록은 다시 읽는 동안 그대로 둔다.
+      if state.packLoad != .loaded { state.packLoad = .loading }
+      return .send(.async(.fetchPacks))
+
+    case .packsRetryTapped:
+      guard state.packLoad == .failed else { return .none }
+      state.packLoad = .loading
+      return .send(.async(.fetchPacks))
 
     case .bearerTapped:
       return .send(.delegate(.bearerRequested))
@@ -192,6 +228,45 @@ extension ProfileFeature {
 
     case .privacyTapped:
       return openLegalURL(path: "privacy", state: &state)
+    }
+  }
+
+  private func handleAsyncAction(
+    state: inout State,
+    action: AsyncAction
+  ) -> Effect<Action> {
+    switch action {
+    case .fetchPacks:
+      return .run { send in
+        do {
+          await send(.inner(.packsLoaded(try await receivedPackUseCase.receivedPacks())))
+        } catch {
+          await send(.inner(.packsFailed))
+          return
+        }
+        // 서버 목록을 받지 못하면 저장된 목록 기준으로 보여 준 값을 유지한다.
+        if let refreshed = try? await receivedPackUseCase.refreshReceivedPacks() {
+          await send(.inner(.packsRefreshed(refreshed)))
+        }
+      }
+      .cancellable(id: CancelID.packs, cancelInFlight: true)
+    }
+  }
+
+  private func handleInnerAction(
+    state: inout State,
+    action: InnerAction
+  ) -> Effect<Action> {
+    switch action {
+    case .packsLoaded(let packs), .packsRefreshed(let packs):
+      state.packs = packs
+      state.packLoad = .loaded
+      return .none
+
+    case .packsFailed:
+      // 이미 보여 준 목록이 있으면 실패로 바꾸지 않는다.
+      if state.packLoad != .loaded { state.packLoad = .failed }
+      return .none
     }
   }
 

@@ -294,6 +294,29 @@ struct PackSyncTests {
     #expect(try await busy.cachedPack(for: id)?.packVersion == 1)
   }
 
+  @Test("변경 없음 응답을 받으면 저장된 팩의 확인 시각을 새로 남긴다")
+  func notModifiedMarksCheckedAt() async throws {
+    let directory = temporaryDirectory()
+    let initial = service(directory: directory, sockets: [
+      ScriptSocket { request in [snapshot(request, version: 1, etag: "\"one\"")] }
+    ])
+    _ = try await initial.sync(for: id)
+    let file = directory.appendingPathComponent("\(id).json")
+    let old = Date(timeIntervalSince1970: 1_000_000)
+    try FileManager.default.setAttributes([.modificationDate: old], ofItemAtPath: file.path)
+    #expect(try await initial.cachedPack(for: id)?.checkedAt == old)
+
+    let unchanged = service(directory: directory, sockets: [ScriptSocket { request in
+      [message("pack.not_modified", request["requestId"] as? String ?? "", [
+        "festivalId": "fst_example", "packVersion": 1, "etag": "\"one\""
+      ])]
+    }])
+    guard case .notModified(let cached) = try await unchanged.sync(for: id) else {
+      Issue.record("not_modified expected"); return
+    }
+    #expect((cached.checkedAt ?? old) > old)
+  }
+
   @Test("재접속 지연은 지수 증가하고 성공 후 초기화된다")
   func reconnectBackoff() {
     var backoff = ReconnectBackoff()

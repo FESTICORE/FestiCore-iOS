@@ -181,6 +181,7 @@ public actor NetworkPackSyncService: PackSyncService {
               message.data?["etag"] as? String == stored.etag else {
           throw PackSyncError.invalidMessage
         }
+        try? cache.markChecked(festivalID)
         if generation < (committedGeneration[festivalID] ?? 0), let latest = try cache.load(festivalID) {
           return Reply(result: .notModified(latest), hadUpdateHint: hadUpdateHint)
         }
