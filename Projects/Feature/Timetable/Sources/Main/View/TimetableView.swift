@@ -34,7 +34,7 @@ public struct TimetableView: View {
           .padding(.bottom, FestiCoreSpacing.paddingP16)
         }
         TimetableBoard(
-          state: store.state,
+          store: store,
           day: day,
           onSetTap: { send(.setTapped($0)) },
           onZoomEnd: { send(.zoomChanged($0)) }
