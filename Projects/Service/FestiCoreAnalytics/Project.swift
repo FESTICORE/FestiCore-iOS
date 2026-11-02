@@ -18,5 +18,9 @@ let project = Project.makeModule(
     .SPM.mixpanel,
     .SPM.sentry
   ],
-  hasTests: true
+  hasTests: true,
+  hasInterface: true,
+  interfaceDependencies: [
+    .SPM.composableArchitecture
+  ]
 )

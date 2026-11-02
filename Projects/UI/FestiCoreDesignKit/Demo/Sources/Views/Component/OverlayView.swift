@@ -12,7 +12,6 @@ import SwiftUI
 
 struct OverlayView: View {
   private enum Sheet: String, Identifiable {
-    case login
     case report
     case set
     case zone
@@ -76,9 +75,6 @@ struct OverlayView: View {
         FCButton("확인 다이얼로그 (Store · fcAlert)") { alertDemo.send(.showTapped) }
           .style(.secondary)
           .isFullWidth(true)
-        FCButton("로그인 시트") { sheet = .login }
-          .style(.secondary)
-          .isFullWidth(true)
         FCButton("신고 시트") { sheet = .report }
           .style(.secondary)
           .isFullWidth(true)
@@ -116,13 +112,6 @@ struct OverlayView: View {
     }
     .presentFCSheet(item: $sheet) { sheet in
       switch sheet {
-      case .login:
-        FCLoginSheet(
-          title: "깃발을 팔로우 하려면 로그인이 필요해요",
-          message: "내 취향의 깃발을 팔로우하고, 함께 페스티벌을 즐길 사람들과 크루를 만들어봐요.",
-          onApple: {},
-          onGoogle: {}
-        )
       case .report:
         FCReportSheet(
           selection: $reportSelection,
