@@ -6,13 +6,14 @@
 //
 
 import ComposableArchitecture
-import FestiCoreSharedUI
+import FestiCoreDesignKit
 import SwiftUI
 
-/// 로그인이 필요할 때 띄우는 소셜 로그인 시트
+/// 로그인이 필요할 때 `presentFCSheet`로 띄우는 소셜 로그인 시트
 @ViewAction(for: LoginFeature.self)
 public struct LoginView: View {
   @Bindable public var store: StoreOf<LoginFeature>
+  @Environment(\.fcSheetDismiss) private var dismiss
 
   public init(store: StoreOf<LoginFeature>) {
     self.store = store
@@ -20,12 +21,7 @@ public struct LoginView: View {
 
   public var body: some View {
     VStack {
-      FCLoginSheet(
-        title: copy.title,
-        message: copy.message,
-        onApple: { send(.signInTapped(.apple)) },
-        onGoogle: { send(.signInTapped(.google)) }
-      )
+      sheetContent
       if let message = store.visibleMessage {
         Text(message)
           .foregroundStyle(.red)
@@ -36,6 +32,49 @@ public struct LoginView: View {
 }
 
 extension LoginView {
+  private enum Metric {
+    static let markSize: CGFloat = 56
+    static let iconSize: CGFloat = 24
+  }
+
+  /// 깃발 마크, 문구, 소셜 로그인 버튼, 나중에 하기 버튼
+  private var sheetContent: some View {
+    VStack(spacing: FestiCoreSpacing.paddingP16) {
+      Image(asset: .flag)
+        .resizable()
+        .frame(width: Metric.iconSize, height: Metric.iconSize)
+        .foregroundStyle(FestiCoreSemanticColor.staticInk.color)
+        .frame(width: Metric.markSize, height: Metric.markSize)
+        .background(FestiCoreSemanticColor.staticLime.color, in: Circle())
+        .accessibilityHidden(true)
+      VStack(spacing: FestiCoreSpacing.paddingP8) {
+        Text(copy.title)
+          .festiCoreFont(.baseTitle3Bold)
+          .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+          .accessibilityAddTraits(.isHeader)
+        Text(copy.message)
+          .festiCoreFont(.baseSubheadlineRegular)
+          .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+      }
+      .multilineTextAlignment(.center)
+      .frame(maxWidth: .infinity)
+      .padding(.horizontal, FestiCoreSpacing.paddingP20)
+      VStack(spacing: FestiCoreSpacing.paddingP16) {
+        FCLoginButton(.apple) { send(.signInTapped(.apple)) }
+        FCLoginButton(.google) { send(.signInTapped(.google)) }
+      }
+      .padding(.vertical, FestiCoreSpacing.paddingP8)
+      .padding(.horizontal, FestiCoreSpacing.paddingP20)
+      Button("나중에 할게요", action: dismiss)
+        .festiCoreFont(.baseFootnoteMedium)
+        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+        .buttonStyle(.plain)
+    }
+    .padding(.top, FestiCoreSpacing.paddingP8)
+    .padding(.bottom, FestiCoreSpacing.paddingP20)
+    .fixedSize(horizontal: false, vertical: true)
+  }
+
   /// 로그인을 요청한 문맥에 맞춘 시트 문구
   private var copy: (title: String, message: String) {
     switch store.context {
