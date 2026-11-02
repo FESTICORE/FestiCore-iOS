@@ -179,6 +179,7 @@ private extension FestivalLiveBoardScreen {
           .padding(.trailing, FestiCoreSpacing.paddingP16)
         }
         .scrollIndicators(.hidden)
+        .scrollClipDisabled()
       } else if liveBoard == nil {
         FCEmptyCard(icon: .flag20, title: "팔로우한 깃발", message: loadingMessage)
       } else {

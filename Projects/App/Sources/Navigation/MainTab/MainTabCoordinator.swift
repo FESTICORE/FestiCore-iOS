@@ -76,6 +76,7 @@ struct MainTabCoordinator {
     case flag(FestivalFlagFeature.Action)
     case profile(ProfileFeature.Action)
     case login(LoginFeature.Action)
+    case signUp(SignUpFeature.Action)
     case delegate(Delegate)
     case completePendingBookmark(id: String, userID: String, shouldBeBooked: Bool)
   }
@@ -102,6 +103,9 @@ struct MainTabCoordinator {
     }
     Scope(state: \.loginState, action: \.login) {
       LoginFeature()
+    }
+    Scope(state: \.authFlow.signUp, action: \.signUp) {
+      SignUpFeature()
     }
 
     Reduce { state, action in
@@ -163,7 +167,7 @@ struct MainTabCoordinator {
       case .profile:
         return .none
 
-      case .login:
+      case .login, .signUp:
         return .none
 
       case let .completePendingBookmark(id, userID, shouldBeBooked):

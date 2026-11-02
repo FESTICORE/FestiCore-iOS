@@ -143,6 +143,14 @@ private extension TimetableView {
         accessibilityLabel: "검색",
         action: { send(.searchTapped) }
       )
+      daySelector
+    }
+  }
+
+  /// 세그먼트는 칸을 균등 분할해 날짜가 많으면 "1…"로 잘리므로, 넘치면 가로로 넘기는 칩 줄로 보여 준다.
+  @ViewBuilder
+  var daySelector: some View {
+    if store.days.count <= Metric.segmentedDayLimit {
       FCSegmented(
         selection: Binding(
           get: { store.selectedDayIndex },
@@ -151,6 +159,26 @@ private extension TimetableView {
         items: store.days.map(\.title)
       )
       .padding(.horizontal, FestiCoreSpacing.paddingP16)
+    } else {
+      ScrollViewReader { proxy in
+        ScrollView(.horizontal) {
+          HStack(spacing: FestiCoreSpacing.paddingP8) {
+            ForEach(Array(store.days.enumerated()), id: \.offset) { index, day in
+              FCChip(day.title) {
+                send(.daySelected(index))
+              }
+              .isSelected(index == store.selectedDayIndex)
+              .id(index)
+            }
+          }
+          .padding(.horizontal, FestiCoreSpacing.paddingP16)
+        }
+        .scrollIndicators(.hidden)
+        .onAppear { proxy.scrollTo(store.selectedDayIndex, anchor: .center) }
+        .onChange(of: store.selectedDayIndex) { _, index in
+          withAnimation { proxy.scrollTo(index, anchor: .center) }
+        }
+      }
     }
   }
 
@@ -177,6 +205,8 @@ private extension TimetableView {
   enum Metric {
     /// `fcToast`와 같은 등장·퇴장 시간
     static let toastDuration = 0.25
+    /// `FCSegmented`가 잘리지 않고 담는 날짜 수(2~3칸용)
+    static let segmentedDayLimit = 3
   }
 }
 

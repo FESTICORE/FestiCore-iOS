@@ -14,31 +14,36 @@ import SwiftUI
 struct AlertDemoFeature {
   @ObservableState
   struct State: Equatable {
-    @Presents var alert: FCAlertState<FCAlertAction>?
+    @Presents var customAlert: FCAlertState<FCAlertAction>?
   }
 
   enum Action {
     case showTapped
-    case alert(PresentationAction<FCAlertAction>)
+    case scope(ScopeAction)
+  }
+
+  @CasePathable
+  enum ScopeAction {
+    case customAlert(PresentationAction<FCAlertAction>)
   }
 
   var body: some ReducerOf<Self> {
     Reduce { state, action in
       switch action {
       case .showTapped:
-        state.alert = .alert(
+        state.customAlert = .alert(
           title: "이 안내를 숨길까요?",
           message: "마이 > 설정에서 다시 켤 수 있어요."
         )
         return .none
-      case .alert(.presented):
-        state.alert = nil
+      case .scope(.customAlert(.presented)):
+        state.customAlert = nil
         return .none
-      case .alert:
+      case .scope:
         return .none
       }
     }
-    .ifLet(\.$alert, action: \.alert) {
+    .ifLet(\.$customAlert, action: \.scope.customAlert) {
       FCConfirmAlert()
     }
   }
@@ -50,6 +55,6 @@ struct AlertDemoPresenter: ViewModifier {
 
   func body(content: Content) -> some View {
     content
-      .fcAlert($store.scope(state: \.alert, action: \.alert))
+      .fcAlert($store.scope(state: \.customAlert, action: \.scope.customAlert))
   }
 }
