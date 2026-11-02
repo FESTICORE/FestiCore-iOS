@@ -11,6 +11,8 @@ STAGE_SCHEME = "FestiCore-Stage"
 PROD_SCHEME = "FestiCore-Prod"
 TESTFLIGHT_GROUP = "FestiCore"
 EXTERNAL_TESTFLIGHT_GROUP = "festiCore"
+# 외부 테스트 심사 제출에 필요한 베타 앱 설명. App Store Connect에 비어 있을 때만 채운다.
+BETA_APP_DESCRIPTION = "FestiCore는 음악 페스티벌 현장에서 타임테이블과 내 일정, 친구 크루와 깃발 위치, 공식 라이브 소식을 한곳에서 확인하는 앱입니다. 이번 테스트에서는 페스티벌 목록과 라이브 보드, 타임테이블, 로그인과 알림을 확인해 주세요."
 TEAM_ID = "N94CS4N6VR"
 MATCH_KEYCHAIN_NAME = ENV.fetch("MATCH_KEYCHAIN_NAME", "match_keychain")
 PROJECT_ROOT = File.expand_path("..", __dir__)
@@ -116,6 +118,35 @@ def wait_for_internal_testing(app, version, build_number, timeout:)
     UI.message("TestFlight 빌드 대기 중: #{build_number} (#{state})")
     sleep(30)
   end
+end
+
+# 외부 테스트 심사에는 베타 앱 설명(필수)과 피드백 이메일·심사 연락처가 필요하다.
+# 설명은 비어 있을 때만 채우고, 이메일·연락처는 저장소 비밀값으로 받은 경우에만 넣는다(값을 코드에 두지 않는다).
+def ensure_beta_app_information(app)
+  localizations = app.get_beta_app_localizations
+  localization = localizations.find { |candidate| candidate.locale == "ko" } || localizations.first
+  attributes = {}
+  attributes[:description] = BETA_APP_DESCRIPTION if localization.nil? || localization.description.to_s.strip.empty?
+  feedback_email = ENV["TESTFLIGHT_FEEDBACK_EMAIL"].to_s.strip
+  attributes[:feedbackEmail] = feedback_email if !feedback_email.empty? && (localization.nil? || localization.feedback_email.to_s.strip.empty?)
+  unless attributes.empty?
+    if localization
+      Spaceship::ConnectAPI.patch_beta_app_localizations(localization_id: localization.id, attributes: attributes)
+    else
+      Spaceship::ConnectAPI.post_beta_app_localizations(app_id: app.id, attributes: attributes.merge(locale: "ko"))
+    end
+    UI.message("베타 앱 정보 갱신: #{attributes.keys.join(', ')}")
+  end
+
+  contact = {
+    contactEmail: ENV["TESTFLIGHT_CONTACT_EMAIL"],
+    contactFirstName: ENV["TESTFLIGHT_CONTACT_FIRST_NAME"],
+    contactLastName: ENV["TESTFLIGHT_CONTACT_LAST_NAME"],
+    contactPhone: ENV["TESTFLIGHT_CONTACT_PHONE"]
+  }.reject { |_, value| value.to_s.strip.empty? }
+  return if contact.empty?
+  Spaceship::ConnectAPI.patch_beta_app_review_detail(app_id: app.id, attributes: contact.merge(demoAccountRequired: false))
+  UI.message("베타 심사 연락처 갱신: #{contact.keys.join(', ')}")
 end
 
 # 내부 그룹 FestiCore와 외부 그룹 festiCore는 이름이 대소문자만 달라 서버 이름 필터에 기대지 않는다.
@@ -355,7 +386,16 @@ platform :ios do
         UI.important("#{version} 버전의 빌드 #{pending.version}이 베타 심사 중이라 #{build_number}은 외부 그룹에만 넣고 제출하지 않습니다. 심사 승인 뒤 App Store Connect에서 제출하세요.")
         next
       end
-      build.post_beta_app_review_submission
+      ensure_beta_app_information(app)
+      begin
+        build.post_beta_app_review_submission
+      rescue StandardError => error
+        # App Store Connect 정보가 빠진 경우는 내부 배포를 실패로 만들지 않고, 무엇이 빠졌는지 남긴다.
+        raise unless error.message.include?("is missing") || error.message.include?("is required")
+        UI.important("#{EXTERNAL_TESTFLIGHT_GROUP} 베타 심사 제출에 필요한 App Store Connect 정보가 없습니다: #{error.message.lines.first.to_s.strip}")
+        UI.important("빌드 #{build_number}은 외부 그룹에 들어갔지만 심사에는 제출되지 않았습니다. TestFlight > 테스트 정보를 채운 뒤 다시 제출하세요.")
+        next
+      end
       UI.success("#{EXTERNAL_TESTFLIGHT_GROUP} 외부 테스트 그룹에 넣고 베타 심사에 제출: #{version} (#{build_number})")
     when states::WAITING_FOR_BETA_REVIEW, states::IN_BETA_REVIEW, states::BETA_APPROVED,
          states::READY_FOR_BETA_TESTING, states::IN_BETA_TESTING

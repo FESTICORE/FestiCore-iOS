@@ -75,6 +75,12 @@ jobs:
           changelog:"$(git log -1 --pretty=%s)"
       # 외부 테스트는 Apple 베타 심사를 거친다. 내부 배포가 끝난 빌드만 제출한다.
       - name: Distribute to external TestFlight group
+        env:
+          TESTFLIGHT_FEEDBACK_EMAIL: ${{ secrets.TESTFLIGHT_FEEDBACK_EMAIL }}
+          TESTFLIGHT_CONTACT_EMAIL: ${{ secrets.TESTFLIGHT_CONTACT_EMAIL }}
+          TESTFLIGHT_CONTACT_FIRST_NAME: ${{ secrets.TESTFLIGHT_CONTACT_FIRST_NAME }}
+          TESTFLIGHT_CONTACT_LAST_NAME: ${{ secrets.TESTFLIGHT_CONTACT_LAST_NAME }}
+          TESTFLIGHT_CONTACT_PHONE: ${{ secrets.TESTFLIGHT_CONTACT_PHONE }}
         timeout-minutes: 15
         run: >-
           bundle exec fastlane ios distribute_external
