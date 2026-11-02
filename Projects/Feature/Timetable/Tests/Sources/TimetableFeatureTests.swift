@@ -70,6 +70,28 @@ struct TimetableFeatureTests {
     await store.send(.view(.daySelected(3)))
   }
 
+  @Test func swipingPastFirstDayIsIgnored() async {
+    let store = TestStore(initialState: TimetableFeature.State.sample()) {
+      TimetableFeature()
+    }
+
+    await store.send(.view(.daySelected(-1)))
+    await store.send(.view(.daySelected(1))) {
+      $0.selectedDayIndex = 1
+    }
+    await store.send(.view(.daySelected(0))) {
+      $0.selectedDayIndex = 0
+    }
+  }
+
+  @Test func daySwipeNeedsMostlyHorizontalDrag() {
+    #expect(TimetableBoard.dayOffset(forSwipe: CGSize(width: -81, height: 0)) == 1)
+    #expect(TimetableBoard.dayOffset(forSwipe: CGSize(width: 81, height: 20)) == -1)
+    #expect(TimetableBoard.dayOffset(forSwipe: CGSize(width: -80, height: 0)) == nil)
+    #expect(TimetableBoard.dayOffset(forSwipe: CGSize(width: -120, height: 80)) == nil)
+    #expect(TimetableBoard.dayOffset(forSwipe: CGSize(width: 20, height: 200)) == nil)
+  }
+
   @Test func pinchZoomIsKeptAcrossDayChanges() async {
     let store = TestStore(initialState: TimetableFeature.State.sample()) {
       TimetableFeature()

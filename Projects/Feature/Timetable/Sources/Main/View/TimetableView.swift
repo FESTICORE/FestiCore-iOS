@@ -37,7 +37,8 @@ public struct TimetableView: View {
           store: store,
           day: day,
           onSetTap: { send(.setTapped($0)) },
-          onZoomEnd: { send(.zoomChanged($0)) }
+          onZoomEnd: { send(.zoomChanged($0)) },
+          onDaySwipe: { send(.daySelected(store.selectedDayIndex + $0)) }
         )
       } else {
         TimetableUnpublishedView(lineup: store.lineup) {
