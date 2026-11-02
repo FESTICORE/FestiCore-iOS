@@ -83,6 +83,13 @@ struct AppCoordinatorTests {
       home.authFlow.isLoading = false
       $0 = .home(home)
     }
+    // 처음부터 로그인하지 않은 사용자의 예약은 요청 계정이 없어도 유지하고 로그인 시트를 남긴다.
+    guard case let .home(guest) = store.state else {
+      Issue.record("홈 상태가 아님")
+      return
+    }
+    #expect(guest.authFlow.presentation == .login)
+    #expect(guest.authFlow.pendingFestivalID == "festival")
   }
 
   @Test func authenticatedBookmarkDoesNotShowLoginDuringSessionRestore() async {

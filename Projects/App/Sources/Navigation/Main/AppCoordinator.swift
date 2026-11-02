@@ -576,8 +576,9 @@ private extension AppCoordinator {
         home.authFlow.hasSession = false
         home.authFlow.profile = nil
         // 로그인을 잃으면 다른 계정이 이어받지 않도록 가입 초안과 소유자 없는 대기 예약을 지운다.
+        // 처음부터 로그인하지 않은 사용자의 예약은 잃은 계정이 없으므로 유지하고 로그인 시트를 띄운다.
         home.authFlow.clearDraft()
-        home.authFlow.dropUnownedPendingBookmark()
+        if hadSession { home.authFlow.dropUnownedPendingBookmark() }
         home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .login
         // 같은 로그아웃을 `sessionRestored`가 이미 비웠다면 그 뒤 받은 비로그인 라이브 보드를 다시 지우지 않고 예약 목록만 정리한다.
         let clear = hadSession
