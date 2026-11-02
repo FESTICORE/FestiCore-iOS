@@ -1,15 +1,17 @@
 //
 //  TimetableFeature+Sample.swift
-//  Timetable
+//  TimetableTests
 //
 //  Created by FestiCore on 10/30/26.
 //
 
 #if DEBUG
   import Foundation
+  import TimetableDomainInterface
+  @testable import Timetable
 
-  /// Figma S02 화면과 같은 미리보기·테스트용 데이터
-  public extension TimetableFeature.State {
+  /// Figma S02 화면과 같은 테스트용 데이터
+  extension TimetableFeature.State {
     enum SampleVariant {
       case basic
       case changed

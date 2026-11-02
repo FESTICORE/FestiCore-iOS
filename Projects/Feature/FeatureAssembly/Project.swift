@@ -20,6 +20,7 @@ let project = Project.makeModule(
     .feature(.web),
     .domain(.auth),
     .domain(.festival),
+    .domain(.timetable),
     .service(.assembly),
     .SPM.composableArchitecture
   ]

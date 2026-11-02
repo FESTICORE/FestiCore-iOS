@@ -126,30 +126,6 @@ private extension TimetableView {
   }
 }
 
-#Preview("A. 기본") {
-  TimetableView(store: Store(initialState: .sample()) { TimetableFeature() })
-}
-
-#Preview("B. 내 일정만") {
-  TimetableView(store: Store(initialState: .sample(showsMineOnly: true)) { TimetableFeature() })
-}
-
-#Preview("C. 시간표 변경") {
-  TimetableView(store: Store(initialState: .sample(variant: .changed)) { TimetableFeature() })
-}
-
-#Preview("D. 일정 겹침") {
-  TimetableView(store: Store(initialState: .sample(variant: .overlap)) { TimetableFeature() })
-}
-
-#Preview("E. 시간표 공개 전") {
-  TimetableView(store: Store(initialState: .sample(variant: .unpublished)) { TimetableFeature() })
-}
-
-#Preview("F. 무대 3개") {
-  TimetableView(store: Store(initialState: .sample(variant: .threeStages)) { TimetableFeature() })
-}
-
-#Preview("G. 오프라인") {
-  TimetableView(store: Store(initialState: .sample(variant: .offline)) { TimetableFeature() })
+#Preview {
+  TimetableView(store: Store(initialState: TimetableFeature.State(days: [], source: "")) { TimetableFeature() })
 }

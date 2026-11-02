@@ -1,6 +1,7 @@
 import FeatureAssembly
 import FestiCoreUtility
 import Foundation
+import TimetableDomainInterface
 
 enum FestivalPackTimetableMapper {
   static func days(from pack: FestivalPackDocument) -> [TimetableDay] {

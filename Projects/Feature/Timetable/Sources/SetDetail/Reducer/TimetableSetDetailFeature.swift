@@ -7,6 +7,7 @@
 
 import ComposableArchitecture
 import Foundation
+import TimetableDomainInterface
 
 /// 공연 상세 시트. 내 일정 저장과 겹침 계산은 타임테이블 화면이 맡고, 시트는 받은 내용을 보여 준다.
 @Reducer

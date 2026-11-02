@@ -8,6 +8,7 @@
 import ComposableArchitecture
 import FestiCoreDesignKit
 import SwiftUI
+import TimetableDomainInterface
 
 /// 무대 헤더와 시간 격자. 무대가 3개 이상이면 가로로도 스크롤한다.
 /// 두 손가락으로 벌리거나 모으면 시간축을 확대·축소한다.
@@ -98,7 +99,7 @@ private extension TimetableBoard {
       }
       columns
       if let now = store.nowMinute, (startHour * 60 ... endHour * 60).contains(now) {
-        FCNowLine(time: TimetableTime.clock(now))
+        FCNowLine(time: TimetableDay.clock(now))
           .offset(y: y(now) - Metric.nowLineHeight / 2)
       }
     }
@@ -115,7 +116,7 @@ private extension TimetableBoard {
           .frame(height: Metric.lineWidth)
           .padding(.leading, Metric.hourLineInset)
           .padding(.trailing, FestiCoreSpacing.paddingP16)
-        Text(TimetableTime.clock(hour * 60))
+        Text(TimetableDay.clock(hour * 60))
           .festiCoreFont(.baseCaption1Regular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
           .padding(.leading, FestiCoreSpacing.paddingP12)
@@ -149,10 +150,7 @@ private extension TimetableBoard {
     } label: {
       FCSetBlock(
         artist: set.artist,
-        time: TimetableTime.range(
-          set.start,
-          set.end
-        )
+        time: set.timeRange
       )
       .state(blockState(set))
       // 축소해도 아주 짧은 공연이 사라지지 않게 최소 높이를 둔다.
@@ -191,13 +189,10 @@ private extension TimetableBoard {
   }
 
   private func blockState(_ set: TimetableSet) -> FCSetBlock.State {
-    if let previous = set.previousStart {
+    if let previousTime = set.previousTime, let change = set.startChange {
       return .changed(
-        oldTime: TimetableTime.clock(previous),
-        change: TimetableTime.change(
-          from: previous,
-          to: set.start
-        )
+        oldTime: previousTime,
+        change: change
       )
     }
     if store.state.isOverlapping(set) {

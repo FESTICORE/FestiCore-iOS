@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import Foundation
 import Testing
+import TimetableDomainInterface
 @testable import Timetable
 
 @MainActor
@@ -103,13 +104,6 @@ struct TimetableFeatureTests {
   @Test func changedSetsAreCounted() {
     #expect(TimetableFeature.State.sample(variant: .changed).selectedDay?.changedCount == 2)
     #expect(TimetableFeature.State.sample().selectedDay?.changedCount == 0)
-  }
-
-  @Test func timeTextsMatchDesign() {
-    #expect(TimetableTime.range(1410, 1530) == "23:30–다음날 01:30")
-    #expect(TimetableTime.range(750, 790) == "12:30–13:10")
-    #expect(TimetableTime.change(from: 1000, to: 1020) == "20분 미뤄짐")
-    #expect(TimetableTime.change(from: 1105, to: 1090) == "15분 당겨짐")
   }
 
   @Test func unpublishedStateShowsLineup() {

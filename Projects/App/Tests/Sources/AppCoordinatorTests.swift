@@ -15,6 +15,7 @@ import FestivalDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
 import TCAFlow
+import TimetableDomainInterface
 @testable import FestiCore
 
 @MainActor

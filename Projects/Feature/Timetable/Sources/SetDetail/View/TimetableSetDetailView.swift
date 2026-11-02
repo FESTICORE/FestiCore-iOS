@@ -9,6 +9,7 @@ import ComposableArchitecture
 import FestiCoreDesignKit
 import FestiCoreSharedUI
 import SwiftUI
+import TimetableDomainInterface
 
 @ViewAction(for: TimetableSetDetailFeature.self)
 public struct TimetableSetDetailView: View {

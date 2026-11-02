@@ -20,6 +20,7 @@
     { "target": { "containerPath": "container:Projects/Core/FestiCoreUtility/FestiCoreUtility.xcodeproj", "identifier": "AFB50645B1817FE375A8436D", "name": "FestiCoreUtilityTests" } },
     { "target": { "containerPath": "container:Projects/Domain/AuthDomain/AuthDomain.xcodeproj", "identifier": "92D89059A9988A659FDC727D", "name": "AuthDomainTests" } },
     { "target": { "containerPath": "container:Projects/Domain/FestivalDomain/FestivalDomain.xcodeproj", "identifier": "89E046966CF68F753955E773", "name": "FestivalDomainTests" } },
+    { "target": { "containerPath": "container:Projects/Domain/TimetableDomain/TimetableDomain.xcodeproj", "identifier": "C63D133575DA14CD8730B29A", "name": "TimetableDomainTests" } },
     { "target": { "containerPath": "container:Projects/Feature/Festival/Festival.xcodeproj", "identifier": "14E2A2C6211439F59D79E957", "name": "FestivalTests" } },
     { "target": { "containerPath": "container:Projects/Feature/Login/Login.xcodeproj", "identifier": "8EC12D40A59F4E845C71699F", "name": "LoginTests" } },
     { "target": { "containerPath": "container:Projects/Feature/Profile/Profile.xcodeproj", "identifier": "68EACFC189B2CF16BE7CDC81", "name": "ProfileTests" } },
