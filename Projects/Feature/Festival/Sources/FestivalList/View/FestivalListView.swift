@@ -10,6 +10,7 @@ struct FestivalListView: View {
   let bookedFestivalIDs: Set<String>
   let imageRevision: Int
   let isLoading: Bool
+  let offlineMessage: String?
   let imageURL: (String?) -> URL?
   let onSelect: (String) -> Void
   let onToggleBooked: (String) -> Void
@@ -27,6 +28,7 @@ struct FestivalListView: View {
     VStack(spacing: .zero) {
       if isSearching {
         searchBar
+        offlineBadge
         ScrollView {
           searchContent
         }
@@ -42,6 +44,7 @@ struct FestivalListView: View {
           selection: $selectedFilter,
           items: ["전체", "예매 완료"]
         )
+        offlineBadge
         ScrollView {
           LazyVStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
             listContent
@@ -174,6 +177,13 @@ private extension FestivalListView {
     .ticketLink { onTicketLink(festival) }
     .onTapGesture { onSelect(festival.id) }
     .accessibilityIdentifier(FestivalAccessibilityID.card(festival.id))
+  }
+
+  @ViewBuilder
+  var offlineBadge: some View {
+    if let offlineMessage {
+      FCOfflineBadge(offlineMessage)
+    }
   }
 
   var searchBar: some View {

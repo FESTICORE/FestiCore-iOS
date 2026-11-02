@@ -13,7 +13,7 @@ public struct FestivalView: View {
   }
 
   public var body: some View {
-    festivalListScreen
+    festivalList
     .overlay(alignment: .bottom) { toast }
     .background(FestiCoreSemanticColor.backgroundNormal.color)
     .toolbar(.hidden, for: .navigationBar)
@@ -30,16 +30,6 @@ public struct FestivalView: View {
 }
 
 private extension FestivalView {
-  var festivalListScreen: some View {
-    VStack(spacing: .zero) {
-      if (store.connection != .live && store.connection != .unavailable) || store.cacheReadFailed {
-        status
-          .padding(.horizontal, FestiCoreSpacing.paddingP16)
-      }
-      festivalList
-    }
-  }
-
   var festivalList: some View {
     FestivalListView(
       userID: store.bookedUserID,
@@ -48,6 +38,7 @@ private extension FestivalView {
       bookedFestivalIDs: store.bookedFestivalIDs,
       imageRevision: store.imageRevision,
       isLoading: store.festivals.isEmpty && store.viewState == .loading,
+      offlineMessage: offlineMessage,
       imageURL: imageURL,
       onSelect: { send(.selectFestival($0)) },
       onToggleBooked: { send(.toggleBookedFestival($0)) },
@@ -80,15 +71,12 @@ private extension FestivalView {
     store.state.imageURL(for: value)
   }
 
-  var status: some View {
-    HStack(spacing: 8) {
-      Image(systemName: store.connection == .live ? "wifi" : "square.and.arrow.down")
-      Text(statusText)
-        .font(.subheadline)
-      Spacer()
+  var offlineMessage: String? {
+    if (store.connection != .live && store.connection != .unavailable) || store.cacheReadFailed {
+      statusText
+    } else {
+      nil
     }
-    .foregroundStyle(store.connection == .offline ? Color.orange : Color.secondary)
-    .accessibilityLabel(statusText)
   }
 
   var statusText: String {
