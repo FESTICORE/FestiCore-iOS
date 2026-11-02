@@ -124,6 +124,26 @@ public struct TimetableSetDetail: Equatable, Sendable {
   public var previousTime: String?
   public var change: String?
 
+  public init(
+    artist: String,
+    stage: String,
+    time: String,
+    status: Status,
+    isScheduled: Bool,
+    overlap: TimetableSetOverlap? = nil,
+    previousTime: String? = nil,
+    change: String? = nil
+  ) {
+    self.artist = artist
+    self.stage = stage
+    self.time = time
+    self.status = status
+    self.isScheduled = isScheduled
+    self.overlap = overlap
+    self.previousTime = previousTime
+    self.change = change
+  }
+
   public var relativeTime: String {
     switch status {
     case let .upcoming(minutes) where minutes < 60:
@@ -136,6 +156,22 @@ public struct TimetableSetDetail: Equatable, Sendable {
       return "공연 중"
     case .ended:
       return "종료"
+    }
+  }
+}
+
+extension TimetableSetDetail.Status {
+  /// 공연의 실제 시작·종료 시각과 현재 시각으로 진행 상태를 구한다.
+  init(
+    interval: DateInterval,
+    now: Date
+  ) {
+    if now >= interval.end {
+      self = .ended
+    } else if now >= interval.start {
+      self = .live
+    } else {
+      self = .upcoming(minutes: Int((interval.start.timeIntervalSince(now) / 60).rounded(.up)))
     }
   }
 }
