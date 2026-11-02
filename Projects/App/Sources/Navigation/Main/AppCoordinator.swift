@@ -260,7 +260,7 @@ struct AppCoordinator {
       // 로그인 중 확인된 계정 ID가 사라져도(A→nil) 다음에 올 계정이 같다고 보장할 수 없어 전환으로 본다.
       let switchedAccounts = previous.userID != nil && previous.userID != session.userID
       // 깃발 계정 데이터는 여기서만 비운다. `Effect.send`는 같은 send 호출 안에서 처리되어 이전 계정 깃발이 화면에 남지 않는다.
-      let flagChanged: Effect<Action> = .send(.scope(.home(.flag(.accountChanged))))
+      let flagChanged: Effect<Action> = .send(.scope(.home(.flag(.inner(.accountChanged)))))
       guard previous.hasSession else {
         // 로그아웃 상태에서 받은 깃발에는 내 팔로우 정보가 없어 로그인한 계정으로 다시 불러온다.
         guard session.hasSession else { return changed }

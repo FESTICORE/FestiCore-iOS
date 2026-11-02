@@ -331,7 +331,7 @@ struct AppCoordinatorTests {
       $0 = .home(home)
     }
     await store.receive(\.scope.home.festival.accountChanged)
-    await store.receive(\.scope.home.flag.accountChanged) {
+    await store.receive(\.scope.home.flag.inner.accountChanged) {
       guard case var .home(home) = $0 else { return }
       home.flagState.generation = 1
       $0 = .home(home)
@@ -421,7 +421,7 @@ struct AppCoordinatorTests {
       Issue.record("홈 상태가 아니에요")
       return
     }
-    await store.receive(\.scope.home.flag.accountChanged)
+    await store.receive(\.scope.home.flag.inner.accountChanged)
     guard case let .home(flagCleared) = store.state else { return }
     #expect(flagCleared.flagState.snapshot == nil)
     #expect(flagCleared.flagState.viewState == .idle)
@@ -1127,7 +1127,7 @@ struct AppCoordinatorTests {
 
     await store.send(.tabTapped(.flag))
     await store.receive(\.selectTab) { $0.selectedTab = .flag }
-    await store.receive(\.flag.festivalChanged) {
+    await store.receive(\.flag.inner.festivalChanged) {
       $0.flagState.festivalID = "festival-a"
       $0.flagState.generation = 1
     }
@@ -1148,7 +1148,7 @@ struct AppCoordinatorTests {
       $0.selectedTab = .flag
       $0.flagState.directory.zoneNames = ["zone_a": "리벳 스테이지 앞 왼쪽"]
     }
-    await store.receive(\.flag.festivalChanged) {
+    await store.receive(\.flag.inner.festivalChanged) {
       $0.flagState.festivalID = "festival-a"
       $0.flagState.generation = 1
     }
@@ -1159,7 +1159,7 @@ struct AppCoordinatorTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.flag(.directory(.delegate(.loginRequested))))
+    await store.send(.flag(.scope(.directory(.delegate(.loginRequested)))))
     await store.receive {
       guard case .delegate(.myLoginRequested) = $0 else { return false }
       return true
@@ -1171,7 +1171,7 @@ struct AppCoordinatorTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.flag(.directory(.delegate(.termsAcceptanceRequested))))
+    await store.send(.flag(.scope(.directory(.delegate(.termsAcceptanceRequested)))))
     await store.receive {
       guard case .delegate(.myProfileRefreshRequested) = $0 else { return false }
       return true
@@ -1603,7 +1603,7 @@ struct AppCoordinatorTests {
       return true
     }
     await store.receive {
-      guard case .scope(.home(.flag(.accountChanged))) = $0 else { return false }
+      guard case .scope(.home(.flag(.inner(.accountChanged)))) = $0 else { return false }
       return true
     }
     await store.receive {
@@ -1868,7 +1868,7 @@ struct AppCoordinatorTests {
       return true
     }
     await store.receive {
-      guard case .scope(.home(.flag(.accountChanged))) = $0 else { return false }
+      guard case .scope(.home(.flag(.inner(.accountChanged)))) = $0 else { return false }
       return true
     }
     guard case let .home(switched) = store.state else { return }
@@ -1950,7 +1950,7 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     await store.send(.scope(.home(.login(.delegate(.signedIn(result))))))
-    await store.receive(\.scope.home.flag.accountChanged)
+    await store.receive(\.scope.home.flag.inner.accountChanged)
     guard case let .home(signedIn) = store.state else { return }
     #expect(signedIn.flagState.snapshot == nil)
     #expect(signedIn.flagState.viewState == .idle)
@@ -1981,7 +1981,7 @@ struct AppCoordinatorTests {
 
     // 세션은 남았지만 저장된 계정 ID를 읽지 못하면 다음 프로필이 다른 계정일 수 있다(A→nil→B).
     await store.send(.inner(.sessionRestored(generation: 1, userID: nil, isLoggedIn: true)))
-    await store.receive(\.scope.home.flag.accountChanged)
+    await store.receive(\.scope.home.flag.inner.accountChanged)
     await store.receive(\.scope.home.timetable.accountChanged)
     guard case let .home(cleared) = store.state else { return }
     #expect(cleared.flagState.snapshot == nil)
@@ -2032,7 +2032,7 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     await store.send(.inner(.profileUpdated(generation: 1, .success(other))))
-    await store.receive(\.scope.home.flag.accountChanged)
+    await store.receive(\.scope.home.flag.inner.accountChanged)
     await store.receive(\.scope.home.timetable.accountChanged)
     guard case let .home(cleared) = store.state else { return }
     #expect(cleared.authFlow.lastVerifiedUserID == nil)

@@ -143,10 +143,10 @@ struct MainTabCoordinator {
       case .timetable:
         return .none
 
-      case .flag(.directory(.delegate(.loginRequested))):
+      case .flag(.scope(.directory(.delegate(.loginRequested)))):
         return .send(.delegate(.myLoginRequested))
 
-      case .flag(.directory(.delegate(.termsAcceptanceRequested))):
+      case .flag(.scope(.directory(.delegate(.termsAcceptanceRequested)))):
         return .send(.delegate(.myProfileRefreshRequested))
 
       case .flag, .delegate:
@@ -199,7 +199,7 @@ struct MainTabCoordinator {
       state.flagState.directory.zoneNames = zoneNames
     }
     return selectedID == state.flagState.festivalID
-      ? .none : .send(.flag(.festivalChanged(selectedID)))
+      ? .none : .send(.flag(.inner(.festivalChanged(selectedID))))
   }
 
   /// 라이브 보드에서 고른 축제의 팩을 타임테이블에 옮긴다.
