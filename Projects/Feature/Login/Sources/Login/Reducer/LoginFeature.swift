@@ -15,10 +15,26 @@ public struct LoginFeature {
 
   @ObservableState
   public struct State: Equatable {
+    /// 로그인을 요청한 문맥. 시트 문구를 고른다.
+    public enum Context: Equatable, Sendable {
+      case bookmark
+      case profile
+      case flag
+    }
+
     public var isSigningIn = false
     public var errorMessage: String?
+    /// 부모가 선택한 탭에 맞춰 넣는다.
+    public var context: Context = .bookmark
+    /// 부모 흐름(예약·세션 확인)이 시트에 보여 줄 문구. 부모가 넣는다.
+    public var flowMessage: String?
 
     public init() {}
+
+    /// 시트 아래 안내 문구. 부모 흐름 문구를 로그인 오류보다 먼저 보여 준다.
+    public var visibleMessage: String? {
+      flowMessage ?? errorMessage
+    }
   }
 
   @CasePathable
@@ -33,6 +49,9 @@ public struct LoginFeature {
 
   @CasePathable
   public enum View: Equatable {
+    /// 로그인 버튼 탭. 부모에게 시작을 요청한다.
+    case signInTapped(OAuthProvider)
+    /// 부모가 시트 상태를 확인한 뒤 보내는 로그인 시작
     case signIn(OAuthProvider)
   }
 
@@ -83,6 +102,9 @@ extension LoginFeature {
     action: View
   ) -> Effect<Action> {
     switch action {
+    case .signInTapped(let provider):
+      return .send(.delegate(.signInRequested(provider)))
+
     case .signIn(let provider):
       guard !state.isSigningIn else { return .none }
       state.isSigningIn = true
@@ -138,7 +160,7 @@ extension LoginFeature {
     action: DelegateAction
   ) -> Effect<Action> {
     switch action {
-    case .signedIn:
+    case .signInRequested, .signedIn:
       return .none
     }
   }

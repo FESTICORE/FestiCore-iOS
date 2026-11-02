@@ -10,6 +10,8 @@ import ComposableArchitecture
 @CasePathable
 public enum SignUpDelegate: Equatable, Sendable {
   case submitRequested(SignUpSubmission)
+  /// 약관 상세를 열어 달라고 요청한다. 주소는 `SignUpFeature.State.legalURL(for:)`로 만든다.
+  case legalDocumentRequested(LegalDocument)
   case closeRequested
 }
 

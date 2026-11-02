@@ -30,8 +30,18 @@ public struct SignUpFeature {
     public var pushOptIn = false
     /// 가입 초안(닉네임·약관·알림)을 만든 계정. 계정이 확인될 때 다르면 초안을 버린다.
     public var draftOwnerID: String?
+    /// 부모가 가입을 제출하거나 프로필을 확인하는 중인지. 부모가 넣는다.
+    public var isSubmitting = false
+    /// 부모 흐름(제출 실패·약관 변경 등) 문구. 부모가 넣는다.
+    public var message: String?
+    /// 약관이 다시 바뀌어 더 제출할 수 없는지. 부모가 넣는다.
+    public var termsUpdateExhausted = false
+    /// 약관 상세 기준 주소. 없으면 상세 링크를 숨기고 제출을 막는다.
+    public let legalBaseURL: URL?
 
-    public init() {}
+    public init(legalBaseURL: URL? = nil) {
+      self.legalBaseURL = legalBaseURL
+    }
 
     /// 두 필수 약관(서비스 이용약관·개인정보 수집 이용)이 모두 체크됐을 때만 true다.
     public var acceptedTerms: Bool {
@@ -45,6 +55,21 @@ public struct SignUpFeature {
 
     public var isAllConsented: Bool {
       acceptedServiceTerms && acceptedPrivacyTerms && pushOptIn
+    }
+
+    /// 현재 약관 버전에 동의했고 닉네임이 있으며 제출할 수 있는 상태일 때만 true다.
+    public var canSubmit: Bool {
+      !isSubmitting
+        && !termsUpdateExhausted
+        && acceptedTerms
+        && consentedVersion == currentTermsVersion
+        && legalBaseURL != nil
+        && !nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// 약관 상세 주소. 기준 주소가 없으면 nil이다.
+    public func legalURL(for document: LegalDocument) -> URL? {
+      legalBaseURL?.appending(path: document.path)
     }
 
     var hasDraft: Bool {
@@ -124,6 +149,7 @@ public struct SignUpFeature {
     case privacyTermsChanged(Bool)
     case allConsentToggled
     case pushOptInChanged(Bool)
+    case legalDocumentTapped(LegalDocument)
     case submitTapped
     case closeTapped
   }
@@ -169,6 +195,10 @@ public struct SignUpFeature {
         state.claimDraft()
         state.pushOptIn = optedIn
         return .none
+
+      case let .view(.legalDocumentTapped(document)):
+        guard state.legalURL(for: document) != nil else { return .none }
+        return .send(.delegate(.legalDocumentRequested(document)))
 
       case .view(.submitTapped):
         let nickname = state.nickname.trimmingCharacters(in: .whitespacesAndNewlines)

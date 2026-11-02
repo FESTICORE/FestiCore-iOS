@@ -12,6 +12,51 @@ import Testing
 @testable import Login
 
 struct SignUpFeatureTests {
+  @Test @MainActor func legalDetailTapAsksParentToOpenDocument() async {
+    let base = URL(string: "https://example.com/api/v1/legal/")
+    let store = TestStore(initialState: SignUpFeature.State(legalBaseURL: base)) { SignUpFeature() }
+
+    await store.send(.view(.legalDocumentTapped(.terms)))
+    await store.receive(.delegate(.legalDocumentRequested(.terms)))
+    #expect(store.state.legalURL(for: .terms)?.absoluteString == "https://example.com/api/v1/legal/terms")
+  }
+
+  @Test @MainActor func legalDetailTapWithoutBaseURLDoesNothing() async {
+    let store = TestStore(initialState: SignUpFeature.State()) { SignUpFeature() }
+
+    await store.send(.view(.legalDocumentTapped(.privacy)))
+  }
+
+  @Test func submitNeedsCurrentConsentNicknameAndIdleFlow() {
+    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    state.currentTermsVersion = "2026-10"
+    state.nickname = "테스터"
+    state.acceptedServiceTerms = true
+    state.acceptedPrivacyTerms = true
+    state.termsDraftVersion = "2026-10"
+    #expect(state.canSubmit)
+
+    state.isSubmitting = true
+    #expect(!state.canSubmit)
+    state.isSubmitting = false
+    state.termsUpdateExhausted = true
+    #expect(!state.canSubmit)
+    state.termsUpdateExhausted = false
+    state.nickname = "  "
+    #expect(!state.canSubmit)
+    state.nickname = "테스터"
+    state.currentTermsVersion = "2026-11"
+    #expect(!state.canSubmit)
+
+    var withoutLegal = SignUpFeature.State()
+    withoutLegal.currentTermsVersion = "2026-10"
+    withoutLegal.nickname = "테스터"
+    withoutLegal.acceptedServiceTerms = true
+    withoutLegal.acceptedPrivacyTerms = true
+    withoutLegal.termsDraftVersion = "2026-10"
+    #expect(!withoutLegal.canSubmit)
+  }
+
   @Test @MainActor func submitSendsTrimmedNicknameWithValidity() async {
     var state = SignUpFeature.State()
     state.nickname = "  테스터 "

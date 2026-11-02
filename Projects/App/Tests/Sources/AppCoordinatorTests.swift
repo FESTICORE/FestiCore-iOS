@@ -2111,6 +2111,120 @@ struct AppCoordinatorTests {
     await store.send(.view(.startLogin(.google)))
   }
 
+  @Test func loginSheetTapAsksParentThenStartsLogin() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 1
+    home.authFlow.presentation = .login
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.oauthUseCase = CancelledOAuthUseCase()
+    }
+
+    // 로그인 시트 탭은 부모에게 요청하고, 부모가 시트 상태를 확인한 뒤 로그인을 시작한다.
+    await store.send(.scope(.home(.login(.view(.signInTapped(.apple))))))
+    await store.receive(\.scope.home.login.delegate.signInRequested) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.loginAttemptGeneration = 1
+      $0 = .home(home)
+    }
+    await store.receive(\.scope.home.login.view.signIn) {
+      guard case var .home(home) = $0 else { return }
+      home.loginState.isSigningIn = true
+      $0 = .home(home)
+    }
+    await store.receive(\.scope.home.login.async.signIn)
+    await store.receive(\.scope.home.login.inner.signInFailed) {
+      guard case var .home(home) = $0 else { return }
+      home.loginState.isSigningIn = false
+      $0 = .home(home)
+    }
+  }
+
+  @Test func loginSheetTapWithoutLoginSheetDoesNotStartLogin() async {
+    let store = TestStore(initialState: AppCoordinator.State.home(.init())) { AppCoordinator() }
+
+    // 로그인 시트가 아니면 부모가 요청을 무시한다(상태·효과 없음).
+    await store.send(.scope(.home(.login(.view(.signInTapped(.google))))))
+    await store.receive(\.scope.home.login.delegate.signInRequested)
+  }
+
+  @Test func loginSheetTapWhileCommittingDoesNotStartAnotherLogin() async {
+    var home = loginSheetHome()
+    home.authFlow.pendingCommitSessionID = UUID()
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+
+    await store.send(.scope(.home(.login(.view(.signInTapped(.google))))))
+    await store.receive(\.scope.home.login.delegate.signInRequested)
+  }
+
+  @Test func loginSheetCopyFollowsSelectedTab() async {
+    let store = TestStore(initialState: AppCoordinator.State.home(.init())) { AppCoordinator() }
+
+    await store.send(.scope(.home(.selectTab(.my)))) {
+      guard case var .home(home) = $0 else { return }
+      home.previousTab = .live
+      home.selectedTab = .my
+      home.loginState.context = .profile
+      $0 = .home(home)
+    }
+  }
+
+  @Test func loginSheetShowsFlowMessageOnlyWhileLoginIsPresented() async {
+    let sessionID = UUID()
+    var home = loginSheetHome()
+    home.authFlow.pendingCommitSessionID = sessionID
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+
+    await store.send(.inner(.loginCommitted(loginResult(sessionID), generation: 1, committed: false))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.pendingCommitSessionID = nil
+      home.authFlow.loginAttemptGeneration = nil
+      home.authFlow.message = "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."
+      home.loginState.flowMessage = "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."
+      $0 = .home(home)
+    }
+    await store.send(.view(.dismissFlow)) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 2
+      home.authFlow.presentation = nil
+      home.authFlow.message = nil
+      home.loginState.flowMessage = nil
+      $0 = .home(home)
+    }
+  }
+
+  @Test func signUpSheetFollowsAuthFlowValues() {
+    var flow = AppCoordinator.AuthFlow()
+    flow.profile = eligibleProfile(id: "user-a")
+    flow.isLoading = true
+    flow.termsUpdateExhausted = true
+    flow.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
+
+    #expect(flow.signUp.currentUserID == "user-a")
+    #expect(flow.signUp.currentTermsVersion == eligibleProfile(id: "user-a").currentTermsVersion)
+    #expect(flow.signUp.isSubmitting)
+    #expect(flow.signUp.termsUpdateExhausted)
+    #expect(flow.signUp.message == "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요.")
+    #expect(flow.signUp.legalBaseURL == AppCoordinatorView.configuredLegalBaseURL)
+  }
+
+  @Test func signUpLegalDetailOpensDocumentURL() async {
+    let opened = LockIsolated<[URL]>([])
+    var home = MainTabCoordinator.State()
+    home.authFlow.presentation = .onboarding
+    home.authFlow.signUp = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.openURL = OpenURLEffect { url in
+        opened.withValue { $0.append(url) }
+        return true
+      }
+    }
+
+    await store.send(.scope(.home(.signUp(.view(.legalDocumentTapped(.privacy))))))
+    await store.receive(\.scope.home.signUp.delegate.legalDocumentRequested)
+    await store.finish()
+    #expect(opened.value == [URL(string: "https://example.com/api/v1/legal/privacy")!])
+  }
+
   @Test func revokedLoginRestoredByForegroundIsRereadAsSignedOut() async {
     var home = MainTabCoordinator.State()
     home.authFlow.generation = 1
@@ -2340,6 +2454,12 @@ private func eligibleProfile(id: String) -> AuthProfile {
 private struct EmptyFestivalCatalogService: FestivalCatalogService {
   func cachedFestivals() async throws -> [FestivalCatalogItem] { [] }
   func refresh() async throws -> [FestivalCatalogItem] { [] }
+}
+
+private struct CancelledOAuthUseCase: OAuthUseCaseInterface {
+  func signIn(provider: OAuthProvider) async throws -> AuthLoginResult {
+    throw AuthDomainError.userCancelled
+  }
 }
 
 private final class BookmarkBox: @unchecked Sendable {
