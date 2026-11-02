@@ -6,18 +6,6 @@ import Foundation
 
 @Reducer
 public struct FestivalFeature {
-  @Dependency(\.festivalCatalogService) private var catalogService
-  @Dependency(\.festivalSelectionStore) private var selectionStore
-  @Dependency(\.festivalBookedStore) private var bookedStore
-  @Dependency(\.festivalRecentSearchStore) private var recentSearchStore
-  @Dependency(\.packSyncService) private var packService
-  @Dependency(\.festivalLiveBoardService) private var liveBoardService
-  @Dependency(\.festivalScheduleService) private var scheduleService
-  @Dependency(\.festivalImagePrefetchClient) private var imagePrefetchClient
-  @Dependency(\.festivalLiveActivityClient) private var liveActivityClient
-  @Dependency(\.date) private var date
-  @Dependency(\.continuousClock) private var clock
-
   public init() {}
 
   @ObservableState
@@ -237,6 +225,18 @@ public struct FestivalFeature {
     case packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary, liveBoard, mySchedule, toast
   }
   private struct LiveActivitySyncID: Hashable { let id: String }
+
+  @Dependency(\.festivalCatalogService) private var catalogService
+  @Dependency(\.festivalSelectionStore) private var selectionStore
+  @Dependency(\.festivalBookedStore) private var bookedStore
+  @Dependency(\.festivalRecentSearchStore) private var recentSearchStore
+  @Dependency(\.packSyncService) private var packService
+  @Dependency(\.festivalLiveBoardService) private var liveBoardService
+  @Dependency(\.festivalScheduleService) private var scheduleService
+  @Dependency(\.festivalImagePrefetchClient) private var imagePrefetchClient
+  @Dependency(\.festivalLiveActivityClient) private var liveActivityClient
+  @Dependency(\.date) private var date
+  @Dependency(\.continuousClock) private var clock
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
