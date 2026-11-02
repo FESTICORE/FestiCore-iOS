@@ -84,6 +84,12 @@ public struct FestivalFeature {
       festivals.first { $0.id == selectedFestivalID }
     }
 
+    /// 로그인한 사용자가 이 축제에서 맡은 깃발. 여러 개면 첫 번째를 연다.
+    public var bearerFlagID: String? {
+      guard hasSession, let liveBoard, liveBoard.festivalID == selectedFestivalID else { return nil }
+      return liveBoard.bearerFlagIDs.first
+    }
+
     var liveActivityState: LiveActivityControlState {
       guard let festival = selectedFestival else {
         return .init(title: "Live Activity 사용 불가", isEnabled: false, message: nil)
@@ -196,6 +202,7 @@ public struct FestivalFeature {
     case retryMySchedule
     case liveActivityTapped
     case loginTapped
+    case bearerTapped
     case ticketLinkMissing
   }
 
@@ -276,6 +283,10 @@ public struct FestivalFeature {
 
       case .view(.loginTapped):
         return .send(.delegate(.loginRequested))
+
+      case .view(.bearerTapped):
+        guard let festivalID = state.selectedFestival?.id, let flagID = state.bearerFlagID else { return .none }
+        return .send(.delegate(.bearerBoardRequested(festivalID: festivalID, flagID: flagID, userID: state.sessionUserID)))
 
       case .view(.liveActivityTapped):
         guard state.liveActivityReady,

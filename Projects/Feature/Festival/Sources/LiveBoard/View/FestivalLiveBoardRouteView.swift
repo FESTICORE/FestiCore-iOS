@@ -30,6 +30,7 @@ public struct FestivalLiveBoardRouteView: View {
           liveActivityState: store.liveActivityState,
           onLiveActivityTap: { send(.liveActivityTapped) },
           onLoginTap: { send(.loginTapped) },
+          onBearerTap: store.bearerFlagID == nil ? nil : { send(.bearerTapped) },
           onRetryMySchedule: { send(.retryMySchedule) },
           onSwipeBack: { send(.backToFestivalList) }
         )
