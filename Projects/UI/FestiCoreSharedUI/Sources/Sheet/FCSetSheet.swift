@@ -29,6 +29,7 @@ public struct FCSetSheet: View {
   private var relativeTime: String
   private(set) var state: State = .default
   private(set) var memo: String?
+  private(set) var artistImageURL: URL?
   private(set) var source: String?
   private(set) var stageAction: (() -> Void)?
   private(set) var scheduleTitle = "내 일정에 넣기"
@@ -104,6 +105,13 @@ private extension FCSetSheet {
 
   private var titleRow: some View {
     HStack(spacing: FestiCoreSpacing.paddingP12) {
+      // 사진이 없는 셋은 시안대로 이름만 보인다.
+      if let artistImageURL {
+        FCRemoteImage(url: artistImageURL)
+          .frame(width: Metric.artistImageSize, height: Metric.artistImageSize)
+          .clipShape(Circle())
+          .accessibilityHidden(true)
+      }
       Text(artist)
         .festiCoreFont(.baseTitle1Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
@@ -260,6 +268,13 @@ public extension FCSetSheet {
     return copy
   }
 
+  /// 제목 옆에 출연진 사진을 넣은 사본을 돌려준다. nil이면 숨긴다.
+  func artistImage(_ url: URL?) -> Self {
+    var copy = self
+    copy.artistImageURL = url
+    return copy
+  }
+
   /// 아래 출처 줄을 넣은 사본을 돌려준다.
   func source(_ source: String?) -> Self {
     var copy = self
@@ -297,6 +312,7 @@ private extension FCSetSheet {
   enum Metric {
     static let iconSize: CGFloat = 20
     static let smallIconSize: CGFloat = 16
+    static let artistImageSize: CGFloat = 48
     static let disabledOpacity = 0.3
   }
 }
@@ -315,6 +331,7 @@ private extension FCSetSheet {
         isScheduled: $isScheduled
       )
       .memo("앵콜 없이 정시에 끝나요. 리벳 앞 왼쪽이 덜 붐벼요.")
+      .artistImage(URL(string: "https://example.com/artist.webp"))
       .source("출처: 주최측 공지 · 확인 10/16 14:00")
       .stageAction {}
       FCSetSheet(
