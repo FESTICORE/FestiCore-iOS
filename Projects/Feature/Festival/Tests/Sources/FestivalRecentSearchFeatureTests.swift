@@ -6,6 +6,7 @@ import Testing
 struct FestivalRecentSearchFeatureTests {
   @Test @MainActor func searchActionsUpdateVisibleKeywordsThroughDependency() async {
     let store = TestStore(initialState: FestivalFeature.State()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalRecentSearchStore = FestivalRecentSearchStore(
         load: { _ in [] },
         add: { query, _ in [query] },
@@ -25,6 +26,7 @@ struct FestivalRecentSearchFeatureTests {
 
   @Test @MainActor func switchingAccountsLoadsOnlyThatAccountsSearches() async {
     let store = TestStore(initialState: FestivalFeature.State()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalRecentSearchStore = FestivalRecentSearchStore(
         load: { userID in userID == "user-a" ? ["A 검색"] : [] },
         add: { _, _ in [] },

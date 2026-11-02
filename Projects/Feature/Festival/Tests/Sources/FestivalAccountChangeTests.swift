@@ -16,7 +16,9 @@ struct FestivalAccountChangeTests {
       state.bookedUserID = "user-a"
       state.bookedFestivalIDs = ["festival"]
       return state
-    }()) { FestivalFeature() }
+    }()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.accountChanged) {
       $0.liveBoard = nil
@@ -42,6 +44,7 @@ struct FestivalAccountChangeTests {
       state.sessionUserID = "user-a"
       return state
     }()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.continuousClock = clock
       $0.date = .constant(receivedAt)
       $0.festivalLiveBoardService = AccountLiveBoardService { _ in

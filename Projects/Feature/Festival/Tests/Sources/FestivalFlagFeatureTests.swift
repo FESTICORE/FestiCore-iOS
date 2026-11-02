@@ -14,7 +14,7 @@ struct FestivalFlagFeatureTests {
     let store = TestStore(initialState: FestivalFlagFeature.State(festivalID: "festival-a")) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalLiveBoardService = StubLiveBoardService(result: .success(snapshot))
+      $0.festivalFlagUseCase = stubFlagUseCase(result: .success(snapshot))
     }
 
     await store.send(.appeared) {
@@ -55,7 +55,7 @@ struct FestivalFlagFeatureTests {
       state.viewState = .loaded
       return state
     }()) { FestivalFlagFeature() } withDependencies: {
-      $0.festivalLiveBoardService = StubLiveBoardService(result: .failure(.invalidResponse))
+      $0.festivalFlagUseCase = stubFlagUseCase(result: .failure(.invalidResponse))
     }
 
     await store.send(.refresh) { $0.viewState = .loading }
@@ -67,7 +67,7 @@ struct FestivalFlagFeatureTests {
     let store = TestStore(initialState: FestivalFlagFeature.State(festivalID: "festival")) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalLiveBoardService = StubLiveBoardService(result: .failure(.deviceNotRegistered))
+      $0.festivalFlagUseCase = stubFlagUseCase(result: .failure(.deviceNotRegistered))
     }
 
     await store.send(.appeared) {
@@ -82,7 +82,7 @@ struct FestivalFlagFeatureTests {
     let store = TestStore(initialState: FestivalFlagFeature.State(festivalID: "festival")) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalLiveBoardService = StubLiveBoardService(result: .failure(error))
+      $0.festivalFlagUseCase = stubFlagUseCase(result: .failure(error))
     }
 
     await store.send(.appeared) {
@@ -128,12 +128,12 @@ struct FestivalFlagFeatureTests {
       state.viewState = .loaded
       return state
     }()) { FestivalFlagFeature() } withDependencies: {
-      $0.festivalLiveBoardService = ClosureLiveBoardService { _ in
+      $0.festivalFlagUseCase = MockFestivalFlagUseCase(liveBoard: { _ in
         guard signedIn.value else { return current }
         started.setValue(true)
         try await clock.sleep(for: .seconds(1))
         return previous
-      }
+      })
     }
 
     await store.send(.refresh) { $0.viewState = .loading }
@@ -163,7 +163,7 @@ struct FestivalFlagFeatureTests {
     let store = TestStore(initialState: FestivalFlagFeature.State(festivalID: "festival")) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalLiveBoardService = StubLiveBoardService(result: .success(current))
+      $0.festivalFlagUseCase = stubFlagUseCase(result: .success(current))
     }
 
     await store.send(.festivalChanged("other")) {
@@ -188,18 +188,8 @@ struct FestivalFlagFeatureTests {
   }
 }
 
-private struct StubLiveBoardService: FestivalLiveBoardService {
-  let result: Result<FestivalLiveBoardSnapshot, FestivalLiveBoardError>
-
-  func refresh(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
-    try result.get()
-  }
-}
-
-private struct ClosureLiveBoardService: FestivalLiveBoardService {
-  let handler: @Sendable (String) async throws -> FestivalLiveBoardSnapshot
-
-  func refresh(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
-    try await handler(festivalID)
-  }
+private func stubFlagUseCase(
+  result: Result<FestivalLiveBoardSnapshot, FestivalLiveBoardError>
+) -> MockFestivalFlagUseCase {
+  MockFestivalFlagUseCase(liveBoard: { _ in try result.get() })
 }

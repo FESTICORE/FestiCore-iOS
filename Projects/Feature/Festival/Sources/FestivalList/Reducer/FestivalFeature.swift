@@ -6,15 +6,12 @@ import Foundation
 
 @Reducer
 public struct FestivalFeature {
-  @Dependency(\.festivalCatalogService) private var catalogService
-  @Dependency(\.festivalSelectionStore) private var selectionStore
-  @Dependency(\.festivalBookedStore) private var bookedStore
-  @Dependency(\.festivalRecentSearchStore) private var recentSearchStore
-  @Dependency(\.packSyncService) private var packService
-  @Dependency(\.festivalLiveBoardService) private var liveBoardService
-  @Dependency(\.festivalScheduleService) private var scheduleService
-  @Dependency(\.festivalImagePrefetchClient) private var imagePrefetchClient
-  @Dependency(\.festivalLiveActivityClient) private var liveActivityClient
+  @Dependency(\.festivalCatalogUseCase) private var catalogUseCase
+  @Dependency(\.festivalPackUseCase) private var packUseCase
+  @Dependency(\.festivalLibraryUseCase) private var libraryUseCase
+  @Dependency(\.festivalLiveBoardUseCase) private var liveBoardUseCase
+  @Dependency(\.festivalImageUseCase) private var imageUseCase
+  @Dependency(\.festivalLiveActivityUseCase) private var liveActivityUseCase
   @Dependency(\.date) private var date
   @Dependency(\.continuousClock) private var clock
 
@@ -242,17 +239,17 @@ public struct FestivalFeature {
     Reduce { state, action in
       switch action {
       case .view(.onAppear):
-        state.bookedFestivalIDs = state.bookedUserID.map { bookedStore.load(for: $0) } ?? []
-        state.recentSearches = recentSearchStore.load(for: state.bookedUserID)
+        state.bookedFestivalIDs = state.bookedUserID.map { libraryUseCase.bookedFestivalIDs(for: $0) } ?? []
+        state.recentSearches = libraryUseCase.recentSearches(for: state.bookedUserID)
         guard !state.hasStarted else { return .none }
         state.hasStarted = true
         return .run { send in
-          async let catalog = try? catalogService.cachedFestivals()
-          async let packs = try? packService.cachedPacks()
+          async let catalog = try? catalogUseCase.cachedFestivals()
+          async let packs = try? packUseCase.cachedPacks()
           let cachedCatalog = await catalog
           let cachedPacks = await packs
           await send(.inner(.cachedLoaded(
-            cachedCatalog ?? [], cachedPacks ?? [], selectionStore.load(),
+            cachedCatalog ?? [], cachedPacks ?? [], catalogUseCase.savedFestivalID(),
             cachedCatalog == nil, cachedPacks == nil
           )))
         }
@@ -287,7 +284,7 @@ public struct FestivalFeature {
           state.liveActivityBusyFestivalID = festival.id
           state.liveActivityRevision += 1
           return .run { send in
-            await liveActivityClient.end(existing.id)
+            await liveActivityUseCase.end(activityID: existing.id)
             await send(.inner(.liveActivityStopped(festival.id, existing.id)))
           }
         }
@@ -298,11 +295,12 @@ public struct FestivalFeature {
         state.liveActivityRevision += 1
         return .run { send in
           do {
-            let id = try await liveActivityClient.start(
-              festival.id, festival.name, schedule.startDate, schedule.endDate, schedule.phase
+            let id = try await liveActivityUseCase.start(
+              festivalID: festival.id, festivalName: festival.name,
+              startDate: schedule.startDate, endDate: schedule.endDate, phase: schedule.phase
             )
-            await liveActivityClient.update(
-              id, schedule.phase, schedule.startDate, schedule.endDate
+            await liveActivityUseCase.update(
+              activityID: id, phase: schedule.phase, startDate: schedule.startDate, endDate: schedule.endDate
             )
             await send(.inner(.liveActivityStarted(.init(
               id: id, festivalID: festival.id, phase: schedule.phase,
@@ -331,7 +329,7 @@ public struct FestivalFeature {
       case let .view(.foregroundChanged(isForeground)):
         state.isForeground = isForeground
         if isForeground {
-          state.bookedFestivalIDs = state.bookedUserID.map { bookedStore.load(for: $0) } ?? []
+          state.bookedFestivalIDs = state.bookedUserID.map { libraryUseCase.bookedFestivalIDs(for: $0) } ?? []
         }
         guard state.hasStarted else {
           return isForeground ? .send(.view(.onAppear)) : prefetchImages(state)
@@ -369,7 +367,7 @@ public struct FestivalFeature {
         showCachedPack(in: &state)
         resolveImageURLs(in: &state)
         return .merge(
-          .run { _ in selectionStore.save(id) },
+          .run { _ in catalogUseCase.saveSelectedFestivalID(id) },
           watchSelectedPack(state),
           state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
           loadMySchedule(&state),
@@ -441,22 +439,22 @@ public struct FestivalFeature {
         return .send(.delegate(.bookmarkRequested(id)))
 
       case let .view(.recentSearchSubmitted(query)):
-        state.recentSearches = recentSearchStore.add(query, for: state.bookedUserID)
+        state.recentSearches = libraryUseCase.addRecentSearch(query, for: state.bookedUserID)
         return .none
 
       case let .view(.recentSearchRemoved(query)):
-        state.recentSearches = recentSearchStore.remove(query, for: state.bookedUserID)
+        state.recentSearches = libraryUseCase.removeRecentSearch(query, for: state.bookedUserID)
         return .none
 
       case .view(.recentSearchesCleared):
-        recentSearchStore.clear(for: state.bookedUserID)
+        libraryUseCase.clearRecentSearches(for: state.bookedUserID)
         state.recentSearches = []
         return .none
 
       case let .reloadBookmarks(userID):
         state.bookedUserID = userID
-        state.bookedFestivalIDs = userID.map { bookedStore.load(for: $0) } ?? []
-        state.recentSearches = recentSearchStore.load(for: userID)
+        state.bookedFestivalIDs = userID.map { libraryUseCase.bookedFestivalIDs(for: $0) } ?? []
+        state.recentSearches = libraryUseCase.recentSearches(for: userID)
         return .none
 
       case .accountChanged:
@@ -464,11 +462,11 @@ public struct FestivalFeature {
         guard state.hasSession || state.sessionUserID != nil else {
           state.bookedUserID = nil
           state.bookedFestivalIDs = []
-          state.recentSearches = recentSearchStore.load(for: nil)
+          state.recentSearches = libraryUseCase.recentSearches(for: nil)
           return .none
         }
         state.clearAccountData()
-        state.recentSearches = recentSearchStore.load(for: nil)
+        state.recentSearches = libraryUseCase.recentSearches(for: nil)
         state.hasSession = false
         state.sessionUserID = nil
         state.accountGeneration += 1
@@ -483,7 +481,7 @@ public struct FestivalFeature {
           state.bookedUserID = nil
           state.bookedFestivalIDs = []
         }
-        state.recentSearches = recentSearchStore.load(for: state.bookedUserID)
+        state.recentSearches = libraryUseCase.recentSearches(for: state.bookedUserID)
         state.hasSession = hasSession
         state.sessionUserID = userID
         state.accountGeneration += 1
@@ -632,20 +630,20 @@ public struct FestivalFeature {
 
   private func refreshCatalog() -> Effect<Action> {
     .run { send in
-      do { await send(.inner(.catalogRefreshed(try await catalogService.refresh()))) }
+      do { await send(.inner(.catalogRefreshed(try await catalogUseCase.refreshFestivals()))) }
       catch { await send(.inner(.catalogFailed)) }
     }
   }
 
   private func loadLiveActivities(revision: Int) -> Effect<Action> {
     .run { send in
-      await send(.inner(.liveActivitiesLoaded(await liveActivityClient.activities(), revision)))
+      await send(.inner(.liveActivitiesLoaded(await liveActivityUseCase.activities(), revision)))
     }
   }
 
   private func watchLiveActivityChanges() -> Effect<Action> {
     .run { send in
-      for await _ in liveActivityClient.changes() {
+      for await _ in liveActivityUseCase.activityChanges() {
         await send(.inner(.liveActivityChanged))
       }
     }
@@ -663,7 +661,7 @@ public struct FestivalFeature {
             ) else { return nil }
       if schedule.phase == .finished {
         return .run { send in
-          await liveActivityClient.finish(activity.id, schedule.startDate)
+          await liveActivityUseCase.finish(activityID: activity.id, startDate: schedule.startDate)
           await send(.inner(.liveActivityStopped(activity.festivalID, activity.id)))
         }
         .cancellable(id: LiveActivitySyncID(id: activity.id), cancelInFlight: true)
@@ -671,8 +669,8 @@ public struct FestivalFeature {
       guard schedule.phase != activity.phase || schedule.startDate != activity.startDate
         || schedule.endDate != activity.endDate else { return nil }
       return .run { send in
-        await liveActivityClient.update(
-          activity.id, schedule.phase, schedule.startDate, schedule.endDate
+        await liveActivityUseCase.update(
+          activityID: activity.id, phase: schedule.phase, startDate: schedule.startDate, endDate: schedule.endDate
         )
         await send(.inner(.liveActivityUpdated(.init(
           id: activity.id, festivalID: activity.festivalID, phase: schedule.phase,
@@ -708,11 +706,11 @@ public struct FestivalFeature {
 
   private func prefetchImages(_ state: State) -> Effect<Action> {
     guard state.isForeground else {
-      return .run { _ in await imagePrefetchClient.stop() }
+      return .run { _ in await imageUseCase.stopPrefetch() }
         .cancellable(id: CancelID.imagePrefetch, cancelInFlight: true)
     }
     let urls = state.prefetchImageURLs
-    return .run { _ in await imagePrefetchClient.start(urls) }
+    return .run { _ in await imageUseCase.startPrefetch(urls) }
       .cancellable(id: CancelID.imagePrefetch, cancelInFlight: true)
   }
 
@@ -725,7 +723,7 @@ public struct FestivalFeature {
   private func resolveImageURLs(in state: inout State) {
     var urls: [String: URL] = [:]
     for value in state.imageSourceValues {
-      urls[value] = catalogService.imageURL(for: value)
+      urls[value] = imageUseCase.imageURL(for: value)
     }
     state.imageURLs = urls
   }
@@ -740,7 +738,7 @@ public struct FestivalFeature {
       while !Task.isCancelled {
         var interval: TimeInterval = 35
         do {
-          let snapshot = try await liveBoardService.refresh(for: id)
+          let snapshot = try await liveBoardUseCase.liveBoard(for: id)
           await send(.inner(.liveBoardLoaded(id, generation: generation, snapshot)))
         } catch FestivalLiveBoardError.festivalNotFound {
           await send(.inner(.liveBoardUnpublished(id, generation: generation)))
@@ -767,7 +765,7 @@ public struct FestivalFeature {
     let generation = state.accountGeneration
     return .run { send in
       do {
-        let setIDs = try await scheduleService.fetch(festivalID: id).setIDs
+        let setIDs = try await liveBoardUseCase.mySchedule(festivalID: id).setIDs
         await send(.inner(.myScheduleLoaded(
           festivalID: id, requestID: requestID, generation: generation, Set(setIDs)
         )))
@@ -788,7 +786,7 @@ public struct FestivalFeature {
     }
     return .run { send in
       do {
-        for try await result in packService.updates(for: id) {
+        for try await result in packUseCase.packUpdates(for: id) {
           await send(.inner(.packReceived(id, result)))
         }
       } catch {

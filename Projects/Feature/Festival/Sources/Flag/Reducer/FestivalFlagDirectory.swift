@@ -12,7 +12,7 @@ import Foundation
 /// S04 깃발 디렉토리의 필터·정렬·팔로우 상태.
 @Reducer
 public struct FestivalFlagDirectory {
-  @Dependency(\.festivalFlagFollowService) private var followService
+  @Dependency(\.festivalFlagUseCase) private var flagUseCase
   @Dependency(\.continuousClock) private var clock
 
   public init() {}
@@ -117,9 +117,9 @@ public struct FestivalFlagDirectory {
         guard !state.isPending(id) else { return .none }
         // 빠르게 다시 누르면 스냅샷보다 직전 성공 응답의 팔로워 수가 기준이다.
         state.pendingFollows[id] = .some(state.followOverrides[id]?.followerCount ?? baseCount)
-        return .run { [followService] send in
+        return .run { [flagUseCase] send in
           do {
-            let result = try await followService.setFollowing(follow, flagID: id)
+            let result = try await flagUseCase.setFollowing(follow, flagID: id)
             await send(.followResponse(id: id, .success(result)))
           } catch let error as FestivalFlagFollowError {
             await send(.followResponse(id: id, .failure(error)))

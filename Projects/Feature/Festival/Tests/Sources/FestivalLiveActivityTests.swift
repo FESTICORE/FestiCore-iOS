@@ -10,7 +10,9 @@ struct HomeLiveActivityTests {
     var state = FestivalFeature.State()
     state.catalog = [festival(id: "festival")]
     state.selectedFestivalID = "festival"
-    let store = TestStore(initialState: state) { FestivalFeature() }
+    let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.view(.liveActivityTapped))
     #expect(!store.state.liveActivityState.isEnabled)
@@ -29,6 +31,7 @@ struct HomeLiveActivityTests {
     state.hasStarted = true
     state.liveActivityNow = now
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.date.now = now
       $0.continuousClock = clock
       $0.festivalLiveActivityClient = .init(
@@ -86,6 +89,7 @@ struct HomeLiveActivityTests {
       startDate: oldStart, endDate: endDate
     )
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.date.now = now
       $0.continuousClock = clock
       $0.festivalLiveActivityClient = .init(
@@ -126,6 +130,7 @@ struct HomeLiveActivityTests {
       startDate: now, endDate: nil
     )
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.date.now = now
       $0.festivalLiveActivityClient = .init(
         activities: { [] },
@@ -171,6 +176,7 @@ struct HomeLiveActivityTests {
       startDate: activeStart, endDate: activeEnd
     )
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.date.now = now
       $0.continuousClock = clock
       $0.festivalLiveActivityClient = .init(

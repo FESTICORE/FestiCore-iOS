@@ -90,7 +90,7 @@ struct FestivalFlagDirectoryTests {
     let store = TestStore(initialState: loadedState(snapshot)) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalFlagFollowService = SuspendedFollowService(clock: clock, followerCount: 11)
+      $0.festivalFlagUseCase = FlagUseCaseStub(follow: SuspendedFollowService(clock: clock, followerCount: 11))
     }
 
     await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: 10))) {
@@ -113,7 +113,7 @@ struct FestivalFlagDirectoryTests {
     let store = TestStore(initialState: loadedState(board([flag("a")]))) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalFlagFollowService = StubFollowService(result: .failure(.loginRequired))
+      $0.festivalFlagUseCase = FlagUseCaseStub(follow: StubFollowService(result: .failure(.loginRequired)))
     }
 
     await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: nil))) {
@@ -127,7 +127,7 @@ struct FestivalFlagDirectoryTests {
     let store = TestStore(initialState: loadedState(board([flag("a")]))) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalFlagFollowService = StubFollowService(result: .failure(.termsRequired))
+      $0.festivalFlagUseCase = FlagUseCaseStub(follow: StubFollowService(result: .failure(.termsRequired)))
     }
 
     await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: nil))) {
@@ -146,7 +146,7 @@ struct FestivalFlagDirectoryTests {
     let store = TestStore(initialState: loadedState(board([flag("a")]))) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalFlagFollowService = StubFollowService(result: .failure(error))
+      $0.festivalFlagUseCase = FlagUseCaseStub(follow: StubFollowService(result: .failure(error)))
       $0.continuousClock = clock
     }
 
@@ -172,8 +172,10 @@ struct FestivalFlagDirectoryTests {
     let store = TestStore(initialState: initial) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalFlagFollowService = StubFollowService(result: .success(.init(flagID: "a", isFollowing: true, followerCount: 11)))
-      $0.festivalLiveBoardService = SequenceLiveBoardService([followedButCached, fresh])
+      $0.festivalFlagUseCase = FlagUseCaseStub(
+        follow: StubFollowService(result: .success(.init(flagID: "a", isFollowing: true, followerCount: 11))),
+        board: SequenceLiveBoardService([followedButCached, fresh])
+      )
     }
 
     await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: 10))) {
@@ -232,7 +234,7 @@ struct FestivalFlagDirectoryTests {
     let store = TestStore(initialState: initial) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalLiveBoardService = SequenceLiveBoardService([stale, confirmed])
+      $0.festivalFlagUseCase = FlagUseCaseStub(board: SequenceLiveBoardService([stale, confirmed]))
     }
 
     await store.send(.refresh) { $0.viewState = .loading }
@@ -258,8 +260,9 @@ struct FestivalFlagDirectoryTests {
     let store = TestStore(initialState: loadedState(original)) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalFlagFollowService = ToggleFollowService()
-      $0.festivalLiveBoardService = SequenceLiveBoardService([intermediate, confirmed])
+      $0.festivalFlagUseCase = FlagUseCaseStub(
+        follow: ToggleFollowService(), board: SequenceLiveBoardService([intermediate, confirmed])
+      )
     }
 
     await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: 10))) {
@@ -303,8 +306,10 @@ struct FestivalFlagDirectoryTests {
     let store = TestStore(initialState: initial) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalFlagFollowService = SuspendedFollowService(clock: clock)
-      $0.festivalLiveBoardService = StubLiveBoardService(result: .failure(.invalidResponse))
+      $0.festivalFlagUseCase = FlagUseCaseStub(
+        follow: SuspendedFollowService(clock: clock),
+        board: StubLiveBoardService(result: .failure(.invalidResponse))
+      )
     }
 
     await store.send(.directory(.followTapped(id: "b", follow: true, baseCount: nil))) {
@@ -365,9 +370,9 @@ struct FestivalFlagDirectoryTests {
       FestivalFlagFeature()
     } withDependencies: {
       $0.continuousClock = clock
-      $0.festivalLiveBoardService = SequenceLiveBoardService(
+      $0.festivalFlagUseCase = FlagUseCaseStub(board: SequenceLiveBoardService(
         [nil, next], firstError: .rateLimited(retryAfter: 30)
-      )
+      ))
     }
 
     await store.send(.refresh) { $0.viewState = .loading }
@@ -412,6 +417,28 @@ private func loadedState(_ snapshot: FestivalLiveBoardSnapshot) -> FestivalFlagF
   state.viewState = .loaded
   state.isVisible = true
   return state
+}
+
+/// 깃발 UseCase를 서비스 모양 대역으로 조립한다. 넘기지 않은 쪽을 부르면 테스트 이슈로 기록한다.
+private struct FlagUseCaseStub: FestivalFlagUseCaseInterface {
+  var follow: (any FestivalFlagFollowService)?
+  var board: (any FestivalLiveBoardService)?
+
+  func liveBoard(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
+    guard let board else {
+      reportIssue("깃발 라이브 보드 대역이 없습니다.")
+      throw FestivalLiveBoardError.invalidResponse
+    }
+    return try await board.refresh(for: festivalID)
+  }
+
+  func setFollowing(_ following: Bool, flagID: String) async throws(FestivalFlagFollowError) -> FestivalFlagFollowResult {
+    guard let follow else {
+      reportIssue("깃발 팔로우 대역이 없습니다.")
+      throw .unavailable
+    }
+    return try await follow.setFollowing(following, flagID: flagID)
+  }
 }
 
 private struct StubFollowService: FestivalFlagFollowService {

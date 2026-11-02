@@ -3,7 +3,7 @@ import FestivalDomainInterface
 
 @Reducer
 public struct FestivalFlagFeature {
-  @Dependency(\.festivalLiveBoardService) private var liveBoardService
+  @Dependency(\.festivalFlagUseCase) private var flagUseCase
   @Dependency(\.continuousClock) private var clock
 
   public init() {}
@@ -119,7 +119,7 @@ public struct FestivalFlagFeature {
     let generation = state.generation
     return .run { send in
       do {
-        await send(.loaded(id, generation: generation, try await liveBoardService.refresh(for: id)))
+        await send(.loaded(id, generation: generation, try await flagUseCase.liveBoard(for: id)))
       } catch FestivalLiveBoardError.deviceNotRegistered {
         await send(.failed(id, generation: generation, .deviceNotRegistered))
       } catch FestivalLiveBoardError.invalidFestivalID {

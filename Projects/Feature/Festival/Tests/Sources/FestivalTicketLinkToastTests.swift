@@ -9,6 +9,7 @@ struct FestivalTicketLinkToastTests {
     let store = TestStore(initialState: FestivalFeature.State()) {
       FestivalFeature()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.continuousClock = clock
     }
 

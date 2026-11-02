@@ -17,6 +17,7 @@ struct FestivalLiveBoardSessionTests {
       state.liveBoardReceivedAt = Date(timeIntervalSince1970: 1_000)
       return state
     }()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.continuousClock = clock
       $0.date = .constant(receivedAt)
       $0.festivalLiveBoardService = SessionLiveBoardService { _ in
@@ -57,6 +58,7 @@ struct FestivalLiveBoardSessionTests {
     let store = TestStore(initialState: FestivalFeature.State(selectedFestivalID: "fst")) {
       FestivalFeature()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.continuousClock = clock
       $0.festivalLiveBoardService = SessionLiveBoardService { _ in
         try await clock.sleep(for: .seconds(60))
@@ -94,6 +96,7 @@ struct FestivalLiveBoardSessionTests {
     let store = TestStore(initialState: FestivalFeature.State(selectedFestivalID: "fst")) {
       FestivalFeature()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.continuousClock = clock
       $0.festivalLiveBoardService = SessionLiveBoardService { _ in
         try await clock.sleep(for: .seconds(60))
@@ -122,7 +125,9 @@ struct FestivalLiveBoardSessionTests {
       state.hasSession = true
       state.isLiveBoardVisible = true
       return state
-    }()) { FestivalFeature() }
+    }()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.inner(.myScheduleLoaded(festivalID: "A", requestID: 2, generation: 1, ["x"])))
     await store.send(.inner(.myScheduleLoaded(festivalID: "B", requestID: 1, generation: 1, ["x"])))
@@ -146,7 +151,9 @@ struct FestivalLiveBoardSessionTests {
       state.hasSession = true
       state.sessionUserID = "user-a"
       return state
-    }()) { FestivalFeature() }
+    }()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.accountChanged) {
       $0.hasSession = false
@@ -173,7 +180,9 @@ struct FestivalLiveBoardSessionTests {
       state.liveBoard = emptyBoard
       state.isLiveBoardVisible = true
       return state
-    }()) { FestivalFeature() }
+    }()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.sessionChanged(hasSession: true, userID: "user-a"))
   }
@@ -191,6 +200,7 @@ struct FestivalLiveBoardSessionTests {
       state.isLiveBoardVisible = true
       return state
     }()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.continuousClock = clock
       $0.date = .constant(receivedAt)
       $0.festivalLiveBoardService = SessionLiveBoardService { _ in
@@ -234,6 +244,7 @@ struct FestivalLiveBoardSessionTests {
       state.isLiveBoardVisible = true
       return state
     }()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.continuousClock = clock
       $0.date = .constant(receivedAt)
       $0.festivalLiveBoardService = SessionLiveBoardService { _ in
@@ -265,7 +276,9 @@ struct FestivalLiveBoardSessionTests {
 
   @Test("로그인 카드는 코디네이터에 로그인을 요청한다")
   func loginTapRequestsLogin() async {
-    let store = TestStore(initialState: FestivalFeature.State()) { FestivalFeature() }
+    let store = TestStore(initialState: FestivalFeature.State()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.view(.loginTapped))
     await store.receive(\.delegate.loginRequested)
@@ -278,7 +291,9 @@ struct FestivalLiveBoardSessionTests {
       state.bookedUserID = "user-b"
       state.bookedFestivalIDs = ["fst"]
       return state
-    }()) { FestivalFeature() }
+    }()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.sessionChanged(hasSession: true, userID: "user-b")) {
       $0.hasSession = true
@@ -297,7 +312,9 @@ struct FestivalLiveBoardSessionTests {
       state.bookedUserID = "user-a"
       state.bookedFestivalIDs = ["fst"]
       return state
-    }()) { FestivalFeature() }
+    }()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.sessionChanged(hasSession: true, userID: "user-b")) {
       $0.bookedUserID = nil
@@ -315,7 +332,9 @@ struct FestivalLiveBoardSessionTests {
       state.isLiveBoardVisible = true
       state.myScheduleRequestID = 1
       return state
-    }()) { FestivalFeature() }
+    }()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.myScheduleSaved(festivalID: "other", setIDs: ["other"]))
     await store.send(.myScheduleSaved(festivalID: "fst", setIDs: ["set-a"])) {
@@ -346,6 +365,7 @@ struct FestivalLiveBoardSessionTests {
       state.liveBoardReceivedAt = firstReceivedAt
       return state
     }()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.date = .constant(revalidatedAt)
     }
 
@@ -369,6 +389,7 @@ struct FestivalLiveBoardSessionTests {
       state.hasSession = true
       return state
     }()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.continuousClock = clock
       $0.festivalLiveBoardService = SessionLiveBoardService { _ in
         try await clock.sleep(for: .seconds(60))
