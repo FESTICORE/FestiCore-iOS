@@ -18,17 +18,20 @@ public struct FCAlertState<Action>: Equatable {
   public let message: String
   public let confirmTitle: String
   public let cancelTitle: String
+  public let style: FCAlertStyle
 
   public init(
     title: String,
     message: String = "",
     confirmTitle: String = "확인",
-    cancelTitle: String = "취소"
+    cancelTitle: String = "취소",
+    style: FCAlertStyle = .confirmation
   ) {
     self.title = title
     self.message = message
     self.confirmTitle = confirmTitle
     self.cancelTitle = cancelTitle
+    self.style = style
   }
 
   public static func == (lhs: Self, rhs: Self) -> Bool {
@@ -36,7 +39,13 @@ public struct FCAlertState<Action>: Equatable {
       && lhs.message == rhs.message
       && lhs.confirmTitle == rhs.confirmTitle
       && lhs.cancelTitle == rhs.cancelTitle
+      && lhs.style == rhs.style
   }
+}
+
+/// 다이얼로그 모양. 지금은 DesignKit `FCDialog`의 확인·취소 두 버튼 모양 하나뿐이다.
+public enum FCAlertStyle: Equatable {
+  case confirmation
 }
 
 @CasePathable
@@ -65,7 +74,8 @@ public extension FCAlertState where Action == FCAlertAction {
       title: title,
       message: message,
       confirmTitle: confirmTitle,
-      cancelTitle: cancelTitle
+      cancelTitle: cancelTitle,
+      style: .confirmation
     )
   }
 
@@ -75,6 +85,15 @@ public extension FCAlertState where Action == FCAlertAction {
       title: "이 안내를 숨길까요?",
       message: "마이 > 설정에서 다시 켤 수 있어요.",
       confirmTitle: "숨기기"
+    )
+  }
+
+  /// 로그아웃 확인
+  static func logout() -> FCAlertState<FCAlertAction> {
+    .alert(
+      title: "로그아웃",
+      message: "이 기기에서 로그아웃하시겠습니까?",
+      confirmTitle: "로그아웃"
     )
   }
 }

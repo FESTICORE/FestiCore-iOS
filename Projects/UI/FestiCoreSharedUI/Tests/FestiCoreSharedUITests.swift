@@ -1,3 +1,4 @@
+import ComposableArchitecture
 import SwiftUI
 import Testing
 @testable import FestiCoreSharedUI
@@ -47,5 +48,23 @@ struct FestiCoreSharedUITests {
 
   @Test func nonSVGDataIsLeftToDefaultProcessor() {
     #expect(makeSVGImage(from: Data([0x89, 0x50, 0x4E, 0x47])) == nil)
+  }
+
+  @Test func logoutAlertUsesConfirmationStyle() {
+    let alert = FCAlertState.logout()
+
+    #expect(alert.title == "로그아웃")
+    #expect(alert.confirmTitle == "로그아웃")
+    #expect(alert.style == .confirmation)
+    #expect(alert == .logout())
+  }
+
+  @Test @MainActor func modalHostsPresentedStore() {
+    let store = Store(initialState: FCAlertState.logout()) { FCConfirmAlert() }
+    let view = Color.clear.fcModal(.constant(store)) { modalStore in
+      Text(modalStore.withState(\.title))
+    }
+
+    #expect(UIHostingController(rootView: view).view != nil)
   }
 }
