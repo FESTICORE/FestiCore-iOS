@@ -10,6 +10,7 @@ NOTIFICATION_SERVICE_TARGET = "FestiCoreNotificationServiceExtension"
 STAGE_SCHEME = "FestiCore-Stage"
 PROD_SCHEME = "FestiCore-Prod"
 TESTFLIGHT_GROUP = "FestiCore"
+EXTERNAL_TESTFLIGHT_GROUP = "festiCore"
 TEAM_ID = "N94CS4N6VR"
 MATCH_KEYCHAIN_NAME = ENV.fetch("MATCH_KEYCHAIN_NAME", "match_keychain")
 PROJECT_ROOT = File.expand_path("..", __dir__)
@@ -115,6 +116,17 @@ def wait_for_internal_testing(app, version, build_number, timeout:)
     UI.message("TestFlight 빌드 대기 중: #{build_number} (#{state})")
     sleep(30)
   end
+end
+
+# 내부 그룹 FestiCore와 외부 그룹 festiCore는 이름이 대소문자만 달라 서버 이름 필터에 기대지 않는다.
+# 앱의 그룹 전체에서 내부·외부 구분과 이름이 정확히 같은 그룹을 고른다.
+def find_beta_group(app, name, internal:)
+  groups = app.get_beta_groups
+  group = groups.find { |candidate| !!candidate.is_internal_group == internal && candidate.name == name }
+  return group if group
+  kind = internal ? "내부" : "외부"
+  available = groups.map { |candidate| "#{candidate.name}(#{candidate.is_internal_group ? '내부' : '외부'})" }
+  UI.user_error!("TestFlight #{kind} 테스트 그룹이 없습니다: #{name} / 앱의 그룹: #{available.join(', ')}")
 end
 
 # 테스터에게 보이는 "테스트할 사항"을 한국어로 넣는다.
@@ -288,14 +300,7 @@ platform :ios do
     connect_api_key
     app = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
     UI.user_error!("App Store Connect 앱을 찾을 수 없습니다: #{BUNDLE_ID}") if app.nil?
-    # 외부 테스트 그룹 festiCore와 이름이 대소문자만 달라 이름 필터에 기대지 않고,
-    # 앱의 그룹 전체에서 내부 그룹이면서 이름이 정확히 같은 그룹을 고른다.
-    groups = app.get_beta_groups
-    group = groups.find { |candidate| candidate.is_internal_group && candidate.name == TESTFLIGHT_GROUP }
-    if group.nil?
-      available = groups.map { |candidate| "#{candidate.name}(#{candidate.is_internal_group ? '내부' : '외부'})" }
-      UI.user_error!("TestFlight 내부 테스트 그룹이 없습니다: #{TESTFLIGHT_GROUP} / 앱의 그룹: #{available.join(', ')}")
-    end
+    group = find_beta_group(app, TESTFLIGHT_GROUP, internal: true)
 
     build = wait_for_internal_testing(app, version, build_number, timeout: 40 * 60)
     update_test_notes(build, options[:changelog] || "FestiCore QA 빌드 #{build_number}")
@@ -309,6 +314,35 @@ platform :ios do
     ).to_models.any? { |candidate| candidate.id == build.id }
     UI.user_error!("#{TESTFLIGHT_GROUP} 그룹에 빌드가 연결되지 않았습니다: #{build_number}") unless assigned
     UI.success("#{TESTFLIGHT_GROUP} 내부 테스트 그룹에 배포 완료: #{version} (#{build_number})")
+  end
+
+  desc "내부 배포가 끝난 빌드를 festiCore 외부 테스트 그룹에 넣고 베타 심사에 제출"
+  lane :distribute_external do |options|
+    version = options[:version].to_s
+    build_number = options[:build_number].to_s
+    UI.user_error!("version, build_number 옵션이 필요합니다.") if version.empty? || build_number.empty?
+    connect_api_key
+    app = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
+    UI.user_error!("App Store Connect 앱을 찾을 수 없습니다: #{BUNDLE_ID}") if app.nil?
+    group = find_beta_group(app, EXTERNAL_TESTFLIGHT_GROUP, internal: false)
+
+    build = wait_for_internal_testing(app, version, build_number, timeout: 10 * 60)
+    build.add_beta_groups(beta_groups: [group])
+
+    # 그룹을 붙인 뒤의 외부 상태를 다시 읽어, 제출이 필요한 상태일 때만 심사에 제출한다.
+    states = Spaceship::ConnectAPI::BuildBetaDetail::ExternalState
+    build = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: version, build_number: build_number).first
+    external = build&.build_beta_detail&.external_build_state
+    case external
+    when states::READY_FOR_BETA_SUBMISSION
+      build.post_beta_app_review_submission
+      UI.success("#{EXTERNAL_TESTFLIGHT_GROUP} 외부 테스트 그룹에 넣고 베타 심사에 제출: #{version} (#{build_number})")
+    when states::WAITING_FOR_BETA_REVIEW, states::IN_BETA_REVIEW, states::BETA_APPROVED,
+         states::READY_FOR_BETA_TESTING, states::IN_BETA_TESTING
+      UI.success("#{EXTERNAL_TESTFLIGHT_GROUP} 외부 테스트 그룹에 배포: #{version} (#{build_number}, #{external})")
+    else
+      UI.user_error!("#{EXTERNAL_TESTFLIGHT_GROUP} 외부 테스트 배포 불가: #{build_number} (#{external || '-'})")
+    end
   end
 
   desc "Prod 빌드를 TestFlight에 업로드하고 App Store 버전을 준비"
