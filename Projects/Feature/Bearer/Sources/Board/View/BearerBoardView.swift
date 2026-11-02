@@ -46,15 +46,15 @@ public struct BearerBoardView: View {
     }
     .animation(.easeOut(duration: 0.2), value: store.check)
     .sensoryFeedback(.success, trigger: store.check?.id) { _, new in new != nil }
-    .fcModal($store.scope(state: \.zonePicker, action: \.scope.zonePicker)) { store in
+    .fcModal($store.scope(state: \.destination?.zonePicker, action: \.destination.zonePicker)) { store in
       BearerZonePickerView(store: store)
         .environment(\.colorScheme, .dark)
     }
-    .fcModal($store.scope(state: \.activityPicker, action: \.scope.activityPicker)) { store in
+    .fcModal($store.scope(state: \.destination?.activityPicker, action: \.destination.activityPicker)) { store in
       BearerActivityPickerView(store: store)
         .environment(\.colorScheme, .dark)
     }
-    .fcAlert($store.scope(state: \.alert, action: \.scope.alert))
+    .fcAlert($store.scope(state: \.destination?.alert, action: \.destination.alert))
     .environment(\.colorScheme, .dark)
     .onAppear { send(.onAppear) }
   }

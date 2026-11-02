@@ -48,9 +48,7 @@ public struct BearerBoardFeature {
     public var check: Check?
     var checkSequence = 0
 
-    @Presents public var zonePicker: BearerZonePickerFeature.State?
-    @Presents public var activityPicker: BearerActivityPickerFeature.State?
-    @Presents public var alert: FCAlertState<FCAlertAction>?
+    @Presents public var destination: Destination.State?
 
     public init(festivalID: String, flagID: String, viewerUserID: String?) {
       self.festivalID = festivalID
@@ -97,7 +95,7 @@ public struct BearerBoardFeature {
     case view(View)
     case async(AsyncAction)
     case inner(InnerAction)
-    case scope(ScopeAction)
+    case destination(PresentationAction<Destination.Action>)
     case delegate(DelegateAction)
   }
 
@@ -139,13 +137,13 @@ public struct BearerBoardFeature {
     case checkExpired(Int)
   }
 
-  // MARK: - ScopeAction
+  // MARK: - Destination
 
-  @CasePathable
-  public enum ScopeAction: Equatable {
-    case zonePicker(PresentationAction<BearerZonePickerFeature.Action>)
-    case activityPicker(PresentationAction<BearerActivityPickerFeature.Action>)
-    case alert(PresentationAction<FCAlertAction>)
+  @Reducer(state: .equatable, action: .equatable)
+  public enum Destination {
+    case zonePicker(BearerZonePickerFeature)
+    case activityPicker(BearerActivityPickerFeature)
+    case alert(FCConfirmAlert)
   }
 
   // MARK: - DelegateAction
@@ -175,16 +173,14 @@ public struct BearerBoardFeature {
       case .inner(let innerAction):
         return handleInnerAction(state: &state, action: innerAction)
 
-      case .scope(let scopeAction):
-        return handleScopeAction(state: &state, action: scopeAction)
+      case .destination(let destinationAction):
+        return handleDestinationAction(state: &state, action: destinationAction)
 
       case .delegate(let delegateAction):
         return handleDelegateAction(state: &state, action: delegateAction)
       }
     }
-    .ifLet(\.$zonePicker, action: \.scope.zonePicker) { BearerZonePickerFeature() }
-    .ifLet(\.$activityPicker, action: \.scope.activityPicker) { BearerActivityPickerFeature() }
-    .ifLet(\.$alert, action: \.scope.alert) { FCConfirmAlert() }
+    .ifLet(\.$destination, action: \.destination)
   }
 }
 
@@ -237,7 +233,7 @@ extension BearerBoardFeature {
         return .none
       }
       state.sheet = .changeActivity
-      state.activityPicker = .init(selected: current.activity ?? state.lastActivity)
+      state.destination = .activityPicker(.init(selected: current.activity ?? state.lastActivity))
       return .none
 
     case .restTapped:
@@ -250,12 +246,12 @@ extension BearerBoardFeature {
         return enqueue(&state, .activity(activity))
       }
       state.sheet = .changeActivity
-      state.activityPicker = .init(selected: nil)
+      state.destination = .activityPicker(.init(selected: nil))
       return .none
 
     case .endTapped:
       guard let lifecycle = state.current?.lifecycle, lifecycle != .ended else { return .none }
-      state.alert = .bearerEndToday()
+      state.destination = .alert(.bearerEndToday())
       return .none
 
     case .raiseTapped:
@@ -396,14 +392,14 @@ extension BearerBoardFeature {
     }
   }
 
-  private func handleScopeAction(
+  private func handleDestinationAction(
     state: inout State,
-    action: ScopeAction
+    action: PresentationAction<Destination.Action>
   ) -> Effect<Action> {
     switch action {
-    case .zonePicker(.presented(.delegate(.picked(let zoneID)))):
+    case .presented(.zonePicker(.delegate(.picked(let zoneID)))):
       let sheet = state.sheet
-      state.zonePicker = nil
+      state.destination = nil
       switch sheet {
       case .move?:
         state.sheet = nil
@@ -411,20 +407,20 @@ extension BearerBoardFeature {
         return enqueue(&state, .move(zoneID: zoneID))
       case .startZone?:
         state.sheet = .startActivity(zoneID: zoneID)
-        state.activityPicker = .init(selected: state.lastActivity)
+        state.destination = .activityPicker(.init(selected: state.lastActivity))
         return .none
       case .restartZone?:
         state.sheet = .restartActivity(zoneID: zoneID)
-        state.activityPicker = .init(selected: state.lastActivity)
+        state.destination = .activityPicker(.init(selected: state.lastActivity))
         return .none
       default:
         state.sheet = nil
         return .none
       }
 
-    case .activityPicker(.presented(.delegate(.picked(let activity)))):
+    case .presented(.activityPicker(.delegate(.picked(let activity)))):
       let sheet = state.sheet
-      state.activityPicker = nil
+      state.destination = nil
       state.sheet = nil
       switch sheet {
       case .changeActivity?:
@@ -438,23 +434,19 @@ extension BearerBoardFeature {
         return .none
       }
 
-    case .zonePicker(.dismiss):
-      if state.activityPicker == nil { state.sheet = nil }
-      return .none
-
-    case .activityPicker(.dismiss):
-      if state.zonePicker == nil { state.sheet = nil }
-      return .none
-
-    case .alert(.presented(.confirmTapped)):
-      state.alert = nil
+    case .presented(.alert(.confirmTapped)):
+      state.destination = nil
       return enqueue(&state, .end)
 
-    case .alert(.presented(.cancelTapped)):
-      state.alert = nil
+    case .presented(.alert(.cancelTapped)):
+      state.destination = nil
       return .none
 
-    case .zonePicker, .activityPicker, .alert:
+    case .dismiss:
+      state.sheet = nil
+      return .none
+
+    case .presented:
       return .none
     }
   }
@@ -473,7 +465,7 @@ extension BearerBoardFeature {
 extension BearerBoardFeature {
   private func presentZonePicker(_ state: inout State, for sheet: Sheet, selected: String?) -> Effect<Action> {
     state.sheet = sheet
-    state.zonePicker = .init(zones: state.zones, selectedZoneID: selected)
+    state.destination = .zonePicker(.init(zones: state.zones, selectedZoneID: selected))
     return .none
   }
 

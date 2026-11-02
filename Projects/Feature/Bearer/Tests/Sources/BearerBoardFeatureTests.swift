@@ -131,11 +131,11 @@ struct BearerBoardFeatureTests {
 
     await store.send(.view(.zoneTapped)) {
       $0.sheet = .move
-      $0.zonePicker = .init(zones: zones, selectedZoneID: "zone_a")
+      $0.destination = .zonePicker(.init(zones: zones, selectedZoneID: "zone_a"))
     }
-    await store.send(.scope(.zonePicker(.presented(.view(.zoneTapped("zone_b"))))))
-    await store.receive(\.scope.zonePicker.presented.delegate.picked) {
-      $0.zonePicker = nil
+    await store.send(.destination(.presented(.zonePicker(.view(.zoneTapped("zone_b"))))))
+    await store.receive(\.destination.presented.zonePicker.delegate.picked) {
+      $0.destination = nil
       $0.sheet = nil
       $0.current?.zoneID = "zone_b"
       $0.check = .init(id: 1, title: "리벳 스테이지 중앙으로 바뀌었어요", message: "팔로워에게 알렸어요")
@@ -200,15 +200,14 @@ struct BearerBoardFeatureTests {
 
     await store.send(.view(.raiseTapped)) {
       $0.sheet = .startZone
-      $0.zonePicker = .init(zones: zones, selectedZoneID: "zone_a")
+      $0.destination = .zonePicker(.init(zones: zones, selectedZoneID: "zone_a"))
     }
-    await store.send(.scope(.zonePicker(.presented(.delegate(.picked("zone_a")))))) {
-      $0.zonePicker = nil
+    await store.send(.destination(.presented(.zonePicker(.delegate(.picked("zone_a")))))) {
       $0.sheet = .startActivity(zoneID: "zone_a")
-      $0.activityPicker = .init(selected: nil)
+      $0.destination = .activityPicker(.init(selected: nil))
     }
-    await store.send(.scope(.activityPicker(.presented(.delegate(.picked(.sing)))))) {
-      $0.activityPicker = nil
+    await store.send(.destination(.presented(.activityPicker(.delegate(.picked(.sing)))))) {
+      $0.destination = nil
       $0.sheet = nil
       $0.current?.lifecycle = .active
       $0.current?.zoneID = "zone_a"
@@ -230,9 +229,9 @@ struct BearerBoardFeatureTests {
     }
     store.exhaustivity = .off(showSkippedAssertions: false)
 
-    await store.send(.view(.endTapped)) { $0.alert = .bearerEndToday() }
-    await store.send(.scope(.alert(.presented(.confirmTapped)))) {
-      $0.alert = nil
+    await store.send(.view(.endTapped)) { $0.destination = .alert(.bearerEndToday()) }
+    await store.send(.destination(.presented(.alert(.confirmTapped)))) {
+      $0.destination = nil
       $0.current?.lifecycle = .ended
       $0.current?.zoneID = nil
       $0.current?.activity = nil
