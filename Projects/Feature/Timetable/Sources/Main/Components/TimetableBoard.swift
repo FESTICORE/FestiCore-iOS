@@ -5,13 +5,15 @@
 //  Created by FestiCore on 10/30/26.
 //
 
+import ComposableArchitecture
 import FestiCoreDesignKit
 import SwiftUI
 
 /// 무대 헤더와 시간 격자. 무대가 3개 이상이면 가로로도 스크롤한다.
 /// 두 손가락으로 벌리거나 모으면 시간축을 확대·축소한다.
 struct TimetableBoard: View {
-  let state: TimetableFeature.State
+  /// 상태 사본을 받으면 배율·현재 시각이 바뀌어도 상위 화면이 다시 그려지기 전까지 이전 값을 쓰므로 Store에서 직접 읽는다.
+  let store: StoreOf<TimetableFeature>
   let day: TimetableDay
   let onSetTap: (String) -> Void
   let onZoomEnd: (Double) -> Void
@@ -49,7 +51,7 @@ private extension TimetableBoard {
   }
 
   func clampedZoom(_ magnification: CGFloat) -> CGFloat {
-    min(max(CGFloat(state.zoom) * magnification, Metric.minZoom), Metric.maxZoom)
+    min(max(CGFloat(store.zoom) * magnification, Metric.minZoom), Metric.maxZoom)
   }
 
   var isWide: Bool {
@@ -91,11 +93,11 @@ private extension TimetableBoard {
   private var grid: some View {
     ZStack(alignment: .topLeading) {
       hourLines
-      ForEach(Array(state.overlaps.enumerated()), id: \.offset) { _, overlap in
+      ForEach(Array(store.overlaps.enumerated()), id: \.offset) { _, overlap in
         overlapBand(overlap)
       }
       columns
-      if let now = state.nowMinute, (startHour * 60 ... endHour * 60).contains(now) {
+      if let now = store.nowMinute, (startHour * 60 ... endHour * 60).contains(now) {
         FCNowLine(time: TimetableTime.clock(now))
           .offset(y: y(now) - Metric.nowLineHeight / 2)
       }
@@ -198,17 +200,17 @@ private extension TimetableBoard {
         )
       )
     }
-    if state.isOverlapping(set) {
+    if store.state.isOverlapping(set) {
       return .overlap()
     }
-    return state.mySetIDs.contains(set.id) ? .mine : .default
+    return store.mySetIDs.contains(set.id) ? .mine : .default
   }
 
   private func opacity(_ set: TimetableSet) -> Double {
-    if state.showsMineOnly && !state.mySetIDs.contains(set.id) {
+    if store.showsMineOnly && !store.mySetIDs.contains(set.id) {
       return Metric.hiddenOpacity
     }
-    if let now = state.nowMinute, set.end <= now {
+    if let now = store.nowMinute, set.end <= now {
       return Metric.pastOpacity
     }
     return 1
