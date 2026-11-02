@@ -11,6 +11,7 @@ extension DependencyValues {
     festivalPackUseCase = ServiceBackedPackUseCase()
     festivalLibraryUseCase = ServiceBackedLibraryUseCase()
     festivalLiveBoardUseCase = ServiceBackedLiveBoardUseCase()
+    festivalScheduleUseCase = ServiceBackedScheduleUseCase()
     festivalImageUseCase = ServiceBackedImageUseCase()
     festivalLiveActivityUseCase = ServiceBackedLiveActivityUseCase()
   }
@@ -50,13 +51,22 @@ private struct ServiceBackedLibraryUseCase: FestivalLibraryUseCaseInterface {
 
 private struct ServiceBackedLiveBoardUseCase: FestivalLiveBoardUseCaseInterface {
   @Dependency(\.festivalLiveBoardService) var liveBoardService
-  @Dependency(\.festivalScheduleService) var scheduleService
 
   func liveBoard(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
     try await liveBoardService.refresh(for: festivalID)
   }
+}
+
+private struct ServiceBackedScheduleUseCase: FestivalScheduleUseCaseInterface {
+  @Dependency(\.festivalScheduleService) var scheduleService
+
   func mySchedule(festivalID: String) async throws(FestivalScheduleError) -> FestivalSchedule {
     try await scheduleService.fetch(festivalID: festivalID)
+  }
+  func saveMySchedule(
+    festivalID: String, setIDs: [String], clientAt: Date
+  ) async throws(FestivalScheduleError) -> FestivalSchedule {
+    try await scheduleService.replace(festivalID: festivalID, setIDs: setIDs, clientAt: clientAt)
   }
 }
 

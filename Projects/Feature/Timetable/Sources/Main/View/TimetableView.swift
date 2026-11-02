@@ -53,85 +53,7 @@ public struct TimetableView: View {
   }
 }
 
-// MARK: - 상위 화면이 함께 그리는 오버레이
-
-public extension TimetableView {
-  /// 탭바까지 포함한 상위 화면에서 시트를 표시한다.
-  var modalOverlay: some View {
-    Color.clear.presentFCSheet(
-      item: Binding(
-        get: { store.selectedSetID.map(SelectedSet.init) },
-        set: { if $0 == nil { send(.setDetailDismissed) } }
-      )
-    ) { _ in
-      // 열린 동안 공연 시작·종료 시각이 지나면 상태가 바뀌도록 매분 다시 그린다.
-      TimelineView(.everyMinute) { context in
-        if let detail = store.state.setDetail(now: context.date) {
-          setSheet(detail)
-        }
-      }
-    } accessory: { _ in
-      scheduleToast
-    }
-  }
-}
-
 private extension TimetableView {
-  func setSheet(_ detail: TimetableSetDetail) -> some View {
-    FCSetSheet(
-      artist: detail.artist,
-      stage: detail.stage,
-      time: detail.time,
-      relativeTime: detail.relativeTime,
-      isScheduled: Binding(
-        get: { detail.isScheduled },
-        set: { _ in send(.setScheduleToggled) }
-      )
-    )
-    .state(sheetState(detail))
-    .scheduleTexts(
-      title: "내 일정에 넣기",
-      helper: scheduleHelper
-    )
-    .scheduleDisabled(store.scheduleSync == .loading)
-    .source(store.source.isEmpty ? nil : store.source)
-  }
-
-  /// 내 일정에 넣은 직후 시트 위에 잠시 보인다.
-  var scheduleToast: some View {
-    ZStack {
-      if store.isScheduleToastVisible {
-        FCToast(.scheduleAdded())
-          .transition(.move(edge: .bottom).combined(with: .opacity))
-      }
-    }
-    .animation(.easeOut(duration: Metric.toastDuration), value: store.isScheduleToastVisible)
-  }
-
-  func sheetState(_ detail: TimetableSetDetail) -> FCSetSheet.State {
-    if detail.status == .ended {
-      return .ended
-    }
-    if let overlap = detail.overlap {
-      return .overlap(warning: overlap.warning)
-    }
-    if let previousTime = detail.previousTime, let change = detail.change {
-      return .changed(oldTime: previousTime, change: change)
-    }
-    return .default
-  }
-
-  /// 알림 기능 전까지는 저장된다는 사실만 안내한다.
-  var scheduleHelper: String {
-    if store.scheduleSync == .loading {
-      return "내 일정을 불러오는 중이에요"
-    }
-    if store.isScheduleLimitReached {
-      return "내 일정은 최대 \(TimetableFeature.scheduleLimit)개까지 저장할 수 있어요"
-    }
-    return "내 일정에 저장돼요"
-  }
-
   var header: some View {
     VStack(spacing: .zero) {
       FCTopBar(
@@ -197,14 +119,8 @@ private extension TimetableView {
   }
 }
 
-private struct SelectedSet: Identifiable, Equatable {
-  let id: String
-}
-
 private extension TimetableView {
   enum Metric {
-    /// `fcToast`와 같은 등장·퇴장 시간
-    static let toastDuration = 0.25
     /// `FCSegmented`가 잘리지 않고 담는 날짜 수(2~3칸용)
     static let segmentedDayLimit = 3
   }
