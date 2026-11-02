@@ -1,6 +1,6 @@
 import Foundation
 
-public struct FestivalPackDocument: Decodable, Equatable {
+public struct FestivalPackDocument: Decodable, Equatable, Sendable {
   public let id: String
   public let name: String?
   public let venue: String?
@@ -75,13 +75,13 @@ public struct FestivalPackDocument: Decodable, Equatable {
     }
   }
 
-  public struct Day: Decodable, Equatable {
+  public struct Day: Decodable, Equatable, Sendable {
     public let date: String?
     public let startsAt: String?
     public let endsAt: String?
   }
 
-  public struct TicketLink: Decodable, Equatable {
+  public struct TicketLink: Decodable, Equatable, Sendable {
     public let label: String
     public let url: String
 
@@ -97,7 +97,7 @@ public struct FestivalPackDocument: Decodable, Equatable {
     init(from decoder: Decoder) throws {}
   }
 
-  public struct Zone: Decodable, Equatable {
+  public struct Zone: Decodable, Equatable, Sendable {
     public let id: String
     public let name: String
   }
@@ -110,7 +110,7 @@ public struct FestivalPackDocument: Decodable, Equatable {
     }
   }
 
-  public struct Source: Decodable, Equatable {
+  public struct Source: Decodable, Equatable, Sendable {
     public let name: String?
     public let url: String?
     public let verifiedAt: String?
@@ -127,17 +127,17 @@ public struct FestivalPackDocument: Decodable, Equatable {
     }
   }
 
-  public struct Artist: Decodable, Equatable {
+  public struct Artist: Decodable, Equatable, Sendable {
     public let name: String
     public let imageUrl: String?
   }
 
-  public struct Stage: Decodable, Equatable {
+  public struct Stage: Decodable, Equatable, Sendable {
     public let id: String
     public let name: String
   }
 
-  public struct Performance: Decodable, Equatable, Identifiable {
+  public struct Performance: Decodable, Equatable, Sendable, Identifiable {
     public let id: String
     public let artist: String?
     public let stageId: String?
