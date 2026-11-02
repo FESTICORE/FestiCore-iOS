@@ -14,6 +14,8 @@ let project = Project.makeModule(
   name: "Login",
   dependencies: [
     .domain(.auth, .interface),
+    .ui(.designSystem),
+    .ui(.sharedUI),
     .SPM.composableArchitecture,
     .SPM.dependencies
   ],
