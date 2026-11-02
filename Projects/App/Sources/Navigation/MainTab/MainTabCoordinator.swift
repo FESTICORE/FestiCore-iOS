@@ -183,7 +183,8 @@ struct MainTabCoordinator {
   private func syncFlag(state: inout State) -> Effect<Action> {
     let selectedID: String?
     let pack: FestivalPackDocument?
-    if let screen = state.festivalState.routes.last?.screen {
+    // 기수 보드는 라이브 보드 위에 덮이는 화면이라 그 아래 축제를 기준으로 삼는다.
+    if let screen = state.festivalState.routes.last(where: { !$0.screen.is(\.bearerBoard) })?.screen {
       switch screen {
       case let .festivalList(festival):
         selectedID = festival.selectedFestivalID
@@ -191,6 +192,9 @@ struct MainTabCoordinator {
       case let .liveBoard(festival):
         selectedID = festival.selectedFestivalID
         pack = festival.selectedPack
+      case .bearerBoard:
+        selectedID = nil
+        pack = nil
       }
     } else {
       selectedID = nil
@@ -213,7 +217,7 @@ struct MainTabCoordinator {
     appearing: Bool
   ) -> Effect<Action> {
     var selected: (festivalID: String?, pack: FestivalPackDocument)?
-    if let screen = state.festivalState.routes.last?.screen,
+    if let screen = state.festivalState.routes.last(where: { !$0.screen.is(\.bearerBoard) })?.screen,
        case let .liveBoard(home) = screen,
        let pack = home.selectedPack {
       selected = (home.selectedFestivalID, pack)

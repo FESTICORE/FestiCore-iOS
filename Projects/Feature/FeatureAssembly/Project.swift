@@ -13,12 +13,14 @@ import ProjectTemplatePlugin
 let project = Project.makeModule(
   name: "FeatureAssembly",
   dependencies: [
+    .feature(.bearer),
     .feature(.festival),
     .feature(.login),
     .feature(.profile),
     .feature(.timetable),
     .feature(.web),
     .domain(.auth),
+    .domain(.bearer),
     .domain(.festival),
     .service(.assembly),
     .SPM.composableArchitecture
