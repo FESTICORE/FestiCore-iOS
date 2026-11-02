@@ -229,14 +229,14 @@ struct MainTabCoordinator {
 
     let festivalID = selected?.festivalID
     if festivalID != state.timetableState.festivalID {
-      return .send(.timetable(.festivalChanged(festivalID)))
+      return .send(.timetable(.inner(.festivalChanged(festivalID))))
     }
     var effects: [Effect<Action>] = []
     if daysChanged {
-      effects.append(.send(.timetable(.packUpdated)))
+      effects.append(.send(.timetable(.inner(.packUpdated))))
     }
     if appearing {
-      effects.append(.send(.timetable(.timetableAppeared)))
+      effects.append(.send(.timetable(.inner(.timetableAppeared))))
     }
     return .concatenate(effects)
   }

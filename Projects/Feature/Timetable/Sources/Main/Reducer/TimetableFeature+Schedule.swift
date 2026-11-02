@@ -94,17 +94,7 @@ extension TimetableFeature {
     guard let festivalID = state.festivalID, state.scheduleSync != .loading else { return .none }
     state.scheduleSync = .loading
     state.loadRequestID += 1
-    let requestID = state.loadRequestID
-    return .run { [scheduleService] send in
-      let result: Result<FestivalSchedule, FestivalScheduleError>
-      do throws(FestivalScheduleError) {
-        result = try .success(await scheduleService.fetch(festivalID: festivalID))
-      } catch {
-        result = .failure(error)
-      }
-      await send(.scheduleLoaded(festivalID: festivalID, requestID: requestID, result))
-    }
-    .cancellable(id: CancelID.load, cancelInFlight: true)
+    return .send(.async(.fetchSchedule(festivalID: festivalID, requestID: state.loadRequestID)))
   }
 
   func saveSchedule(state: inout State) -> Effect<Action> {
@@ -183,19 +173,6 @@ private extension TimetableFeature {
   ) -> Effect<Action> {
     guard let festivalID = state.festivalID else { return .none }
     state.isSaving = true
-    return .run { [scheduleService] send in
-      let result: Result<FestivalSchedule, FestivalScheduleError>
-      do throws(FestivalScheduleError) {
-        result = try .success(await scheduleService.replace(
-          festivalID: festivalID,
-          setIDs: save.setIDs,
-          clientAt: save.clientAt
-        ))
-      } catch {
-        result = .failure(error)
-      }
-      await send(.scheduleSaved(festivalID: festivalID, save, result))
-    }
-    .cancellable(id: CancelID.save)
+    return .send(.async(.replaceSchedule(festivalID: festivalID, save)))
   }
 }

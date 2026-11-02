@@ -213,14 +213,14 @@ struct AppCoordinator {
       if switchedAccounts {
         return .concatenate(
           flagChanged,
-          .send(.scope(.home(.timetable(.accountChanged)))),
+          .send(.scope(.home(.timetable(.inner(.accountChanged))))),
           changed
         )
       }
       guard !session.hasSession else { return changed }
       return .concatenate(
         flagChanged,
-        .send(.scope(.home(.timetable(.accountChanged)))),
+        .send(.scope(.home(.timetable(.inner(.accountChanged))))),
         changed
       )
     }

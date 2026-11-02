@@ -12,9 +12,6 @@ import TimetableInterface
 
 @Reducer
 public struct TimetableFeature {
-  @Dependency(\.festivalScheduleService) var scheduleService
-  @Dependency(\.date.now) var now
-
   public init() {}
 
   /// 서버 일정은 최대 60개까지 저장된다.
@@ -173,19 +170,13 @@ public struct TimetableFeature {
 
   public enum Action: ViewAction {
     case view(View)
+    case async(AsyncAction)
+    case inner(InnerAction)
     case scope(ScopeAction)
     case delegate(TimetableDelegate)
-    /// 선택한 축제가 바뀌었다. 팩이 없으면 nil이다.
-    case festivalChanged(String?)
-    /// 인증 계정이 바뀌거나 세션을 잃었다.
-    case accountChanged
-    /// 같은 축제의 팩이 갱신돼 공연 목록이 바뀌었다.
-    case packUpdated
-    /// 같은 축제로 타임테이블 탭에 다시 들어왔다.
-    case timetableAppeared
-    case scheduleLoaded(festivalID: String, requestID: Int, Result<FestivalSchedule, FestivalScheduleError>)
-    case scheduleSaved(festivalID: String, ScheduleSave, Result<FestivalSchedule, FestivalScheduleError>)
   }
+
+  // MARK: - ViewAction
 
   @CasePathable
   public enum View {
@@ -198,17 +189,73 @@ public struct TimetableFeature {
     case notifyTapped
   }
 
+  // MARK: - AsyncAction
+
+  @CasePathable
+  public enum AsyncAction {
+    /// 서버 일정을 읽는다.
+    case fetchSchedule(festivalID: String, requestID: Int)
+    /// 내 일정 목록을 서버에 저장한다.
+    case replaceSchedule(festivalID: String, ScheduleSave)
+  }
+
+  // MARK: - InnerAction
+
+  @CasePathable
+  public enum InnerAction {
+    /// 선택한 축제가 바뀌었다. 팩이 없으면 nil이다.
+    case festivalChanged(String?)
+    /// 인증 계정이 바뀌거나 세션을 잃었다.
+    case accountChanged
+    /// 같은 축제의 팩이 갱신돼 공연 목록이 바뀌었다.
+    case packUpdated
+    /// 같은 축제로 타임테이블 탭에 다시 들어왔다.
+    case timetableAppeared
+    case scheduleLoaded(festivalID: String, requestID: Int, Result<FestivalSchedule, FestivalScheduleError>)
+    case scheduleSaved(festivalID: String, ScheduleSave, Result<FestivalSchedule, FestivalScheduleError>)
+  }
+
+  // MARK: - ScopeAction
+
   @CasePathable
   public enum ScopeAction {
     case setDetail(PresentationAction<TimetableSetDetailFeature.Action>)
   }
 
+  @Dependency(\.festivalScheduleService) var scheduleService
+  @Dependency(\.date.now) var now
+
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
-      let effect = handleAction(
-        state: &state,
-        action: action
-      )
+      let effect: Effect<Action>
+      switch action {
+      case let .view(viewAction):
+        effect = handleViewAction(
+          state: &state,
+          action: viewAction
+        )
+
+      case let .async(asyncAction):
+        effect = handleAsyncAction(
+          state: &state,
+          action: asyncAction
+        )
+
+      case let .inner(innerAction):
+        effect = handleInnerAction(
+          state: &state,
+          action: innerAction
+        )
+
+      case let .scope(scopeAction):
+        effect = handleScopeAction(
+          state: &state,
+          action: scopeAction
+        )
+
+      case .delegate:
+        effect = .none
+      }
       // 일정·시간표가 바뀌면 열린 상세 시트에 새 내용을 다른 효과보다 먼저 보낸다.
       return .merge(refreshSetDetail(state: state), effect)
     }
@@ -218,49 +265,8 @@ public struct TimetableFeature {
   }
 }
 
-private extension TimetableFeature {
-  func handleAction(
-    state: inout State,
-    action: Action
-  ) -> Effect<Action> {
-    switch action {
-    case let .view(viewAction):
-      return handleViewAction(
-        state: &state,
-        action: viewAction
-      )
-
-    case let .scope(scopeAction):
-      return handleScopeAction(
-        state: &state,
-        action: scopeAction
-      )
-
-    case .delegate:
-      return .none
-
-    case let .festivalChanged(festivalID):
-      return changeFestival(state: &state, to: festivalID)
-
-    case .accountChanged:
-      return changeAccount(state: &state)
-
-    case .packUpdated:
-      return trimSchedule(state: &state)
-
-    case .timetableAppeared:
-      guard state.festivalID != nil, !state.isSaving else { return .none }
-      return state.uncertainSave == nil ? loadSchedule(state: &state) : saveSchedule(state: &state)
-
-    case let .scheduleLoaded(festivalID, requestID, result):
-      return applyLoadedSchedule(state: &state, festivalID: festivalID, requestID: requestID, result: result)
-
-    case let .scheduleSaved(festivalID, save, result):
-      return applySavedSchedule(state: &state, festivalID: festivalID, save: save, result: result)
-    }
-  }
-
-  func handleViewAction(
+extension TimetableFeature {
+  private func handleViewAction(
     state: inout State,
     action: View
   ) -> Effect<Action> {
@@ -295,7 +301,68 @@ private extension TimetableFeature {
     }
   }
 
-  func handleScopeAction(
+  private func handleAsyncAction(
+    state _: inout State,
+    action: AsyncAction
+  ) -> Effect<Action> {
+    switch action {
+    case let .fetchSchedule(festivalID, requestID):
+      return .run { [scheduleService] send in
+        let result: Result<FestivalSchedule, FestivalScheduleError>
+        do throws(FestivalScheduleError) {
+          result = try .success(await scheduleService.fetch(festivalID: festivalID))
+        } catch {
+          result = .failure(error)
+        }
+        await send(.inner(.scheduleLoaded(festivalID: festivalID, requestID: requestID, result)))
+      }
+      .cancellable(id: CancelID.load, cancelInFlight: true)
+
+    case let .replaceSchedule(festivalID, save):
+      return .run { [scheduleService] send in
+        let result: Result<FestivalSchedule, FestivalScheduleError>
+        do throws(FestivalScheduleError) {
+          result = try .success(await scheduleService.replace(
+            festivalID: festivalID,
+            setIDs: save.setIDs,
+            clientAt: save.clientAt
+          ))
+        } catch {
+          result = .failure(error)
+        }
+        await send(.inner(.scheduleSaved(festivalID: festivalID, save, result)))
+      }
+      .cancellable(id: CancelID.save)
+    }
+  }
+
+  private func handleInnerAction(
+    state: inout State,
+    action: InnerAction
+  ) -> Effect<Action> {
+    switch action {
+    case let .festivalChanged(festivalID):
+      return changeFestival(state: &state, to: festivalID)
+
+    case .accountChanged:
+      return changeAccount(state: &state)
+
+    case .packUpdated:
+      return trimSchedule(state: &state)
+
+    case .timetableAppeared:
+      guard state.festivalID != nil, !state.isSaving else { return .none }
+      return state.uncertainSave == nil ? loadSchedule(state: &state) : saveSchedule(state: &state)
+
+    case let .scheduleLoaded(festivalID, requestID, result):
+      return applyLoadedSchedule(state: &state, festivalID: festivalID, requestID: requestID, result: result)
+
+    case let .scheduleSaved(festivalID, save, result):
+      return applySavedSchedule(state: &state, festivalID: festivalID, save: save, result: result)
+    }
+  }
+
+  private func handleScopeAction(
     state: inout State,
     action: ScopeAction
   ) -> Effect<Action> {

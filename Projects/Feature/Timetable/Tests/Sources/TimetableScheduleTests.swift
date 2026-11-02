@@ -13,13 +13,14 @@ struct TimetableScheduleTests {
     let service = ScheduleServiceSpy(fetchResults: [.success(.init(setIDs: ["lime", "gone"]))])
     let store = makeStore(TimetableFeature.State.sample(), service: service)
 
-    await store.send(.festivalChanged("fst")) {
+    await store.send(.inner(.festivalChanged("fst"))) {
       $0.festivalID = "fst"
       $0.mySetIDs = []
       $0.scheduleSync = .loading
       $0.loadRequestID = 1
     }
-    await store.receive(\.scheduleLoaded) {
+    await store.receive(\.async.fetchSchedule)
+    await store.receive(\.inner.scheduleLoaded) {
       $0.mySetIDs = ["lime"]
       $0.scheduleSync = .ready
     }
@@ -32,7 +33,7 @@ struct TimetableScheduleTests {
     let service = ScheduleServiceSpy()
     let store = makeStore(state, service: service)
 
-    await store.send(.timetableAppeared)
+    await store.send(.inner(.timetableAppeared))
     #expect(service.fetchCount.value == 0)
   }
 
@@ -63,12 +64,13 @@ struct TimetableScheduleTests {
     await store.receive(\.scope.setDetail.presented.async.showScheduleToast) {
       $0.setDetail?.isScheduleToastVisible = true
     }
-    await store.send(.scheduleSaved(festivalID: "fst", inFlight, .success(.init(setIDs: [])))) {
+    await store.send(.inner(.scheduleSaved(festivalID: "fst", inFlight, .success(.init(setIDs: []))))) {
       $0.needsSave = false
       $0.lastClientAt = self.beforeFestival.addingTimeInterval(0.001)
     }
     await store.receive(scheduleSaved(festivalID: "fst", setIDs: []))
-    await store.receive(\.scheduleSaved) {
+    await store.receive(\.async.replaceSchedule)
+    await store.receive(\.inner.scheduleSaved) {
       $0.isSaving = false
     }
     await store.receive(scheduleSaved(festivalID: "fst", setIDs: ["lime"]))
@@ -88,7 +90,7 @@ struct TimetableScheduleTests {
     let store = makeStore(state, service: service)
     let save = TimetableFeature.ScheduleSave(setIDs: [], clientAt: beforeFestival, generation: 0)
 
-    await store.send(.scheduleSaved(festivalID: "fst", save, .failure(.stale(.init(setIDs: ["noise", "gone"]))))) {
+    await store.send(.inner(.scheduleSaved(festivalID: "fst", save, .failure(.stale(.init(setIDs: ["noise", "gone"])))))) {
       $0.isSaving = false
       $0.needsSave = false
       $0.mySetIDs = ["noise"]
@@ -102,13 +104,14 @@ struct TimetableScheduleTests {
     let clock = TestClock()
     let store = makeStore(TimetableFeature.State.sample(), service: service, clock: clock)
 
-    await store.send(.festivalChanged("fst")) {
+    await store.send(.inner(.festivalChanged("fst"))) {
       $0.festivalID = "fst"
       $0.mySetIDs = []
       $0.scheduleSync = .loading
       $0.loadRequestID = 1
     }
-    await store.receive(\.scheduleLoaded) {
+    await store.receive(\.async.fetchSchedule)
+    await store.receive(\.inner.scheduleLoaded) {
       $0.scheduleSync = .localOnly
     }
     await store.send(.view(.setTapped("lime"))) {
@@ -137,12 +140,13 @@ struct TimetableScheduleTests {
     let store = makeStore(state, service: service)
     let save = TimetableFeature.ScheduleSave(setIDs: ["lime"], clientAt: beforeFestival, generation: 0)
 
-    await store.send(.scheduleSaved(festivalID: "fst", save, .failure(.rejected))) {
+    await store.send(.inner(.scheduleSaved(festivalID: "fst", save, .failure(.rejected)))) {
       $0.isSaving = false
       $0.scheduleSync = .loading
       $0.loadRequestID = 1
     }
-    await store.receive(\.scheduleLoaded) {
+    await store.receive(\.async.fetchSchedule)
+    await store.receive(\.inner.scheduleLoaded) {
       $0.mySetIDs = ["noise"]
       $0.scheduleSync = .ready
     }
@@ -155,15 +159,16 @@ struct TimetableScheduleTests {
     let store = makeStore(state, service: service)
     let save = TimetableFeature.ScheduleSave(setIDs: ["lime"], clientAt: beforeFestival, generation: 0)
 
-    await store.send(.scheduleSaved(festivalID: "fst", save, .failure(.unavailable))) {
+    await store.send(.inner(.scheduleSaved(festivalID: "fst", save, .failure(.unavailable)))) {
       $0.isSaving = false
       $0.uncertainSave = save
     }
-    await store.send(.timetableAppeared) {
+    await store.send(.inner(.timetableAppeared)) {
       $0.uncertainSave = nil
       $0.isSaving = true
     }
-    await store.receive(\.scheduleSaved) {
+    await store.receive(\.async.replaceSchedule)
+    await store.receive(\.inner.scheduleSaved) {
       $0.isSaving = false
     }
     await store.receive(scheduleSaved(festivalID: "fst", setIDs: ["lime"]))
@@ -176,12 +181,13 @@ struct TimetableScheduleTests {
     let service = ScheduleServiceSpy(fetchResults: [.success(.init(setIDs: ["encore"]))])
     let store = makeStore(state, service: service)
 
-    await store.send(.timetableAppeared) {
+    await store.send(.inner(.timetableAppeared)) {
       $0.uncertainSave = nil
       $0.scheduleSync = .loading
       $0.loadRequestID = 1
     }
-    await store.receive(\.scheduleLoaded) {
+    await store.receive(\.async.fetchSchedule)
+    await store.receive(\.inner.scheduleLoaded) {
       $0.mySetIDs = ["encore"]
       $0.scheduleSync = .ready
     }
@@ -192,12 +198,13 @@ struct TimetableScheduleTests {
     let service = ScheduleServiceSpy()
     let store = makeStore(readyState(mine: ["lime", "gone"]), service: service)
 
-    await store.send(.packUpdated) {
+    await store.send(.inner(.packUpdated)) {
       $0.mySetIDs = ["lime"]
       $0.isSaving = true
       $0.lastClientAt = self.beforeFestival
     }
-    await store.receive(\.scheduleSaved) {
+    await store.receive(\.async.replaceSchedule)
+    await store.receive(\.inner.scheduleSaved) {
       $0.isSaving = false
     }
     await store.receive(scheduleSaved(festivalID: "fst", setIDs: ["lime"]))
@@ -236,7 +243,7 @@ struct TimetableScheduleTests {
     state.loadRequestID = 2
     let store = makeStore(state, service: ScheduleServiceSpy())
 
-    await store.send(.scheduleLoaded(festivalID: "fst", requestID: 1, .success(.init(setIDs: ["lime"]))))
+    await store.send(.inner(.scheduleLoaded(festivalID: "fst", requestID: 1, .success(.init(setIDs: ["lime"])))))
   }
 
   @Test func accountChangeClearsScheduleAndDropsPreviousLoad() async {
@@ -251,7 +258,7 @@ struct TimetableScheduleTests {
     let service = ScheduleServiceSpy(fetchResults: [.failure(.unauthorized)])
     let store = makeStore(opening("lime", in: state), service: service)
 
-    await store.send(.accountChanged) {
+    await store.send(.inner(.accountChanged)) {
       $0.mySetIDs = []
       $0.scheduleSync = .loading
       $0.isScheduleLimitReached = false
@@ -266,13 +273,14 @@ struct TimetableScheduleTests {
       $0.setDetail?.content.detail.isScheduled = false
       $0.setDetail?.content.isScheduleLimitReached = false
     }
-    await store.receive(\.scheduleLoaded) {
+    await store.receive(\.async.fetchSchedule)
+    await store.receive(\.inner.scheduleLoaded) {
       $0.scheduleSync = .localOnly
     }
     await store.receive(\.scope.setDetail.presented.inner.contentChanged) {
       $0.setDetail?.content.isScheduleLoading = false
     }
-    await store.send(.scheduleLoaded(festivalID: "fst", requestID: 3, .success(.init(setIDs: ["lime"]))))
+    await store.send(.inner(.scheduleLoaded(festivalID: "fst", requestID: 3, .success(.init(setIDs: ["lime"])))))
     #expect(store.state.setDetail?.setID == "lime")
     #expect(service.fetchCount.value == 1)
   }
@@ -288,7 +296,7 @@ struct TimetableScheduleTests {
     let store = makeStore(state, service: service, clock: clock)
     let previous = TimetableFeature.ScheduleSave(setIDs: ["lime"], clientAt: beforeFestival, generation: 0)
 
-    await store.send(.accountChanged) {
+    await store.send(.inner(.accountChanged)) {
       $0.mySetIDs = []
       $0.scheduleSync = .loading
       $0.loadRequestID = 2
@@ -298,7 +306,8 @@ struct TimetableScheduleTests {
     await store.receive(\.scope.setDetail.presented.inner.contentChanged) {
       $0.setDetail?.content.isScheduleLoading = true
     }
-    await store.receive(\.scheduleLoaded) {
+    await store.receive(\.async.fetchSchedule)
+    await store.receive(\.inner.scheduleLoaded) {
       $0.scheduleSync = .ready
     }
     await store.receive(\.scope.setDetail.presented.inner.contentChanged) {
@@ -315,13 +324,14 @@ struct TimetableScheduleTests {
     await store.receive(\.scope.setDetail.presented.async.showScheduleToast) {
       $0.setDetail?.isScheduleToastVisible = true
     }
-    await store.send(.scheduleSaved(festivalID: "fst", previous, .failure(.stale(.init(setIDs: ["lime"])))))
-    await store.send(.scheduleSaved(festivalID: "fst", previous, .success(.init(setIDs: ["lime"]))))
+    await store.receive(\.async.replaceSchedule)
+    await store.send(.inner(.scheduleSaved(festivalID: "fst", previous, .failure(.stale(.init(setIDs: ["lime"]))))))
+    await store.send(.inner(.scheduleSaved(festivalID: "fst", previous, .success(.init(setIDs: ["lime"])))))
     #expect(store.state.isSaving)
     #expect(store.state.mySetIDs == ["noise"])
     saveContinuation.yield(())
     saveContinuation.finish()
-    await store.receive(\.scheduleSaved) {
+    await store.receive(\.inner.scheduleSaved) {
       $0.isSaving = false
     }
     await store.receive(scheduleSaved(festivalID: "fst", setIDs: ["noise"]))
@@ -342,12 +352,13 @@ struct TimetableScheduleTests {
     let store = makeStore(state, service: service)
     let save = TimetableFeature.ScheduleSave(setIDs: ["lime"], clientAt: beforeFestival, generation: 0)
 
-    await store.send(.scheduleSaved(festivalID: "fst", save, .success(.init(setIDs: ["lime"])))) {
+    await store.send(.inner(.scheduleSaved(festivalID: "fst", save, .success(.init(setIDs: ["lime"]))))) {
       $0.needsSave = false
       $0.lastClientAt = self.beforeFestival
     }
     await store.receive(scheduleSaved(festivalID: "fst", setIDs: ["lime"]))
-    await store.receive(\.scheduleSaved) {
+    await store.receive(\.async.replaceSchedule)
+    await store.receive(\.inner.scheduleSaved) {
       $0.isSaving = false
     }
     await store.receive(scheduleSaved(festivalID: "fst", setIDs: ["lime", "noise"]))
@@ -432,7 +443,8 @@ extension TimetableScheduleTests {
     await store.receive(\.scope.setDetail.presented.async.showScheduleToast) {
       $0.setDetail?.isScheduleToastVisible = true
     }
-    await store.receive(\.scheduleSaved) {
+    await store.receive(\.async.replaceSchedule)
+    await store.receive(\.inner.scheduleSaved) {
       $0.isSaving = false
     }
     await store.receive(scheduleSaved(festivalID: "fst", setIDs: ["lime"]))
@@ -486,14 +498,15 @@ extension TimetableScheduleTests {
     let store = makeStore(localOnlyState(selected: "lime"), service: ScheduleServiceSpy(), clock: clock)
 
     await addLime(store)
-    await store.send(.festivalChanged("next")) {
+    await store.send(.inner(.festivalChanged("next"))) {
       $0.festivalID = "next"
       $0.mySetIDs = []
       $0.setDetail = nil
       $0.scheduleSync = .loading
       $0.loadRequestID = 1
     }
-    await store.receive(\.scheduleLoaded) {
+    await store.receive(\.async.fetchSchedule)
+    await store.receive(\.inner.scheduleLoaded) {
       $0.scheduleSync = .ready
     }
     await clock.run()
@@ -505,7 +518,7 @@ extension TimetableScheduleTests {
     state.setDetail?.isScheduleToastVisible = true
     let store = makeStore(state, service: ScheduleServiceSpy())
 
-    await store.send(.packUpdated) {
+    await store.send(.inner(.packUpdated)) {
       $0.setDetail = nil
     }
   }
@@ -525,7 +538,8 @@ extension TimetableScheduleTests {
     await store.receive(\.scope.setDetail.presented.async.showScheduleToast) {
       $0.setDetail?.isScheduleToastVisible = true
     }
-    await store.receive(\.scheduleSaved) {
+    await store.receive(\.async.replaceSchedule)
+    await store.receive(\.inner.scheduleSaved) {
       $0.isSaving = false
       $0.mySetIDs = []
     }
@@ -545,7 +559,7 @@ extension TimetableScheduleTests {
     let store = makeStore(state, service: ScheduleServiceSpy(fetchResults: [.success(.init(setIDs: []))]), clock: clock)
     let save = TimetableFeature.ScheduleSave(setIDs: ["lime"], clientAt: beforeFestival, generation: 0)
 
-    await store.send(.scheduleSaved(festivalID: "fst", save, .failure(.rejected))) {
+    await store.send(.inner(.scheduleSaved(festivalID: "fst", save, .failure(.rejected)))) {
       $0.isSaving = false
       $0.scheduleSync = .loading
       $0.loadRequestID = 1
@@ -553,7 +567,8 @@ extension TimetableScheduleTests {
     await store.receive(\.scope.setDetail.presented.inner.contentChanged) {
       $0.setDetail?.content.isScheduleLoading = true
     }
-    await store.receive(\.scheduleLoaded) {
+    await store.receive(\.async.fetchSchedule)
+    await store.receive(\.inner.scheduleLoaded) {
       $0.mySetIDs = []
       $0.scheduleSync = .ready
     }
