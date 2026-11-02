@@ -11,6 +11,7 @@
 
 import ComposableArchitecture
 import FestiCoreDesignKit
+import FestiCoreSharedUI
 import Profile
 import SwiftUI
 
@@ -42,6 +43,8 @@ private struct ProfileDemoRoot: View {
       isLoading: false,
       message: nil
     )
-    view.overlay { view.dialogOverlay }
+    view.overlay {
+      Color.clear.fcAlert($store.scope(state: \.destination?.alert, action: \.destination.alert))
+    }
   }
 }

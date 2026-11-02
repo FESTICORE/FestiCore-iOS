@@ -44,7 +44,7 @@ public struct FCDialogOverlay: View {
         handledOnce(item),
         onDismiss: onDismiss
       )
-      .offset(y: isContentVisible ? 0 : Metric.appearOffset)
+      // 아래에서 밀려 올라오지 않고 제자리에서 나타난다. 뒤 시트와 함께 움직이는 것처럼 보이지 않게 한다.
       .opacity(isContentVisible ? 1 : 0)
     }
     .allowsHitTesting(!isHandled)
@@ -77,8 +77,4 @@ private extension FCDialogOverlay {
       }
     )
   }
-}
-
-private enum Metric {
-  static let appearOffset: CGFloat = 120
 }

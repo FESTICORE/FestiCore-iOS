@@ -6,6 +6,7 @@
 //
 
 import ComposableArchitecture
+import FestiCoreSharedUI
 import Foundation
 import Testing
 @testable import Profile
@@ -24,18 +25,31 @@ struct ProfileFeatureTests {
 
     await store.send(.view(.accountTapped(isSignedIn: true))) { $0.isAccountPresented = true }
     await store.send(.view(.logoutTapped)) {
-      $0.isLogoutConfirmationPresented = true
-      $0.dialogPresentationID = 1
+      $0.destination = .alert(.logout())
+      $0.confirmation = .logout
     }
-    await store.send(.view(.confirmLogoutTapped)) {
-      $0.isLogoutConfirmationPresented = false
+    await store.send(.destination(.presented(.alert(.confirmTapped)))) {
+      $0.destination = nil
+      $0.confirmation = nil
     }
     await store.receive(\.delegate.logoutRequested)
     #expect(store.state.isAccountPresented)
     await store.send(.view(.logoutTapped)) {
-      $0.isLogoutConfirmationPresented = true
-      $0.dialogPresentationID = 2
+      $0.destination = .alert(.logout())
+      $0.confirmation = .logout
     }
+  }
+
+  @Test func repeatedTapDoesNotPresentConfirmationAgain() async {
+    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
+
+    await store.send(.view(.withdrawTapped)) {
+      $0.destination = .alert(.withdraw())
+      $0.confirmation = .withdraw
+    }
+    let presentationID = store.state.destination?.alert?.presentationID
+    await store.send(.view(.withdrawTapped))
+    #expect(store.state.destination?.alert?.presentationID == presentationID)
   }
 
   @Test func packTapPreservesSelectedIdentity() async {
@@ -50,12 +64,13 @@ struct ProfileFeatureTests {
 
     await store.send(.view(.accountTapped(isSignedIn: true))) { $0.isAccountPresented = true }
     await store.send(.view(.withdrawTapped)) {
-      $0.isWithdrawalConfirmationPresented = true
-      $0.dialogPresentationID = 1
+      $0.destination = .alert(.withdraw())
+      $0.confirmation = .withdraw
     }
     await store.send(.view(.accountDismissed)) {
       $0.isAccountPresented = false
-      $0.isWithdrawalConfirmationPresented = false
+      $0.destination = nil
+      $0.confirmation = nil
     }
   }
 
@@ -64,34 +79,40 @@ struct ProfileFeatureTests {
 
     await store.send(.view(.accountTapped(isSignedIn: true))) { $0.isAccountPresented = true }
     await store.send(.view(.withdrawTapped)) {
-      $0.isWithdrawalConfirmationPresented = true
-      $0.dialogPresentationID = 1
+      $0.destination = .alert(.withdraw())
+      $0.confirmation = .withdraw
     }
-    await store.send(.view(.confirmWithdrawTapped)) { $0.isWithdrawalConfirmationPresented = false }
+    await store.send(.destination(.presented(.alert(.confirmTapped)))) {
+      $0.destination = nil
+      $0.confirmation = nil
+    }
     await store.receive(\.delegate.withdrawRequested)
     #expect(store.state.isAccountPresented)
     await store.send(.view(.withdrawTapped)) {
-      $0.isWithdrawalConfirmationPresented = true
-      $0.dialogPresentationID = 2
+      $0.destination = .alert(.withdraw())
+      $0.confirmation = .withdraw
     }
   }
 
-  @Test func dismissedConfirmationIgnoresLateConfirmTap() async {
+  @Test func cancelOrDimDismissDoesNotRunAction() async {
     let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
 
-    await store.send(.view(.accountTapped(isSignedIn: true))) { $0.isAccountPresented = true }
     await store.send(.view(.withdrawTapped)) {
-      $0.isWithdrawalConfirmationPresented = true
-      $0.dialogPresentationID = 1
+      $0.destination = .alert(.withdraw())
+      $0.confirmation = .withdraw
     }
-    await store.send(.view(.withdrawalConfirmationDismissed)) { $0.isWithdrawalConfirmationPresented = false }
-    await store.send(.view(.confirmWithdrawTapped))
+    await store.send(.destination(.presented(.alert(.cancelTapped)))) {
+      $0.destination = nil
+      $0.confirmation = nil
+    }
     await store.send(.view(.logoutTapped)) {
-      $0.isLogoutConfirmationPresented = true
-      $0.dialogPresentationID = 2
+      $0.destination = .alert(.logout())
+      $0.confirmation = .logout
     }
-    await store.send(.view(.logoutConfirmationDismissed)) { $0.isLogoutConfirmationPresented = false }
-    await store.send(.view(.confirmLogoutTapped))
+    await store.send(.destination(.dismiss)) {
+      $0.destination = nil
+      $0.confirmation = nil
+    }
   }
 
   @Test func missingLegalConfigurationShowsDismissibleError() async {
@@ -100,15 +121,14 @@ struct ProfileFeatureTests {
     }
 
     await store.send(.view(.termsTapped)) {
-      $0.isLegalLinkUnavailablePresented = true
-      $0.dialogPresentationID = 1
+      $0.destination = .alert(.legalLinkUnavailable())
+      $0.confirmation = .legalLinkUnavailable
     }
-    await store.send(.view(.legalLinkUnavailableDismissed)) { $0.isLegalLinkUnavailablePresented = false }
-    await store.send(.view(.privacyTapped)) {
-      $0.isLegalLinkUnavailablePresented = true
-      $0.dialogPresentationID = 2
+    // 이미 떠 있는 팝업에 같은 동작이 다시 와도 새로 띄우지 않는다.
+    await store.send(.view(.privacyTapped))
+    await store.send(.destination(.presented(.alert(.confirmTapped)))) {
+      $0.destination = nil
+      $0.confirmation = nil
     }
-    // 이미 떠 있는 팝업에 같은 동작이 다시 와도 새 표시로 세지 않는다.
-    await store.send(.view(.termsTapped))
   }
 }

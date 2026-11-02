@@ -7,7 +7,6 @@
 
 import AuthDomainInterface
 import ComposableArchitecture
-import FestiCoreAnimation
 import FestiCoreDesignKit
 import FestiCoreSharedUI
 import SwiftUI
@@ -114,19 +113,6 @@ public extension ProfileView {
       }
   }
 
-  /// 로그아웃·탈퇴·링크 안내 확인 팝업. 시트 위층에 항상 두어 닫힘 애니메이션이 잘리지 않게 한다.
-  var dialogOverlay: some View {
-    ZStack {
-      confirmationOverlay
-        .id(store.dialogPresentationID)
-    }
-    // 팝업이 빠질 때 호스트가 0 크기로 줄면 닫히는 팝업이 따라 움직이므로 화면 크기로 고정한다.
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .animation(.fcModal, value: store.dialogPresentationID)
-    .animation(.fcModal, value: store.isLogoutConfirmationPresented)
-    .animation(.fcModal, value: store.isWithdrawalConfirmationPresented)
-    .animation(.fcModal, value: store.isLegalLinkUnavailablePresented)
-  }
 }
 
 private extension ProfileView {
@@ -222,55 +208,6 @@ private extension ProfileView {
           store.send(.view(.accountDismissed))
         }
       }
-    )
-  }
-
-  @ViewBuilder
-  var confirmationOverlay: some View {
-    if store.isLegalLinkUnavailablePresented {
-      confirmation(
-        title: "문서를 열 수 없어요",
-        message: "잠시 후 다시 시도해 주세요.",
-        confirmTitle: "확인",
-        onConfirm: { store.send(.view(.legalLinkUnavailableDismissed)) },
-        onDismiss: { store.send(.view(.legalLinkUnavailableDismissed)) }
-      )
-    } else if store.isWithdrawalConfirmationPresented {
-      confirmation(
-        title: "회원 탈퇴",
-        message: "계정과 로그인 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
-        confirmTitle: "탈퇴",
-        onConfirm: { store.send(.view(.confirmWithdrawTapped)) },
-        onDismiss: { store.send(.view(.withdrawalConfirmationDismissed)) }
-      )
-    } else if store.isLogoutConfirmationPresented {
-      confirmation(
-        title: "로그아웃",
-        message: "이 기기에서 로그아웃하시겠습니까?",
-        confirmTitle: "로그아웃",
-        onConfirm: { store.send(.view(.confirmLogoutTapped)) },
-        onDismiss: { store.send(.view(.logoutConfirmationDismissed)) }
-      )
-    }
-  }
-
-  func confirmation(
-    title: String,
-    message: String,
-    confirmTitle: String,
-    onConfirm: @escaping () -> Void,
-    onDismiss: @escaping () -> Void
-  ) -> some View {
-    FCDialogOverlay(
-      item: FCDialogItem(
-        title: title,
-        message: message,
-        confirmTitle: confirmTitle,
-        onConfirm: onConfirm,
-        onCancel: {}
-      ),
-      dismissesOnDimTap: true,
-      onDismiss: onDismiss
     )
   }
 

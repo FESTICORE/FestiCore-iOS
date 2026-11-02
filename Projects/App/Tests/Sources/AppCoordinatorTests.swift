@@ -15,6 +15,7 @@ import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
+import FestiCoreSharedUI
 import TCAFlow
 @testable import FestiCore
 
@@ -888,18 +889,12 @@ struct AppCoordinatorTests {
     state.authFlow.presentation = nil
     #expect(!state.shouldHideTabBar)
 
-    state.profileState.isLegalLinkUnavailablePresented = true
-    #expect(state.shouldHideTabBar)
-    state.profileState.isLegalLinkUnavailablePresented = false
-    #expect(!state.shouldHideTabBar)
-
-    state.profileState.isLogoutConfirmationPresented = true
-    #expect(state.shouldHideTabBar)
-    state.profileState.isLogoutConfirmationPresented = false
-    state.profileState.isWithdrawalConfirmationPresented = true
-    #expect(state.shouldHideTabBar)
-    state.profileState.isWithdrawalConfirmationPresented = false
-    #expect(!state.shouldHideTabBar)
+    for alert in [FCAlertState<FCAlertAction>.legalLinkUnavailable(), .logout(), .withdraw()] {
+      state.profileState.destination = .alert(alert)
+      #expect(state.shouldHideTabBar)
+      state.profileState.destination = nil
+      #expect(!state.shouldHideTabBar)
+    }
   }
 
   @Test func timetableAndAuthModalsKeepTabBarSpace() {
