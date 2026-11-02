@@ -6,15 +6,6 @@ import Foundation
 
 @Reducer
 public struct FestivalFeature {
-  @Dependency(\.festivalCatalogUseCase) private var catalogUseCase
-  @Dependency(\.festivalPackUseCase) private var packUseCase
-  @Dependency(\.festivalLibraryUseCase) private var libraryUseCase
-  @Dependency(\.festivalLiveBoardUseCase) private var liveBoardUseCase
-  @Dependency(\.festivalImageUseCase) private var imageUseCase
-  @Dependency(\.festivalLiveActivityUseCase) private var liveActivityUseCase
-  @Dependency(\.date) private var date
-  @Dependency(\.continuousClock) private var clock
-
   public init() {}
 
   @ObservableState
@@ -234,6 +225,15 @@ public struct FestivalFeature {
     case packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary, liveBoard, mySchedule, toast
   }
   private struct LiveActivitySyncID: Hashable { let id: String }
+
+  @Dependency(\.festivalCatalogUseCase) private var catalogUseCase
+  @Dependency(\.festivalPackUseCase) private var packUseCase
+  @Dependency(\.festivalLibraryUseCase) private var libraryUseCase
+  @Dependency(\.festivalLiveBoardUseCase) private var liveBoardUseCase
+  @Dependency(\.festivalImageUseCase) private var imageUseCase
+  @Dependency(\.festivalLiveActivityUseCase) private var liveActivityUseCase
+  @Dependency(\.date) private var date
+  @Dependency(\.continuousClock) private var clock
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in

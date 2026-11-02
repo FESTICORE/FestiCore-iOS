@@ -88,3 +88,6 @@ Tuist/.build/
 
 # Python verification cache
 __pycache__/
+
+# macOS Finder
+.DS_Store

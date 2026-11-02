@@ -1,3 +1,4 @@
+import ComposableArchitecture
 import SwiftUI
 import Testing
 @testable import FestiCoreSharedUI
@@ -47,5 +48,48 @@ struct FestiCoreSharedUITests {
 
   @Test func nonSVGDataIsLeftToDefaultProcessor() {
     #expect(makeSVGImage(from: Data([0x89, 0x50, 0x4E, 0x47])) == nil)
+  }
+
+  @Test func logoutAlertUsesConfirmationStyle() {
+    let alert = FCAlertState.logout()
+
+    #expect(alert.title == "로그아웃")
+    #expect(alert.confirmTitle == "로그아웃")
+    #expect(alert.style == .confirmation)
+    #expect(alert == .logout())
+  }
+
+  @Test @MainActor func modalHostsPresentedStore() {
+    let store = Store(initialState: FCAlertState.logout()) { FCConfirmAlert() }
+    let view = Color.clear.fcModal(.constant(store)) { modalStore in
+      Text(modalStore.withState(\.title))
+    }
+
+    #expect(UIHostingController(rootView: view).view != nil)
+  }
+
+  @Test @MainActor func setSheetDrawsArtistImageOnlyWhenURLExists() throws {
+    let url = try #require(URL(string: "https://example.com/artist.webp"))
+    let original = setSheet()
+    let withImage = original.artistImage(url)
+    let width = CGSize(width: 393, height: 2_000)
+
+    #expect(original.artistImageURL == nil)
+    #expect(withImage.artistImageURL == url)
+    #expect(withImage.artistImage(nil).artistImageURL == nil)
+    // 사진 칸(48pt)이 한 줄 제목보다 높아 사진이 있을 때만 시트가 길어진다.
+    let plainHeight = UIHostingController(rootView: original).sizeThatFits(in: width).height
+    let imageHeight = UIHostingController(rootView: withImage).sizeThatFits(in: width).height
+    #expect(imageHeight > plainHeight)
+  }
+
+  private func setSheet() -> FCSetSheet {
+    FCSetSheet(
+      artist: "가수",
+      stage: "메인 스테이지",
+      time: "17:00–17:50 · 50분",
+      relativeTime: "1시간 후",
+      isScheduled: .constant(false)
+    )
   }
 }
