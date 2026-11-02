@@ -35,8 +35,9 @@ public struct MockBearerUseCase: BearerUseCaseInterface {
     try await repository.updateProfile(flagID: flagID, change: change)
   }
 
-  public func uploadPhoto(flagID: String, imageData: Data) async throws -> BearerFlagPhoto {
-    try await repository.uploadPhoto(flagID: flagID, jpegData: imageData)
+  public func uploadPhoto(flagID: String, imageData: Data) -> AsyncThrowingStream<BearerPhotoUploadEvent, Error> {
+    reportIssue("\(dependencyName) 미등록")
+    return AsyncThrowingStream { $0.finish(throwing: BearerError.unavailable) }
   }
 
   public func makeStatusRequest(_ change: BearerStatusChange) -> BearerStatusRequest {

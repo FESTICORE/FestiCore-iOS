@@ -125,7 +125,7 @@ struct BearerDomainTests {
     let repository = makeRepository(client: client, auth: auth)
     let jpeg = Data([0xFF, 0xD8, 0xFF, 0xE0])
 
-    let photo = try await repository.uploadPhoto(flagID: "flg_1", jpegData: jpeg)
+    let photo = try await repository.uploadPhoto(flagID: "flg_1", jpegData: jpeg) { _ in }
 
     let sent = try #require(await client.last)
     #expect(sent.path == "api/v1/flags/flg_1/photo")
@@ -264,6 +264,59 @@ struct BearerUseCaseTests {
     } operation: { BearerUseCaseImpl() }.fetchFestival(festivalID: "fst_2")
     #expect(empty.zones.isEmpty)
   }
+}
+
+@Suite("사진 업로드 스트림")
+struct BearerPhotoUploadStreamTests {
+  @Test("규격을 맞춘 JPEG를 올리며 진행률을 알린 뒤 완료한다")
+  func uploadsWithProgress() async throws {
+    let repository = PhotoRepository()
+    let useCase = withDependencies {
+      $0.bearerRepository = repository
+    } operation: { BearerUseCaseImpl() }
+    let png = try BearerPhotoEncoderTests.png(width: 300, height: 300)
+
+    var events: [BearerPhotoUploadEvent] = []
+    for try await event in useCase.uploadPhoto(flagID: "flg_1", imageData: png) {
+      events.append(event)
+    }
+
+    let photo = BearerFlagPhoto(photoURL: nil, thumbnailURL: nil)
+    #expect(events == [.progress(0.4), .progress(1), .completed(photo)])
+    #expect(await repository.uploaded?.prefix(3) == Data([0xFF, 0xD8, 0xFF]))
+  }
+
+  @Test("작은 사진은 올리지 않고 스트림을 실패로 끝낸다")
+  func rejectsSmallPhoto() async throws {
+    let repository = PhotoRepository()
+    let useCase = withDependencies {
+      $0.bearerRepository = repository
+    } operation: { BearerUseCaseImpl() }
+    let png = try BearerPhotoEncoderTests.png(width: 200, height: 200)
+
+    await #expect(throws: BearerError.photoTooSmall) {
+      for try await _ in useCase.uploadPhoto(flagID: "flg_1", imageData: png) {}
+    }
+    #expect(await repository.uploaded == nil)
+  }
+}
+
+private actor PhotoRepository: BearerRepositoryInterface {
+  private(set) var uploaded: Data?
+
+  func uploadPhoto(flagID: String, jpegData: Data, progress: @escaping @Sendable (Double) -> Void) async throws -> BearerFlagPhoto {
+    uploaded = jpegData
+    progress(0.4)
+    progress(1.2)
+    return BearerFlagPhoto(photoURL: nil, thumbnailURL: nil)
+  }
+
+  func claim(festivalID: String, code: String) async throws -> BearerClaim { throw BearerError.unavailable }
+  func fetchBoard(flagID: String) async throws -> BearerBoard { throw BearerError.unavailable }
+  func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile { throw BearerError.unavailable }
+  func sendStatus(flagID: String, request: BearerStatusRequest) async throws -> BearerFlagStatus { throw BearerError.unavailable }
+  func inviteCoBearer(flagID: String) async throws -> BearerInvite { throw BearerError.unavailable }
+  func removeCoBearer(flagID: String, userID: String) async throws { throw BearerError.unavailable }
 }
 
 @Suite("업로드 사진 규격")

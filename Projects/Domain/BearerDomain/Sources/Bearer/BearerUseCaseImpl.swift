@@ -45,9 +45,24 @@ public struct BearerUseCaseImpl: BearerUseCaseInterface {
     try await repository.updateProfile(flagID: flagID, change: change)
   }
 
-  public func uploadPhoto(flagID: String, imageData: Data) async throws -> BearerFlagPhoto {
-    let jpeg = try photoEncoder.encode(imageData)
-    return try await repository.uploadPhoto(flagID: flagID, jpegData: jpeg)
+  public func uploadPhoto(flagID: String, imageData: Data) -> AsyncThrowingStream<BearerPhotoUploadEvent, Error> {
+    let repository = repository
+    let photoEncoder = photoEncoder
+    return AsyncThrowingStream { continuation in
+      let task = Task {
+        do {
+          let jpeg = try photoEncoder.encode(imageData)
+          let photo = try await repository.uploadPhoto(flagID: flagID, jpegData: jpeg) { fraction in
+            continuation.yield(.progress(min(max(fraction, 0), 1)))
+          }
+          continuation.yield(.completed(photo))
+          continuation.finish()
+        } catch {
+          continuation.finish(throwing: error)
+        }
+      }
+      continuation.onTermination = { _ in task.cancel() }
+    }
   }
 
   public func makeStatusRequest(_ change: BearerStatusChange) -> BearerStatusRequest {

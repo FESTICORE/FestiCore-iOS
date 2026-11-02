@@ -15,7 +15,10 @@ struct BearerUseCaseStub: BearerUseCaseInterface {
   var fetchFestival: @Sendable (String) async throws -> BearerFestival = { _ in try unexpected() }
   var fetchBoard: @Sendable (String) async throws -> BearerBoard = { _ in try unexpected() }
   var updateProfile: @Sendable (String, BearerProfileChange) async throws -> BearerFlagProfile = { _, _ in try unexpected() }
-  var uploadPhoto: @Sendable (String, Data) async throws -> BearerFlagPhoto = { _, _ in try unexpected() }
+  var uploadPhoto: @Sendable (String, Data) -> AsyncThrowingStream<BearerPhotoUploadEvent, Error> = { _, _ in
+    Issue.record("uploadPhoto 미주입")
+    return AsyncThrowingStream { $0.finish(throwing: BearerError.unavailable) }
+  }
   var makeStatusRequest: @Sendable (BearerStatusChange) -> BearerStatusRequest = { change in
     Issue.record("makeStatusRequest 미주입")
     return BearerStatusRequest(change: change, idempotencyKey: "", clientAt: Date(timeIntervalSince1970: 0))
@@ -30,7 +33,9 @@ struct BearerUseCaseStub: BearerUseCaseInterface {
   func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile {
     try await updateProfile(flagID, change)
   }
-  func uploadPhoto(flagID: String, imageData: Data) async throws -> BearerFlagPhoto { try await uploadPhoto(flagID, imageData) }
+  func uploadPhoto(flagID: String, imageData: Data) -> AsyncThrowingStream<BearerPhotoUploadEvent, Error> {
+    uploadPhoto(flagID, imageData)
+  }
   func makeStatusRequest(_ change: BearerStatusChange) -> BearerStatusRequest { makeStatusRequest(change) }
   func sendStatus(flagID: String, request: BearerStatusRequest) async throws -> BearerFlagStatus {
     try await sendStatus(flagID, request)
