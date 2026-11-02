@@ -31,6 +31,7 @@ struct FestivalLiveBoardSessionTests {
     }
 
     await store.send(.view(.liveBoardOnAppear)) { $0.isLiveBoardVisible = true }
+    await store.receive(\.async.startLiveBoard)
     await store.receive(\.inner.liveBoardUnpublished) {
       $0.liveBoard = nil
       $0.liveBoardUnpublished = true
@@ -70,12 +71,14 @@ struct FestivalLiveBoardSessionTests {
       }
     }
 
-    await store.send(.sessionChanged(hasSession: true, userID: nil)) {
+    await store.send(.inner(.sessionChanged(hasSession: true, userID: nil))) {
       $0.hasSession = true
       $0.accountGeneration = 1
     }
     await store.send(.view(.liveBoardOnAppear)) {
       $0.isLiveBoardVisible = true
+    }
+    await store.receive(\.async.startLiveBoard) {
       $0.myScheduleRequestID = 1
     }
     await store.receive(\.inner.myScheduleLoaded) {
@@ -109,6 +112,7 @@ struct FestivalLiveBoardSessionTests {
     }
 
     await store.send(.view(.liveBoardOnAppear)) { $0.isLiveBoardVisible = true }
+    await store.receive(\.async.startLiveBoard)
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
       $0.myScheduleRequestID = 1
@@ -155,7 +159,7 @@ struct FestivalLiveBoardSessionTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.accountChanged) {
+    await store.send(.inner(.accountChanged)) {
       $0.hasSession = false
       $0.sessionUserID = nil
       $0.accountGeneration = 1
@@ -163,7 +167,7 @@ struct FestivalLiveBoardSessionTests {
     await store.send(.inner(.liveBoardLoaded("fst", generation: 0, previousAccountBoard)))
     await store.send(.inner(.liveBoardFailed("fst", generation: 0)))
 
-    await store.send(.sessionChanged(hasSession: true, userID: "user-b")) {
+    await store.send(.inner(.sessionChanged(hasSession: true, userID: "user-b"))) {
       $0.hasSession = true
       $0.sessionUserID = "user-b"
       $0.accountGeneration = 2
@@ -184,7 +188,7 @@ struct FestivalLiveBoardSessionTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.sessionChanged(hasSession: true, userID: "user-a"))
+    await store.send(.inner(.sessionChanged(hasSession: true, userID: "user-a")))
   }
 
   @Test("로그아웃 때 보이는 라이브 보드는 한 번만 다시 불러온다")
@@ -209,7 +213,7 @@ struct FestivalLiveBoardSessionTests {
       }
     }
 
-    await store.send(.accountChanged) {
+    await store.send(.inner(.accountChanged)) {
       $0.liveBoard = nil
       $0.hasSession = false
       $0.sessionUserID = nil
@@ -221,7 +225,7 @@ struct FestivalLiveBoardSessionTests {
       $0.liveBoardReceivedAt = receivedAt
     }
     // AppCoordinator의 세션 변화 감지가 같은 전환으로 보내는 값은 무시된다.
-    await store.send(.sessionChanged(hasSession: false, userID: nil))
+    await store.send(.inner(.sessionChanged(hasSession: false, userID: nil)))
     #expect(calls.value == 1)
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
@@ -253,7 +257,7 @@ struct FestivalLiveBoardSessionTests {
       }
     }
 
-    await store.send(.sessionChanged(hasSession: false, userID: nil)) {
+    await store.send(.inner(.sessionChanged(hasSession: false, userID: nil))) {
       $0.hasSession = false
       $0.sessionUserID = nil
       $0.accountGeneration = 1
@@ -266,7 +270,7 @@ struct FestivalLiveBoardSessionTests {
       $0.liveBoardClockAnchorAt = receivedAt
       $0.liveBoardReceivedAt = receivedAt
     }
-    await store.send(.accountChanged)
+    await store.send(.inner(.accountChanged))
     #expect(calls.value == 1)
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
@@ -295,7 +299,7 @@ struct FestivalLiveBoardSessionTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.sessionChanged(hasSession: true, userID: "user-b")) {
+    await store.send(.inner(.sessionChanged(hasSession: true, userID: "user-b"))) {
       $0.hasSession = true
       $0.sessionUserID = "user-b"
       $0.accountGeneration = 1
@@ -316,7 +320,7 @@ struct FestivalLiveBoardSessionTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.sessionChanged(hasSession: true, userID: "user-b")) {
+    await store.send(.inner(.sessionChanged(hasSession: true, userID: "user-b"))) {
       $0.bookedUserID = nil
       $0.bookedFestivalIDs = []
       $0.sessionUserID = "user-b"
@@ -336,8 +340,8 @@ struct FestivalLiveBoardSessionTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.myScheduleSaved(festivalID: "other", setIDs: ["other"]))
-    await store.send(.myScheduleSaved(festivalID: "fst", setIDs: ["set-a"])) {
+    await store.send(.inner(.myScheduleSaved(festivalID: "other", setIDs: ["other"])))
+    await store.send(.inner(.myScheduleSaved(festivalID: "fst", setIDs: ["set-a"]))) {
       $0.myScheduleRequestID = 2
       $0.mySchedule = .init(festivalID: "fst", setIDs: ["set-a"])
     }
@@ -347,7 +351,7 @@ struct FestivalLiveBoardSessionTests {
       $0.mySchedule = nil
       $0.myScheduleRequestID = 3
     }
-    await store.send(.myScheduleSaved(festivalID: "fst", setIDs: ["hidden"]))
+    await store.send(.inner(.myScheduleSaved(festivalID: "fst", setIDs: ["hidden"])))
   }
 
   @Test("304로 같은 서버 시각을 다시 받아도 시계 기준점은 유지한다")
@@ -407,12 +411,15 @@ struct FestivalLiveBoardSessionTests {
 
     await store.send(.view(.liveBoardOnAppear)) {
       $0.isLiveBoardVisible = true
+    }
+    await store.receive(\.async.startLiveBoard) {
       $0.myScheduleRequestID = 1
     }
     await store.receive(\.inner.myScheduleFailed) {
       $0.myScheduleUnavailable = true
     }
-    await store.send(.view(.retryMySchedule)) {
+    await store.send(.view(.retryMySchedule))
+    await store.receive(\.async.loadMySchedule) {
       $0.myScheduleUnavailable = false
       $0.myScheduleRequestID = 2
     }

@@ -48,6 +48,7 @@ struct HomeLiveActivityTests {
       $0.liveActivityBusyFestivalID = "festival"
       $0.liveActivityRevision = 1
     }
+    await store.receive(\.async.startLiveActivity)
     await store.receive(\.inner.liveActivityStarted) {
       $0.liveActivityBusyFestivalID = nil
       $0.liveActivityRevision = 2
@@ -61,6 +62,7 @@ struct HomeLiveActivityTests {
       $0.liveActivityBusyFestivalID = "festival"
       $0.liveActivityRevision = 3
     }
+    await store.receive(\.async.endLiveActivity)
     await store.receive(\.inner.liveActivityStopped) {
       $0.liveActivityBusyFestivalID = nil
       $0.liveActivityRevision = 4
@@ -69,6 +71,7 @@ struct HomeLiveActivityTests {
     await store.send(.view(.foregroundChanged(false))) {
       $0.isForeground = false
     }
+    await store.receive(\.async.prefetchImages)
     await store.finish()
   }
 
@@ -117,6 +120,7 @@ struct HomeLiveActivityTests {
     await store.send(.view(.foregroundChanged(false))) {
       $0.isForeground = false
     }
+    await store.receive(\.async.prefetchImages)
     await store.finish()
   }
 
@@ -198,6 +202,7 @@ struct HomeLiveActivityTests {
     await store.send(.view(.foregroundChanged(false))) {
       $0.isForeground = false
     }
+    await store.receive(\.async.prefetchImages)
     await store.finish()
   }
 

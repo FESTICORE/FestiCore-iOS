@@ -62,6 +62,7 @@ struct HomeOfflineTests {
     }
 
     await store.send(.view(.onAppear)) { $0.hasStarted = true }
+    await store.receive(\.async.loadCachedFestivals)
     await store.receive(\.inner.cachedLoaded) {
       $0.viewState = .loaded
       $0.cachedPacks = [pack.festivalID: pack]
@@ -87,6 +88,7 @@ struct HomeOfflineTests {
     }
 
     await store.send(.view(.onAppear)) { $0.hasStarted = true }
+    await store.receive(\.async.loadCachedFestivals)
     await store.receive(\.inner.cachedLoaded) {
       $0.catalogCacheReadFailed = true
       $0.packCacheReadFailed = true
@@ -116,6 +118,7 @@ struct HomeOfflineTests {
     }
 
     await store.send(.view(.foregroundChanged(false))) { $0.isForeground = false }
+    await store.receive(\.async.prefetchImages)
     await store.send(.inner(.cachedLoaded([], [pack], "fst_cached", false, false))) {
       $0.viewState = .loaded
       $0.cachedPacks = [pack.festivalID: pack]
@@ -429,6 +432,7 @@ struct HomeOfflineTests {
     #expect(await recorder.startCount() == 2)
 
     await store.send(.view(.foregroundChanged(false))) { $0.isForeground = false }
+    await store.receive(\.async.prefetchImages)
     await store.finish()
     #expect(await recorder.stopCount() == 1)
   }
