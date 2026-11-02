@@ -29,6 +29,7 @@ let project = Project.makeAppModule(
     .core(.utility),
     .core(.assembly),
     .service(.analytics),
+    .service(.analytics, .interface),
     .service(.assembly),
     .service(.config),
     .service(.device, .interface),
