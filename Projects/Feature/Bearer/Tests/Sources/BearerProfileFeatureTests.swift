@@ -175,8 +175,8 @@ struct BearerProfileFeatureTests {
     await store.receive(\.async.invite)
     await store.receive(\.inner.invited) {
       $0.isInviting = false
-      $0.alert = .coBearerInvite(code: "ABC234")
+      $0.destination = .alert(.coBearerInvite(code: "ABC234"))
     }
-    await store.send(.scope(.alert(.presented(.confirmTapped)))) { $0.alert = nil }
+    await store.send(.destination(.presented(.alert(.confirmTapped)))) { $0.destination = nil }
   }
 }

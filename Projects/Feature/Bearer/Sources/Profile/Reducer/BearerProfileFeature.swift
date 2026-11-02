@@ -49,7 +49,7 @@ public struct BearerProfileFeature {
     public var isInviting = false
     /// 저장을 마치면 완료 화면(E)을 보여 준다.
     public var savedProfile: BearerFlagProfile?
-    @Presents public var alert: FCAlertState<FCAlertAction>?
+    @Presents public var destination: Destination.State?
 
     /// - Parameter profile: 코드 등록 응답의 프로필. 없으면 서버에서 읽는다.
     public init(festivalID: String, flagID: String, profile: BearerFlagProfile? = nil, isNewBearer: Bool = false) {
@@ -74,7 +74,7 @@ public struct BearerProfileFeature {
     case view(View)
     case async(AsyncAction)
     case inner(InnerAction)
-    case scope(ScopeAction)
+    case destination(PresentationAction<Destination.Action>)
     case delegate(DelegateAction)
   }
 
@@ -122,11 +122,11 @@ public struct BearerProfileFeature {
     case inviteFailed(BearerError)
   }
 
-  // MARK: - ScopeAction
+  // MARK: - Destination
 
-  @CasePathable
-  public enum ScopeAction: Equatable {
-    case alert(PresentationAction<FCAlertAction>)
+  @Reducer(state: .equatable, action: .equatable)
+  public enum Destination {
+    case alert(FCConfirmAlert)
   }
 
   // MARK: - DelegateAction
@@ -153,14 +153,19 @@ public struct BearerProfileFeature {
       case .inner(let innerAction):
         return handleInnerAction(state: &state, action: innerAction)
 
-      case .scope(let scopeAction):
-        return handleScopeAction(state: &state, action: scopeAction)
+      case .destination(.presented(.alert(.confirmTapped))),
+           .destination(.presented(.alert(.cancelTapped))):
+        state.destination = nil
+        return .none
+
+      case .destination:
+        return .none
 
       case .delegate(let delegateAction):
         return handleDelegateAction(state: &state, action: delegateAction)
       }
     }
-    .ifLet(\.$alert, action: \.scope.alert) { FCConfirmAlert() }
+    .ifLet(\.$destination, action: \.destination)
   }
 }
 
@@ -397,26 +402,12 @@ extension BearerProfileFeature {
 
     case .invited(let invite):
       state.isInviting = false
-      state.alert = .coBearerInvite(code: invite.code)
+      state.destination = .alert(.coBearerInvite(code: invite.code))
       return .none
 
     case .inviteFailed(let error):
       state.isInviting = false
-      state.alert = .coBearerInviteFailed(message: Self.inviteMessage(for: error))
-      return .none
-    }
-  }
-
-  private func handleScopeAction(
-    state: inout State,
-    action: ScopeAction
-  ) -> Effect<Action> {
-    switch action {
-    case .alert(.presented(.confirmTapped)), .alert(.presented(.cancelTapped)):
-      state.alert = nil
-      return .none
-
-    case .alert:
+      state.destination = .alert(.coBearerInviteFailed(message: Self.inviteMessage(for: error)))
       return .none
     }
   }

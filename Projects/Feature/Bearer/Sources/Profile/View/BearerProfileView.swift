@@ -41,7 +41,7 @@ public struct BearerProfileView: View {
         send(.photoPicked(data))
       }
     }
-    .fcAlert($store.scope(state: \.alert, action: \.scope.alert))
+    .fcAlert($store.scope(state: \.destination?.alert, action: \.destination.alert))
     .onAppear { send(.onAppear) }
   }
 }
