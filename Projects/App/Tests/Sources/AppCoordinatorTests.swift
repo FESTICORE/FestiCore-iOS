@@ -11,6 +11,7 @@ import Testing
 import ComposableArchitecture
 import AuthDomainInterface
 import FeatureAssembly
+import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
@@ -267,6 +268,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.festivalBookedStore = FestivalBookedStore(
         load: { _ in box.ids },
         save: { ids, _ in box.ids = ids }
@@ -383,6 +385,7 @@ struct AppCoordinatorTests {
     let liveStore = Store(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.festivalBookedStore = bookedStore
     }
     liveStore.send(action)
@@ -398,6 +401,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.festivalBookedStore = bookedStore
     }
     store.exhaustivity = .off
@@ -1151,9 +1155,11 @@ struct AppCoordinatorTests {
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.verifiedUserID = "user-a"
     home.authFlow.hasSession = true
+    let analytics = LockIsolated<[AnalyticsCall]>([])
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase = .recording(analytics)
       $0.authUseCase = UnauthenticatedAuthUseCase()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
@@ -1177,6 +1183,7 @@ struct AppCoordinatorTests {
     }
     guard case let .home(signedOut) = store.state else { return }
     #expect(signedOut.authFlow.profile == nil)
+    #expect(analytics.value == [.reset])
   }
 
   @Test func completedAccountOperationClosesSheetAfterSwitchingTabs() async {
@@ -1188,6 +1195,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
     store.exhaustivity = .off
@@ -1216,6 +1224,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.authUseCase = FailingMyAuthUseCase()
       $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
     }
@@ -1254,6 +1263,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.authUseCase = FailingMyAuthUseCase(withdrawError: .transport(.notConnected))
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
@@ -1284,6 +1294,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
     store.exhaustivity = .off
@@ -1347,6 +1358,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.authUseCase = UnauthenticatedAuthUseCase()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
@@ -1377,6 +1389,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.authUseCase = UnauthenticatedAuthUseCase()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
@@ -1417,6 +1430,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
     store.exhaustivity = .off
@@ -1478,6 +1492,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
     store.exhaustivity = .off
@@ -1707,6 +1722,7 @@ struct AppCoordinatorTests {
     let store = Store(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.authUseCase = SuspendedWithdrawalAuthUseCase(gate: gate)
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
@@ -1869,6 +1885,7 @@ struct AppCoordinatorTests {
       legacyBookmarks: { hasLegacyBookmarks ? ["legacy"] : [] }
     )
     let dependencies: @Sendable (inout DependencyValues) -> Void = {
+      $0.analyticsUseCase = .recording()
       $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
       $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-a"))
       $0.festivalBookedStore = bookedStore
@@ -1996,7 +2013,9 @@ struct AppCoordinatorTests {
   @Test func acceptedLoginCommitsSessionBeforeSignedInTransition() async {
     let sessionID = UUID()
     let auth = SessionRecordingAuthService()
+    let analytics = LockIsolated<[AnalyticsCall]>([])
     let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.analyticsUseCase = .recording(analytics)
       $0.authService = auth
       $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-a"))
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
@@ -2011,12 +2030,33 @@ struct AppCoordinatorTests {
     #expect(committed.authFlow.hasSession)
     #expect(committed.authFlow.verifiedUserID == "user-a")
     #expect(await auth.committed == [sessionID])
+    // 기존 계정은 sign_up 없이 사용자만 연결한다.
+    #expect(analytics.value == [.identify("user-a", "apple")])
+    await store.receive(\.inner.profileLoaded)
+  }
+
+  @Test func acceptedNewUserLoginTracksSignUp() async {
+    let analytics = LockIsolated<[AnalyticsCall]>([])
+    let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.analyticsUseCase = .recording(analytics)
+      $0.authService = SessionRecordingAuthService()
+      $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-a"))
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+    let result = AuthLoginResult(newUser: true, user: eligibleProfile(id: "user-a").user, sessionID: UUID())
+
+    await store.send(.scope(.home(.login(.delegate(.signedIn(result))))))
+    await store.receive(\.inner.loginCommitted)
+    #expect(analytics.value == [.identify("user-a", "apple"), .track(.signUp(method: .apple))])
     await store.receive(\.inner.profileLoaded)
   }
 
   @Test func failedCommitKeepsLoginOpenWithError() async {
     let auth = SessionRecordingAuthService(commitResult: false)
+    let analytics = LockIsolated<[AnalyticsCall]>([])
     let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.analyticsUseCase = .recording(analytics)
       $0.authService = auth
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
@@ -2031,6 +2071,7 @@ struct AppCoordinatorTests {
     #expect(rejected.authFlow.presentation == .login)
     #expect(rejected.authFlow.message == "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요.")
     #expect(!rejected.authFlow.isLoading)
+    #expect(analytics.value.isEmpty)
   }
 
   @Test func loginFinishedAfterSheetDismissalDiscardsItsSession() async {
@@ -2039,6 +2080,7 @@ struct AppCoordinatorTests {
     var home = MainTabCoordinator.State()
     home.authFlow.generation = 2
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.authService = auth
     }
 
@@ -2052,6 +2094,7 @@ struct AppCoordinatorTests {
     let sessionID = UUID()
     let auth = SessionRecordingAuthService(holdsCommit: true)
     let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.authService = auth
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
@@ -2076,6 +2119,7 @@ struct AppCoordinatorTests {
     let sessionID = UUID()
     let auth = SessionRecordingAuthService(holdsCommit: true)
     let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.analyticsUseCase = .recording()
       $0.authService = auth
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
@@ -2596,5 +2640,23 @@ private actor SessionRecordingAuthService: AuthService {
   func releaseCommit() {
     release?.resume()
     release = nil
+  }
+}
+
+private enum AnalyticsCall: Equatable {
+  case identify(String, String?)
+  case track(AnalyticsEvent)
+  case reset
+}
+
+private extension AnalyticsUseCase {
+  /// 호출을 기록하는 대역. 분석 호출을 검증하지 않는 계정 흐름 테스트에도 명시적으로 주입한다.
+  static func recording(_ calls: LockIsolated<[AnalyticsCall]> = .init([])) -> Self {
+    AnalyticsUseCase(
+      registerBaseProperties: {},
+      identify: { userID, method in calls.withValue { $0.append(.identify(userID, method)) } },
+      track: { event in calls.withValue { $0.append(.track(event)) } },
+      reset: { calls.withValue { $0.append(.reset) } }
+    )
   }
 }

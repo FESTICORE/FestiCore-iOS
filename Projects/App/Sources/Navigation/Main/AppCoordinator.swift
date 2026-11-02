@@ -8,6 +8,7 @@
 import AuthDomainInterface
 import ComposableArchitecture
 import FeatureAssembly
+import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
@@ -19,6 +20,7 @@ struct AppCoordinator {
   @Dependency(\.authService) private var authService
   @Dependency(\.festivalBookedStore) private var bookedStore
   @Dependency(\.authSessionExpiryClient) private var authSessionExpiryClient
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
 
   private enum CancelID { case sessionExpiry, accountOperation }
 
@@ -625,6 +627,8 @@ private extension AppCoordinator {
       home.authFlow.isLoading = false
       switch result {
       case .success:
+        // 계정 분리 — 다음 사용자와 섞이지 않게 분석 식별자와 슈퍼 프로퍼티를 초기화한다.
+        analyticsUseCase.reset()
         var cleared = AuthFlow()
         cleared.generation = max(home.authFlow.generation, generation)
         home.authFlow = cleared
@@ -633,6 +637,7 @@ private extension AppCoordinator {
         state = .home(home)
         return clear
       case .failure(.unauthenticated):
+        analyticsUseCase.reset()
         var cleared = AuthFlow()
         cleared.generation = max(home.authFlow.generation, generation)
         if operation == .withdraw {
@@ -836,6 +841,11 @@ private extension AppCoordinator {
       home.authFlow.profile = nil
       home.authFlow.presentation = nil
       home.authFlow.loginAttemptGeneration = nil
+      // 로그인이 확정된 직후 사용자 ID를 분석 도구에 연결하고, 신규 계정이면 sign_up을 남긴다.
+      analyticsUseCase.identify(result.user.id, result.user.provider)
+      if result.newUser, let provider = AnalyticsProvider(rawValue: result.user.provider) {
+        analyticsUseCase.track(.signUp(method: provider))
+      }
       home.authFlow.generation += 1
       home.authFlow.isLoading = true
       let generation = home.authFlow.generation
