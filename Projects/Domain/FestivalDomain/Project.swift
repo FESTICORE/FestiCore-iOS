@@ -10,6 +10,7 @@ let project = Project.makeModule(
     .core(.network, .interface),
     .core(.utility),
     .service(.pack, .interface),
+    .service(.apiEndpoint),
     .SPM.kingfisher,
     .SPM.dependencies,
   ],

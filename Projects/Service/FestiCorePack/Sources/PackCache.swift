@@ -40,6 +40,12 @@ struct PackCache: Sendable {
     )
   }
 
+  func delete(_ festivalID: String) throws {
+    let url = try fileURL(for: festivalID)
+    guard FileManager.default.fileExists(atPath: url.path) else { return }
+    try FileManager.default.removeItem(at: url)
+  }
+
   /// 서버가 같은 버전이라고 답하면 확인 시각을 파일 수정 시각으로 남긴다.
   func markChecked(_ festivalID: String, at date: Date = Date()) throws {
     let url = try fileURL(for: festivalID)

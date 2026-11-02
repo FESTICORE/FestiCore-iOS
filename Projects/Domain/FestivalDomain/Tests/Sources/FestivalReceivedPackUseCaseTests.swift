@@ -69,7 +69,45 @@ struct FestivalReceivedPackUseCaseTests {
     #expect(packs.map(\.name) == ["fst_a"])
   }
 
-  private func pack(_ id: String, version: Int, name: String?, checkedAt: Date?) -> CachedFestivalPack {
+  @Test func refreshDownloadsUpdatesOnWiFiWhenAutoDownloadIsOn() async throws {
+    let service = MutablePackService(packs: [pack("fst_a", version: 1, name: "A", checkedAt: nil)])
+    service.onSync = { id in [self.pack(id, version: 2, name: "A", checkedAt: nil)] }
+    let useCase = withDependencies {
+      $0.packSyncService = service
+      $0.festivalCatalogService = ReceivedPackCatalogService(
+        cached: [], refreshed: [.init(id: "fst_a", name: "A", packVersion: 2)]
+      )
+      $0.festivalPackLocalStore.autoDownloadOnWiFi = { true }
+      $0.festivalWiFiStatus = .init(isOnWiFi: { true })
+    } operation: {
+      FestivalReceivedPackUseCaseImpl()
+    }
+
+    let packs = try await useCase.refreshReceivedPacks()
+    #expect(service.synced.value == ["fst_a"])
+    #expect(packs.first?.packVersion == 2)
+    #expect(packs.first?.hasUpdate == false)
+  }
+
+  @Test(arguments: [(true, false), (false, true)])
+  func refreshKeepsUpdatesOffWiFiOrWhenAutoDownloadIsOff(autoDownload: Bool, onWiFi: Bool) async throws {
+    let service = MutablePackService(packs: [pack("fst_a", version: 1, name: "A", checkedAt: nil)])
+    let useCase = withDependencies {
+      $0.packSyncService = service
+      $0.festivalCatalogService = ReceivedPackCatalogService(
+        cached: [], refreshed: [.init(id: "fst_a", name: "A", packVersion: 2)]
+      )
+      $0.festivalPackLocalStore.autoDownloadOnWiFi = { autoDownload }
+      $0.festivalWiFiStatus = .init(isOnWiFi: { onWiFi })
+    } operation: {
+      FestivalReceivedPackUseCaseImpl()
+    }
+
+    #expect(try await useCase.refreshReceivedPacks().first?.hasUpdate == true)
+    #expect(service.synced.value.isEmpty)
+  }
+
+  func pack(_ id: String, version: Int, name: String?, checkedAt: Date?) -> CachedFestivalPack {
     var json: [String: Any] = ["id": id, "packVersion": version]
     json["name"] = name
     let data = (try? JSONSerialization.data(withJSONObject: json)) ?? Data()
@@ -100,6 +138,42 @@ private struct ListPackService: PackSyncService {
 
   func cachedPacks() async throws -> [CachedFestivalPack] { packs }
   func sync(for _: String) async throws -> PackSyncResult { .reconnecting }
+  func deletePack(for _: String) async throws {}
+  func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
+    AsyncThrowingStream { $0.finish() }
+  }
+}
+
+final class MutablePackService: PackSyncService, @unchecked Sendable {
+  let packs: LockIsolated<[CachedFestivalPack]>
+  let synced = LockIsolated<[String]>([])
+  let deleted = LockIsolated<[String]>([])
+  var onSync: (@Sendable (String) -> [CachedFestivalPack])?
+  var syncResult: PackSyncResult?
+
+  init(packs: [CachedFestivalPack]) {
+    self.packs = LockIsolated(packs)
+  }
+
+  func cachedPack(for festivalID: String) async throws -> CachedFestivalPack? {
+    packs.value.first { $0.festivalID == festivalID }
+  }
+
+  func cachedPacks() async throws -> [CachedFestivalPack] { packs.value }
+
+  func sync(for festivalID: String) async throws -> PackSyncResult {
+    synced.withValue { $0.append(festivalID) }
+    if let onSync { packs.setValue(onSync(festivalID)) }
+    if let syncResult { return syncResult }
+    guard let pack = packs.value.first(where: { $0.festivalID == festivalID }) else { return .reconnecting }
+    return .updated(pack)
+  }
+
+  func deletePack(for festivalID: String) async throws {
+    deleted.withValue { $0.append(festivalID) }
+    packs.withValue { $0.removeAll { $0.festivalID == festivalID } }
+  }
+
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
     AsyncThrowingStream { $0.finish() }
   }

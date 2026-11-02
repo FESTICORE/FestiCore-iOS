@@ -53,6 +53,14 @@ public actor NetworkPackSyncService: PackSyncService {
     }
   }
 
+  public func deletePack(for festivalID: String) async throws {
+    try cache.delete(festivalID)
+    // 진행 중이던 응답이 지운 팩을 다시 저장하지 않게 세대를 올린다.
+    let generation = (requestGeneration[festivalID] ?? 0) + 1
+    requestGeneration[festivalID] = generation
+    committedGeneration[festivalID] = generation
+  }
+
   public nonisolated func updates(for festivalID: String) -> AsyncThrowingStream<PackSyncResult, Error> {
     AsyncThrowingStream { continuation in
       let task = Task { await self.runUpdates(for: festivalID, continuation: continuation) }
