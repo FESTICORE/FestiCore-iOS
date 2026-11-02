@@ -42,49 +42,20 @@ struct AppCoordinator {
     var verifiedUserID: String?
     var lastVerifiedUserID: String?
     var hasSession = false
-    var profile: AuthProfile?
+    var profile: AuthProfile? {
+      // 가입 초안 규칙이 현재 계정과 약관 버전을 따르도록 프로필이 바뀔 때마다 알린다.
+      didSet {
+        signUp.currentUserID = profile?.user.id
+        signUp.currentTermsVersion = profile?.currentTermsVersion
+      }
+    }
     var presentation: Presentation?
-    var nickname = ""
-    /// 두 필수 약관(서비스 이용약관·개인정보 수집 이용)이 모두 체크됐을 때만 true다.
-    var acceptedTerms = false
-    var acceptedServiceTerms = false
-    var acceptedPrivacyTerms = false
-    var consentedVersion: String?
-    var pushOptIn = false
-    /// 가입 초안(닉네임·약관·알림)을 만든 계정. 계정이 확인될 때 다르면 초안을 버린다.
-    var draftOwnerID: String?
-    /// 필수 약관을 체크할 때의 약관 버전. 새 버전 프로필이 오면 체크를 지운다.
-    var termsDraftVersion: String?
-    /// 사용자가 닉네임을 직접 고쳤는지. 고친 값(빈 값 포함)은 프로필 닉네임으로 덮어쓰지 않는다.
-    var nicknameEdited = false
+    /// 가입 정보 초안(닉네임·약관·알림)
+    var signUp = SignUpFeature.State()
     var isLoading = false
     var hasRetriedTermsUpdate = false
     var termsUpdateExhausted = false
     var message: String?
-
-    var isAllConsented: Bool {
-      acceptedServiceTerms && acceptedPrivacyTerms && pushOptIn
-    }
-
-    var hasDraft: Bool {
-      !nickname.isEmpty || nicknameEdited || acceptedServiceTerms || acceptedPrivacyTerms || acceptedTerms || pushOptIn
-    }
-
-    /// 두 필수 약관이 모두 체크됐을 때만 현재 약관 버전에 동의한 것으로 본다.
-    mutating func syncRequiredTerms() {
-      if acceptedServiceTerms || acceptedPrivacyTerms {
-        if termsDraftVersion == nil { termsDraftVersion = profile?.currentTermsVersion }
-      } else {
-        termsDraftVersion = nil
-      }
-      acceptedTerms = acceptedServiceTerms && acceptedPrivacyTerms
-      consentedVersion = acceptedTerms ? termsDraftVersion : nil
-    }
-
-    /// 초안을 처음 바꿀 때 현재 계정을 소유자로 기록한다.
-    mutating func claimDraft() {
-      if draftOwnerID == nil { draftOwnerID = profile?.user.id }
-    }
 
     /// 요청 계정을 모르는 대기 예약은 다른 계정에 적용되지 않도록 버린다.
     mutating func dropUnownedPendingBookmark() {
@@ -93,38 +64,18 @@ struct AppCoordinator {
       pendingShouldBeBooked = false
     }
 
-    /// 약관 버전이 바뀌었을 때처럼 닉네임은 두고 필수 약관 체크만 지운다.
-    mutating func clearRequiredTerms() {
-      acceptedTerms = false
-      acceptedServiceTerms = false
-      acceptedPrivacyTerms = false
-      termsDraftVersion = nil
-      consentedVersion = nil
+    /// 계정이 바뀌거나 로그인을 잃을 때 가입 초안과 이전 계정의 재시도 상태·문구를 함께 지운다.
+    mutating func clearSignUpDraft() {
+      signUp.clearDraft()
+      resetSignUpRetryState()
     }
 
-    mutating func clearDraft() {
-      nickname = ""
-      nicknameEdited = false
-      pushOptIn = false
-      draftOwnerID = nil
-      clearConsentAndRetryState()
+    /// 계정이 확인될 때 다른 계정이 만들었거나 소유자를 모르는 초안은 재시도 상태와 함께 버린다.
+    mutating func reconcileSignUpDraft(userID: String) {
+      if signUp.reconcile(userID: userID) { resetSignUpRetryState() }
     }
 
-    /// 계정이 확인될 때 다른 계정이 만들었거나 소유자를 모르는 초안은 버린다.
-    mutating func reconcileDraft(userID: String) {
-      if hasDraft, draftOwnerID != userID {
-        clearDraft()
-      } else if !hasDraft {
-        draftOwnerID = nil
-      }
-    }
-
-    mutating func clearConsentAndRetryState() {
-      acceptedTerms = false
-      acceptedServiceTerms = false
-      acceptedPrivacyTerms = false
-      termsDraftVersion = nil
-      consentedVersion = nil
+    mutating func resetSignUpRetryState() {
       message = nil
       hasRetriedTermsUpdate = false
       termsUpdateExhausted = false
@@ -175,13 +126,6 @@ struct AppCoordinator {
     case foregrounded
     case startLogin(OAuthProvider)
     case dismissFlow
-    case nicknameChanged(String)
-    case termsAcceptanceChanged(Bool)
-    case serviceTermsChanged(Bool)
-    case privacyTermsChanged(Bool)
-    case allConsentToggled
-    case pushOptInChanged(Bool)
-    case submitOnboarding
     case retryProfile
     case resolveMigration(Bool)
   }
@@ -327,96 +271,14 @@ private extension AppCoordinator {
       }
       home.authFlow.loginAttemptGeneration = nil
       home.authFlow.presentation = nil
-      home.authFlow.clearConsentAndRetryState()
+      home.authFlow.signUp.resetForDismissal()
+      home.authFlow.resetSignUpRetryState()
       let pendingCommit = home.authFlow.pendingCommitSessionID
       home.authFlow.pendingCommitSessionID = nil
       state = .home(home)
       // 확정 전이면 임시 세션을 버리고, 이미 확정됐다면 loginCommitted가 그 세션만 되돌린다.
       guard let pendingCommit else { return .none }
       return .run { _ in _ = await authService.discardSession(pendingCommit) }
-
-    case let .nicknameChanged(nickname):
-      guard case var .home(home) = state else { return .none }
-      home.authFlow.claimDraft()
-      home.authFlow.nickname = nickname
-      home.authFlow.nicknameEdited = true
-      state = .home(home)
-      return .none
-
-    case let .termsAcceptanceChanged(accepted):
-      guard case var .home(home) = state else { return .none }
-      home.authFlow.claimDraft()
-      home.authFlow.acceptedServiceTerms = accepted
-      home.authFlow.acceptedPrivacyTerms = accepted
-      home.authFlow.syncRequiredTerms()
-      state = .home(home)
-      return .none
-
-    case let .serviceTermsChanged(accepted):
-      guard case var .home(home) = state else { return .none }
-      home.authFlow.claimDraft()
-      home.authFlow.acceptedServiceTerms = accepted
-      home.authFlow.syncRequiredTerms()
-      state = .home(home)
-      return .none
-
-    case let .privacyTermsChanged(accepted):
-      guard case var .home(home) = state else { return .none }
-      home.authFlow.claimDraft()
-      home.authFlow.acceptedPrivacyTerms = accepted
-      home.authFlow.syncRequiredTerms()
-      state = .home(home)
-      return .none
-
-    case .allConsentToggled:
-      guard case var .home(home) = state else { return .none }
-      home.authFlow.claimDraft()
-      let accepted = !home.authFlow.isAllConsented
-      home.authFlow.acceptedServiceTerms = accepted
-      home.authFlow.acceptedPrivacyTerms = accepted
-      home.authFlow.pushOptIn = accepted
-      home.authFlow.syncRequiredTerms()
-      state = .home(home)
-      return .none
-
-    case let .pushOptInChanged(optedIn):
-      guard case var .home(home) = state else { return .none }
-      home.authFlow.claimDraft()
-      home.authFlow.pushOptIn = optedIn
-      state = .home(home)
-      return .none
-
-    case .submitOnboarding:
-      guard case var .home(home) = state,
-            home.authFlow.presentation == .onboarding,
-            let profile = home.authFlow.profile,
-            home.authFlow.acceptedTerms,
-            home.authFlow.consentedVersion == profile.currentTermsVersion,
-            !home.authFlow.termsUpdateExhausted,
-            !home.authFlow.isLoading else { return .none }
-      let nickname = home.authFlow.nickname.trimmingCharacters(in: .whitespacesAndNewlines)
-      guard (1 ... 12).contains(nickname.count) else {
-        home.authFlow.message = "닉네임은 1~12자로 입력해 주세요."
-        state = .home(home)
-        return .none
-      }
-      home.authFlow.isLoading = true
-      home.authFlow.message = nil
-      let generation = home.authFlow.generation
-      let pushOptIn = home.authFlow.pushOptIn
-      state = .home(home)
-      return .run { send in
-        do {
-          let user = try await authUseCase.updateProfile(
-            nickname: nickname,
-            termsVersion: profile.currentTermsVersion,
-            pushOptIn: pushOptIn
-          )
-          await send(.inner(.profileUpdated(generation: generation, .success(user))))
-        } catch {
-          await send(.inner(.profileUpdated(generation: generation, .failure(ProfileFailure(error)))))
-        }
-      }
 
     case .retryProfile:
       guard case var .home(home) = state,
@@ -486,7 +348,7 @@ private extension AppCoordinator {
       } else if home.authFlow.presentation != .login {
         home.authFlow.presentation = nil
       }
-      home.authFlow.clearDraft()
+      home.authFlow.clearSignUpDraft()
       if interruptedOperation == .withdraw {
         home.authFlow.message = "로그인이 만료되어 회원 탈퇴 결과를 확인할 수 없어요. 다시 로그인해 계정 상태를 확인해 주세요."
       }
@@ -531,14 +393,14 @@ private extension AppCoordinator {
         if let oldID = home.authFlow.verifiedUserID, oldID != profile.user.id {
           home.authFlow.pendingFestivalID = nil
           home.authFlow.pendingOwnerID = nil
-          home.authFlow.clearDraft()
+          home.authFlow.clearSignUpDraft()
         }
         if let oldID = home.authFlow.lastVerifiedUserID, oldID != profile.user.id {
           home.authFlow.pendingFestivalID = nil
           home.authFlow.pendingOwnerID = nil
-          home.authFlow.clearDraft()
+          home.authFlow.clearSignUpDraft()
         }
-        home.authFlow.reconcileDraft(userID: profile.user.id)
+        home.authFlow.reconcileSignUpDraft(userID: profile.user.id)
         if let ownerID = home.authFlow.pendingOwnerID, ownerID != profile.user.id {
           home.authFlow.pendingFestivalID = nil
           home.authFlow.pendingOwnerID = nil
@@ -551,18 +413,12 @@ private extension AppCoordinator {
           return finishEligible(state: &state, home: &home)
         }
         home.authFlow.presentation = .onboarding
-        if !home.authFlow.nicknameEdited, home.authFlow.nickname.isEmpty,
-           let nickname = profile.user.nickname, !nickname.isEmpty {
-          home.authFlow.nickname = nickname
-          home.authFlow.claimDraft()
-        }
-        // 약관 버전이 바뀌면 이전 버전에 체크한 필수 항목을 모두 지운다.
-        if let draftVersion = home.authFlow.termsDraftVersion, draftVersion != profile.currentTermsVersion {
-          home.authFlow.clearRequiredTerms()
-        }
-        home.authFlow.acceptedTerms = home.authFlow.acceptedTerms
-          && home.authFlow.consentedVersion == profile.currentTermsVersion
-        if !home.authFlow.acceptedTerms { home.authFlow.consentedVersion = nil }
+        // 서버 닉네임을 채우고, 약관 버전이 바뀌면 이전 버전에 체크한 필수 항목을 모두 지운다.
+        home.authFlow.signUp.apply(
+          profileUserID: profile.user.id,
+          serverNickname: profile.user.nickname,
+          termsVersion: profile.currentTermsVersion
+        )
         home.authFlow.message = home.authFlow.hasRetriedTermsUpdate
           ? "변경된 약관을 확인하고 다시 동의해 주세요."
           : nil
@@ -577,7 +433,7 @@ private extension AppCoordinator {
         home.authFlow.profile = nil
         // 로그인을 잃으면 다른 계정이 이어받지 않도록 가입 초안과 소유자 없는 대기 예약을 지운다.
         // 처음부터 로그인하지 않은 사용자의 예약은 잃은 계정이 없으므로 유지하고 로그인 시트를 띄운다.
-        home.authFlow.clearDraft()
+        home.authFlow.clearSignUpDraft()
         if hadSession { home.authFlow.dropUnownedPendingBookmark() }
         home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .login
         // 같은 로그아웃을 `sessionRestored`가 이미 비웠다면 그 뒤 받은 비로그인 라이브 보드를 다시 지우지 않고 예약 목록만 정리한다.
@@ -628,7 +484,7 @@ private extension AppCoordinator {
           // 다른 계정 응답은 신뢰하지 않는다. 계정 ID를 모두 지워 세션 변경 감지가 이전 계정 데이터를 비우게 한다.
           home.authFlow.pendingFestivalID = nil
           home.authFlow.pendingOwnerID = nil
-          home.authFlow.clearDraft()
+          home.authFlow.clearSignUpDraft()
           home.authFlow.presentation = nil
           home.authFlow.verifiedUserID = nil
           home.authFlow.lastVerifiedUserID = nil
@@ -648,13 +504,13 @@ private extension AppCoordinator {
       case .failure(.termsOutdated):
         guard !home.authFlow.hasRetriedTermsUpdate else {
           home.authFlow.termsUpdateExhausted = true
-          home.authFlow.clearRequiredTerms()
+          home.authFlow.signUp.clearRequiredTerms()
           home.authFlow.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
           state = .home(home)
           return .none
         }
         home.authFlow.hasRetriedTermsUpdate = true
-        home.authFlow.clearRequiredTerms()
+        home.authFlow.signUp.clearRequiredTerms()
         home.authFlow.message = "약관이 변경됐어요. 내용을 확인하고 다시 동의해 주세요."
         home.authFlow.generation += 1
         home.authFlow.isLoading = true
@@ -667,7 +523,7 @@ private extension AppCoordinator {
         home.authFlow.lastVerifiedUserID = nil
         home.authFlow.hasSession = false
         home.authFlow.profile = nil
-        home.authFlow.clearDraft()
+        home.authFlow.clearSignUpDraft()
         home.authFlow.dropUnownedPendingBookmark()
         home.authFlow.presentation = .login
         let clear = clearAccountData(&home)
@@ -778,6 +634,41 @@ private extension AppCoordinator {
       home.authFlow.isLoading = true
       state = .home(home)
       return fetchProfile(generation: generation)
+
+    case let .home(.signUp(.delegate(.submitRequested(submission)))):
+      guard case var .home(home) = state,
+            home.authFlow.presentation == .onboarding,
+            let profile = home.authFlow.profile,
+            home.authFlow.signUp.acceptedTerms,
+            home.authFlow.signUp.consentedVersion == profile.currentTermsVersion,
+            !home.authFlow.termsUpdateExhausted,
+            !home.authFlow.isLoading else { return .none }
+      let nickname = submission.nickname
+      guard submission.isNicknameValid else {
+        home.authFlow.message = "닉네임은 1~12자로 입력해 주세요."
+        state = .home(home)
+        return .none
+      }
+      home.authFlow.isLoading = true
+      home.authFlow.message = nil
+      let generation = home.authFlow.generation
+      let pushOptIn = submission.pushOptIn
+      state = .home(home)
+      return .run { send in
+        do {
+          let user = try await authUseCase.updateProfile(
+            nickname: nickname,
+            termsVersion: profile.currentTermsVersion,
+            pushOptIn: pushOptIn
+          )
+          await send(.inner(.profileUpdated(generation: generation, .success(user))))
+        } catch {
+          await send(.inner(.profileUpdated(generation: generation, .failure(ProfileFailure(error)))))
+        }
+      }
+
+    case .home(.signUp(.delegate(.closeRequested))):
+      return handleViewAction(state: &state, action: .dismissFlow)
 
     case let .home(.login(.delegate(.signedIn(result)))):
       guard case let .home(home) = state else { return .none }
