@@ -67,16 +67,16 @@ struct FestivalCoordinator {
       return .send(.delegate(.loginRequested))
 
     case let .reloadBookmarks(userID):
-      return broadcast(state, .inner(.reloadBookmarks(userID: userID)))
+      return broadcast(state, .view(.reloadBookmarks(userID: userID)))
 
     case .accountChanged:
-      return broadcast(state, .inner(.accountChanged))
+      return broadcast(state, .view(.accountChanged))
 
     case let .sessionChanged(hasSession, userID):
-      return broadcast(state, .inner(.sessionChanged(hasSession: hasSession, userID: userID)))
+      return broadcast(state, .view(.sessionChanged(hasSession: hasSession, userID: userID)))
 
     case let .myScheduleSaved(festivalID, setIDs):
-      return broadcast(state, .inner(.myScheduleSaved(festivalID: festivalID, setIDs: setIDs)))
+      return broadcast(state, .view(.myScheduleSaved(festivalID: festivalID, setIDs: setIDs)))
 
     case .delegate:
       return .none

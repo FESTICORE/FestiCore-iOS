@@ -20,7 +20,7 @@ struct FestivalAccountChangeTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.inner(.accountChanged)) {
+    await store.send(.view(.accountChanged)) {
       $0.liveBoard = nil
       $0.liveBoardUnavailable = false
       $0.bookedUserID = nil
@@ -68,7 +68,7 @@ struct FestivalAccountChangeTests {
       await Task.yield()
     }
     signedIn.setValue(false)
-    await store.send(.inner(.accountChanged)) {
+    await store.send(.view(.accountChanged)) {
       $0.liveBoard = nil
       $0.mySchedule = nil
       $0.hasSession = false

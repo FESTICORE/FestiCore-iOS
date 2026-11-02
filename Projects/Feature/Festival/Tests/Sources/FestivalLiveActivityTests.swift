@@ -6,6 +6,17 @@ import Testing
 @testable import Festival
 
 struct HomeLiveActivityTests {
+  @Test @MainActor func startThatCanNoLongerResolveReleasesBusyState() async {
+    var state = FestivalFeature.State()
+    state.liveActivityReady = true
+    state.liveActivityBusyFestivalID = "missing"
+    let store = TestStore(initialState: state) { FestivalFeature() }
+
+    await store.send(.async(.startLiveActivity(festivalID: "missing"))) {
+      $0.liveActivityBusyFestivalID = nil
+    }
+  }
+
   @Test @MainActor func startIsDisabledUntilOSActivitiesAreRestored() async {
     var state = FestivalFeature.State()
     state.catalog = [festival(id: "festival")]
