@@ -222,7 +222,7 @@ public struct TimetableFeature {
     case setDetail(PresentationAction<TimetableSetDetailFeature.Action>)
   }
 
-  @Dependency(\.festivalScheduleService) var scheduleService
+  @Dependency(\.festivalScheduleUseCase) var scheduleUseCase
   @Dependency(\.date.now) var now
 
   public var body: some ReducerOf<Self> {
@@ -307,10 +307,10 @@ extension TimetableFeature {
   ) -> Effect<Action> {
     switch action {
     case let .fetchSchedule(festivalID, requestID):
-      return .run { [scheduleService] send in
+      return .run { [scheduleUseCase] send in
         let result: Result<FestivalSchedule, FestivalScheduleError>
         do throws(FestivalScheduleError) {
-          result = try .success(await scheduleService.fetch(festivalID: festivalID))
+          result = try .success(await scheduleUseCase.mySchedule(festivalID: festivalID))
         } catch {
           result = .failure(error)
         }
@@ -319,10 +319,10 @@ extension TimetableFeature {
       .cancellable(id: CancelID.load, cancelInFlight: true)
 
     case let .replaceSchedule(festivalID, save):
-      return .run { [scheduleService] send in
+      return .run { [scheduleUseCase] send in
         let result: Result<FestivalSchedule, FestivalScheduleError>
         do throws(FestivalScheduleError) {
-          result = try .success(await scheduleService.replace(
+          result = try .success(await scheduleUseCase.saveMySchedule(
             festivalID: festivalID,
             setIDs: save.setIDs,
             clientAt: save.clientAt

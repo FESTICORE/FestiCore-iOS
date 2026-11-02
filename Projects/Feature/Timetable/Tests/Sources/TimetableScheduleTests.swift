@@ -647,7 +647,14 @@ private extension TimetableScheduleTests {
     TestStore(initialState: state) {
       TimetableFeature()
     } withDependencies: {
-      $0.festivalScheduleService = service
+      $0.festivalScheduleUseCase = MockFestivalScheduleUseCase(
+        mySchedule: { festivalID throws(FestivalScheduleError) in
+          try await service.fetch(festivalID: festivalID)
+        },
+        saveMySchedule: { festivalID, setIDs, clientAt throws(FestivalScheduleError) in
+          try await service.replace(festivalID: festivalID, setIDs: setIDs, clientAt: clientAt)
+        }
+      )
       $0.date.now = beforeFestival
       $0.continuousClock = clock
     }
