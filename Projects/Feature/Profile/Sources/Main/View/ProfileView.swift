@@ -21,6 +21,20 @@ public struct ProfileView: View {
   }
 
   public var body: some View {
+    NavigationStack {
+      main
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(
+          item: $store.scope(state: \.destination?.packDetail, action: \.destination.packDetail)
+        ) { detailStore in
+          PackDetailView(store: detailStore)
+        }
+    }
+  }
+}
+
+extension ProfileView {
+  private var main: some View {
     VStack(spacing: .zero) {
       topBar
 
@@ -147,7 +161,6 @@ private extension ProfileView {
           .accessibilityHidden(true)
       }
     }
-    .allowsHitTesting(store.isPackNavigationAvailable)
   }
 
   var packSkeletonRow: some View {
@@ -191,12 +204,12 @@ private extension ProfileView {
     return "최신 버전 · \(checkedAt.formatted(Self.checkedAtFormat)) 확인"
   }
 
-  static let checkedAtFormat = Date.FormatStyle()
-    .month(.defaultDigits)
-    .day(.defaultDigits)
-    .hour(.twoDigits(amPM: .omitted))
-    .minute(.twoDigits)
-    .locale(Locale(identifier: "en_US_POSIX"))
+  /// Figma처럼 "10/16 14:00"으로 쓴다.
+  static let checkedAtFormat = Date.VerbatimFormatStyle(
+    format: "\(month: .defaultDigits)/\(day: .defaultDigits) \(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)):\(minute: .twoDigits)",
+    timeZone: .current,
+    calendar: Calendar(identifier: .gregorian)
+  )
 
   enum Metric {
     static let packThumbnailSize: CGFloat = 44

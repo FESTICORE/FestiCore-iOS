@@ -34,7 +34,6 @@ public struct ProfileFeature {
     /// 아직 연결되지 않은 이동은 누를 수 없게 둔다.
     public var isBearerNavigationAvailable = false
     public var isSearchAvailable = false
-    public var isPackNavigationAvailable = false
     public var isLockScreenAvailable = false
     public var isNoticeAvailable = false
 
@@ -66,6 +65,7 @@ public struct ProfileFeature {
   @Reducer
   public enum Destination {
     case alert(FCConfirmAlert)
+    case packDetail(PackDetailFeature)
   }
 
   @CasePathable
@@ -186,7 +186,9 @@ extension ProfileFeature {
       return .send(.delegate(.searchRequested))
 
     case .packTapped(let id):
-      return .send(.delegate(.packRequested(id)))
+      guard let pack = state.packs.first(where: { $0.id == id }) else { return .none }
+      state.destination = .packDetail(.init(festivalID: pack.id, title: pack.name))
+      return .none
 
     case .notificationsTapped:
       return open(URL(string: UIApplication.openSettingsURLString))
@@ -288,6 +290,20 @@ extension ProfileFeature {
     case .presented(.alert(.cancelTapped)):
       state.destination = nil
       state.confirmation = nil
+      return .none
+
+    case .presented(.packDetail(.delegate(.backRequested))):
+      state.destination = nil
+      return .none
+
+    case .presented(.packDetail(.delegate(.packDeleted))):
+      state.destination = nil
+      return .send(.async(.fetchPacks))
+
+    case .presented(.packDetail(.delegate(.packChanged))):
+      return .send(.async(.fetchPacks))
+
+    case .presented(.packDetail):
       return .none
 
     case .dismiss:

@@ -47,7 +47,9 @@ struct MainTabCoordinator {
       case .timetable:
         return timetableState.setDetail != nil
       case .my:
-        return profileState.isAccountPresented || profileState.destination != nil
+        // 팩 상세는 탭바 위에 밀어 넣는 화면이라 탭바를 남기고, 확인 팝업만 탭바까지 덮는다.
+        return profileState.isAccountPresented || profileState.destination?.alert != nil
+          || profileState.destination?.packDetail?.destination != nil
       case .flag:
         return false
       }

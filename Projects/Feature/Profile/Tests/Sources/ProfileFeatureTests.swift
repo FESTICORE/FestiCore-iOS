@@ -163,11 +163,29 @@ struct ProfileFeatureTests {
     #expect(store.state.destination?.alert?.presentationID == presentationID)
   }
 
-  @Test func packTapPreservesSelectedIdentity() async {
-    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
+  @Test func packTapOpensPackDetailAndDeletionReloadsPacks() async {
+    var state = ProfileFeature.State()
+    state.packs = [FestivalReceivedPack(id: "fst_a", name: "원더리벳 2026", packVersion: 12)]
+    state.packLoad = .loaded
+    let store = TestStore(initialState: state) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.festivalReceivedPackUseCase = MockFestivalReceivedPackUseCase(
+        receivedPacks: { [] },
+        refreshReceivedPacks: { [] }
+      )
+    }
 
-    await store.send(.view(.packTapped("pack-1")))
-    await store.receive(\.delegate.packRequested)
+    await store.send(.view(.packTapped("fst_unknown")))
+    await store.send(.view(.packTapped("fst_a"))) {
+      $0.destination = .packDetail(.init(festivalID: "fst_a", title: "원더리벳 2026"))
+    }
+    await store.send(.destination(.presented(.packDetail(.delegate(.packDeleted))))) {
+      $0.destination = nil
+    }
+    await store.receive(\.async.fetchPacks)
+    await store.receive(\.inner.packsLoaded) { $0.packs = [] }
+    await store.receive(\.inner.packsRefreshed)
   }
 
   @Test func dismissingAccountAlsoClosesPendingConfirmation() async {

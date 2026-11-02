@@ -11,7 +11,6 @@ import ComposableArchitecture
 public enum ProfileDelegate: Equatable, Sendable {
   case bearerRequested
   case searchRequested
-  case packRequested(String)
   case lockScreenRequested
   case loginRequested
   case profileRefreshRequested

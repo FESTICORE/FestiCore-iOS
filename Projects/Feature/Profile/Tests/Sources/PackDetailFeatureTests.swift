@@ -1,0 +1,212 @@
+//
+//  PackDetailFeatureTests.swift
+//  Profile
+//
+//  Created by FestiCore on 11/3/26.
+//
+
+import ComposableArchitecture
+import FestiCoreSharedUI
+import FestivalDomainInterface
+import Foundation
+import Testing
+@testable import Profile
+
+@MainActor
+struct PackDetailFeatureTests {
+  @Test func appearLoadsPackChecklistAndChangesForOutdatedPack() async {
+    let detail = sampleDetail(version: 12, latest: 13)
+    let changes = FestivalPackChanges(fromVersion: 12, toVersion: 13, sizeBytes: 524_288, changedSets: 2)
+    let store = TestStore(initialState: PackDetailFeature.State(festivalID: "fst_a", title: "팩")) {
+      PackDetailFeature()
+    } withDependencies: {
+      $0.festivalPackDetailUseCase = MockFestivalPackDetailUseCase(
+        packDetail: { _ in detail },
+        packChanges: { id, from in
+          #expect(id == "fst_a")
+          #expect(from == 12)
+          return changes
+        },
+        checklist: { _ in FestivalChecklist(checkedIDs: ["ticket"]) },
+        autoDownloadOnWiFi: { false }
+      )
+    }
+
+    await store.send(.view(.onAppear))
+    await store.receive(\.async.load)
+    await store.receive(\.inner.loaded) {
+      $0.detail = detail
+      $0.title = "원더리벳 2026"
+      $0.load = .loaded
+      $0.checklist = FestivalChecklist(checkedIDs: ["ticket"])
+      $0.autoDownloadOnWiFi = false
+    }
+    await store.receive(\.async.fetchChanges)
+    await store.receive(\.inner.changesLoaded) { $0.changes = changes }
+    #expect(store.state.checkedCount == 1)
+    #expect(store.state.checklistRows.map(\.id) == ["ticket", "earplug"])
+  }
+
+  @Test func missingPackAndFailureAreShownSeparately() async {
+    let attempts = LockIsolated(0)
+    let store = TestStore(initialState: PackDetailFeature.State(festivalID: "fst_a", title: "팩")) {
+      PackDetailFeature()
+    } withDependencies: {
+      $0.festivalPackDetailUseCase = MockFestivalPackDetailUseCase(
+        packDetail: { _ in
+          attempts.withValue { $0 += 1 }
+          if attempts.value == 1 { throw URLError(.cannotOpenFile) }
+          return nil
+        }
+      )
+    }
+
+    await store.send(.view(.onAppear))
+    await store.receive(\.async.load)
+    await store.receive(\.inner.loadFailed) { $0.load = .failed }
+    await store.send(.view(.retryTapped)) { $0.load = .loading }
+    await store.receive(\.async.load)
+    await store.receive(\.inner.loaded) { $0.load = .missing }
+  }
+
+  @Test func checklistEditsAreSavedAndRequiredItemsStay() async {
+    let saved = LockIsolated<[FestivalChecklist]>([])
+    var state = PackDetailFeature.State(festivalID: "fst_a", title: "원더리벳 2026")
+    state.detail = sampleDetail(version: 12, latest: 12)
+    state.load = .loaded
+    let store = TestStore(initialState: state) {
+      PackDetailFeature()
+    } withDependencies: {
+      $0.uuid = .incrementing
+      $0.festivalPackDetailUseCase = MockFestivalPackDetailUseCase(
+        saveChecklist: { checklist, _ in saved.withValue { $0.append(checklist) } }
+      )
+    }
+
+    await store.send(.view(.itemToggled("earplug"))) { $0.checklist.checkedIDs = ["earplug"] }
+    await store.send(.view(.editTapped)) { $0.isEditingChecklist = true }
+    await store.send(.binding(.set(\.newItemText, "  선크림 "))) { $0.newItemText = "  선크림 " }
+    await store.send(.view(.addItemTapped)) {
+      $0.checklist.customItems = [.init(id: "custom-00000000-0000-0000-0000-000000000000", label: "선크림")]
+      $0.newItemText = ""
+    }
+    // 필수 항목은 지우지 않는다.
+    await store.send(.view(.itemRemoved("ticket")))
+    await store.send(.view(.itemRemoved("earplug"))) {
+      $0.checklist.hiddenIDs = ["earplug"]
+      $0.checklist.checkedIDs = []
+    }
+    await store.send(.view(.itemRemoved("custom-00000000-0000-0000-0000-000000000000"))) {
+      $0.checklist.customItems = []
+    }
+    await store.send(.view(.editDoneTapped)) { $0.isEditingChecklist = false }
+    #expect(store.state.checklistRows.map(\.id) == ["ticket"])
+    await store.finish()
+    #expect(saved.value.count == 4)
+    #expect(saved.value.last == FestivalChecklist(hiddenIDs: ["earplug"]))
+  }
+
+  @Test func updateReplacesPackAndAsksProfileToReload() async {
+    var state = PackDetailFeature.State(festivalID: "fst_a", title: "원더리벳 2026")
+    state.detail = sampleDetail(version: 12, latest: 13)
+    state.load = .loaded
+    state.changes = FestivalPackChanges(fromVersion: 12, toVersion: 13, sizeBytes: 1, changedSets: 1)
+    let updated = sampleDetail(version: 13, latest: 13)
+    let store = TestStore(initialState: state) {
+      PackDetailFeature()
+    } withDependencies: {
+      $0.festivalPackDetailUseCase = MockFestivalPackDetailUseCase(updatePack: { _ in updated })
+    }
+
+    await store.send(.view(.updateTapped)) { $0.isUpdating = true }
+    // 받는 중에 다시 눌러도 한 번만 받는다.
+    await store.send(.view(.updateTapped))
+    await store.receive(\.async.update)
+    await store.receive(\.inner.updateFinished) {
+      $0.isUpdating = false
+      $0.detail = updated
+      $0.changes = nil
+      $0.manageMessage = "새 버전 v13을 받았어요"
+    }
+    await store.receive(\.delegate.packChanged)
+  }
+
+  @Test func updateFailureKeepsPackAndShowsMessage() async {
+    var state = PackDetailFeature.State(festivalID: "fst_a", title: "원더리벳 2026")
+    state.detail = sampleDetail(version: 12, latest: 12)
+    state.load = .loaded
+    let store = TestStore(initialState: state) {
+      PackDetailFeature()
+    } withDependencies: {
+      $0.festivalPackDetailUseCase = MockFestivalPackDetailUseCase(
+        updatePack: { _ in throw FestivalPackError.retryLater }
+      )
+    }
+
+    await store.send(.view(.checkUpdateTapped)) { $0.isUpdating = true }
+    await store.receive(\.async.update)
+    await store.receive(\.inner.updateFailed) {
+      $0.isUpdating = false
+      $0.manageMessage = "업데이트를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."
+    }
+  }
+
+  @Test func deleteRequiresConfirmation() async {
+    let deleted = LockIsolated<[String]>([])
+    var state = PackDetailFeature.State(festivalID: "fst_a", title: "원더리벳 2026")
+    state.detail = sampleDetail(version: 12, latest: 12)
+    state.load = .loaded
+    let store = TestStore(initialState: state) {
+      PackDetailFeature()
+    } withDependencies: {
+      $0.festivalPackDetailUseCase = MockFestivalPackDetailUseCase(
+        deletePack: { id in deleted.withValue { $0.append(id) } }
+      )
+    }
+
+    await store.send(.view(.deleteTapped)) {
+      $0.destination = .alert(.deletePack(name: "원더리벳 2026"))
+    }
+    await store.send(.destination(.presented(.alert(.cancelTapped)))) { $0.destination = nil }
+    #expect(deleted.value.isEmpty)
+
+    await store.send(.view(.deleteTapped)) {
+      $0.destination = .alert(.deletePack(name: "원더리벳 2026"))
+    }
+    await store.send(.destination(.presented(.alert(.confirmTapped)))) {
+      $0.destination = nil
+      $0.isDeleting = true
+    }
+    await store.receive(\.async.delete)
+    await store.receive(\.inner.deleteFinished) { $0.isDeleting = false }
+    await store.receive(\.delegate.packDeleted)
+    #expect(deleted.value == ["fst_a"])
+  }
+
+  @Test func autoDownloadToggleIsStored() async {
+    let stored = LockIsolated<Bool?>(nil)
+    let store = TestStore(initialState: PackDetailFeature.State(festivalID: "fst_a", title: "팩")) {
+      PackDetailFeature()
+    } withDependencies: {
+      $0.festivalPackDetailUseCase = MockFestivalPackDetailUseCase(
+        setAutoDownloadOnWiFi: { stored.setValue($0) }
+      )
+    }
+
+    await store.send(.view(.autoDownloadToggled(false))) { $0.autoDownloadOnWiFi = false }
+    await store.finish()
+    #expect(stored.value == false)
+  }
+
+  private func sampleDetail(version: Int, latest: Int) -> FestivalPackDetail {
+    FestivalPackDetail(
+      pack: FestivalReceivedPack(id: "fst_a", name: "원더리벳 2026", packVersion: version, latestPackVersion: latest),
+      directions: .init(lastShuttleAt: "23:40", lastTrainAt: "23:52"),
+      checklist: [
+        .init(id: "ticket", label: "모바일 티켓", required: true),
+        .init(id: "earplug", label: "귀마개")
+      ],
+      rules: ["유리병"]
+    )
+  }
+}
