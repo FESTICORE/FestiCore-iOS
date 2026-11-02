@@ -103,6 +103,16 @@ public extension FCAlertState where Action == FCAlertAction {
     .alert(title: "초대하지 못했어요", message: message, confirmTitle: "확인", cancelTitle: "닫기")
   }
 
+  /// 기수 보드 오늘 종료 확인
+  static func bearerEndToday() -> FCAlertState<FCAlertAction> {
+    .alert(
+      title: "오늘 깃발을 내릴까요?",
+      message: "팔로워 화면에 '오늘 종료'로 보여요. 오늘 한 번 더 시작할 수 있어요.",
+      confirmTitle: "깃발 내리기",
+      cancelTitle: "닫기"
+    )
+  }
+
   /// 로그아웃 확인
   static func logout() -> FCAlertState<FCAlertAction> {
     .alert(
