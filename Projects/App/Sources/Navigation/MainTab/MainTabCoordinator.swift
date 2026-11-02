@@ -45,7 +45,7 @@ struct MainTabCoordinator {
       case .live:
         return festivalState.routes.count == 1
       case .timetable:
-        return timetableState.selectedSetID != nil
+        return timetableState.setDetail != nil
       case .my:
         return profileState.isAccountPresented
           || profileState.isLogoutConfirmationPresented

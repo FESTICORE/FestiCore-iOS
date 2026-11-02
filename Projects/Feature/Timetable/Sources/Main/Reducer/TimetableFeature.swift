@@ -14,7 +14,6 @@ import TimetableInterface
 public struct TimetableFeature {
   @Dependency(\.festivalScheduleService) var scheduleService
   @Dependency(\.date.now) var now
-  @Dependency(\.continuousClock) var clock
 
   public init() {}
 
@@ -41,7 +40,6 @@ public struct TimetableFeature {
   enum CancelID {
     case load
     case save
-    case toast
   }
 
   @ObservableState
@@ -61,12 +59,10 @@ public struct TimetableFeature {
     public var source: String
     public var festivalID: String?
     /// 상세 시트로 연 공연
-    public var selectedSetID: String?
+    @Presents public var setDetail: TimetableSetDetailFeature.State?
     public var scheduleSync: ScheduleSync = .idle
     /// 60개를 넘겨 추가하지 못했다.
     public var isScheduleLimitReached = false
-    /// 내 일정에 넣은 직후 시트 위에 보이는 "내 일정에 추가됐어요" 토스트
-    public var isScheduleToastVisible = false
     var loadRequestID = 0
     var accountGeneration = 0
     var isSaving = false
@@ -122,29 +118,30 @@ public struct TimetableFeature {
       return !overlaps(of: set, in: day).isEmpty
     }
 
-    /// 상세 시트 정보. 시각이 흐르면 상태가 바뀌므로 화면이 현재 시각을 넘긴다.
-    public func setDetail(now: Date) -> TimetableSetDetail? {
-      guard let id = selectedSetID,
-            let day = days.first(where: { $0.sets.contains { $0.id == id } }),
+    /// 상세 시트 내용. 시각이 흐르면 상태가 바뀌므로 현재 시각을 받는다.
+    func setDetailContent(
+      id: String,
+      now: Date
+    ) -> TimetableSetDetailFeature.Content? {
+      guard let day = days.first(where: { $0.sets.contains { $0.id == id } }),
             let set = day.sets.first(where: { $0.id == id }) else { return nil }
       let interval = day.interval(of: set)
-      let status: TimetableSetDetail.Status
-      if now >= interval.end {
-        status = .ended
-      } else if now >= interval.start {
-        status = .live
-      } else {
-        status = .upcoming(minutes: Int((interval.start.timeIntervalSince(now) / 60).rounded(.up)))
-      }
-      return TimetableSetDetail(
+      let detail = TimetableSetDetail(
         artist: set.artist,
         stage: day.stages.first { $0.id == set.stageID }?.name ?? "무대 미정",
         time: TimetableTime.rangeWithDuration(set.start, set.end),
-        status: status,
+        status: .init(interval: interval, now: now),
         isScheduled: mySetIDs.contains(id),
         overlap: overlaps(of: set, in: day).first,
         previousTime: set.previousStart.map(TimetableTime.clock),
         change: set.previousStart.map { TimetableTime.change(from: $0, to: set.start) }
+      )
+      return TimetableSetDetailFeature.Content(
+        detail: detail,
+        interval: interval,
+        source: source,
+        isScheduleLoading: scheduleSync == .loading,
+        isScheduleLimitReached: isScheduleLimitReached
       )
     }
 
@@ -176,6 +173,7 @@ public struct TimetableFeature {
 
   public enum Action: ViewAction {
     case view(View)
+    case scope(ScopeAction)
     case delegate(TimetableDelegate)
     /// 선택한 축제가 바뀌었다. 팩이 없으면 nil이다.
     case festivalChanged(String?)
@@ -187,7 +185,6 @@ public struct TimetableFeature {
     case timetableAppeared
     case scheduleLoaded(festivalID: String, requestID: Int, Result<FestivalSchedule, FestivalScheduleError>)
     case scheduleSaved(festivalID: String, ScheduleSave, Result<FestivalSchedule, FestivalScheduleError>)
-    case scheduleToastExpired
   }
 
   @CasePathable
@@ -196,53 +193,73 @@ public struct TimetableFeature {
     case mineOnlyToggled
     case setTapped(String)
     case zoomChanged(Double)
-    case setDetailDismissed
-    case setScheduleToggled
     case changeBannerTapped
     case searchTapped
     case notifyTapped
   }
 
+  @CasePathable
+  public enum ScopeAction {
+    case setDetail(PresentationAction<TimetableSetDetailFeature.Action>)
+  }
+
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
-      switch action {
-      case let .view(viewAction):
-        return handleViewAction(
-          state: &state,
-          action: viewAction
-        )
-
-      case .delegate:
-        return .none
-
-      case let .festivalChanged(festivalID):
-        return changeFestival(state: &state, to: festivalID)
-
-      case .accountChanged:
-        return changeAccount(state: &state)
-
-      case .packUpdated:
-        return trimSchedule(state: &state)
-
-      case .timetableAppeared:
-        guard state.festivalID != nil, !state.isSaving else { return .none }
-        return state.uncertainSave == nil ? loadSchedule(state: &state) : saveSchedule(state: &state)
-
-      case let .scheduleLoaded(festivalID, requestID, result):
-        return applyLoadedSchedule(state: &state, festivalID: festivalID, requestID: requestID, result: result)
-
-      case let .scheduleSaved(festivalID, save, result):
-        return applySavedSchedule(state: &state, festivalID: festivalID, save: save, result: result)
-
-      case .scheduleToastExpired:
-        state.isScheduleToastVisible = false
-        return .none
-      }
+      let effect = handleAction(
+        state: &state,
+        action: action
+      )
+      // 일정·시간표가 바뀌면 열린 상세 시트에 새 내용을 다른 효과보다 먼저 보낸다.
+      return .merge(refreshSetDetail(state: state), effect)
+    }
+    .ifLet(\.$setDetail, action: \.scope.setDetail) {
+      TimetableSetDetailFeature()
     }
   }
 }
 
 private extension TimetableFeature {
+  func handleAction(
+    state: inout State,
+    action: Action
+  ) -> Effect<Action> {
+    switch action {
+    case let .view(viewAction):
+      return handleViewAction(
+        state: &state,
+        action: viewAction
+      )
+
+    case let .scope(scopeAction):
+      return handleScopeAction(
+        state: &state,
+        action: scopeAction
+      )
+
+    case .delegate:
+      return .none
+
+    case let .festivalChanged(festivalID):
+      return changeFestival(state: &state, to: festivalID)
+
+    case .accountChanged:
+      return changeAccount(state: &state)
+
+    case .packUpdated:
+      return trimSchedule(state: &state)
+
+    case .timetableAppeared:
+      guard state.festivalID != nil, !state.isSaving else { return .none }
+      return state.uncertainSave == nil ? loadSchedule(state: &state) : saveSchedule(state: &state)
+
+    case let .scheduleLoaded(festivalID, requestID, result):
+      return applyLoadedSchedule(state: &state, festivalID: festivalID, requestID: requestID, result: result)
+
+    case let .scheduleSaved(festivalID, save, result):
+      return applySavedSchedule(state: &state, festivalID: festivalID, save: save, result: result)
+    }
+  }
+
   func handleViewAction(
     state: inout State,
     action: View
@@ -258,20 +275,14 @@ private extension TimetableFeature {
       return .none
 
     case let .setTapped(id):
-      state.selectedSetID = id
-      return hideScheduleToast(state: &state)
+      state.setDetail = state.setDetailContent(id: id, now: now).map {
+        TimetableSetDetailFeature.State(setID: id, content: $0)
+      }
+      return .none
 
     case let .zoomChanged(zoom):
       state.zoom = zoom
       return .none
-
-    case .setDetailDismissed:
-      state.selectedSetID = nil
-      state.isScheduleLimitReached = false
-      return hideScheduleToast(state: &state)
-
-    case .setScheduleToggled:
-      return toggleSchedule(state: &state)
 
     case .changeBannerTapped:
       return .send(.delegate(.showChanges))
@@ -281,6 +292,23 @@ private extension TimetableFeature {
 
     case .notifyTapped:
       return .send(.delegate(.requestNotification))
+    }
+  }
+
+  func handleScopeAction(
+    state: inout State,
+    action: ScopeAction
+  ) -> Effect<Action> {
+    switch action {
+    case .setDetail(.presented(.delegate(.scheduleToggled))):
+      return toggleSchedule(state: &state)
+
+    case .setDetail(.dismiss):
+      state.isScheduleLimitReached = false
+      return .none
+
+    case .setDetail:
+      return .none
     }
   }
 }

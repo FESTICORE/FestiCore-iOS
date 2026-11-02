@@ -19,7 +19,7 @@ extension TimetableFeature {
   ) -> Effect<Action> {
     guard festivalID != state.festivalID else { return .none }
     state.festivalID = festivalID
-    state.selectedSetID = nil
+    state.setDetail = nil
     return .concatenate(
       .cancel(id: CancelID.load),
       .cancel(id: CancelID.save),
@@ -47,23 +47,23 @@ extension TimetableFeature {
     state.needsSave = false
     state.lastClientAt = nil
     state.uncertainSave = nil
-    return hideScheduleToast(state: &state)
+    return .none
   }
 
   func toggleSchedule(state: inout State) -> Effect<Action> {
-    guard let id = state.selectedSetID, state.scheduleSync != .loading else { return .none }
+    guard let id = state.setDetail?.setID, state.scheduleSync != .loading else { return .none }
     let toast: Effect<Action>
     if state.mySetIDs.remove(id) != nil {
       state.isScheduleLimitReached = false
-      toast = hideScheduleToast(state: &state)
+      toast = .none
     } else {
-      guard state.setDetail(now: now)?.status != .ended else { return .none }
+      guard state.setDetailContent(id: id, now: now)?.detail.status != .ended else { return .none }
       guard state.mySetIDs.count < Self.scheduleLimit else {
         state.isScheduleLimitReached = true
         return .none
       }
       state.mySetIDs.insert(id)
-      toast = showScheduleToast(state: &state)
+      toast = .send(.scope(.setDetail(.presented(.async(.showScheduleToast)))))
     }
     guard state.scheduleSync == .ready else { return toast }
     return .merge(toast, saveSchedule(state: &state))
@@ -72,39 +72,22 @@ extension TimetableFeature {
   /// 팩에서 사라진 공연을 내 일정에서 뺀다. 없는 공연 ID는 서버가 거부한다.
   func trimSchedule(state: inout State) -> Effect<Action> {
     let validIDs = state.allSetIDs
-    var toast = Effect<Action>.none
-    if let selectedID = state.selectedSetID, !validIDs.contains(selectedID) {
-      state.selectedSetID = nil
-      toast = hideScheduleToast(state: &state)
+    if let selectedID = state.setDetail?.setID, !validIDs.contains(selectedID) {
+      state.setDetail = nil
     }
     let trimmed = state.mySetIDs.intersection(validIDs)
-    guard trimmed != state.mySetIDs else { return toast }
+    guard trimmed != state.mySetIDs else { return .none }
     state.mySetIDs = trimmed
-    guard state.scheduleSync == .ready else { return toast }
-    return .merge(toast, saveSchedule(state: &state))
+    guard state.scheduleSync == .ready else { return .none }
+    return saveSchedule(state: &state)
   }
 
-  /// 2초 뒤 토스트를 숨긴다. 다시 넣으면 처음부터 센다.
-  func showScheduleToast(state: inout State) -> Effect<Action> {
-    state.isScheduleToastVisible = true
-    return .run { [clock] send in
-      try await clock.sleep(for: .seconds(2))
-      await send(.scheduleToastExpired)
-    }
-    .cancellable(id: CancelID.toast, cancelInFlight: true)
-  }
-
-  /// 시트를 닫거나 공연을 빼면 토스트를 바로 숨긴다.
-  func hideScheduleToast(state: inout State) -> Effect<Action> {
-    state.isScheduleToastVisible = false
-    return .cancel(id: CancelID.toast)
-  }
-
-  /// 서버 결과가 방금 넣은 공연을 되돌렸으면 토스트를 숨긴다.
-  func hideScheduleToastIfReverted(state: inout State) -> Effect<Action> {
-    guard state.isScheduleToastVisible,
-          !(state.selectedSetID.map(state.mySetIDs.contains) ?? false) else { return .none }
-    return hideScheduleToast(state: &state)
+  /// 일정·시간표가 바뀌면 열린 상세 시트에 새 내용을 보낸다. 부모는 시트 상태를 직접 바꾸지 않는다.
+  func refreshSetDetail(state: State) -> Effect<Action> {
+    guard let setDetail = state.setDetail,
+          let content = state.setDetailContent(id: setDetail.setID, now: now),
+          content != setDetail.content else { return .none }
+    return .send(.scope(.setDetail(.presented(.inner(.contentChanged(content))))))
   }
 
   func loadSchedule(state: inout State) -> Effect<Action> {
@@ -155,7 +138,7 @@ extension TimetableFeature {
     case let .success(schedule):
       state.mySetIDs = Set(schedule.setIDs).intersection(state.allSetIDs)
       state.scheduleSync = .ready
-      return hideScheduleToastIfReverted(state: &state)
+      return .none
     case .failure:
       state.scheduleSync = .localOnly
       return .none
@@ -180,10 +163,7 @@ extension TimetableFeature {
       return needsSave ? .concatenate(delegate, saveSchedule(state: &state)) : delegate
     case let .failure(.stale(server)):
       state.mySetIDs = Set(server.setIDs).intersection(state.allSetIDs)
-      return .concatenate(
-        hideScheduleToastIfReverted(state: &state),
-        .send(.delegate(.scheduleSaved(festivalID: festivalID, setIDs: state.mySetIDs)))
-      )
+      return .send(.delegate(.scheduleSaved(festivalID: festivalID, setIDs: state.mySetIDs)))
     case .failure(.unauthorized):
       state.scheduleSync = .localOnly
       return .none

@@ -903,10 +903,19 @@ struct AppCoordinatorTests {
     #expect(state.shouldReserveTabBarSpace)
     #expect(!state.shouldHideTabBar)
 
-    state.timetableState.selectedSetID = "set-1"
+    state.timetableState.setDetail = TimetableSetDetailFeature.State(
+      setID: "set-1",
+      content: .init(
+        detail: TimetableSetDetail(artist: "라임", stage: "리벳 스테이지", time: "17:00–17:50 · 50분", status: .live, isScheduled: false),
+        interval: DateInterval(start: .distantPast, duration: 50 * 60),
+        source: "",
+        isScheduleLoading: false,
+        isScheduleLimitReached: false
+      )
+    )
     #expect(state.shouldReserveTabBarSpace)
     #expect(state.shouldHideTabBar)
-    state.timetableState.selectedSetID = nil
+    state.timetableState.setDetail = nil
     #expect(!state.shouldHideTabBar)
 
     state.selectedTab = .flag
