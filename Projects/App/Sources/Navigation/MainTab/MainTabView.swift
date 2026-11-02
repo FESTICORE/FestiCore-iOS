@@ -83,13 +83,7 @@ private extension MainTabView {
   }
 
   var profileView: ProfileView {
-    ProfileView(
-      store: store.scope(state: \.profileState, action: \.profile),
-      profile: store.authFlow.profile,
-      hasSession: store.authFlow.hasSession,
-      isLoading: store.authFlow.isLoading,
-      message: store.authFlow.message
-    )
+    ProfileView(store: store.scope(state: \.profileState, action: \.profile))
   }
 
   var timetableView: TimetableView {

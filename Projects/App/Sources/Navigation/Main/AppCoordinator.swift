@@ -138,6 +138,18 @@ struct AppCoordinator {
         userID: flow.profile?.user.id ?? flow.verifiedUserID ?? flow.lastVerifiedUserID
       )
     }
+
+    /// 마이 화면에 알릴 계정 상태. 바뀌면 `ProfileFeature`에 입력 액션으로 보낸다.
+    var profileAccount: ProfileAccount? {
+      guard case let .home(home) = self else { return nil }
+      let flow = home.authFlow
+      return ProfileAccount(
+        profile: flow.profile,
+        hasSession: flow.hasSession,
+        isLoading: flow.isLoading,
+        message: flow.message
+      )
+    }
   }
 
   struct FestivalSession: Equatable {
@@ -148,6 +160,14 @@ struct AppCoordinator {
   struct LoginSheetInput: Equatable {
     let context: LoginFeature.State.Context
     let flowMessage: String?
+  }
+
+  /// 마이 화면에 알릴 계정 상태
+  struct ProfileAccount: Equatable {
+    let profile: AuthProfile?
+    let hasSession: Bool
+    let isLoading: Bool
+    let message: String?
   }
 
   enum Action: ViewAction {
@@ -240,6 +260,15 @@ struct AppCoordinator {
         state = .home(home)
         return .none
       }
+    }
+    .onChange(of: \.profileAccount) { _, state in
+      guard let account = state.profileAccount else { return .none }
+      return .send(.scope(.home(.profile(.view(.accountChanged(
+        profile: account.profile,
+        hasSession: account.hasSession,
+        isLoading: account.isLoading,
+        message: account.message
+      ))))))
     }
     .onChange(of: \.festivalSession) { previous, state in
       let session = state.festivalSession
@@ -397,7 +426,6 @@ private extension AppCoordinator {
       if interruptedOperation == .withdraw {
         home.authFlow.message = "로그인이 만료되어 회원 탈퇴 결과를 확인할 수 없어요. 다시 로그인해 계정 상태를 확인해 주세요."
       }
-      home.profileState = .init()
       let clear = clearAccountData(&home)
       state = .home(home)
       return .merge(clear, .cancel(id: CancelID.accountOperation))
@@ -632,7 +660,6 @@ private extension AppCoordinator {
         var cleared = AuthFlow()
         cleared.generation = max(home.authFlow.generation, generation)
         home.authFlow = cleared
-        home.profileState = .init()
         let clear = clearAccountData(&home)
         state = .home(home)
         return clear
@@ -644,7 +671,6 @@ private extension AppCoordinator {
           cleared.message = "로그인이 만료되어 회원 탈퇴 결과를 확인할 수 없어요. 다시 로그인해 계정 상태를 확인해 주세요."
         }
         home.authFlow = cleared
-        home.profileState = .init()
         let clear = clearAccountData(&home)
         state = .home(home)
         return clear

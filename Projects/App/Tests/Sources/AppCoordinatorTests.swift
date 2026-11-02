@@ -451,6 +451,7 @@ struct AppCoordinatorTests {
       home.authFlow.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
       $0 = .home(home)
     }
+    await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
     guard case let .home(current) = store.state else {
       Issue.record("홈 상태가 아니에요")
       return
@@ -831,6 +832,7 @@ struct AppCoordinatorTests {
       home.authFlow.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
       $0 = .home(home)
     }
+    await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
   }
 
   @Test func tappingTabSwitchesAndRemembersPreviousTab() async {
@@ -873,7 +875,12 @@ struct AppCoordinatorTests {
     #expect(state.shouldReserveTabBarSpace)
 
     let store = TestStore(initialState: state) { MainTabCoordinator() }
-    await store.send(.profile(.view(.accountTapped(isSignedIn: true)))) {
+    await store.send(.profile(.view(.accountChanged(
+      profile: nil, hasSession: true, isLoading: false, message: nil
+    )))) {
+      $0.profileState.hasSession = true
+    }
+    await store.send(.profile(.view(.accountTapped))) {
       $0.profileState.isAccountPresented = true
     }
     #expect(store.state.shouldHideTabBar)
@@ -895,6 +902,30 @@ struct AppCoordinatorTests {
       state.profileState.destination = nil
       #expect(!state.shouldHideTabBar)
     }
+  }
+
+  @Test func accountChangesReachProfileAsInputAction() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.hasSession = true
+    home.profileState.hasSession = true
+    home.profileState.isAccountPresented = true
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    // 마이 화면 상태는 앱이 보낸 입력 액션으로만 바뀐다.
+    await store.send(.inner(.sessionExpired))
+    await store.receive(\.scope.home.profile.view.accountChanged)
+    await store.receive(\.scope.home.profile.view.accountDismissed)
+    guard case let .home(updated) = store.state else {
+      Issue.record("홈 상태가 아니다")
+      return
+    }
+    #expect(!updated.profileState.hasSession)
+    #expect(!updated.profileState.isAccountPresented)
   }
 
   @Test func timetableAndAuthModalsKeepTabBarSpace() {
@@ -1186,6 +1217,7 @@ struct AppCoordinatorTests {
     home.authFlow.generation = 1
     home.authFlow.accountOperationGeneration = 1
     home.authFlow.hasSession = true
+    home.profileState.hasSession = true
     home.profileState.isAccountPresented = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
@@ -1203,9 +1235,10 @@ struct AppCoordinatorTests {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
       home.authFlow.generation = 1
-      home.profileState = .init()
       $0 = .home(home)
     }
+    // 계정이 사라지면 앱이 입력 액션으로 알리고 마이 화면이 계정 시트를 닫는다.
+    await store.receive(\.scope.home.profile.view.accountDismissed)
     guard case let .home(signedOut) = store.state else { return }
     #expect(signedOut.selectedTab == .flag)
     #expect(!signedOut.profileState.isAccountPresented)
@@ -1215,6 +1248,7 @@ struct AppCoordinatorTests {
     var home = MainTabCoordinator.State(selectedTab: .my)
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.hasSession = true
+    home.profileState.hasSession = true
     home.profileState.isAccountPresented = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
@@ -1232,6 +1266,7 @@ struct AppCoordinatorTests {
       home.authFlow.isLoading = true
       $0 = .home(home)
     }
+    await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
     await store.receive(\.inner.myAccountFinished) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.accountOperationGeneration = nil
@@ -1240,6 +1275,7 @@ struct AppCoordinatorTests {
       home.authFlow.message = "회원 탈퇴에 실패했습니다. 다시 시도해 주세요."
       $0 = .home(home)
     }
+    await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
     guard case let .home(unchanged) = store.state else { return }
     #expect(unchanged.authFlow.profile?.user.id == "user-a")
     #expect(unchanged.profileState.isAccountPresented)
@@ -1250,6 +1286,7 @@ struct AppCoordinatorTests {
     home.authFlow.hasSession = true
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.verifiedUserID = "user-a"
+    home.profileState.hasSession = true
     home.profileState.isAccountPresented = true
     var board = FestivalFeature.State(selectedFestivalID: "festival")
     board.bookedUserID = "user-a"
@@ -1267,6 +1304,7 @@ struct AppCoordinatorTests {
 
     await store.send(.scope(.home(.delegate(.myWithdrawRequested))))
     await store.receive(\.inner.sessionExpired)
+    await store.receive(\.scope.home.profile.view.accountDismissed)
     guard case let .home(cleared) = store.state else { return }
     #expect(!cleared.authFlow.hasSession)
     #expect(cleared.authFlow.profile == nil)
@@ -1285,6 +1323,7 @@ struct AppCoordinatorTests {
     home.authFlow.hasSession = true
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.verifiedUserID = "user-a"
+    home.profileState.hasSession = true
     home.profileState.isAccountPresented = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
@@ -1303,9 +1342,10 @@ struct AppCoordinatorTests {
       home.authFlow = .init()
       home.authFlow.generation = 1
       home.authFlow.message = "로그인이 만료되어 회원 탈퇴 결과를 확인할 수 없어요. 다시 로그인해 계정 상태를 확인해 주세요."
-      home.profileState = .init()
       $0 = .home(home)
     }
+    // 계정이 사라지면 앱이 입력 액션으로 알리고 마이 화면이 계정 시트를 닫는다.
+    await store.receive(\.scope.home.profile.view.accountDismissed)
     guard case let .home(signedOut) = store.state else { return }
     #expect(!signedOut.authFlow.hasSession)
     #expect(signedOut.authFlow.profile == nil)
@@ -1527,6 +1567,7 @@ struct AppCoordinatorTests {
       home.authFlow.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
       $0 = .home(home)
     }
+    await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
     guard case let .home(unchanged) = store.state else { return }
     #expect(unchanged.authFlow.profile?.user.id == "user-a")
   }
@@ -1675,6 +1716,7 @@ struct AppCoordinatorTests {
     home.authFlow.accountOperationGeneration = 2
     home.authFlow.accountOperation = .withdraw
     home.authFlow.isLoading = true
+    home.profileState.hasSession = true
     home.profileState.isAccountPresented = true
     home.timetableState.mySetIDs = ["set-a"]
     home.flagState.snapshot = FestivalLiveBoardSnapshot(
@@ -1713,6 +1755,7 @@ struct AppCoordinatorTests {
     home.authFlow.hasSession = true
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.verifiedUserID = "user-a"
+    home.profileState.hasSession = true
     home.profileState.isAccountPresented = true
     let store = Store(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
@@ -2230,6 +2273,7 @@ struct AppCoordinatorTests {
       home.loginState.flowMessage = "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."
       $0 = .home(home)
     }
+    await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
     await store.send(.view(.dismissFlow)) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 2
@@ -2238,6 +2282,7 @@ struct AppCoordinatorTests {
       home.loginState.flowMessage = nil
       $0 = .home(home)
     }
+    await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
   }
 
   @Test func signUpSheetFollowsAuthFlowValues() {
@@ -2654,4 +2699,14 @@ private extension AnalyticsUseCase {
       reset: { calls.withValue { $0.append(.reset) } }
     )
   }
+}
+
+/// 앱이 마이 화면에 입력 액션으로 보낸 계정 상태를 기대 상태에 반영한다.
+private func syncProfileAccount(_ state: inout AppCoordinator.State) {
+  guard case var .home(home) = state else { return }
+  home.profileState.profile = home.authFlow.profile
+  home.profileState.hasSession = home.authFlow.hasSession
+  home.profileState.isLoading = home.authFlow.isLoading
+  home.profileState.message = home.authFlow.message
+  state = .home(home)
 }

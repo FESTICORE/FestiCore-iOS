@@ -11,50 +11,19 @@ import FestiCoreDesignKit
 import FestiCoreSharedUI
 import SwiftUI
 
+@ViewAction(for: ProfileFeature.self)
 public struct ProfileView: View {
   @Bindable public var store: StoreOf<ProfileFeature>
-  public let profile: AuthProfile?
-  public let hasSession: Bool
-  public let isLoading: Bool
-  public let message: String?
-  public let packs: [ProfileReceivedPack]
-  public let isBearerNavigationAvailable: Bool
-  public let isSearchAvailable: Bool
-  public let isPackNavigationAvailable: Bool
-  public let isLockScreenAvailable: Bool
-  public let isNoticeAvailable: Bool
 
-  public init(
-    store: StoreOf<ProfileFeature>,
-    profile: AuthProfile?,
-    hasSession: Bool,
-    isLoading: Bool,
-    message: String?,
-    packs: [ProfileReceivedPack] = [],
-    isBearerNavigationAvailable: Bool = false,
-    isSearchAvailable: Bool = false,
-    isPackNavigationAvailable: Bool = false,
-    isLockScreenAvailable: Bool = false,
-    isNoticeAvailable: Bool = false
-  ) {
+  public init(store: StoreOf<ProfileFeature>) {
     self.store = store
-    self.profile = profile
-    self.hasSession = hasSession
-    self.isLoading = isLoading
-    self.message = message
-    self.packs = packs
-    self.isBearerNavigationAvailable = isBearerNavigationAvailable
-    self.isSearchAvailable = isSearchAvailable
-    self.isPackNavigationAvailable = isPackNavigationAvailable
-    self.isLockScreenAvailable = isLockScreenAvailable
-    self.isNoticeAvailable = isNoticeAvailable
   }
 
   public var body: some View {
     VStack(spacing: .zero) {
       topBar
 
-      if !hasSession, let message, !message.isEmpty {
+      if !store.hasSession, let message = store.message, !message.isEmpty {
         Text(message)
           .festiCoreFont(.baseSubheadlineRegular)
           .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
@@ -65,8 +34,8 @@ public struct ProfileView: View {
 
       ScrollView {
         VStack(spacing: FestiCoreSpacing.paddingP24) {
-          FCBearerPrompt { store.send(.view(.bearerTapped)) }
-            .allowsHitTesting(isBearerNavigationAvailable)
+          FCBearerPrompt { send(.bearerTapped) }
+            .allowsHitTesting(store.isBearerNavigationAvailable)
 
           receivedPacks
           settings
@@ -87,11 +56,6 @@ public struct ProfileView: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
-    .onChange(of: hasSession) { wasSignedIn, isSignedIn in
-      if wasSignedIn && !isSignedIn && store.isAccountPresented {
-        store.send(.view(.accountDismissed))
-      }
-    }
   }
 }
 
@@ -103,12 +67,12 @@ public extension ProfileView {
     Color.clear
       .presentFCSheet(item: accountItem) { _ in
         ProfileAccountSheet(
-          profile: profile,
-          isLoading: isLoading,
-          message: message,
-          onRefresh: { store.send(.view(.refreshTapped)) },
-          onLogout: { store.send(.view(.logoutTapped)) },
-          onWithdraw: { store.send(.view(.withdrawTapped)) }
+          profile: store.profile,
+          isLoading: store.isLoading,
+          message: store.message,
+          onRefresh: { send(.refreshTapped) },
+          onLogout: { send(.logoutTapped) },
+          onWithdraw: { send(.withdrawTapped) }
         )
       }
   }
@@ -118,9 +82,9 @@ public extension ProfileView {
 private extension ProfileView {
   @ViewBuilder
   var topBar: some View {
-    if isSearchAvailable {
+    if store.isSearchAvailable {
       FCTopBar(.large, title: "마이")
-        .trailingAction { store.send(.view(.searchTapped)) }
+        .trailingAction { send(.searchTapped) }
     } else {
       FCTopBar(.large, title: "마이")
     }
@@ -131,19 +95,19 @@ private extension ProfileView {
       HStack {
         sectionTitle("내가 받은 팩")
         Spacer()
-        sectionTitle("\(packs.count)개")
+        sectionTitle("\(store.packs.count)개")
       }
       .padding(.horizontal, FestiCoreSpacing.paddingP4)
 
       VStack(spacing: .zero) {
-        if packs.isEmpty {
+        if store.packs.isEmpty {
           Text("받은 팩이 없습니다")
             .festiCoreFont(.baseBodyRegular)
             .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
             .frame(maxWidth: .infinity, minHeight: 68)
         } else {
-          ForEach(packs) { pack in
-            if pack.id != packs.first?.id {
+          ForEach(store.packs) { pack in
+            if pack.id != store.packs.first?.id {
               rowDivider
             }
             packRow(pack)
@@ -160,35 +124,35 @@ private extension ProfileView {
   func packRow(_ pack: ProfileReceivedPack) -> some View {
     let image: Image? = pack.imageName.map { Image($0) }
     return FCPackRow(name: pack.name, meta: pack.detail) {
-      store.send(.view(.packTapped(pack.id)))
+      send(.packTapped(pack.id))
     }
     .image(image)
     .hasUpdate(pack.hasUpdate)
-    .allowsHitTesting(isPackNavigationAvailable)
+    .allowsHitTesting(store.isPackNavigationAvailable)
   }
 
   var settings: some View {
     section("설정") {
-      FCListRow("알림") { store.send(.view(.notificationsTapped)) }
+      FCListRow("알림") { send(.notificationsTapped) }
       rowDivider
-      FCListRow("잠금화면") { store.send(.view(.lockScreenTapped)) }
-        .allowsHitTesting(isLockScreenAvailable)
+      FCListRow("잠금화면") { send(.lockScreenTapped) }
+        .allowsHitTesting(store.isLockScreenAvailable)
       rowDivider
       FCListRow("계정") {
-        store.send(.view(.accountTapped(isSignedIn: profile != nil || hasSession)))
+        send(.accountTapped)
       }
-      .value(profile?.user.nickname ?? (hasSession ? nil : "로그인"))
+      .value(store.profile?.user.nickname ?? (store.hasSession ? nil : "로그인"))
     }
   }
 
   var information: some View {
     section("정보") {
-      FCListRow("공지사항") { store.send(.view(.noticeTapped)) }
-        .allowsHitTesting(isNoticeAvailable)
+      FCListRow("공지사항") { send(.noticeTapped) }
+        .allowsHitTesting(store.isNoticeAvailable)
       rowDivider
-      FCListRow("이용약관") { store.send(.view(.termsTapped)) }
+      FCListRow("이용약관") { send(.termsTapped) }
       rowDivider
-      FCListRow("개인정보 처리방침") { store.send(.view(.privacyTapped)) }
+      FCListRow("개인정보 처리방침") { send(.privacyTapped) }
     }
   }
 
@@ -205,7 +169,7 @@ private extension ProfileView {
       get: { store.isAccountPresented ? .account : nil },
       set: {
         if $0 == nil {
-          store.send(.view(.accountDismissed))
+          send(.accountDismissed)
         }
       }
     )
