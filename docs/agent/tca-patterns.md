@@ -1,10 +1,37 @@
 # TCA 패턴
 
-`Tuist/Package.swift`는 Composable Architecture를 의존성으로 선언한다. `Projects/Feature/Home/Sources/HomeFeature.swift`가 Home 상태와 액션을 소유하고, `HomeView`는 `StoreOf<HomeFeature>`를 받는다. 새 기능에 TCA를 적용할 때 다음 순서로 작업한다.
+## 리듀서 구성
 
-1. 기능 상태, 사용자 동작, 외부 응답을 분리해 정의한다.
-2. 비동기 작업은 취소와 중복 요청 정책을 정한다.
-3. 앱이 필요한 의존성만 기능에 주입한다. 네트워크 클라이언트의 구체 구현을 View에 넣지 않는다.
-4. Reducer 테스트에서 상태 전이와 Effect 결과를 확인한다.
+`Projects/Feature/Login/Sources/Login/Reducer/LoginFeature.swift`가 기준 예시다.
 
-실제 기능이 추가되면 이 문서를 그 기능 코드와 함께 갱신한다.
+- 파일 순서: `init` → `@ObservableState State` → `Action` → 액션별 enum → `@Dependency` → `body` → `extension <Feature>`의 처리 함수.
+- `Action: ViewAction`은 `view`·`async`·`inner`·`delegate`로 나눈다. 자식 화면이나 알림이 있으면 `scope`, 바인딩이 있으면 `binding`을 추가한다. 액션 enum마다 `// MARK:`를 단다.
+  - `view`: 사용자 입력
+  - `async`: 효과를 시작하는 요청
+  - `inner`: 효과 결과와 내부 전이
+  - `delegate`: 부모에게 알리는 결과. 계약은 `Interface/Sources/<X>Delegate.swift`에 두고 `typealias DelegateAction = <X>Delegate`로 받는다.
+- `body`는 액션 종류만 나눈다(`case .view(let action): return handleViewAction(state: &state, action: action)`). 처리는 같은 파일 `extension <Feature>`의 `private func handleViewAction`·`handleAsyncAction`·`handleInnerAction`·`handleDelegateAction`(·`handleScopeAction`)에 둔다.
+- `.run` 효과는 async 핸들러에서 시작한다. view 핸들러는 중복 입력 가드와 상태 변경 뒤 `.send(.async(...))`로 넘긴다.
+- 취소·중복 요청 정책은 `CancelID`로 명시한다.
+
+## 화면과 리듀서
+
+- 한 화면에는 리듀서 하나와 View 하나를 둔다. 여러 화면이 리듀서 하나를 공유하거나, 같은 리듀서를 다른 화면으로 다시 push하지 않는다.
+- 시트·모달·알림으로 띄우는 화면은 `@Presents`로 들고 `.ifLet(\.$child, action: \.scope.child)`로 합친다.
+- 부모는 자식 상태를 직접 쓰지 않는다. 자식에 알릴 값은 자식의 view·inner 액션이나 공개 입력 액션으로 보내고, 자식의 결과는 delegate로 받는다.
+
+## 의존성
+
+- Feature 리듀서는 Domain UseCase와 시스템 의존성(`date`·`continuousClock`·`mainQueue`)만 `@Dependency`로 주입한다.
+- Service·Store·Client는 Domain UseCase로 감싼다. Feature나 App 코디네이터에서 직접 주입하지 않는다.
+
+## 화면 전용 값의 위치
+
+- 정렬·필터·개수 같은 파생 값은 State의 계산 속성이나 리듀서 파일의 `extension <Feature>.State`에 둔다.
+- 표시 모델 struct는 `<화면>/Model`에, 색·문구 매핑은 View의 `private extension`에 둔다.
+- 정적 함수만 모은 `<X>Presentation` 같은 헬퍼 enum이나, 이름만 UseCase인 순수 함수 파일을 Feature에 만들지 않는다.
+- DEBUG 샘플 데이터는 Tests 타깃에 둔다. `#Preview`는 `State()`나 간단한 초기값으로 만든다.
+
+## 테스트
+
+Reducer 테스트에서 상태 전이와 Effect 결과를 `TestStore`로 확인한다. async 단계도 `receive`로 확인한다.
