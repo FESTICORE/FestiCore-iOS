@@ -9,16 +9,28 @@ import ComposableArchitecture
 import Foundation
 import LoginInterface
 import Testing
+import Web
 @testable import Login
 
 struct SignUpFeatureTests {
-  @Test @MainActor func legalDetailTapAsksParentToOpenDocument() async {
-    let base = URL(string: "https://example.com/api/v1/legal/")
-    let store = TestStore(initialState: SignUpFeature.State(legalBaseURL: base)) { SignUpFeature() }
+  @Test @MainActor func legalDetailOpensWebAndKeepsDraftAfterClose() async {
+    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    state.nickname = "테스터"
+    state.acceptedServiceTerms = true
+    state.pushOptIn = true
+    let store = TestStore(initialState: state) { SignUpFeature() }
 
-    await store.send(.view(.legalDocumentTapped(.terms)))
-    await store.receive(.delegate(.legalDocumentRequested(.terms)))
-    #expect(store.state.legalURL(for: .terms)?.absoluteString == "https://example.com/api/v1/legal/terms")
+    await store.send(.view(.legalDocumentTapped(.terms))) {
+      $0.legalDocument = WebFeature.State(
+        url: URL(string: "https://example.com/api/v1/legal/terms")!,
+        title: "서비스 이용약관"
+      )
+    }
+    // Web을 닫으면 닉네임·약관 체크·알림 선택은 그대로다(TestStore가 나머지 상태 변화를 함께 확인한다).
+    await store.send(.scope(.legalDocument(.presented(.view(.closeTapped)))))
+    await store.receive(\.scope.legalDocument.presented.delegate.backToRoot) {
+      $0.legalDocument = nil
+    }
   }
 
   @Test @MainActor func legalDetailTapWithoutBaseURLDoesNothing() async {

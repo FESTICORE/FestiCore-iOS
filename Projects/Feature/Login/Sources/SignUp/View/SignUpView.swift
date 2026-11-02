@@ -10,6 +10,7 @@ import FestiCoreDesignKit
 import LoginInterface
 import SwiftUI
 import UIKit
+import Web
 
 /// Figma S14-2 가입 정보(닉네임·약관 동의)
 @ViewAction(for: SignUpFeature.self)
@@ -65,6 +66,9 @@ public struct SignUpView: View {
     }
     .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
       keyboardInset = 0
+    }
+    .fullScreenCover(item: $store.scope(state: \.legalDocument, action: \.scope.legalDocument)) { webStore in
+      WebView(store: webStore)
     }
   }
 }

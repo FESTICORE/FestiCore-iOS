@@ -8,8 +8,10 @@
 import ComposableArchitecture
 import Foundation
 import LoginInterface
+import Web
+import WebInterface
 
-/// 가입 정보(닉네임·약관 동의) 초안과 그 규칙. 제출·닫기는 부모가 처리하도록 delegate로 올린다.
+/// 가입 정보(닉네임·약관 동의) 초안과 그 규칙. 제출·닫기는 부모가 처리하도록 delegate로 올리고, 약관 상세는 앱 안 Web 화면으로 띄운다.
 @Reducer
 public struct SignUpFeature {
   public init() {}
@@ -38,6 +40,8 @@ public struct SignUpFeature {
     public var termsUpdateExhausted = false
     /// 약관 상세 기준 주소. 없으면 상세 링크를 숨기고 제출을 막는다.
     public let legalBaseURL: URL?
+    /// 가입 화면 위에 전체 화면으로 띄운 약관 상세
+    @Presents public var legalDocument: WebFeature.State?
 
     public init(legalBaseURL: URL? = nil) {
       self.legalBaseURL = legalBaseURL
@@ -138,7 +142,13 @@ public struct SignUpFeature {
   @CasePathable
   public enum Action: ViewAction, Equatable {
     case view(View)
+    case scope(ScopeAction)
     case delegate(SignUpDelegate)
+  }
+
+  @CasePathable
+  public enum ScopeAction: Equatable {
+    case legalDocument(PresentationAction<WebFeature.Action>)
   }
 
   @CasePathable
@@ -197,8 +207,9 @@ public struct SignUpFeature {
         return .none
 
       case let .view(.legalDocumentTapped(document)):
-        guard state.legalURL(for: document) != nil else { return .none }
-        return .send(.delegate(.legalDocumentRequested(document)))
+        guard let url = state.legalURL(for: document) else { return .none }
+        state.legalDocument = WebFeature.State(url: url, title: document.title)
+        return .none
 
       case .view(.submitTapped):
         let nickname = state.nickname.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -211,9 +222,24 @@ public struct SignUpFeature {
       case .view(.closeTapped):
         return .send(.delegate(.closeRequested))
 
-      case .delegate:
+      case .scope(.legalDocument(.presented(.delegate(.backToRoot)))):
+        state.legalDocument = nil
+        return .none
+
+      case .scope, .delegate:
         return .none
       }
+    }
+    .ifLet(\.$legalDocument, action: \.scope.legalDocument) { WebFeature() }
+  }
+}
+
+private extension LegalDocument {
+  /// 약관 상세 화면 제목. 가입 화면의 동의 항목 이름과 같다.
+  var title: String {
+    switch self {
+    case .terms: "서비스 이용약관"
+    case .privacy: "개인정보 수집 · 이용"
     }
   }
 }

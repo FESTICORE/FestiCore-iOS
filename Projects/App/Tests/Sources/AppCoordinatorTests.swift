@@ -2207,22 +2207,36 @@ struct AppCoordinatorTests {
     #expect(flow.signUp.legalBaseURL == AppCoordinatorView.configuredLegalBaseURL)
   }
 
-  @Test func signUpLegalDetailOpensDocumentURL() async {
-    let opened = LockIsolated<[URL]>([])
+  @Test func closingSignUpAlsoClosesLegalDocument() async {
     var home = MainTabCoordinator.State()
     home.authFlow.presentation = .onboarding
     home.authFlow.signUp = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
-      $0.openURL = OpenURLEffect { url in
-        opened.withValue { $0.append(url) }
-        return true
-      }
-    }
+    home.authFlow.signUp.nickname = "테스터"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
 
     await store.send(.scope(.home(.signUp(.view(.legalDocumentTapped(.privacy))))))
-    await store.receive(\.scope.home.signUp.delegate.legalDocumentRequested)
-    await store.finish()
-    #expect(opened.value == [URL(string: "https://example.com/api/v1/legal/privacy")!])
+    #expect(signUpState(store.state)?.legalDocument?.url == URL(string: "https://example.com/api/v1/legal/privacy"))
+
+    // 가입 화면을 닫으면 그 위의 약관 상세도 닫고 초안은 남긴다.
+    await store.send(.view(.dismissFlow))
+    #expect(signUpState(store.state)?.legalDocument == nil)
+    #expect(signUpState(store.state)?.nickname == "테스터")
+  }
+
+  @Test func leavingSignUpPresentationClosesLegalDocument() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.presentation = .onboarding
+    home.authFlow.signUp = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    store.exhaustivity = .off
+    await store.send(.scope(.home(.signUp(.view(.legalDocumentTapped(.terms))))))
+    guard case var .home(opened) = store.state else { Issue.record("홈 상태가 아니다"); return }
+    #expect(opened.authFlow.signUp.legalDocument != nil)
+
+    // 포그라운드 갱신·로그인 상실처럼 가입 화면이 다른 시트로 바뀌거나 사라지는 경로도 같은 속성을 거친다.
+    opened.authFlow.presentation = .retry
+    #expect(opened.authFlow.signUp.legalDocument == nil)
   }
 
   @Test func revokedLoginRestoredByForegroundIsRereadAsSignedOut() async {
@@ -2454,6 +2468,11 @@ private func eligibleProfile(id: String) -> AuthProfile {
 private struct EmptyFestivalCatalogService: FestivalCatalogService {
   func cachedFestivals() async throws -> [FestivalCatalogItem] { [] }
   func refresh() async throws -> [FestivalCatalogItem] { [] }
+}
+
+private func signUpState(_ state: AppCoordinator.State) -> SignUpFeature.State? {
+  guard case let .home(home) = state else { return nil }
+  return home.authFlow.signUp
 }
 
 private struct CancelledOAuthUseCase: OAuthUseCaseInterface {

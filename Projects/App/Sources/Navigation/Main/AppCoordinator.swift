@@ -19,7 +19,6 @@ struct AppCoordinator {
   @Dependency(\.authService) private var authService
   @Dependency(\.festivalBookedStore) private var bookedStore
   @Dependency(\.authSessionExpiryClient) private var authSessionExpiryClient
-  @Dependency(\.openURL) private var openURL
 
   private enum CancelID { case sessionExpiry, accountOperation }
 
@@ -46,7 +45,10 @@ struct AppCoordinator {
     var profile: AuthProfile? {
       didSet { syncSignUpSheet() }
     }
-    var presentation: Presentation?
+    var presentation: Presentation? {
+      // 가입 화면이 닫히는 모든 경로에서 그 위의 약관 상세도 닫는다.
+      didSet { if presentation != .onboarding { signUp.legalDocument = nil } }
+    }
     /// 가입 정보 초안(닉네임·약관·알림)
     var signUp = SignUpFeature.State(legalBaseURL: AppCoordinatorView.configuredLegalBaseURL)
     var isLoading = false {
@@ -707,11 +709,6 @@ private extension AppCoordinator {
           await send(.inner(.profileUpdated(generation: generation, .failure(ProfileFailure(error)))))
         }
       }
-
-    case let .home(.signUp(.delegate(.legalDocumentRequested(document)))):
-      guard case let .home(home) = state,
-            let url = home.authFlow.signUp.legalURL(for: document) else { return .none }
-      return .run { _ in await openURL(url) }
 
     case .home(.signUp(.delegate(.closeRequested))):
       return handleViewAction(state: &state, action: .dismissFlow)
