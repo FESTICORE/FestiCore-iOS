@@ -186,6 +186,39 @@ struct ProfileFeatureTests {
     }
   }
 
+  @Test(arguments: [true, false])
+  func closingNotificationSettingsStillSendsUnsavedChanges(viaBackButton: Bool) async {
+    let sent = LockIsolated<[[NotificationSettingsFeature.Kind: Bool]]>([])
+    var notifications = NotificationSettingsFeature.State()
+    notifications.settings = FestivalNotificationSettings(flagStatus: false, crewStatus: false)
+    notifications.isSaving = true
+    notifications.savingChanges = [.flagStatus: false]
+    notifications.pendingChanges = [.crewStatus: false]
+    var state = ProfileFeature.State()
+    state.destination = .notifications(notifications)
+    let store = TestStore(initialState: state) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.festivalNotificationSettingsUseCase = MockFestivalNotificationSettingsUseCase(
+        updateSettings: { changes in
+          sent.withValue { $0.append(changes) }
+          return FestivalNotificationSettings(flagStatus: false, crewStatus: false)
+        }
+      )
+    }
+
+    if viaBackButton {
+      await store.send(.destination(.presented(.notifications(.delegate(.backRequested))))) {
+        $0.destination = nil
+      }
+    } else {
+      // 뒤로 밀어 닫으면 내비게이션이 dismiss를 보낸다.
+      await store.send(.destination(.dismiss)) { $0.destination = nil }
+    }
+    await store.finish()
+    #expect(sent.value == [[.flagStatus: false, .crewStatus: false]])
+  }
+
   @Test func missingLegalConfigurationShowsDismissibleError() async {
     let store = TestStore(initialState: ProfileFeature.State()) {
       ProfileFeature(legalBaseURL: nil)

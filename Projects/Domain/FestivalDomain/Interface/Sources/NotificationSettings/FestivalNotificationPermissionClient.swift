@@ -17,7 +17,10 @@ public struct FestivalNotificationPermissionClient: Sendable {
 }
 
 extension FestivalNotificationPermissionClient: TestDependencyKey {
-  public static let testValue = Self(status: { .allowed })
+  public static let testValue = Self(status: {
+    reportIssue("festivalNotificationPermission.status 미등록")
+    return .notDetermined
+  })
 }
 
 public extension DependencyValues {

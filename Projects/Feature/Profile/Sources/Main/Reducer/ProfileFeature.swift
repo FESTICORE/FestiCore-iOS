@@ -112,6 +112,7 @@ public struct ProfileFeature {
   public typealias DelegateAction = ProfileDelegate
 
   @Dependency(\.festivalReceivedPackUseCase) private var receivedPackUseCase
+  @Dependency(\.festivalNotificationSettingsUseCase) private var notificationSettingsUseCase
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -275,8 +276,9 @@ extension ProfileFeature {
       return .none
 
     case .presented(.notifications(.delegate(.backRequested))):
+      let flush = flushNotificationChanges(state)
       state.destination = nil
-      return .none
+      return flush
 
     case .presented(.notifications):
       return .none
@@ -296,8 +298,17 @@ extension ProfileFeature {
       return .none
 
     case .dismiss:
-      return .none
+      // 뒤로 밀어 닫으면 자식 저장 효과가 취소되므로 남은 변경을 마이 화면 수명에서 보낸다.
+      return flushNotificationChanges(state)
     }
+  }
+
+  /// 알림 설정 화면에 남은 변경을 화면과 상관없이 끝까지 보낸다.
+  private func flushNotificationChanges(_ state: State) -> Effect<Action> {
+    guard case let .notifications(notifications) = state.destination,
+          !notifications.unsavedChanges.isEmpty else { return .none }
+    let changes = notifications.unsavedChanges
+    return .run { _ in _ = try? await notificationSettingsUseCase.updateSettings(changes) }
   }
 
   private func handleDelegateAction(

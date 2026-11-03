@@ -29,6 +29,7 @@ struct NotificationSettingsFeatureTests {
     await store.receive(\.inner.loaded) {
       $0.permission = .allowed
       $0.settings = settings
+      $0.lastConfirmed = settings
       $0.load = .loaded
     }
   }
@@ -36,11 +37,7 @@ struct NotificationSettingsFeatureTests {
   @Test func failedSaveReloadsServerValues() async {
     let server = LockIsolated(FestivalNotificationSettings())
     let attempts = LockIsolated(0)
-    var state = NotificationSettingsFeature.State()
-    state.permission = .allowed
-    state.settings = FestivalNotificationSettings()
-    state.load = .loaded
-    let store = TestStore(initialState: state) {
+    let store = TestStore(initialState: loadedState()) {
       NotificationSettingsFeature()
     } withDependencies: {
       $0.festivalNotificationSettingsUseCase = MockFestivalNotificationSettingsUseCase(
@@ -57,32 +54,64 @@ struct NotificationSettingsFeatureTests {
 
     await store.send(.view(.toggled(.packUpdates, false))) {
       $0.settings?.packUpdates = false
+      $0.savingChanges = [.packUpdates: false]
       $0.isSaving = true
     }
     await store.receive(\.async.save, [.packUpdates: false])
-    await store.receive(\.inner.saved) { $0.isSaving = false }
+    await store.receive(\.inner.saved) {
+      $0.isSaving = false
+      $0.savingChanges = [:]
+      $0.lastConfirmed = FestivalNotificationSettings(packUpdates: false)
+    }
     await store.send(.view(.toggled(.crewGather, false))) {
       $0.settings?.crewGather = false
+      $0.savingChanges = [.crewGather: false]
       $0.isSaving = true
     }
     await store.receive(\.async.save, [.crewGather: false])
     await store.receive(\.inner.saveFailed) {
       $0.isSaving = false
+      $0.savingChanges = [:]
+      $0.settings?.crewGather = true
       $0.message = "알림 설정을 저장하지 못했어요. 다시 시도해 주세요."
     }
     await store.receive(\.async.load)
-    await store.receive(\.inner.loaded) { $0.settings?.crewGather = true }
+    await store.receive(\.inner.loaded)
+  }
+
+  @Test func failedSaveAndReloadRestoreLastConfirmedSettings() async {
+    let store = TestStore(initialState: loadedState()) {
+      NotificationSettingsFeature()
+    } withDependencies: {
+      $0.festivalNotificationSettingsUseCase = MockFestivalNotificationSettingsUseCase(
+        permission: { .allowed },
+        settings: { throw URLError(.notConnectedToInternet) },
+        updateSettings: { _ in throw URLError(.notConnectedToInternet) }
+      )
+    }
+
+    await store.send(.view(.toggled(.homecoming, false))) {
+      $0.settings?.homecoming = false
+      $0.savingChanges = [.homecoming: false]
+      $0.isSaving = true
+    }
+    await store.receive(\.async.save)
+    await store.receive(\.inner.saveFailed) {
+      $0.isSaving = false
+      $0.savingChanges = [:]
+      $0.settings?.homecoming = true
+      $0.message = "알림 설정을 저장하지 못했어요. 다시 시도해 주세요."
+    }
+    await store.receive(\.async.load)
+    await store.receive(\.inner.loaded)
+    #expect(store.state.settings == FestivalNotificationSettings())
   }
 
   @Test func togglesWhileSavingAreSentAfterTheCurrentSave() async {
     let (gate, release) = AsyncStream.makeStream(of: Void.self)
     let sent = LockIsolated<[[NotificationSettingsFeature.Kind: Bool]]>([])
     let server = LockIsolated(FestivalNotificationSettings())
-    var state = NotificationSettingsFeature.State()
-    state.permission = .allowed
-    state.settings = FestivalNotificationSettings()
-    state.load = .loaded
-    let store = TestStore(initialState: state) {
+    let store = TestStore(initialState: loadedState()) {
       NotificationSettingsFeature()
     } withDependencies: {
       $0.festivalNotificationSettingsUseCase = MockFestivalNotificationSettingsUseCase(
@@ -97,6 +126,7 @@ struct NotificationSettingsFeatureTests {
 
     await store.send(.view(.toggled(.flagStatus, false))) {
       $0.settings?.flagStatus = false
+      $0.savingChanges = [.flagStatus: false]
       $0.isSaving = true
     }
     await store.receive(\.async.save, [.flagStatus: false])
@@ -108,50 +138,58 @@ struct NotificationSettingsFeatureTests {
       $0.settings?.homecoming = false
       $0.pendingChanges = [.crewStatus: false, .homecoming: false]
     }
+    #expect(store.state.unsavedChanges == [.flagStatus: false, .crewStatus: false, .homecoming: false])
     release.yield()
-    await store.receive(\.inner.saved) { $0.pendingChanges = [:] }
+    await store.receive(\.inner.saved) {
+      $0.pendingChanges = [:]
+      $0.savingChanges = [.crewStatus: false, .homecoming: false]
+      $0.lastConfirmed = FestivalNotificationSettings(flagStatus: false)
+    }
     await store.receive(\.async.save, [.crewStatus: false, .homecoming: false])
-    await store.receive(\.inner.saved) { $0.isSaving = false }
+    await store.receive(\.inner.saved) {
+      $0.isSaving = false
+      $0.savingChanges = [:]
+      $0.lastConfirmed = FestivalNotificationSettings(flagStatus: false, crewStatus: false, homecoming: false)
+    }
     #expect(sent.value == [[.flagStatus: false], [.crewStatus: false, .homecoming: false]])
   }
 
-  @Test func loadDuringSaveDoesNotOverwriteToggles() async {
+  @Test func loadStartedBeforeSaveIsCancelledSoItCannotRevertToggles() async {
     let (gate, release) = AsyncStream.makeStream(of: Void.self)
-    var state = NotificationSettingsFeature.State()
-    state.permission = .allowed
-    state.settings = FestivalNotificationSettings()
-    state.load = .loaded
-    let store = TestStore(initialState: state) {
+    let store = TestStore(initialState: loadedState()) {
       NotificationSettingsFeature()
     } withDependencies: {
       $0.festivalNotificationSettingsUseCase = MockFestivalNotificationSettingsUseCase(
         permission: { .allowed },
-        settings: { FestivalNotificationSettings() },
-        updateSettings: { _ in
+        settings: {
+          // 저장보다 늦게 끝나는 조회
           for await _ in gate { break }
-          return FestivalNotificationSettings(packUpdates: false)
-        }
+          return FestivalNotificationSettings()
+        },
+        updateSettings: { _ in FestivalNotificationSettings(packUpdates: false) }
       )
     }
 
+    await store.send(.view(.onAppear))
+    await store.receive(\.async.load)
     await store.send(.view(.toggled(.packUpdates, false))) {
       $0.settings?.packUpdates = false
+      $0.savingChanges = [.packUpdates: false]
       $0.isSaving = true
     }
     await store.receive(\.async.save)
-    await store.send(.view(.onAppear))
-    await store.receive(\.async.load)
-    await store.receive(\.inner.loaded)
-    #expect(store.state.settings?.packUpdates == false)
+    await store.receive(\.inner.saved) {
+      $0.isSaving = false
+      $0.savingChanges = [:]
+      $0.lastConfirmed = FestivalNotificationSettings(packUpdates: false)
+    }
     release.yield()
-    await store.receive(\.inner.saved) { $0.isSaving = false }
+    #expect(store.state.settings?.packUpdates == false)
   }
 
   @Test func deviceNotificationOffBlocksToggles() async {
-    var state = NotificationSettingsFeature.State()
+    var state = loadedState()
     state.permission = .denied
-    state.settings = FestivalNotificationSettings()
-    state.load = .loaded
     let store = TestStore(initialState: state) { NotificationSettingsFeature() }
 
     #expect(store.state.isDeviceNotificationOff)
@@ -174,5 +212,14 @@ struct NotificationSettingsFeatureTests {
       $0.permission = .notDetermined
       $0.load = .failed
     }
+  }
+
+  private func loadedState() -> NotificationSettingsFeature.State {
+    var state = NotificationSettingsFeature.State()
+    state.permission = .allowed
+    state.settings = FestivalNotificationSettings()
+    state.lastConfirmed = FestivalNotificationSettings()
+    state.load = .loaded
+    return state
   }
 }

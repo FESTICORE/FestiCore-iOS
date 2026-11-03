@@ -78,10 +78,12 @@ public extension DependencyValues {
 
 private struct UnimplementedDeviceNotificationSettingsService: DeviceNotificationSettingsService {
   func settings() async throws -> DeviceNotificationSettings {
+    reportIssue("deviceNotificationSettingsService.settings 미등록")
     throw TestDeviceRegistrationUnavailable()
   }
 
   func update(_: DeviceNotificationSettingsChange) async throws -> DeviceNotificationSettings {
+    reportIssue("deviceNotificationSettingsService.update 미등록")
     throw TestDeviceRegistrationUnavailable()
   }
 }

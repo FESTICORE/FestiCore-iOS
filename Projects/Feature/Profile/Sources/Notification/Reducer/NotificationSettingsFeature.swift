@@ -26,10 +26,19 @@ public struct NotificationSettingsFeature {
     public var isSaving = false
     /// 저장 중에 바뀌어 다음에 보낼 항목
     public var pendingChanges: [Kind: Bool] = [:]
+    /// 지금 서버에 보내는 중인 항목
+    public var savingChanges: [Kind: Bool] = [:]
+    /// 서버가 마지막으로 확인해 준 설정. 저장과 재조회가 모두 실패하면 이 값으로 되돌린다.
+    public var lastConfirmed: FestivalNotificationSettings?
 
     public init() {}
 
     /// 기기 설정에서 알림을 끄면 모든 토글을 꺼진 채로 보이고 바꿀 수 없다.
+    /// 화면을 닫을 때 서버에 아직 반영됐다고 볼 수 없는 변경
+    public var unsavedChanges: [Kind: Bool] {
+      savingChanges.merging(pendingChanges) { _, pending in pending }
+    }
+
     public var isDeviceNotificationOff: Bool {
       permission == .denied
     }
@@ -182,6 +191,7 @@ extension NotificationSettingsFeature {
       guard !state.isSaving, state.pendingChanges.isEmpty else { return .none }
       if let settings {
         state.settings = settings
+        state.lastConfirmed = settings
         state.load = .loaded
       } else if state.settings == nil {
         state.load = .failed
@@ -190,6 +200,8 @@ extension NotificationSettingsFeature {
 
     case .saved(let settings):
       state.isSaving = false
+      state.savingChanges = [:]
+      state.lastConfirmed = settings
       // 아직 보내지 않은 변경은 화면에 남겨 두고 이어서 보낸다.
       var merged = settings
       for (kind, isOn) in state.pendingChanges { merged[kind] = isOn }
@@ -197,9 +209,11 @@ extension NotificationSettingsFeature {
       return saveNextIfIdle(&state)
 
     case .saveFailed:
-      // 어느 변경까지 반영됐는지 알 수 없으니 서버 값을 다시 읽는다.
+      // 어느 변경까지 반영됐는지 알 수 없으니 마지막으로 확인한 값으로 되돌리고 서버 값을 다시 읽는다.
       state.isSaving = false
+      state.savingChanges = [:]
       state.pendingChanges = [:]
+      if let confirmed = state.lastConfirmed { state.settings = confirmed }
       state.message = "알림 설정을 저장하지 못했어요. 다시 시도해 주세요."
       return .send(.async(.load))
     }
@@ -210,7 +224,9 @@ extension NotificationSettingsFeature {
     guard !state.isSaving, !state.pendingChanges.isEmpty else { return .none }
     let changes = state.pendingChanges
     state.pendingChanges = [:]
+    state.savingChanges = changes
     state.isSaving = true
-    return .send(.async(.save(changes)))
+    // 저장보다 늦게 끝난 조회가 방금 바꾼 토글을 되돌리지 않게 진행 중인 조회를 멈춘다.
+    return .concatenate(.cancel(id: CancelID.load), .send(.async(.save(changes))))
   }
 }
