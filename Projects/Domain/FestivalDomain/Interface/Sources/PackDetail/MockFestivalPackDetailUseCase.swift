@@ -35,10 +35,20 @@ public struct MockFestivalPackDetailUseCase: FestivalPackDetailUseCaseInterface 
       reportIssue("festivalPackDetailUseCase.deletePack 미등록")
       throw FestivalPackError.notRegistered
     },
-    checklist: @escaping @Sendable (String) -> FestivalChecklist = { _ in FestivalChecklist() },
-    saveChecklist: @escaping @Sendable (FestivalChecklist, String) -> Void = { _, _ in },
-    autoDownloadOnWiFi: @escaping @Sendable () -> Bool = { true },
-    setAutoDownloadOnWiFi: @escaping @Sendable (Bool) -> Void = { _ in }
+    checklist: @escaping @Sendable (String) -> FestivalChecklist = { _ in
+      reportIssue("festivalPackDetailUseCase.checklist 미등록")
+      return FestivalChecklist()
+    },
+    saveChecklist: @escaping @Sendable (FestivalChecklist, String) -> Void = { _, _ in
+      reportIssue("festivalPackDetailUseCase.saveChecklist 미등록")
+    },
+    autoDownloadOnWiFi: @escaping @Sendable () -> Bool = {
+      reportIssue("festivalPackDetailUseCase.autoDownloadOnWiFi 미등록")
+      return false
+    },
+    setAutoDownloadOnWiFi: @escaping @Sendable (Bool) -> Void = { _ in
+      reportIssue("festivalPackDetailUseCase.setAutoDownloadOnWiFi 미등록")
+    }
   ) {
     packDetailHandler = packDetail
     packChangesHandler = packChanges

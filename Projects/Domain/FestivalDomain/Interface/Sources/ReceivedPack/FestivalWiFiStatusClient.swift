@@ -17,7 +17,10 @@ public struct FestivalWiFiStatusClient: Sendable {
 }
 
 extension FestivalWiFiStatusClient: TestDependencyKey {
-  public static let testValue = Self(isOnWiFi: { false })
+  public static let testValue = Self(isOnWiFi: {
+    reportIssue("festivalWiFiStatus.isOnWiFi 미등록")
+    return false
+  })
 }
 
 public extension DependencyValues {

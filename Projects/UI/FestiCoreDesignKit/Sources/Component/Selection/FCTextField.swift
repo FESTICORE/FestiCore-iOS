@@ -13,6 +13,7 @@ public struct FCTextField: View {
   private var placeholder: String
   private(set) var label: String?
   private(set) var maxLength: Int?
+  private(set) var counter: String?
   private(set) var helper: String?
   private(set) var error: String?
   @FocusState private var isFocused: Bool
@@ -29,7 +30,7 @@ public struct FCTextField: View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
       if let label {
         FCFieldLabel(label)
-          .counter(maxLength.map { "\(text.count) / \($0)" })
+          .counter(counter ?? maxLength.map { "\(text.count) / \($0)" })
       }
       field
       if let message = error ?? helper {
@@ -106,6 +107,13 @@ public extension FCTextField {
   func maxLength(_ maxLength: Int?) -> Self {
     var copy = self
     copy.maxLength = maxLength
+    return copy
+  }
+
+  /// 라벨 오른쪽 글자 수 문구를 직접 지정한 사본을 돌려준다. 입력을 자르지 않고 `maxLength` 표시보다 우선한다.
+  func counter(_ counter: String?) -> Self {
+    var copy = self
+    copy.counter = counter
     return copy
   }
 

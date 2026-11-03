@@ -33,7 +33,7 @@ public struct NicknameEditView: View {
         placeholder: "닉네임"
       )
       .label("닉네임")
-      .maxLength(AuthNicknameRule.maxLength)
+      .counter(AuthNicknameRule.counterText(store.nickname))
       .helper("\(AuthNicknameRule.lengthRange.lowerBound)~\(AuthNicknameRule.maxLength)자로 입력해 주세요")
       .error(store.errorMessage)
       FCButton(store.isSaving ? "저장하는 중" : "저장") { send(.saveTapped) }
@@ -43,6 +43,8 @@ public struct NicknameEditView: View {
     }
     .padding(.horizontal, FestiCoreSpacing.paddingP20)
     .padding(.bottom, FestiCoreSpacing.paddingP24)
+    // 저장 중에 시트를 닫으면 결과를 보여 줄 곳이 없어 닫기를 막는다.
+    .fcSheetDismissDisabled(store.isSaving)
   }
 }
 

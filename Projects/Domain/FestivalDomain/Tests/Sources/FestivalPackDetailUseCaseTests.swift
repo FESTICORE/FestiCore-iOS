@@ -71,6 +71,37 @@ struct FestivalPackDetailUseCaseTests {
     await #expect(throws: FestivalPackError.retryLater) { try await useCase.updatePack(festivalID: "fst_a") }
   }
 
+  @Test(arguments: [
+    URLError(.notConnectedToInternet) as any Error,
+    POSIXError(.ECONNRESET),
+    PackSyncError.timeout
+  ])
+  func updatePackReportsOfflineForTransportFailures(error: any Error) async {
+    let service = MutablePackService(packs: [detailPack(version: 12)])
+    service.syncError = error
+    let useCase = withDependencies {
+      $0.packSyncService = service
+      $0.festivalCatalogService = DetailCatalogService(items: [])
+    } operation: {
+      FestivalPackDetailUseCaseImpl()
+    }
+
+    await #expect(throws: FestivalPackError.offline) { try await useCase.updatePack(festivalID: "fst_a") }
+  }
+
+  @Test func updatePackKeepsOtherSyncErrors() async {
+    let service = MutablePackService(packs: [detailPack(version: 12)])
+    service.syncError = PackSyncError.invalidMessage
+    let useCase = withDependencies {
+      $0.packSyncService = service
+      $0.festivalCatalogService = DetailCatalogService(items: [])
+    } operation: {
+      FestivalPackDetailUseCaseImpl()
+    }
+
+    await #expect(throws: PackSyncError.invalidMessage) { try await useCase.updatePack(festivalID: "fst_a") }
+  }
+
   @Test func deleteKeepsChecklistAndSettingsInLocalStore() async throws {
     let service = MutablePackService(packs: [detailPack(version: 12)])
     let saved = LockIsolated<[String: FestivalChecklist]>([:])

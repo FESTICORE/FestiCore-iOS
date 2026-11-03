@@ -104,11 +104,7 @@ extension NicknameEditFeature {
   ) -> Effect<Action> {
     switch action {
     case .nicknameChanged(let nickname):
-      // 앞뒤 공백을 뺀 길이가 넘칠 때만 잘라 단어 사이 공백 입력은 막지 않는다.
-      let trimmed = AuthNicknameRule.trimmed(nickname)
-      state.nickname = trimmed.count > AuthNicknameRule.maxLength
-        ? String(trimmed.prefix(AuthNicknameRule.maxLength))
-        : nickname
+      state.nickname = AuthNicknameRule.limited(nickname)
       state.errorMessage = nil
       return .none
 
