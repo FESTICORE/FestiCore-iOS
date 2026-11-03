@@ -33,4 +33,14 @@ extension FCAlertState where Action == FCAlertAction {
       cancelTitle: "닫기"
     )
   }
+
+  /// 보내지 못한 변경이 남은 채로 기수 보드를 닫을 때
+  static func bearerClosePending(count: Int) -> FCAlertState<FCAlertAction> {
+    .alert(
+      title: "아직 보내지 못한 변경이 \(count)건 있어요",
+      message: "닫아도 이 기기에 남겨 두고 연결되면 자동으로 보내요.",
+      confirmTitle: "닫기",
+      cancelTitle: "계속 보기"
+    )
+  }
 }

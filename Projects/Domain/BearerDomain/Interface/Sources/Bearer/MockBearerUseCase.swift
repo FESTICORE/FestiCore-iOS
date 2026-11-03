@@ -49,6 +49,24 @@ public struct MockBearerUseCase: BearerUseCaseInterface {
     try await repository.sendStatus(flagID: flagID, request: request)
   }
 
+  public func enqueueStatus(flagID: String, request: BearerStatusRequest) async {
+    reportIssue("\(dependencyName) 미등록")
+  }
+
+  public func pendingStatus(flagID: String) async -> [BearerStatusRequest] {
+    reportIssue("\(dependencyName) 미등록")
+    return []
+  }
+
+  public func statusEvents(flagID: String) async -> AsyncStream<BearerOutboxEvent> {
+    reportIssue("\(dependencyName) 미등록")
+    return AsyncStream { $0.finish() }
+  }
+
+  public func retryPendingStatus() async {
+    reportIssue("\(dependencyName) 미등록")
+  }
+
   public func inviteCoBearer(flagID: String) async throws -> BearerInvite {
     try await repository.inviteCoBearer(flagID: flagID)
   }

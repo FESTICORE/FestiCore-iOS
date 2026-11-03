@@ -24,6 +24,10 @@ struct BearerUseCaseStub: BearerUseCaseInterface {
     return BearerStatusRequest(change: change, idempotencyKey: "", clientAt: Date(timeIntervalSince1970: 0))
   }
   var sendStatus: @Sendable (String, BearerStatusRequest) async throws -> BearerFlagStatus = { _, _ in try unexpected() }
+  var enqueueStatus: @Sendable (String, BearerStatusRequest) async -> Void = { _, _ in Issue.record("enqueueStatus 미주입") }
+  var pendingStatus: @Sendable (String) async -> [BearerStatusRequest] = { _ in [] }
+  var statusEvents: @Sendable (String) async -> AsyncStream<BearerOutboxEvent> = { _ in AsyncStream { _ in } }
+  var retryPendingStatus: @Sendable () async -> Void = {}
   var inviteCoBearer: @Sendable (String) async throws -> BearerInvite = { _ in try unexpected() }
   var removeCoBearer: @Sendable (String, String) async throws -> Void = { _, _ in try unexpected() }
 
@@ -40,6 +44,10 @@ struct BearerUseCaseStub: BearerUseCaseInterface {
   func sendStatus(flagID: String, request: BearerStatusRequest) async throws -> BearerFlagStatus {
     try await sendStatus(flagID, request)
   }
+  func enqueueStatus(flagID: String, request: BearerStatusRequest) async { await enqueueStatus(flagID, request) }
+  func pendingStatus(flagID: String) async -> [BearerStatusRequest] { await pendingStatus(flagID) }
+  func statusEvents(flagID: String) async -> AsyncStream<BearerOutboxEvent> { await statusEvents(flagID) }
+  func retryPendingStatus() async { await retryPendingStatus() }
   func inviteCoBearer(flagID: String) async throws -> BearerInvite { try await inviteCoBearer(flagID) }
   func removeCoBearer(flagID: String, userID: String) async throws { try await removeCoBearer(flagID, userID) }
 }

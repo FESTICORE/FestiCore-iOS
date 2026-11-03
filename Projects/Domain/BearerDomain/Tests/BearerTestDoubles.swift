@@ -99,14 +99,18 @@ actor RecordingClient: FestiCoreNetworkClient {
 actor StubAuthService: AuthService {
   let loggedIn: Bool
   let sessionID = UUID()
+  private(set) var userID: String?
 
-  init(loggedIn: Bool = true) {
+  init(loggedIn: Bool = true, userID: String? = "usr_me") {
     self.loggedIn = loggedIn
+    self.userID = userID
   }
+
+  func setUserID(_ userID: String?) { self.userID = userID }
 
   var isLoggedIn: Bool { loggedIn }
   var refreshToken: String? { nil }
-  var currentUserID: String? { nil }
+  var currentUserID: String? { userID }
   var authenticatedSessionID: UUID? { loggedIn ? sessionID : nil }
   var hasPendingLocalClear: Bool { false }
   var hasUnconfirmedRevocation: Bool { false }
