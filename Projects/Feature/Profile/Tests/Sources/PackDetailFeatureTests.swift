@@ -144,7 +144,7 @@ struct PackDetailFeatureTests {
   @Test(arguments: [
     (FestivalPackError.retryLater as any Error, PackDetailFeature.UpdateFailure.retryLater,
      "지금은 받는 사람이 많아요. 잠시 후 다시 시도해 주세요."),
-    (URLError(.notConnectedToInternet), .offline,
+    (FestivalPackError.offline, .offline,
      "인터넷에 연결되어 있지 않아요. 연결을 확인한 뒤 다시 시도해 주세요."),
     (FestivalPackError.invalidResponse, .other, "업데이트를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.")
   ])

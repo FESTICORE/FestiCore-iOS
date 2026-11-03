@@ -2,20 +2,6 @@ import CryptoKit
 import Foundation
 import FestiCorePackInterface
 
-public enum PackSyncError: Error, Sendable, Equatable {
-  case unconfigured
-  case invalidFestivalID
-  case invalidEndpoint
-  case invalidMessage
-  case invalidPack
-  case invalidChunk
-  case timeout
-  case packTooLarge
-  /// 응답을 기다리는 동안 사용자가 팩을 지웠다.
-  case packDeleted
-  case server(String)
-}
-
 struct PackCache: Sendable {
   private let directory: URL
   private static let maxBytes = 8 * 1024 * 1024
