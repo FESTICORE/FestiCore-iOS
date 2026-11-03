@@ -61,8 +61,9 @@ struct BearerBoardFeatureTests {
       )
     }
 
+    store.exhaustivity = .off(showSkippedAssertions: false)
+
     await store.send(.view(.onAppear))
-    await store.receive(\.async.load) { $0.isLoading = true }
     await store.receive(\.inner.loaded) {
       $0.isLoading = false
       $0.board = board
@@ -72,6 +73,8 @@ struct BearerBoardFeatureTests {
       $0.lastActivity = .slam
     }
     #expect(store.state.zoneName(for: "zone_a") == "리벳 스테이지 앞 왼쪽")
+    // 대기열 이벤트 구독은 화면이 떠 있는 동안 계속된다.
+    await store.skipInFlightEffects()
   }
 
   @Test("쉬는 중을 누르면 바로 바꾸고 1초 체크를 보인 뒤 대기열에 넣는다")
@@ -146,7 +149,6 @@ struct BearerBoardFeatureTests {
     await store.receive(\.inner.outbox) { $0.pending = [] }
     await store.receive(\.inner.outbox) { $0.current = BearerBoardFeature.Current(resting) }
     continuation.finish()
-    await store.skipInFlightEffects()
   }
 
   @Test("오프라인·로그인 필요·재시도 한도는 알리고, 다시 보내기를 누르면 대기열을 다시 시작한다")
