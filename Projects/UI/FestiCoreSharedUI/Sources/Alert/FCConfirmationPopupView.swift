@@ -9,7 +9,7 @@ import FestiCoreAnimation
 import FestiCoreDesignKit
 import SwiftUI
 
-/// 딤 배경 위에 다이얼로그를 띄운다. 딤과 다이얼로그가 제자리에서 함께 나타나고 사라진다.
+/// 딤 배경 위에 다이얼로그를 띄운다. 딤이 밝아지며 다이얼로그가 아래에서 올라오고, 닫힐 때는 함께 사라진다.
 public struct FCDialogOverlay: View {
   @State private var isContentVisible = false
   /// 첫 입력을 처리했는지. 닫히는 동안 늦게 들어온 탭이 동작을 다시 실행하지 않게 한다.
@@ -53,7 +53,7 @@ public struct FCDialogOverlay: View {
         handledOnce(item),
         onDismiss: onDismiss
       )
-      // 아래에서 밀려 올라오지 않고 제자리에서 나타난다. 뒤 시트와 함께 움직이는 것처럼 보이지 않게 한다.
+      .offset(y: isContentVisible ? 0 : Metric.appearOffset)
       .opacity(isContentVisible ? 1 : 0)
     }
     .allowsHitTesting(!isHandled)
@@ -67,6 +67,11 @@ public struct FCDialogOverlay: View {
 }
 
 private extension FCDialogOverlay {
+  enum Metric {
+    /// 다이얼로그가 올라오기 시작하는 아래쪽 거리.
+    static let appearOffset: CGFloat = 120
+  }
+
   /// 버튼 동작이 한 번만 실행되도록 감싼다.
   func handledOnce(_ item: FCDialogItem) -> FCDialogItem {
     FCDialogItem(
