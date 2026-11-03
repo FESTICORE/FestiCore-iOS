@@ -32,7 +32,7 @@ public struct FestivalPackDetailUseCaseImpl: FestivalPackDetailUseCaseInterface 
     let result: PackSyncResult
     do {
       result = try await packService.sync(for: festivalID)
-    } catch where Self.isOffline(error) {
+    } catch where PackSyncError.isTransportFailure(error) {
       throw FestivalPackError.offline
     }
     switch result {
@@ -81,25 +81,6 @@ public struct FestivalPackDetailUseCaseImpl: FestivalPackDetailUseCaseInterface 
       return FestivalPackDetail(pack: pack)
     }
     return dto.toDomain(pack: pack)
-  }
-
-  /// 웹소켓 연결·전송 실패(URLError·POSIX)와 응답 시간 초과를 오프라인으로 본다.
-  static func isOffline(_ error: any Error) -> Bool {
-    if let syncError = error as? PackSyncError { return syncError == .timeout }
-    let nsError = error as NSError
-    switch nsError.domain {
-    case NSURLErrorDomain:
-      return [
-        NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost, NSURLErrorCannotConnectToHost,
-        NSURLErrorCannotFindHost, NSURLErrorTimedOut, NSURLErrorDNSLookupFailed,
-        NSURLErrorDataNotAllowed, NSURLErrorInternationalRoamingOff
-      ].contains(nsError.code)
-    case NSPOSIXErrorDomain:
-      return [ENETDOWN, ENETUNREACH, ECONNRESET, ECONNABORTED, ENOTCONN, ECONNREFUSED, ETIMEDOUT, EHOSTUNREACH, EPIPE]
-        .contains(Int32(nsError.code))
-    default:
-      return false
-    }
   }
 
 }
