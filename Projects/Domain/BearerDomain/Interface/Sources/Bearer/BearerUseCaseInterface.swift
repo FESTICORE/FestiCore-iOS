@@ -25,7 +25,6 @@ public protocol BearerUseCaseInterface: Sendable {
   func enqueueStatus(flagID: String, request: BearerStatusRequest) async
   func pendingStatus(flagID: String) async -> [BearerStatusRequest]
   func statusEvents(flagID: String) async -> AsyncStream<BearerOutboxEvent>
-  /// 멈춘 전송을 다시 시작한다.
   func retryPendingStatus() async
   func inviteCoBearer(flagID: String) async throws -> BearerInvite
   func removeCoBearer(flagID: String, userID: String) async throws
