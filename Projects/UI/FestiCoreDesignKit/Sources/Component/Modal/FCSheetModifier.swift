@@ -88,6 +88,8 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
     GeometryReader { geometry in
       content
         .onChange(of: item) { oldValue, newValue in
+          // 닫히거나 다른 아이템으로 바뀌면 이전 콘텐츠가 남긴 닫기 막기를 풀어 다음 시트가 닫히게 한다.
+          isDismissDisabled = false
           let wasDismissing = pendingDismissal != nil
           cancelPendingDismissal()
           if newValue != nil, oldValue == nil || wasDismissing {
@@ -108,6 +110,8 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
                 .onTapGesture { if !isDismissDisabled { dismiss() } }
                 .accessibilityLabel("닫기")
                 .accessibilityAddTraits(.isButton)
+                // 닫기가 막혀 있으면 VoiceOver에도 닫기 버튼을 알리지 않는다.
+                .accessibilityHidden(isDismissDisabled)
             }
             sheet(geometry: geometry)
           }

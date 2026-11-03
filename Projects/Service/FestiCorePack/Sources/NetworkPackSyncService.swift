@@ -126,7 +126,7 @@ public actor NetworkPackSyncService: PackSyncService {
           try? await Task.sleep(nanoseconds: backoff.nextDelayNanoseconds())
           continue
         }
-        guard isTransportFailure(error) else {
+        guard PackSyncError.isTransportFailure(error) else {
           continuation.finish(throwing: error)
           return
         }
@@ -236,25 +236,6 @@ public actor NetworkPackSyncService: PackSyncService {
     let saved = try cache.save(updated)
     committedGeneration[updated.festivalID] = generation
     return saved == updated ? .updated(saved) : .notModified(saved)
-  }
-
-  private func isTransportFailure(_ error: Error) -> Bool {
-    if let syncError = error as? PackSyncError, syncError == .timeout { return true }
-    if let urlError = error as? URLError {
-      switch urlError.code {
-      case .notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost,
-           .cannotFindHost, .timedOut, .dnsLookupFailed, .internationalRoamingOff,
-           .dataNotAllowed, .callIsActive, .badServerResponse:
-        return true
-      default:
-        return false
-      }
-    }
-    let nsError = error as NSError
-    guard nsError.domain == NSPOSIXErrorDomain else { return false }
-    return [ENETDOWN, ENETUNREACH, ECONNRESET, ECONNABORTED, ENOTCONN,
-            ECONNREFUSED, ETIMEDOUT, EHOSTUNREACH, EPIPE]
-      .contains(Int32(nsError.code))
   }
 
   private func endpoint() throws -> URL {
