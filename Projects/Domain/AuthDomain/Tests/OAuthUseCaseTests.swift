@@ -92,5 +92,6 @@ private actor RecordingAuthUseCase: AuthUseCaseInterface {
   func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser {
     throw AuthDomainError.configurationMissing
   }
+  func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func withdraw() async throws {}
 }

@@ -97,11 +97,13 @@ public struct FestivalLiveBoardSnapshot: Equatable, Sendable {
   public let directoryFlags: [Flag]
   /// 이 기기가 라이브 상태를 마지막으로 확인한 시각. 304로 이전 응답을 재사용해도 새로 기록한다.
   public let receivedAt: Date?
+  /// 이 축제에서 내가 기수인 깃발 ID(`me.bearerOf`)
+  public let bearerFlagIDs: [String]
 
   public init(
     festivalID: String, activeFlags: [Flag], followedFlags: [Flag], crew: Crew?,
     serverAt: Date? = nil, pinnedFlagID: String? = nil, directoryFlags: [Flag] = [],
-    receivedAt: Date? = nil
+    receivedAt: Date? = nil, bearerFlagIDs: [String] = []
   ) {
     self.festivalID = festivalID
     self.activeFlags = activeFlags
@@ -111,6 +113,7 @@ public struct FestivalLiveBoardSnapshot: Equatable, Sendable {
     self.pinnedFlagID = pinnedFlagID
     self.directoryFlags = directoryFlags
     self.receivedAt = receivedAt
+    self.bearerFlagIDs = bearerFlagIDs
   }
 }
 

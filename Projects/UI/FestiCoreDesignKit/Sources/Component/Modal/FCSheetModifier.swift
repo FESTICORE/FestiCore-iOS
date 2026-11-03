@@ -19,6 +19,22 @@ public extension EnvironmentValues {
   }
 }
 
+/// 시트 안 콘텐츠가 딤 탭·아래로 끌기로 닫히지 않게 막을 때 올리는 값
+public struct FCSheetDismissDisabledKey: PreferenceKey {
+  public static let defaultValue = false
+
+  public static func reduce(value: inout Bool, nextValue: () -> Bool) {
+    value = value || nextValue()
+  }
+}
+
+public extension View {
+  /// 참이면 이 뷰를 담은 FC 시트를 딤 탭이나 아래로 끌어서 닫을 수 없다. 저장 중처럼 잠깐 막을 때 쓴다.
+  func fcSheetDismissDisabled(_ isDisabled: Bool) -> some View {
+    preference(key: FCSheetDismissDisabledKey.self, value: isDisabled)
+  }
+}
+
 private struct FCSheetDismissalDelayKey: EnvironmentKey {
   static let defaultValue = Metric.mediumDuration
 }
@@ -52,6 +68,7 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
   @State private var dismissOffset: CGFloat = 0
   @State private var isDragging = false
   @State private var pendingDismissal: DispatchWorkItem?
+  @State private var isDismissDisabled = false
 
   public init(
     item: Binding<Item?>,
@@ -71,6 +88,8 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
     GeometryReader { geometry in
       content
         .onChange(of: item) { oldValue, newValue in
+          // 닫히거나 다른 아이템으로 바뀌면 이전 콘텐츠가 남긴 닫기 막기를 풀어 다음 시트가 닫히게 한다.
+          isDismissDisabled = false
           let wasDismissing = pendingDismissal != nil
           cancelPendingDismissal()
           if newValue != nil, oldValue == nil || wasDismissing {
@@ -88,9 +107,11 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
               FestiCoreSemanticColor.materialDimmer.color
                 .ignoresSafeArea()
                 .transition(.opacity)
-                .onTapGesture { dismiss() }
+                .onTapGesture { if !isDismissDisabled { dismiss() } }
                 .accessibilityLabel("닫기")
                 .accessibilityAddTraits(.isButton)
+                // 닫기가 막혀 있으면 VoiceOver에도 닫기 버튼을 알리지 않는다.
+                .accessibilityHidden(isDismissDisabled)
             }
             sheet(geometry: geometry)
           }
@@ -118,6 +139,7 @@ extension FCSheetModifier {
           .frame(maxWidth: .infinity)
           .frame(height: heightValue(for: geometry))
           .environment(\.fcSheetDismiss, dismiss)
+          .onPreferenceChange(FCSheetDismissDisabledKey.self) { isDismissDisabled = $0 }
       }
       .padding(.bottom, geometry.safeAreaInsets.bottom)
       .background(FestiCoreSemanticColor.backgroundElevated.color)
@@ -141,12 +163,13 @@ extension FCSheetModifier {
   private var dragGesture: some Gesture {
     DragGesture()
       .onChanged { value in
+        guard !isDismissDisabled else { return }
         isDragging = true
         dragOffset = max(0, value.translation.height)
       }
       .onEnded { value in
         isDragging = false
-        if value.translation.height > Metric.dismissThreshold {
+        if !isDismissDisabled, value.translation.height > Metric.dismissThreshold {
           dismiss()
         } else {
           withAnimation(.easeOut(duration: Metric.shortDuration)) {

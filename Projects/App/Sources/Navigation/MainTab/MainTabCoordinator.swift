@@ -5,6 +5,7 @@
 //  Created by FestiCore on 10/30/26.
 //
 
+import AuthDomainInterface
 import ComposableArchitecture
 import FeatureAssembly
 import FestivalDomainInterface
@@ -47,10 +48,10 @@ struct MainTabCoordinator {
       case .timetable:
         return timetableState.setDetail != nil
       case .my:
-        return profileState.isAccountPresented
-          || profileState.isLogoutConfirmationPresented
-          || profileState.isWithdrawalConfirmationPresented
-          || profileState.isLegalLinkUnavailablePresented
+        // 계정·팩 상세는 탭바 위에 밀어 넣는 화면이라 탭바를 남기고, 팝업·바텀시트만 탭바까지 덮는다.
+        return profileState.destination?.alert != nil
+          || profileState.destination?.account?.destination != nil
+          || profileState.destination?.packDetail?.destination != nil
       case .flag:
         return false
       }
@@ -82,6 +83,7 @@ struct MainTabCoordinator {
   }
 
   enum Delegate {
+    case myProfileUpdated(AuthUser)
     case myLoginRequested
     case myLogoutRequested
     case myWithdrawRequested
@@ -164,6 +166,8 @@ struct MainTabCoordinator {
         return .send(.delegate(.myLogoutRequested))
       case .profile(.delegate(.withdrawRequested)):
         return .send(.delegate(.myWithdrawRequested))
+      case let .profile(.delegate(.profileUpdated(user))):
+        return .send(.delegate(.myProfileUpdated(user)))
       case .profile:
         return .none
 
@@ -183,7 +187,8 @@ struct MainTabCoordinator {
   private func syncFlag(state: inout State) -> Effect<Action> {
     let selectedID: String?
     let pack: FestivalPackDocument?
-    if let screen = state.festivalState.routes.last?.screen {
+    // 기수 보드는 라이브 보드 위에 덮이는 화면이라 그 아래 축제를 기준으로 삼는다.
+    if let screen = state.festivalState.routes.last(where: { !$0.screen.is(\.bearerBoard) })?.screen {
       switch screen {
       case let .festivalList(festival):
         selectedID = festival.selectedFestivalID
@@ -191,6 +196,9 @@ struct MainTabCoordinator {
       case let .liveBoard(festival):
         selectedID = festival.selectedFestivalID
         pack = festival.selectedPack
+      case .bearerBoard:
+        selectedID = nil
+        pack = nil
       }
     } else {
       selectedID = nil
@@ -213,7 +221,7 @@ struct MainTabCoordinator {
     appearing: Bool
   ) -> Effect<Action> {
     var selected: (festivalID: String?, pack: FestivalPackDocument, imageURL: (String?) -> URL?)?
-    if let screen = state.festivalState.routes.last?.screen,
+    if let screen = state.festivalState.routes.last(where: { !$0.screen.is(\.bearerBoard) })?.screen,
        case let .liveBoard(home) = screen,
        let pack = home.selectedPack {
       selected = (home.selectedFestivalID, pack, home.imageURL(for:))
@@ -229,14 +237,14 @@ struct MainTabCoordinator {
 
     let festivalID = selected?.festivalID
     if festivalID != state.timetableState.festivalID {
-      return .send(.timetable(.inner(.festivalChanged(festivalID))))
+      return .send(.timetable(.view(.festivalChanged(festivalID))))
     }
     var effects: [Effect<Action>] = []
     if daysChanged {
-      effects.append(.send(.timetable(.inner(.packUpdated))))
+      effects.append(.send(.timetable(.view(.packUpdated))))
     }
     if appearing {
-      effects.append(.send(.timetable(.inner(.timetableAppeared))))
+      effects.append(.send(.timetable(.view(.timetableAppeared))))
     }
     return .concatenate(effects)
   }

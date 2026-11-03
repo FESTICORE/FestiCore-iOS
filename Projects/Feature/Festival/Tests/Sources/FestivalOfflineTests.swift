@@ -500,6 +500,7 @@ private struct CachedPackService: PackSyncService {
   func cachedPack(for _: String) async throws -> CachedFestivalPack? { pack }
   func cachedPacks() async throws -> [CachedFestivalPack] { [pack] }
   func sync(for _: String) async throws -> PackSyncResult { .notModified(pack) }
+  func deletePack(for _: String) async throws {}
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
     AsyncThrowingStream { $0.finish() }
   }
@@ -515,6 +516,7 @@ private struct BrokenPackService: PackSyncService {
   func cachedPack(for _: String) async throws -> CachedFestivalPack? { nil }
   func cachedPacks() async throws -> [CachedFestivalPack] { throw OfflineCatalog.NetworkUnavailable() }
   func sync(for _: String) async throws -> PackSyncResult { throw OfflineCatalog.NetworkUnavailable() }
+  func deletePack(for _: String) async throws {}
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
     AsyncThrowingStream { $0.finish() }
   }
@@ -524,6 +526,7 @@ private struct NoSocketPackService: PackSyncService {
   func cachedPack(for _: String) async throws -> CachedFestivalPack? { nil }
   func cachedPacks() async throws -> [CachedFestivalPack] { [] }
   func sync(for _: String) async throws -> PackSyncResult { throw OfflineCatalog.NetworkUnavailable() }
+  func deletePack(for _: String) async throws {}
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
     Issue.record("Background cache load must not open a WebSocket")
     return AsyncThrowingStream { $0.finish(throwing: OfflineCatalog.NetworkUnavailable()) }
@@ -544,6 +547,7 @@ private struct RecordingPackWatchService: PackSyncService {
   func cachedPack(for _: String) async throws -> CachedFestivalPack? { nil }
   func cachedPacks() async throws -> [CachedFestivalPack] { [] }
   func sync(for _: String) async throws -> PackSyncResult { throw OfflineCatalog.NetworkUnavailable() }
+  func deletePack(for _: String) async throws {}
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
     counter.record()
     return AsyncThrowingStream { $0.finish() }

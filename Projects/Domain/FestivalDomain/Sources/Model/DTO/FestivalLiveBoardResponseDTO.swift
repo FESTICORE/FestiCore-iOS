@@ -22,6 +22,8 @@ public struct FestivalLiveBoardMeDTO: Decodable, Sendable {
   public let following: [String]
   public let crew: FestivalLiveBoardCrewDTO?
   public let pinnedFlagId: String?
+  /// 이 축제에서 내가 기수인 깃발 ID. 비로그인이면 없다.
+  public let bearerOf: [String]?
 }
 
 public struct FestivalLiveBoardCrewDTO: Decodable, Sendable {

@@ -20,6 +20,7 @@ extension TimetableFeature {
     guard festivalID != state.festivalID else { return .none }
     state.festivalID = festivalID
     state.setDetail = nil
+    state.destination = nil
     return .concatenate(
       .cancel(id: CancelID.load),
       .cancel(id: CancelID.save),
@@ -31,6 +32,7 @@ extension TimetableFeature {
   func changeAccount(state: inout State) -> Effect<Action> {
     state.accountGeneration += 1
     state.loadRequestID += 1
+    state.destination = nil
     return .concatenate(
       .cancel(id: CancelID.load),
       .cancel(id: CancelID.save),

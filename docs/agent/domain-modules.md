@@ -9,3 +9,4 @@
   - `Sources/<기능>/<계약 이름>+Live.swift`: live 등록. 계약마다 한 파일에 둔다
 - Feature가 쓰는 공개 값 타입은 해당 Domain `Interface/Sources/Entity`에 둔다. Feature 모듈 `Model`에 공개 엔티티를 두지 않는다. 팩 문서처럼 디코딩하는 모델은 Domain `Sources/Model`의 DTO·Mapper로 둔다.
 - UseCase는 화면이 하는 일 단위로 묶고, 구현은 Repository·Service·Store·Client를 `@Dependency`로 사용한다. Feature는 UseCase만 주입한다.
+- 의도한 예외: `FestivalDomain`의 알림 설정 UseCase는 Repository 없이 `FestiCoreDeviceInterface`의 `DeviceNotificationSettingsService`를 직접 주입받는다(`.service(.device, .interface)` 의존). 기기 인증이 Device 서비스 안에 있기 때문이다. Device 요청 타입은 `DeviceRegistrationRequest`처럼 API·APIEndpoint가 아니라 `Service/FestiCoreDevice/Sources`에 둔다.

@@ -14,6 +14,8 @@ struct FestivalCoordinatorView: View {
       case let .liveBoard(liveBoardStore):
         FestivalLiveBoardRouteView(store: liveBoardStore)
           .swipeBackButtonHidden()
+      case let .bearerBoard(bearerStore):
+        BearerBoardView(store: bearerStore)
       }
     }
   }

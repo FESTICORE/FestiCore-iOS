@@ -12,10 +12,12 @@ import SwiftUI
 
 public extension View {
   /// Feature의 `@Presents` 다이얼로그 상태를 가운데 확인 다이얼로그로 띄운다.
+  /// - Parameter dismissesOnDimTap: 참이면 딤을 탭할 때 바인딩을 비워 `PresentationAction.dismiss`를 보낸다.
   func fcAlert(
-    _ store: Binding<Store<FCAlertState<FCAlertAction>, FCAlertAction>?>
+    _ store: Binding<Store<FCAlertState<FCAlertAction>, FCAlertAction>?>,
+    dismissesOnDimTap: Bool = false
   ) -> some View {
-    modifier(FCAlertStoreModifier(store: store))
+    modifier(FCAlertStoreModifier(store: store, dismissesOnDimTap: dismissesOnDimTap))
   }
 
   /// 클로저로 동작을 넘기는 다이얼로그를 띄운다. 버튼을 누르면 `item`을 비운다.
@@ -26,6 +28,7 @@ public extension View {
 
 struct FCAlertStoreModifier: ViewModifier {
   @Binding var store: Store<FCAlertState<FCAlertAction>, FCAlertAction>?
+  var dismissesOnDimTap = false
 
   func body(content: Content) -> some View {
     content
@@ -41,6 +44,7 @@ struct FCAlertStoreModifier: ViewModifier {
               onConfirm: { alertStore.send(.confirmTapped) },
               onCancel: { alertStore.send(.cancelTapped) }
             ),
+            onDimTap: dismissesOnDimTap ? { store = nil } : nil,
             onDismiss: {}
           )
           // Store 인스턴스는 TCA가 재사용할 수 있어 상태의 표시 ID로 구분한다.

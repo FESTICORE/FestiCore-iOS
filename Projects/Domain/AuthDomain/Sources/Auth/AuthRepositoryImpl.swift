@@ -82,6 +82,25 @@ public struct AuthRepositoryImpl: AuthInterface {
     }
   }
 
+  public func updateNickname(_ nickname: String) async throws -> AuthUser {
+    guard let sessionID = await authService.authenticatedSessionID else {
+      throw AuthDomainError.notAuthenticated
+    }
+    let trimmed = AuthNicknameRule.trimmed(nickname)
+    guard AuthNicknameRule.isValid(trimmed) else { throw AuthDomainError.invalidNickname }
+    do {
+      let response = try await client.send(
+        AuthRequest.updateNickname(body: AuthNicknameUpdateBody(nickname: trimmed), sessionID: sessionID),
+        as: AuthProfileUpdateResponseDTO.self
+      )
+      guard response.code == "SUCCESS" else { throw AuthDomainError.invalidResponse }
+      return response.data.toDomain()
+    } catch {
+      try await clearUnauthorizedSession(error, sessionID: sessionID)
+      throw error
+    }
+  }
+
   private func clearUnauthorizedSession(_ error: any Error, sessionID: UUID) async throws {
     if let networkError = error as? FestiCoreNetworkError,
        case let .response(response) = networkError,

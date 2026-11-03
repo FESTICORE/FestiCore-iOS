@@ -45,6 +45,13 @@ public struct BearerFlagPhoto: Sendable, Equatable {
   }
 }
 
+/// 사진 업로드 진행. 보낸 비율을 몇 번 알린 뒤 완료로 끝난다.
+public enum BearerPhotoUploadEvent: Sendable, Equatable {
+  /// 0...1
+  case progress(Double)
+  case completed(BearerFlagPhoto)
+}
+
 /// 깃발 프로필 화면이 저장하는 값. 비운 소개·존은 서버에서 지운다.
 public struct BearerProfileChange: Sendable, Equatable {
   public let name: String

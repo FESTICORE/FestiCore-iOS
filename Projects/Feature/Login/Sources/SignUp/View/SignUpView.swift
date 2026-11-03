@@ -5,6 +5,7 @@
 //  Created by FestiCore on 11/2/26.
 //
 
+import AuthDomainInterface
 import ComposableArchitecture
 import FestiCoreDesignKit
 import LoginInterface
@@ -40,7 +41,7 @@ public struct SignUpView: View {
             placeholder: "닉네임"
           )
           .label("닉네임")
-          .maxLength(12)
+          .counter(AuthNicknameRule.counterText(store.nickname))
           .helper("크루원과 깃발에 보이는 이름이에요. 나중에 마이에서 바꿀 수 있어요.")
           consentBox
           if let message = store.message {

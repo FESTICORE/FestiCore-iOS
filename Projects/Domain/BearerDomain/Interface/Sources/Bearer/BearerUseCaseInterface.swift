@@ -16,10 +16,16 @@ public protocol BearerUseCaseInterface: Sendable {
   func fetchBoard(flagID: String) async throws -> BearerBoard
   func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile
   /// 고른 사진을 JPEG 5MB 이하로 맞춘 뒤 올린다. 256×256보다 작으면 올리지 않는다.
-  func uploadPhoto(flagID: String, imageData: Data) async throws -> BearerFlagPhoto
+  /// 스트림을 끝까지 읽지 않고 취소하면 전송도 취소한다.
+  func uploadPhoto(flagID: String, imageData: Data) -> AsyncThrowingStream<BearerPhotoUploadEvent, Error>
   /// 누른 시각과 새 멱등키로 전송 한 건을 만든다.
   func makeStatusRequest(_ change: BearerStatusChange) -> BearerStatusRequest
   func sendStatus(flagID: String, request: BearerStatusRequest) async throws -> BearerFlagStatus
+  /// 대기열에 넣는다. 보드를 닫아도 이어서 보낸다.
+  func enqueueStatus(flagID: String, ownerUserID: String, request: BearerStatusRequest) async
+  func pendingStatus(flagID: String) async -> [BearerStatusRequest]
+  func statusEvents(flagID: String) async -> AsyncStream<BearerOutboxEvent>
+  func retryPendingStatus() async
   func inviteCoBearer(flagID: String) async throws -> BearerInvite
   func removeCoBearer(flagID: String, userID: String) async throws
 }
