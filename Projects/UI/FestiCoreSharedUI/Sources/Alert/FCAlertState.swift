@@ -79,6 +79,24 @@ public extension FCAlertState where Action == FCAlertAction {
     )
   }
 
+  /// 회원 탈퇴 확인
+  static func withdraw() -> FCAlertState<FCAlertAction> {
+    .alert(
+      title: "회원 탈퇴",
+      message: "계정과 로그인 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+      confirmTitle: "탈퇴"
+    )
+  }
+
+  /// 약관·개인정보 문서 주소가 없을 때 안내
+  static func legalLinkUnavailable() -> FCAlertState<FCAlertAction> {
+    .alert(
+      title: "문서를 열 수 없어요",
+      message: "잠시 후 다시 시도해 주세요.",
+      confirmTitle: "확인"
+    )
+  }
+
   /// 안내 숨김 확인
   static func hideGuide() -> FCAlertState<FCAlertAction> {
     .alert(

@@ -28,6 +28,7 @@ let project = Project.makeModule(
   demoDependencies: [
     .domain(.auth, .interface),
     .ui(.designSystem),
+    .ui(.sharedUI),
     .SPM.composableArchitecture
   ]
 )
