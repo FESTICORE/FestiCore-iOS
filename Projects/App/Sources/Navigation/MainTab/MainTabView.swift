@@ -44,9 +44,13 @@ struct MainTabView: View {
         }
       }
       .overlay {
-        // 확인 팝업은 시트 위층의 고정 호스트에서 넣고 빼야 닫힘 애니메이션이 잘리지 않는다.
+        // 확인 팝업은 시트 위 별도 층에 띄운다. 팝업 애니메이션이 계정 시트와 뒤 화면 배치에 번지지 않게 한다.
         if store.selectedTab == .my {
-          profileView.dialogOverlay
+          Color.clear
+            .fcAlert(
+              $store.scope(state: \.profileState.destination?.alert, action: \.profile.destination.alert),
+              dismissesOnDimTap: true
+            )
         }
       }
   }

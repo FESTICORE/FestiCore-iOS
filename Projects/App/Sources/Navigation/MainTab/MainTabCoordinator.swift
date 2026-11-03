@@ -47,10 +47,7 @@ struct MainTabCoordinator {
       case .timetable:
         return timetableState.setDetail != nil
       case .my:
-        return profileState.isAccountPresented
-          || profileState.isLogoutConfirmationPresented
-          || profileState.isWithdrawalConfirmationPresented
-          || profileState.isLegalLinkUnavailablePresented
+        return profileState.isAccountPresented || profileState.destination != nil
       case .flag:
         return false
       }
