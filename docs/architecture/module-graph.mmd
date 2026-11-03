@@ -10,6 +10,8 @@ flowchart LR
   Timetable["Timetable"]
   AuthDomain["AuthDomain"]
   FestivalDomain["FestivalDomain"]
+  NoticeDomain["NoticeDomain"]
+  NoticeDomainInterface["NoticeDomain Interface"]
   FestivalDomainInterface["FestivalDomain Interface"]
   BearerDomainInterface["BearerDomain Interface"]
   TimetableDomainInterface["TimetableDomain Interface"]
@@ -58,6 +60,7 @@ flowchart LR
   FeatureAssembly --> Bearer
   FeatureAssembly --> Timetable
   FeatureAssembly --> AuthDomain
+  FeatureAssembly --> NoticeDomain
   FeatureAssembly --> ServiceAssembly
 
   Festival --> FestivalDomainInterface
@@ -66,6 +69,8 @@ flowchart LR
   Festival --> Utility
   Profile --> AuthDomainInterface
   Profile --> FestivalDomainInterface
+  Profile --> NoticeDomainInterface
+  Profile --> Utility
   Profile --> Web
   Profile --> SharedUI
   Profile --> Design
@@ -85,6 +90,10 @@ flowchart LR
   FestivalDomain --> Utility
   FestivalDomain --> PackInterface
   FestivalDomain --> APIEndpoint
+  NoticeDomain --> NoticeDomainInterface
+  NoticeDomain --> NetworkInterface
+  NoticeDomain --> Utility
+  NoticeDomain --> APIEndpoint
   ServiceAssembly --> CoreAssembly
   ServiceAssembly --> Network
   ServiceAssembly --> FestivalDomainInterface

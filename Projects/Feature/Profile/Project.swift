@@ -15,6 +15,8 @@ let project = Project.makeModule(
   dependencies: [
     .domain(.auth, .interface),
     .domain(.festival, .interface),
+    .domain(.notice, .interface),
+    .core(.utility),
     .feature(.web),
     .feature(.web, .interface),
     .ui(.animation),
@@ -32,6 +34,8 @@ let project = Project.makeModule(
   demoDependencies: [
     .domain(.auth, .interface),
     .domain(.festival, .interface),
+    .domain(.notice, .interface),
+    .core(.utility),
     .feature(.web),
     .feature(.web, .interface),
     .ui(.designSystem),

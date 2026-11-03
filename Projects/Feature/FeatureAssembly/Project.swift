@@ -23,6 +23,7 @@ let project = Project.makeModule(
     .domain(.auth),
     .domain(.bearer),
     .domain(.festival),
+    .domain(.notice),
     .domain(.timetable),
     .service(.assembly),
     .SPM.composableArchitecture

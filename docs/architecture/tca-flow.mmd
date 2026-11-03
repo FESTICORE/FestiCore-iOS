@@ -10,6 +10,8 @@ flowchart LR
   Profile["ProfileFeature"]
   Web["WebFeature<br/>legal document"]
   LockScreen["LockScreenSettingsFeature<br/>Live Activity status"]
+  NoticeList["NoticeListFeature<br/>published notices"]
+  NoticeDetail["NoticeDetailFeature<br/>notice content"]
 
   App --> Splash
   Splash -->|delegate.presentHome| Install
@@ -22,3 +24,5 @@ flowchart LR
   Tabs -->|my tab| Profile
   Profile -->|terms or privacy| Web
   Profile -->|lock screen| LockScreen
+  Profile -->|notices row| NoticeList
+  NoticeList -->|notice row| NoticeDetail

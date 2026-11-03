@@ -11,6 +11,7 @@ public enum FestiCoreDomain: Sendable {
   case festivals
   case flags
   case bearer
+  case notices
 
   public var path: String {
     switch self {
@@ -19,6 +20,7 @@ public enum FestiCoreDomain: Sendable {
     case .festivals: return "api/v1/festivals"
     case .flags: return "api/v1/flags"
     case .bearer: return "api/v1/bearer"
+    case .notices: return "api/v1/notices"
     }
   }
 }

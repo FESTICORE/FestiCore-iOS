@@ -1094,7 +1094,7 @@ struct AppCoordinatorTests {
     }
   }
 
-  @Test func myPushedLegalAndLockScreenKeepBottomTabsVisible() {
+  @Test func myPushedLegalLockScreenAndNoticeKeepBottomTabsVisible() {
     var state = MainTabCoordinator.State(selectedTab: .my)
     state.profileState.destination = .legalDocument(.init(
       url: URL(string: "https://example.com/api/v1/legal/terms")!, title: "이용약관"
@@ -1102,6 +1102,9 @@ struct AppCoordinatorTests {
     #expect(!state.shouldHideTabBar)
     #expect(state.shouldReserveTabBarSpace)
     state.profileState.destination = .lockScreen(.init())
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+    state.profileState.destination = .noticeList(.init())
     #expect(!state.shouldHideTabBar)
     #expect(state.shouldReserveTabBarSpace)
   }

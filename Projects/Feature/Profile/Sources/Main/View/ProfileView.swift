@@ -48,6 +48,12 @@ public struct ProfileView: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .navigationDestination(
+          item: $store.scope(state: \.destination?.noticeList, action: \.destination.noticeList)
+        ) { noticeStore in
+          NoticeListView(store: noticeStore)
+            .toolbar(.hidden, for: .navigationBar)
+        }
+        .navigationDestination(
           item: $store.scope(state: \.destination?.notifications, action: \.destination.notifications)
         ) { notificationStore in
           NotificationSettingsView(store: notificationStore)
@@ -235,7 +241,6 @@ private extension ProfileView {
   var information: some View {
     section("정보") {
       FCListRow("공지사항") { send(.noticeTapped) }
-        .allowsHitTesting(store.isNoticeAvailable)
       rowDivider
       FCListRow("이용약관") { send(.termsTapped) }
       rowDivider

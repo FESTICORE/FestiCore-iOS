@@ -21,6 +21,7 @@
     { "target": { "containerPath": "container:Projects/Domain/AuthDomain/AuthDomain.xcodeproj", "identifier": "92D89059A9988A659FDC727D", "name": "AuthDomainTests" } },
     { "target": { "containerPath": "container:Projects/Domain/BearerDomain/BearerDomain.xcodeproj", "identifier": "AADF86FA78765FC3BED8CD25", "name": "BearerDomainTests" } },
     { "target": { "containerPath": "container:Projects/Domain/FestivalDomain/FestivalDomain.xcodeproj", "identifier": "89E046966CF68F753955E773", "name": "FestivalDomainTests" } },
+    { "target": { "containerPath": "container:Projects/Domain/NoticeDomain/NoticeDomain.xcodeproj", "identifier": "44776167456717A325026A3D", "name": "NoticeDomainTests" } },
     { "target": { "containerPath": "container:Projects/Domain/TimetableDomain/TimetableDomain.xcodeproj", "identifier": "C63D133575DA14CD8730B29A", "name": "TimetableDomainTests" } },
     { "target": { "containerPath": "container:Projects/Feature/Bearer/Bearer.xcodeproj", "identifier": "056D834F028C61CFE50F850E", "name": "BearerTests" } },
     { "target": { "containerPath": "container:Projects/Feature/Festival/Festival.xcodeproj", "identifier": "14E2A2C6211439F59D79E957", "name": "FestivalTests" } },

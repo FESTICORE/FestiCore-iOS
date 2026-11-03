@@ -35,7 +35,6 @@ public struct ProfileFeature {
     /// 아직 연결되지 않은 이동은 누를 수 없게 둔다.
     public var isBearerNavigationAvailable = false
     public var isSearchAvailable = false
-    public var isNoticeAvailable = false
 
     /// 팝업과 마이 화면의 하위 목적지
     @Presents public var destination: Destination.State?
@@ -59,6 +58,7 @@ public struct ProfileFeature {
     case account(AccountSettingsFeature)
     case legalDocument(WebFeature)
     case lockScreen(LockScreenSettingsFeature)
+    case noticeList(NoticeListFeature)
     case notifications(NotificationSettingsFeature)
     case packDetail(PackDetailFeature)
   }
@@ -202,7 +202,8 @@ extension ProfileFeature {
       return .none
 
     case .noticeTapped:
-      return .send(.delegate(.noticeRequested))
+      state.destination = .noticeList(.init())
+      return .none
 
     case .termsTapped:
       return showLegalDocument(path: "terms", title: "이용약관", state: &state)
@@ -290,6 +291,13 @@ extension ProfileFeature {
       return .none
 
     case .presented(.lockScreen):
+      return .none
+
+    case .presented(.noticeList(.delegate(.backRequested))):
+      state.destination = nil
+      return .none
+
+    case .presented(.noticeList):
       return .none
 
     case .presented(.notifications(.delegate(.backRequested))):
