@@ -14,7 +14,6 @@ public protocol BearerStatusOutboxInterface: Sendable {
   func enqueue(flagID: String, request: BearerStatusRequest) async
   func pending(flagID: String) async -> [BearerStatusRequest]
   func events(flagID: String) async -> AsyncStream<BearerOutboxEvent>
-  /// 멈춘 전송(로그인 필요·재시도 한도)을 다시 시작한다.
   func resume() async
 }
 
@@ -30,7 +29,6 @@ public extension DependencyValues {
   }
 }
 
-/// 주입하지 않은 대기열. 호출하면 테스트 이슈를 남긴다.
 public struct MockBearerStatusOutbox: BearerStatusOutboxInterface {
   public init() {}
 

@@ -75,7 +75,6 @@ public actor BearerStatusOutboxImpl: BearerStatusOutboxInterface {
     startWorker()
   }
 
-  /// 테스트에서 진행 중인 전송이 끝날 때까지 기다린다.
   func waitUntilIdle() async {
     await worker?.value
   }
@@ -132,14 +131,7 @@ private extension BearerStatusOutboxImpl {
         break
       } catch is CancellationError {
         break
-      } catch let error as BearerError where error == .unavailable || error == .invalidResponse {
-        serverFailures += 1
-        guard serverFailures <= Self.maxServerRetries else {
-          emit(.gaveUp(error), for: item.flagID)
-          break
-        }
-        guard await sleep(.seconds(1 << serverFailures)) else { break }
-      } catch let error as BearerError {
+      } catch let error as BearerError where error != .unavailable && error != .invalidResponse {
         // 서버가 받지 않는 변경이면 뒤에 쌓인 같은 깃발의 변경도 그 상태를 전제로 하므로 함께 버린다.
         items.removeAll { $0.flagID == item.flagID }
         save()
@@ -148,7 +140,7 @@ private extension BearerStatusOutboxImpl {
       } catch {
         serverFailures += 1
         guard serverFailures <= Self.maxServerRetries else {
-          emit(.gaveUp(.unavailable), for: item.flagID)
+          emit(.gaveUp(error as? BearerError ?? .unavailable), for: item.flagID)
           break
         }
         guard await sleep(.seconds(1 << serverFailures)) else { break }
