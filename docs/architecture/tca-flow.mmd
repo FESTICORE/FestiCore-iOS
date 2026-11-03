@@ -1,27 +1,24 @@
 flowchart LR
-  App["FestiCoreApp<br/>Store(initialState: AppCoordinator.State())"]
-  Coordinator["AppCoordinator<br/>State: splash | home"]
-  SplashView["SplashView<br/>onAppear"]
-  Splash["SplashFeature<br/>2-second animation gate"]
-  Delegate["delegate.presentHome"]
-  ViewAction["view.presentHome"]
-  Inner["inner.completeHomeTransition"]
-  HomeCoordinator["HomeCoordinator<br/>TCAFlow routes"]
-  Home["HomeFeature"]
-  Interfaces["FestivalDomain + Pack Interfaces<br/>Home clients"]
-  Service["Service implementation"]
-  Core["Network · Storage"]
+  App["FestiCoreApp<br/>AppCoordinator Store"]
+  Splash["SplashFeature"]
+  Install["firstInstallOnboardingStore<br/>hasCompleted()"]
+  Onboarding["OnboardingFeature<br/>four pages"]
+  Tabs["MainTabCoordinator<br/>live · timetable · flag · my"]
+  Festival["FestivalCoordinator<br/>TCAFlow routes"]
+  FestivalList["Festival list"]
+  LiveBoard["Live board"]
+  Profile["ProfileFeature"]
+  Web["WebFeature<br/>legal document"]
+  LockScreen["LockScreenSettingsFeature<br/>Live Activity status"]
 
-  App --> Coordinator
-  Coordinator --> SplashView
-  SplashView -->|view.onAppear| Splash
-  Splash -->|async.waitForAnimation| Splash
-  Splash -->|inner.animationFinished| Delegate
-  Delegate --> Coordinator
-  Coordinator --> ViewAction
-  ViewAction --> Inner
-  Inner -->|replace state| HomeCoordinator
-  HomeCoordinator -->|root route| Home
-  Home -->|DependencyKey| Interfaces
-  Interfaces --> Service
-  Service --> Core
+  App --> Splash
+  Splash -->|delegate.presentHome| Install
+  Install -->|first install| Onboarding
+  Onboarding -->|complete or skip| Tabs
+  Install -->|completed install| Tabs
+  Tabs -->|live tab| Festival
+  Festival -->|root route| FestivalList
+  FestivalList -->|select festival| LiveBoard
+  Tabs -->|my tab| Profile
+  Profile -->|terms or privacy| Web
+  Profile -->|lock screen| LockScreen
