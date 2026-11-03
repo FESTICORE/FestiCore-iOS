@@ -24,9 +24,9 @@ public struct LoginFeature {
 
     public var isSigningIn = false
     public var errorMessage: String?
-    /// 부모가 선택한 탭에 맞춰 넣는다.
+    /// 부모가 `view(.contextChanged)`로 알린다.
     public var context: Context = .bookmark
-    /// 부모 흐름(예약·세션 확인)이 시트에 보여 줄 문구. 부모가 넣는다.
+    /// 부모 흐름(예약·세션 확인)이 시트에 보여 줄 문구. 부모가 `view(.contextChanged)`로 알린다.
     public var flowMessage: String?
 
     public init() {}
@@ -49,10 +49,10 @@ public struct LoginFeature {
 
   @CasePathable
   public enum View: Equatable {
-    /// 로그인 버튼 탭. 부모에게 시작을 요청한다.
     case signInTapped(OAuthProvider)
-    /// 부모가 시트 상태를 확인한 뒤 보내는 로그인 시작
     case signIn(OAuthProvider)
+    /// 부모가 시트 문맥과 흐름 문구를 알린다.
+    case contextChanged(State.Context, flowMessage: String?)
   }
 
   // MARK: - AsyncAction 비동기 처리 액션
@@ -110,6 +110,11 @@ extension LoginFeature {
       state.isSigningIn = true
       state.errorMessage = nil
       return .send(.async(.signIn(provider)))
+
+    case let .contextChanged(context, flowMessage):
+      state.context = context
+      state.flowMessage = flowMessage
+      return .none
     }
   }
 

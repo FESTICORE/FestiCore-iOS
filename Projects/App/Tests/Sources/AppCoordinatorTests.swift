@@ -442,13 +442,19 @@ struct AppCoordinatorTests {
     home.authFlow.presentation = .onboarding
     home.authFlow.isLoading = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
-      AppCoordinator()
+      AppCoordinator(legalBaseURL: nil)
     }
 
     await store.send(.inner(.profileUpdated(generation: 1, .failure(.offline)))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       home.authFlow.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
+      $0 = .home(home)
+    }
+    // 가입 시트가 떠 있으므로 바뀐 흐름 문구를 가입 화면에 알린다.
+    await store.receive(\.scope.home.signUp.view.flowChanged) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.signUp.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
       $0 = .home(home)
     }
     await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
@@ -467,6 +473,7 @@ struct AppCoordinatorTests {
       pushOptIn: false, profileImageURL: nil
     )
     var home = MainTabCoordinator.State()
+    home.authFlow.signUp = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
     home.authFlow.pendingFestivalID = "festival"
     home.authFlow.generation = 1
     home.authFlow.profile = AuthProfile(user: user, currentTermsVersion: "2026-09")
@@ -819,7 +826,7 @@ struct AppCoordinatorTests {
     home.authFlow.signUp.acceptedPrivacyTerms = true
     home.authFlow.signUp.termsDraftVersion = "2026-10"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
-      AppCoordinator()
+      AppCoordinator(legalBaseURL: nil)
     }
 
     await store.send(.inner(.profileUpdated(generation: 2, .failure(.termsOutdated)))) {
@@ -830,6 +837,12 @@ struct AppCoordinatorTests {
       home.authFlow.signUp.acceptedPrivacyTerms = false
       home.authFlow.signUp.termsDraftVersion = nil
       home.authFlow.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
+      $0 = .home(home)
+    }
+    await store.receive(\.scope.home.signUp.view.flowChanged) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.signUp.termsUpdateExhausted = true
+      home.authFlow.signUp.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
       $0 = .home(home)
     }
     await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
@@ -1122,6 +1135,19 @@ struct AppCoordinatorTests {
     #expect(days.first?.stages.first?.name == "메인 무대")
     #expect(days.first?.sets.first?.start == 720)
     #expect(days.first?.sets.first?.end == 780)
+  }
+
+  @Test func timetableSetCarriesResolvedArtistImage() throws {
+    let payload = #"{"id":"festival","stages":[{"id":"main","name":"메인 무대"}],"timetable":[{"id":"with-image","artist":"가수","stageId":"main","startsAt":"2026-10-30T12:00:00+09:00","endsAt":"2026-10-30T13:00:00+09:00","imageUrl":"/api/v1/festivals/images/a.webp"},{"id":"no-image","artist":"밴드","stageId":"main","startsAt":"2026-10-30T13:00:00+09:00","endsAt":"2026-10-30T14:00:00+09:00"}]}"#
+    let pack = try JSONDecoder().decode(FestivalPackDocument.self, from: Data(payload.utf8))
+    let resolved = try #require(URL(string: "https://example.com/api/v1/festivals/images/a.webp"))
+
+    let sets = FestivalPackTimetableMapper.days(from: pack) { value in
+      value == "/api/v1/festivals/images/a.webp" ? resolved : nil
+    }.first?.sets ?? []
+
+    #expect(sets.first { $0.id == "with-image" }?.imageURL == resolved)
+    #expect(sets.first { $0.id == "no-image" }?.imageURL == nil)
   }
 
   @Test func flagTabFollowsSelectedFestival() async {
@@ -2248,18 +2274,37 @@ struct AppCoordinatorTests {
   }
 
   @Test func loginSheetCopyFollowsSelectedTab() async {
-    let store = TestStore(initialState: AppCoordinator.State.home(.init())) { AppCoordinator() }
+    var home = loginSheetHome()
+    home.selectedTab = .live
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
 
+    // 로그인 시트가 떠 있을 때 탭이 바뀌면 부모가 문맥을 입력 액션으로 알린다.
     await store.send(.scope(.home(.selectTab(.my)))) {
       guard case var .home(home) = $0 else { return }
       home.previousTab = .live
       home.selectedTab = .my
+      $0 = .home(home)
+    }
+    await store.receive(\.scope.home.login.view.contextChanged) {
+      guard case var .home(home) = $0 else { return }
       home.loginState.context = .profile
       $0 = .home(home)
     }
   }
 
-  @Test func loginSheetShowsFlowMessageOnlyWhileLoginIsPresented() async {
+  @Test func loginSheetContextIsNotSentWhileLoginIsHidden() async {
+    let store = TestStore(initialState: AppCoordinator.State.home(.init())) { AppCoordinator() }
+
+    // 로그인 시트가 없으면 탭이 바뀌어도 로그인 State에 알리지 않는다.
+    await store.send(.scope(.home(.selectTab(.my)))) {
+      guard case var .home(home) = $0 else { return }
+      home.previousTab = .live
+      home.selectedTab = .my
+      $0 = .home(home)
+    }
+  }
+
+  @Test func loginSheetReceivesFlowMessageWhileLoginIsPresented() async {
     let sessionID = UUID()
     var home = loginSheetHome()
     home.authFlow.pendingCommitSessionID = sessionID
@@ -2270,34 +2315,40 @@ struct AppCoordinatorTests {
       home.authFlow.pendingCommitSessionID = nil
       home.authFlow.loginAttemptGeneration = nil
       home.authFlow.message = "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."
-      home.loginState.flowMessage = "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."
       $0 = .home(home)
     }
-    await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
-    await store.send(.view(.dismissFlow)) {
+    await store.receive(\.scope.home.login.view.contextChanged) {
       guard case var .home(home) = $0 else { return }
-      home.authFlow.generation = 2
-      home.authFlow.presentation = nil
-      home.authFlow.message = nil
-      home.loginState.flowMessage = nil
+      home.loginState.flowMessage = "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."
       $0 = .home(home)
     }
     await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
   }
 
-  @Test func signUpSheetFollowsAuthFlowValues() {
-    var flow = AppCoordinator.AuthFlow()
-    flow.profile = eligibleProfile(id: "user-a")
-    flow.isLoading = true
-    flow.termsUpdateExhausted = true
-    flow.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
+  @Test func signUpSheetReceivesFlowValuesAndInjectedLegalBaseURL() async {
+    let legalBaseURL = URL(string: "https://injected.example.com/api/v1/legal/")
+    let profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
+    var home = MainTabCoordinator.State()
+    home.authFlow.profile = profile
+    home.authFlow.verifiedUserID = "user-a"
+    home.authFlow.lastVerifiedUserID = "user-a"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator(legalBaseURL: legalBaseURL)
+    } withDependencies: {
+      $0.authUseCase = ReturningProfileAuthUseCase(profile: profile)
+      $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
 
-    #expect(flow.signUp.currentUserID == "user-a")
-    #expect(flow.signUp.currentTermsVersion == eligibleProfile(id: "user-a").currentTermsVersion)
-    #expect(flow.signUp.isSubmitting)
-    #expect(flow.signUp.termsUpdateExhausted)
-    #expect(flow.signUp.message == "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요.")
-    #expect(flow.signUp.legalBaseURL == AppCoordinatorView.configuredLegalBaseURL)
+    // 가입 시트가 열리면 부모가 주입받은 약관 기준 주소와 흐름 값을 입력 액션으로 넘긴다.
+    await store.send(.view(.foregrounded))
+    await store.receive(\.inner.profileLoaded)
+    await store.receive(\.scope.home.signUp.view.flowChanged)
+    guard let signUp = signUpState(store.state) else { Issue.record("홈 상태가 아니다"); return }
+    #expect(signUp.legalBaseURL == legalBaseURL)
+    #expect(signUp.isSubmitting == false)
+    #expect(signUp.legalURL(for: .terms) == URL(string: "https://injected.example.com/api/v1/legal/terms"))
   }
 
   @Test func closingSignUpAlsoClosesLegalDocument() async {
@@ -2309,27 +2360,43 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     await store.send(.scope(.home(.signUp(.view(.legalDocumentTapped(.privacy))))))
-    #expect(signUpState(store.state)?.legalDocument?.url == URL(string: "https://example.com/api/v1/legal/privacy"))
+    #expect(signUpState(store.state)?.destination?.legalDocument?.url == URL(string: "https://example.com/api/v1/legal/privacy"))
 
     // 가입 화면을 닫으면 그 위의 약관 상세도 닫고 초안은 남긴다.
     await store.send(.view(.dismissFlow))
-    #expect(signUpState(store.state)?.legalDocument == nil)
+    await store.receive(\.scope.home.signUp.view.sheetClosed)
+    #expect(signUpState(store.state)?.destination == nil)
     #expect(signUpState(store.state)?.nickname == "테스터")
   }
 
-  @Test func leavingSignUpPresentationClosesLegalDocument() async {
+  @Test func switchingFromSignUpToRetryClosesLegalDocument() async {
     var home = MainTabCoordinator.State()
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.verifiedUserID = "user-a"
+    home.authFlow.lastVerifiedUserID = "user-a"
+    home.authFlow.pendingFestivalID = "festival"
+    home.authFlow.pendingOwnerID = "user-a"
     home.authFlow.presentation = .onboarding
     home.authFlow.signUp = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.authUseCase = FailingProfileAuthUseCase(failure: .server)
+      $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
     store.exhaustivity = .off
-    await store.send(.scope(.home(.signUp(.view(.legalDocumentTapped(.terms))))))
-    guard case var .home(opened) = store.state else { Issue.record("홈 상태가 아니다"); return }
-    #expect(opened.authFlow.signUp.legalDocument != nil)
 
-    // 포그라운드 갱신·로그인 상실처럼 가입 화면이 다른 시트로 바뀌거나 사라지는 경로도 같은 속성을 거친다.
-    opened.authFlow.presentation = .retry
-    #expect(opened.authFlow.signUp.legalDocument == nil)
+    await store.send(.scope(.home(.signUp(.view(.legalDocumentTapped(.terms))))))
+    #expect(signUpState(store.state)?.destination != nil)
+
+    // 약관이 열린 채 포그라운드 갱신이 실패해 재시도 시트로 바뀌면 약관 상세도 닫힌다.
+    await store.send(.view(.foregrounded))
+    await store.receive(\.scope.home.signUp.view.sheetClosed)
+    await store.receive(\.inner.profileLoaded)
+    guard case let .home(after) = store.state else { Issue.record("홈 상태가 아니다"); return }
+    #expect(after.authFlow.presentation == .retry)
+    #expect(after.authFlow.signUp.destination == nil)
   }
 
   @Test func revokedLoginRestoredByForegroundIsRereadAsSignedOut() async {

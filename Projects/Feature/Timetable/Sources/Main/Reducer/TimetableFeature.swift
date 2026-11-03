@@ -131,7 +131,8 @@ public struct TimetableFeature {
         isScheduled: mySetIDs.contains(id),
         overlap: overlaps(of: set, in: day).first,
         previousTime: set.previousStart.map(TimetableTime.clock),
-        change: set.previousStart.map { TimetableTime.change(from: $0, to: set.start) }
+        change: set.previousStart.map { TimetableTime.change(from: $0, to: set.start) },
+        imageURL: set.imageURL
       )
       return TimetableSetDetailFeature.Content(
         detail: detail,
