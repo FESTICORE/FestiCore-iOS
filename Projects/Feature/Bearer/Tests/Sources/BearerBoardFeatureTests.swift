@@ -62,7 +62,6 @@ struct BearerBoardFeatureTests {
     }
 
     store.exhaustivity = .off(showSkippedAssertions: false)
-
     await store.send(.view(.onAppear))
     await store.receive(\.inner.loaded) {
       $0.isLoading = false
@@ -73,7 +72,6 @@ struct BearerBoardFeatureTests {
       $0.lastActivity = .slam
     }
     #expect(store.state.zoneName(for: "zone_a") == "리벳 스테이지 앞 왼쪽")
-    // 대기열 이벤트 구독은 화면이 떠 있는 동안 계속된다.
     await store.skipInFlightEffects()
   }
 
