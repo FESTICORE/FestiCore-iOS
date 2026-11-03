@@ -25,8 +25,8 @@ public struct FCFestivalCard<Media: View>: View {
     case unavailable(String)
     /// 받기 버튼
     case ready(title: String = "팩 받기", action: () -> Void)
-    /// 받는 중, `progress`는 0...1
-    case downloading(progress: Double, text: String)
+    /// 받는 중. `progress`가 있으면 실측한 0...1 값, 없으면 전송 중 표시만 한다.
+    case downloading(progress: Double?, text: String)
     case received(String)
   }
 
@@ -152,17 +152,24 @@ private extension FCFestivalCard {
       .isFullWidth(true)
     case let .downloading(progress, text):
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
-        Capsule()
-          .fill(FestiCoreSemanticColor.fillStrong.color)
-          .frame(height: Metric.progressHeight)
-          .overlay(alignment: .leading) {
-            GeometryReader { proxy in
-              Capsule()
-                .fill(FestiCoreSemanticColor.labelNormal.color)
-                .frame(width: proxy.size.width * min(max(progress, 0), 1))
+        if let progress {
+          Capsule()
+            .fill(FestiCoreSemanticColor.fillStrong.color)
+            .frame(height: Metric.progressHeight)
+            .overlay(alignment: .leading) {
+              GeometryReader { proxy in
+                Capsule()
+                  .fill(FestiCoreSemanticColor.staticLime.color)
+                  .frame(width: proxy.size.width * min(max(progress, 0), 1))
+              }
             }
-          }
-          .accessibilityHidden(true)
+            .accessibilityHidden(true)
+        } else {
+          ProgressView()
+            .progressViewStyle(.linear)
+            .tint(FestiCoreSemanticColor.staticLime.color)
+            .accessibilityHidden(true)
+        }
         Text(text)
           .festiCoreFont(.baseFootnoteBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)

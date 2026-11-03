@@ -8,6 +8,7 @@ struct FestivalListView: View {
   let recentSearches: [String]
   let festivals: [FestivalOverview]
   let bookedFestivalIDs: Set<String>
+  let packDownloads: [String: FestivalFeature.PackDownloadStatus]
   let imageRevision: Int
   let isLoading: Bool
   let hasCatalogFailure: Bool
@@ -15,6 +16,7 @@ struct FestivalListView: View {
   let imageURL: (String?) -> URL?
   let onSelect: (String) -> Void
   let onToggleBooked: (String) -> Void
+  let onDownloadPack: (String) -> Void
   let onTicketLink: (FestivalOverview) -> Void
   let onRefresh: () -> Void
   let onRecentSearchSubmitted: (String) -> Void
@@ -101,6 +103,14 @@ private extension FestivalListView {
       ),
       now: .now
     )
+  }
+
+  var artistResults: [FestivalListPresentation.ArtistSearchResult] {
+    FestivalListPresentation.matchingArtists(festivals, query: trimmedQuery)
+  }
+
+  var supportsArtistSearch: Bool {
+    festivals.contains { $0.artists != nil }
   }
 
   var upcomingFestivals: [FestivalOverview] {
@@ -195,7 +205,7 @@ private extension FestivalListView {
 
   var searchBar: some View {
     FCTopBar(.search(text: $query))
-      .searchPlaceholder("페스티벌, 장소 검색")
+      .searchPlaceholder(supportsArtistSearch ? "페스티벌, 아티스트, 장소 검색" : "페스티벌, 장소 검색")
       .onCancel {
         query = ""
         isSearching = false
@@ -250,16 +260,27 @@ private extension FestivalListView {
           .padding(FestiCoreSpacing.paddingP16)
         }
       }
-    } else if searchResults.isEmpty {
+    } else if searchResults.isEmpty && artistResults.isEmpty {
       FCSearchEmpty(query: trimmedQuery)
-        .message("페스티벌 이름이나 장소로 다시 찾아보세요")
+        .message(supportsArtistSearch
+          ? "페스티벌, 아티스트 이름이나 장소로 다시 찾아보세요"
+          : "페스티벌 이름이나 장소로 다시 찾아보세요")
     } else {
       VStack(alignment: .leading, spacing: .zero) {
-        FCSectionHeader("페스티벌 \(searchResults.count)")
-          .padding(.top, FestiCoreSpacing.paddingP20)
-          .padding(.bottom, FestiCoreSpacing.paddingP8)
-          .padding(.horizontal, FestiCoreSpacing.paddingP16)
-        resultRows(searchResults)
+        if !searchResults.isEmpty {
+          FCSectionHeader("페스티벌 \(searchResults.count)")
+            .padding(.top, FestiCoreSpacing.paddingP20)
+            .padding(.bottom, FestiCoreSpacing.paddingP8)
+            .padding(.horizontal, FestiCoreSpacing.paddingP16)
+          resultRows(searchResults)
+        }
+        if !artistResults.isEmpty {
+          FCSectionHeader("아티스트 \(artistResults.count)")
+            .padding(.top, FestiCoreSpacing.paddingP20)
+            .padding(.bottom, FestiCoreSpacing.paddingP8)
+            .padding(.horizontal, FestiCoreSpacing.paddingP16)
+          artistResultRows
+        }
       }
     }
   }
@@ -312,6 +333,23 @@ private extension FestivalListView {
     }
   }
 
+  var artistResultRows: some View {
+    LazyVStack(spacing: .zero) {
+      ForEach(artistResults) { result in
+        FCSearchResultRow(
+          .artist(initial: String(result.artist.name.prefix(1))),
+          title: result.artist.name,
+          meta: FestivalListPresentation.artistMeta(result, now: .now),
+          action: {
+            saveRecentSearch()
+            onSelect(result.festival.id)
+          }
+        )
+        .highlightedQuery(trimmedQuery)
+      }
+    }
+  }
+
   func saveRecentSearch() {
     guard !trimmedQuery.isEmpty else { return }
     onRecentSearchSubmitted(trimmedQuery)
@@ -327,6 +365,14 @@ private extension FestivalListView {
   }
 
   func pack(for festival: FestivalOverview) -> FCFestivalCard<FestivalPosterView>.Pack {
+    if case let .some(.downloading(progress)) = packDownloads[festival.id] {
+      let fraction = progress.flatMap { value -> Double? in
+        guard value.totalBytes > 0 else { return nil }
+        return min(max(Double(value.receivedBytes) / Double(value.totalBytes), 0), 1)
+      }
+      let text = fraction.map { "팩 받는 중 · \(Int(($0 * 100).rounded()))%" } ?? "팩 받는 중"
+      return .downloading(progress: fraction, text: text)
+    }
     let copy = FestivalListPresentation.packCopy(
       for: festival,
       isBooked: bookedFestivalIDs.contains(festival.id),
@@ -335,7 +381,7 @@ private extension FestivalListView {
     )
     return switch copy {
     case let .unavailable(text): .unavailable(text)
-    case let .ready(title): .ready(title: title, action: { onSelect(festival.id) })
+    case let .ready(title): .ready(title: title, action: { onDownloadPack(festival.id) })
     case let .received(text): .received(text)
     }
   }

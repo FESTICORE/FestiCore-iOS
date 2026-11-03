@@ -18,6 +18,18 @@ public struct FestivalItemDTO: Codable, Sendable {
   public let packVersion: Int
   public let status: String?
   public let ticketLinks: FestivalTicketLinksDTO?
+  public let artists: [FestivalCatalogArtistDTO]?
+}
+
+public struct FestivalCatalogArtistDTO: Codable, Sendable {
+  public let name: String
+  public let performances: [FestivalCatalogPerformanceDTO]
+}
+
+public struct FestivalCatalogPerformanceDTO: Codable, Sendable {
+  public let startsAt: String
+  public let date: String
+  public let stageName: String?
 }
 
 public struct FestivalTicketLinkDTO: Codable, Sendable, Equatable {

@@ -14,6 +14,8 @@ public protocol FestivalPackUseCaseInterface: Sendable {
   func cachedPacks() async throws -> [CachedFestivalPack]
   /// 연결이 끊어지면 `.reconnecting`을 알리고 다시 요청한다.
   func packUpdates(for festivalID: String) -> AsyncThrowingStream<PackSyncResult, Error>
+  /// 사용자가 요청한 단발 팩 다운로드. 청크 바이트와 캐시 저장 완료를 순서대로 보낸다.
+  func downloadPack(for festivalID: String) -> AsyncThrowingStream<PackDownloadEvent, Error>
 }
 
 public enum FestivalPackUseCaseDependency: TestDependencyKey {

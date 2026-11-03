@@ -96,6 +96,17 @@ struct FestivalCatalogTests {
       "https://festicore-dev.up.railway.app/api/v1/festivals/images/poster")
   }
 
+  @Test("아티스트 공연 정보가 네트워크 응답에서 캐시로 유지된다")
+  func restoresArtistProjection() async throws {
+    let cacheURL = temporaryCacheURL()
+    let json = #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"fst_a","name":"축제","packVersion":1,"artists":[{"name":"아티스트","performances":[{"startsAt":"2026-11-05T10:00:00.000Z","date":"2026-11-05","stageName":"메인"}]}]}],"nextCursor":null}}"#
+    let online = NetworkFestivalCatalogService(client: ScriptClient(pages: [json]), cacheURL: cacheURL)
+    let refreshed = try await online.refresh()
+    let offline = NetworkFestivalCatalogService(client: ScriptClient(pages: []), cacheURL: cacheURL)
+    #expect(try await offline.cachedFestivals().first?.artists == refreshed.first?.artists)
+    #expect(refreshed.first?.artists?.first?.performances.first?.stageName == "메인")
+  }
+
   private func temporaryCacheURL() -> URL {
     FileManager.default.temporaryDirectory
       .appendingPathComponent("festival-catalog-tests-\(UUID().uuidString)", isDirectory: true)

@@ -252,6 +252,83 @@ struct PackSyncTests {
     #expect(socket.requests.count == 2)
   }
 
+  @Test("단발 다운로드는 검증된 청크의 실제 누적 바이트와 캐시 저장 완료를 순서대로 보낸다")
+  func downloadReportsReceivedBytesThenSavedPack() async throws {
+    let directory = temporaryDirectory()
+    let pack = Data("{\"id\":\"fst_example\",\"packVersion\":4,\"padding\":\"\(String(repeating: "x", count: 50_000))\"}".utf8)
+    let socket = ScriptSocket { request in
+      let requestID = request["requestId"] as? String ?? ""
+      let chunks = stride(from: 0, to: pack.count, by: 48 * 1024).enumerated().map { index, offset in
+        message("pack.chunk", requestID, [
+          "index": index,
+          "base64": pack.subdata(in: offset..<min(offset + 48 * 1024, pack.count)).base64EncodedString()
+        ])
+      }
+      return [message("pack.start", requestID, [
+        "festivalId": "fst_example", "packVersion": 4, "etag": "\"four\"",
+        "totalBytes": pack.count, "chunkCount": chunks.count, "sha256": PackCache.digest(pack)
+      ])] + chunks + [message("pack.complete", requestID, nil)]
+    }
+    let syncService = service(directory: directory, sockets: [socket])
+    var events: [PackDownloadEvent] = []
+    for try await event in syncService.download(for: id) { events.append(event) }
+
+    guard events.count == 3 else { Issue.record("progress twice and saved pack expected"); return }
+    #expect(events[0] == .progress(.init(receivedBytes: 48 * 1024, totalBytes: pack.count)))
+    #expect(events[1] == .progress(.init(receivedBytes: pack.count, totalBytes: pack.count)))
+    guard case .finished(.updated(let saved)) = events[2] else {
+      Issue.record("saved pack expected"); return
+    }
+    #expect(saved.pack == pack)
+    #expect(try await syncService.cachedPack(for: id) == saved)
+  }
+
+  @Test("단일 스냅샷은 가짜 바이트 진행률 없이 저장 완료만 보낸다")
+  func snapshotDownloadHasNoNumericProgress() async throws {
+    let socket = ScriptSocket { request in [snapshot(request, version: 1, etag: "\"one\"")] }
+    let syncService = service(directory: temporaryDirectory(), sockets: [socket])
+    var events: [PackDownloadEvent] = []
+    for try await event in syncService.download(for: id) { events.append(event) }
+    #expect(events.count == 1)
+    guard case .finished(.updated) = events[0] else { Issue.record("saved snapshot expected"); return }
+  }
+
+  @Test("단발 다운로드의 PACK_BUSY는 세 번만 재요청하고 완료 이벤트 없이 오류로 끝낸다")
+  func busyDownloadIsBounded() async throws {
+    let socket = ScriptSocket { request in
+      [message("pack.retry", request["requestId"] as? String ?? "", [
+        "festivalId": "fst_example", "retryAfterMs": 1
+      ])]
+    }
+    let syncService = service(directory: temporaryDirectory(), sockets: [socket])
+    var events: [PackDownloadEvent] = []
+    do {
+      for try await event in syncService.download(for: id) { events.append(event) }
+      Issue.record("PACK_BUSY expected")
+    } catch PackSyncError.server(let code) {
+      #expect(code == "PACK_BUSY")
+    }
+    #expect(events.isEmpty)
+    #expect(socket.requests.count == 3)
+  }
+
+  @Test("단발 다운로드 취소는 대기 중인 웹소켓을 닫는다")
+  func cancelledDownloadClosesSocket() async throws {
+    let socket = ScriptSocket(waitUntilCancelled: true) { _ in [] }
+    let syncService = service(directory: temporaryDirectory(), sockets: [socket])
+    let task = Task {
+      for try await _ in syncService.download(for: id) {}
+    }
+    for _ in 0..<50 {
+      if !socket.requests.isEmpty { break }
+      try await Task.sleep(nanoseconds: 10_000_000)
+    }
+    #expect(socket.requests.count == 1)
+    task.cancel()
+    _ = try? await task.value
+    #expect(socket.cancelCount > 0)
+  }
+
   @Test("변경 없음·재시도·서버 오류는 저장된 팩을 보존한다")
   func nonSnapshotResponsesKeepCache() async throws {
     let directory = temporaryDirectory()

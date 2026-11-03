@@ -21,6 +21,7 @@ private extension FestivalToastView {
     case .bookmarked: .bookmark16
     case .unbookmarked: .xmark16
     case .ticketLinkMissing: .circleInfo16
+    case .packDownloadFailed: .circleInfo16
     }
   }
 
@@ -29,6 +30,7 @@ private extension FestivalToastView {
     case .bookmarked: "내가 예매한 페스티벌에 담았어요"
     case .unbookmarked: "내가 예매한 페스티벌에서 제외했어요"
     case .ticketLinkMissing: "예매처 정보가 없습니다"
+    case .packDownloadFailed: "팩을 받지 못했어요. 다시 시도해 주세요"
     }
   }
 }

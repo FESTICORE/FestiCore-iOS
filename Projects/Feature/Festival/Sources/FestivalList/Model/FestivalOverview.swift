@@ -17,6 +17,8 @@ public struct FestivalOverview: Equatable, Identifiable {
   public let catalogStatus: String?
   /// 첫 번째 예매처 주소
   public let ticketURL: URL?
+  /// nil이면 서버나 캐시가 아티스트 검색 필드를 아직 제공하지 않는다.
+  public let artists: [FestivalCatalogArtist]?
 
   init(item: FestivalCatalogItem, isCached: Bool, cachedPackVersion: Int? = nil) {
     id = item.id
@@ -30,6 +32,7 @@ public struct FestivalOverview: Equatable, Identifiable {
     self.cachedPackVersion = cachedPackVersion
     catalogStatus = item.status
     ticketURL = item.ticketLinks.first?.url
+    artists = item.artists
   }
 
   init?(pack: CachedFestivalPack) {
@@ -48,5 +51,6 @@ public struct FestivalOverview: Equatable, Identifiable {
     cachedPackVersion = pack.packVersion
     catalogStatus = nil
     ticketURL = document.ticketLinks?.lazy.compactMap(\.httpsURL).first
+    artists = nil
   }
 }

@@ -55,6 +55,66 @@ public actor NetworkPackSyncService: PackSyncService {
     }
   }
 
+  public nonisolated func download(for festivalID: String) -> AsyncThrowingStream<PackDownloadEvent, Error> {
+    AsyncThrowingStream { continuation in
+      let task = Task { await self.runDownload(for: festivalID, continuation: continuation) }
+      continuation.onTermination = { @Sendable _ in task.cancel() }
+    }
+  }
+
+  private func runDownload(
+    for festivalID: String,
+    continuation: AsyncThrowingStream<PackDownloadEvent, Error>.Continuation
+  ) async {
+    do {
+      guard isValidFestivalID(festivalID) else { throw PackSyncError.invalidFestivalID }
+      let socket = client.connect(to: try endpoint())
+      let deadline = Date().addingTimeInterval(30)
+      let timeoutTask = Task {
+        try? await Task.sleep(nanoseconds: 30_000_000_000)
+        if !Task.isCancelled { socket.cancel() }
+      }
+      defer {
+        timeoutTask.cancel()
+        socket.cancel()
+      }
+      let progress: @Sendable (PackDownloadProgress) -> Void = { value in
+        continuation.yield(.progress(value))
+      }
+      let result = try await withTaskCancellationHandler {
+        var retryCount = 0
+        while true {
+          try Task.checkCancellation()
+          let result: PackSyncResult
+          do {
+            result = try await synchronize(for: festivalID, on: socket, onProgress: progress)
+          } catch {
+            if Date() >= deadline { throw PackSyncError.timeout }
+            throw error
+          }
+          switch result {
+          case .updated, .notModified:
+            return result
+          case let .retryAfter(seconds):
+            retryCount += 1
+            guard retryCount < 3, Date() < deadline else { throw PackSyncError.server("PACK_BUSY") }
+            let wait = min(max(seconds, 0.1), deadline.timeIntervalSinceNow)
+            guard wait > 0 else { throw PackSyncError.timeout }
+            try await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
+          case .reconnecting:
+            throw PackSyncError.invalidMessage
+          }
+        }
+      } onCancel: {
+        socket.cancel()
+      }
+      continuation.yield(.finished(result))
+      continuation.finish()
+    } catch {
+      continuation.finish(throwing: error)
+    }
+  }
+
   public func deletePack(for festivalID: String) async throws {
     try cache.delete(festivalID)
     // 진행 중이던 응답이 지운 팩을 다시 저장하지 않게 세대를 올린다.
@@ -151,10 +211,13 @@ public actor NetworkPackSyncService: PackSyncService {
     if (deletionCount[festivalID] ?? 0) != count { throw PackUpdateWaitError.packDeleted }
   }
 
-  private func synchronize(for festivalID: String, on socket: any PackSocket) async throws -> PackSyncResult {
+  private func synchronize(
+    for festivalID: String, on socket: any PackSocket,
+    onProgress: (@Sendable (PackDownloadProgress) -> Void)? = nil
+  ) async throws -> PackSyncResult {
     var receivedSnapshot = false
     for _ in 0..<5 {
-      let reply = try await requestPack(for: festivalID, on: socket)
+      let reply = try await requestPack(for: festivalID, on: socket, onProgress: onProgress)
       if case .updated = reply.result { receivedSnapshot = true }
       if !reply.hadUpdateHint {
         if receivedSnapshot, case .notModified(let cached) = reply.result { return .updated(cached) }
@@ -170,7 +233,10 @@ public actor NetworkPackSyncService: PackSyncService {
     let hadUpdateHint: Bool
   }
 
-  private func requestPack(for festivalID: String, on socket: any PackSocket) async throws -> Reply {
+  private func requestPack(
+    for festivalID: String, on socket: any PackSocket,
+    onProgress: (@Sendable (PackDownloadProgress) -> Void)? = nil
+  ) async throws -> Reply {
     let stored = try cache.load(festivalID)
     let generation = (requestGeneration[festivalID] ?? 0) + 1
     requestGeneration[festivalID] = generation
@@ -193,7 +259,7 @@ public actor NetworkPackSyncService: PackSyncService {
       case "pack.start":
         let (updated, chunkHint) = try await PackWire.chunkedPack(
           start: message, socket: socket, requestID: requestID, festivalID: festivalID,
-          timeoutNanoseconds: responseTimeoutNanoseconds
+          timeoutNanoseconds: responseTimeoutNanoseconds, onProgress: onProgress
         )
         return Reply(result: try store(updated, generation: generation), hadUpdateHint: hadUpdateHint || chunkHint)
       case "pack.not_modified":

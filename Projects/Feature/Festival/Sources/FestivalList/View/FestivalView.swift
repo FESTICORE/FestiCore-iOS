@@ -36,6 +36,7 @@ private extension FestivalView {
       recentSearches: store.recentSearches,
       festivals: store.festivals,
       bookedFestivalIDs: store.bookedFestivalIDs,
+      packDownloads: store.packDownloads,
       imageRevision: store.imageRevision,
       isLoading: store.festivals.isEmpty && store.viewState == .loading,
       hasCatalogFailure: store.catalogCacheReadFailed || store.catalogRefreshFailed,
@@ -43,6 +44,7 @@ private extension FestivalView {
       imageURL: imageURL,
       onSelect: { send(.selectFestival($0)) },
       onToggleBooked: { send(.toggleBookedFestival($0)) },
+      onDownloadPack: { send(.downloadPack($0)) },
       onTicketLink: { festival in
         if let url = festival.ticketURL {
           openURL(url)

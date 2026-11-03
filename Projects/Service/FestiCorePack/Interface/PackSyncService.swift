@@ -32,11 +32,28 @@ public enum PackSyncResult: Sendable, Equatable {
   case reconnecting
 }
 
+public struct PackDownloadProgress: Sendable, Equatable {
+  public let receivedBytes: Int
+  public let totalBytes: Int
+
+  public init(receivedBytes: Int, totalBytes: Int) {
+    self.receivedBytes = receivedBytes
+    self.totalBytes = totalBytes
+  }
+}
+
+public enum PackDownloadEvent: Sendable, Equatable {
+  case progress(PackDownloadProgress)
+  /// 완성된 팩을 캐시에 저장하거나 기존 캐시를 검증한 뒤에만 보낸다.
+  case finished(PackSyncResult)
+}
+
 public protocol PackSyncService: Sendable {
   func cachedPack(for festivalID: String) async throws -> CachedFestivalPack?
   /// 무결성 검증을 통과한 로컬 팩 목록. 네트워크에 연결하지 않는다.
   func cachedPacks() async throws -> [CachedFestivalPack]
   func sync(for festivalID: String) async throws -> PackSyncResult
+  func download(for festivalID: String) -> AsyncThrowingStream<PackDownloadEvent, Error>
   /// 기기에 저장한 팩을 지운다. 없으면 아무것도 하지 않는다.
   func deletePack(for festivalID: String) async throws
   /// 연결이 끊어지면 `.reconnecting`을 알리고 저장된 ETag로 다시 요청한다.
@@ -44,6 +61,10 @@ public protocol PackSyncService: Sendable {
 }
 
 public extension PackSyncService {
+  func download(for _: String) -> AsyncThrowingStream<PackDownloadEvent, Error> {
+    AsyncThrowingStream { $0.finish(throwing: TestPackSyncServiceUnavailable()) }
+  }
+
   /// 삭제를 지원하지 않는 구현은 지우지 않았음을 오류로 알린다.
   func deletePack(for _: String) async throws {
     throw PackDeletionUnsupported()
@@ -92,6 +113,10 @@ private struct UnimplementedPackSyncService: PackSyncService {
     return AsyncThrowingStream { continuation in
       continuation.finish(throwing: TestPackSyncServiceUnavailable())
     }
+  }
+
+  func download(for _: String) -> AsyncThrowingStream<PackDownloadEvent, Error> {
+    AsyncThrowingStream { $0.finish(throwing: TestPackSyncServiceUnavailable()) }
   }
 }
 
