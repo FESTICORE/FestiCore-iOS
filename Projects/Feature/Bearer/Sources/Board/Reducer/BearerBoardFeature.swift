@@ -17,8 +17,6 @@ public struct BearerBoardFeature {
   public init() {}
 
   static let checkDuration: Duration = .seconds(1)
-  static let retryDelay: Duration = .seconds(5)
-  static let rateLimitDelay: Duration = .seconds(15)
 
   @ObservableState
   public struct State: Equatable {
@@ -36,10 +34,11 @@ public struct BearerBoardFeature {
     /// 쉬는 중에서 다시 시작할 때 쓰는 마지막 활동
     public var lastActivity: BearerActivity?
 
-    /// 아직 서버에 반영하지 못한 변경. 앞에서부터 하나씩 보낸다.
+    /// 아직 서버에 반영하지 못한 변경. 대기열(BearerStatusOutbox)의 목록을 비춘다.
     public var pending: [BearerStatusRequest] = []
-    public var isSending = false
     public var isOffline = false
+    /// 로그인·서버 오류로 자동 전송이 멈췄다. 다시 보내기를 눌러야 이어진다.
+    public var isSendPaused = false
     /// 서버 상태를 마지막으로 확인한 시각
     public var lastSyncedAt: Date?
     public var errorMessage: String?
@@ -106,6 +105,7 @@ public struct BearerBoardFeature {
     case onAppear
     case retryTapped
     case closeTapped
+    case retrySendTapped
     case zoneTapped
     case activityTapped
     case restTapped
@@ -120,8 +120,9 @@ public struct BearerBoardFeature {
   @CasePathable
   public enum AsyncAction: Equatable {
     case load
-    case flush
-    case scheduleRetry(Duration)
+    case observeOutbox
+    case enqueue(BearerStatusRequest)
+    case retrySend
     case expireCheck(Int)
   }
 
@@ -131,9 +132,8 @@ public struct BearerBoardFeature {
   public enum InnerAction: Equatable {
     case loaded(BearerBoard, BearerFestival?)
     case loadFailed(BearerError)
-    case sent(id: String, BearerFlagStatus)
-    case sendFailed(id: String, BearerError)
-    case retryFired
+    case pendingLoaded([BearerStatusRequest])
+    case outbox(BearerOutboxEvent)
     case checkExpired(Int)
   }
 
@@ -144,6 +144,7 @@ public struct BearerBoardFeature {
     case zonePicker(BearerZonePickerFeature)
     case activityPicker(BearerActivityPickerFeature)
     case alert(FCConfirmAlert)
+    case closeConfirm(FCConfirmAlert)
   }
 
   // MARK: - DelegateAction
@@ -152,8 +153,7 @@ public struct BearerBoardFeature {
 
   enum CancelID {
     case load
-    case send
-    case retry
+    case outbox
     case check
   }
 
@@ -213,13 +213,25 @@ extension BearerBoardFeature {
   ) -> Effect<Action> {
     switch action {
     case .onAppear:
-      guard state.board == nil else { return state.pending.isEmpty ? .none : .send(.async(.flush)) }
-      return .send(.async(.load))
+      return .merge(
+        .send(.async(.observeOutbox)),
+        state.board == nil ? .send(.async(.load)) : .none
+      )
+
+    case .retrySendTapped:
+      state.isSendPaused = false
+      state.errorMessage = nil
+      return .send(.async(.retrySend))
 
     case .retryTapped:
       return .send(.async(.load))
 
     case .closeTapped:
+      // 닫아도 대기열은 남아 이어서 보내지만, 아직 못 보낸 변경이 있으면 한 번 알린다.
+      guard state.pending.isEmpty else {
+        state.destination = .closeConfirm(.bearerClosePending(count: state.pending.count))
+        return .none
+      }
       return .send(.delegate(.closeRequested))
 
     case .zoneTapped:
@@ -289,31 +301,28 @@ extension BearerBoardFeature {
       }
       .cancellable(id: CancelID.load, cancelInFlight: true)
 
-    case .flush:
-      guard !state.isSending, let request = state.pending.first else { return .none }
-      state.isSending = true
+    case .observeOutbox:
       let flagID = state.flagID
-      return .merge(
-        .cancel(id: CancelID.retry),
-        .run { send in
-          do {
-            let status = try await bearerUseCase.sendStatus(flagID: flagID, request: request)
-            await send(.inner(.sent(id: request.id, status)))
-          } catch let error as BearerError {
-            await send(.inner(.sendFailed(id: request.id, error)))
-          } catch {
-            await send(.inner(.sendFailed(id: request.id, .offline)))
-          }
-        }
-        .cancellable(id: CancelID.send)
-      )
-
-    case .scheduleRetry(let delay):
       return .run { send in
-        try await clock.sleep(for: delay)
-        await send(.inner(.retryFired))
+        await send(.inner(.pendingLoaded(await bearerUseCase.pendingStatus(flagID: flagID))))
+        let events = await bearerUseCase.statusEvents(flagID: flagID)
+        await bearerUseCase.retryPendingStatus()
+        for await event in events {
+          await send(.inner(.outbox(event)))
+        }
       }
-      .cancellable(id: CancelID.retry, cancelInFlight: true)
+      .cancellable(id: CancelID.outbox, cancelInFlight: true)
+
+    case .enqueue(let request):
+      let flagID = state.flagID
+      return .run { _ in
+        await bearerUseCase.enqueueStatus(flagID: flagID, request: request)
+      }
+
+    case .retrySend:
+      return .run { _ in
+        await bearerUseCase.retryPendingStatus()
+      }
 
     case .expireCheck(let id):
       return .run { send in
@@ -335,12 +344,10 @@ extension BearerBoardFeature {
       if let festival { state.festival = festival }
       state.lastSyncedAt = date.now
       state.isOffline = false
-      // 보내지 못한 변경이 있으면 화면 상태를 서버 값으로 되돌리지 않는다.
-      if state.pending.isEmpty {
-        adopt(board.status, into: &state)
-        return .none
-      }
-      return .send(.async(.flush))
+      // 보내지 못한 변경이 있으면 서버 상태 위에 그 변경을 다시 얹어 보인다.
+      adopt(board.status, into: &state)
+      applyPending(&state)
+      return .none
 
     case .loadFailed(let error):
       state.isLoading = false
@@ -352,43 +359,54 @@ extension BearerBoardFeature {
       }
       return .none
 
-    case let .sent(id, status):
-      state.isSending = false
-      guard state.pending.first?.id == id else { return .none }
-      state.pending.removeFirst()
-      state.isOffline = false
-      state.lastSyncedAt = date.now
-      state.errorMessage = nil
-      if state.pending.isEmpty {
-        adopt(status, into: &state)
-        return .none
-      }
-      return .send(.async(.flush))
+    case .pendingLoaded(let pending):
+      state.pending = pending
+      applyPending(&state)
+      return .none
 
-    case let .sendFailed(id, error):
-      state.isSending = false
-      guard state.pending.first?.id == id else { return .none }
-      switch error {
-      case .offline, .unavailable:
-        state.isOffline = error == .offline
-        return .send(.async(.scheduleRetry(Self.retryDelay)))
-
-      case .rateLimited:
-        return .send(.async(.scheduleRetry(Self.rateLimitDelay)))
-
-      default:
-        // 서버가 받지 않는 변경이면 뒤에 쌓인 변경도 그 상태를 전제로 하므로 모두 버리고 최신 상태를 다시 읽는다.
-        state.pending.removeAll()
-        state.errorMessage = Self.rejectMessage(for: error)
-        return .send(.async(.load))
-      }
-
-    case .retryFired:
-      return .send(.async(.flush))
+    case .outbox(let event):
+      return handleOutboxEvent(state: &state, event: event)
 
     case .checkExpired(let id):
       if state.check?.id == id { state.check = nil }
       return .none
+    }
+  }
+
+  private func handleOutboxEvent(
+    state: inout State,
+    event: BearerOutboxEvent
+  ) -> Effect<Action> {
+    switch event {
+    case .pending(let pending):
+      state.pending = pending
+      return .none
+
+    case .sent(_, let status):
+      state.isOffline = false
+      state.isSendPaused = false
+      state.errorMessage = nil
+      state.lastSyncedAt = date.now
+      if state.pending.isEmpty { adopt(status, into: &state) }
+      return .none
+
+    case .offline:
+      state.isOffline = true
+      return .none
+
+    case .needsLogin:
+      state.isSendPaused = true
+      state.errorMessage = "로그인이 풀렸어요. 다시 로그인하면 이어서 보내요"
+      return .none
+
+    case .gaveUp:
+      state.isSendPaused = true
+      state.errorMessage = "서버에 보내지 못했어요. 잠시 뒤 다시 보내기를 눌러 주세요"
+      return .none
+
+    case .rejected(let error):
+      state.errorMessage = Self.rejectMessage(for: error)
+      return .send(.async(.load))
     }
   }
 
@@ -438,9 +456,13 @@ extension BearerBoardFeature {
       state.destination = nil
       return enqueue(&state, .end)
 
-    case .presented(.alert(.cancelTapped)):
+    case .presented(.alert(.cancelTapped)), .presented(.closeConfirm(.cancelTapped)):
       state.destination = nil
       return .none
+
+    case .presented(.closeConfirm(.confirmTapped)):
+      state.destination = nil
+      return .send(.delegate(.closeRequested))
 
     case .dismiss:
       state.sheet = nil
@@ -489,7 +511,7 @@ extension BearerBoardFeature {
     )
     return .merge(
       .send(.async(.expireCheck(state.checkSequence))),
-      state.isSending ? .none : .send(.async(.flush))
+      .send(.async(.enqueue(request)))
     )
   }
 
@@ -514,6 +536,14 @@ extension BearerBoardFeature {
     }
     current.updatedAt = date
     current.updatedBy = nil
+  }
+
+  private func applyPending(_ state: inout State) {
+    guard var current = state.current else { return }
+    for request in state.pending {
+      apply(request.change, to: &current, at: request.clientAt)
+    }
+    state.current = current
   }
 
   private func adopt(_ status: BearerFlagStatus, into state: inout State) {

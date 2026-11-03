@@ -74,19 +74,18 @@ struct BearerBoardFeatureTests {
     #expect(store.state.zoneName(for: "zone_a") == "리벳 스테이지 앞 왼쪽")
   }
 
-  @Test("쉬는 중을 누르면 바로 바꾸고 1초 체크를 보인 뒤 보낸다")
+  @Test("쉬는 중을 누르면 바로 바꾸고 1초 체크를 보인 뒤 대기열에 넣는다")
   func rest() async {
     let clock = TestClock()
-    let sent = LockIsolated<[BearerStatusRequest]>([])
-    let resting = BearerFlagStatus(flagID: "flg_1", lifecycle: .resting, zoneID: "zone_a", activity: nil, updatedAt: now)
+    let queued = LockIsolated<[BearerStatusRequest]>([])
     let store = TestStore(initialState: loaded(board(.active))) {
       BearerBoardFeature()
     } withDependencies: {
       $0.date = .constant(now)
       $0.continuousClock = clock
-      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), sendStatus: { _, request in
-        sent.withValue { $0.append(request) }
-        return resting
+      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), enqueueStatus: { flagID, request in
+        #expect(flagID == "flg_1")
+        queued.withValue { $0.append(request) }
       })
     }
 
@@ -99,73 +98,87 @@ struct BearerBoardFeatureTests {
       $0.check = .init(id: 1, title: "쉬는 중으로 바뀌었어요", message: "팔로워에게 알렸어요")
     }
     await store.receive(\.async.expireCheck)
-    await store.receive(\.async.flush) { $0.isSending = true }
-    await store.receive(\.inner.sent) {
-      $0.isSending = false
-      $0.pending = []
-      $0.lastSyncedAt = now
-      $0.current = BearerBoardFeature.Current(resting)
-    }
-    #expect(sent.value == [request])
+    await store.receive(\.async.enqueue)
+    #expect(queued.value == [request])
     await clock.advance(by: .seconds(1))
     await store.receive(\.inner.checkExpired) { $0.check = nil }
   }
 
-  @Test("오프라인이면 대기열에 두고 같은 멱등키로 다시 보낸다")
-  func offlineQueue() async {
-    let clock = TestClock()
-    let attempts = LockIsolated<[String]>([])
-    let moved = BearerFlagStatus(flagID: "flg_1", lifecycle: .active, zoneID: "zone_b", activity: .slam, updatedAt: now)
-    let store = TestStore(initialState: loaded(board(.active))) {
+  @Test("대기열에 두 건이 쌓여 있으면 서버 상태 위에 차례로 얹어 보이고, 모두 보내면 서버 상태로 맞춘다")
+  func twoPendingChanges() async {
+    let (events, continuation) = AsyncStream.makeStream(of: BearerOutboxEvent.self)
+    let retried = LockIsolated(0)
+    let pending = [
+      BearerStatusRequest(change: .move(zoneID: "zone_b"), idempotencyKey: "key-1", clientAt: now),
+      BearerStatusRequest(change: .rest, idempotencyKey: "key-2", clientAt: now.addingTimeInterval(1))
+    ]
+    let active = board(.active)
+    let store = TestStore(initialState: loaded(active)) {
       BearerBoardFeature()
     } withDependencies: {
       $0.date = .constant(now)
-      $0.continuousClock = clock
-      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), sendStatus: { _, request in
-        attempts.withValue { $0.append(request.idempotencyKey) }
-        if attempts.value.count == 1 { throw BearerError.offline }
-        return moved
-      })
+      $0.bearerUseCase = BearerUseCaseStub(
+        pendingStatus: { _ in pending },
+        statusEvents: { _ in events },
+        retryPendingStatus: { retried.withValue { $0 += 1 } }
+      )
     }
     store.exhaustivity = .off(showSkippedAssertions: false)
 
-    await store.send(.view(.zoneTapped)) {
-      $0.sheet = .move
-      $0.destination = .zonePicker(.init(zones: zones, selectedZoneID: "zone_a"))
-    }
-    await store.send(.destination(.presented(.zonePicker(.view(.zoneTapped("zone_b"))))))
-    await store.receive(\.destination.presented.zonePicker.delegate.picked) {
-      $0.destination = nil
-      $0.sheet = nil
-      $0.current?.zoneID = "zone_b"
-      $0.check = .init(id: 1, title: "리벳 스테이지 중앙으로 바뀌었어요", message: "팔로워에게 알렸어요")
-    }
-    await store.receive(\.inner.sendFailed) {
-      $0.isOffline = true
-      $0.pending = [BearerStatusRequest(change: .move(zoneID: "zone_b"), idempotencyKey: "key-1", clientAt: now)]
-    }
+    await store.send(.view(.onAppear))
+    await store.receive(\.inner.pendingLoaded) { $0.pending = pending }
     #expect(store.state.current?.zoneID == "zone_b")
+    #expect(store.state.current?.lifecycle == .resting)
+    // 서버 상태를 다시 읽어도 보내지 못한 두 변경을 다시 얹는다.
+    await store.send(.inner(.loaded(active, nil)))
+    #expect(store.state.current?.zoneID == "zone_b")
+    #expect(store.state.current?.lifecycle == .resting)
 
-    await clock.advance(by: .seconds(5))
-    await store.receive(\.inner.retryFired)
-    await store.receive(\.inner.sent) {
-      $0.isOffline = false
-      $0.pending = []
-      $0.current = BearerBoardFeature.Current(moved)
-    }
-    #expect(attempts.value == ["key-1", "key-1"])
+    let resting = BearerFlagStatus(flagID: "flg_1", lifecycle: .resting, zoneID: "zone_b", activity: nil, updatedAt: now)
+    continuation.yield(.pending([pending[1]]))
+    continuation.yield(.sent(id: "key-1", resting))
+    await store.receive(\.inner.outbox) { $0.pending = [pending[1]] }
+    #expect(retried.value == 1)
+    await store.receive(\.inner.outbox)
+    #expect(store.state.current?.lifecycle == .resting)
+    continuation.yield(.pending([]))
+    continuation.yield(.sent(id: "key-2", resting))
+    await store.receive(\.inner.outbox) { $0.pending = [] }
+    await store.receive(\.inner.outbox) { $0.current = BearerBoardFeature.Current(resting) }
+    continuation.finish()
+    await store.skipInFlightEffects()
   }
 
-  @Test("다른 기기가 먼저 바꿨으면(409) 대기열을 비우고 최신 상태를 다시 읽는다")
-  func staleReloads() async {
+  @Test("오프라인·로그인 필요·재시도 한도는 알리고, 다시 보내기를 누르면 대기열을 다시 시작한다")
+  func outboxStates() async {
+    let retried = LockIsolated(0)
+    let store = TestStore(initialState: loaded(board(.active))) {
+      BearerBoardFeature()
+    } withDependencies: {
+      $0.bearerUseCase = BearerUseCaseStub(retryPendingStatus: { retried.withValue { $0 += 1 } })
+    }
+
+    await store.send(.inner(.outbox(.offline))) { $0.isOffline = true }
+    await store.send(.inner(.outbox(.needsLogin))) {
+      $0.isSendPaused = true
+      $0.errorMessage = "로그인이 풀렸어요. 다시 로그인하면 이어서 보내요"
+    }
+    await store.send(.view(.retrySendTapped)) {
+      $0.isSendPaused = false
+      $0.errorMessage = nil
+    }
+    await store.receive(\.async.retrySend)
+    #expect(retried.value == 1)
+    await store.send(.inner(.outbox(.gaveUp(.unavailable)))) {
+      $0.isSendPaused = true
+      $0.errorMessage = "서버에 보내지 못했어요. 잠시 뒤 다시 보내기를 눌러 주세요"
+    }
+  }
+
+  @Test("서버가 받지 않으면(409) 최신 상태를 다시 읽는다")
+  func rejectedReloads() async {
     let latest = board(.active, activity: .sing)
-    var state = loaded(board(.active))
-    state.pending = [
-      BearerStatusRequest(change: .rest, idempotencyKey: "key-1", clientAt: now),
-      BearerStatusRequest(change: .end, idempotencyKey: "key-2", clientAt: now)
-    ]
-    state.isSending = true
-    let store = TestStore(initialState: state) {
+    let store = TestStore(initialState: loaded(board(.active))) {
       BearerBoardFeature()
     } withDependencies: {
       $0.date = .constant(now)
@@ -176,15 +189,28 @@ struct BearerBoardFeatureTests {
     }
     store.exhaustivity = .off(showSkippedAssertions: false)
 
-    await store.send(.inner(.sendFailed(id: "key-1", .stale))) {
-      $0.isSending = false
-      $0.pending = []
+    await store.send(.inner(.outbox(.rejected(.stale)))) {
       $0.errorMessage = "다른 기기에서 먼저 바뀌어 최신 상태로 돌렸어요"
     }
     await store.receive(\.inner.loaded) {
       $0.current = BearerBoardFeature.Current(latest.status)
       $0.lastActivity = .sing
     }
+  }
+
+  @Test("못 보낸 변경이 있으면 닫기 전에 확인을 받는다")
+  func closeWithPending() async {
+    var state = loaded(board(.active))
+    state.pending = [BearerStatusRequest(change: .rest, idempotencyKey: "key-1", clientAt: now)]
+    let store = TestStore(initialState: state) { BearerBoardFeature() }
+
+    await store.send(.view(.closeTapped)) { $0.destination = .closeConfirm(.bearerClosePending(count: 1)) }
+    await store.send(.destination(.presented(.closeConfirm(.confirmTapped)))) { $0.destination = nil }
+    await store.receive(.delegate(.closeRequested))
+
+    let empty = TestStore(initialState: loaded(board(.active))) { BearerBoardFeature() }
+    await empty.send(.view(.closeTapped))
+    await empty.receive(.delegate(.closeRequested))
   }
 
   @Test("시작 전에는 존과 활동을 차례로 골라 깃발을 올린다")
@@ -194,7 +220,7 @@ struct BearerBoardFeatureTests {
     } withDependencies: {
       $0.date = .constant(now)
       $0.continuousClock = TestClock()
-      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), sendStatus: { _, _ in throw BearerError.offline })
+      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), enqueueStatus: { _, _ in })
     }
     store.exhaustivity = .off(showSkippedAssertions: false)
 
@@ -225,7 +251,7 @@ struct BearerBoardFeatureTests {
     } withDependencies: {
       $0.date = .constant(now)
       $0.continuousClock = TestClock()
-      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), sendStatus: { _, _ in throw BearerError.offline })
+      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), enqueueStatus: { _, _ in })
     }
     store.exhaustivity = .off(showSkippedAssertions: false)
 
@@ -253,7 +279,7 @@ struct BearerBoardFeatureTests {
     } withDependencies: {
       $0.date = .constant(now)
       $0.continuousClock = TestClock()
-      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), sendStatus: { _, _ in throw BearerError.offline })
+      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), enqueueStatus: { _, _ in })
     }
     store.exhaustivity = .off(showSkippedAssertions: false)
 

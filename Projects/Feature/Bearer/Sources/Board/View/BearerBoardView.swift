@@ -55,6 +55,7 @@ public struct BearerBoardView: View {
         .environment(\.colorScheme, .dark)
     }
     .fcAlert($store.scope(state: \.destination?.alert, action: \.destination.alert))
+    .fcAlert($store.scope(state: \.destination?.closeConfirm, action: \.destination.closeConfirm))
     .environment(\.colorScheme, .dark)
     .onAppear { send(.onAppear) }
   }
@@ -89,9 +90,17 @@ extension BearerBoardView {
         }
       }
       if let message = store.errorMessage {
-        Text(message)
-          .festiCoreFont(.baseFootnoteRegular)
-          .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
+        HStack(spacing: FestiCoreSpacing.marginM8) {
+          Text(message)
+            .festiCoreFont(.baseFootnoteRegular)
+            .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
+            .frame(maxWidth: .infinity, alignment: .leading)
+          if store.isSendPaused {
+            FCButton("다시 보내기") { send(.retrySendTapped) }
+              .style(.secondary)
+              .size(.medium)
+          }
+        }
       }
       FCBearerFooter(queuedCount: store.pending.count)
         .padding(.horizontal, -FestiCoreSpacing.paddingP16)

@@ -33,4 +33,13 @@ struct NetworkLogRedactorTests {
     }
     #expect(!NetworkLogRedactor.hidesBody(for: URL(string: "https://festicore-dev.up.railway.app/api/v1/festivals")))
   }
+
+  @Test("기수 등록 코드와 공동 기수 초대 코드 본문은 로그에서 숨긴다")
+  func hidesBearerCodeBodies() {
+    let base = "https://festicore-dev.up.railway.app/api/v1"
+    #expect(NetworkLogRedactor.hidesBody(for: URL(string: "\(base)/bearer/claim")))
+    #expect(NetworkLogRedactor.hidesBody(for: URL(string: "\(base)/flags/flg_1/co-bearers/invite")))
+    #expect(!NetworkLogRedactor.hidesBody(for: URL(string: "\(base)/flags/flg_1/bearer")))
+    #expect(!NetworkLogRedactor.hidesBody(for: URL(string: "\(base)/flags/flg_1/co-bearers/usr_2")))
+  }
 }

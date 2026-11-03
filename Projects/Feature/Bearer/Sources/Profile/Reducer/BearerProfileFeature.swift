@@ -137,6 +137,7 @@ public struct BearerProfileFeature {
     case load
     case upload
     case save
+    case invite
   }
 
   @Dependency(\.bearerUseCase) private var bearerUseCase
@@ -153,13 +154,8 @@ public struct BearerProfileFeature {
       case .inner(let innerAction):
         return handleInnerAction(state: &state, action: innerAction)
 
-      case .destination(.presented(.alert(.confirmTapped))),
-           .destination(.presented(.alert(.cancelTapped))):
-        state.destination = nil
-        return .none
-
-      case .destination:
-        return .none
+      case .destination(let destinationAction):
+        return handleDestinationAction(state: &state, action: destinationAction)
 
       case .delegate(let delegateAction):
         return handleDelegateAction(state: &state, action: delegateAction)
@@ -178,8 +174,8 @@ extension BearerProfileFeature.State {
   }
 
   public var canSave: Bool {
-    BearerProfileFeature.nameRange.contains(trimmedName.count)
-      && bio.count <= BearerProfileFeature.bioLimit
+    BearerProfileFeature.nameRange.contains(trimmedName.unicodeScalars.count)
+      && bio.unicodeScalars.count <= BearerProfileFeature.bioLimit
       && (1 ... BearerProfileFeature.tagLimit).contains(tags.count)
       && nameError == nil
       && !isUploadingPhoto
@@ -214,13 +210,13 @@ extension BearerProfileFeature {
       return .send(.async(.load))
 
     case .nameChanged(let text):
-      state.name = String(text.prefix(Self.nameRange.upperBound))
+      state.name = Self.prefix(text, scalars: Self.nameRange.upperBound)
       state.nameError = nil
       state.saveError = nil
       return .none
 
     case .bioChanged(let text):
-      state.bio = String(text.prefix(Self.bioLimit))
+      state.bio = Self.prefix(text, scalars: Self.bioLimit)
       return .none
 
     case .tagTapped(let tag):
@@ -344,6 +340,7 @@ extension BearerProfileFeature {
           await send(.inner(.inviteFailed(.unavailable)))
         }
       }
+      .cancellable(id: CancelID.invite, cancelInFlight: true)
     }
   }
 
@@ -412,6 +409,20 @@ extension BearerProfileFeature {
     }
   }
 
+  private func handleDestinationAction(
+    state: inout State,
+    action: PresentationAction<Destination.Action>
+  ) -> Effect<Action> {
+    switch action {
+    case .presented(.alert(.confirmTapped)), .presented(.alert(.cancelTapped)):
+      state.destination = nil
+      return .none
+
+    case .dismiss, .presented:
+      return .none
+    }
+  }
+
   private func handleDelegateAction(
     state: inout State,
     action: DelegateAction
@@ -420,6 +431,13 @@ extension BearerProfileFeature {
     case .finished, .closeRequested:
       return .none
     }
+  }
+
+  /// 서버처럼 코드포인트 수로 길이를 자른다. 이모지 하나가 글자 여러 개로 세어질 수 있다.
+  static func prefix(_ text: String, scalars limit: Int) -> String {
+    var view = String.UnicodeScalarView()
+    view.append(contentsOf: text.unicodeScalars.prefix(limit))
+    return String(view)
   }
 
   static func photoMessage(for error: BearerError) -> String {
