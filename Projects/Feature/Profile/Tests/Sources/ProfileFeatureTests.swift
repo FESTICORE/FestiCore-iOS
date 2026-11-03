@@ -175,6 +175,17 @@ struct ProfileFeatureTests {
     }
   }
 
+  @Test func notificationsTapOpensNotificationSettings() async {
+    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
+
+    await store.send(.view(.notificationsTapped)) {
+      $0.destination = .notifications(.init())
+    }
+    await store.send(.destination(.presented(.notifications(.delegate(.backRequested))))) {
+      $0.destination = nil
+    }
+  }
+
   @Test func missingLegalConfigurationShowsDismissibleError() async {
     let store = TestStore(initialState: ProfileFeature.State()) {
       ProfileFeature(legalBaseURL: nil)

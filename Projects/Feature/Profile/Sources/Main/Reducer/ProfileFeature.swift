@@ -57,6 +57,7 @@ public struct ProfileFeature {
   public enum Destination {
     case alert(FCConfirmAlert)
     case account(AccountSettingsFeature)
+    case notifications(NotificationSettingsFeature)
     case packDetail(PackDetailFeature)
   }
 
@@ -183,7 +184,8 @@ extension ProfileFeature {
       return .none
 
     case .notificationsTapped:
-      return open(URL(string: UIApplication.openSettingsURLString))
+      state.destination = .notifications(.init())
+      return .none
 
     case .lockScreenTapped:
       return .send(.delegate(.lockScreenRequested))
@@ -270,6 +272,13 @@ extension ProfileFeature {
       }
 
     case .presented(.account):
+      return .none
+
+    case .presented(.notifications(.delegate(.backRequested))):
+      state.destination = nil
+      return .none
+
+    case .presented(.notifications):
       return .none
 
     case .presented(.packDetail(.delegate(.backRequested))):

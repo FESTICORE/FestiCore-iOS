@@ -34,6 +34,11 @@ public struct ProfileView: View {
         ) { accountStore in
           AccountSettingsView(store: accountStore)
         }
+        .navigationDestination(
+          item: $store.scope(state: \.destination?.notifications, action: \.destination.notifications)
+        ) { notificationStore in
+          NotificationSettingsView(store: notificationStore)
+        }
     }
   }
 }

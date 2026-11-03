@@ -11,6 +11,7 @@ let project = Project.makeModule(
     .core(.utility),
     .service(.pack, .interface),
     .service(.apiEndpoint),
+    .service(.device, .interface),
     .SPM.kingfisher,
     .SPM.dependencies,
   ],

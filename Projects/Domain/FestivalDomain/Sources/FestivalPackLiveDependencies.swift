@@ -19,3 +19,9 @@ extension FestivalPackDetailUseCaseDependency: DependencyKey {
 extension FestivalPackRepositoryDependency: DependencyKey {
   public static var liveValue: any FestivalPackRepositoryInterface { FestivalPackRepositoryImpl() }
 }
+
+extension FestivalNotificationSettingsUseCaseDependency: DependencyKey {
+  public static var liveValue: any FestivalNotificationSettingsUseCaseInterface {
+    FestivalNotificationSettingsUseCaseImpl()
+  }
+}
