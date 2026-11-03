@@ -1,4 +1,5 @@
 import FeatureAssembly
+import FestivalDomainInterface
 import FestiCoreUtility
 import Foundation
 import TimetableDomainInterface

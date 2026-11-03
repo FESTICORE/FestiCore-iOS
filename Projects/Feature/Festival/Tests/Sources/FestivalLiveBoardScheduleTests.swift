@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import FestivalDomainInterface
 @testable import Festival
 
 struct FestivalLiveBoardScheduleTests {

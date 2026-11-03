@@ -1,3 +1,4 @@
+import FestivalDomainInterface
 import FestiCoreUtility
 import Foundation
 

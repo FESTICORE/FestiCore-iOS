@@ -40,6 +40,12 @@ private struct FestivalDemoRoot: View {
     $0.festivalSelectionStore = .liveValue
     $0.festivalImagePrefetchClient = .liveValue
     $0.festivalLiveActivityClient = .liveValue
+    $0.festivalCatalogUseCase = FestivalCatalogUseCaseImpl()
+    $0.festivalPackUseCase = FestivalPackUseCaseImpl()
+    $0.festivalLibraryUseCase = FestivalLibraryUseCaseImpl()
+    $0.festivalLiveBoardUseCase = FestivalLiveBoardUseCaseImpl()
+    $0.festivalImageUseCase = FestivalImageUseCaseImpl()
+    $0.festivalLiveActivityUseCase = FestivalLiveActivityUseCaseImpl()
   }
 
   var body: some View {
