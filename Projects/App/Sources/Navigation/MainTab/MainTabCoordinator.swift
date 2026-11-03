@@ -183,7 +183,10 @@ struct MainTabCoordinator {
               (state.authFlow.profile?.isEligible == true
                 || (state.authFlow.profile == nil && bookedStore.offlineEligible(userID))) else { return .none }
         bookedStore.setBookmark(id, booked: shouldBeBooked, for: userID)
-        return .send(.festival(.reloadBookmarks(userID: userID)))
+        return .concatenate(
+          .send(.festival(.reloadBookmarks(userID: userID))),
+          .send(.festival(.bookmarkSaved(id: id, booked: shouldBeBooked)))
+        )
       }
     }
   }

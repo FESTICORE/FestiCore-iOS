@@ -35,6 +35,7 @@ struct FestivalCoordinator {
     case router(IndexedRouterActionOf<FestivalScreen>)
     case delegate(Delegate)
     case reloadBookmarks(userID: String?)
+    case bookmarkSaved(id: String, booked: Bool)
     case accountChanged
     case sessionChanged(hasSession: Bool, userID: String?)
     case myScheduleSaved(festivalID: String, setIDs: Set<String>)
@@ -119,6 +120,9 @@ struct FestivalCoordinator {
 
     case let .reloadBookmarks(userID):
       return broadcast(state, .view(.reloadBookmarks(userID: userID)))
+
+    case let .bookmarkSaved(id, booked):
+      return broadcast(state, .view(.bookmarkSaved(id: id, booked: booked)))
 
     case .accountChanged:
       return broadcast(state, .view(.accountChanged))

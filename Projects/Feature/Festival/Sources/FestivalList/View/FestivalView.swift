@@ -59,13 +59,11 @@ private extension FestivalView {
 
   var toast: some View {
     ZStack {
-      if let message = store.toast {
-        FCToast(.init(icon: .circleInfo16, message: message))
-          .padding(.bottom, FestiCoreSpacing.paddingP16)
-          .transition(.move(edge: .bottom).combined(with: .opacity))
+      if let toast = store.toast {
+        FestivalToastView(toast: toast, revision: store.toastRevision)
       }
     }
-    .animation(.easeOut(duration: 0.2), value: store.toast)
+    .animation(.easeOut(duration: 0.2), value: store.toastRevision)
   }
 
   func imageURL(_ value: String?) -> URL? {

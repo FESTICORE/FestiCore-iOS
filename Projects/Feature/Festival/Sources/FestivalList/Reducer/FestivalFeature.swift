@@ -27,8 +27,9 @@ public struct FestivalFeature {
     public var bookedFestivalIDs: Set<String> = []
     public var bookedUserID: String?
     public var recentSearches: [String] = []
-    /// 목록 하단에 2초 동안 보이는 안내
-    public var toast: String?
+    /// 화면 하단에 2초 동안 보이는 안내. 같은 종류도 다시 표시할 수 있게 revision을 올린다.
+    public var toast: Toast?
+    public var toastRevision = 0
     public var selectedPack: FestivalPackDocument?
     public var liveBoard: FestivalLiveBoardSnapshot?
     public var liveBoardUnavailable = false
@@ -145,6 +146,7 @@ public struct FestivalFeature {
 
     /// 로그아웃·인증 상실 때 이전 계정의 라이브 보드와 예약 목록을 비운다.
     public mutating func clearAccountData() {
+      toast = nil
       liveBoard = nil
       liveBoardUnavailable = false
       liveBoardUnpublished = false
@@ -174,6 +176,12 @@ public struct FestivalFeature {
     case unavailable
   }
 
+  public enum Toast: Equatable {
+    case bookmarked
+    case unbookmarked
+    case ticketLinkMissing
+  }
+
   struct LiveActivityControlState: Equatable {
     let title: String
     let isEnabled: Bool
@@ -197,6 +205,7 @@ public struct FestivalFeature {
     case selectFestival(String)
     case backToFestivalList
     case toggleBookedFestival(String)
+    case bookmarkSaved(id: String, booked: Bool)
     case recentSearchSubmitted(String)
     case recentSearchRemoved(String)
     case recentSearchesCleared
@@ -360,6 +369,11 @@ extension FestivalFeature {
       guard state.festivals.contains(where: { $0.id == id }) else { return .none }
       return .send(.delegate(.bookmarkRequested(id)))
 
+    case let .bookmarkSaved(_, booked):
+      state.toast = booked ? .bookmarked : .unbookmarked
+      state.toastRevision += 1
+      return .send(.async(.expireToast))
+
     case let .recentSearchSubmitted(query):
       state.recentSearches = libraryUseCase.addRecentSearch(query, for: state.bookedUserID)
       return .none
@@ -427,7 +441,8 @@ extension FestivalFeature {
       return .none
 
     case .ticketLinkMissing:
-      state.toast = "예매처 정보가 없습니다"
+      state.toast = .ticketLinkMissing
+      state.toastRevision += 1
       return .send(.async(.expireToast))
 
     case let .reloadBookmarks(userID):

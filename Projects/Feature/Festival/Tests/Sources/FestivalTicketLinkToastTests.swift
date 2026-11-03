@@ -14,7 +14,8 @@ struct FestivalTicketLinkToastTests {
     }
 
     await store.send(.view(.ticketLinkMissing)) {
-      $0.toast = "예매처 정보가 없습니다"
+      $0.toast = .ticketLinkMissing
+      $0.toastRevision = 1
     }
     await store.receive(\.async.expireToast)
     await clock.advance(by: .seconds(2))
