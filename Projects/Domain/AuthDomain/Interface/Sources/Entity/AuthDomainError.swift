@@ -18,4 +18,6 @@ public enum AuthDomainError: Error, Sendable, Equatable {
   case providerFailure
   case localSessionClearFailed
   case revocationOutcomeUnknown
+  /// 닉네임이 1~12자가 아니다.
+  case invalidNickname
 }

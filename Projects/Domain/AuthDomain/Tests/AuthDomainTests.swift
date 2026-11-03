@@ -5,6 +5,7 @@
 //  Created by FestiCore on 10/29/26.
 //
 
+import APIEndpoint
 import Dependencies
 import AuthDomainInterface
 import FestiCoreAuthInterface
@@ -101,6 +102,37 @@ struct AuthDomainTests {
     #expect(user.nicknameConfirmed)
     #expect(await client.lastRequestMethod == "PATCH")
     #expect(await client.lastRequestBoundSessionID == sessionID)
+  }
+
+  @Test("닉네임 변경은 공백을 뺀 닉네임만 인증된 PATCH me로 보낸다")
+  func updateNickname() async throws {
+    let auth = StubAuthService(loggedIn: true)
+    let sessionID = await auth.sessionID
+    let body = Data(#"{"code":"SUCCESS","message":"OK","data":{"id":"user-1","provider":"apple","nickname":"로이","nicknameConfirmed":true,"termsAcceptedAt":"2026-10-30T00:00:00Z","termsVersion":"2026-10","pushOptIn":false}}"#.utf8)
+    let client = StubClient(result: .success(body))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+    let user = try await repository.updateNickname("  로이 ")
+    #expect(user.nickname == "로이")
+    #expect(await client.lastRequestPath == "api/v1/me")
+    #expect(await client.lastRequestMethod == "PATCH")
+    #expect(await client.lastRequestBoundSessionID == sessionID)
+    let request = AuthRequest.updateNickname(body: AuthNicknameUpdateBody(nickname: "로이"), sessionID: sessionID)
+    let encoded = try JSONEncoder().encode(AnyEncodable(request.parameters))
+    #expect(String(decoding: encoded, as: UTF8.self) == #"{"nickname":"로이"}"#)
+  }
+
+  @Test("닉네임이 1~12자가 아니면 네트워크 전에 거부한다", arguments: ["   ", "열세글자가넘는아주긴닉네임"])
+  func invalidNickname(nickname: String) async {
+    let client = StubClient(result: .success(profileBody))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = StubAuthService(loggedIn: true)
+    } operation: { AuthRepositoryImpl() }
+    await #expect(throws: AuthDomainError.invalidNickname) { try await repository.updateNickname(nickname) }
+    #expect(await client.calls == 0)
   }
 
   @Test("프로필 조회 실패는 전파하고 401에서만 세션을 지운다", arguments: [0, 401, 500])
@@ -821,5 +853,17 @@ private actor StubClient: FestiCoreNetworkClient {
   func upload(_ request: some FestiCoreFileUploadRequest) async throws(FestiCoreNetworkError) {
     Issue.record("사용하지 않는 요청")
     throw .request(.invalidURL)
+  }
+}
+
+private struct AnyEncodable: Encodable {
+  let value: (any Encodable)?
+
+  init(_ value: (any Encodable)?) {
+    self.value = value
+  }
+
+  func encode(to encoder: Encoder) throws {
+    try value?.encode(to: encoder)
   }
 }

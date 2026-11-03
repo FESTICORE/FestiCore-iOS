@@ -7,12 +7,21 @@ public struct CachedFestivalPack: Sendable, Equatable {
   public let packVersion: Int
   public let etag: String
   public let pack: Data
+  /// 서버와 마지막으로 버전을 맞춘 시각. 디스크에서 읽은 팩에만 있다.
+  public let checkedAt: Date?
 
-  public init(festivalID: String, packVersion: Int, etag: String, pack: Data) {
+  public init(festivalID: String, packVersion: Int, etag: String, pack: Data, checkedAt: Date? = nil) {
     self.festivalID = festivalID
     self.packVersion = packVersion
     self.etag = etag
     self.pack = pack
+    self.checkedAt = checkedAt
+  }
+
+  /// 확인 시각은 저장 메타데이터라 같은 팩인지 비교할 때 보지 않는다.
+  public static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.festivalID == rhs.festivalID && lhs.packVersion == rhs.packVersion
+      && lhs.etag == rhs.etag && lhs.pack == rhs.pack
   }
 }
 
@@ -28,8 +37,22 @@ public protocol PackSyncService: Sendable {
   /// 무결성 검증을 통과한 로컬 팩 목록. 네트워크에 연결하지 않는다.
   func cachedPacks() async throws -> [CachedFestivalPack]
   func sync(for festivalID: String) async throws -> PackSyncResult
+  /// 기기에 저장한 팩을 지운다. 없으면 아무것도 하지 않는다.
+  func deletePack(for festivalID: String) async throws
   /// 연결이 끊어지면 `.reconnecting`을 알리고 저장된 ETag로 다시 요청한다.
   func updates(for festivalID: String) -> AsyncThrowingStream<PackSyncResult, Error>
+}
+
+public extension PackSyncService {
+  /// 삭제를 지원하지 않는 구현은 지우지 않았음을 오류로 알린다.
+  func deletePack(for _: String) async throws {
+    throw PackDeletionUnsupported()
+  }
+}
+
+/// 이 `PackSyncService` 구현은 기기에 저장한 팩을 지울 수 없다.
+public struct PackDeletionUnsupported: Error, Equatable {
+  public init() {}
 }
 
 public enum PackSyncServiceDependency: TestDependencyKey {
@@ -57,6 +80,11 @@ private struct UnimplementedPackSyncService: PackSyncService {
   }
 
   func sync(for _: String) async throws -> PackSyncResult {
+    throw TestPackSyncServiceUnavailable()
+  }
+
+  func deletePack(for _: String) async throws {
+    reportIssue("packSyncService.deletePack 미등록")
     throw TestPackSyncServiceUnavailable()
   }
 

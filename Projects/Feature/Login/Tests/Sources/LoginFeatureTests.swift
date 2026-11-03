@@ -11,6 +11,32 @@ import Testing
 @testable import Login
 
 struct LoginFeatureTests {
+  @Test @MainActor func signInTapAsksParentWithoutStartingLogin() async {
+    let store = TestStore(initialState: LoginFeature.State()) { LoginFeature() }
+
+    // 부모가 시트 상태를 확인한 뒤 `view(.signIn)`을 보낼 때까지 로그인을 시작하지 않는다.
+    await store.send(.view(.signInTapped(.apple)))
+    await store.receive(.delegate(.signInRequested(.apple)))
+  }
+
+  @Test @MainActor func contextChangedUpdatesSheetCopyAndFlowMessage() async {
+    let store = TestStore(initialState: LoginFeature.State()) { LoginFeature() }
+
+    await store.send(.view(.contextChanged(.flag, flowMessage: "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."))) {
+      $0.context = .flag
+      $0.flowMessage = "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."
+    }
+  }
+
+  @Test func flowMessageShowsBeforeLoginError() {
+    var state = LoginFeature.State()
+    state.errorMessage = "로그인에 실패했습니다. 다시 시도해 주세요."
+    #expect(state.visibleMessage == "로그인에 실패했습니다. 다시 시도해 주세요.")
+
+    state.flowMessage = "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."
+    #expect(state.visibleMessage == "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요.")
+  }
+
   @Test @MainActor func successfulLoginReportsUser() async {
     let store = TestStore(initialState: LoginFeature.State()) {
       LoginFeature()

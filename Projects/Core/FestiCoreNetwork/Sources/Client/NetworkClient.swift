@@ -90,6 +90,30 @@ extension NetworkClient: FestiCoreRequestClient {
 
 extension NetworkClient: FestiCoreUploadClient {
   func upload<R: FestiCoreUploadRequest>(_ request: R) async throws(FestiCoreNetworkError) -> R.Response {
+    let uploadRequest = try makeUploadRequest(request)
+    return try await handle(uploadRequest, as: R.Response.self)
+  }
+
+  func upload<R: FestiCoreUploadRequest>(
+    _ request: R,
+    progress: @escaping @Sendable (Double) -> Void
+  ) async throws(FestiCoreNetworkError) -> R.Response {
+    let uploadRequest = try makeUploadRequest(request)
+      .uploadProgress { progress($0.fractionCompleted) }
+    do {
+      return try await withTaskCancellationHandler {
+        try await self.handle(uploadRequest, as: R.Response.self)
+      } onCancel: {
+        uploadRequest.cancel()
+      }
+    } catch let error as FestiCoreNetworkError {
+      throw error
+    } catch {
+      throw .transport(.cancelled)
+    }
+  }
+
+  private func makeUploadRequest<R: FestiCoreUploadRequest>(_ request: R) throws(FestiCoreNetworkError) -> UploadRequest {
     let base = try resolvedBaseURL()
     let url = base.appendingPathComponent(request.path)
     // escaping 클로저에는 Sendable 값만 캡처한다.
@@ -107,7 +131,7 @@ extension NetworkClient: FestiCoreUploadClient {
         if let timeout { urlRequest.timeoutInterval = timeout }
       }
     )
-    return try await handle(uploadRequest, as: R.Response.self)
+    return uploadRequest
   }
 }
 

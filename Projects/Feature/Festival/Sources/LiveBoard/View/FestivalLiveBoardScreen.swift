@@ -21,6 +21,8 @@ struct FestivalLiveBoardScreen: View {
   let liveActivityState: FestivalFeature.LiveActivityControlState
   let onLiveActivityTap: () -> Void
   let onLoginTap: () -> Void
+  /// 기수 계정이면 상단 기수 버튼 동작. nil이면 로고만 보인다.
+  let onBearerTap: (() -> Void)?
   let onRetryMySchedule: () -> Void
   let onSwipeBack: () -> Void
 
@@ -30,7 +32,7 @@ struct FestivalLiveBoardScreen: View {
         serverAt: liveBoard?.serverAt, clockAnchorAt: liveBoardClockAnchorAt, deviceNow: timeline.date
       )
       VStack(spacing: .zero) {
-        FCTopBar(.logo)
+        topBar
         if liveBoardUnavailable, liveBoard != nil {
           FCOfflineBadge(FestivalLiveBoardPresentation.offlineText(
             receivedAt: liveBoardReceivedAt, deviceNow: timeline.date
@@ -107,6 +109,16 @@ struct FestivalLiveBoardScreen: View {
 }
 
 private extension FestivalLiveBoardScreen {
+  /// Figma S01 A2: 기수 계정이면 로고 옆에 기수 버튼을 둔다.
+  @ViewBuilder
+  var topBar: some View {
+    if let onBearerTap {
+      FCTopBar(.logoBearer).onBearer(onBearerTap)
+    } else {
+      FCTopBar(.logo)
+    }
+  }
+
   func festivalHeader(now: Date) -> some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
       Text(festival.name)

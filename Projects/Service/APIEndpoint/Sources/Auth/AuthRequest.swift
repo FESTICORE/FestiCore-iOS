@@ -40,12 +40,22 @@ public struct AuthProfileUpdateBody: Encodable, Sendable {
   }
 }
 
+/// 닉네임만 바꾼다. 약관·알림 동의 값은 보내지 않는다.
+public struct AuthNicknameUpdateBody: Encodable, Sendable {
+  public let nickname: String
+
+  public init(nickname: String) {
+    self.nickname = nickname
+  }
+}
+
 public enum AuthRequest: FestiCoreDataRequest, Sendable {
   case login(body: AuthLoginBody)
   case refresh(refreshToken: String)
   case logout(sessionID: UUID)
   case me(sessionID: UUID)
   case updateMe(body: AuthProfileUpdateBody, sessionID: UUID)
+  case updateNickname(body: AuthNicknameUpdateBody, sessionID: UUID)
   case withdraw(sessionID: UUID)
 
   public var path: String { return api.path }
@@ -54,7 +64,7 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
     switch self {
     case .login, .refresh, .logout: return .post
     case .me: return .get
-    case .updateMe: return .patch
+    case .updateMe, .updateNickname: return .patch
     case .withdraw: return .delete
     }
   }
@@ -62,7 +72,8 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
   public var authorization: FestiCoreAuthorization {
     switch self {
     case .login, .refresh: return .none
-    case let .logout(sessionID), let .me(sessionID), let .updateMe(_, sessionID), let .withdraw(sessionID):
+    case let .logout(sessionID), let .me(sessionID), let .updateMe(_, sessionID),
+         let .updateNickname(_, sessionID), let .withdraw(sessionID):
       return .sessionBound(sessionID)
     }
   }
@@ -74,6 +85,7 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
     case let .login(body): return body
     case let .refresh(refreshToken): return RefreshBody(refreshToken: refreshToken)
     case let .updateMe(body, _): return body
+    case let .updateNickname(body, _): return body
     case .logout, .me, .withdraw: return nil
     }
   }
@@ -83,7 +95,7 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
     case .login: return .login
     case .refresh: return .refresh
     case .logout: return .logout
-    case .me, .updateMe: return .me
+    case .me, .updateMe, .updateNickname: return .me
     case .withdraw: return .withdraw
     }
   }

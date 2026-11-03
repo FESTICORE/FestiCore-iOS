@@ -9,12 +9,16 @@ let project = Project.makeModule(
   dependencies: [
     .core(.network, .interface),
     .core(.utility),
+    .service(.pack, .interface),
+    .service(.apiEndpoint),
+    .service(.device, .interface),
     .SPM.kingfisher,
     .SPM.dependencies,
   ],
   hasTests: true,
   hasInterface: true,
   interfaceDependencies: [
+    .service(.pack, .interface),
     .SPM.dependencies
   ]
 )

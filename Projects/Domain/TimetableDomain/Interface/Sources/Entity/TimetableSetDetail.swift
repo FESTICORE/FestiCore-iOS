@@ -25,6 +25,8 @@ public struct TimetableSetDetail: Equatable, Sendable {
   /// 바뀌기 전 시작 시각(`HH:mm`). 바뀌지 않았으면 nil이다.
   public var previousTime: String?
   public var change: String?
+  /// 출연진 사진. 없으면 시트에 이름만 보인다.
+  public var imageURL: URL?
 
   public init(
     artist: String,
@@ -34,7 +36,8 @@ public struct TimetableSetDetail: Equatable, Sendable {
     isScheduled: Bool,
     overlap: TimetableSetOverlap? = nil,
     previousTime: String? = nil,
-    change: String? = nil
+    change: String? = nil,
+    imageURL: URL? = nil
   ) {
     self.artist = artist
     self.stage = stage
@@ -44,6 +47,7 @@ public struct TimetableSetDetail: Equatable, Sendable {
     self.overlap = overlap
     self.previousTime = previousTime
     self.change = change
+    self.imageURL = imageURL
   }
 
   public var relativeTime: String {

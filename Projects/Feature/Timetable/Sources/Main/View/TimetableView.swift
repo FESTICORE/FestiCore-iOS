@@ -51,6 +51,9 @@ public struct TimetableView: View {
     }
     .frame(maxHeight: .infinity, alignment: .top)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
+    .fullScreenCover(item: $store.scope(state: \.destination?.schedulePick, action: \.destination.schedulePick)) { pickStore in
+      SchedulePickView(store: pickStore)
+    }
   }
 }
 
@@ -115,6 +118,12 @@ private extension TimetableView {
       Text("내 일정 \(store.mySetCount)개")
         .festiCoreFont(.baseFootnoteRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+      FCButton("내 일정 고르기") {
+        send(.schedulePickTapped)
+      }
+      .style(.secondary)
+      .size(.medium)
+      .isEnabled(store.canPickSchedule)
     }
     .padding(FestiCoreSpacing.paddingP16)
   }

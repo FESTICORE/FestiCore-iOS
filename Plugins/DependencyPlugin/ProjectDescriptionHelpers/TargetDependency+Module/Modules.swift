@@ -9,6 +9,7 @@ import ProjectDescription
 
 public enum FeatureModule: String, CaseIterable {
   case assembly = "FeatureAssembly"
+  case bearer = "Bearer"
   case festival = "Festival"
   case login = "Login"
   case profile = "Profile"
@@ -30,6 +31,7 @@ public enum CoreModule: String, CaseIterable {
 
 public enum DomainModule: String, CaseIterable {
   case auth = "AuthDomain"
+  case bearer = "BearerDomain"
   case festival = "FestivalDomain"
   case timetable = "TimetableDomain"
 

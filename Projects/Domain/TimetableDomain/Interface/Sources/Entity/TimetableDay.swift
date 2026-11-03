@@ -65,6 +65,8 @@ public struct TimetableSet: Equatable, Identifiable, Sendable {
   public var end: Int
   /// 바뀌기 전 시작 시각. 바뀌지 않았으면 nil이다.
   public var previousStart: Int?
+  /// 출연진 사진. 없으면 nil이다.
+  public var imageURL: URL?
 
   public init(
     id: String,
@@ -72,7 +74,8 @@ public struct TimetableSet: Equatable, Identifiable, Sendable {
     stageID: String,
     start: Int,
     end: Int,
-    previousStart: Int? = nil
+    previousStart: Int? = nil,
+    imageURL: URL? = nil
   ) {
     self.id = id
     self.artist = artist
@@ -80,6 +83,7 @@ public struct TimetableSet: Equatable, Identifiable, Sendable {
     self.start = start
     self.end = end
     self.previousStart = previousStart
+    self.imageURL = imageURL
   }
 
   func overlaps(_ other: TimetableSet) -> Bool {

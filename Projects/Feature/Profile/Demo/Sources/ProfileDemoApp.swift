@@ -11,6 +11,7 @@
 
 import ComposableArchitecture
 import FestiCoreDesignKit
+import FestiCoreSharedUI
 import Profile
 import SwiftUI
 
@@ -35,13 +36,12 @@ private struct ProfileDemoRoot: View {
   }
 
   var body: some View {
-    let view = ProfileView(
-      store: store,
-      profile: nil,
-      hasSession: false,
-      isLoading: false,
-      message: nil
-    )
-    view.overlay { view.dialogOverlay }
+    let view = ProfileView(store: store)
+    view.overlay {
+      Color.clear.fcAlert(
+        $store.scope(state: \.destination?.alert, action: \.destination.alert),
+        dismissesOnDimTap: true
+      )
+    }
   }
 }

@@ -4,7 +4,11 @@ import Foundation
 import TimetableDomainInterface
 
 enum FestivalPackTimetableMapper {
-  static func days(from pack: FestivalPackDocument) -> [TimetableDay] {
+  /// `imageURL`은 팩의 상대 사진 경로를 서버 주소로 바꾼다.
+  static func days(
+    from pack: FestivalPackDocument,
+    imageURL: (String?) -> URL? = { _ in nil }
+  ) -> [TimetableDay] {
     let calendar = AppDateFormat.calendar
 
     let performances = pack.performances.compactMap { performance -> (Date, Date, FestivalPackDocument.Performance)? in
@@ -30,7 +34,8 @@ enum FestivalPackTimetableMapper {
           artist: performance.artist ?? "출연진 미정",
           stageID: performance.stageId ?? performance.stageName ?? "stage-unassigned",
           start: Int(start.timeIntervalSince(dayStart) / 60),
-          end: Int(end.timeIntervalSince(dayStart) / 60)
+          end: Int(end.timeIntervalSince(dayStart) / 60),
+          imageURL: imageURL(performance.imageUrl)
         )
       }
       return TimetableDay(

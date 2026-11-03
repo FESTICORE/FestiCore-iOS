@@ -14,6 +14,7 @@ let project = Project.makeModule(
   name: "Profile",
   dependencies: [
     .domain(.auth, .interface),
+    .domain(.festival, .interface),
     .ui(.animation),
     .ui(.designSystem),
     .ui(.sharedUI),
@@ -22,12 +23,14 @@ let project = Project.makeModule(
   hasTests: true,
   hasInterface: true,
   interfaceDependencies: [
+    .domain(.auth, .interface),
     .SPM.composableArchitecture
   ],
   hasDemo: true,
   demoDependencies: [
     .domain(.auth, .interface),
     .ui(.designSystem),
+    .ui(.sharedUI),
     .SPM.composableArchitecture
   ]
 )

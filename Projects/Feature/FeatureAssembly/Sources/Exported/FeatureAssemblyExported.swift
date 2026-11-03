@@ -5,6 +5,7 @@
 //  Created by FestiCore on 10/23/26.
 //
 
+@_exported import Bearer
 @_exported import ComposableArchitecture
 @_exported import Festival
 @_exported import Login

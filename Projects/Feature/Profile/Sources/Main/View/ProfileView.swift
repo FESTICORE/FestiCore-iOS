@@ -7,55 +7,48 @@
 
 import AuthDomainInterface
 import ComposableArchitecture
-import FestiCoreAnimation
 import FestiCoreDesignKit
 import FestiCoreSharedUI
+import FestivalDomainInterface
 import SwiftUI
 
+@ViewAction(for: ProfileFeature.self)
 public struct ProfileView: View {
   @Bindable public var store: StoreOf<ProfileFeature>
-  public let profile: AuthProfile?
-  public let hasSession: Bool
-  public let isLoading: Bool
-  public let message: String?
-  public let packs: [ProfileReceivedPack]
-  public let isBearerNavigationAvailable: Bool
-  public let isSearchAvailable: Bool
-  public let isPackNavigationAvailable: Bool
-  public let isLockScreenAvailable: Bool
-  public let isNoticeAvailable: Bool
 
-  public init(
-    store: StoreOf<ProfileFeature>,
-    profile: AuthProfile?,
-    hasSession: Bool,
-    isLoading: Bool,
-    message: String?,
-    packs: [ProfileReceivedPack] = [],
-    isBearerNavigationAvailable: Bool = false,
-    isSearchAvailable: Bool = false,
-    isPackNavigationAvailable: Bool = false,
-    isLockScreenAvailable: Bool = false,
-    isNoticeAvailable: Bool = false
-  ) {
+  public init(store: StoreOf<ProfileFeature>) {
     self.store = store
-    self.profile = profile
-    self.hasSession = hasSession
-    self.isLoading = isLoading
-    self.message = message
-    self.packs = packs
-    self.isBearerNavigationAvailable = isBearerNavigationAvailable
-    self.isSearchAvailable = isSearchAvailable
-    self.isPackNavigationAvailable = isPackNavigationAvailable
-    self.isLockScreenAvailable = isLockScreenAvailable
-    self.isNoticeAvailable = isNoticeAvailable
   }
 
   public var body: some View {
+    NavigationStack {
+      main
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(
+          item: $store.scope(state: \.destination?.packDetail, action: \.destination.packDetail)
+        ) { detailStore in
+          PackDetailView(store: detailStore)
+        }
+        .navigationDestination(
+          item: $store.scope(state: \.destination?.account, action: \.destination.account)
+        ) { accountStore in
+          AccountSettingsView(store: accountStore)
+        }
+        .navigationDestination(
+          item: $store.scope(state: \.destination?.notifications, action: \.destination.notifications)
+        ) { notificationStore in
+          NotificationSettingsView(store: notificationStore)
+        }
+    }
+  }
+}
+
+extension ProfileView {
+  private var main: some View {
     VStack(spacing: .zero) {
       topBar
 
-      if !hasSession, let message, !message.isEmpty {
+      if !store.hasSession, let message = store.message, !message.isEmpty {
         Text(message)
           .festiCoreFont(.baseSubheadlineRegular)
           .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
@@ -66,8 +59,8 @@ public struct ProfileView: View {
 
       ScrollView {
         VStack(spacing: FestiCoreSpacing.paddingP24) {
-          FCBearerPrompt { store.send(.view(.bearerTapped)) }
-            .allowsHitTesting(isBearerNavigationAvailable)
+          FCBearerPrompt { send(.bearerTapped) }
+            .allowsHitTesting(store.isBearerNavigationAvailable)
 
           receivedPacks
           settings
@@ -88,53 +81,16 @@ public struct ProfileView: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
-    .onChange(of: hasSession) { wasSignedIn, isSignedIn in
-      if wasSignedIn && !isSignedIn && store.isAccountPresented {
-        store.send(.view(.accountDismissed))
-      }
-    }
-  }
-}
-
-// MARK: - 상위 화면이 함께 그리는 오버레이
-
-public extension ProfileView {
-  /// 탭 화면 전체 위에 올려 탭바 영역까지 시트가 덮도록 한다.
-  var modalOverlay: some View {
-    Color.clear
-      .presentFCSheet(item: accountItem) { _ in
-        ProfileAccountSheet(
-          profile: profile,
-          isLoading: isLoading,
-          message: message,
-          onRefresh: { store.send(.view(.refreshTapped)) },
-          onLogout: { store.send(.view(.logoutTapped)) },
-          onWithdraw: { store.send(.view(.withdrawTapped)) }
-        )
-      }
-  }
-
-  /// 로그아웃·탈퇴·링크 안내 확인 팝업. 시트 위층에 항상 두어 닫힘 애니메이션이 잘리지 않게 한다.
-  var dialogOverlay: some View {
-    ZStack {
-      confirmationOverlay
-        .id(store.dialogPresentationID)
-    }
-    // 팝업이 빠질 때 호스트가 0 크기로 줄면 닫히는 팝업이 따라 움직이므로 화면 크기로 고정한다.
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .animation(.fcModal, value: store.dialogPresentationID)
-    .animation(.fcModal, value: store.isLogoutConfirmationPresented)
-    .animation(.fcModal, value: store.isWithdrawalConfirmationPresented)
-    .animation(.fcModal, value: store.isLegalLinkUnavailablePresented)
+    .onAppear { send(.onAppear) }
   }
 }
 
 private extension ProfileView {
   @ViewBuilder
   var topBar: some View {
-    if isSearchAvailable {
+    if store.isSearchAvailable {
       FCTopBar(.large, title: "마이")
-        .trailingAction { store.send(.view(.searchTapped)) }
+        .trailingAction { send(.searchTapped) }
     } else {
       FCTopBar(.large, title: "마이")
     }
@@ -145,19 +101,26 @@ private extension ProfileView {
       HStack {
         sectionTitle("내가 받은 팩")
         Spacer()
-        sectionTitle("\(packs.count)개")
+        if store.packLoad == .loaded {
+          sectionTitle("\(store.packs.count)개")
+        }
       }
       .padding(.horizontal, FestiCoreSpacing.paddingP4)
 
       VStack(spacing: .zero) {
-        if packs.isEmpty {
+        switch store.packLoad {
+        case .idle, .loading:
+          packSkeletonRow
+        case .failed:
+          packFailure
+        case .loaded where store.packs.isEmpty:
           Text("받은 팩이 없습니다")
             .festiCoreFont(.baseBodyRegular)
             .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
             .frame(maxWidth: .infinity, minHeight: 68)
-        } else {
-          ForEach(packs) { pack in
-            if pack.id != packs.first?.id {
+        case .loaded:
+          ForEach(store.packs) { pack in
+            if pack.id != store.packs.first?.id {
               rowDivider
             }
             packRow(pack)
@@ -168,110 +131,104 @@ private extension ProfileView {
         RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
           .fill(FestiCoreSemanticColor.backgroundElevated.color)
       }
+      .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
     }
   }
 
-  func packRow(_ pack: ProfileReceivedPack) -> some View {
-    let image: Image? = pack.imageName.map { Image($0) }
-    return FCPackRow(name: pack.name, meta: pack.detail) {
-      store.send(.view(.packTapped(pack.id)))
+  func packRow(_ pack: FestivalReceivedPack) -> some View {
+    FCPackRow(name: pack.name, meta: packMeta(pack)) {
+      send(.packTapped(pack.id))
     }
-    .image(image)
     .hasUpdate(pack.hasUpdate)
-    .allowsHitTesting(isPackNavigationAvailable)
+    // FCPackRow는 로컬 이미지만 받으므로 서버 썸네일은 같은 자리에 겹쳐 그린다.
+    .overlay(alignment: .leading) {
+      if let url = pack.thumbnailURL {
+        FCRemoteImage(url: url)
+          .frame(width: Metric.packThumbnailSize, height: Metric.packThumbnailSize)
+          .clipShape(RoundedRectangle(cornerRadius: Metric.packThumbnailRadius))
+          .padding(.leading, FestiCoreSpacing.paddingP16)
+          .allowsHitTesting(false)
+          .accessibilityHidden(true)
+      }
+    }
+  }
+
+  var packSkeletonRow: some View {
+    HStack(spacing: FestiCoreSpacing.paddingP12) {
+      FCSkeletonView(.round())
+        .frame(width: Metric.packThumbnailSize, height: Metric.packThumbnailSize)
+      VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
+        FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r4))
+          .frame(width: 140, height: 16)
+        FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r4))
+          .frame(width: 180, height: 12)
+      }
+      Spacer()
+    }
+    .padding(.vertical, FestiCoreSpacing.paddingP12)
+    .padding(.horizontal, FestiCoreSpacing.paddingP16)
+  }
+
+  var packFailure: some View {
+    VStack(spacing: FestiCoreSpacing.paddingP8) {
+      Text("받은 팩을 불러오지 못했어요")
+        .festiCoreFont(.baseSubheadlineRegular)
+        .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+      FCButton("다시 시도") { send(.packsRetryTapped) }
+        .style(.secondary)
+        .size(.medium)
+    }
+    .frame(maxWidth: .infinity)
+    .padding(.vertical, FestiCoreSpacing.paddingP16)
+  }
+
+  /// 새 버전이 있으면 버전을, 아니면 마지막 확인 시각을 보여 준다.
+  func packMeta(_ pack: FestivalReceivedPack) -> String {
+    if pack.autoUpdateFailed, let latest = pack.latestPackVersion {
+      return "새 버전을 받지 못했어요 · v\(latest)"
+    }
+    if pack.hasUpdate, let latest = pack.latestPackVersion {
+      return "새 버전이 있어요 · v\(latest)"
+    }
+    guard let checkedAt = pack.checkedAt else { return "최신 버전 · v\(pack.packVersion)" }
+    return "최신 버전 · \(checkedAt.formatted(Self.checkedAtFormat)) 확인"
+  }
+
+  /// Figma처럼 "10/16 14:00"으로 쓴다.
+  static let checkedAtFormat = Date.VerbatimFormatStyle(
+    format: "\(month: .defaultDigits)/\(day: .defaultDigits) \(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)):\(minute: .twoDigits)",
+    timeZone: .current,
+    calendar: Calendar(identifier: .gregorian)
+  )
+
+  enum Metric {
+    static let packThumbnailSize: CGFloat = 44
+    static let packThumbnailRadius: CGFloat = 12 * 44 / 56
   }
 
   var settings: some View {
     section("설정") {
-      FCListRow("알림") { store.send(.view(.notificationsTapped)) }
+      FCListRow("알림") { send(.notificationsTapped) }
       rowDivider
-      FCListRow("잠금화면") { store.send(.view(.lockScreenTapped)) }
-        .allowsHitTesting(isLockScreenAvailable)
+      FCListRow("잠금화면") { send(.lockScreenTapped) }
+        .allowsHitTesting(store.isLockScreenAvailable)
       rowDivider
       FCListRow("계정") {
-        store.send(.view(.accountTapped(isSignedIn: profile != nil || hasSession)))
+        send(.accountTapped)
       }
-      .value(profile?.user.nickname ?? (hasSession ? nil : "로그인"))
+      .value(store.profile?.user.nickname ?? (store.hasSession ? nil : "로그인"))
     }
   }
 
   var information: some View {
     section("정보") {
-      FCListRow("공지사항") { store.send(.view(.noticeTapped)) }
-        .allowsHitTesting(isNoticeAvailable)
+      FCListRow("공지사항") { send(.noticeTapped) }
+        .allowsHitTesting(store.isNoticeAvailable)
       rowDivider
-      FCListRow("이용약관") { store.send(.view(.termsTapped)) }
+      FCListRow("이용약관") { send(.termsTapped) }
       rowDivider
-      FCListRow("개인정보 처리방침") { store.send(.view(.privacyTapped)) }
+      FCListRow("개인정보 처리방침") { send(.privacyTapped) }
     }
-  }
-
-  enum AccountSheet: String, Identifiable {
-    case account
-
-    var id: String {
-      rawValue
-    }
-  }
-
-  var accountItem: Binding<AccountSheet?> {
-    Binding(
-      get: { store.isAccountPresented ? .account : nil },
-      set: {
-        if $0 == nil {
-          store.send(.view(.accountDismissed))
-        }
-      }
-    )
-  }
-
-  @ViewBuilder
-  var confirmationOverlay: some View {
-    if store.isLegalLinkUnavailablePresented {
-      confirmation(
-        title: "문서를 열 수 없어요",
-        message: "잠시 후 다시 시도해 주세요.",
-        confirmTitle: "확인",
-        onConfirm: { store.send(.view(.legalLinkUnavailableDismissed)) },
-        onDismiss: { store.send(.view(.legalLinkUnavailableDismissed)) }
-      )
-    } else if store.isWithdrawalConfirmationPresented {
-      confirmation(
-        title: "회원 탈퇴",
-        message: "계정과 로그인 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
-        confirmTitle: "탈퇴",
-        onConfirm: { store.send(.view(.confirmWithdrawTapped)) },
-        onDismiss: { store.send(.view(.withdrawalConfirmationDismissed)) }
-      )
-    } else if store.isLogoutConfirmationPresented {
-      confirmation(
-        title: "로그아웃",
-        message: "이 기기에서 로그아웃하시겠습니까?",
-        confirmTitle: "로그아웃",
-        onConfirm: { store.send(.view(.confirmLogoutTapped)) },
-        onDismiss: { store.send(.view(.logoutConfirmationDismissed)) }
-      )
-    }
-  }
-
-  func confirmation(
-    title: String,
-    message: String,
-    confirmTitle: String,
-    onConfirm: @escaping () -> Void,
-    onDismiss: @escaping () -> Void
-  ) -> some View {
-    FCDialogOverlay(
-      item: FCDialogItem(
-        title: title,
-        message: message,
-        confirmTitle: confirmTitle,
-        onConfirm: onConfirm,
-        onCancel: {}
-      ),
-      dismissesOnDimTap: true,
-      onDismiss: onDismiss
-    )
   }
 
   func sectionTitle(_ title: String) -> some View {

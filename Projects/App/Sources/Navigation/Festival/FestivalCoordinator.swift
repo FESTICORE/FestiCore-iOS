@@ -13,6 +13,8 @@ struct FestivalCoordinator {
     }
 
     mutating func clearAccountData() {
+      // 기수 보드는 로그인한 기수의 화면이라 계정이 바뀌면 닫는다.
+      routes.removeAll { $0.screen.is(\.bearerBoard) }
       for index in routes.indices {
         switch routes[index].screen {
         case var .festivalList(board):
@@ -21,6 +23,8 @@ struct FestivalCoordinator {
         case var .liveBoard(board):
           board.clearAccountData()
           routes[index].screen = .liveBoard(board)
+        case .bearerBoard:
+          break
         }
       }
     }
@@ -62,6 +66,15 @@ struct FestivalCoordinator {
          let .router(.routeAction(id: _, action: .liveBoard(.delegate(.bookmarkRequested(festivalID))))):
       return .send(.delegate(.bookmarkRequested(festivalID)))
 
+    case let .router(.routeAction(id: _, action: .liveBoard(.delegate(.bearerBoardRequested(festivalID, flagID, userID))))):
+      guard !state.routes.contains(where: { $0.screen.is(\.bearerBoard) }) else { return .none }
+      state.routes.presentCover(.bearerBoard(.init(festivalID: festivalID, flagID: flagID, viewerUserID: userID)))
+      return .none
+
+    case .router(.routeAction(id: _, action: .bearerBoard(.delegate(.closeRequested)))):
+      state.routes.dismiss()
+      return .none
+
     case .router(.routeAction(id: _, action: .festivalList(.delegate(.loginRequested)))),
          .router(.routeAction(id: _, action: .liveBoard(.delegate(.loginRequested)))):
       return .send(.delegate(.loginRequested))
@@ -97,6 +110,8 @@ private extension FestivalCoordinator {
         screenAction = .festivalList(action)
       case .liveBoard:
         screenAction = .liveBoard(action)
+      case .bearerBoard:
+        return .none
       }
       return .send(.router(.routeAction(id: index, action: screenAction)))
     })
@@ -108,6 +123,7 @@ extension FestivalCoordinator {
   enum FestivalScreen {
     case festivalList(FestivalFeature)
     case liveBoard(FestivalFeature)
+    case bearerBoard(BearerBoardFeature)
   }
 }
 

@@ -9,13 +9,10 @@ import ComposableArchitecture
 import FeatureAssembly
 import FestiCoreDesignKit
 import SwiftUI
-import UIKit
 
 struct AppCoordinatorView: View {
   @Bindable var store: StoreOf<AppCoordinator>
   @Environment(\.scenePhase) private var scenePhase
-  @Environment(\.openURL) private var openURL
-  @State private var keyboardInset: CGFloat = 0
 
   private enum AuthSheet: String, Identifiable {
     case login, onboarding, migration, retry
@@ -64,13 +61,6 @@ struct AppCoordinatorView: View {
     .onChange(of: scenePhase) { _, phase in
       if phase == .active { store.send(.view(.foregrounded)) }
     }
-    .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
-      guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-      keyboardInset = max(0, UIScreen.main.bounds.height - frame.minY)
-    }
-    .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-      keyboardInset = 0
-    }
   }
 }
 
@@ -93,31 +83,17 @@ private extension AppCoordinatorView {
     )
   }
 
+  @ViewBuilder
   var loginSheet: some View {
-    LoginView(
-      title: loginCopy.title,
-      message: loginCopy.message,
-      errorMessage: currentFlow?.message ?? loginErrorMessage,
-      onApple: { store.send(.view(.startLogin(.apple))) },
-      onGoogle: { store.send(.view(.startLogin(.google))) }
-    )
+    if let loginStore = store.scope(\.home, action: \.scope.home)?.scope(state: \.loginState, action: \.login) {
+      LoginView(store: loginStore)
+    }
   }
 
   @ViewBuilder
   var onboardingSheet: some View {
     if let signUpStore = store.scope(\.home, action: \.scope.home)?.scope(state: \.authFlow.signUp, action: \.signUp) {
-      SignUpView(
-        store: signUpStore,
-        isSubmitting: currentFlow?.isLoading ?? false,
-        message: currentFlow?.message,
-        termsUpdateExhausted: currentFlow?.termsUpdateExhausted ?? false,
-        legalBaseURL: legalBaseURL,
-        keyboardInset: keyboardInset,
-        onLegalLink: { document in
-          guard let legalBaseURL else { return }
-          openURL(legalBaseURL.appending(path: document.path))
-        }
-      )
+      SignUpView(store: signUpStore)
     }
   }
 
@@ -149,30 +125,6 @@ private extension AppCoordinatorView {
   var currentFlow: AppCoordinator.AuthFlow? {
     guard case let .home(home) = store.state else { return nil }
     return home.authFlow
-  }
-
-  var loginErrorMessage: String? {
-    guard case let .home(home) = store.state else { return nil }
-    return home.loginState.errorMessage
-  }
-
-  /// 로그인을 요청한 탭에 맞춘 시트 문구
-  var loginCopy: (title: String, message: String) {
-    guard case let .home(home) = store.state else {
-      return ("축제를 저장하려면 로그인이 필요해요", "로그인 후 선택한 축제를 저장할 수 있어요.")
-    }
-    switch home.selectedTab {
-    case .my:
-      return ("계정 정보를 보려면 로그인이 필요해요", "로그인 후 프로필을 확인할 수 있어요.")
-    case .flag:
-      return ("깃발을 팔로우 하려면 로그인이 필요해요", "내 취향의 깃발을 팔로우하고,\n함께 페스티벌을 즐길 사람들과 크루를 만들어봐요.")
-    case .live, .timetable:
-      return ("축제를 저장하려면 로그인이 필요해요", "로그인 후 선택한 축제를 저장할 수 있어요.")
-    }
-  }
-
-  var legalBaseURL: URL? {
-    Self.legalBaseURL(host: Bundle.main.object(forInfoDictionaryKey: "FestiCoreAPIHost") as? String)
   }
 }
 
