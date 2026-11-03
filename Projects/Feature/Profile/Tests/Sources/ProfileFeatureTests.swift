@@ -265,6 +265,17 @@ struct ProfileFeatureTests {
     }
   }
 
+  @Test func noticeRowOpensListAndBackReturnsToProfile() async {
+    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
+
+    await store.send(.view(.noticeTapped)) {
+      $0.destination = .noticeList(.init())
+    }
+    await store.send(.destination(.presented(.noticeList(.delegate(.backRequested))))) {
+      $0.destination = nil
+    }
+  }
+
   private func signedInState() -> ProfileFeature.State {
     var state = ProfileFeature.State()
     state.hasSession = true
