@@ -15,6 +15,8 @@ let project = Project.makeModule(
   dependencies: [
     .domain(.auth, .interface),
     .domain(.festival, .interface),
+    .feature(.web),
+    .feature(.web, .interface),
     .ui(.animation),
     .ui(.designSystem),
     .ui(.sharedUI),
@@ -29,6 +31,9 @@ let project = Project.makeModule(
   hasDemo: true,
   demoDependencies: [
     .domain(.auth, .interface),
+    .domain(.festival, .interface),
+    .feature(.web),
+    .feature(.web, .interface),
     .ui(.designSystem),
     .ui(.sharedUI),
     .SPM.composableArchitecture

@@ -1094,6 +1094,18 @@ struct AppCoordinatorTests {
     }
   }
 
+  @Test func myPushedLegalAndLockScreenKeepBottomTabsVisible() {
+    var state = MainTabCoordinator.State(selectedTab: .my)
+    state.profileState.destination = .legalDocument(.init(
+      url: URL(string: "https://example.com/api/v1/legal/terms")!, title: "이용약관"
+    ))
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+    state.profileState.destination = .lockScreen(.init())
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+  }
+
   @Test func changedNicknameUpdatesSessionDisplayName() async {
     var home = MainTabCoordinator.State(selectedTab: .my)
     home.authFlow.hasSession = true

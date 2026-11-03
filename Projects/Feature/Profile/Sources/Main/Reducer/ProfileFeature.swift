@@ -11,7 +11,8 @@ import FestiCoreSharedUI
 import FestivalDomainInterface
 import Foundation
 import ProfileInterface
-import UIKit
+import Web
+import WebInterface
 
 @Reducer
 public struct ProfileFeature {
@@ -34,10 +35,9 @@ public struct ProfileFeature {
     /// 아직 연결되지 않은 이동은 누를 수 없게 둔다.
     public var isBearerNavigationAvailable = false
     public var isSearchAvailable = false
-    public var isLockScreenAvailable = false
     public var isNoticeAvailable = false
 
-    /// 문서 안내 팝업, 계정·팩 상세 화면
+    /// 팝업과 마이 화면의 하위 목적지
     @Presents public var destination: Destination.State?
 
     public init() {}
@@ -57,6 +57,8 @@ public struct ProfileFeature {
   public enum Destination {
     case alert(FCConfirmAlert)
     case account(AccountSettingsFeature)
+    case legalDocument(WebFeature)
+    case lockScreen(LockScreenSettingsFeature)
     case notifications(NotificationSettingsFeature)
     case packDetail(PackDetailFeature)
   }
@@ -189,7 +191,8 @@ extension ProfileFeature {
       return .none
 
     case .lockScreenTapped:
-      return .send(.delegate(.lockScreenRequested))
+      state.destination = .lockScreen(.init())
+      return .none
 
     case .accountTapped:
       guard state.profile != nil || state.hasSession else {
@@ -202,10 +205,10 @@ extension ProfileFeature {
       return .send(.delegate(.noticeRequested))
 
     case .termsTapped:
-      return openLegalURL(path: "terms", state: &state)
+      return showLegalDocument(path: "terms", title: "이용약관", state: &state)
 
     case .privacyTapped:
-      return openLegalURL(path: "privacy", state: &state)
+      return showLegalDocument(path: "privacy", title: "개인정보 처리방침", state: &state)
     }
   }
 
@@ -275,6 +278,20 @@ extension ProfileFeature {
     case .presented(.account):
       return .none
 
+    case .presented(.legalDocument(.delegate(.backToRoot))):
+      state.destination = nil
+      return .none
+
+    case .presented(.legalDocument):
+      return .none
+
+    case .presented(.lockScreen(.delegate(.backRequested))):
+      state.destination = nil
+      return .none
+
+    case .presented(.lockScreen):
+      return .none
+
     case .presented(.notifications(.delegate(.backRequested))):
       let flush = flushNotificationChanges(state)
       state.destination = nil
@@ -318,19 +335,13 @@ extension ProfileFeature {
     return .none
   }
 
-  private func openLegalURL(path: String, state: inout State) -> Effect<Action> {
+  private func showLegalDocument(path: String, title: String, state: inout State) -> Effect<Action> {
     guard let legalBaseURL else {
       // 이미 떠 있으면 다시 띄우지 않는다.
       if state.destination?.alert == nil { state.destination = .alert(.legalLinkUnavailable()) }
       return .none
     }
-    return open(legalBaseURL.appending(path: path))
-  }
-
-  private func open(_ url: URL?) -> Effect<Action> {
-    guard let url else { return .none }
-    return .run { _ in
-      await UIApplication.shared.open(url)
-    }
+    state.destination = .legalDocument(.init(url: legalBaseURL.appending(path: path), title: title))
+    return .none
   }
 }

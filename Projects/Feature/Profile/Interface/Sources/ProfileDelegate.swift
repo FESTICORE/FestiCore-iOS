@@ -13,7 +13,6 @@ import AuthDomainInterface
 public enum ProfileDelegate: Equatable, Sendable {
   case bearerRequested
   case searchRequested
-  case lockScreenRequested
   case loginRequested
   case profileRefreshRequested
   case logoutRequested
