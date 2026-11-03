@@ -15,12 +15,14 @@ struct FestivalLiveBoardScreen: View {
   let liveBoardClockAnchorAt: Date?
   let liveBoardReceivedAt: Date?
   let hasSession: Bool
+  let hasUnreadNotifications: Bool
   let sessionUserID: String?
   let mySetIDs: Set<String>
   let myScheduleUnavailable: Bool
   let liveActivityState: FestivalFeature.LiveActivityControlState
   let onLiveActivityTap: () -> Void
   let onLoginTap: () -> Void
+  let onNotificationTap: () -> Void
   /// 기수 계정이면 상단 기수 버튼 동작. nil이면 로고만 보인다.
   let onBearerTap: (() -> Void)?
   let onRetryMySchedule: () -> Void
@@ -113,9 +115,14 @@ private extension FestivalLiveBoardScreen {
   @ViewBuilder
   var topBar: some View {
     if let onBearerTap {
-      FCTopBar(.logoBearer).onBearer(onBearerTap)
+      FCTopBar(.logoBearer)
+        .onBearer(onBearerTap)
+        .trailingAction(onNotificationTap)
+        .showsBadge(hasUnreadNotifications)
     } else {
       FCTopBar(.logo)
+        .trailingAction(onNotificationTap)
+        .showsBadge(hasUnreadNotifications)
     }
   }
 

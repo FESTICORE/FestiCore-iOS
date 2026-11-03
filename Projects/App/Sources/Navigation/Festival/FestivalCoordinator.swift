@@ -14,7 +14,7 @@ struct FestivalCoordinator {
 
     mutating func clearAccountData() {
       // 기수 보드는 로그인한 기수의 화면이라 계정이 바뀌면 닫는다.
-      routes.removeAll { $0.screen.is(\.bearerBoard) }
+      routes.removeAll { $0.screen.is(\.bearerBoard) || $0.screen.is(\.notificationInbox) }
       for index in routes.indices {
         switch routes[index].screen {
         case var .festivalList(board):
@@ -23,7 +23,7 @@ struct FestivalCoordinator {
         case var .liveBoard(board):
           board.clearAccountData()
           routes[index].screen = .liveBoard(board)
-        case .bearerBoard:
+        case .bearerBoard, .notificationInbox:
           break
         }
       }
@@ -62,6 +62,44 @@ struct FestivalCoordinator {
       state.routes.goBack()
       return .none
 
+    case .router(.routeAction(id: _, action: .liveBoard(.delegate(.notificationInboxRequested)))):
+      guard state.routes.last(where: { $0.screen.is(\.liveBoard) })?.screen.liveBoard?.hasSession == true else {
+        return .send(.delegate(.loginRequested))
+      }
+      guard !state.routes.contains(where: { $0.screen.is(\.notificationInbox) }) else { return .none }
+      state.routes.push(.notificationInbox(.init()))
+      return .none
+
+    case .router(.routeAction(id: _, action: .notificationInbox(.delegate(.backRequested)))):
+      state.routes.goBack()
+      return .none
+
+    case let .router(.routeAction(id: inboxID, action: .notificationInbox(.delegate(.rowOpened(festivalID, markReadID))))):
+      guard let boardIndex = state.routes.lastIndex(where: { $0.screen.is(\.liveBoard) }),
+            let board = state.routes[boardIndex].screen.liveBoard else { return .none }
+      let markReadEffect: Effect<Action> = markReadID.map { id in
+        .send(.router(.routeAction(id: boardIndex, action: .liveBoard(.async(.markNotificationRead(id))))))
+      } ?? .none
+      guard let festivalID else { return markReadEffect }
+      guard board.catalog.contains(where: { $0.id == festivalID }) else {
+        return .merge(markReadEffect, .send(.router(.routeAction(
+          id: inboxID, action: .notificationInbox(.view(.destinationUnavailable))
+        ))))
+      }
+      state.routes.goBack()
+      return board.selectedFestivalID == festivalID
+        ? markReadEffect
+        : .merge(markReadEffect, .send(.router(.routeAction(
+          id: boardIndex, action: .liveBoard(.view(.selectFestival(festivalID)))
+        ))))
+
+    case let .router(.routeAction(id: _, action: .notificationInbox(.delegate(.unreadCountChanged(count))))):
+      guard let boardIndex = state.routes.lastIndex(where: { $0.screen.is(\.liveBoard) }) else { return .none }
+      return .send(.router(.routeAction(
+        id: boardIndex,
+        action: .liveBoard(.view(.notificationUnreadCountChanged(count)))
+      )))
+
     case let .router(.routeAction(id: _, action: .festivalList(.delegate(.bookmarkRequested(festivalID))))),
          let .router(.routeAction(id: _, action: .liveBoard(.delegate(.bookmarkRequested(festivalID))))):
       return .send(.delegate(.bookmarkRequested(festivalID)))
@@ -86,6 +124,12 @@ struct FestivalCoordinator {
       return broadcast(state, .view(.accountChanged))
 
     case let .sessionChanged(hasSession, userID):
+      if !hasSession || state.routes.contains(where: {
+        guard let board = $0.screen.liveBoard else { return false }
+        return board.hasSession != hasSession || board.sessionUserID != userID
+      }) {
+        state.routes.removeAll { $0.screen.is(\.notificationInbox) }
+      }
       return broadcast(state, .view(.sessionChanged(hasSession: hasSession, userID: userID)))
 
     case let .myScheduleSaved(festivalID, setIDs):
@@ -110,7 +154,7 @@ private extension FestivalCoordinator {
         screenAction = .festivalList(action)
       case .liveBoard:
         screenAction = .liveBoard(action)
-      case .bearerBoard:
+      case .bearerBoard, .notificationInbox:
         return .none
       }
       return .send(.router(.routeAction(id: index, action: screenAction)))
@@ -124,6 +168,7 @@ extension FestivalCoordinator {
     case festivalList(FestivalFeature)
     case liveBoard(FestivalFeature)
     case bearerBoard(BearerBoardFeature)
+    case notificationInbox(NotificationInboxFeature)
   }
 }
 

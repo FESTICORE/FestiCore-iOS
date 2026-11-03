@@ -3,6 +3,7 @@ import FestivalDomainInterface
 import FestiCorePackInterface
 import FestivalInterface
 import Foundation
+import UserNotificationDomainInterface
 
 @Reducer
 public struct FestivalFeature {
@@ -39,6 +40,9 @@ public struct FestivalFeature {
     public var isLiveBoardVisible = false
     /// 인증 세션이 있는지. 사용자 ID를 확인하지 못한 세션도 true다.
     public var hasSession = false
+    /// 알림함의 읽지 않은 전체 알림 수. 계정이 바뀌면 즉시 비운다.
+    public var notificationUnreadCount = 0
+    public var hasUnreadNotifications: Bool { notificationUnreadCount > 0 }
     /// 확인된 사용자 ID. 크루의 `나` 표시에만 쓴다.
     public var sessionUserID: String?
     /// 세션이 바뀔 때마다 올려 이전 세션의 응답을 버린다.
@@ -149,6 +153,7 @@ public struct FestivalFeature {
       myScheduleUnavailable = false
       bookedUserID = nil
       bookedFestivalIDs = []
+      notificationUnreadCount = 0
     }
   }
 
@@ -201,6 +206,8 @@ public struct FestivalFeature {
     case liveActivityTapped
     case loginTapped
     case bearerTapped
+    case notificationTapped
+    case notificationUnreadCountChanged(Int)
     case ticketLinkMissing
     /// 코디네이터가 계정·세션·내 일정 변경을 알린다.
     case reloadBookmarks(userID: String?)
@@ -221,6 +228,8 @@ public struct FestivalFeature {
     case startLiveActivities
     case startLiveBoard
     case loadMySchedule
+    case loadNotificationUnreadCount
+    case markNotificationRead(String)
     case startLiveActivity(festivalID: String)
     case endLiveActivity(festivalID: String, activityID: String)
     case expireToast
@@ -247,11 +256,13 @@ public struct FestivalFeature {
     case liveBoardUnpublished(String, generation: Int)
     case myScheduleLoaded(festivalID: String, requestID: Int, generation: Int, Set<String>)
     case myScheduleFailed(festivalID: String, requestID: Int, generation: Int)
+    case notificationUnreadCountLoaded(Int, generation: Int)
     case toastExpired
   }
 
-  private enum CancelID {
-    case packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary, liveBoard, mySchedule, toast
+  enum CancelID {
+    case packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary
+    case liveBoard, mySchedule, notificationUnreadCount, notificationMarkRead, toast
   }
   private struct LiveActivitySyncID: Hashable { let id: String }
 
@@ -262,6 +273,7 @@ public struct FestivalFeature {
   @Dependency(\.festivalScheduleUseCase) private var scheduleUseCase
   @Dependency(\.festivalImageUseCase) private var imageUseCase
   @Dependency(\.festivalLiveActivityUseCase) private var liveActivityUseCase
+  @Dependency(\.userNotificationUseCase) var userNotificationUseCase
   @Dependency(\.date) private var date
   @Dependency(\.continuousClock) private var clock
 
@@ -365,7 +377,10 @@ extension FestivalFeature {
 
     case .liveBoardOnAppear:
       state.isLiveBoardVisible = true
-      return .send(.async(.startLiveBoard))
+      return .merge(
+        .send(.async(.startLiveBoard)),
+        state.hasSession ? .send(.async(.loadNotificationUnreadCount)) : .none
+      )
 
     case .liveBoardOnDisappear:
       state.isLiveBoardVisible = false
@@ -402,6 +417,14 @@ extension FestivalFeature {
       guard let festivalID = state.selectedFestival?.id, let flagID = state.bearerFlagID else { return .none }
       return .send(.delegate(.bearerBoardRequested(festivalID: festivalID, flagID: flagID, userID: state.sessionUserID)))
 
+    case .notificationTapped:
+      return .send(.delegate(state.hasSession ? .notificationInboxRequested : .loginRequested))
+
+    case let .notificationUnreadCountChanged(count):
+      guard state.hasSession else { return .none }
+      state.notificationUnreadCount = max(0, count)
+      return .none
+
     case .ticketLinkMissing:
       state.toast = "예매처 정보가 없습니다"
       return .send(.async(.expireToast))
@@ -427,7 +450,9 @@ extension FestivalFeature {
       state.accountGeneration += 1
       return .merge(
         state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
-        .cancel(id: CancelID.mySchedule)
+        .cancel(id: CancelID.mySchedule),
+        .cancel(id: CancelID.notificationUnreadCount),
+        .cancel(id: CancelID.notificationMarkRead)
       )
 
     case let .sessionChanged(hasSession, userID):
@@ -439,6 +464,7 @@ extension FestivalFeature {
       state.recentSearches = libraryUseCase.recentSearches(for: state.bookedUserID)
       state.hasSession = hasSession
       state.sessionUserID = userID
+      state.notificationUnreadCount = 0
       state.accountGeneration += 1
       state.liveBoard = nil
       state.liveBoardUnavailable = false
@@ -449,7 +475,11 @@ extension FestivalFeature {
       state.myScheduleUnavailable = false
       return .merge(
         state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
-        loadMySchedule(&state)
+        loadMySchedule(&state),
+        hasSession && state.isLiveBoardVisible
+          ? .send(.async(.loadNotificationUnreadCount))
+          : .cancel(id: CancelID.notificationUnreadCount),
+        .cancel(id: CancelID.notificationMarkRead)
       )
 
     case let .myScheduleSaved(festivalID, setIDs):
@@ -511,6 +541,12 @@ extension FestivalFeature {
 
     case .loadMySchedule:
       return loadMySchedule(&state)
+
+    case .loadNotificationUnreadCount:
+      return loadNotificationUnreadCount(state)
+
+    case let .markNotificationRead(id):
+      return markNotificationRead(id, state: state)
 
     case let .startLiveActivity(festivalID):
       guard let festival = state.festivals.first(where: { $0.id == festivalID }),
@@ -678,6 +714,11 @@ extension FestivalFeature {
             state.isLiveBoardVisible, state.hasSession else { return .none }
       state.mySchedule = nil
       state.myScheduleUnavailable = true
+      return .none
+
+    case let .notificationUnreadCountLoaded(count, generation):
+      guard state.hasSession, state.accountGeneration == generation else { return .none }
+      state.notificationUnreadCount = max(0, count)
       return .none
 
     case let .liveActivitiesLoaded(activities, revision):

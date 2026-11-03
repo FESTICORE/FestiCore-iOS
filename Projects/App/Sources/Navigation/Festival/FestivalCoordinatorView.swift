@@ -16,6 +16,8 @@ struct FestivalCoordinatorView: View {
           .swipeBackButtonHidden()
       case let .bearerBoard(bearerStore):
         BearerBoardView(store: bearerStore)
+      case let .notificationInbox(inboxStore):
+        NotificationInboxView(store: inboxStore)
       }
     }
   }

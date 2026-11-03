@@ -12,6 +12,8 @@ flowchart LR
   FestivalDomain["FestivalDomain"]
   NoticeDomain["NoticeDomain"]
   NoticeDomainInterface["NoticeDomain Interface"]
+  UserNotificationDomain["UserNotificationDomain"]
+  UserNotificationDomainInterface["UserNotificationDomain Interface"]
   FestivalDomainInterface["FestivalDomain Interface"]
   BearerDomainInterface["BearerDomain Interface"]
   TimetableDomainInterface["TimetableDomain Interface"]
@@ -61,9 +63,11 @@ flowchart LR
   FeatureAssembly --> Timetable
   FeatureAssembly --> AuthDomain
   FeatureAssembly --> NoticeDomain
+  FeatureAssembly --> UserNotificationDomain
   FeatureAssembly --> ServiceAssembly
 
   Festival --> FestivalDomainInterface
+  Festival --> UserNotificationDomainInterface
   Festival --> PackInterface
   Festival --> SharedUI
   Festival --> Utility
@@ -94,6 +98,11 @@ flowchart LR
   NoticeDomain --> NetworkInterface
   NoticeDomain --> Utility
   NoticeDomain --> APIEndpoint
+  UserNotificationDomain --> UserNotificationDomainInterface
+  UserNotificationDomain --> NetworkInterface
+  UserNotificationDomain --> AuthInterface
+  UserNotificationDomain --> Utility
+  UserNotificationDomain --> APIEndpoint
   ServiceAssembly --> CoreAssembly
   ServiceAssembly --> Network
   ServiceAssembly --> FestivalDomainInterface

@@ -37,14 +37,18 @@ struct MainTabCoordinator {
 
     /// 모달이 열려도 기존 탭바 공간은 유지해 뒤 화면이 이동하지 않게 한다.
     var shouldReserveTabBarSpace: Bool {
-      selectedTab != .live || festivalState.routes.count != 1
+      selectedTab != .live || (festivalState.routes.count != 1 && !isNotificationInboxOnTop)
+    }
+
+    var isNotificationInboxOnTop: Bool {
+      festivalState.routes.last?.screen.is(\.notificationInbox) == true
     }
 
     var shouldHideTabBar: Bool {
       if authFlow.presentation != nil { return true }
       switch selectedTab {
       case .live:
-        return festivalState.routes.count == 1
+        return festivalState.routes.count == 1 || isNotificationInboxOnTop
       case .timetable:
         return timetableState.setDetail != nil
       case .my:
@@ -188,7 +192,9 @@ struct MainTabCoordinator {
     let selectedID: String?
     let pack: FestivalPackDocument?
     // 기수 보드는 라이브 보드 위에 덮이는 화면이라 그 아래 축제를 기준으로 삼는다.
-    if let screen = state.festivalState.routes.last(where: { !$0.screen.is(\.bearerBoard) })?.screen {
+    if let screen = state.festivalState.routes.last(where: {
+      !$0.screen.is(\.bearerBoard) && !$0.screen.is(\.notificationInbox)
+    })?.screen {
       switch screen {
       case let .festivalList(festival):
         selectedID = festival.selectedFestivalID
@@ -196,7 +202,7 @@ struct MainTabCoordinator {
       case let .liveBoard(festival):
         selectedID = festival.selectedFestivalID
         pack = festival.selectedPack
-      case .bearerBoard:
+      case .bearerBoard, .notificationInbox:
         selectedID = nil
         pack = nil
       }
@@ -221,7 +227,9 @@ struct MainTabCoordinator {
     appearing: Bool
   ) -> Effect<Action> {
     var selected: (festivalID: String?, pack: FestivalPackDocument, imageURL: (String?) -> URL?)?
-    if let screen = state.festivalState.routes.last(where: { !$0.screen.is(\.bearerBoard) })?.screen,
+    if let screen = state.festivalState.routes.last(where: {
+      !$0.screen.is(\.bearerBoard) && !$0.screen.is(\.notificationInbox)
+    })?.screen,
        case let .liveBoard(home) = screen,
        let pack = home.selectedPack {
       selected = (home.selectedFestivalID, pack, home.imageURL(for:))

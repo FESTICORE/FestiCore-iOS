@@ -61,6 +61,8 @@ struct FestivalAccountChangeTests {
     await store.receive(\.async.startLiveBoard) {
       $0.myScheduleRequestID = 1
     }
+    await store.receive(\.async.loadNotificationUnreadCount)
+    await store.receive(\.inner.notificationUnreadCountLoaded)
     await store.receive(\.inner.myScheduleLoaded) {
       $0.mySchedule = .init(festivalID: "festival", setIDs: [])
     }
