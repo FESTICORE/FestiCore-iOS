@@ -57,6 +57,8 @@ public struct TimetableFeature {
     public var festivalID: String?
     /// 상세 시트로 연 공연
     @Presents public var setDetail: TimetableSetDetailFeature.State?
+    /// 타임테이블 위에 띄운 화면(내 일정 고르기)
+    @Presents public var destination: Destination.State?
     public var scheduleSync: ScheduleSync = .idle
     /// 60개를 넘겨 추가하지 못했다.
     public var isScheduleLimitReached = false
@@ -82,6 +84,12 @@ public struct TimetableFeature {
 
     public var selectedDay: TimetableDay? {
       days.indices.contains(selectedDayIndex) ? days[selectedDayIndex] : nil
+    }
+
+    /// 내 일정 고르기를 열 수 있는지. 서버 일정과 맞춰져 있고 저장 중이 아닐 때만 연다.
+    /// 로그인 전이거나 서버 일정을 읽지 못했으면 다른 기기 일정을 덮어쓰지 않도록 열지 않는다.
+    public var canPickSchedule: Bool {
+      festivalID != nil && isPublished && scheduleSync == .ready && !isSaving
     }
 
     public var mySetCount: Int {
@@ -174,7 +182,15 @@ public struct TimetableFeature {
     case async(AsyncAction)
     case inner(InnerAction)
     case scope(ScopeAction)
+    case destination(PresentationAction<Destination.Action>)
     case delegate(TimetableDelegate)
+  }
+
+  // MARK: - Destination
+
+  @Reducer(state: .equatable)
+  public enum Destination {
+    case schedulePick(SchedulePickFeature)
   }
 
   // MARK: - ViewAction
@@ -188,6 +204,15 @@ public struct TimetableFeature {
     case changeBannerTapped
     case searchTapped
     case notifyTapped
+    case schedulePickTapped
+    /// 부모가 선택한 축제를 알린다. 팩이 없으면 nil이다.
+    case festivalChanged(String?)
+    /// 부모가 인증 계정이 바뀌거나 세션을 잃었다고 알린다.
+    case accountChanged
+    /// 부모가 같은 축제의 팩이 갱신돼 공연 목록이 바뀌었다고 알린다.
+    case packUpdated
+    /// 부모가 같은 축제로 타임테이블 탭에 다시 들어왔다고 알린다.
+    case timetableAppeared
   }
 
   // MARK: - AsyncAction
@@ -204,14 +229,6 @@ public struct TimetableFeature {
 
   @CasePathable
   public enum InnerAction {
-    /// 선택한 축제가 바뀌었다. 팩이 없으면 nil이다.
-    case festivalChanged(String?)
-    /// 인증 계정이 바뀌거나 세션을 잃었다.
-    case accountChanged
-    /// 같은 축제의 팩이 갱신돼 공연 목록이 바뀌었다.
-    case packUpdated
-    /// 같은 축제로 타임테이블 탭에 다시 들어왔다.
-    case timetableAppeared
     case scheduleLoaded(festivalID: String, requestID: Int, Result<FestivalSchedule, FestivalScheduleError>)
     case scheduleSaved(festivalID: String, ScheduleSave, Result<FestivalSchedule, FestivalScheduleError>)
   }
@@ -254,7 +271,13 @@ public struct TimetableFeature {
           action: scopeAction
         )
 
-      case .delegate:
+      case let .destination(.presented(.schedulePick(.delegate(delegateAction)))):
+        effect = handleSchedulePickDelegate(
+          state: &state,
+          action: delegateAction
+        )
+
+      case .destination, .delegate:
         effect = .none
       }
       // 일정·시간표가 바뀌면 열린 상세 시트에 새 내용을 다른 효과보다 먼저 보낸다.
@@ -263,6 +286,7 @@ public struct TimetableFeature {
     .ifLet(\.$setDetail, action: \.scope.setDetail) {
       TimetableSetDetailFeature()
     }
+    .ifLet(\.$destination, action: \.destination)
   }
 }
 
@@ -299,6 +323,32 @@ extension TimetableFeature {
 
     case .notifyTapped:
       return .send(.delegate(.requestNotification))
+
+    case .schedulePickTapped:
+      guard state.destination == nil, state.canPickSchedule, let festivalID = state.festivalID else { return .none }
+      state.destination = .schedulePick(SchedulePickFeature.State(
+        festivalID: festivalID,
+        days: state.days,
+        selectedSetIDs: state.mySetIDs,
+        previousClientAt: state.lastClientAt
+      ))
+      return .none
+
+    case let .festivalChanged(festivalID):
+      return changeFestival(state: &state, to: festivalID)
+
+    case .accountChanged:
+      return changeAccount(state: &state)
+
+    case .packUpdated:
+      // 열린 내 일정 고르기는 이전 공연 목록을 들고 있으므로 닫고 새 목록으로 정리한다.
+      state.destination = nil
+      return trimSchedule(state: &state)
+
+    case .timetableAppeared:
+      // 내 일정 고르기가 열려 있으면 저장이 겹치지 않도록 다시 읽거나 저장하지 않는다.
+      guard state.festivalID != nil, !state.isSaving, state.destination == nil else { return .none }
+      return state.uncertainSave == nil ? loadSchedule(state: &state) : saveSchedule(state: &state)
     }
   }
 
@@ -342,19 +392,6 @@ extension TimetableFeature {
     action: InnerAction
   ) -> Effect<Action> {
     switch action {
-    case let .festivalChanged(festivalID):
-      return changeFestival(state: &state, to: festivalID)
-
-    case .accountChanged:
-      return changeAccount(state: &state)
-
-    case .packUpdated:
-      return trimSchedule(state: &state)
-
-    case .timetableAppeared:
-      guard state.festivalID != nil, !state.isSaving else { return .none }
-      return state.uncertainSave == nil ? loadSchedule(state: &state) : saveSchedule(state: &state)
-
     case let .scheduleLoaded(festivalID, requestID, result):
       return applyLoadedSchedule(state: &state, festivalID: festivalID, requestID: requestID, result: result)
 
@@ -376,6 +413,34 @@ extension TimetableFeature {
       return .none
 
     case .setDetail:
+      return .none
+    }
+  }
+
+  /// 내 일정 고르기 결과. 저장했으면 서버에 맞춰진 목록으로 내 일정을 바꾸고 부모에게 알린다.
+  private func handleSchedulePickDelegate(
+    state: inout State,
+    action: SchedulePickDelegate
+  ) -> Effect<Action> {
+    state.destination = nil
+    switch action {
+    case let .saved(festivalID, setIDs):
+      guard festivalID == state.festivalID else { return .none }
+      state.mySetIDs = setIDs.intersection(state.allSetIDs)
+      state.scheduleSync = .ready
+      state.isScheduleLimitReached = false
+      state.uncertainSave = nil
+      // 이전 저장의 늦은 응답이 서버 목록을 되돌리거나 delegate를 한 번 더 보내지 않게 한다.
+      state.isSaving = false
+      state.needsSave = false
+      // 다음 저장이 방금 저장한 요청보다 늦은 요청이 되게 한다.
+      state.lastClientAt = max(now, (state.lastClientAt ?? .distantPast).addingTimeInterval(0.001))
+      return .merge(
+        .cancel(id: CancelID.save),
+        .send(.delegate(.scheduleSaved(festivalID: festivalID, setIDs: state.mySetIDs)))
+      )
+
+    case .skipped, .later:
       return .none
     }
   }
