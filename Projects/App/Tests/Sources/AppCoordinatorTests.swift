@@ -2405,6 +2405,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator(legalBaseURL: legalBaseURL)
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.authUseCase = ReturningProfileAuthUseCase(profile: profile)
       $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
@@ -2451,6 +2452,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.authUseCase = FailingProfileAuthUseCase(failure: .server)
       $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
