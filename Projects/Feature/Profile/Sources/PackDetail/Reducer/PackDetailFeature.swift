@@ -10,7 +10,6 @@ import FestiCoreSharedUI
 import FestivalDomainInterface
 import Foundation
 import ProfileInterface
-import UIKit
 
 /// 받은 팩 상세. 가는 길·준비물·팩 관리 탭을 보여 준다.
 @Reducer
@@ -138,6 +137,7 @@ public struct PackDetailFeature {
 
   @Dependency(\.festivalPackDetailUseCase) private var packDetailUseCase
   @Dependency(\.uuid) private var uuid
+  @Dependency(\.openURL) private var openURL
 
   public var body: some ReducerOf<Self> {
     BindingReducer()
@@ -216,7 +216,7 @@ extension PackDetailFeature {
       return .none
 
     case .linkTapped(let url):
-      return .run { _ in await UIApplication.shared.open(url) }
+      return .run { _ in await openURL(url) }
 
     case .retryTapped:
       guard state.load == .failed else { return .none }
@@ -311,7 +311,7 @@ extension PackDetailFeature {
           await send(.inner(.updateFinished(try await packDetailUseCase.updatePack(festivalID: festivalID))))
         } catch FestivalPackError.retryLater {
           await send(.inner(.updateFailed(.retryLater)))
-        } catch let error as URLError where Self.offlineCodes.contains(error.code) {
+        } catch FestivalPackError.offline {
           await send(.inner(.updateFailed(.offline)))
         } catch {
           await send(.inner(.updateFailed(.other)))
@@ -413,11 +413,6 @@ extension PackDetailFeature {
       return .none
     }
   }
-
-  private static let offlineCodes: Set<URLError.Code> = [
-    .notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost, .cannotFindHost,
-    .timedOut, .dnsLookupFailed, .dataNotAllowed, .internationalRoamingOff
-  ]
 
   private func fetchChangesIfNeeded(_ state: State) -> Effect<Action> {
     guard let pack = state.detail?.pack, pack.hasUpdate else { return .none }
