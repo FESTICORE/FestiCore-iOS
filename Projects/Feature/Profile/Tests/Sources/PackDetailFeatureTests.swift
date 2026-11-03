@@ -57,7 +57,9 @@ struct PackDetailFeatureTests {
           attempts.withValue { $0 += 1 }
           if attempts.value == 1 { throw URLError(.cannotOpenFile) }
           return nil
-        }
+        },
+        checklist: { _ in FestivalChecklist() },
+        autoDownloadOnWiFi: { true }
       )
     }
 
