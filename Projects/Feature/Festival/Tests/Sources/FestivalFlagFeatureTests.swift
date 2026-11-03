@@ -14,12 +14,14 @@ struct FestivalFlagFeatureTests {
     let store = TestStore(initialState: FestivalFlagFeature.State(festivalID: "festival-a")) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalFlagUseCase = stubFlagUseCase(result: .success(snapshot))
+      $0.festivalLiveBoardService = StubLiveBoardService(result: .success(snapshot))
     }
 
-    await store.send(.view(.appeared)) { $0.isVisible = true }
-    await store.receive(\.async.load) { $0.viewState = .loading }
-    await store.receive(\.inner.loaded) {
+    await store.send(.appeared) {
+      $0.isVisible = true
+      $0.viewState = .loading
+    }
+    await store.receive(\.loaded) {
       $0.snapshot = snapshot
       $0.viewState = .loaded
     }
@@ -34,14 +36,14 @@ struct FestivalFlagFeatureTests {
       return state
     }()) { FestivalFlagFeature() }
 
-    await store.send(.view(.festivalChanged("new"))) {
+    await store.send(.festivalChanged("new")) {
       $0.festivalID = "new"
       $0.snapshot = nil
       $0.viewState = .idle
       $0.generation = 1
     }
-    await store.send(.inner(.loaded("old", generation: 0, old)))
-    await store.send(.inner(.failed("old", generation: 0, .unavailable)))
+    await store.send(.loaded("old", generation: 0, old))
+    await store.send(.failed("old", generation: 0, .unavailable))
   }
 
   @Test func invalidResponseKeepsExistingFlagsForRecoveryDisplay() async {
@@ -53,12 +55,11 @@ struct FestivalFlagFeatureTests {
       state.viewState = .loaded
       return state
     }()) { FestivalFlagFeature() } withDependencies: {
-      $0.festivalFlagUseCase = stubFlagUseCase(result: .failure(.invalidResponse))
+      $0.festivalLiveBoardService = StubLiveBoardService(result: .failure(.invalidResponse))
     }
 
-    await store.send(.view(.refresh))
-    await store.receive(\.async.load) { $0.viewState = .loading }
-    await store.receive(\.inner.failed) { $0.viewState = .invalidResponse }
+    await store.send(.refresh) { $0.viewState = .loading }
+    await store.receive(\.failed) { $0.viewState = .invalidResponse }
     #expect(store.state.snapshot == cached)
   }
 
@@ -66,12 +67,14 @@ struct FestivalFlagFeatureTests {
     let store = TestStore(initialState: FestivalFlagFeature.State(festivalID: "festival")) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalFlagUseCase = stubFlagUseCase(result: .failure(.deviceNotRegistered))
+      $0.festivalLiveBoardService = StubLiveBoardService(result: .failure(.deviceNotRegistered))
     }
 
-    await store.send(.view(.appeared)) { $0.isVisible = true }
-    await store.receive(\.async.load) { $0.viewState = .loading }
-    await store.receive(\.inner.failed) { $0.viewState = .deviceNotRegistered }
+    await store.send(.appeared) {
+      $0.isVisible = true
+      $0.viewState = .loading
+    }
+    await store.receive(\.failed) { $0.viewState = .deviceNotRegistered }
   }
 
   @Test(arguments: [FestivalLiveBoardError.invalidFestivalID, .invalidResponse])
@@ -79,12 +82,14 @@ struct FestivalFlagFeatureTests {
     let store = TestStore(initialState: FestivalFlagFeature.State(festivalID: "festival")) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalFlagUseCase = stubFlagUseCase(result: .failure(error))
+      $0.festivalLiveBoardService = StubLiveBoardService(result: .failure(error))
     }
 
-    await store.send(.view(.appeared)) { $0.isVisible = true }
-    await store.receive(\.async.load) { $0.viewState = .loading }
-    await store.receive(\.inner.failed) {
+    await store.send(.appeared) {
+      $0.isVisible = true
+      $0.viewState = .loading
+    }
+    await store.receive(\.failed) {
       $0.viewState = error == .invalidFestivalID ? .invalidFestivalID : .invalidResponse
     }
   }
@@ -98,7 +103,7 @@ struct FestivalFlagFeatureTests {
       return state
     }()) { FestivalFlagFeature() }
 
-    await store.send(.view(.accountChanged)) {
+    await store.send(.accountChanged) {
       $0.snapshot = nil
       $0.viewState = .idle
       $0.generation = 1
@@ -123,30 +128,27 @@ struct FestivalFlagFeatureTests {
       state.viewState = .loaded
       return state
     }()) { FestivalFlagFeature() } withDependencies: {
-      $0.festivalFlagUseCase = MockFestivalFlagUseCase(liveBoard: { _ in
+      $0.festivalLiveBoardService = ClosureLiveBoardService { _ in
         guard signedIn.value else { return current }
         started.setValue(true)
         try await clock.sleep(for: .seconds(1))
         return previous
-      })
+      }
     }
 
-    await store.send(.view(.refresh))
-    await store.receive(\.async.load) { $0.viewState = .loading }
+    await store.send(.refresh) { $0.viewState = .loading }
     while !started.value { await Task.yield() }
     signedIn.setValue(false)
-    await store.send(.view(.accountChanged)) {
+    await store.send(.accountChanged) {
       $0.snapshot = nil
-      $0.viewState = .idle
       $0.generation = 1
     }
-    await store.receive(\.async.load) { $0.viewState = .loading }
-    await store.receive(\.inner.loaded) {
+    await store.receive(\.loaded) {
       $0.snapshot = current
       $0.viewState = .loaded
     }
-    await store.send(.inner(.loaded("festival", generation: 0, previous)))
-    await store.send(.inner(.failed("festival", generation: 0, .unavailable)))
+    await store.send(.loaded("festival", generation: 0, previous))
+    await store.send(.failed("festival", generation: 0, .unavailable))
     await clock.run()
     #expect(store.state.snapshot == current)
   }
@@ -161,31 +163,43 @@ struct FestivalFlagFeatureTests {
     let store = TestStore(initialState: FestivalFlagFeature.State(festivalID: "festival")) {
       FestivalFlagFeature()
     } withDependencies: {
-      $0.festivalFlagUseCase = stubFlagUseCase(result: .success(current))
+      $0.festivalLiveBoardService = StubLiveBoardService(result: .success(current))
     }
 
-    await store.send(.view(.festivalChanged("other"))) {
+    await store.send(.festivalChanged("other")) {
       $0.festivalID = "other"
       $0.generation = 1
     }
-    await store.send(.view(.festivalChanged("festival"))) {
+    await store.send(.festivalChanged("festival")) {
       $0.festivalID = "festival"
       $0.generation = 2
     }
-    await store.send(.view(.appeared)) { $0.isVisible = true }
-    await store.receive(\.async.load) { $0.viewState = .loading }
-    await store.receive(\.inner.loaded) {
+    await store.send(.appeared) {
+      $0.isVisible = true
+      $0.viewState = .loading
+    }
+    await store.receive(\.loaded) {
       $0.snapshot = current
       $0.viewState = .loaded
     }
-    await store.send(.inner(.loaded("festival", generation: 0, previous)))
-    await store.send(.inner(.failed("festival", generation: 0, .unavailable)))
+    await store.send(.loaded("festival", generation: 0, previous))
+    await store.send(.failed("festival", generation: 0, .unavailable))
     #expect(store.state.snapshot == current)
   }
 }
 
-private func stubFlagUseCase(
-  result: Result<FestivalLiveBoardSnapshot, FestivalLiveBoardError>
-) -> MockFestivalFlagUseCase {
-  MockFestivalFlagUseCase(liveBoard: { _ in try result.get() })
+private struct StubLiveBoardService: FestivalLiveBoardService {
+  let result: Result<FestivalLiveBoardSnapshot, FestivalLiveBoardError>
+
+  func refresh(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
+    try result.get()
+  }
+}
+
+private struct ClosureLiveBoardService: FestivalLiveBoardService {
+  let handler: @Sendable (String) async throws -> FestivalLiveBoardSnapshot
+
+  func refresh(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
+    try await handler(festivalID)
+  }
 }

@@ -3,6 +3,9 @@ import FestivalDomainInterface
 
 @Reducer
 public struct FestivalFlagFeature {
+  @Dependency(\.festivalLiveBoardService) private var liveBoardService
+  @Dependency(\.continuousClock) private var clock
+
   public init() {}
 
   @ObservableState
@@ -35,37 +38,14 @@ public struct FestivalFlagFeature {
     }
   }
 
-  public enum Action: ViewAction, Equatable {
-    case view(View)
-    case async(AsyncAction)
-    case inner(InnerAction)
-    case directory(FestivalFlagDirectory.Action)
-  }
-
-  // MARK: - ViewAction
-
   @CasePathable
-  public enum View: Equatable {
+  public enum Action: Equatable {
     case appeared
     case disappeared
-    case refresh
-    /// 부모가 선택 축제가 바뀌었음을 알린다.
+    case directory(FestivalFlagDirectory.Action)
     case festivalChanged(String?)
-    /// 부모가 로그인 계정이 바뀌었음을 알린다.
+    case refresh
     case accountChanged
-  }
-
-  // MARK: - AsyncAction
-
-  @CasePathable
-  public enum AsyncAction: Equatable {
-    case load
-  }
-
-  // MARK: - InnerAction
-
-  @CasePathable
-  public enum InnerAction: Equatable {
     case loaded(String, generation: Int, FestivalLiveBoardSnapshot)
     case failed(String, generation: Int, LoadFailure)
   }
@@ -79,115 +59,81 @@ public struct FestivalFlagFeature {
 
   private enum CancelID { case refresh }
 
-  @Dependency(\.festivalFlagUseCase) private var flagUseCase
-  @Dependency(\.continuousClock) private var clock
-
   public var body: some ReducerOf<Self> {
     Scope(state: \.directory, action: \.directory) { FestivalFlagDirectory() }
     Reduce { state, action in
       switch action {
-      case let .view(viewAction):
-        return handleViewAction(state: &state, action: viewAction)
+      case .appeared:
+        state.isVisible = true
+        return load(&state)
 
-      case let .async(asyncAction):
-        return handleAsyncAction(state: &state, action: asyncAction)
+      case .disappeared:
+        state.isVisible = false
+        return .cancel(id: CancelID.refresh)
 
-      case let .inner(innerAction):
-        return handleInnerAction(state: &state, action: innerAction)
+      case .directory:
+        return .none
 
-      default:
+      case let .festivalChanged(id):
+        guard state.festivalID != id else { return .none }
+        state.festivalID = id
+        state.snapshot = nil
+        state.viewState = .idle
+        state.generation += 1
+        return state.isVisible ? load(&state) : .cancel(id: CancelID.refresh)
+
+      case .refresh:
+        return load(&state)
+
+      case .accountChanged:
+        state.clearAccountData()
+        state.generation += 1
+        return state.isVisible ? load(&state) : .cancel(id: CancelID.refresh)
+
+      case let .loaded(id, generation, snapshot):
+        guard state.festivalID == id, state.generation == generation, state.isVisible else { return .none }
+        state.snapshot = snapshot
+        state.viewState = .loaded
+        return .none
+
+      case let .failed(id, generation, failure):
+        guard state.festivalID == id, state.generation == generation, state.isVisible else { return .none }
+        switch failure {
+        case .deviceNotRegistered: state.viewState = .deviceNotRegistered
+        case .invalidFestivalID: state.viewState = .invalidFestivalID
+        case .invalidResponse: state.viewState = .invalidResponse
+        case .unavailable: state.viewState = .failed
+        }
         return .none
       }
     }
     .syncFlagDirectory()
   }
-}
 
-extension FestivalFlagFeature {
-  private func handleViewAction(
-    state: inout State,
-    action: View
-  ) -> Effect<Action> {
-    switch action {
-    case .appeared:
-      state.isVisible = true
-      return .send(.async(.load))
-
-    case .disappeared:
-      state.isVisible = false
-      return .cancel(id: CancelID.refresh)
-
-    case .refresh:
-      return .send(.async(.load))
-
-    case let .festivalChanged(id):
-      guard state.festivalID != id else { return .none }
-      state.festivalID = id
-      state.snapshot = nil
+  private func load(_ state: inout State) -> Effect<Action> {
+    guard let id = state.festivalID else {
       state.viewState = .idle
-      state.generation += 1
-      return state.isVisible ? .send(.async(.load)) : .cancel(id: CancelID.refresh)
-
-    case .accountChanged:
-      state.clearAccountData()
-      state.generation += 1
-      return state.isVisible ? .send(.async(.load)) : .cancel(id: CancelID.refresh)
+      return .cancel(id: CancelID.refresh)
     }
-  }
-
-  private func handleAsyncAction(
-    state: inout State,
-    action: AsyncAction
-  ) -> Effect<Action> {
-    switch action {
-    case .load:
-      guard let id = state.festivalID else {
-        state.viewState = .idle
-        return .cancel(id: CancelID.refresh)
+    state.viewState = .loading
+    let generation = state.generation
+    return .run { send in
+      do {
+        await send(.loaded(id, generation: generation, try await liveBoardService.refresh(for: id)))
+      } catch FestivalLiveBoardError.deviceNotRegistered {
+        await send(.failed(id, generation: generation, .deviceNotRegistered))
+      } catch FestivalLiveBoardError.invalidFestivalID {
+        await send(.failed(id, generation: generation, .invalidFestivalID))
+      } catch FestivalLiveBoardError.invalidResponse {
+        await send(.failed(id, generation: generation, .invalidResponse))
+      } catch let FestivalLiveBoardError.rateLimited(retryAfter) {
+        // 라이브 보드와 같이 이전 목록을 유지한 채 기다렸다가 다시 불러온다.
+        try await clock.sleep(for: .seconds(retryAfter))
+        await send(.refresh)
+      } catch {
+        await send(.failed(id, generation: generation, .unavailable))
       }
-      state.viewState = .loading
-      let generation = state.generation
-      return .run { send in
-        do {
-          await send(.inner(.loaded(id, generation: generation, try await flagUseCase.liveBoard(for: id))))
-        } catch FestivalLiveBoardError.deviceNotRegistered {
-          await send(.inner(.failed(id, generation: generation, .deviceNotRegistered)))
-        } catch FestivalLiveBoardError.invalidFestivalID {
-          await send(.inner(.failed(id, generation: generation, .invalidFestivalID)))
-        } catch FestivalLiveBoardError.invalidResponse {
-          await send(.inner(.failed(id, generation: generation, .invalidResponse)))
-        } catch let FestivalLiveBoardError.rateLimited(retryAfter) {
-          // 라이브 보드와 같이 이전 목록을 유지한 채 기다렸다가 다시 불러온다.
-          try await clock.sleep(for: .seconds(retryAfter))
-          await send(.view(.refresh))
-        } catch {
-          await send(.inner(.failed(id, generation: generation, .unavailable)))
-        }
-      }
-      .cancellable(id: CancelID.refresh, cancelInFlight: true)
     }
-  }
-
-  private func handleInnerAction(
-    state: inout State,
-    action: InnerAction
-  ) -> Effect<Action> {
-    switch action {
-    case let .loaded(id, generation, snapshot):
-      guard state.festivalID == id, state.generation == generation, state.isVisible else { return .none }
-      state.snapshot = snapshot
-      state.viewState = .loaded
-      return .none
-
-    case let .failed(id, generation, failure):
-      guard state.festivalID == id, state.generation == generation, state.isVisible else { return .none }
-      switch failure {
-      case .deviceNotRegistered: state.viewState = .deviceNotRegistered
-      case .invalidFestivalID: state.viewState = .invalidFestivalID
-      case .invalidResponse: state.viewState = .invalidResponse
-      case .unavailable: state.viewState = .failed
-      }
-      return .none
-    }
+    .cancellable(id: CancelID.refresh, cancelInFlight: true)
   }
 }

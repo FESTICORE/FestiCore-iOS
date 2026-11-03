@@ -211,7 +211,7 @@ struct MainTabCoordinator {
       state.flagState.directory.zoneNames = zoneNames
     }
     return selectedID == state.flagState.festivalID
-      ? .none : .send(.flag(.view(.festivalChanged(selectedID))))
+      ? .none : .send(.flag(.festivalChanged(selectedID)))
   }
 
   /// 라이브 보드에서 고른 축제의 팩을 타임테이블에 옮긴다.
