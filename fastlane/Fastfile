@@ -372,11 +372,11 @@ platform :ios do
         UI.important("#{version} 버전의 빌드 #{pending.version}이 베타 심사 중이라 #{build_number}은 외부 그룹에만 넣고 제출하지 않습니다. 심사 승인 뒤 App Store Connect에서 제출하세요.")
         next
       end
-      ensure_beta_app_information(app)
       begin
+        ensure_beta_app_information(app)
         build.post_beta_app_review_submission
       rescue StandardError => error
-        # App Store Connect 정보가 빠진 경우는 내부 배포를 실패로 만들지 않고, 무엇이 빠졌는지 남긴다.
+        # 베타 설명·심사 연락처 등 App Store Connect 정보가 빠진 경우는 배포를 실패로 만들지 않고, 무엇이 빠졌는지 남긴다.
         raise unless error.message.include?("is missing") || error.message.include?("is required")
         UI.important("#{EXTERNAL_TESTFLIGHT_GROUP} 베타 심사 제출에 필요한 App Store Connect 정보가 없습니다: #{error.message.lines.first.to_s.strip}")
         UI.important("빌드 #{build_number}은 외부 그룹에 들어갔지만 심사에는 제출되지 않았습니다. TestFlight > 테스트 정보를 채운 뒤 다시 제출하세요.")
