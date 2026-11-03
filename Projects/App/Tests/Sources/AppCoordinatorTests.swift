@@ -2138,6 +2138,7 @@ struct AppCoordinatorTests {
   @Test func acceptedNewUserLoginTracksSignUp() async {
     let analytics = LockIsolated<[AnalyticsCall]>([])
     let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording(analytics)
       $0.authService = SessionRecordingAuthService()
       $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-a"))
