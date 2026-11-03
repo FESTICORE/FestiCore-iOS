@@ -103,6 +103,7 @@ public struct BearerBoardFeature {
   @CasePathable
   public enum View: Equatable {
     case onAppear
+    case onDisappear
     case retryTapped
     case closeTapped
     case retrySendTapped
@@ -213,10 +214,12 @@ extension BearerBoardFeature {
   ) -> Effect<Action> {
     switch action {
     case .onAppear:
-      return .merge(
-        .send(.async(.observeOutbox)),
-        state.board == nil ? .send(.async(.load)) : .none
-      )
+      // 대기열을 먼저 구독하고 보내지 못한 변경을 받은 뒤 상태를 읽는다(pendingLoaded).
+      return .send(.async(.observeOutbox))
+
+    case .onDisappear:
+      // 화면 라우트를 지워도 자식 효과는 남으므로 구독을 직접 끝낸다. 대기열 전송은 계속된다.
+      return .cancel(id: CancelID.outbox)
 
     case .retrySendTapped:
       state.isSendPaused = false
@@ -304,8 +307,8 @@ extension BearerBoardFeature {
     case .observeOutbox:
       let flagID = state.flagID
       return .run { send in
-        await send(.inner(.pendingLoaded(await bearerUseCase.pendingStatus(flagID: flagID))))
         let events = await bearerUseCase.statusEvents(flagID: flagID)
+        await send(.inner(.pendingLoaded(await bearerUseCase.pendingStatus(flagID: flagID))))
         await bearerUseCase.retryPendingStatus()
         for await event in events {
           await send(.inner(.outbox(event)))
@@ -314,9 +317,10 @@ extension BearerBoardFeature {
       .cancellable(id: CancelID.outbox, cancelInFlight: true)
 
     case .enqueue(let request):
+      guard let ownerUserID = state.viewerUserID else { return .none }
       let flagID = state.flagID
       return .run { _ in
-        await bearerUseCase.enqueueStatus(flagID: flagID, request: request)
+        await bearerUseCase.enqueueStatus(flagID: flagID, ownerUserID: ownerUserID, request: request)
       }
 
     case .retrySend:
@@ -362,7 +366,7 @@ extension BearerBoardFeature {
     case .pendingLoaded(let pending):
       state.pending = pending
       applyPending(&state)
-      return .none
+      return state.board == nil ? .send(.async(.load)) : .none
 
     case .outbox(let event):
       return handleOutboxEvent(state: &state, event: event)
@@ -493,6 +497,11 @@ extension BearerBoardFeature {
 
   /// 화면에 먼저 반영하고 대기열에 넣는다. 보내는 중이 아니면 바로 보낸다.
   private func enqueue(_ state: inout State, _ change: BearerStatusChange) -> Effect<Action> {
+    // 누른 사용자를 모르면 다른 계정으로 보낼 수 있어 받지 않는다.
+    guard state.viewerUserID != nil else {
+      state.errorMessage = "로그인한 뒤에 바꿀 수 있어요"
+      return .none
+    }
     let request = bearerUseCase.makeStatusRequest(change)
     state.pending.append(request)
     state.errorMessage = nil

@@ -74,8 +74,8 @@ public struct BearerUseCaseImpl: BearerUseCaseInterface {
     try await repository.sendStatus(flagID: flagID, request: request)
   }
 
-  public func enqueueStatus(flagID: String, request: BearerStatusRequest) async {
-    await outbox.enqueue(flagID: flagID, request: request)
+  public func enqueueStatus(flagID: String, ownerUserID: String, request: BearerStatusRequest) async {
+    await outbox.enqueue(flagID: flagID, ownerUserID: ownerUserID, request: request)
   }
 
   public func pendingStatus(flagID: String) async -> [BearerStatusRequest] {
