@@ -13,6 +13,7 @@ import Foundation
 public struct BearerUseCaseImpl: BearerUseCaseInterface {
   @Dependency(\.bearerRepository) private var repository
   @Dependency(\.packSyncService) private var packSyncService
+  @Dependency(\.bearerStatusOutbox) private var outbox
   @Dependency(\.uuid) private var uuid
   @Dependency(\.date) private var date
 
@@ -71,6 +72,22 @@ public struct BearerUseCaseImpl: BearerUseCaseInterface {
 
   public func sendStatus(flagID: String, request: BearerStatusRequest) async throws -> BearerFlagStatus {
     try await repository.sendStatus(flagID: flagID, request: request)
+  }
+
+  public func enqueueStatus(flagID: String, ownerUserID: String, request: BearerStatusRequest) async {
+    await outbox.enqueue(flagID: flagID, ownerUserID: ownerUserID, request: request)
+  }
+
+  public func pendingStatus(flagID: String) async -> [BearerStatusRequest] {
+    await outbox.pending(flagID: flagID)
+  }
+
+  public func statusEvents(flagID: String) async -> AsyncStream<BearerOutboxEvent> {
+    await outbox.events(flagID: flagID)
+  }
+
+  public func retryPendingStatus() async {
+    await outbox.resume()
   }
 
   public func inviteCoBearer(flagID: String) async throws -> BearerInvite {

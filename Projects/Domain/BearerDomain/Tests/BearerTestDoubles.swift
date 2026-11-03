@@ -99,14 +99,35 @@ actor RecordingClient: FestiCoreNetworkClient {
 actor StubAuthService: AuthService {
   let loggedIn: Bool
   let sessionID = UUID()
+  private(set) var userID: String?
 
-  init(loggedIn: Bool = true) {
+  init(loggedIn: Bool = true, userID: String? = "usr_me") {
     self.loggedIn = loggedIn
+    self.userID = userID
+  }
+
+  private var isHeld = false
+  private var waiters: [CheckedContinuation<Void, Never>] = []
+
+  func setUserID(_ userID: String?) { self.userID = userID }
+
+  /// 다음 사용자 조회를 release까지 붙잡는다.
+  func hold() { isHeld = true }
+
+  func release() {
+    isHeld = false
+    waiters.forEach { $0.resume() }
+    waiters = []
   }
 
   var isLoggedIn: Bool { loggedIn }
   var refreshToken: String? { nil }
-  var currentUserID: String? { nil }
+  var currentUserID: String? {
+    get async {
+      if isHeld { await withCheckedContinuation { waiters.append($0) } }
+      return userID
+    }
+  }
   var authenticatedSessionID: UUID? { loggedIn ? sessionID : nil }
   var hasPendingLocalClear: Bool { false }
   var hasUnconfirmedRevocation: Bool { false }
