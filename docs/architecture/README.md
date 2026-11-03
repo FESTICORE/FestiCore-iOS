@@ -5,7 +5,7 @@ README에는 직접 작성한 Mermaid 의존성 흐름과 SVG 요약도를 표�
 | 그림 | 범위 |
 | --- | --- |
 | `module-graph` | 현재 Tuist 모듈과 주요 의존성. 점선은 앱에 포함되는 확장 타깃입니다. |
-| `tca-flow` | Splash → 첫 설치 온보딩 또는 탭 → 축제·마이 하위 화면 전환. |
+| `tca-flow` | Splash → 첫 설치 온보딩 또는 탭 → 축제·알림함·마이 하위 화면 전환. |
 
 모듈을 추가하거나 의존성을 바꾸면 해당 `Project.swift`와 `Modules.swift`를 확인한 뒤 README의 Mermaid 흐름과 `.mmd`를 수정합니다. SVG 요약에 영향을 주는 변경이면 Excalidraw 원본과 SVG도 갱신합니다. 화면 경로를 바꾸면 `AppCoordinator`, `MainTabCoordinator`, 해당 Feature의 목적지를 기준으로 `tca-flow`도 갱신합니다.
 

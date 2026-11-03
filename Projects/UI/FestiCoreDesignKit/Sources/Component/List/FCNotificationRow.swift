@@ -47,15 +47,17 @@ public struct FCNotificationRow: View {
             .festiCoreFont(.baseCalloutBold)
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .lineLimit(1)
           Text(time)
             .festiCoreFont(.baseCaption1Regular)
             .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+            .lineLimit(1)
         }
         Text(message)
           .festiCoreFont(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+          .lineLimit(2)
       }
-      .lineLimit(1)
     }
     .padding(FestiCoreSpacing.paddingP16)
     .background(isRead ? FestiCoreSemanticColor.backgroundElevated.color : FestiCoreSemanticColor.accentBackgroundLime.color)

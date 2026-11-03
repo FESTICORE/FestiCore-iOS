@@ -2,6 +2,7 @@ import ComposableArchitecture
 import FestiCorePackInterface
 import FestivalDomainInterface
 import Foundation
+import UserNotificationDomainInterface
 
 extension DependencyValues {
   /// 서비스·스토어 대역으로 화면을 검증하는 테스트가 UseCase를 그 대역에 연결한다.
@@ -14,6 +15,7 @@ extension DependencyValues {
     festivalScheduleUseCase = ServiceBackedScheduleUseCase()
     festivalImageUseCase = ServiceBackedImageUseCase()
     festivalLiveActivityUseCase = ServiceBackedLiveActivityUseCase()
+    userNotificationUseCase = MockUserNotificationUseCase(unreadCount: { 0 })
   }
 }
 
