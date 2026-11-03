@@ -24,7 +24,7 @@ struct BearerStatusOutboxTests {
   }
 
   private func makeOutbox(
-    _ repository: ScriptedRepository,
+    _ repository: any BearerRepositoryInterface,
     auth: StubAuthService = StubAuthService(),
     clock: any Clock<Duration> = ImmediateClock(),
     fileURL: URL? = nil
@@ -59,33 +59,49 @@ struct BearerStatusOutboxTests {
 
   @Test("연결이 없으면 남겨 두고 5초 뒤 같은 멱등키로 다시 보낸다")
   func retriesOffline() async {
-    let clock = TestClock()
+    let clock = RecordingClock()
     let repository = ScriptedRepository([.failure(.offline), .success(resting)])
     let outbox = makeOutbox(repository, clock: clock)
     let events = await outbox.events(flagID: "flg_1")
 
     await outbox.enqueue(flagID: "flg_1", ownerUserID: "usr_me", request: request(.rest, "key-1"))
-    _ = await collect(events) { $0 == .offline }
-    await clock.advance(by: .seconds(5))
     _ = await collect(events) { $0 == .pending([]) }
 
     #expect(await repository.sentKeys == ["key-1", "key-1"])
+    #expect(clock.sleeps == [.seconds(5)])
   }
 
   @Test("429면 15초 기다렸다가 다시 보낸다")
   func retriesRateLimited() async {
-    let clock = TestClock()
+    let clock = RecordingClock()
     let repository = ScriptedRepository([.failure(.rateLimited), .success(resting)])
     let outbox = makeOutbox(repository, clock: clock)
     let events = await outbox.events(flagID: "flg_1")
 
     await outbox.enqueue(flagID: "flg_1", ownerUserID: "usr_me", request: request(.rest, "key-1"))
-    await Task.megaYield()
-    await clock.advance(by: .seconds(14))
-    #expect(await repository.sentKeys == ["key-1"])
-    await clock.advance(by: .seconds(1))
     _ = await collect(events) { $0 == .pending([]) }
+
     #expect(await repository.sentKeys == ["key-1", "key-1"])
+    #expect(clock.sleeps == [.seconds(15)])
+  }
+
+  @Test("보내는 중이거나 한 번 보내 본 건 앞에는 더 이른 변경을 끼워 넣지 않는다")
+  func keepsAttemptedItemFirst() async {
+    let repository = GatedRepository([.failure(.offline), .success(resting), .success(resting)])
+    let outbox = makeOutbox(repository, clock: RecordingClock())
+    let events = await outbox.events(flagID: "flg_1")
+
+    await outbox.enqueue(flagID: "flg_1", ownerUserID: "usr_me", request: request(.rest, "late", offset: 10))
+    await waitUntil { await repository.sentKeys.count == 1 }
+    // 첫 전송이 서버에 닿았을 수 있는 동안 더 이른 시각의 변경이 들어온다.
+    await outbox.enqueue(flagID: "flg_1", ownerUserID: "usr_me", request: request(.end, "early"))
+    await repository.release()
+    await waitUntil { await repository.sentKeys.count == 2 }
+    await repository.release()
+    await repository.release()
+    _ = await collect(events) { $0 == .pending([]) }
+
+    #expect(await repository.sentKeys == ["late", "late", "early"])
   }
 
   @Test("401이면 대기열을 남기고 멈췄다가 다시 시작하면 이어서 보낸다")
@@ -105,24 +121,17 @@ struct BearerStatusOutboxTests {
 
   @Test("서버 오류는 2·4·8·16·32초 뒤 다시 보내고 그 뒤 멈추며 대기열은 남긴다")
   func backsOffThenGivesUp() async {
-    let clock = TestClock()
+    let clock = RecordingClock()
     let failures = Array(repeating: Result<BearerFlagStatus, BearerError>.failure(.unavailable), count: 10)
     let repository = ScriptedRepository(failures)
     let outbox = makeOutbox(repository, clock: clock)
     let events = await outbox.events(flagID: "flg_1")
 
     await outbox.enqueue(flagID: "flg_1", ownerUserID: "usr_me", request: request(.rest, "key-1"))
-    await Task.megaYield()
-    for (attempt, delay) in [2, 4, 8, 16, 32].enumerated() {
-      #expect(await repository.sentKeys.count == attempt + 1)
-      await clock.advance(by: .seconds(delay - 1))
-      #expect(await repository.sentKeys.count == attempt + 1)
-      await clock.advance(by: .seconds(1))
-      await Task.megaYield()
-    }
     let received = await collect(events) { if case .gaveUp = $0 { return true } else { return false } }
 
     #expect(received.last == .gaveUp(.unavailable))
+    #expect(clock.sleeps == [2, 4, 8, 16, 32].map { .seconds($0) })
     #expect(await repository.sentKeys.count == BearerStatusOutboxImpl.maxServerRetries + 1)
     #expect(await outbox.pending(flagID: "flg_1").count == 1)
   }
@@ -185,6 +194,15 @@ struct BearerStatusOutboxTests {
     #expect(await makeOutbox(ScriptedRepository([]), fileURL: url).pending(flagID: "flg_1").isEmpty)
   }
 
+  /// 조건이 맞을 때까지 잠깐씩 기다린다. 2초 안에 맞지 않으면 실패로 남긴다.
+  private func waitUntil(_ condition: @Sendable () async -> Bool) async {
+    for _ in 0 ..< 200 {
+      if await condition() { return }
+      try? await Task.sleep(for: .milliseconds(10))
+    }
+    Issue.record("기다린 조건이 맞지 않았다")
+  }
+
   /// 조건에 맞는 이벤트가 올 때까지 모은다. 2초 안에 오지 않으면 실패로 남기고 끝낸다.
   private func collect(
     _ stream: AsyncStream<BearerOutboxEvent>,
@@ -222,6 +240,64 @@ private actor ScriptedRepository: BearerRepositoryInterface {
   func sendStatus(flagID: String, request: BearerStatusRequest) async throws -> BearerFlagStatus {
     sentKeys.append(request.idempotencyKey)
     guard !results.isEmpty else { throw BearerError.notAuthenticated }
+    return try results.removeFirst().get()
+  }
+
+  func claim(festivalID: String, code: String) async throws -> BearerClaim { throw BearerError.unavailable }
+  func fetchBoard(flagID: String) async throws -> BearerBoard { throw BearerError.unavailable }
+  func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile { throw BearerError.unavailable }
+  func uploadPhoto(flagID: String, jpegData: Data, progress: @escaping @Sendable (Double) -> Void) async throws -> BearerFlagPhoto {
+    throw BearerError.unavailable
+  }
+  func inviteCoBearer(flagID: String) async throws -> BearerInvite { throw BearerError.unavailable }
+  func removeCoBearer(flagID: String, userID: String) async throws { throw BearerError.unavailable }
+}
+
+/// 기다리지 않고 요청한 대기 시간만 기록하는 시계
+private final class RecordingClock: Clock, @unchecked Sendable {
+  struct Instant: InstantProtocol {
+    var offset: Duration
+    func advanced(by duration: Duration) -> Instant { Instant(offset: offset + duration) }
+    func duration(to other: Instant) -> Duration { other.offset - offset }
+    static func < (lhs: Instant, rhs: Instant) -> Bool { lhs.offset < rhs.offset }
+  }
+
+  private let state = LockIsolated((now: Instant(offset: .zero), sleeps: [Duration]()))
+  var now: Instant { state.value.now }
+  var minimumResolution: Duration { .zero }
+  var sleeps: [Duration] { state.value.sleeps }
+
+  func sleep(until deadline: Instant, tolerance: Duration?) async throws {
+    try Task.checkCancellation()
+    state.withValue {
+      $0.sleeps.append($0.now.duration(to: deadline))
+      $0.now = deadline
+    }
+  }
+}
+
+/// 전송마다 release를 기다리는 저장소
+private actor GatedRepository: BearerRepositoryInterface {
+  private var results: [Result<BearerFlagStatus, BearerError>]
+  private var waiters: [CheckedContinuation<Void, Never>] = []
+  private var permits = 0
+  private(set) var sentKeys: [String] = []
+
+  init(_ results: [Result<BearerFlagStatus, BearerError>]) {
+    self.results = results
+  }
+
+  func release() {
+    if waiters.isEmpty { permits += 1 } else { waiters.removeFirst().resume() }
+  }
+
+  func sendStatus(flagID: String, request: BearerStatusRequest) async throws -> BearerFlagStatus {
+    sentKeys.append(request.idempotencyKey)
+    if permits > 0 {
+      permits -= 1
+    } else {
+      await withCheckedContinuation { waiters.append($0) }
+    }
     return try results.removeFirst().get()
   }
 
