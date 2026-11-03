@@ -119,8 +119,6 @@ struct PackDetailFeatureTests {
     }
 
     await store.send(.view(.updateTapped)) { $0.isUpdating = true }
-    // 받는 중에 다시 눌러도 한 번만 받는다.
-    await store.send(.view(.updateTapped))
     await store.receive(\.async.update)
     await store.receive(\.inner.updateFinished) {
       $0.isUpdating = false
@@ -129,6 +127,18 @@ struct PackDetailFeatureTests {
       $0.manageMessage = "새 버전 v13을 받았어요"
     }
     await store.receive(\.delegate.packChanged)
+  }
+
+  @Test func updateTapWhileUpdatingIsIgnored() async {
+    var state = PackDetailFeature.State(festivalID: "fst_a", title: "원더리벳 2026")
+    state.detail = sampleDetail(version: 12, latest: 13)
+    state.load = .loaded
+    state.isUpdating = true
+    let store = TestStore(initialState: state) { PackDetailFeature() }
+
+    // 받는 중에 다시 눌러도 한 번만 받는다.
+    await store.send(.view(.updateTapped))
+    await store.send(.view(.checkUpdateTapped))
   }
 
   @Test func updateFailureKeepsPackAndShowsMessage() async {
