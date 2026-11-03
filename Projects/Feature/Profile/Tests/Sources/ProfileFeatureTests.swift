@@ -94,7 +94,7 @@ struct ProfileFeatureTests {
     }
   }
 
-  @Test func cancelOrDimDismissDoesNotRunAction() async {
+  @Test func cancelTapOrDimDismissClosesWithoutRunningAction() async {
     let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
 
     await store.send(.view(.withdrawTapped)) {
@@ -109,6 +109,7 @@ struct ProfileFeatureTests {
       $0.destination = .alert(.logout())
       $0.confirmation = .logout
     }
+    // 딤을 탭하면 fcAlert가 바인딩을 비워 dismiss를 보낸다.
     await store.send(.destination(.dismiss)) {
       $0.destination = nil
       $0.confirmation = nil

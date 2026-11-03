@@ -9,24 +9,28 @@ import FestiCoreAnimation
 import FestiCoreDesignKit
 import SwiftUI
 
-/// 딤 배경 위에 다이얼로그를 띄운다. 딤이 밝아지며 다이얼로그가 아래에서 올라오고, 닫힐 때는 함께 사라진다.
+/// 딤 배경 위에 다이얼로그를 띄운다. 딤과 다이얼로그가 제자리에서 함께 나타나고 사라진다.
 public struct FCDialogOverlay: View {
   @State private var isContentVisible = false
   /// 첫 입력을 처리했는지. 닫히는 동안 늦게 들어온 탭이 동작을 다시 실행하지 않게 한다.
   @State private var isHandled = false
   private let item: FCDialogItem
   private let dismissesOnDimTap: Bool
+  private let onDimTap: (() -> Void)?
   private let onDismiss: () -> Void
 
   /// - Parameters:
   ///   - dismissesOnDimTap: 참이면 딤을 탭할 때 `onDismiss`를 부른다.
+  ///   - onDimTap: 버튼과 다른 닫기 동작이 필요할 때 딤 탭에서 부른다. `dismissesOnDimTap`보다 우선한다.
   public init(
     item: FCDialogItem,
     dismissesOnDimTap: Bool = false,
+    onDimTap: (() -> Void)? = nil,
     onDismiss: @escaping () -> Void
   ) {
     self.item = item
     self.dismissesOnDimTap = dismissesOnDimTap
+    self.onDimTap = onDimTap
     self.onDismiss = onDismiss
   }
 
@@ -36,9 +40,14 @@ public struct FCDialogOverlay: View {
         .opacity(isContentVisible ? 1 : 0)
         .ignoresSafeArea()
         .onTapGesture {
-          guard dismissesOnDimTap else { return }
-          isHandled = true
-          onDismiss()
+          guard !isHandled else { return }
+          if let onDimTap {
+            isHandled = true
+            onDimTap()
+          } else if dismissesOnDimTap {
+            isHandled = true
+            onDismiss()
+          }
         }
       FCDialog(
         handledOnce(item),

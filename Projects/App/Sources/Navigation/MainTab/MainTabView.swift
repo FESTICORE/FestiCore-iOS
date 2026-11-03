@@ -47,7 +47,10 @@ struct MainTabView: View {
         // 확인 팝업은 시트 위 별도 층에 띄운다. 팝업 애니메이션이 계정 시트와 뒤 화면 배치에 번지지 않게 한다.
         if store.selectedTab == .my {
           Color.clear
-            .fcAlert($store.scope(state: \.profileState.destination?.alert, action: \.profile.destination.alert))
+            .fcAlert(
+              $store.scope(state: \.profileState.destination?.alert, action: \.profile.destination.alert),
+              dismissesOnDimTap: true
+            )
         }
       }
   }
