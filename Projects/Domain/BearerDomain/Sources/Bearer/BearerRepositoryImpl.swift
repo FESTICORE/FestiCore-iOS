@@ -10,6 +10,7 @@ import BearerDomainInterface
 import Dependencies
 import FestiCoreAuthInterface
 import FestiCoreDeviceInterface
+import FestiCoreNetwork
 import FestiCoreNetworkInterface
 import Foundation
 
@@ -21,17 +22,11 @@ public struct BearerRepositoryImpl: BearerRepositoryInterface {
   /// 서버가 내려 주는 상대 사진 경로를 풀 API 호스트
   private let baseURL: URL?
 
-  public init(baseURL: URL? = BearerRepositoryImpl.bundleBaseURL) {
+  public init(baseURL: URL? = NetworkClientFactory.bundleBaseURL) {
     self.baseURL = baseURL
   }
 
-  /// 앱 Info.plist의 `FestiCoreAPIHost`
-  public static var bundleBaseURL: URL? {
-    guard let host = Bundle.main.object(forInfoDictionaryKey: "FestiCoreAPIHost") as? String,
-          !host.isEmpty else { return nil }
-    return URL(string: "https://\(host)")
-  }
-
+  /// - Parameter code: UseCase가 대문자로 맞추고 형식을 확인한 코드
   public func claim(festivalID: String, code: String) async throws -> BearerClaim {
     let sessionID = try await authenticatedSessionID()
     let deviceID: String
@@ -41,7 +36,7 @@ public struct BearerRepositoryImpl: BearerRepositoryInterface {
       throw BearerError.unavailable
     }
     let request = FlagRequest.claim(
-      body: BearerClaimBody(festivalId: festivalID, code: code.uppercased()),
+      body: BearerClaimBody(festivalId: festivalID, code: code),
       deviceID: deviceID,
       sessionID: sessionID
     )

@@ -229,7 +229,11 @@ extension BearerClaimFeature {
   ) -> Effect<Action> {
     switch action {
     case .claimed, .closeRequested:
-      return .cancel(id: CancelID.lockCountdown)
+      state.isSubmitting = false
+      return .merge(
+        .cancel(id: CancelID.claim),
+        .cancel(id: CancelID.lockCountdown)
+      )
     }
   }
 
