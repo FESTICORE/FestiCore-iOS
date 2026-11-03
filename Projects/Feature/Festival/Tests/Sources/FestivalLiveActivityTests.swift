@@ -6,11 +6,24 @@ import Testing
 @testable import Festival
 
 struct HomeLiveActivityTests {
+  @Test @MainActor func startThatCanNoLongerResolveReleasesBusyState() async {
+    var state = FestivalFeature.State()
+    state.liveActivityReady = true
+    state.liveActivityBusyFestivalID = "missing"
+    let store = TestStore(initialState: state) { FestivalFeature() }
+
+    await store.send(.async(.startLiveActivity(festivalID: "missing"))) {
+      $0.liveActivityBusyFestivalID = nil
+    }
+  }
+
   @Test @MainActor func startIsDisabledUntilOSActivitiesAreRestored() async {
     var state = FestivalFeature.State()
     state.catalog = [festival(id: "festival")]
     state.selectedFestivalID = "festival"
-    let store = TestStore(initialState: state) { FestivalFeature() }
+    let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.view(.liveActivityTapped))
     #expect(!store.state.liveActivityState.isEnabled)
@@ -29,6 +42,7 @@ struct HomeLiveActivityTests {
     state.hasStarted = true
     state.liveActivityNow = now
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.date.now = now
       $0.continuousClock = clock
       $0.festivalLiveActivityClient = .init(
@@ -45,6 +59,7 @@ struct HomeLiveActivityTests {
       $0.liveActivityBusyFestivalID = "festival"
       $0.liveActivityRevision = 1
     }
+    await store.receive(\.async.startLiveActivity)
     await store.receive(\.inner.liveActivityStarted) {
       $0.liveActivityBusyFestivalID = nil
       $0.liveActivityRevision = 2
@@ -58,6 +73,7 @@ struct HomeLiveActivityTests {
       $0.liveActivityBusyFestivalID = "festival"
       $0.liveActivityRevision = 3
     }
+    await store.receive(\.async.endLiveActivity)
     await store.receive(\.inner.liveActivityStopped) {
       $0.liveActivityBusyFestivalID = nil
       $0.liveActivityRevision = 4
@@ -66,6 +82,7 @@ struct HomeLiveActivityTests {
     await store.send(.view(.foregroundChanged(false))) {
       $0.isForeground = false
     }
+    await store.receive(\.async.prefetchImages)
     await store.finish()
   }
 
@@ -86,6 +103,7 @@ struct HomeLiveActivityTests {
       startDate: oldStart, endDate: endDate
     )
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.date.now = now
       $0.continuousClock = clock
       $0.festivalLiveActivityClient = .init(
@@ -113,6 +131,7 @@ struct HomeLiveActivityTests {
     await store.send(.view(.foregroundChanged(false))) {
       $0.isForeground = false
     }
+    await store.receive(\.async.prefetchImages)
     await store.finish()
   }
 
@@ -126,6 +145,7 @@ struct HomeLiveActivityTests {
       startDate: now, endDate: nil
     )
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.date.now = now
       $0.festivalLiveActivityClient = .init(
         activities: { [] },
@@ -171,6 +191,7 @@ struct HomeLiveActivityTests {
       startDate: activeStart, endDate: activeEnd
     )
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.date.now = now
       $0.continuousClock = clock
       $0.festivalLiveActivityClient = .init(
@@ -192,6 +213,7 @@ struct HomeLiveActivityTests {
     await store.send(.view(.foregroundChanged(false))) {
       $0.isForeground = false
     }
+    await store.receive(\.async.prefetchImages)
     await store.finish()
   }
 

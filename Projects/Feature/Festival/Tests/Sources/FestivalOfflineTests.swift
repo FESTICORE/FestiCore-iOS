@@ -55,12 +55,14 @@ struct HomeOfflineTests {
     let store = TestStore(initialState: FestivalFeature.State()) {
       FestivalFeature()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = OfflineCatalog()
       $0.packSyncService = CachedPackService(pack: pack)
       $0.festivalSelectionStore = .init(load: { "fst_cached" }, save: { _ in })
     }
 
     await store.send(.view(.onAppear)) { $0.hasStarted = true }
+    await store.receive(\.async.loadCachedFestivals)
     await store.receive(\.inner.cachedLoaded) {
       $0.viewState = .loaded
       $0.cachedPacks = [pack.festivalID: pack]
@@ -79,12 +81,14 @@ struct HomeOfflineTests {
     let store = TestStore(initialState: FestivalFeature.State()) {
       FestivalFeature()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = BrokenCatalog()
       $0.packSyncService = BrokenPackService()
       $0.festivalSelectionStore = .init(load: { nil }, save: { _ in })
     }
 
     await store.send(.view(.onAppear)) { $0.hasStarted = true }
+    await store.receive(\.async.loadCachedFestivals)
     await store.receive(\.inner.cachedLoaded) {
       $0.catalogCacheReadFailed = true
       $0.packCacheReadFailed = true
@@ -107,12 +111,14 @@ struct HomeOfflineTests {
     let store = TestStore(initialState: FestivalFeature.State()) {
       FestivalFeature()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = OfflineCatalog()
       $0.packSyncService = NoSocketPackService()
       $0.festivalSelectionStore = .init(load: { "fst_cached" }, save: { _ in })
     }
 
     await store.send(.view(.foregroundChanged(false))) { $0.isForeground = false }
+    await store.receive(\.async.prefetchImages)
     await store.send(.inner(.cachedLoaded([], [pack], "fst_cached", false, false))) {
       $0.viewState = .loaded
       $0.cachedPacks = [pack.festivalID: pack]
@@ -133,7 +139,9 @@ struct HomeOfflineTests {
     let item = FestivalCatalogItem(
       id: "fst_discovered", name: "온라인 축제", packVersion: 0, status: "discovered"
     )
-    let store = TestStore(initialState: initialState) { FestivalFeature() }
+    let store = TestStore(initialState: initialState) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.inner(.catalogRefreshed([item]))) {
       $0.viewState = .loaded
@@ -156,6 +164,7 @@ struct HomeOfflineTests {
     initialState.selectedFestivalID = pack.festivalID
     initialState.connection = .live
     let store = TestStore(initialState: initialState) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = ImageCatalog()
       $0.packSyncService = RecordingPackWatchService(counter: counter)
     }
@@ -182,7 +191,9 @@ struct HomeOfflineTests {
     let item = FestivalCatalogItem(
       id: "fst_discovered", name: "온라인 축제", packVersion: 0, status: "discovered"
     )
-    let store = TestStore(initialState: initialState) { FestivalFeature() }
+    let store = TestStore(initialState: initialState) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.inner(.catalogRefreshed([item]))) {
       $0.viewState = .loaded
@@ -255,7 +266,9 @@ struct HomeOfflineTests {
     let first = FestivalCatalogItem(id: "fst_one", name: "첫 번째", packVersion: 0)
     let duplicate = FestivalCatalogItem(id: "fst_one", name: "두 번째", packVersion: 0)
     let other = FestivalCatalogItem(id: "fst_two", name: "다른 축제", packVersion: 0)
-    let store = TestStore(initialState: FestivalFeature.State()) { FestivalFeature() }
+    let store = TestStore(initialState: FestivalFeature.State()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.inner(.catalogRefreshed([first, duplicate, other]))) {
       $0.viewState = .loaded
@@ -279,6 +292,7 @@ struct HomeOfflineTests {
     initialState.catalog = [item]
     initialState.selectedFestivalID = item.id
     let store = TestStore(initialState: initialState) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = ImageCatalog()
       $0.festivalImagePrefetchClient = FestivalImagePrefetchClient(
         start: { urls in await recorder.start(urls) }, stop: { await recorder.stop() }
@@ -311,6 +325,7 @@ struct HomeOfflineTests {
     initialState.selectedFestivalID = selected.festivalID
     initialState.selectedPack = try JSONDecoder().decode(FestivalPackDocument.self, from: selected.pack)
     let store = TestStore(initialState: initialState) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = ImageCatalog()
       $0.festivalImagePrefetchClient = FestivalImagePrefetchClient(
         start: { urls in await recorder.start(urls) }, stop: { await recorder.stop() }
@@ -341,6 +356,7 @@ struct HomeOfflineTests {
     initialState.catalog = [item]
     initialState.selectedFestivalID = item.id
     let store = TestStore(initialState: initialState) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = ImageCatalog()
     }
 
@@ -368,6 +384,7 @@ struct HomeOfflineTests {
     var initialState = FestivalFeature.State()
     initialState.selectedFestivalID = pack.festivalID
     let store = TestStore(initialState: initialState) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = ImageCatalog()
       $0.festivalImagePrefetchClient = FestivalImagePrefetchClient(
         start: { urls in await recorder.start(urls) },
@@ -415,6 +432,7 @@ struct HomeOfflineTests {
     #expect(await recorder.startCount() == 2)
 
     await store.send(.view(.foregroundChanged(false))) { $0.isForeground = false }
+    await store.receive(\.async.prefetchImages)
     await store.finish()
     #expect(await recorder.stopCount() == 1)
   }
@@ -434,6 +452,7 @@ struct HomeOfflineTests {
     var initialState = FestivalFeature.State()
     initialState.selectedFestivalID = pack.festivalID
     let store = TestStore(initialState: initialState) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = ImageCatalog()
       $0.festivalImagePrefetchClient = FestivalImagePrefetchClient(
         start: { urls in await recorder.start(urls) }, stop: { await recorder.stop() }

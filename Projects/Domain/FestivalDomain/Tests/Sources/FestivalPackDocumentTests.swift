@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import Festival
+import FestivalDomainInterface
 
 struct FestivalPackDocumentTests {
   @Test("팩의 깃발 설정·구역·출처·일자 시각을 읽는다")

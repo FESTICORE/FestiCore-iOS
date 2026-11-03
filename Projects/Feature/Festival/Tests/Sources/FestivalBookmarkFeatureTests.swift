@@ -8,7 +8,9 @@ struct FestivalBookmarkFeatureTests {
     let festival = FestivalCatalogItem(id: "festival", name: "축제", packVersion: 0)
     var initial = FestivalFeature.State()
     initial.catalog = [festival]
-    let store = TestStore(initialState: initial) { FestivalFeature() }
+    let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.view(.toggleBookedFestival("festival")))
     await store.receive(\.delegate.bookmarkRequested)

@@ -39,6 +39,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State()) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = EmptyFestivalCatalogService()
       $0.authUseCase = UnauthenticatedAuthUseCase()
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
@@ -56,6 +57,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(.init())) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = EmptyFestivalCatalogService()
     }
     await store.send(.inner(.completeHomeTransition))
@@ -65,6 +67,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(.init())) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
     }
     store.exhaustivity = .off
@@ -102,6 +105,8 @@ struct AppCoordinatorTests {
     home.authFlow.isLoading = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
     }
     store.exhaustivity = .off
 
@@ -124,6 +129,7 @@ struct AppCoordinatorTests {
     home.authFlow.pendingFestivalID = "new"
     home.authFlow.pendingOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalBookedStore = FestivalBookedStore(
         load: { userID in userID == "user-a" ? box.ids : [] },
         save: { ids, userID in if userID == "user-a" { box.ids = ids } },
@@ -148,6 +154,7 @@ struct AppCoordinatorTests {
     home.authFlow.pendingOwnerID = "user-a"
     home.authFlow.verifiedUserID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalBookedStore = FestivalBookedStore(
         load: { userID in userID == "user-a" ? box.ids : ["saved-b"] },
         save: { ids, userID in if userID == "user-a" { box.ids = ids } },
@@ -180,6 +187,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.authUseCase = FailingProfileAuthUseCase(failure: failure)
       $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
       $0.festivalBookedStore = FestivalBookedStore(
@@ -231,6 +239,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-b"))
       $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
       $0.festivalBookedStore = FestivalBookedStore(
@@ -270,6 +279,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.festivalBookedStore = FestivalBookedStore(
         load: { _ in box.ids },
@@ -309,6 +319,8 @@ struct AppCoordinatorTests {
     home.authFlow.isLoading = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
     }
     store.exhaustivity = .off
 
@@ -329,7 +341,7 @@ struct AppCoordinatorTests {
       $0 = .home(home)
     }
     await store.receive {
-      guard case .scope(.home(.festival(.router(.routeAction(id: 0, action: .festivalList(.accountChanged)))))) = $0 else {
+      guard case .scope(.home(.festival(.router(.routeAction(id: 0, action: .festivalList(.view(.accountChanged))))))) = $0 else {
         return false
       }
       return true
@@ -387,6 +399,7 @@ struct AppCoordinatorTests {
     let liveStore = Store(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.festivalBookedStore = bookedStore
     }
@@ -403,6 +416,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.festivalBookedStore = bookedStore
     }
@@ -447,6 +461,8 @@ struct AppCoordinatorTests {
     home.authFlow.isLoading = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator(legalBaseURL: nil)
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
     }
 
     await store.send(.inner(.profileUpdated(generation: 1, .failure(.offline)))) {
@@ -491,6 +507,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.authUseCase = OutdatedTermsAuthUseCase(
         profile: AuthProfile(user: user, currentTermsVersion: "2026-10")
       )
@@ -546,6 +563,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.authUseCase = ReturningProfileAuthUseCase(profile: profile)
       $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
     }
@@ -578,7 +596,9 @@ struct AppCoordinatorTests {
     var home = MainTabCoordinator.State()
     home.authFlow.profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
     home.authFlow.presentation = .onboarding
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     await store.send(.scope(.home(.signUp(.view(.serviceTermsChanged(true))))))
@@ -613,7 +633,9 @@ struct AppCoordinatorTests {
     home.authFlow.signUp.acceptedServiceTerms = true
     home.authFlow.signUp.pushOptIn = true
     home.authFlow.signUp.draftOwnerID = "user-a"
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     let profile = AuthProfile(user: signUpUser("user-b"), currentTermsVersion: "2026-10")
@@ -652,7 +674,9 @@ struct AppCoordinatorTests {
     home.authFlow.generation = 1
     home.authFlow.signUp.nickname = "주인 없음"
     home.authFlow.signUp.acceptedPrivacyTerms = true
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     let profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
@@ -672,7 +696,9 @@ struct AppCoordinatorTests {
     home.authFlow.signUp.acceptedPrivacyTerms = true
     home.authFlow.signUp.termsDraftVersion = "2026-10"
     home.authFlow.signUp.draftOwnerID = "user-a"
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     let profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-11")
@@ -687,7 +713,9 @@ struct AppCoordinatorTests {
     var home = MainTabCoordinator.State()
     home.authFlow.profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
     home.authFlow.presentation = .onboarding
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     await store.send(.scope(.home(.signUp(.view(.serviceTermsChanged(true))))))
@@ -696,7 +724,9 @@ struct AppCoordinatorTests {
     guard case var .home(refreshing) = store.state else { return }
     refreshing.authFlow.profile = nil
     refreshing.authFlow.generation = 1
-    let refreshed = TestStore(initialState: AppCoordinator.State.home(refreshing)) { AppCoordinator() }
+    let refreshed = TestStore(initialState: AppCoordinator.State.home(refreshing)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     refreshed.exhaustivity = .off
     let newProfile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-11")
     await refreshed.send(.inner(.profileLoaded(generation: 1, .success(newProfile))))
@@ -717,7 +747,9 @@ struct AppCoordinatorTests {
     home.authFlow.generation = 1
     home.authFlow.profile = AuthProfile(user: user, currentTermsVersion: "2026-10")
     home.authFlow.presentation = .onboarding
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     await store.send(.scope(.home(.signUp(.view(.nicknameChanged(""))))))
@@ -736,7 +768,9 @@ struct AppCoordinatorTests {
     home.authFlow.generation = 1
     home.authFlow.signUp.nicknameEdited = true
     home.authFlow.signUp.draftOwnerID = "user-a"
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     await store.send(.inner(.profileLoaded(generation: 1, .success(AuthProfile(user: userB, currentTermsVersion: "2026-10")))))
@@ -756,7 +790,9 @@ struct AppCoordinatorTests {
       home.authFlow.profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
       home.authFlow.pendingFestivalID = "festival"
       home.authFlow.pendingShouldBeBooked = true
-      let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+      let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
       store.exhaustivity = .off
 
       await store.send(result)
@@ -772,7 +808,9 @@ struct AppCoordinatorTests {
     home.authFlow.hasSession = true
     home.authFlow.pendingFestivalID = "festival"
     home.authFlow.pendingOwnerID = "user-a"
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     await store.send(.inner(.profileLoaded(generation: 1, .failure(.unauthenticated))))
@@ -794,7 +832,9 @@ struct AppCoordinatorTests {
     home.authFlow.signUp.termsDraftVersion = "2026-10"
     home.authFlow.signUp.pushOptIn = true
     home.authFlow.signUp.draftOwnerID = "user-a"
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     await store.send(.inner(.profileUpdated(generation: 1, .failure(.unauthenticated))))
@@ -831,6 +871,8 @@ struct AppCoordinatorTests {
     home.authFlow.signUp.termsDraftVersion = "2026-10"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator(legalBaseURL: nil)
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
     }
 
     await store.send(.inner(.profileUpdated(generation: 2, .failure(.termsOutdated)))) {
@@ -855,6 +897,8 @@ struct AppCoordinatorTests {
   @Test func tappingTabSwitchesAndRemembersPreviousTab() async {
     let store = TestStore(initialState: MainTabCoordinator.State()) {
       MainTabCoordinator()
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
     }
     await store.send(.tabTapped(.timetable))
     await store.receive(\.selectTab) {
@@ -891,7 +935,9 @@ struct AppCoordinatorTests {
     #expect(!state.shouldHideTabBar)
     #expect(state.shouldReserveTabBarSpace)
 
-    let store = TestStore(initialState: state) { MainTabCoordinator() }
+    let store = TestStore(initialState: state) { MainTabCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     await store.send(.profile(.view(.accountChanged(
       profile: nil, hasSession: true, isLoading: false, message: nil
     )))) {
@@ -968,6 +1014,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
     store.exhaustivity = .off
@@ -1022,6 +1069,8 @@ struct AppCoordinatorTests {
     state.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
     let store = TestStore(initialState: state) {
       FestivalCoordinator()
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
     }
 
     await store.send(.router(.routeAction(id: 1, action: .liveBoard(.view(.backToFestivalList))))) {
@@ -1040,6 +1089,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: state) {
       FestivalCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.continuousClock = clock
       $0.date = .constant(Date(timeIntervalSince1970: 1_000))
       $0.festivalLiveBoardService = FixedLiveBoardService(snapshot: current)
@@ -1087,7 +1137,9 @@ struct AppCoordinatorTests {
   @Test func liveBoardLoginCardPresentsLoginSheet() async {
     var home = MainTabCoordinator.State()
     home.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     await store.send(.scope(.home(.festival(.router(.routeAction(id: 1, action: .liveBoard(.view(.loginTapped))))))))
@@ -1103,6 +1155,7 @@ struct AppCoordinatorTests {
     var home = MainTabCoordinator.State()
     home.authFlow.generation = 1
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in }, offlineEligible: { _ in false })
     }
     store.exhaustivity = .off
@@ -1121,6 +1174,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: state) {
       FestivalCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalBookedStore = FestivalBookedStore(
         load: { userID in userID == "user-a" ? ["festival"] : [] },
         save: { _, _ in }
@@ -1154,6 +1208,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: state) {
       MainTabCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalBookedStore = bookedStore
     }
     store.exhaustivity = .off
@@ -1195,7 +1250,9 @@ struct AppCoordinatorTests {
   @Test func flagTabFollowsSelectedFestival() async {
     var state = MainTabCoordinator.State()
     state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival-a")))
-    let store = TestStore(initialState: state) { MainTabCoordinator() }
+    let store = TestStore(initialState: state) { MainTabCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.tabTapped(.flag))
     await store.receive(\.selectTab) { $0.selectedTab = .flag }
@@ -1211,7 +1268,9 @@ struct AppCoordinatorTests {
     festival.selectedPack = try JSONDecoder().decode(FestivalPackDocument.self, from: Data(payload.utf8))
     var state = MainTabCoordinator.State()
     state.festivalState.routes.push(.liveBoard(festival))
-    let store = TestStore(initialState: state) { MainTabCoordinator() }
+    let store = TestStore(initialState: state) { MainTabCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.tabTapped(.flag))
     await store.receive(\.selectTab) {
@@ -1225,7 +1284,9 @@ struct AppCoordinatorTests {
   }
 
   @Test func flagFollowLoginRequestOpensAppLoginSheet() async {
-    let store = TestStore(initialState: MainTabCoordinator.State(selectedTab: .flag)) { MainTabCoordinator() }
+    let store = TestStore(initialState: MainTabCoordinator.State(selectedTab: .flag)) { MainTabCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.flag(.directory(.delegate(.loginRequested))))
     await store.receive {
@@ -1235,7 +1296,9 @@ struct AppCoordinatorTests {
   }
 
   @Test func flagFollowTermsRequestRoutesToProfileRefresh() async {
-    let store = TestStore(initialState: MainTabCoordinator.State(selectedTab: .flag)) { MainTabCoordinator() }
+    let store = TestStore(initialState: MainTabCoordinator.State(selectedTab: .flag)) { MainTabCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.flag(.directory(.delegate(.termsAcceptanceRequested))))
     await store.receive {
@@ -1253,6 +1316,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording(analytics)
       $0.authUseCase = UnauthenticatedAuthUseCase()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
@@ -1290,6 +1354,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
@@ -1321,6 +1386,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authUseCase = FailingMyAuthUseCase()
       $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
@@ -1369,6 +1435,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authUseCase = FailingMyAuthUseCase(withdrawError: .transport(.notConnected))
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
@@ -1402,6 +1469,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
@@ -1435,6 +1503,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.authUseCase = UnauthenticatedAuthUseCase()
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
@@ -1467,6 +1536,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authUseCase = UnauthenticatedAuthUseCase()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
@@ -1498,6 +1568,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authUseCase = UnauthenticatedAuthUseCase()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
@@ -1539,6 +1610,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
@@ -1567,6 +1639,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.authUseCase = UnauthenticatedAuthUseCase()
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
     }
@@ -1601,6 +1674,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
@@ -1633,7 +1707,9 @@ struct AppCoordinatorTests {
     home.authFlow.hasSession = true
     home.authFlow.generation = 1
     home.authFlow.isLoading = true
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     await store.send(.inner(.profileUpdated(generation: 1, .failure(.offline)))) {
       guard case var .home(home) = $0 else { return }
@@ -1673,7 +1749,9 @@ struct AppCoordinatorTests {
     board.bookedFestivalIDs = ["festival"]
     home.festivalState.routes.push(.liveBoard(board))
     expectFlagClearedImmediately(from: home, by: .inner(.sessionExpired))
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     await store.send(.inner(.sessionExpired))
@@ -1722,7 +1800,9 @@ struct AppCoordinatorTests {
     home.authFlow.pendingFestivalID = "festival"
     home.authFlow.pendingOwnerID = "user-a"
     home.authFlow.pendingShouldBeBooked = false
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     // 토큰 갱신 401은 프로필 실패 응답보다 만료 알림이 먼저 도착한다.
@@ -1742,7 +1822,9 @@ struct AppCoordinatorTests {
     home.authFlow.isLoading = true
     home.authFlow.pendingFestivalID = "festival"
     home.authFlow.pendingShouldBeBooked = true
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     await store.send(.inner(.sessionExpired))
@@ -1758,7 +1840,9 @@ struct AppCoordinatorTests {
     home.authFlow.hasSession = true
     home.authFlow.pendingFestivalID = "festival"
     home.authFlow.pendingShouldBeBooked = true
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     await store.send(.inner(.sessionRestored(generation: 0, userID: nil, isLoggedIn: false)))
@@ -1773,7 +1857,9 @@ struct AppCoordinatorTests {
     home.authFlow.generation = 1
     home.authFlow.isLoading = true
     home.timetableState.mySetIDs = ["local-set"]
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     await store.send(.inner(.profileLoaded(generation: 1, .failure(.unauthenticated))))
@@ -1800,7 +1886,9 @@ struct AppCoordinatorTests {
     board.bookedUserID = "user-a"
     board.bookedFestivalIDs = ["festival"]
     home.festivalState.routes.push(.liveBoard(board))
-    let store = Store(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = Store(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     store.send(.inner(.sessionExpired))
     guard case let .home(expired) = store.withState({ $0 }) else { return }
@@ -1834,6 +1922,7 @@ struct AppCoordinatorTests {
     let store = Store(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authUseCase = SuspendedWithdrawalAuthUseCase(gate: gate)
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
@@ -1860,6 +1949,7 @@ struct AppCoordinatorTests {
   @Test func expiryNotificationIsSubscribedAfterSplashTransition() async {
     let (events, continuation) = AsyncStream<Void>.makeStream()
     let store = TestStore(initialState: AppCoordinator.State()) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.authSessionExpiryClient = AuthSessionExpiryClient(events: { events })
       $0.festivalCatalogService = EmptyFestivalCatalogService()
       $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-a"))
@@ -1892,7 +1982,9 @@ struct AppCoordinatorTests {
     )
     home.flagState.viewState = .loaded
     // 실제 Store에서 send 직후 상태를 확인해 이전 계정 깃발이 한 번도 남지 않음을 검증한다.
-    let store = Store(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = Store(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     store.send(.inner(.sessionRestored(generation: 1, userID: nil, isLoggedIn: false)))
     guard case let .home(signedOut) = store.withState({ $0 }) else { return }
@@ -1925,6 +2017,7 @@ struct AppCoordinatorTests {
       by: .inner(.sessionRestored(generation: 1, userID: "user-b", isLoggedIn: true))
     ) { $0.festivalBookedStore = bookedStore }
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalBookedStore = bookedStore
     }
     store.exhaustivity = .off
@@ -1967,6 +2060,7 @@ struct AppCoordinatorTests {
     var home = MainTabCoordinator.State()
     home.timetableState.mySetIDs = ["local-set"]
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in }, offlineEligible: { _ in true })
     }
     store.exhaustivity = .off
@@ -1997,6 +2091,7 @@ struct AppCoordinatorTests {
       legacyBookmarks: { hasLegacyBookmarks ? ["legacy"] : [] }
     )
     let dependencies: @Sendable (inout DependencyValues) -> Void = {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
       $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-a"))
@@ -2040,6 +2135,7 @@ struct AppCoordinatorTests {
     )
     home.timetableState.mySetIDs = ["set-a"]
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
     store.exhaustivity = .off
@@ -2063,6 +2159,7 @@ struct AppCoordinatorTests {
     home.authFlow.generation = 1
     home.festivalState.routes.push(.liveBoard(board))
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
     store.exhaustivity = .off
@@ -2090,7 +2187,9 @@ struct AppCoordinatorTests {
     home.timetableState.mySetIDs = ["set-a"]
     let other = eligibleProfile(id: "user-b").user
     expectFlagClearedImmediately(from: home, by: .inner(.profileUpdated(generation: 1, .success(other))))
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     await store.send(.inner(.profileUpdated(generation: 1, .success(other))))
@@ -2111,6 +2210,7 @@ struct AppCoordinatorTests {
     let store = Store(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       dependencies(&$0)
     }
     store.send(action)
@@ -2127,6 +2227,7 @@ struct AppCoordinatorTests {
     let auth = SessionRecordingAuthService()
     let analytics = LockIsolated<[AnalyticsCall]>([])
     let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording(analytics)
       $0.authService = auth
       $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-a"))
@@ -2150,6 +2251,7 @@ struct AppCoordinatorTests {
   @Test func acceptedNewUserLoginTracksSignUp() async {
     let analytics = LockIsolated<[AnalyticsCall]>([])
     let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording(analytics)
       $0.authService = SessionRecordingAuthService()
       $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-a"))
@@ -2168,6 +2270,7 @@ struct AppCoordinatorTests {
     let auth = SessionRecordingAuthService(commitResult: false)
     let analytics = LockIsolated<[AnalyticsCall]>([])
     let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording(analytics)
       $0.authService = auth
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
@@ -2192,6 +2295,7 @@ struct AppCoordinatorTests {
     var home = MainTabCoordinator.State()
     home.authFlow.generation = 2
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authService = auth
     }
@@ -2206,6 +2310,7 @@ struct AppCoordinatorTests {
     let sessionID = UUID()
     let auth = SessionRecordingAuthService(holdsCommit: true)
     let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authService = auth
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
@@ -2231,6 +2336,7 @@ struct AppCoordinatorTests {
     let sessionID = UUID()
     let auth = SessionRecordingAuthService(holdsCommit: true)
     let store = TestStore(initialState: AppCoordinator.State.home(loginSheetHome())) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authService = auth
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
@@ -2257,7 +2363,9 @@ struct AppCoordinatorTests {
     home.authFlow.generation = 3
     home.authFlow.presentation = .login
     home.loginState.isSigningIn = true
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     // 진행 중인 로그인을 새로 시작하지 않고 이번 시도로 받는다(효과 없음).
     await store.send(.view(.startLogin(.apple))) {
@@ -2270,7 +2378,9 @@ struct AppCoordinatorTests {
   @Test func loginTapWhileCommittingDoesNotStartAnotherLogin() async {
     var home = loginSheetHome()
     home.authFlow.pendingCommitSessionID = UUID()
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
 
     // 확정 중에는 새 로그인을 시작하지 않는다(상태·효과 없음).
     await store.send(.view(.startLogin(.google)))
@@ -2383,6 +2493,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator(legalBaseURL: legalBaseURL)
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.authUseCase = ReturningProfileAuthUseCase(profile: profile)
       $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
@@ -2429,6 +2540,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.authUseCase = FailingProfileAuthUseCase(failure: .server)
       $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
@@ -2452,6 +2564,7 @@ struct AppCoordinatorTests {
     home.authFlow.generation = 1
     home.authFlow.hasSession = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
@@ -2481,7 +2594,9 @@ struct AppCoordinatorTests {
     board.hasSession = true
     board.isLiveBoardVisible = true
     home.festivalState.routes.push(.liveBoard(board))
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
     store.exhaustivity = .off
 
     await store.send(.scope(.home(.timetable(.delegate(.scheduleSaved(festivalID: "festival", setIDs: ["set-a"]))))))
@@ -2490,7 +2605,7 @@ struct AppCoordinatorTests {
       return true
     }
     await store.receive {
-      guard case .scope(.home(.festival(.router(.routeAction(id: 1, action: .liveBoard(.myScheduleSaved)))))) = $0 else { return false }
+      guard case .scope(.home(.festival(.router(.routeAction(id: 1, action: .liveBoard(.view(.myScheduleSaved))))))) = $0 else { return false }
       return true
     }
     guard case let .home(updated) = store.state else { return }
