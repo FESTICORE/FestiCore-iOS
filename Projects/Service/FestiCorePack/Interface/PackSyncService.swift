@@ -84,6 +84,7 @@ private struct UnimplementedPackSyncService: PackSyncService {
   }
 
   func deletePack(for _: String) async throws {
+    reportIssue("packSyncService.deletePack 미등록")
     throw TestPackSyncServiceUnavailable()
   }
 

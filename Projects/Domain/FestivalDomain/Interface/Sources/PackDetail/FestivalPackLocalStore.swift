@@ -29,10 +29,16 @@ public struct FestivalPackLocalStore: Sendable {
 
 extension FestivalPackLocalStore: TestDependencyKey {
   public static let testValue = Self(
-    loadChecklist: { _ in FestivalChecklist() },
-    saveChecklist: { _, _ in },
-    autoDownloadOnWiFi: { true },
-    setAutoDownloadOnWiFi: { _ in }
+    loadChecklist: { _ in
+      reportIssue("festivalPackLocalStore.loadChecklist 미등록")
+      return FestivalChecklist()
+    },
+    saveChecklist: { _, _ in reportIssue("festivalPackLocalStore.saveChecklist 미등록") },
+    autoDownloadOnWiFi: {
+      reportIssue("festivalPackLocalStore.autoDownloadOnWiFi 미등록")
+      return false
+    },
+    setAutoDownloadOnWiFi: { _ in reportIssue("festivalPackLocalStore.setAutoDownloadOnWiFi 미등록") }
   )
 }
 

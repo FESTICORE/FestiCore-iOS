@@ -35,6 +35,8 @@ public struct FestivalReceivedPackUseCaseImpl: FestivalReceivedPackUseCaseInterf
     }
     for pack in outdated {
       try Task.checkCancellation()
+      // 목록을 읽은 뒤 사용자가 지운 팩은 다시 받지 않는다.
+      guard (try? await packService.cachedPack(for: pack.id)) != nil else { continue }
       do {
         _ = try await packService.sync(for: pack.id)
       } catch is CancellationError {

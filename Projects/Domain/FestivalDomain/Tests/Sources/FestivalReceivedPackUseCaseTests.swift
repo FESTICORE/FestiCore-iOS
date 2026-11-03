@@ -49,6 +49,7 @@ struct FestivalReceivedPackUseCaseTests {
         cached: [.init(id: "fst_a", name: "A", packVersion: 13)],
         refreshed: [.init(id: "fst_a", name: "A", packVersion: 14)]
       )
+      $0.festivalPackLocalStore.autoDownloadOnWiFi = { false }
     } operation: {
       FestivalReceivedPackUseCaseImpl()
     }
@@ -107,6 +108,24 @@ struct FestivalReceivedPackUseCaseTests {
     #expect(service.synced.value == ["fst_a"])
     #expect(packs.first?.hasUpdate == true)
     #expect(packs.first?.autoUpdateFailed == true)
+  }
+
+  @Test func refreshSkipsPacksDeletedBeforeSync() async throws {
+    let service = MutablePackService(packs: [pack("fst_a", version: 1, name: "A", checkedAt: nil)])
+    service.deletedBeforeSync = ["fst_a"]
+    let useCase = withDependencies {
+      $0.packSyncService = service
+      $0.festivalCatalogService = ReceivedPackCatalogService(
+        cached: [], refreshed: [.init(id: "fst_a", name: "A", packVersion: 2)]
+      )
+      $0.festivalPackLocalStore.autoDownloadOnWiFi = { true }
+      $0.festivalWiFiStatus = .init(isOnWiFi: { true })
+    } operation: {
+      FestivalReceivedPackUseCaseImpl()
+    }
+
+    _ = try await useCase.refreshReceivedPacks()
+    #expect(service.synced.value.isEmpty)
   }
 
   @Test func refreshPropagatesCancellationDuringAutoDownload() async throws {
@@ -194,13 +213,16 @@ final class MutablePackService: PackSyncService, @unchecked Sendable {
   var onSync: (@Sendable (String) -> [CachedFestivalPack])?
   var syncResult: PackSyncResult?
   var syncError: (any Error)?
+  /// 목록에는 있지만 개별 조회 전에 지워진 팩
+  var deletedBeforeSync: Set<String> = []
 
   init(packs: [CachedFestivalPack]) {
     self.packs = LockIsolated(packs)
   }
 
   func cachedPack(for festivalID: String) async throws -> CachedFestivalPack? {
-    packs.value.first { $0.festivalID == festivalID }
+    guard !deletedBeforeSync.contains(festivalID) else { return nil }
+    return packs.value.first { $0.festivalID == festivalID }
   }
 
   func cachedPacks() async throws -> [CachedFestivalPack] { packs.value }
