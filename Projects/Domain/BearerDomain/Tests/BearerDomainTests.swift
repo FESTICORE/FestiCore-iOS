@@ -85,12 +85,12 @@ struct BearerDomainTests {
     #expect(status.updatedBy == nil)
   }
 
-  @Test("코드 등록은 대문자 코드·기기 ID를 보내고 깃발을 돌려준다")
+  @Test("코드 등록은 코드·기기 ID를 보내고 깃발을 돌려준다")
   func claim() async throws {
     let client = RecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"flagId":"flg_1","flag":{"id":"flg_1","name":"새 깃발 a1b2c3","thumbUrl":null,"photoUrl":null,"tags":["newbie"],"bio":null,"followerCount":0,"planVisible":true,"plan":[],"homeZoneId":null},"isNew":true,"coBearers":["usr_1"]}}"#)
     let repository = makeRepository(client: client)
 
-    let claim = try await repository.claim(festivalID: "fst_1", code: "abc234")
+    let claim = try await repository.claim(festivalID: "fst_1", code: "ABC234")
 
     let sent = try #require(await client.last)
     #expect(sent.path == "api/v1/bearer/claim")
@@ -235,6 +235,18 @@ struct BearerUseCaseTests {
     #expect(request.idempotencyKey == "00000000-0000-0000-0000-00000000000a")
   }
 
+  @Test("소문자 코드는 대문자로 맞춰 저장소에 넘긴다")
+  func normalizesCode() async throws {
+    let received = LockIsolated<String?>(nil)
+    let useCase = withDependencies {
+      $0.bearerRepository = ClaimRecordingRepository(received: received)
+    } operation: { BearerUseCaseImpl() }
+
+    _ = try await useCase.claim(festivalID: "fst_1", code: "abc234")
+
+    #expect(received.value == "ABC234")
+  }
+
   @Test("형식이 틀린 코드는 서버에 보내지 않는다", arguments: ["ABC23", "ABC2340", "ABCI23", "AB C23"])
   func invalidCode(code: String) async {
     let useCase = withDependencies {
@@ -313,4 +325,20 @@ struct BearerPhotoEncoderTests {
       try #require(properties[kCGImagePropertyPixelHeight] as? Int)
     )
   }
+}
+
+private struct ClaimRecordingRepository: BearerRepositoryInterface {
+  let received: LockIsolated<String?>
+
+  func claim(festivalID: String, code: String) async throws -> BearerClaim {
+    received.setValue(code)
+    return BearerClaim(flagID: "flg_1", profile: BearerFlagProfile(id: "flg_1", name: "깃발"), isNew: true, coBearerIDs: [])
+  }
+
+  func fetchBoard(flagID: String) async throws -> BearerBoard { throw BearerError.unavailable }
+  func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile { throw BearerError.unavailable }
+  func uploadPhoto(flagID: String, jpegData: Data) async throws -> BearerFlagPhoto { throw BearerError.unavailable }
+  func sendStatus(flagID: String, request: BearerStatusRequest) async throws -> BearerFlagStatus { throw BearerError.unavailable }
+  func inviteCoBearer(flagID: String) async throws -> BearerInvite { throw BearerError.unavailable }
+  func removeCoBearer(flagID: String, userID: String) async throws { throw BearerError.unavailable }
 }

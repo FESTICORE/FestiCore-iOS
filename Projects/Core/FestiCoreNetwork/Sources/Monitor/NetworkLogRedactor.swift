@@ -20,6 +20,9 @@ enum NetworkLogRedactor {
 
   static func hidesBody(for url: URL?) -> Bool {
     guard let path = url?.path.lowercased() else { return false }
-    return path == "/api/v1/auth" || path.hasPrefix("/api/v1/auth/")
+    if path == "/api/v1/auth" || path.hasPrefix("/api/v1/auth/") { return true }
+    // 기수 등록 코드(요청)와 공동 기수 초대 코드(응답)는 권한을 넘기는 값이라 남기지 않는다.
+    if path == "/api/v1/bearer/claim" { return true }
+    return path.hasPrefix("/api/v1/flags/") && path.hasSuffix("/co-bearers/invite")
   }
 }

@@ -14,6 +14,7 @@ let project = Project.makeModule(
   name: "BearerDomain",
   product: .framework,
   dependencies: [
+    .core(.network),
     .core(.network, .interface),
     .service(.auth, .interface),
     .service(.device, .interface),
