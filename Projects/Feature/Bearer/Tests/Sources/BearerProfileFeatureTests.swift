@@ -54,6 +54,19 @@ struct BearerProfileFeatureTests {
     }
   }
 
+  @Test("소개는 서버처럼 코드포인트 60개까지 받는다")
+  func bioCountsScalars() async {
+    let store = TestStore(initialState: newState()) { BearerProfileFeature() }
+    let flag = "🏳️‍🌈"
+    let text = String(repeating: flag, count: 20)
+
+    await store.send(.view(.bioChanged(text))) {
+      $0.bio = BearerProfileFeature.prefix(text, scalars: 60)
+    }
+    #expect(store.state.bio.unicodeScalars.count == 60)
+    #expect(store.state.bio.count < 20)
+  }
+
   @Test("태그는 3개까지 고르고 다시 누르면 뺀다")
   func tags() async {
     let store = TestStore(initialState: newState()) { BearerProfileFeature() }

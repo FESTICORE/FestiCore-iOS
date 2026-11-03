@@ -122,6 +122,28 @@ struct BearerClaimFeatureTests {
     }
   }
 
+  @Test("확인 중에 닫으면 진행 중인 등록 요청을 취소한다")
+  func closeWhileSubmitting() async {
+    let store = TestStore(initialState: BearerClaimFeature.State(festivalID: "fst_1")) {
+      BearerClaimFeature()
+    } withDependencies: {
+      $0.date = .constant(now)
+      $0.bearerUseCase = BearerUseCaseStub(claim: { _, _ in
+        try await Task.never()
+        return BearerSample.claim
+      })
+    }
+
+    await store.send(.view(.codeChanged("R4K9T2"))) { $0.code = "R4K9T2" }
+    await store.send(.view(.submitTapped)) {
+      $0.now = now
+      $0.isSubmitting = true
+    }
+    await store.receive(\.async.claim)
+    await store.send(.view(.backTapped))
+    await store.receive(.delegate(.closeRequested)) { $0.isSubmitting = false }
+  }
+
   @Test("뒤로 가기는 닫기를 요청한다")
   func back() async {
     let store = TestStore(initialState: BearerClaimFeature.State(festivalID: "fst_1")) { BearerClaimFeature() }
