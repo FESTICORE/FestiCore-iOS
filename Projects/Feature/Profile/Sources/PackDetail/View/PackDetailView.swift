@@ -296,7 +296,7 @@ extension PackDetailView {
         FCButton(updateTitle(pack)) { send(.updateTapped) }
           .style(.primary)
           .isFullWidth(true)
-          .isEnabled(!store.isUpdating)
+          .isEnabled(!store.isUpdating && !store.isDeleting)
         if let summary = changeSummary {
           footnote("바뀐 내용: \(summary)")
         }
@@ -322,7 +322,7 @@ extension PackDetailView {
       FCButton("지금 업데이트 확인") { send(.checkUpdateTapped) }
         .style(.secondary)
         .isFullWidth(true)
-        .isEnabled(!store.isUpdating)
+        .isEnabled(!store.isUpdating && !store.isDeleting)
     }
     if let message = store.manageMessage {
       footnote(message)
@@ -340,7 +340,7 @@ extension PackDetailView {
         )
     }
     .buttonStyle(.plain)
-    .disabled(store.isDeleting)
+    .disabled(store.isDeleting || store.isUpdating)
     footnote("팩을 지워도 내 일정과 체크한 준비물은 남아 있어요.")
   }
 

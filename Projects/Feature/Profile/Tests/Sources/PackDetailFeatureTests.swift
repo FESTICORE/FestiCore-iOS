@@ -141,7 +141,16 @@ struct PackDetailFeatureTests {
     await store.send(.view(.checkUpdateTapped))
   }
 
-  @Test func updateFailureKeepsPackAndShowsMessage() async {
+  @Test(arguments: [
+    (FestivalPackError.retryLater as any Error, PackDetailFeature.UpdateFailure.retryLater,
+     "지금은 받는 사람이 많아요. 잠시 후 다시 시도해 주세요."),
+    (URLError(.notConnectedToInternet), .offline,
+     "인터넷에 연결되어 있지 않아요. 연결을 확인한 뒤 다시 시도해 주세요."),
+    (FestivalPackError.invalidResponse, .other, "업데이트를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.")
+  ])
+  func updateFailureKeepsPackAndShowsReason(
+    error: any Error, failure: PackDetailFeature.UpdateFailure, message: String
+  ) async {
     var state = PackDetailFeature.State(festivalID: "fst_a", title: "원더리벳 2026")
     state.detail = sampleDetail(version: 12, latest: 12)
     state.load = .loaded
@@ -149,16 +158,62 @@ struct PackDetailFeatureTests {
       PackDetailFeature()
     } withDependencies: {
       $0.festivalPackDetailUseCase = MockFestivalPackDetailUseCase(
-        updatePack: { _ in throw FestivalPackError.retryLater }
+        updatePack: { _ in throw error }
       )
     }
 
     await store.send(.view(.checkUpdateTapped)) { $0.isUpdating = true }
     await store.receive(\.async.update)
-    await store.receive(\.inner.updateFailed) {
+    await store.receive(\.inner.updateFailed, failure) {
       $0.isUpdating = false
-      $0.manageMessage = "업데이트를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."
+      $0.manageMessage = message
     }
+  }
+
+  @Test func updateAndDeleteDoNotStartWhileTheOtherRuns() async {
+    var state = PackDetailFeature.State(festivalID: "fst_a", title: "원더리벳 2026")
+    state.detail = sampleDetail(version: 12, latest: 13)
+    state.load = .loaded
+    state.isUpdating = true
+    let updating = TestStore(initialState: state) { PackDetailFeature() }
+    await updating.send(.view(.deleteTapped))
+
+    state.isUpdating = false
+    state.isDeleting = true
+    let deleting = TestStore(initialState: state) { PackDetailFeature() }
+    await deleting.send(.view(.updateTapped))
+    await deleting.send(.view(.checkUpdateTapped))
+  }
+
+  @Test func confirmingDeleteCancelsInFlightUpdate() async {
+    let deleted = LockIsolated<[String]>([])
+    var state = PackDetailFeature.State(festivalID: "fst_a", title: "원더리벳 2026")
+    state.detail = sampleDetail(version: 12, latest: 13)
+    state.load = .loaded
+    state.destination = .alert(.deletePack(name: "원더리벳 2026"))
+    let store = TestStore(initialState: state) {
+      PackDetailFeature()
+    } withDependencies: {
+      $0.festivalPackDetailUseCase = MockFestivalPackDetailUseCase(
+        updatePack: { _ in
+          try await Task.sleep(nanoseconds: 60_000_000_000)
+          return nil
+        },
+        deletePack: { id in deleted.withValue { $0.append(id) } }
+      )
+    }
+
+    await store.send(.view(.updateTapped)) { $0.isUpdating = true }
+    await store.receive(\.async.update)
+    await store.send(.destination(.presented(.alert(.confirmTapped)))) {
+      $0.destination = nil
+      $0.isDeleting = true
+      $0.isUpdating = false
+    }
+    await store.receive(\.async.delete)
+    await store.receive(\.inner.deleteFinished) { $0.isDeleting = false }
+    await store.receive(\.delegate.packDeleted)
+    #expect(deleted.value == ["fst_a"])
   }
 
   @Test func deleteRequiresConfirmation() async {

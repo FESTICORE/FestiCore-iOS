@@ -119,9 +119,16 @@ public struct PackDetailFeature {
     case loadFailed
     case changesLoaded(FestivalPackChanges)
     case updateFinished(FestivalPackDetail?)
-    case updateFailed
+    case updateFailed(UpdateFailure)
     case deleteFinished
     case deleteFailed
+  }
+
+  /// 업데이트를 받지 못한 이유. 사용자에게 다른 안내를 보여 준다.
+  public enum UpdateFailure: Equatable, Sendable {
+    case retryLater
+    case offline
+    case other
   }
 
   // MARK: - DelegateAction
@@ -252,7 +259,7 @@ extension PackDetailFeature {
       return saveChecklist(state)
 
     case .updateTapped, .checkUpdateTapped:
-      guard !state.isUpdating, state.detail != nil else { return .none }
+      guard !state.isUpdating, !state.isDeleting, state.detail != nil else { return .none }
       state.isUpdating = true
       state.manageMessage = nil
       return .send(.async(.update))
@@ -262,7 +269,7 @@ extension PackDetailFeature {
       return .run { _ in packDetailUseCase.setAutoDownloadOnWiFi(isOn) }
 
     case .deleteTapped:
-      guard !state.isDeleting else { return .none }
+      guard !state.isDeleting, !state.isUpdating else { return .none }
       state.destination = .alert(.deletePack(name: state.title))
       return .none
     }
@@ -302,8 +309,12 @@ extension PackDetailFeature {
       return .run { send in
         do {
           await send(.inner(.updateFinished(try await packDetailUseCase.updatePack(festivalID: festivalID))))
+        } catch FestivalPackError.retryLater {
+          await send(.inner(.updateFailed(.retryLater)))
+        } catch let error as URLError where Self.offlineCodes.contains(error.code) {
+          await send(.inner(.updateFailed(.offline)))
         } catch {
-          await send(.inner(.updateFailed))
+          await send(.inner(.updateFailed(.other)))
         }
       }
       .cancellable(id: CancelID.update, cancelInFlight: true)
@@ -358,9 +369,16 @@ extension PackDetailFeature {
       state.manageMessage = updated ? "새 버전 v\(detail.pack.packVersion)을 받았어요" : "최신 버전이에요"
       return .merge(.send(.delegate(.packChanged)), fetchChangesIfNeeded(state))
 
-    case .updateFailed:
+    case .updateFailed(let failure):
       state.isUpdating = false
-      state.manageMessage = "업데이트를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."
+      switch failure {
+      case .retryLater:
+        state.manageMessage = "지금은 받는 사람이 많아요. 잠시 후 다시 시도해 주세요."
+      case .offline:
+        state.manageMessage = "인터넷에 연결되어 있지 않아요. 연결을 확인한 뒤 다시 시도해 주세요."
+      case .other:
+        state.manageMessage = "업데이트를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."
+      }
       return .none
 
     case .deleteFinished:
@@ -383,7 +401,9 @@ extension PackDetailFeature {
       state.destination = nil
       guard !state.isDeleting else { return .none }
       state.isDeleting = true
-      return .send(.async(.delete))
+      // 확인 팝업이 떠 있는 동안 시작한 업데이트가 지운 팩을 다시 받지 않게 멈춘다.
+      state.isUpdating = false
+      return .concatenate(.cancel(id: CancelID.update), .send(.async(.delete)))
 
     case .presented(.alert(.cancelTapped)):
       state.destination = nil
@@ -393,6 +413,11 @@ extension PackDetailFeature {
       return .none
     }
   }
+
+  private static let offlineCodes: Set<URLError.Code> = [
+    .notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost, .cannotFindHost,
+    .timedOut, .dnsLookupFailed, .dataNotAllowed, .internationalRoamingOff
+  ]
 
   private func fetchChangesIfNeeded(_ state: State) -> Effect<Action> {
     guard let pack = state.detail?.pack, pack.hasUpdate else { return .none }
