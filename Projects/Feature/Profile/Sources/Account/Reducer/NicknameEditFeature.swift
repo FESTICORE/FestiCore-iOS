@@ -25,11 +25,11 @@ public struct NicknameEditFeature {
     }
 
     var trimmedNickname: String {
-      nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+      AuthNicknameRule.trimmed(nickname)
     }
 
     var isValid: Bool {
-      (1 ... 12).contains(trimmedNickname.count)
+      AuthNicknameRule.isValid(nickname)
     }
   }
 
@@ -93,20 +93,29 @@ public struct NicknameEditFeature {
 }
 
 extension NicknameEditFeature {
+  private enum CancelID { case save }
+
+  static let lengthMessage =
+    "닉네임은 \(AuthNicknameRule.lengthRange.lowerBound)~\(AuthNicknameRule.maxLength)자로 입력해 주세요."
+
   private func handleViewAction(
     state: inout State,
     action: View
   ) -> Effect<Action> {
     switch action {
     case .nicknameChanged(let nickname):
-      state.nickname = String(nickname.prefix(12))
+      // 앞뒤 공백을 뺀 길이가 넘칠 때만 잘라 단어 사이 공백 입력은 막지 않는다.
+      let trimmed = AuthNicknameRule.trimmed(nickname)
+      state.nickname = trimmed.count > AuthNicknameRule.maxLength
+        ? String(trimmed.prefix(AuthNicknameRule.maxLength))
+        : nickname
       state.errorMessage = nil
       return .none
 
     case .saveTapped:
       guard !state.isSaving else { return .none }
       guard state.isValid else {
-        state.errorMessage = "닉네임은 1~12자로 입력해 주세요."
+        state.errorMessage = Self.lengthMessage
         return .none
       }
       state.isSaving = true
@@ -128,6 +137,7 @@ extension NicknameEditFeature {
           await send(.inner(.failed(error as? AuthDomainError)))
         }
       }
+      .cancellable(id: CancelID.save, cancelInFlight: true)
     }
   }
 
@@ -143,7 +153,7 @@ extension NicknameEditFeature {
     case .failed(let error):
       state.isSaving = false
       state.errorMessage = error == .invalidNickname
-        ? "닉네임은 1~12자로 입력해 주세요."
+        ? Self.lengthMessage
         : "닉네임을 바꾸지 못했어요. 다시 시도해 주세요."
       return .none
     }

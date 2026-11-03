@@ -50,7 +50,7 @@ public struct AccountSettingsView: View {
     .overlay {
       // 확인 팝업은 별도 층에 띄워 뒤 화면 배치에 애니메이션이 번지지 않게 한다.
       Color.clear
-        .fcAlert($store.scope(state: \.destination?.alert, action: \.destination.alert))
+        .fcAlert($store.scope(state: \.destination?.alert, action: \.destination.alert), dismissesOnDimTap: true)
     }
   }
 }

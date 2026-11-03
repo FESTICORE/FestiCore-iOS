@@ -86,9 +86,8 @@ public struct AuthRepositoryImpl: AuthInterface {
     guard let sessionID = await authService.authenticatedSessionID else {
       throw AuthDomainError.notAuthenticated
     }
-    // 가입 화면과 같은 규칙: 앞뒤 공백을 빼고 1~12자
-    let trimmed = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard (1 ... 12).contains(trimmed.count) else { throw AuthDomainError.invalidNickname }
+    let trimmed = AuthNicknameRule.trimmed(nickname)
+    guard AuthNicknameRule.isValid(trimmed) else { throw AuthDomainError.invalidNickname }
     do {
       let response = try await client.send(
         AuthRequest.updateNickname(body: AuthNicknameUpdateBody(nickname: trimmed), sessionID: sessionID),

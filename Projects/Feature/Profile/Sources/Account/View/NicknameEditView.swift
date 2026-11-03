@@ -5,6 +5,7 @@
 //  Created by FestiCore on 11/3/26.
 //
 
+import AuthDomainInterface
 import ComposableArchitecture
 import FestiCoreDesignKit
 import SwiftUI
@@ -32,8 +33,8 @@ public struct NicknameEditView: View {
         placeholder: "닉네임"
       )
       .label("닉네임")
-      .maxLength(12)
-      .helper("1~12자로 입력해 주세요")
+      .maxLength(AuthNicknameRule.maxLength)
+      .helper("\(AuthNicknameRule.lengthRange.lowerBound)~\(AuthNicknameRule.maxLength)자로 입력해 주세요")
       .error(store.errorMessage)
       FCButton(store.isSaving ? "저장하는 중" : "저장") { send(.saveTapped) }
         .style(.primary)

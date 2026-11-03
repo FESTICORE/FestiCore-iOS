@@ -100,10 +100,17 @@ struct AccountSettingsFeatureTests {
     }
 
     await store.send(.view(.saveTapped)) { $0.errorMessage = "닉네임은 1~12자로 입력해 주세요." }
-    await store.send(.view(.nicknameChanged("열세글자가넘는아주긴닉네임"))) {
-      $0.nickname = "열세글자가넘는아주긴닉네"
+    // 앞뒤 공백은 길이에 세지 않는다.
+    await store.send(.view(.nicknameChanged("  열두글자딱맞는닉네임이에 "))) {
+      $0.nickname = "  열두글자딱맞는닉네임이에 "
       $0.errorMessage = nil
     }
+    await store.send(.view(.nicknameChanged("열세글자가넘는아주긴닉네임"))) {
+      $0.nickname = "열세글자가넘는아주긴닉네"
+    }
+    // 앞 공백을 뺀 13자도 12자로 잘린다.
+    await store.send(.view(.nicknameChanged("  열세글자가넘는아주긴닉네임")))
+    #expect(store.state.nickname == "열세글자가넘는아주긴닉네")
     await store.send(.view(.saveTapped)) { $0.isSaving = true }
     await store.receive(\.async.save)
     await store.receive(\.inner.failed) {

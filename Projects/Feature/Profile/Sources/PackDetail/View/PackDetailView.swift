@@ -31,7 +31,7 @@ public struct PackDetailView: View {
     .background(FestiCoreSemanticColor.backgroundNormal.color)
     .toolbar(.hidden, for: .navigationBar)
     .onAppear { send(.onAppear) }
-    .fcAlert($store.scope(state: \.destination?.alert, action: \.destination.alert))
+    .fcAlert($store.scope(state: \.destination?.alert, action: \.destination.alert), dismissesOnDimTap: true)
   }
 }
 
