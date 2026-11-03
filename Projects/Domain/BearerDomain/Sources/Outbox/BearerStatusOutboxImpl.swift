@@ -36,8 +36,8 @@ public actor BearerStatusOutboxImpl: BearerStatusOutboxInterface {
   private var items: [Item] = []
   private var isLoaded = false
   private var worker: Task<Void, Never>?
-  /// 지금 서버로 보내는 중인 건. 이 건 앞에는 새 변경을 끼워 넣지 않는다.
-  private var inFlightID: String?
+  /// 한 번이라도 보내 본 맨 앞 건. 서버가 이미 반영했을 수 있으므로 성공하거나 버릴 때까지 앞에 새 변경을 끼워 넣지 않는다.
+  private var attemptedID: String?
   private var subscribers: [UUID: (flagID: String, continuation: AsyncStream<BearerOutboxEvent>.Continuation)] = [:]
 
   /// - Parameter fileURL: 대기열을 남길 파일. nil이면 메모리에만 둔다.
@@ -53,11 +53,11 @@ public actor BearerStatusOutboxImpl: BearerStatusOutboxInterface {
   /// 중간에 기다리지 않고 바로 넣는다. 탭마다 따로 불려 도착 순서가 바뀌어도 누른 시각 순서를 지킨다.
   public func enqueue(flagID: String, ownerUserID: String, request: BearerStatusRequest) {
     loadIfNeeded()
-    let start = inFlightID == nil ? 0 : min(1, items.count)
+    let start = attemptedID == nil ? 0 : min(1, items.count)
     let index = items[start...].firstIndex { $0.request.clientAt > request.clientAt } ?? items.endIndex
     items.insert(Item(flagID: flagID, ownerUserID: ownerUserID, request: request), at: index)
     save()
-    emitPending(flagID)
+    emitPending(flagID, owner: ownerUserID)
     startWorker()
   }
 
@@ -94,8 +94,9 @@ private extension BearerStatusOutboxImpl {
     }
   }
 
-  func emitPending(_ flagID: String) {
-    emit(.pending(items.filter { $0.flagID == flagID }.map(\.request)), for: flagID)
+  /// `pending(flagID:)`와 같이 그 사용자의 변경만 알린다.
+  func emitPending(_ flagID: String, owner: String) {
+    emit(.pending(items.filter { $0.flagID == flagID && $0.ownerUserID == owner }.map(\.request)), for: flagID)
   }
 
   func startWorker() {
@@ -117,12 +118,12 @@ private extension BearerStatusOutboxImpl {
         // 다른 계정의 변경은 보내지 않고 버린다.
         let dropped = items.filter { $0.ownerUserID != currentUserID }
         items.removeAll { $0.ownerUserID != currentUserID }
+        attemptedID = nil
         save()
-        Set(dropped.map(\.flagID)).forEach(emitPending)
+        Set(dropped.map(\.flagID)).forEach { emitPending($0, owner: currentUserID) }
         continue
       }
-      inFlightID = item.request.id
-      defer { inFlightID = nil }
+      attemptedID = item.request.id
       do {
         let status = try await repository.sendStatus(flagID: item.flagID, request: item.request)
         remove(item)
@@ -144,8 +145,9 @@ private extension BearerStatusOutboxImpl {
       } catch let error as BearerError where error != .unavailable && error != .invalidResponse {
         // 서버가 받지 않는 변경이면 뒤에 쌓인 같은 깃발의 변경도 그 상태를 전제로 하므로 함께 버린다.
         items.removeAll { $0.flagID == item.flagID }
+        attemptedID = nil
         save()
-        emitPending(item.flagID)
+        emitPending(item.flagID, owner: item.ownerUserID)
         emit(.rejected(error), for: item.flagID)
       } catch {
         serverFailures += 1
@@ -161,8 +163,9 @@ private extension BearerStatusOutboxImpl {
 
   func remove(_ item: Item) {
     items.removeAll { $0.request.id == item.request.id && $0.flagID == item.flagID }
+    attemptedID = nil
     save()
-    emitPending(item.flagID)
+    emitPending(item.flagID, owner: item.ownerUserID)
   }
 
   /// 기다렸으면 true, 취소됐으면 false
