@@ -39,12 +39,9 @@ struct MainTabView: View {
           } accessory: { detailStore in
             TimetableScheduleToast(isVisible: detailStore.isScheduleToastVisible)
           }
-        } else if store.selectedTab == .my, store.profileState.isAccountPresented {
-          profileView.modalOverlay
         }
       }
       .overlay {
-        // 확인 팝업은 시트 위 별도 층에 띄운다. 팝업 애니메이션이 계정 시트와 뒤 화면 배치에 번지지 않게 한다.
         if store.selectedTab == .my {
           Color.clear
             .fcAlert(
@@ -83,13 +80,7 @@ private extension MainTabView {
   }
 
   var profileView: ProfileView {
-    ProfileView(
-      store: store.scope(state: \.profileState, action: \.profile),
-      profile: store.authFlow.profile,
-      hasSession: store.authFlow.hasSession,
-      isLoading: store.authFlow.isLoading,
-      message: store.authFlow.message
-    )
+    ProfileView(store: store.scope(state: \.profileState, action: \.profile))
   }
 
   var timetableView: TimetableView {

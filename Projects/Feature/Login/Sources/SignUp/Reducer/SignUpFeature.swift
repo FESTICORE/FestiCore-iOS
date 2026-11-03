@@ -5,6 +5,7 @@
 //  Created by FestiCore on 11/2/26.
 //
 
+import AuthDomainInterface
 import ComposableArchitecture
 import Foundation
 import LoginInterface
@@ -173,7 +174,7 @@ public struct SignUpFeature {
       switch action {
       case let .view(.nicknameChanged(nickname)):
         state.claimDraft()
-        state.nickname = nickname
+        state.nickname = AuthNicknameRule.limited(nickname)
         state.nicknameEdited = true
         return .none
 
@@ -221,7 +222,7 @@ public struct SignUpFeature {
         return .send(.delegate(.submitRequested(SignUpSubmission(
           nickname: nickname,
           pushOptIn: state.pushOptIn,
-          isNicknameValid: (1 ... 12).contains(nickname.count)
+          isNicknameValid: AuthNicknameRule.isValid(nickname)
         ))))
 
       case .view(.closeTapped):

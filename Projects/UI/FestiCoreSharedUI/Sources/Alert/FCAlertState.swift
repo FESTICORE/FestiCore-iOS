@@ -97,6 +97,15 @@ public extension FCAlertState where Action == FCAlertAction {
     )
   }
 
+  /// 받은 팩 삭제 확인
+  static func deletePack(name: String) -> FCAlertState<FCAlertAction> {
+    .alert(
+      title: "\(name) 팩을 삭제할까요?",
+      message: "시간표·가는 길·준비물을 오프라인으로 볼 수 없게 돼요. 내 일정과 체크한 준비물은 남아 있어요.",
+      confirmTitle: "삭제"
+    )
+  }
+
   /// 안내 숨김 확인
   static func hideGuide() -> FCAlertState<FCAlertAction> {
     .alert(

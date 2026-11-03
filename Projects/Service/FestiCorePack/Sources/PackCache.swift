@@ -2,18 +2,6 @@ import CryptoKit
 import Foundation
 import FestiCorePackInterface
 
-public enum PackSyncError: Error, Sendable, Equatable {
-  case unconfigured
-  case invalidFestivalID
-  case invalidEndpoint
-  case invalidMessage
-  case invalidPack
-  case invalidChunk
-  case timeout
-  case packTooLarge
-  case server(String)
-}
-
 struct PackCache: Sendable {
   private let directory: URL
   private static let maxBytes = 8 * 1024 * 1024
@@ -33,10 +21,24 @@ struct PackCache: Sendable {
           Self.digest(stored.pack) == stored.sha256 else {
       throw PackSyncError.invalidPack
     }
+    let checkedAt = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
     return CachedFestivalPack(
       festivalID: festivalID, packVersion: stored.packVersion,
-      etag: stored.etag, pack: stored.pack
+      etag: stored.etag, pack: stored.pack, checkedAt: checkedAt
     )
+  }
+
+  func delete(_ festivalID: String) throws {
+    let url = try fileURL(for: festivalID)
+    guard FileManager.default.fileExists(atPath: url.path) else { return }
+    try FileManager.default.removeItem(at: url)
+  }
+
+  /// 서버가 같은 버전이라고 답하면 확인 시각을 파일 수정 시각으로 남긴다.
+  func markChecked(_ festivalID: String, at date: Date = Date()) throws {
+    let url = try fileURL(for: festivalID)
+    guard FileManager.default.fileExists(atPath: url.path) else { return }
+    try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: url.path)
   }
 
   func loadAll() throws -> [CachedFestivalPack] {

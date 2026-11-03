@@ -5,6 +5,7 @@
 //  Created by FestiCore on 10/30/26.
 //
 
+import AuthDomainInterface
 import ComposableArchitecture
 import FeatureAssembly
 import FestivalDomainInterface
@@ -47,7 +48,10 @@ struct MainTabCoordinator {
       case .timetable:
         return timetableState.setDetail != nil
       case .my:
-        return profileState.isAccountPresented || profileState.destination != nil
+        // 계정·팩 상세는 탭바 위에 밀어 넣는 화면이라 탭바를 남기고, 팝업·바텀시트만 탭바까지 덮는다.
+        return profileState.destination?.alert != nil
+          || profileState.destination?.account?.destination != nil
+          || profileState.destination?.packDetail?.destination != nil
       case .flag:
         return false
       }
@@ -79,6 +83,7 @@ struct MainTabCoordinator {
   }
 
   enum Delegate {
+    case myProfileUpdated(AuthUser)
     case myLoginRequested
     case myLogoutRequested
     case myWithdrawRequested
@@ -161,6 +166,8 @@ struct MainTabCoordinator {
         return .send(.delegate(.myLogoutRequested))
       case .profile(.delegate(.withdrawRequested)):
         return .send(.delegate(.myWithdrawRequested))
+      case let .profile(.delegate(.profileUpdated(user))):
+        return .send(.delegate(.myProfileUpdated(user)))
       case .profile:
         return .none
 

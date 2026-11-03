@@ -25,6 +25,10 @@ public struct AuthUseCaseImpl: AuthUseCaseInterface {
     try await repository.updateProfile(nickname: nickname, termsVersion: termsVersion, pushOptIn: pushOptIn)
   }
 
+  public func updateNickname(_ nickname: String) async throws -> AuthUser {
+    try await repository.updateNickname(nickname)
+  }
+
   public func signOut() async throws {
     try await repository.signOut()
   }

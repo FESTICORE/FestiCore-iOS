@@ -3,7 +3,7 @@ import Darwin
 import FestiCorePackInterface
 import FestiCoreNetworkInterface
 
-private enum PackUpdateWaitError: Error { case idleTimeout }
+private enum PackUpdateWaitError: Error { case idleTimeout, packDeleted }
 
 public actor NetworkPackSyncService: PackSyncService {
   private let baseURL: URL?
@@ -13,6 +13,8 @@ public actor NetworkPackSyncService: PackSyncService {
   private let rejectedHandshakeRetryNanoseconds: UInt64
   private var requestGeneration: [String: Int] = [:]
   private var committedGeneration: [String: Int] = [:]
+  /// 팩을 지운 횟수. 지우기 전에 시작한 업데이트 감시가 팩을 다시 받지 않게 한다.
+  private var deletionCount: [String: Int] = [:]
 
   public init(baseURL: URL?, cacheDirectory: URL, client: any FestiCoreWebSocketClient) {
     self.baseURL = baseURL
@@ -53,6 +55,15 @@ public actor NetworkPackSyncService: PackSyncService {
     }
   }
 
+  public func deletePack(for festivalID: String) async throws {
+    try cache.delete(festivalID)
+    // 진행 중이던 응답이 지운 팩을 다시 저장하지 않게 세대를 올린다.
+    let generation = (requestGeneration[festivalID] ?? 0) + 1
+    requestGeneration[festivalID] = generation
+    committedGeneration[festivalID] = generation
+    deletionCount[festivalID, default: 0] += 1
+  }
+
   public nonisolated func updates(for festivalID: String) -> AsyncThrowingStream<PackSyncResult, Error> {
     AsyncThrowingStream { continuation in
       let task = Task { await self.runUpdates(for: festivalID, continuation: continuation) }
@@ -71,12 +82,15 @@ public actor NetworkPackSyncService: PackSyncService {
     var backoff = ReconnectBackoff()
     var rejectedHandshakesSinceSuccess = 0
     var hasReceivedPack = false
+    let deletionsAtStart = deletionCount[festivalID] ?? 0
     while !Task.isCancelled {
       do {
+        try stopIfDeleted(festivalID, since: deletionsAtStart)
         let socket = client.connect(to: try endpoint())
         try await withTaskCancellationHandler {
           defer { socket.cancel() }
           while !Task.isCancelled {
+            try stopIfDeleted(festivalID, since: deletionsAtStart)
             let result = try await synchronize(for: festivalID, on: socket)
             backoff.reset()
             rejectedHandshakesSinceSuccess = 0
@@ -105,12 +119,14 @@ public actor NetworkPackSyncService: PackSyncService {
         }
       } catch {
         if Task.isCancelled { break }
+        if case PackUpdateWaitError.packDeleted = error { break }
+        if case PackSyncError.packDeleted = error { break }
         if error is PackUpdateWaitError {
           // A quiet stream is refreshed without showing an outage or retrying images.
           try? await Task.sleep(nanoseconds: backoff.nextDelayNanoseconds())
           continue
         }
-        guard isTransportFailure(error) else {
+        guard PackSyncError.isTransportFailure(error) else {
           continuation.finish(throwing: error)
           return
         }
@@ -128,6 +144,11 @@ public actor NetworkPackSyncService: PackSyncService {
       }
     }
     continuation.finish()
+  }
+
+  /// 감시를 시작한 뒤 팩이 지워졌으면 다시 받지 않고 멈춘다.
+  private func stopIfDeleted(_ festivalID: String, since count: Int) throws {
+    if (deletionCount[festivalID] ?? 0) != count { throw PackUpdateWaitError.packDeleted }
   }
 
   private func synchronize(for festivalID: String, on socket: any PackSocket) async throws -> PackSyncResult {
@@ -181,9 +202,12 @@ public actor NetworkPackSyncService: PackSyncService {
               message.data?["etag"] as? String == stored.etag else {
           throw PackSyncError.invalidMessage
         }
-        if generation < (committedGeneration[festivalID] ?? 0), let latest = try cache.load(festivalID) {
+        if generation < (committedGeneration[festivalID] ?? 0) {
+          // 더 늦게 시작한 요청이나 삭제가 이미 반영됐다. 세대를 내리거나 지운 팩을 되살리지 않는다.
+          guard let latest = try cache.load(festivalID) else { throw PackSyncError.packDeleted }
           return Reply(result: .notModified(latest), hadUpdateHint: hadUpdateHint)
         }
+        try? cache.markChecked(festivalID)
         committedGeneration[festivalID] = generation
         return Reply(result: .notModified(try cache.load(festivalID) ?? stored), hadUpdateHint: hadUpdateHint)
       case "pack.retry":
@@ -206,31 +230,12 @@ public actor NetworkPackSyncService: PackSyncService {
 
   private func store(_ updated: CachedFestivalPack, generation: Int) throws -> PackSyncResult {
     if generation < (committedGeneration[updated.festivalID] ?? 0) {
-      guard let latest = try cache.load(updated.festivalID) else { throw PackSyncError.invalidMessage }
+      guard let latest = try cache.load(updated.festivalID) else { throw PackSyncError.packDeleted }
       return .notModified(latest)
     }
     let saved = try cache.save(updated)
     committedGeneration[updated.festivalID] = generation
     return saved == updated ? .updated(saved) : .notModified(saved)
-  }
-
-  private func isTransportFailure(_ error: Error) -> Bool {
-    if let syncError = error as? PackSyncError, syncError == .timeout { return true }
-    if let urlError = error as? URLError {
-      switch urlError.code {
-      case .notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost,
-           .cannotFindHost, .timedOut, .dnsLookupFailed, .internationalRoamingOff,
-           .dataNotAllowed, .callIsActive, .badServerResponse:
-        return true
-      default:
-        return false
-      }
-    }
-    let nsError = error as NSError
-    guard nsError.domain == NSPOSIXErrorDomain else { return false }
-    return [ENETDOWN, ENETUNREACH, ECONNRESET, ECONNABORTED, ENOTCONN,
-            ECONNREFUSED, ETIMEDOUT, EHOSTUNREACH, EPIPE]
-      .contains(Int32(nsError.code))
   }
 
   private func endpoint() throws -> URL {
