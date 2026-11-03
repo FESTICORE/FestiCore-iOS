@@ -234,6 +234,37 @@ struct ProfileFeatureTests {
     }
   }
 
+  @Test func legalRowsOpenInAppAndBackReturnsToProfile() async {
+    let base = URL(string: "https://example.com/api/v1/legal/")!
+    let store = TestStore(initialState: ProfileFeature.State()) {
+      ProfileFeature(legalBaseURL: base)
+    }
+
+    await store.send(.view(.termsTapped)) {
+      $0.destination = .legalDocument(.init(url: base.appending(path: "terms"), title: "이용약관"))
+    }
+    await store.send(.destination(.presented(.legalDocument(.delegate(.backToRoot))))) {
+      $0.destination = nil
+    }
+    await store.send(.view(.privacyTapped)) {
+      $0.destination = .legalDocument(.init(url: base.appending(path: "privacy"), title: "개인정보 처리방침"))
+    }
+    await store.send(.destination(.presented(.legalDocument(.delegate(.backToRoot))))) {
+      $0.destination = nil
+    }
+  }
+
+  @Test func lockScreenRowOpensScreenAndBackReturnsToProfile() async {
+    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
+
+    await store.send(.view(.lockScreenTapped)) {
+      $0.destination = .lockScreen(.init())
+    }
+    await store.send(.destination(.presented(.lockScreen(.delegate(.backRequested))))) {
+      $0.destination = nil
+    }
+  }
+
   private func signedInState() -> ProfileFeature.State {
     var state = ProfileFeature.State()
     state.hasSession = true

@@ -11,6 +11,7 @@ import FestiCoreDesignKit
 import FestiCoreSharedUI
 import FestivalDomainInterface
 import SwiftUI
+import Web
 
 @ViewAction(for: ProfileFeature.self)
 public struct ProfileView: View {
@@ -33,6 +34,18 @@ public struct ProfileView: View {
           item: $store.scope(state: \.destination?.account, action: \.destination.account)
         ) { accountStore in
           AccountSettingsView(store: accountStore)
+        }
+        .navigationDestination(
+          item: $store.scope(state: \.destination?.legalDocument, action: \.destination.legalDocument)
+        ) { webStore in
+          WebView(store: webStore)
+            .toolbar(.hidden, for: .navigationBar)
+        }
+        .navigationDestination(
+          item: $store.scope(state: \.destination?.lockScreen, action: \.destination.lockScreen)
+        ) { lockScreenStore in
+          LockScreenSettingsView(store: lockScreenStore)
+            .toolbar(.hidden, for: .navigationBar)
         }
         .navigationDestination(
           item: $store.scope(state: \.destination?.notifications, action: \.destination.notifications)
@@ -211,7 +224,6 @@ private extension ProfileView {
       FCListRow("알림") { send(.notificationsTapped) }
       rowDivider
       FCListRow("잠금화면") { send(.lockScreenTapped) }
-        .allowsHitTesting(store.isLockScreenAvailable)
       rowDivider
       FCListRow("계정") {
         send(.accountTapped)

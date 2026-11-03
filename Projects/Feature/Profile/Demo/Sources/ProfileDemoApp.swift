@@ -12,6 +12,7 @@
 import ComposableArchitecture
 import FestiCoreDesignKit
 import FestiCoreSharedUI
+import FestivalDomainInterface
 import Profile
 import SwiftUI
 
@@ -33,6 +34,7 @@ private struct ProfileDemoRoot: View {
     ProfileFeature()
   } withDependencies: {
     $0.context = .preview
+    $0.festivalLiveActivityUseCase = MockFestivalLiveActivityUseCase(activities: { [] })
   }
 
   var body: some View {

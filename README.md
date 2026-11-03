@@ -45,12 +45,17 @@ Projects/
 ├── App/                           # 앱 진입점, 설정, 테스트 플랜
 ├── Feature/
 │   ├── FeatureAssembly/           # 화면 모듈 조립
-│   ├── Festival/                  # FestivalList·LiveBoard와 공유 컴포넌트
-│   ├── Login/                     # 로그인 Feature
-│   └── Timetable/                 # 선택한 축제의 공연 시간표
+│   ├── Bearer/                    # 깃발 화면
+│   ├── Festival/                  # 축제 목록·라이브 보드
+│   ├── Login/                     # 로그인·가입
+│   ├── Onboarding/                # 첫 설치 온보딩
+│   ├── Profile/                   # 마이·알림·계정·잠금화면
+│   ├── Timetable/                 # 선택한 축제의 공연 시간표
+│   └── Web/                       # 앱 내 법적 문서 웹뷰
 ├── Domain/
 │   ├── AuthDomain/                # 인증 Entity·Repository·UseCase
-│   ├── FestivalDomain/            # 축제 목록 계약과 모델
+│   ├── BearerDomain/              # 깃발 계약·구현
+│   ├── FestivalDomain/            # 축제 계약·구현
 │   └── TimetableDomain/           # 타임테이블 공개 값 타입
 ├── Service/
 │   ├── API/                      # API 요청 인터페이스
@@ -89,6 +94,10 @@ flowchart TD
     App --> ServiceAssembly
     App --> CoreAssembly
     FeatureAssembly --> Festival
+    FeatureAssembly --> Profile
+    FeatureAssembly --> Onboarding
+    FeatureAssembly --> Web
+    FeatureAssembly --> Bearer
     FeatureAssembly --> Login
     FeatureAssembly --> Timetable
     FeatureAssembly --> AuthDomain
@@ -97,7 +106,12 @@ flowchart TD
     Festival --> PackInterface["FestiCorePack / Interface"]
     Festival --> Utility["FestiCoreUtility"]
     Festival --> SharedUI["FestiCoreSharedUI"]
-    Login --> AuthDomainInterface["AuthDomain / Interface"]
+    Profile --> FestivalDomainInterface
+    Profile --> AuthDomainInterface["AuthDomain / Interface"]
+    Profile --> Web
+    Profile --> SharedUI
+    Login --> AuthDomainInterface
+    Login --> Web
     Timetable --> TimetableDomainInterface["TimetableDomain / Interface"]
     AuthDomain --> AuthDomainInterface
     AuthDomain --> AuthInterface["FestiCoreAuth / Interface"]
@@ -113,7 +127,7 @@ flowchart TD
     App -. 포함 .-> Notification["FestiCoreNotificationService"]
 ~~~
 
-- `FeatureAssembly`는 Festival·Login·Timetable과 인증 도메인, `ServiceAssembly`를 연결합니다.
+- `FeatureAssembly`는 Bearer·Festival·Login·Onboarding·Profile·Timetable·Web과 도메인 구현, `ServiceAssembly`를 연결합니다.
 - 화면은 필요한 도메인·서비스의 Interface를 직접 의존하고, `ServiceAssembly`와 `CoreAssembly`가 라이브 구현을 조립합니다.
 - App은 Feature·Service·Core 조립 모듈과 앱에서 직접 사용하는 UI·설정 모듈을 참조합니다. 위젯과 알림 서비스는 앱에 포함되는 별도 타깃입니다.
 
@@ -124,6 +138,8 @@ flowchart TD
 ### TCA 화면 흐름
 
 `AppCoordinator`는 Splash가 끝나면 설치 기록을 읽습니다. 기록이 없으면 `OnboardingFeature`의 네 화면을 보여 주고, 완료 또는 건너뛰기 후 기록을 남긴 뒤 `MainTabCoordinator`로 전환합니다. 다운로드한 네 PNG는 모듈 경계에 맞춰 Onboarding Feature의 자산 카탈로그에 3x로 등록했습니다. 첫 실행에는 대기 기록도 저장하므로 완료 기록 쓰기에 실패해도 다음 실행에 온보딩을 다시 표시합니다. 이전 버전의 `FestiCore.selectedFestivalID`, `FestiCore.bookedFestivalIDs*`, `FestiCore.festivalRecentSearches*` 값이 남아 있고 대기 기록이 없으면 기존 설치로 판단해 건너뜁니다. 이 값이 없는 이전 설치와 Keychain만 남은 재설치는 새 설치와 구별할 수 없습니다. `FestivalCoordinator`의 첫 경로는 축제 목록이며, 축제를 선택하면 라이브 보드 경로를 추가합니다. 목록과 라이브 보드의 상태는 `FestivalFeature`가 관리합니다. `MainTabCoordinator`는 선택한 축제 팩의 시간표를 Timetable 탭에 전달합니다.
+
+마이 탭은 `ProfileFeature`가 팩 상세·알림·계정·잠금화면·법적 문서 목적지를 관리합니다. 법적 문서는 `WebFeature`의 앱 내 웹뷰를 재사용하고, 잠금화면 화면은 `FestivalLiveActivityUseCaseInterface`에서 현재 활동을 읽습니다. 각 행의 뒤로 가기는 자식 delegate로 목적지를 닫습니다. 자세한 화면 및 모듈 흐름은 [아키텍처 그림](docs/architecture/README.md)을 참고하세요.
 
 `FestivalFeature.State.catalog`는 `IdentifiedArrayOf<FestivalCatalogItem>`을 사용합니다. `FestivalCatalogUseCase`는 중복 축제와 초기 선택을 처리하고, `FestivalImageUseCase`는 이미지 수집·프리페치 대상을 정리합니다. 두 유스케이스는 목록 상태 파생 함수라 `Projects/Feature/Festival/Sources/FestivalList/Reducer/`에 있습니다. 날짜 포맷은 `FestiCoreUtility`, 라이브 보드 모델과 클라이언트는 `Festival/Sources/LiveBoard/`에 있습니다.
 

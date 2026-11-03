@@ -1,0 +1,103 @@
+//
+//  LockScreenSettingsFeatureTests.swift
+//  Profile
+//
+
+import ComposableArchitecture
+import FestivalDomainInterface
+import Foundation
+import Testing
+import UIKit
+@testable import Profile
+
+@MainActor
+struct LockScreenSettingsFeatureTests {
+  @Test func appearLoadsActiveActivities() async {
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    let activity = FestivalLiveActivityRecord(
+      id: "activity-1", festivalID: "festival-1", phase: .ongoing,
+      startDate: now, endDate: nil
+    )
+    let store = TestStore(initialState: LockScreenSettingsFeature.State()) {
+      LockScreenSettingsFeature()
+    } withDependencies: {
+      $0.festivalLiveActivityUseCase = MockFestivalLiveActivityUseCase(activities: { [activity] })
+    }
+
+    await store.send(.view(.onAppear))
+    await store.receive(\.async.loadActivities)
+    await store.receive(\.inner.activitiesLoaded) {
+      $0.isLoading = false
+      $0.hasLoaded = true
+      $0.activityCount = 1
+    }
+  }
+
+  @Test func emptyActivitiesFinishLoading() async {
+    let store = TestStore(initialState: LockScreenSettingsFeature.State()) {
+      LockScreenSettingsFeature()
+    } withDependencies: {
+      $0.festivalLiveActivityUseCase = MockFestivalLiveActivityUseCase(activities: { [] })
+    }
+
+    await store.send(.view(.onAppear))
+    await store.receive(\.async.loadActivities)
+    await store.receive(\.inner.activitiesLoaded) {
+      $0.isLoading = false
+      $0.hasLoaded = true
+    }
+    #expect(store.state.activityCount == 0)
+  }
+
+  @Test func reappearingRefreshesActivityCount() async {
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    let activity = FestivalLiveActivityRecord(
+      id: "activity-1", festivalID: "festival-1", phase: .upcoming,
+      startDate: now, endDate: nil
+    )
+    let calls = LockIsolated(0)
+    let store = TestStore(initialState: LockScreenSettingsFeature.State()) {
+      LockScreenSettingsFeature()
+    } withDependencies: {
+      $0.festivalLiveActivityUseCase = MockFestivalLiveActivityUseCase(activities: {
+        calls.withValue {
+          $0 += 1
+          return $0 == 1 ? [activity] : []
+        }
+      })
+    }
+
+    await store.send(.view(.onAppear))
+    await store.receive(\.async.loadActivities)
+    await store.receive(\.inner.activitiesLoaded) {
+      $0.isLoading = false
+      $0.hasLoaded = true
+      $0.activityCount = 1
+    }
+    await store.send(.view(.onAppear))
+    await store.receive(\.async.loadActivities)
+    await store.receive(\.inner.activitiesLoaded) {
+      $0.isLoading = false
+      $0.activityCount = 0
+    }
+    #expect(calls.value == 2)
+  }
+
+  @Test func settingsButtonOpensAppSettingsAndBackRequestsDismissal() async {
+    let openedURL = LockIsolated<URL?>(nil)
+    let store = TestStore(initialState: LockScreenSettingsFeature.State()) {
+      LockScreenSettingsFeature()
+    } withDependencies: {
+      $0.openURL = .init { url in
+        openedURL.setValue(url)
+        return true
+      }
+    }
+
+    await store.send(.view(.openSystemSettingsTapped))
+    await store.finish()
+    #expect(openedURL.value?.absoluteString == UIApplication.openSettingsURLString)
+    await store.send(.view(.backTapped))
+    await store.receive(\.delegate.backRequested)
+  }
+}
