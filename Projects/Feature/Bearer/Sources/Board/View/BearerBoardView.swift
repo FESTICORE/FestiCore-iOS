@@ -58,6 +58,7 @@ public struct BearerBoardView: View {
     .fcAlert($store.scope(state: \.destination?.closeConfirm, action: \.destination.closeConfirm))
     .environment(\.colorScheme, .dark)
     .onAppear { send(.onAppear) }
+    .onDisappear { send(.onDisappear) }
   }
 }
 

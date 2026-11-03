@@ -40,6 +40,8 @@ struct BearerOutboxRecordDTO: Codable, Equatable {
   }
 
   var item: BearerStatusOutboxImpl.Item? {
+    // 사용자를 모르는 변경은 다른 계정으로 보낼 수 있어 읽지 않는다.
+    guard let ownerUserID else { return nil }
     let activity = activity.flatMap(BearerActivity.init(rawValue:))
     let change: BearerStatusChange
     switch (kind, zoneID, activity) {

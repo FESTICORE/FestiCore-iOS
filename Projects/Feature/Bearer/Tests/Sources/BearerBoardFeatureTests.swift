@@ -48,31 +48,44 @@ struct BearerBoardFeatureTests {
     }
   }
 
-  @Test("기수 보드를 열면 상태·존·팔로워 수를 읽는다")
+  @Test("기수 보드를 열면 대기열을 먼저 구독한 뒤 상태·존·팔로워 수를 읽고, 닫으면 구독을 끝낸다")
   func loads() async {
     let board = board(.active)
+    let festival = BearerFestival(id: "fst_1", name: nil, zones: zones)
     let store = TestStore(initialState: BearerBoardFeature.State(festivalID: "fst_1", flagID: "flg_1", viewerUserID: "usr_me")) {
       BearerBoardFeature()
     } withDependencies: {
       $0.date = .constant(now)
       $0.bearerUseCase = BearerUseCaseStub(
-        fetchFestival: { _ in BearerFestival(id: "fst_1", name: nil, zones: zones) },
-        fetchBoard: { _ in board }
+        fetchFestival: { _ in festival },
+        fetchBoard: { _ in board },
+        pendingStatus: { _ in [] },
+        statusEvents: { _ in AsyncStream { _ in } },
+        retryPendingStatus: {}
       )
     }
 
-    store.exhaustivity = .off(showSkippedAssertions: false)
     await store.send(.view(.onAppear))
+    await store.receive(\.async.observeOutbox)
+    await store.receive(\.inner.pendingLoaded)
+    await store.receive(\.async.load) { $0.isLoading = true }
     await store.receive(\.inner.loaded) {
       $0.isLoading = false
       $0.board = board
-      $0.festival = BearerFestival(id: "fst_1", name: nil, zones: zones)
+      $0.festival = festival
       $0.lastSyncedAt = now
       $0.current = BearerBoardFeature.Current(board.status)
       $0.lastActivity = .slam
     }
     #expect(store.state.zoneName(for: "zone_a") == "리벳 스테이지 앞 왼쪽")
-    await store.skipInFlightEffects()
+    await store.send(.view(.onDisappear))
+  }
+
+  @Test("누른 사용자를 모르면 대기열에 넣지 않는다")
+  func requiresViewer() async {
+    let store = TestStore(initialState: loaded(board(.active), viewer: nil)) { BearerBoardFeature() }
+
+    await store.send(.view(.restTapped)) { $0.errorMessage = "로그인한 뒤에 바꿀 수 있어요" }
   }
 
   @Test("쉬는 중을 누르면 바로 바꾸고 1초 체크를 보인 뒤 대기열에 넣는다")
@@ -84,8 +97,9 @@ struct BearerBoardFeatureTests {
     } withDependencies: {
       $0.date = .constant(now)
       $0.continuousClock = clock
-      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), enqueueStatus: { flagID, request in
+      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), enqueueStatus: { flagID, owner, request in
         #expect(flagID == "flg_1")
+        #expect(owner == "usr_me")
         queued.withValue { $0.append(request) }
       })
     }
@@ -220,7 +234,7 @@ struct BearerBoardFeatureTests {
     } withDependencies: {
       $0.date = .constant(now)
       $0.continuousClock = TestClock()
-      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), enqueueStatus: { _, _ in })
+      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), enqueueStatus: { _, _, _ in })
     }
     store.exhaustivity = .off(showSkippedAssertions: false)
 
@@ -251,7 +265,7 @@ struct BearerBoardFeatureTests {
     } withDependencies: {
       $0.date = .constant(now)
       $0.continuousClock = TestClock()
-      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), enqueueStatus: { _, _ in })
+      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), enqueueStatus: { _, _, _ in })
     }
     store.exhaustivity = .off(showSkippedAssertions: false)
 
@@ -279,7 +293,7 @@ struct BearerBoardFeatureTests {
     } withDependencies: {
       $0.date = .constant(now)
       $0.continuousClock = TestClock()
-      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), enqueueStatus: { _, _ in })
+      $0.bearerUseCase = BearerUseCaseStub(makeStatusRequest: requests(), enqueueStatus: { _, _, _ in })
     }
     store.exhaustivity = .off(showSkippedAssertions: false)
 

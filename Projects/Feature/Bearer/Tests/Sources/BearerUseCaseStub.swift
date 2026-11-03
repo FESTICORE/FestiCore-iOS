@@ -24,10 +24,18 @@ struct BearerUseCaseStub: BearerUseCaseInterface {
     return BearerStatusRequest(change: change, idempotencyKey: "", clientAt: Date(timeIntervalSince1970: 0))
   }
   var sendStatus: @Sendable (String, BearerStatusRequest) async throws -> BearerFlagStatus = { _, _ in try unexpected() }
-  var enqueueStatus: @Sendable (String, BearerStatusRequest) async -> Void = { _, _ in Issue.record("enqueueStatus 미주입") }
-  var pendingStatus: @Sendable (String) async -> [BearerStatusRequest] = { _ in [] }
-  var statusEvents: @Sendable (String) async -> AsyncStream<BearerOutboxEvent> = { _ in AsyncStream { _ in } }
-  var retryPendingStatus: @Sendable () async -> Void = {}
+  var enqueueStatus: @Sendable (String, String, BearerStatusRequest) async -> Void = { _, _, _ in
+    Issue.record("enqueueStatus 미주입")
+  }
+  var pendingStatus: @Sendable (String) async -> [BearerStatusRequest] = { _ in
+    Issue.record("pendingStatus 미주입")
+    return []
+  }
+  var statusEvents: @Sendable (String) async -> AsyncStream<BearerOutboxEvent> = { _ in
+    Issue.record("statusEvents 미주입")
+    return AsyncStream { $0.finish() }
+  }
+  var retryPendingStatus: @Sendable () async -> Void = { Issue.record("retryPendingStatus 미주입") }
   var inviteCoBearer: @Sendable (String) async throws -> BearerInvite = { _ in try unexpected() }
   var removeCoBearer: @Sendable (String, String) async throws -> Void = { _, _ in try unexpected() }
 
@@ -44,7 +52,9 @@ struct BearerUseCaseStub: BearerUseCaseInterface {
   func sendStatus(flagID: String, request: BearerStatusRequest) async throws -> BearerFlagStatus {
     try await sendStatus(flagID, request)
   }
-  func enqueueStatus(flagID: String, request: BearerStatusRequest) async { await enqueueStatus(flagID, request) }
+  func enqueueStatus(flagID: String, ownerUserID: String, request: BearerStatusRequest) async {
+    await enqueueStatus(flagID, ownerUserID, request)
+  }
   func pendingStatus(flagID: String) async -> [BearerStatusRequest] { await pendingStatus(flagID) }
   func statusEvents(flagID: String) async -> AsyncStream<BearerOutboxEvent> { await statusEvents(flagID) }
   func retryPendingStatus() async { await retryPendingStatus() }
