@@ -8,6 +8,7 @@
 import UIKit
 import ComposableArchitecture
 import CoreAssembly
+import FestiCoreAnalyticsInterface
 import ServiceAssembly
 
 @MainActor
@@ -15,6 +16,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   var secureStorage = StorageAssembly.secureStorage()
   @Dependency(\.deviceRegistrationService) var deviceRegistrationService
   @Dependency(\.liveActivityRegistrationService) var liveActivityRegistrationService
+  @Dependency(\.analyticsUseCase) var analyticsUseCase
   var registrationTask: Task<Void, Never>?
   var lastRegisteredDeviceMetadata: DeviceRegistrationMetadata?
   var notificationAuthorizationClient = NotificationAuthorizationClient.live

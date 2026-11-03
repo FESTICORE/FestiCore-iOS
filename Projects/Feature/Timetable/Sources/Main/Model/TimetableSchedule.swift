@@ -65,6 +65,8 @@ public struct TimetableSet: Equatable, Identifiable, Sendable {
   public var end: Int
   /// 바뀌기 전 시작 시각. 바뀌지 않았으면 nil이다.
   public var previousStart: Int?
+  /// 출연진 사진. 없으면 nil이다.
+  public var imageURL: URL?
 
   public init(
     id: String,
@@ -72,7 +74,8 @@ public struct TimetableSet: Equatable, Identifiable, Sendable {
     stageID: String,
     start: Int,
     end: Int,
-    previousStart: Int? = nil
+    previousStart: Int? = nil,
+    imageURL: URL? = nil
   ) {
     self.id = id
     self.artist = artist
@@ -80,6 +83,7 @@ public struct TimetableSet: Equatable, Identifiable, Sendable {
     self.start = start
     self.end = end
     self.previousStart = previousStart
+    self.imageURL = imageURL
   }
 
   func overlaps(_ other: TimetableSet) -> Bool {
@@ -123,6 +127,30 @@ public struct TimetableSetDetail: Equatable, Sendable {
   /// 바뀌기 전 시작 시각(`HH:mm`). 바뀌지 않았으면 nil이다.
   public var previousTime: String?
   public var change: String?
+  /// 출연진 사진. 없으면 시트에 이름만 보인다.
+  public var imageURL: URL?
+
+  public init(
+    artist: String,
+    stage: String,
+    time: String,
+    status: Status,
+    isScheduled: Bool,
+    overlap: TimetableSetOverlap? = nil,
+    previousTime: String? = nil,
+    change: String? = nil,
+    imageURL: URL? = nil
+  ) {
+    self.artist = artist
+    self.stage = stage
+    self.time = time
+    self.status = status
+    self.isScheduled = isScheduled
+    self.overlap = overlap
+    self.previousTime = previousTime
+    self.change = change
+    self.imageURL = imageURL
+  }
 
   public var relativeTime: String {
     switch status {
@@ -136,6 +164,22 @@ public struct TimetableSetDetail: Equatable, Sendable {
       return "공연 중"
     case .ended:
       return "종료"
+    }
+  }
+}
+
+extension TimetableSetDetail.Status {
+  /// 공연의 실제 시작·종료 시각과 현재 시각으로 진행 상태를 구한다.
+  init(
+    interval: DateInterval,
+    now: Date
+  ) {
+    if now >= interval.end {
+      self = .ended
+    } else if now >= interval.start {
+      self = .live
+    } else {
+      self = .upcoming(minutes: Int((interval.start.timeIntervalSince(now) / 60).rounded(.up)))
     }
   }
 }

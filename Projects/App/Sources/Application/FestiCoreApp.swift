@@ -11,6 +11,7 @@ import UIKit
 import ComposableArchitecture
 
 import FeatureAssembly
+import FestiCoreAnalytics
 
 @main
 struct FestiCoreApp: App {
@@ -19,7 +20,9 @@ struct FestiCoreApp: App {
   var body: some Scene {
     WindowGroup {
       if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
-        RootView(appDelegate: appDelegate)
+        FestiCoreTracedView("AppRoot") {
+          RootView(appDelegate: appDelegate)
+        }
       } else {
         // 앱 호스트 테스트에서 실제 시작 효과가 다른 테스트의 이슈로 기록되지 않게 한다.
         Color.clear

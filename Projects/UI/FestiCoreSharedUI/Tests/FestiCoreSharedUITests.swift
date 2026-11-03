@@ -67,4 +67,29 @@ struct FestiCoreSharedUITests {
 
     #expect(UIHostingController(rootView: view).view != nil)
   }
+
+  @Test @MainActor func setSheetDrawsArtistImageOnlyWhenURLExists() throws {
+    let url = try #require(URL(string: "https://example.com/artist.webp"))
+    let original = setSheet()
+    let withImage = original.artistImage(url)
+    let width = CGSize(width: 393, height: 2_000)
+
+    #expect(original.artistImageURL == nil)
+    #expect(withImage.artistImageURL == url)
+    #expect(withImage.artistImage(nil).artistImageURL == nil)
+    // 사진 칸(48pt)이 한 줄 제목보다 높아 사진이 있을 때만 시트가 길어진다.
+    let plainHeight = UIHostingController(rootView: original).sizeThatFits(in: width).height
+    let imageHeight = UIHostingController(rootView: withImage).sizeThatFits(in: width).height
+    #expect(imageHeight > plainHeight)
+  }
+
+  private func setSheet() -> FCSetSheet {
+    FCSetSheet(
+      artist: "가수",
+      stage: "메인 스테이지",
+      time: "17:00–17:50 · 50분",
+      relativeTime: "1시간 후",
+      isScheduled: .constant(false)
+    )
+  }
 }
