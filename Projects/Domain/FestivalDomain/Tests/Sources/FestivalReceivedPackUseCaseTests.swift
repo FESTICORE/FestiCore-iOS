@@ -89,6 +89,49 @@ struct FestivalReceivedPackUseCaseTests {
     #expect(packs.first?.hasUpdate == false)
   }
 
+  @Test func refreshMarksPacksThatFailedToDownload() async throws {
+    let service = MutablePackService(packs: [pack("fst_a", version: 1, name: "A", checkedAt: nil)])
+    service.syncError = URLError(.notConnectedToInternet)
+    let useCase = withDependencies {
+      $0.packSyncService = service
+      $0.festivalCatalogService = ReceivedPackCatalogService(
+        cached: [], refreshed: [.init(id: "fst_a", name: "A", packVersion: 2)]
+      )
+      $0.festivalPackLocalStore.autoDownloadOnWiFi = { true }
+      $0.festivalWiFiStatus = .init(isOnWiFi: { true })
+    } operation: {
+      FestivalReceivedPackUseCaseImpl()
+    }
+
+    let packs = try await useCase.refreshReceivedPacks()
+    #expect(service.synced.value == ["fst_a"])
+    #expect(packs.first?.hasUpdate == true)
+    #expect(packs.first?.autoUpdateFailed == true)
+  }
+
+  @Test func refreshPropagatesCancellationDuringAutoDownload() async throws {
+    let service = MutablePackService(packs: [
+      pack("fst_a", version: 1, name: "A", checkedAt: nil),
+      pack("fst_b", version: 1, name: "B", checkedAt: nil)
+    ])
+    service.syncError = CancellationError()
+    let useCase = withDependencies {
+      $0.packSyncService = service
+      $0.festivalCatalogService = ReceivedPackCatalogService(
+        cached: [], refreshed: [
+          .init(id: "fst_a", name: "A", packVersion: 2), .init(id: "fst_b", name: "B", packVersion: 2)
+        ]
+      )
+      $0.festivalPackLocalStore.autoDownloadOnWiFi = { true }
+      $0.festivalWiFiStatus = .init(isOnWiFi: { true })
+    } operation: {
+      FestivalReceivedPackUseCaseImpl()
+    }
+
+    await #expect(throws: CancellationError.self) { try await useCase.refreshReceivedPacks() }
+    #expect(service.synced.value.count == 1)
+  }
+
   @Test(arguments: [(true, false), (false, true)])
   func refreshKeepsUpdatesOffWiFiOrWhenAutoDownloadIsOff(autoDownload: Bool, onWiFi: Bool) async throws {
     let service = MutablePackService(packs: [pack("fst_a", version: 1, name: "A", checkedAt: nil)])
@@ -150,6 +193,7 @@ final class MutablePackService: PackSyncService, @unchecked Sendable {
   let deleted = LockIsolated<[String]>([])
   var onSync: (@Sendable (String) -> [CachedFestivalPack])?
   var syncResult: PackSyncResult?
+  var syncError: (any Error)?
 
   init(packs: [CachedFestivalPack]) {
     self.packs = LockIsolated(packs)
@@ -163,6 +207,7 @@ final class MutablePackService: PackSyncService, @unchecked Sendable {
 
   func sync(for festivalID: String) async throws -> PackSyncResult {
     synced.withValue { $0.append(festivalID) }
+    if let syncError { throw syncError }
     if let onSync { packs.setValue(onSync(festivalID)) }
     if let syncResult { return syncResult }
     guard let pack = packs.value.first(where: { $0.festivalID == festivalID }) else { return .reconnecting }

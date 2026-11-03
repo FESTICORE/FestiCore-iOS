@@ -20,7 +20,11 @@ extension FestivalWiFiStatusClient: DependencyKey {
         guard !resumed.value else { return }
         resumed.setValue(true)
         monitor.cancel()
-        continuation.resume(returning: path.status == .satisfied && path.usesInterfaceType(.wifi))
+        // 개인 핫스팟처럼 비싸거나 저데이터 모드인 연결에서는 받지 않는다.
+        continuation.resume(
+          returning: path.status == .satisfied && path.usesInterfaceType(.wifi)
+            && !path.isExpensive && !path.isConstrained
+        )
       }
       monitor.start(queue: DispatchQueue(label: "io.festiCore.co.wifi-status"))
     }

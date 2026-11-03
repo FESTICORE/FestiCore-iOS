@@ -181,6 +181,9 @@ private extension ProfileView {
 
   /// 새 버전이 있으면 버전을, 아니면 마지막 확인 시각을 보여 준다.
   func packMeta(_ pack: FestivalReceivedPack) -> String {
+    if pack.autoUpdateFailed, let latest = pack.latestPackVersion {
+      return "새 버전을 받지 못했어요 · v\(latest)"
+    }
     if pack.hasUpdate, let latest = pack.latestPackVersion {
       return "새 버전이 있어요 · v\(latest)"
     }

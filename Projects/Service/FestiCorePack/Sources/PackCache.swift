@@ -11,6 +11,8 @@ public enum PackSyncError: Error, Sendable, Equatable {
   case invalidChunk
   case timeout
   case packTooLarge
+  /// 응답을 기다리는 동안 사용자가 팩을 지웠다.
+  case packDeleted
   case server(String)
 }
 

@@ -20,6 +20,8 @@ public struct FestivalReceivedPack: Equatable, Identifiable, Sendable {
   public let checkedAt: Date?
   /// 저장된 팩 JSON 크기(바이트)
   public let sizeBytes: Int
+  /// 자동 받기를 시도했지만 새 버전을 받지 못했는지
+  public var autoUpdateFailed: Bool
 
   public init(
     id: String,
@@ -28,7 +30,8 @@ public struct FestivalReceivedPack: Equatable, Identifiable, Sendable {
     packVersion: Int,
     latestPackVersion: Int? = nil,
     checkedAt: Date? = nil,
-    sizeBytes: Int = 0
+    sizeBytes: Int = 0,
+    autoUpdateFailed: Bool = false
   ) {
     self.id = id
     self.name = name
@@ -37,6 +40,7 @@ public struct FestivalReceivedPack: Equatable, Identifiable, Sendable {
     self.latestPackVersion = latestPackVersion
     self.checkedAt = checkedAt
     self.sizeBytes = sizeBytes
+    self.autoUpdateFailed = autoUpdateFailed
   }
 
   /// 서버에 더 새 버전이 발행됐는지

@@ -29,14 +29,27 @@ public struct FestivalReceivedPackUseCaseImpl: FestivalReceivedPackUseCaseInterf
     let catalog = try await catalogService.refresh()
     let received = packs.receivedPacks(catalog: catalog, imageURL: catalogService.imageURL(for:))
     let outdated = received.filter(\.hasUpdate)
-    // 와이파이에서 자동으로 받기가 켜져 있으면 새 버전을 바로 받는다. 실패한 팩은 다음 확인 때 다시 받는다.
+    // 와이파이에서 자동으로 받기가 켜져 있으면 새 버전을 바로 받는다. 실패한 팩은 표시하고 다음 확인 때 다시 받는다.
     guard !outdated.isEmpty, localStore.autoDownloadOnWiFi(), await wiFiStatus.isOnWiFi() else {
       return received
     }
     for pack in outdated {
-      _ = try? await packService.sync(for: pack.id)
+      try Task.checkCancellation()
+      do {
+        _ = try await packService.sync(for: pack.id)
+      } catch is CancellationError {
+        throw CancellationError()
+      } catch {
+        // 받지 못한 팩은 아래에서 새 버전이 남아 있는지로 실패를 표시한다.
+      }
     }
+    try Task.checkCancellation()
     packs = try await packService.cachedPacks()
-    return packs.receivedPacks(catalog: catalog, imageURL: catalogService.imageURL(for:))
+    let attemptedIDs = Set(outdated.map(\.id))
+    return packs.receivedPacks(catalog: catalog, imageURL: catalogService.imageURL(for:)).map { pack in
+      var pack = pack
+      pack.autoUpdateFailed = attemptedIDs.contains(pack.id) && pack.hasUpdate
+      return pack
+    }
   }
 }

@@ -43,6 +43,18 @@ public protocol PackSyncService: Sendable {
   func updates(for festivalID: String) -> AsyncThrowingStream<PackSyncResult, Error>
 }
 
+public extension PackSyncService {
+  /// 삭제를 지원하지 않는 구현은 지우지 않았음을 오류로 알린다.
+  func deletePack(for _: String) async throws {
+    throw PackDeletionUnsupported()
+  }
+}
+
+/// 이 `PackSyncService` 구현은 기기에 저장한 팩을 지울 수 없다.
+public struct PackDeletionUnsupported: Error, Equatable {
+  public init() {}
+}
+
 public enum PackSyncServiceDependency: TestDependencyKey {
   public static var testValue: any PackSyncService {
     return UnimplementedPackSyncService()

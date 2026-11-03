@@ -317,6 +317,79 @@ struct PackSyncTests {
     #expect((cached.checkedAt ?? old) > old)
   }
 
+  @Test("팩을 지우면 디스크 파일과 오프라인 목록에서 사라진다")
+  func deletePackRemovesFile() async throws {
+    let directory = temporaryDirectory()
+    let syncService = service(directory: directory, sockets: [
+      ScriptSocket { request in [snapshot(request, version: 1, etag: "\"one\"")] }
+    ])
+    _ = try await syncService.sync(for: id)
+    let file = directory.appendingPathComponent("\(id).json")
+    #expect(FileManager.default.fileExists(atPath: file.path))
+
+    try await syncService.deletePack(for: id)
+
+    #expect(!FileManager.default.fileExists(atPath: file.path))
+    #expect(try await syncService.cachedPack(for: id) == nil)
+    #expect(try await syncService.cachedPacks().isEmpty)
+    // 이미 지운 팩을 다시 지워도 오류가 아니다.
+    try await syncService.deletePack(for: id)
+  }
+
+  @Test("응답을 기다리는 동안 팩을 지우면 늦은 응답이 팩을 되살리지 않는다", arguments: [false, true])
+  func lateResponseAfterDeleteDoesNotRestorePack(notModified: Bool) async throws {
+    let directory = temporaryDirectory()
+    let slow = ScriptSocket(delayNanoseconds: 200_000_000) { request in
+      if notModified {
+        return [message("pack.not_modified", request["requestId"] as? String ?? "", [
+          "festivalId": "fst_example", "packVersion": 1, "etag": "\"one\""
+        ])]
+      }
+      return [snapshot(request, version: 2, etag: "\"two\"")]
+    }
+    let syncService = service(directory: directory, sockets: [
+      ScriptSocket { request in [snapshot(request, version: 1, etag: "\"one\"")] },
+      slow,
+      ScriptSocket { request in [snapshot(request, version: 3, etag: "\"three\"")] }
+    ])
+    _ = try await syncService.sync(for: id)
+    let late = Task { try await syncService.sync(for: id) }
+    for _ in 0..<50 {
+      if !slow.requests.isEmpty { break }
+      try await Task.sleep(nanoseconds: 10_000_000)
+    }
+
+    try await syncService.deletePack(for: id)
+
+    await #expect(throws: PackSyncError.packDeleted) { try await late.value }
+    #expect(try await syncService.cachedPack(for: id) == nil)
+    // 세대가 내려가지 않아 다음 요청은 정상으로 저장한다.
+    guard case .updated(let pack) = try await syncService.sync(for: id) else {
+      Issue.record("updated pack expected"); return
+    }
+    #expect(pack.packVersion == 3)
+  }
+
+  @Test("감시 중 팩을 지우면 업데이트 알림을 받아도 다시 내려받지 않고 감시를 멈춘다")
+  func updateHintAfterDeleteDoesNotDownloadAgain() async throws {
+    let directory = temporaryDirectory()
+    let socket = ScriptSocket(waitUntilCancelled: true) { request in
+      [snapshot(request, version: 1, etag: "\"one\"")]
+    }
+    let syncService = service(directory: directory, sockets: [socket])
+    var updates = 0
+    for try await result in syncService.updates(for: id) {
+      guard case .updated = result else { continue }
+      updates += 1
+      if updates > 1 { break }
+      try await syncService.deletePack(for: id)
+      socket.push(message("pack.updated", "", ["festivalId": "fst_example", "packVersion": 2]))
+    }
+    #expect(updates == 1)
+    #expect(socket.requests.count == 1)
+    #expect(try await syncService.cachedPack(for: id) == nil)
+  }
+
   @Test("재접속 지연은 지수 증가하고 성공 후 초기화된다")
   func reconnectBackoff() {
     var backoff = ReconnectBackoff()
@@ -565,4 +638,7 @@ private final class ScriptSocket: PackSocket, @unchecked Sendable {
   }
 
   func cancel() { lock.withLock { cancellations += 1 } }
+
+  /// 서버가 요청 없이 보내는 메시지를 흉내 낸다.
+  func push(_ text: String) { lock.withLock { messages.append(text) } }
 }
