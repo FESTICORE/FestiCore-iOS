@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import Foundation
 import Testing
+import TimetableDomainInterface
 @testable import Timetable
 
 @MainActor
@@ -69,6 +70,28 @@ struct TimetableFeatureTests {
     await store.send(.view(.daySelected(3)))
   }
 
+  @Test func swipingPastFirstDayIsIgnored() async {
+    let store = TestStore(initialState: TimetableFeature.State.sample()) {
+      TimetableFeature()
+    }
+
+    await store.send(.view(.daySelected(-1)))
+    await store.send(.view(.daySelected(1))) {
+      $0.selectedDayIndex = 1
+    }
+    await store.send(.view(.daySelected(0))) {
+      $0.selectedDayIndex = 0
+    }
+  }
+
+  @Test func daySwipeNeedsMostlyHorizontalDrag() {
+    #expect(TimetableBoard.dayOffset(forSwipe: CGSize(width: -81, height: 0)) == 1)
+    #expect(TimetableBoard.dayOffset(forSwipe: CGSize(width: 81, height: 20)) == -1)
+    #expect(TimetableBoard.dayOffset(forSwipe: CGSize(width: -80, height: 0)) == nil)
+    #expect(TimetableBoard.dayOffset(forSwipe: CGSize(width: -120, height: 80)) == nil)
+    #expect(TimetableBoard.dayOffset(forSwipe: CGSize(width: 20, height: 200)) == nil)
+  }
+
   @Test func pinchZoomIsKeptAcrossDayChanges() async {
     let store = TestStore(initialState: TimetableFeature.State.sample()) {
       TimetableFeature()
@@ -103,13 +126,6 @@ struct TimetableFeatureTests {
   @Test func changedSetsAreCounted() {
     #expect(TimetableFeature.State.sample(variant: .changed).selectedDay?.changedCount == 2)
     #expect(TimetableFeature.State.sample().selectedDay?.changedCount == 0)
-  }
-
-  @Test func timeTextsMatchDesign() {
-    #expect(TimetableTime.range(1410, 1530) == "23:30–다음날 01:30")
-    #expect(TimetableTime.range(750, 790) == "12:30–13:10")
-    #expect(TimetableTime.change(from: 1000, to: 1020) == "20분 미뤄짐")
-    #expect(TimetableTime.change(from: 1105, to: 1090) == "15분 당겨짐")
   }
 
   @Test func unpublishedStateShowsLineup() {

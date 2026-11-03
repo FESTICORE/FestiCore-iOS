@@ -17,6 +17,7 @@ import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
 import FestiCoreSharedUI
 import TCAFlow
+import TimetableDomainInterface
 @testable import FestiCore
 
 @MainActor

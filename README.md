@@ -50,7 +50,8 @@ Projects/
 │   └── Timetable/                 # 선택한 축제의 공연 시간표
 ├── Domain/
 │   ├── AuthDomain/                # 인증 Entity·Repository·UseCase
-│   └── FestivalDomain/            # 축제 목록 계약과 모델
+│   ├── FestivalDomain/            # 축제 목록 계약과 모델
+│   └── TimetableDomain/           # 타임테이블 공개 값 타입
 ├── Service/
 │   ├── API/                      # API 요청 인터페이스
 │   ├── APIEndpoint/              # API 경로·인증 정책
@@ -97,6 +98,7 @@ flowchart TD
     Festival --> Utility["FestiCoreUtility"]
     Festival --> SharedUI["FestiCoreSharedUI"]
     Login --> AuthDomainInterface["AuthDomain / Interface"]
+    Timetable --> TimetableDomainInterface["TimetableDomain / Interface"]
     AuthDomain --> AuthDomainInterface
     AuthDomain --> AuthInterface["FestiCoreAuth / Interface"]
     AuthDomain --> APIEndpoint

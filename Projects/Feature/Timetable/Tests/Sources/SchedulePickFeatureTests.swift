@@ -10,6 +10,7 @@ import FestivalDomainInterface
 import Foundation
 import Testing
 @testable import Timetable
+import TimetableDomainInterface
 
 @MainActor
 struct SchedulePickFeatureTests {

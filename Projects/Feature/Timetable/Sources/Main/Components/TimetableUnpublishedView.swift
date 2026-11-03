@@ -7,6 +7,7 @@
 
 import FestiCoreDesignKit
 import SwiftUI
+import TimetableDomainInterface
 
 /// 시간표 공개 전 안내와 날짜별 라인업
 struct TimetableUnpublishedView: View {

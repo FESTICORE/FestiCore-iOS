@@ -19,6 +19,7 @@ let project = Project.makeAppModule(
     .feature(.assembly),
     .domain(.auth, .interface),
     .domain(.festival, .interface),
+    .domain(.timetable, .interface),
     .service(.auth, .interface),
     .core(.network, .interface),
     .ui(.designSystem),

@@ -2,6 +2,7 @@ import ComposableArchitecture
 import FestivalDomainInterface
 import Foundation
 import Testing
+import TimetableDomainInterface
 @testable import Timetable
 
 @MainActor
@@ -421,19 +422,6 @@ extension TimetableScheduleTests {
     #expect(detail?.previousTime == "16:40")
     #expect(detail?.change == "20분 미뤄짐")
     #expect(detail?.time == "17:00–17:50 · 50분")
-  }
-
-  @Test func overlapWarningUsesParticleForNonHangulName() {
-    let overlap = TimetableSetOverlap(artist: "NELL", stage: "원더 스테이지", time: "15:55–16:45", minutes: 35)
-
-    #expect(overlap.warning == "NELL(원더 스테이지 15:55–16:45)와 35분 겹쳐요")
-  }
-
-  @Test func overlapWarningUsesParticleForDecomposedHangulName() {
-    let decomposed = "새벽 세션".decomposedStringWithCanonicalMapping
-    let overlap = TimetableSetOverlap(artist: decomposed, stage: "리벳 스테이지", time: "00:30–01:30", minutes: 60)
-
-    #expect(overlap.warning.hasSuffix(")과 60분 겹쳐요"))
   }
 }
 

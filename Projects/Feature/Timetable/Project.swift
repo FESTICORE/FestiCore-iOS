@@ -14,6 +14,7 @@ let project = Project.makeModule(
   name: "Timetable",
   dependencies: [
     .domain(.festival, .interface),
+    .domain(.timetable, .interface),
     .ui(.designSystem),
     .ui(.sharedUI),
     .SPM.composableArchitecture

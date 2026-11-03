@@ -8,6 +8,7 @@
 import ComposableArchitecture
 import FestiCoreDesignKit
 import SwiftUI
+import TimetableDomainInterface
 
 /// Figma S15-1 준비 안내 · 내 일정 고르기
 @ViewAction(for: SchedulePickFeature.self)
