@@ -44,15 +44,13 @@ let packageSettings = PackageSettings(
     "TCAFlow": .framework,
     "SDWebImageSwiftUI": .framework,
 
-    // GoogleSignIn 전이 의존성도 프레임워크로 빌드한다.
+    // GoogleSignIn과 전이 의존성을 프레임워크로 빌드해 AppAuth의 iOS 카테고리가 함께 실리게 한다.
+    "GoogleSignIn": .framework,
     "AppAuth": .framework,
     "AppAuthCore": .framework,
     "GTMAppAuth": .framework,
-    "GTMSessionFetcherCore": .framework,
-
-    // GoogleSignIn 관련
-    "GoogleSignIn": .framework,
     "GTMSessionFetcher": .framework,
+    "GTMSessionFetcherCore": .framework,
 
     "FirebaseCore": .framework,
     "FirebaseCrashlytics": .framework,
