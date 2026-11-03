@@ -24,6 +24,15 @@ struct AppCoordinator {
 
   private enum CancelID { case sessionExpiry, accountOperation }
 
+  /// 약관 상세 기준 주소. 탭 코디네이터와 가입 화면이 같은 값을 쓴다.
+  private let legalBaseURL: URL?
+
+  init(legalBaseURL: URL? = AppCoordinatorView.legalBaseURL(
+    host: Bundle.main.object(forInfoDictionaryKey: "FestiCoreAPIHost") as? String
+  )) {
+    self.legalBaseURL = legalBaseURL
+  }
+
   struct AuthFlow: Equatable {
     enum Presentation: Equatable {
       case login
@@ -45,34 +54,19 @@ struct AppCoordinator {
     var lastVerifiedUserID: String?
     var hasSession = false
     var profile: AuthProfile? {
-      didSet { syncSignUpSheet() }
+      // 가입 초안 규칙이 현재 계정과 약관 버전을 따르도록 프로필이 바뀔 때마다 알린다.
+      didSet {
+        signUp.currentUserID = profile?.user.id
+        signUp.currentTermsVersion = profile?.currentTermsVersion
+      }
     }
-    var presentation: Presentation? {
-      // 가입 화면이 닫히는 모든 경로에서 그 위의 약관 상세도 닫는다.
-      didSet { if presentation != .onboarding { signUp.legalDocument = nil } }
-    }
+    var presentation: Presentation?
     /// 가입 정보 초안(닉네임·약관·알림)
-    var signUp = SignUpFeature.State(legalBaseURL: AppCoordinatorView.configuredLegalBaseURL)
-    var isLoading = false {
-      didSet { syncSignUpSheet() }
-    }
+    var signUp = SignUpFeature.State()
+    var isLoading = false
     var hasRetriedTermsUpdate = false
-    var termsUpdateExhausted = false {
-      didSet { syncSignUpSheet() }
-    }
-    var message: String? {
-      didSet { syncSignUpSheet() }
-    }
-
-    /// 가입 시트가 따르는 흐름 값(계정·약관 버전·제출 중·문구)을 가입 State에 맞춘다.
-    /// 부모가 가입 State에 흐름 값을 넣는 곳은 여기뿐이다.
-    private mutating func syncSignUpSheet() {
-      signUp.currentUserID = profile?.user.id
-      signUp.currentTermsVersion = profile?.currentTermsVersion
-      signUp.isSubmitting = isLoading
-      signUp.message = message
-      signUp.termsUpdateExhausted = termsUpdateExhausted
-    }
+    var termsUpdateExhausted = false
+    var message: String?
 
     /// 요청 계정을 모르는 대기 예약은 다른 계정에 적용되지 않도록 버린다.
     mutating func dropUnownedPendingBookmark() {
@@ -113,17 +107,24 @@ struct AppCoordinator {
       }
     }
 
-    /// 로그인 시트가 따르는 부모 값. 바뀌면 `syncLoginSheet`가 로그인 State에 넣는다.
+    /// 로그인 시트가 떠 있을 때 따르는 부모 값. 바뀌면 `LoginFeature`에 `view(.contextChanged)`로 알린다.
     var loginSheetInput: LoginSheetInput? {
-      guard case let .home(home) = self else { return nil }
+      guard case let .home(home) = self, home.authFlow.presentation == .login else { return nil }
       let context: LoginFeature.State.Context = switch home.selectedTab {
       case .my: .profile
       case .flag: .flag
       case .live, .timetable: .bookmark
       }
-      return LoginSheetInput(
-        context: context,
-        flowMessage: home.authFlow.presentation == .login ? home.authFlow.message : nil
+      return LoginSheetInput(context: context, flowMessage: home.authFlow.message)
+    }
+
+    /// 가입 시트가 떠 있을 때 따르는 부모 값. 바뀌면 `SignUpFeature`에 `view(.flowChanged)`로, 닫히면 `view(.sheetClosed)`로 알린다.
+    var signUpSheetInput: SignUpSheetInput? {
+      guard case let .home(home) = self, home.authFlow.presentation == .onboarding else { return nil }
+      return SignUpSheetInput(
+        isSubmitting: home.authFlow.isLoading,
+        message: home.authFlow.message,
+        termsUpdateExhausted: home.authFlow.termsUpdateExhausted
       )
     }
 
@@ -148,6 +149,12 @@ struct AppCoordinator {
   struct LoginSheetInput: Equatable {
     let context: LoginFeature.State.Context
     let flowMessage: String?
+  }
+
+  struct SignUpSheetInput: Equatable {
+    let isSubmitting: Bool
+    let message: String?
+    let termsUpdateExhausted: Bool
   }
 
   enum Action: ViewAction {
@@ -232,13 +239,23 @@ struct AppCoordinator {
       }
     }
     .ifCaseLet(\.splash, action: \.scope.splash) { SplashFeature() }
-    .ifCaseLet(\.home, action: \.scope.home) { MainTabCoordinator() }
+    .ifCaseLet(\.home, action: \.scope.home) { MainTabCoordinator(legalBaseURL: legalBaseURL) }
     .onChange(of: \.loginSheetInput) { _, input in
-      Reduce { state, _ in
-        guard let input, case var .home(home) = state else { return .none }
-        syncLoginSheet(&home, input: input)
-        state = .home(home)
-        return .none
+      Reduce { _, _ in
+        guard let input else { return .none }
+        return .send(.scope(.home(.login(.view(.contextChanged(input.context, flowMessage: input.flowMessage))))))
+      }
+    }
+    .onChange(of: \.signUpSheetInput) { _, input in
+      Reduce { _, _ in
+        // 가입 시트가 닫히는 모든 경로(닫기·포그라운드 갱신·로그인 상실)에서 그 위의 약관 상세도 닫는다.
+        guard let input else { return .send(.scope(.home(.signUp(.view(.sheetClosed))))) }
+        return .send(.scope(.home(.signUp(.view(.flowChanged(
+          isSubmitting: input.isSubmitting,
+          message: input.message,
+          termsUpdateExhausted: input.termsUpdateExhausted,
+          legalBaseURL: legalBaseURL
+        ))))))
       }
     }
     .onChange(of: \.festivalSession) { previous, state in
@@ -875,12 +892,6 @@ private extension AppCoordinator {
     state = .home(home)
     return pending.map { .send(.scope(.home(.completePendingBookmark(id: $0, userID: userID, shouldBeBooked: shouldBeBooked)))) }
       ?? .send(.scope(.home(.festival(.reloadBookmarks(userID: userID)))))
-  }
-
-  /// 로그인 시트 문구와 흐름 문구를 로그인 State에 맞춘다. 부모가 로그인 State에 값을 넣는 곳은 여기뿐이다.
-  func syncLoginSheet(_ home: inout MainTabCoordinator.State, input: LoginSheetInput) {
-    home.loginState.context = input.context
-    home.loginState.flowMessage = input.flowMessage
   }
 
   /// 이전 계정의 라이브 보드·예약 목록을 바로 비운다.
