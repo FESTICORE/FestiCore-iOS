@@ -21,15 +21,15 @@ struct SignUpFeatureTests {
     let store = TestStore(initialState: state) { SignUpFeature() }
 
     await store.send(.view(.legalDocumentTapped(.terms))) {
-      $0.legalDocument = WebFeature.State(
+      $0.destination = .legalDocument(WebFeature.State(
         url: URL(string: "https://example.com/api/v1/legal/terms")!,
         title: "서비스 이용약관"
-      )
+      ))
     }
     // Web을 닫으면 닉네임·약관 체크·알림 선택은 그대로다(TestStore가 나머지 상태 변화를 함께 확인한다).
-    await store.send(.scope(.legalDocument(.presented(.view(.closeTapped)))))
-    await store.receive(\.scope.legalDocument.presented.delegate.backToRoot) {
-      $0.legalDocument = nil
+    await store.send(.destination(.presented(.legalDocument(.view(.closeTapped)))))
+    await store.receive(\.destination.presented.legalDocument.delegate.backToRoot) {
+      $0.destination = nil
     }
   }
 
@@ -81,8 +81,7 @@ struct SignUpFeatureTests {
   }
 
   @Test @MainActor func submitSendsTrimmedNicknameWithValidity() async {
-    var state = SignUpFeature.State()
-    state.nickname = "  테스터 "
+    var state = submittableState(nickname: "  테스터 ")
     state.pushOptIn = true
     let store = TestStore(initialState: state) { SignUpFeature() }
 
@@ -92,18 +91,77 @@ struct SignUpFeatureTests {
     ))))
   }
 
-  @Test @MainActor func nicknameOutsideOneToTwelveCharactersIsInvalid() async {
-    for nickname in ["   ", String(repeating: "가", count: 13)] {
-      var state = SignUpFeature.State()
-      state.nickname = nickname
-      let store = TestStore(initialState: state) { SignUpFeature() }
+  @Test @MainActor func nicknameOverTwelveCharactersIsInvalid() async {
+    let nickname = String(repeating: "가", count: 13)
+    let store = TestStore(initialState: submittableState(nickname: nickname)) { SignUpFeature() }
 
-      await store.send(.view(.submitTapped))
-      await store.receive(.delegate(.submitRequested(SignUpSubmission(
-        nickname: nickname.trimmingCharacters(in: .whitespacesAndNewlines),
-        pushOptIn: false,
-        isNicknameValid: false
-      ))))
+    await store.send(.view(.submitTapped))
+    await store.receive(.delegate(.submitRequested(SignUpSubmission(
+      nickname: nickname,
+      pushOptIn: false,
+      isNicknameValid: false
+    ))))
+  }
+
+  @Test @MainActor func submitTapWithoutSubmittableStateDoesNothing() async {
+    // 빈 닉네임이나 제출 중에는 제출 요청을 보내지 않는다.
+    let blank = TestStore(initialState: submittableState(nickname: "   ")) { SignUpFeature() }
+    await blank.send(.view(.submitTapped))
+
+    var submitting = submittableState(nickname: "테스터")
+    submitting.isSubmitting = true
+    let busy = TestStore(initialState: submitting) { SignUpFeature() }
+    await busy.send(.view(.submitTapped))
+  }
+
+  @Test @MainActor func flowChangedUpdatesParentFlowValues() async {
+    let base = URL(string: "https://example.com/api/v1/legal/")
+    let store = TestStore(initialState: SignUpFeature.State()) { SignUpFeature() }
+
+    await store.send(.view(.flowChanged(
+      isSubmitting: true,
+      message: "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요.",
+      termsUpdateExhausted: true,
+      legalBaseURL: base
+    ))) {
+      $0.isSubmitting = true
+      $0.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
+      $0.termsUpdateExhausted = true
+      $0.legalBaseURL = base
+    }
+  }
+
+  @Test @MainActor func sheetClosedClosesLegalDetail() async {
+    let store = TestStore(initialState: SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))) {
+      SignUpFeature()
+    }
+
+    await store.send(.view(.legalDocumentTapped(.terms))) {
+      $0.destination = .legalDocument(WebFeature.State(
+        url: URL(string: "https://example.com/api/v1/legal/terms")!,
+        title: "서비스 이용약관"
+      ))
+    }
+    await store.send(.view(.sheetClosed)) {
+      $0.destination = nil
+    }
+  }
+
+  @Test @MainActor func legalDetailDismissKeepsDraft() async {
+    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    state.nickname = "테스터"
+    state.acceptedPrivacyTerms = true
+    let store = TestStore(initialState: state) { SignUpFeature() }
+
+    await store.send(.view(.legalDocumentTapped(.privacy))) {
+      $0.destination = .legalDocument(WebFeature.State(
+        url: URL(string: "https://example.com/api/v1/legal/privacy")!,
+        title: "개인정보 수집 · 이용"
+      ))
+    }
+    // 끌어 내리는 등 표시 쪽에서 닫으면 `.dismiss`가 오고 초안은 그대로다.
+    await store.send(.destination(.dismiss)) {
+      $0.destination = nil
     }
   }
 
@@ -196,5 +254,15 @@ struct SignUpFeatureTests {
     #expect(droppedOtherDraft)
     #expect(state.nickname.isEmpty)
     #expect(state.draftOwnerID == nil)
+  }
+
+  private func submittableState(nickname: String) -> SignUpFeature.State {
+    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    state.currentTermsVersion = "2026-10"
+    state.nickname = nickname
+    state.acceptedServiceTerms = true
+    state.acceptedPrivacyTerms = true
+    state.termsDraftVersion = "2026-10"
+    return state
   }
 }

@@ -30,6 +30,7 @@ public enum CoreModule: String, CaseIterable {
 
 public enum DomainModule: String, CaseIterable {
   case auth = "AuthDomain"
+  case bearer = "BearerDomain"
   case festival = "FestivalDomain"
 
   var path: Path { .relativeToDomain(rawValue) }

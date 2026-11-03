@@ -68,7 +68,7 @@ public struct SignUpView: View {
     .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
       keyboardInset = 0
     }
-    .fullScreenCover(item: $store.scope(state: \.legalDocument, action: \.scope.legalDocument)) { webStore in
+    .fullScreenCover(item: $store.scope(state: \.destination?.legalDocument, action: \.destination.legalDocument)) { webStore in
       WebView(store: webStore)
     }
   }
@@ -83,12 +83,12 @@ private extension SignUpView {
       FestiCoreSemanticColor.lineNormal.color
         .frame(height: 1)
       VStack(spacing: .zero) {
-        FCConsentRow("서비스 이용약관", isChecked: store.acceptedServiceTerms) {
+        FCConsentRow(LegalDocument.terms.title, isChecked: store.acceptedServiceTerms) {
           send(.serviceTermsChanged(!store.acceptedServiceTerms))
         }
         .tag("필수")
         .onDetail(legalLink(.terms))
-        FCConsentRow("개인정보 수집 · 이용", isChecked: store.acceptedPrivacyTerms) {
+        FCConsentRow(LegalDocument.privacy.title, isChecked: store.acceptedPrivacyTerms) {
           send(.privacyTermsChanged(!store.acceptedPrivacyTerms))
         }
         .tag("필수")

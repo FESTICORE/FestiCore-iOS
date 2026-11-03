@@ -33,16 +33,16 @@ public struct SignUpFeature {
     public var pushOptIn = false
     /// 가입 초안(닉네임·약관·알림)을 만든 계정. 계정이 확인될 때 다르면 초안을 버린다.
     public var draftOwnerID: String?
-    /// 부모가 가입을 제출하거나 프로필을 확인하는 중인지. 부모가 넣는다.
+    /// 부모가 가입을 제출하거나 프로필을 확인하는 중인지. 부모가 `view(.flowChanged)`로 알린다.
     public var isSubmitting = false
-    /// 부모 흐름(제출 실패·약관 변경 등) 문구. 부모가 넣는다.
+    /// 부모 흐름(제출 실패·약관 변경 등) 문구. 부모가 `view(.flowChanged)`로 알린다.
     public var message: String?
-    /// 약관이 다시 바뀌어 더 제출할 수 없는지. 부모가 넣는다.
+    /// 약관이 다시 바뀌어 더 제출할 수 없는지. 부모가 `view(.flowChanged)`로 알린다.
     public var termsUpdateExhausted = false
-    /// 약관 상세 기준 주소. 없으면 상세 링크를 숨기고 제출을 막는다.
-    public let legalBaseURL: URL?
-    /// 가입 화면 위에 전체 화면으로 띄운 약관 상세
-    @Presents public var legalDocument: WebFeature.State?
+    /// 약관 상세 기준 주소. 없으면 상세 링크를 숨기고 제출을 막는다. 부모가 `view(.flowChanged)`로 알린다.
+    public var legalBaseURL: URL?
+    /// 가입 화면 위에 전체 화면으로 띄운 화면(약관 상세)
+    @Presents public var destination: Destination.State?
 
     public init(legalBaseURL: URL? = nil) {
       self.legalBaseURL = legalBaseURL
@@ -143,13 +143,13 @@ public struct SignUpFeature {
   @CasePathable
   public enum Action: ViewAction, Equatable {
     case view(View)
-    case scope(ScopeAction)
+    case destination(PresentationAction<Destination.Action>)
     case delegate(SignUpDelegate)
   }
 
-  @CasePathable
-  public enum ScopeAction: Equatable {
-    case legalDocument(PresentationAction<WebFeature.Action>)
+  @Reducer(state: .equatable, action: .equatable)
+  public enum Destination {
+    case legalDocument(WebFeature)
   }
 
   @CasePathable
@@ -163,6 +163,10 @@ public struct SignUpFeature {
     case legalDocumentTapped(LegalDocument)
     case submitTapped
     case closeTapped
+    /// 부모 흐름 값(제출 중·문구·약관 소진·약관 기준 주소)을 부모가 알린다.
+    case flowChanged(isSubmitting: Bool, message: String?, termsUpdateExhausted: Bool, legalBaseURL: URL?)
+    /// 부모가 가입 시트를 닫았다. 위에 띄운 화면도 닫는다.
+    case sheetClosed
   }
 
   public var body: some ReducerOf<Self> {
@@ -209,10 +213,11 @@ public struct SignUpFeature {
 
       case let .view(.legalDocumentTapped(document)):
         guard let url = state.legalURL(for: document) else { return .none }
-        state.legalDocument = WebFeature.State(url: url, title: document.title)
+        state.destination = .legalDocument(WebFeature.State(url: url, title: document.title))
         return .none
 
       case .view(.submitTapped):
+        guard state.canSubmit else { return .none }
         let nickname = state.nickname.trimmingCharacters(in: .whitespacesAndNewlines)
         return .send(.delegate(.submitRequested(SignUpSubmission(
           nickname: nickname,
@@ -223,20 +228,31 @@ public struct SignUpFeature {
       case .view(.closeTapped):
         return .send(.delegate(.closeRequested))
 
-      case .scope(.legalDocument(.presented(.delegate(.backToRoot)))):
-        state.legalDocument = nil
+      case let .view(.flowChanged(isSubmitting, message, termsUpdateExhausted, legalBaseURL)):
+        state.isSubmitting = isSubmitting
+        state.message = message
+        state.termsUpdateExhausted = termsUpdateExhausted
+        state.legalBaseURL = legalBaseURL
         return .none
 
-      case .scope, .delegate:
+      case .view(.sheetClosed):
+        state.destination = nil
+        return .none
+
+      case .destination(.presented(.legalDocument(.delegate(.backToRoot)))):
+        state.destination = nil
+        return .none
+
+      case .destination, .delegate:
         return .none
       }
     }
-    .ifLet(\.$legalDocument, action: \.scope.legalDocument) { WebFeature() }
+    .ifLet(\.$destination, action: \.destination)
   }
 }
 
-private extension LegalDocument {
-  /// 약관 상세 화면 제목. 가입 화면의 동의 항목 이름과 같다.
+extension LegalDocument {
+  /// 가입 화면 동의 항목과 약관 상세 화면이 함께 쓰는 제목
   var title: String {
     switch self {
     case .terms: "서비스 이용약관"

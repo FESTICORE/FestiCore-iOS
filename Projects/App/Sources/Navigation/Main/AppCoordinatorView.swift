@@ -133,11 +133,6 @@ extension AppCoordinatorView {
     guard let host, !host.isEmpty else { return nil }
     return URL(string: "https://\(host)/api/v1/legal/")
   }
-
-  /// 앱 설정(`FestiCoreAPIHost`)으로 만든 약관 기준 주소
-  nonisolated static var configuredLegalBaseURL: URL? {
-    legalBaseURL(host: Bundle.main.object(forInfoDictionaryKey: "FestiCoreAPIHost") as? String)
-  }
 }
 
 #Preview {
