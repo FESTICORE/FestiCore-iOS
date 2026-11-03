@@ -18,4 +18,15 @@ public enum AuthNicknameRule {
   public static func isValid(_ nickname: String) -> Bool {
     lengthRange.contains(trimmed(nickname).count)
   }
+
+  /// 입력을 받을 때 앞뒤 공백을 뺀 길이가 넘칠 때만 자른다. 단어 사이 공백 입력은 막지 않는다.
+  public static func limited(_ input: String) -> String {
+    let trimmedInput = trimmed(input)
+    return trimmedInput.count > maxLength ? String(trimmedInput.prefix(maxLength)) : input
+  }
+
+  /// 입력란 라벨 옆에 보이는 글자 수. 앞뒤 공백은 세지 않는다.
+  public static func counterText(_ input: String) -> String {
+    "\(trimmed(input).count) / \(maxLength)"
+  }
 }

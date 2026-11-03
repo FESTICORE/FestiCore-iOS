@@ -33,6 +33,17 @@ struct SignUpFeatureTests {
     }
   }
 
+  @Test @MainActor func nicknameIsLimitedByTrimmedLength() async {
+    let store = TestStore(initialState: SignUpFeature.State()) { SignUpFeature() }
+    store.exhaustivity = .off
+
+    // 앞뒤 공백은 길이에 세지 않고, 공백을 뺀 길이가 12자를 넘을 때만 자른다.
+    await store.send(.view(.nicknameChanged("  열두글자딱맞는닉네임이에 ")))
+    #expect(store.state.nickname == "  열두글자딱맞는닉네임이에 ")
+    await store.send(.view(.nicknameChanged("  열세글자가넘는아주긴닉네임")))
+    #expect(store.state.nickname == "열세글자가넘는아주긴닉네")
+  }
+
   @Test @MainActor func legalDetailTapWithoutBaseURLDoesNothing() async {
     let store = TestStore(initialState: SignUpFeature.State()) { SignUpFeature() }
 
