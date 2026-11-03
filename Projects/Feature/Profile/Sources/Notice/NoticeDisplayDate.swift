@@ -3,12 +3,11 @@
 //  Profile
 //
 
-import FestiCoreUtility
 import Foundation
+import FestiCoreUtility
 
 enum NoticeDisplayDate {
-  static func format(_ publishedAt: String) -> String {
-    guard let date = publishedAt.isoDate else { return "날짜 정보 없음" }
-    return date.formatted(.day).replacingOccurrences(of: "-", with: ".")
+  static func format(_ publishedAt: Date) -> String {
+    publishedAt.formatted(.day).replacingOccurrences(of: "-", with: ".")
   }
 }

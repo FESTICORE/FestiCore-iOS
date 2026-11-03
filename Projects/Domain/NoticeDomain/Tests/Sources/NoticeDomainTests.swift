@@ -27,10 +27,11 @@ struct NoticeDomainTests {
     #expect(sent.method == "GET")
     #expect(sent.authorization == .none)
     #expect(sent.hasParameters == false)
+    let publishedAt = try #require(ISO8601DateFormatter().date(from: "2026-11-04T00:00:00Z"))
     #expect(notices == [NoticeSummary(
       id: "2c75c8de-517d-4611-9c51-b4ff804dd597",
       title: "서비스 안내",
-      publishedAt: "2026-11-04T00:00:00.000Z"
+      publishedAt: publishedAt
     )])
   }
 
@@ -50,11 +51,12 @@ struct NoticeDomainTests {
     #expect(sent.path == "api/v1/notices/\(id)")
     #expect(sent.method == "GET")
     #expect(sent.authorization == .none)
+    let publishedAt = try #require(ISO8601DateFormatter().date(from: "2026-11-04T00:00:00Z"))
     #expect(detail == NoticeDetail(
       id: id,
       title: "서비스 안내",
       content: "공지 본문",
-      publishedAt: "2026-11-04T00:00:00.000Z"
+      publishedAt: publishedAt
     ))
   }
 
@@ -69,10 +71,22 @@ struct NoticeDomainTests {
       ]}}
       """#.utf8)
     #expect(throws: DecodingError.self) { try JSONDecoder().decode(NoticeListResponseDTO.self, from: nullable) }
+
+    let invalidDate = NoticeRecordingClient(json: #"""
+      {"code":"SUCCESS","message":"OK","data":{"items":[
+        {"id":"x","title":"공지","publishedAt":"invalid"}
+      ]}}
+      """#)
+    let invalidDateRepository = withDependencies {
+      $0.networkClient = invalidDate
+    } operation: {
+      NoticeRepositoryImpl()
+    }
+    await #expect(throws: NoticeError.invalidResponse) { try await invalidDateRepository.notices() }
   }
 
   @Test func useCaseUsesRepositoryAndLiveDependenciesResolve() async throws {
-    let expected = NoticeSummary(id: "notice-id", title: "공지", publishedAt: "2026-11-04T00:00:00.000Z")
+    let expected = NoticeSummary(id: "notice-id", title: "공지", publishedAt: Date(timeIntervalSince1970: 0))
     let useCase = withDependencies {
       $0.noticeRepository = MockNoticeRepository(notices: { [expected] })
     } operation: { NoticeUseCaseImpl() }

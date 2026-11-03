@@ -4,23 +4,23 @@
 //
 
 import ComposableArchitecture
+import Foundation
 import NoticeDomainInterface
 import Testing
 @testable import Profile
 
 @MainActor
 struct NoticeFeatureTests {
-  @Test func noticeDateUsesSeoulDayAcrossUTCMidnightBoundary() {
-    #expect(NoticeDisplayDate.format("2026-11-03T15:30:00Z") == "2026.11.04")
-    #expect(NoticeDisplayDate.format("2026-11-03T15:30:00.000Z") == "2026.11.04")
-    #expect(NoticeDisplayDate.format("invalid") == "날짜 정보 없음")
+  @Test func noticeDateUsesSeoulDayAcrossUTCMidnightBoundary() throws {
+    let date = try #require(ISO8601DateFormatter().date(from: "2026-11-03T15:30:00Z"))
+    #expect(NoticeDisplayDate.format(date) == "2026.11.04")
   }
 
   @Test func listLoadsPublishedNoticesAndOpensDetail() async {
     let notices = [NoticeSummary(
       id: "2c75c8de-517d-4611-9c51-b4ff804dd597",
       title: "서비스 안내",
-      publishedAt: "2026-11-04T00:00:00.000Z"
+      publishedAt: Date(timeIntervalSince1970: 0)
     )]
     let store = TestStore(initialState: NoticeListFeature.State()) {
       NoticeListFeature()
@@ -85,7 +85,7 @@ struct NoticeFeatureTests {
       id: id,
       title: "서비스 안내",
       content: "공지 본문",
-      publishedAt: "2026-11-04T00:00:00.000Z"
+      publishedAt: Date(timeIntervalSince1970: 0)
     )
     let attempts = LockIsolated(0)
     let store = TestStore(initialState: NoticeDetailFeature.State(id: id, title: detail.title)) {

@@ -13,6 +13,7 @@ let project = Project.makeModule(
   product: .framework,
   dependencies: [
     .core(.network, .interface),
+    .core(.utility),
     .service(.apiEndpoint),
     .SPM.dependencies
   ],

@@ -124,6 +124,7 @@ flowchart TD
     NoticeDomain --> NoticeDomainInterface
     NoticeDomain --> APIEndpoint
     NoticeDomain --> NetworkInterface
+    NoticeDomain --> Utility
     ServiceAssembly --> CoreAssembly
     ServiceAssembly --> FestivalDomainInterface
     ServiceAssembly --> Network["FestiCoreNetwork / Implementation"]
