@@ -1,0 +1,29 @@
+flowchart LR
+  App["AppCoordinator<br/>Splash → first-install Onboarding → MainTabCoordinator"]
+  Assembly["FeatureAssembly"]
+  View["Feature View"]
+  Reducer["Feature @Reducer"]
+  UseCaseInterface["Domain UseCase Interface"]
+  UseCaseImpl["Domain UseCase implementation"]
+  RepositoryInterface["Domain Repository Interface"]
+  RepositoryImpl["Domain Repository implementation"]
+  Endpoint["APIEndpoint"]
+  Network["FestiCoreNetwork Interface"]
+  ServiceAssembly["ServiceAssembly · CoreAssembly"]
+  Design["FestiCoreDesignKit<br/>components · skeleton · popup"]
+  Web["WebFeature · WKWebView<br/>terms · privacy in app"]
+  Ticket["FestivalView openURL<br/>ticket link outside app"]
+
+  App --> Assembly
+  Assembly --> View
+  View -->|action · state| Reducer
+  Reducer -->|Dependency| UseCaseInterface
+  UseCaseInterface --> UseCaseImpl
+  UseCaseImpl --> RepositoryInterface
+  RepositoryInterface --> RepositoryImpl
+  RepositoryImpl --> Endpoint
+  RepositoryImpl --> Network
+  ServiceAssembly --> Network
+  View --> Design
+  View -->|legal documents| Web
+  View -->|ticket link| Ticket
