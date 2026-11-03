@@ -7,14 +7,14 @@
 
 import OSLog
 
-enum FestiCoreLogLevel: Int, Comparable, CaseIterable {
+public enum FestiCoreLogLevel: Int, Comparable, CaseIterable, Sendable {
   case debug
   case info
   case notice
   case error
   case fault
 
-  static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
+  public static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
 
   var osLogType: OSLogType {
     switch self {
