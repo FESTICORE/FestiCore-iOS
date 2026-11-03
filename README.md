@@ -110,6 +110,7 @@ flowchart TD
     Festival --> SharedUI["FestiCoreSharedUI"]
     Profile --> FestivalDomainInterface
     Profile --> NoticeDomainInterface["NoticeDomain / Interface"]
+    Profile --> Utility
     Profile --> AuthDomainInterface["AuthDomain / Interface"]
     Profile --> Web
     Profile --> SharedUI

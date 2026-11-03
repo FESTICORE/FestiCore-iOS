@@ -44,7 +44,7 @@ private extension NoticeDetailView {
             Text(detail.title)
               .festiCoreFont(.baseTitle3Bold)
               .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-            Text(String(detail.publishedAt.prefix(10)).replacingOccurrences(of: "-", with: "."))
+            Text(NoticeDisplayDate.format(detail.publishedAt))
               .festiCoreFont(.baseCaption1Regular)
               .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
             FestiCoreSemanticColor.lineNormal.color.frame(height: 1)

@@ -55,7 +55,7 @@ private extension NoticeListView {
                 .padding(.leading, FestiCoreSpacing.paddingP16)
             }
             FCListRow(notice.title) { send(.noticeTapped(notice.id)) }
-              .value(displayDate(notice.publishedAt))
+              .value(NoticeDisplayDate.format(notice.publishedAt))
           }
         }
         .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
@@ -90,7 +90,4 @@ private extension NoticeListView {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
 
-  func displayDate(_ publishedAt: String) -> String {
-    String(publishedAt.prefix(10)).replacingOccurrences(of: "-", with: ".")
-  }
 }

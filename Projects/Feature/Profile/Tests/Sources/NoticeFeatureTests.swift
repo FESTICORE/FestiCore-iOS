@@ -10,6 +10,12 @@ import Testing
 
 @MainActor
 struct NoticeFeatureTests {
+  @Test func noticeDateUsesSeoulDayAcrossUTCMidnightBoundary() {
+    #expect(NoticeDisplayDate.format("2026-11-03T15:30:00Z") == "2026.11.04")
+    #expect(NoticeDisplayDate.format("2026-11-03T15:30:00.000Z") == "2026.11.04")
+    #expect(NoticeDisplayDate.format("invalid") == "날짜 정보 없음")
+  }
+
   @Test func listLoadsPublishedNoticesAndOpensDetail() async {
     let notices = [NoticeSummary(
       id: "2c75c8de-517d-4611-9c51-b4ff804dd597",
