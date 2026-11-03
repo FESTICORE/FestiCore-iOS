@@ -2,6 +2,7 @@ import FeatureAssembly
 import FestivalDomainInterface
 import FestiCoreUtility
 import Foundation
+import TimetableDomainInterface
 
 enum FestivalPackTimetableMapper {
   /// `imageURL`은 팩의 상대 사진 경로를 서버 주소로 바꾼다.

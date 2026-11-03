@@ -8,15 +8,19 @@
 import ComposableArchitecture
 import FestiCoreDesignKit
 import SwiftUI
+import TimetableDomainInterface
 
 /// 무대 헤더와 시간 격자. 무대가 3개 이상이면 가로로도 스크롤한다.
 /// 두 손가락으로 벌리거나 모으면 시간축을 확대·축소한다.
+/// 가로로 스크롤하지 않을 때는 좌우로 밀어 전날·다음 날로 넘긴다.
 struct TimetableBoard: View {
   /// 상태 사본을 받으면 배율·현재 시각이 바뀌어도 상위 화면이 다시 그려지기 전까지 이전 값을 쓰므로 Store에서 직접 읽는다.
   let store: StoreOf<TimetableFeature>
   let day: TimetableDay
   let onSetTap: (String) -> Void
   let onZoomEnd: (Double) -> Void
+  /// 좌우 스와이프로 옮길 날짜 간격. 다음 날이면 1, 전날이면 -1이다.
+  let onDaySwipe: (Int) -> Void
 
   /// 손가락을 움직이는 동안의 배율. 제스처가 끝나거나 취소되면 1로 돌아가고, 끝날 때만 리듀서에 확정값을 보낸다.
   @GestureState private var gestureMagnification: CGFloat = 1
@@ -42,6 +46,19 @@ struct TimetableBoard: View {
           onZoomEnd(Double(clampedZoom(value.magnification)))
         }
     )
+    // 가로로 스크롤하는 보드에서는 스와이프가 스크롤과 겹치므로 붙이지 않는다.
+    .simultaneousGesture(daySwipe, including: isWide ? .subviews : .all)
+  }
+}
+
+extension TimetableBoard {
+  /// 날짜를 넘길 스와이프인지 판정한다. 가로로 80 이상, 세로의 1.5배를 넘게 밀었을 때만 반응한다.
+  /// - Returns: 왼쪽으로 밀면 다음 날(1), 오른쪽으로 밀면 전날(-1). 아니면 nil.
+  static func dayOffset(forSwipe translation: CGSize) -> Int? {
+    let horizontal = translation.width
+    guard abs(horizontal) > Metric.swipeThreshold,
+          abs(horizontal) > abs(translation.height) * Metric.swipeRatio else { return nil }
+    return horizontal < 0 ? 1 : -1
   }
 }
 
@@ -56,6 +73,14 @@ private extension TimetableBoard {
 
   var isWide: Bool {
     day.stages.count > Metric.fillingStageCount
+  }
+
+  var daySwipe: some Gesture {
+    DragGesture(minimumDistance: Metric.swipeMinimumDistance)
+      .onEnded { value in
+        guard let offset = Self.dayOffset(forSwipe: value.translation) else { return }
+        onDaySwipe(offset)
+      }
   }
 
   var startHour: Int {
@@ -98,7 +123,7 @@ private extension TimetableBoard {
       }
       columns
       if let now = store.nowMinute, (startHour * 60 ... endHour * 60).contains(now) {
-        FCNowLine(time: TimetableTime.clock(now))
+        FCNowLine(time: TimetableDay.clock(now))
           .offset(y: y(now) - Metric.nowLineHeight / 2)
       }
     }
@@ -115,7 +140,7 @@ private extension TimetableBoard {
           .frame(height: Metric.lineWidth)
           .padding(.leading, Metric.hourLineInset)
           .padding(.trailing, FestiCoreSpacing.paddingP16)
-        Text(TimetableTime.clock(hour * 60))
+        Text(TimetableDay.clock(hour * 60))
           .festiCoreFont(.baseCaption1Regular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
           .padding(.leading, FestiCoreSpacing.paddingP12)
@@ -149,10 +174,7 @@ private extension TimetableBoard {
     } label: {
       FCSetBlock(
         artist: set.artist,
-        time: TimetableTime.range(
-          set.start,
-          set.end
-        )
+        time: set.timeRange
       )
       .state(blockState(set))
       // 축소해도 아주 짧은 공연이 사라지지 않게 최소 높이를 둔다.
@@ -191,13 +213,10 @@ private extension TimetableBoard {
   }
 
   private func blockState(_ set: TimetableSet) -> FCSetBlock.State {
-    if let previous = set.previousStart {
+    if let previousTime = set.previousTime, let change = set.startChange {
       return .changed(
-        oldTime: TimetableTime.clock(previous),
-        change: TimetableTime.change(
-          from: previous,
-          to: set.start
-        )
+        oldTime: previousTime,
+        change: change
       )
     }
     if store.state.isOverlapping(set) {
@@ -228,6 +247,9 @@ private extension TimetableBoard {
     static let maxZoom: CGFloat = 2
     static let minBlockHeight: CGFloat = 8
     static let fillingStageCount = 2
+    static let swipeMinimumDistance: CGFloat = 30
+    static let swipeThreshold: CGFloat = 80
+    static let swipeRatio: CGFloat = 1.5
     static let defaultStart = 12 * 60
     static let defaultEnd = 24 * 60
     static let leadingInset: CGFloat = 56

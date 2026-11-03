@@ -8,6 +8,7 @@
 import ComposableArchitecture
 import FestivalDomainInterface
 import Foundation
+import TimetableDomainInterface
 import TimetableInterface
 
 @Reducer
@@ -134,12 +135,12 @@ public struct TimetableFeature {
       let detail = TimetableSetDetail(
         artist: set.artist,
         stage: day.stages.first { $0.id == set.stageID }?.name ?? "무대 미정",
-        time: TimetableTime.rangeWithDuration(set.start, set.end),
+        time: set.timeRangeWithDuration,
         status: .init(interval: interval, now: now),
         isScheduled: mySetIDs.contains(id),
         overlap: overlaps(of: set, in: day).first,
-        previousTime: set.previousStart.map(TimetableTime.clock),
-        change: set.previousStart.map { TimetableTime.change(from: $0, to: set.start) },
+        previousTime: set.previousTime,
+        change: set.startChange,
         imageURL: set.imageURL
       )
       return TimetableSetDetailFeature.Content(
@@ -170,7 +171,7 @@ public struct TimetableFeature {
         return TimetableSetOverlap(
           artist: mine.set.artist,
           stage: stages.first { $0.id == mine.set.stageID }?.name ?? "무대 미정",
-          time: TimetableTime.range(mine.set.start, mine.set.end),
+          time: mine.set.timeRange,
           minutes: Int((shared.duration / 60).rounded())
         )
       }

@@ -8,6 +8,7 @@
 import ComposableArchitecture
 import FestivalDomainInterface
 import Foundation
+import TimetableDomainInterface
 import TimetableInterface
 
 /// Figma S15-1 준비 안내 · 내 일정 고르기. 고른 공연을 서버 내 일정 전체로 저장한다.
