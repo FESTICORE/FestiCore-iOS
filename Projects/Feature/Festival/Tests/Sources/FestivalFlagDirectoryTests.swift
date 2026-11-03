@@ -93,12 +93,12 @@ struct FestivalFlagDirectoryTests {
       $0.festivalFlagUseCase = FlagUseCaseStub(follow: SuspendedFollowService(clock: clock, followerCount: 11))
     }
 
-    await store.send(.directory(.view(.followTapped(id: "a", follow: true, baseCount: 10))))) {
+    await store.send(.directory(.view(.followTapped(id: "a", follow: true, baseCount: 10)))) {
       $0.directory.pendingFollows["a"] = .some(10)
     }
     await store.receive(\.directory.async.setFollowing)
     // 응답 전에 다시 누르면 요청을 보내지 않는다.
-    await store.send(.directory(.view(.followTapped(id: "a", follow: true, baseCount: 10)))))
+    await store.send(.directory(.view(.followTapped(id: "a", follow: true, baseCount: 10))))
     await clock.advance(by: .seconds(60))
     await store.receive(\.directory.inner.followResponse) {
       $0.directory.pendingFollows = [:]
@@ -117,7 +117,7 @@ struct FestivalFlagDirectoryTests {
       $0.festivalFlagUseCase = FlagUseCaseStub(follow: StubFollowService(result: .failure(.loginRequired)))
     }
 
-    await store.send(.directory(.view(.followTapped(id: "a", follow: true, baseCount: nil))))) {
+    await store.send(.directory(.view(.followTapped(id: "a", follow: true, baseCount: nil)))) {
       $0.directory.pendingFollows["a"] = .some(nil)
     }
     await store.receive(\.directory.async.setFollowing)
@@ -132,7 +132,7 @@ struct FestivalFlagDirectoryTests {
       $0.festivalFlagUseCase = FlagUseCaseStub(follow: StubFollowService(result: .failure(.termsRequired)))
     }
 
-    await store.send(.directory(.view(.followTapped(id: "a", follow: true, baseCount: nil))))) {
+    await store.send(.directory(.view(.followTapped(id: "a", follow: true, baseCount: nil)))) {
       $0.directory.pendingFollows["a"] = .some(nil)
     }
     await store.receive(\.directory.async.setFollowing)
@@ -153,7 +153,7 @@ struct FestivalFlagDirectoryTests {
       $0.continuousClock = clock
     }
 
-    await store.send(.directory(.view(.followTapped(id: "a", follow: true, baseCount: nil))))) {
+    await store.send(.directory(.view(.followTapped(id: "a", follow: true, baseCount: nil)))) {
       $0.directory.pendingFollows["a"] = .some(nil)
     }
     await store.receive(\.directory.async.setFollowing)
@@ -183,7 +183,7 @@ struct FestivalFlagDirectoryTests {
       )
     }
 
-    await store.send(.directory(.view(.followTapped(id: "a", follow: true, baseCount: 10))))) {
+    await store.send(.directory(.view(.followTapped(id: "a", follow: true, baseCount: 10)))) {
       $0.directory.pendingFollows["a"] = .some(10)
     }
     await store.receive(\.directory.async.setFollowing)
@@ -275,7 +275,7 @@ struct FestivalFlagDirectoryTests {
       )
     }
 
-    await store.send(.directory(.view(.followTapped(id: "a", follow: true, baseCount: 10))))) {
+    await store.send(.directory(.view(.followTapped(id: "a", follow: true, baseCount: 10)))) {
       $0.directory.pendingFollows["a"] = .some(10)
     }
     await store.receive(\.directory.async.setFollowing)
@@ -284,7 +284,7 @@ struct FestivalFlagDirectoryTests {
       $0.directory.followOverrides["a"] = .init(isFollowing: true, followerCount: 11, baseCount: 10)
     }
     // 화면이 가진 원본 스냅샷은 여전히 10명이다.
-    await store.send(.directory(.view(.followTapped(id: "a", follow: false, baseCount: 10))))) {
+    await store.send(.directory(.view(.followTapped(id: "a", follow: false, baseCount: 10)))) {
       $0.directory.pendingFollows["a"] = .some(11)
     }
     await store.receive(\.directory.async.setFollowing)
@@ -326,7 +326,7 @@ struct FestivalFlagDirectoryTests {
       )
     }
 
-    await store.send(.directory(.view(.followTapped(id: "b", follow: true, baseCount: nil))))) {
+    await store.send(.directory(.view(.followTapped(id: "b", follow: true, baseCount: nil)))) {
       $0.directory.pendingFollows["b"] = .some(nil)
     }
     await store.receive(\.directory.async.setFollowing)

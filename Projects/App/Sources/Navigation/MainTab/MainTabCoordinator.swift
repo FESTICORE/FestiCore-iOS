@@ -147,10 +147,10 @@ struct MainTabCoordinator {
       case .timetable:
         return .none
 
-      case .flag(.directory(.delegate(.loginRequested)))):
+      case .flag(.directory(.delegate(.loginRequested))):
         return .send(.delegate(.myLoginRequested))
 
-      case .flag(.directory(.delegate(.termsAcceptanceRequested)))):
+      case .flag(.directory(.delegate(.termsAcceptanceRequested))):
         return .send(.delegate(.myProfileRefreshRequested))
 
       case .flag, .delegate:

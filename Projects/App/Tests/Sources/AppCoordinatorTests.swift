@@ -1193,7 +1193,7 @@ struct AppCoordinatorTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.flag(.directory(.delegate(.loginRequested)))))
+    await store.send(.flag(.directory(.delegate(.loginRequested))))
     await store.receive {
       guard case .delegate(.myLoginRequested) = $0 else { return false }
       return true
@@ -1205,7 +1205,7 @@ struct AppCoordinatorTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.flag(.directory(.delegate(.termsAcceptanceRequested)))))
+    await store.send(.flag(.directory(.delegate(.termsAcceptanceRequested))))
     await store.receive {
       guard case .delegate(.myProfileRefreshRequested) = $0 else { return false }
       return true
