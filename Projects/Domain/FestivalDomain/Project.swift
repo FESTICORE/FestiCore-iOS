@@ -18,6 +18,7 @@ let project = Project.makeModule(
   hasTests: true,
   hasInterface: true,
   interfaceDependencies: [
+    .service(.pack, .interface),
     .SPM.dependencies
   ]
 )

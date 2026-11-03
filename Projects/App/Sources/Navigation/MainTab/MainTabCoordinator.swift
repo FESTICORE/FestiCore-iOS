@@ -216,13 +216,13 @@ struct MainTabCoordinator {
     state: inout State,
     appearing: Bool
   ) -> Effect<Action> {
-    var selected: (festivalID: String?, pack: FestivalPackDocument)?
+    var selected: (festivalID: String?, pack: FestivalPackDocument, imageURL: (String?) -> URL?)?
     if let screen = state.festivalState.routes.last?.screen,
        case let .liveBoard(home) = screen,
        let pack = home.selectedPack {
-      selected = (home.selectedFestivalID, pack)
+      selected = (home.selectedFestivalID, pack, home.imageURL(for:))
     }
-    let days = selected.map { FestivalPackTimetableMapper.days(from: $0.pack) } ?? []
+    let days = selected.map { FestivalPackTimetableMapper.days(from: $0.pack, imageURL: $0.imageURL) } ?? []
     let daysChanged = state.timetableState.days != days
     if daysChanged {
       let selectedID = state.timetableState.selectedDay?.id
