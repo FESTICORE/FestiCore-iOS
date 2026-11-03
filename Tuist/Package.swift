@@ -43,7 +43,17 @@ let packageSettings = PackageSettings(
     "StructuredQueriesSQLiteCore": .framework,
     "TCAFlow": .framework,
     "SDWebImageSwiftUI": .framework,
+
+    // GoogleSignIn 전이 의존성도 프레임워크로 빌드한다.
+    "AppAuth": .framework,
+    "AppAuthCore": .framework,
+    "GTMAppAuth": .framework,
+    "GTMSessionFetcherCore": .framework,
+
+    // GoogleSignIn 관련
     "GoogleSignIn": .framework,
+    "GTMSessionFetcher": .framework,
+
     "FirebaseCore": .framework,
     "FirebaseCrashlytics": .framework,
     "Kingfisher": .framework,
@@ -56,8 +66,6 @@ let packageSettings = PackageSettings(
     "Sharing": .settings(base: ["PRODUCT_NAME": "FestiCorePointFreeSharing"]),
     // xctest-dynamic-overlay 호환 타깃과 swift-issue-reporting의 출력 이름 충돌을 피한다.
     "_IssueReporting": .settings(base: ["PRODUCT_NAME": "FestiCoreIssueReportingCompatibility"]),
-    // 동적 GoogleSignIn이 정적 AppAuth의 iOS 카테고리(로그인 화면 표시)를 함께 링크해야 로그인 시 크래시가 나지 않는다.
-    "GoogleSignIn": .settings(base: ["OTHER_LDFLAGS": "$(inherited) -ObjC"]),
     // SVGKit은 모르는 기기(arm64 시뮬레이터·신형 iPhone)의 PPI를 NSAssert로 막아 SVG 파싱이 실패한다.
     "SVGKit": .settings(base: ["ENABLE_NS_ASSERTIONS": "NO"])
   ]
