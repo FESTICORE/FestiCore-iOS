@@ -69,6 +69,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State()) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.firstInstallOnboardingStore = FirstInstallOnboardingStore(
         hasCompleted: { false }, markCompleted: { saves.withLock { $0 += 1 } }
       )
@@ -93,6 +94,7 @@ struct AppCoordinatorTests {
 
   @Test func unreadableInstallReceiptOpensHome() async {
     let store = TestStore(initialState: AppCoordinator.State()) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.firstInstallOnboardingStore = FirstInstallOnboardingStore(
         hasCompleted: { throw OnboardingTestError.unreadable }, markCompleted: {}
       )
@@ -113,6 +115,7 @@ struct AppCoordinatorTests {
     let first = TestStore(initialState: AppCoordinator.State.onboarding(.init())) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.firstInstallOnboardingStore = FirstInstallOnboardingStore(
         hasCompleted: { false },
         markCompleted: {
@@ -134,6 +137,7 @@ struct AppCoordinatorTests {
     let relaunched = TestStore(initialState: AppCoordinator.State()) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.firstInstallOnboardingStore = FirstInstallOnboardingStore(
         hasCompleted: { false }, markCompleted: {}
       )
@@ -151,6 +155,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.onboarding(onboarding)) {
       AppCoordinator()
     } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
       $0.firstInstallOnboardingStore = FirstInstallOnboardingStore(
         hasCompleted: { false }, markCompleted: { saves.withLock { $0 += 1 } }
       )
