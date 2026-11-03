@@ -390,7 +390,9 @@ private struct ClaimRecordingRepository: BearerRepositoryInterface {
 
   func fetchBoard(flagID: String) async throws -> BearerBoard { throw BearerError.unavailable }
   func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile { throw BearerError.unavailable }
-  func uploadPhoto(flagID: String, jpegData: Data) async throws -> BearerFlagPhoto { throw BearerError.unavailable }
+  func uploadPhoto(flagID: String, jpegData: Data, progress: @escaping @Sendable (Double) -> Void) async throws -> BearerFlagPhoto {
+    throw BearerError.unavailable
+  }
   func sendStatus(flagID: String, request: BearerStatusRequest) async throws -> BearerFlagStatus { throw BearerError.unavailable }
   func inviteCoBearer(flagID: String) async throws -> BearerInvite { throw BearerError.unavailable }
   func removeCoBearer(flagID: String, userID: String) async throws { throw BearerError.unavailable }
