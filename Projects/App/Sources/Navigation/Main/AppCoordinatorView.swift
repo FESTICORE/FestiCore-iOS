@@ -31,6 +31,12 @@ struct AppCoordinatorView: View {
             .transition(.opacity.combined(with: .scale(scale: 0.98)))
         }
 
+      case .onboarding:
+        if let onboardingStore = store.scope(\.onboarding, action: \.scope.onboarding) {
+          OnboardingView(store: onboardingStore)
+            .transition(.opacity)
+        }
+
       case .home:
         if let homeStore = store.scope(\.home, action: \.scope.home) {
           MainTabView(store: homeStore)

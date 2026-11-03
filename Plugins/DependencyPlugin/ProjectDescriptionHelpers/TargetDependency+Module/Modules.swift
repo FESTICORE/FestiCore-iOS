@@ -12,6 +12,7 @@ public enum FeatureModule: String, CaseIterable {
   case bearer = "Bearer"
   case festival = "Festival"
   case login = "Login"
+  case onboarding = "Onboarding"
   case profile = "Profile"
   case timetable = "Timetable"
   case web = "Web"

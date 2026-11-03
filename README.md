@@ -22,7 +22,7 @@ FestiCore는 축제를 위한 iOS 앱입니다. Festival 모듈에서 축제 목
 
 현재 구성:
 
-- Stage·Prod 앱, Splash에서 탭과 축제 목록·라이브 보드로 이어지는 TCA 화면 전환
+- Stage·Prod 앱, Splash에서 첫 설치 온보딩을 거쳐 탭과 축제 목록·라이브 보드로 이어지는 TCA 화면 전환
 - 네트워크·인증·저장소·로깅의 모듈 경계와 의존성 조립
 - APNs 토큰의 Keychain 보관과 앱 실행 시 기기 등록
 - 공개 축제 목록의 마지막 정상 응답 저장, 팩 WebSocket 동기화와 오프라인 복구
@@ -123,7 +123,7 @@ flowchart TD
 
 ### TCA 화면 흐름
 
-`AppCoordinator`는 Splash가 끝나면 `MainTabCoordinator`를 표시합니다. `FestivalCoordinator`의 첫 경로는 축제 목록이며, 축제를 선택하면 라이브 보드 경로를 추가합니다. 목록과 라이브 보드의 상태는 `FestivalFeature`가 관리합니다. `MainTabCoordinator`는 선택한 축제 팩의 시간표를 Timetable 탭에 전달합니다.
+`AppCoordinator`는 Splash가 끝나면 설치 기록을 읽습니다. 기록이 없으면 `OnboardingFeature`의 네 화면을 보여 주고, 완료 또는 건너뛰기 후 기록을 남긴 뒤 `MainTabCoordinator`로 전환합니다. 다운로드한 네 PNG는 모듈 경계에 맞춰 Onboarding Feature의 자산 카탈로그에 3x로 등록했습니다. 첫 실행에는 대기 기록도 저장하므로 완료 기록 쓰기에 실패해도 다음 실행에 온보딩을 다시 표시합니다. 이전 버전의 `FestiCore.selectedFestivalID`, `FestiCore.bookedFestivalIDs*`, `FestiCore.festivalRecentSearches*` 값이 남아 있고 대기 기록이 없으면 기존 설치로 판단해 건너뜁니다. 이 값이 없는 이전 설치와 Keychain만 남은 재설치는 새 설치와 구별할 수 없습니다. `FestivalCoordinator`의 첫 경로는 축제 목록이며, 축제를 선택하면 라이브 보드 경로를 추가합니다. 목록과 라이브 보드의 상태는 `FestivalFeature`가 관리합니다. `MainTabCoordinator`는 선택한 축제 팩의 시간표를 Timetable 탭에 전달합니다.
 
 `FestivalFeature.State.catalog`는 `IdentifiedArrayOf<FestivalCatalogItem>`을 사용합니다. `FestivalCatalogUseCase`는 중복 축제와 초기 선택을 처리하고, `FestivalImageUseCase`는 이미지 수집·프리페치 대상을 정리합니다. 두 유스케이스는 목록 상태 파생 함수라 `Projects/Feature/Festival/Sources/FestivalList/Reducer/`에 있습니다. 날짜 포맷은 `FestiCoreUtility`, 라이브 보드 모델과 클라이언트는 `Festival/Sources/LiveBoard/`에 있습니다.
 

@@ -9,6 +9,22 @@ import FestiCoreStorageInterface
 
 @MainActor
 struct NotificationPermissionTests {
+  @Test("온보딩에서는 알림 권한을 묻지 않고 홈 진입 중복 요청을 막는다")
+  func permissionRefreshWaitsForHomeAndCoalescesRequests() {
+    var gate = NotificationPermissionRefreshGate()
+    let splash = gate.beginIfNeeded(isHome: false)
+    let onboarding = gate.beginIfNeeded(isHome: false)
+    let home = gate.beginIfNeeded(isHome: true)
+    let duplicate = gate.beginIfNeeded(isHome: true)
+    #expect(!splash)
+    #expect(!onboarding)
+    #expect(home)
+    #expect(!duplicate)
+    gate.finish()
+    let foreground = gate.beginIfNeeded(isHome: true)
+    #expect(foreground)
+  }
+
   @Test("거부 안내는 세션에서 한 번만 표시한다")
   func settingsAlertShowsOnce() {
     var gate = NotificationSettingsAlertGate()

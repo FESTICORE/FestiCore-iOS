@@ -42,14 +42,16 @@ private struct RootView: View {
   }
   @State private var showNotificationSettingsAlert = false
   @State private var notificationSettingsAlertGate = NotificationSettingsAlertGate()
+  @State private var notificationPermissionRefreshGate = NotificationPermissionRefreshGate()
 
   var body: some View {
     AppCoordinatorView(store: store)
+      .preferredColorScheme(.dark)
       .onOpenURL { url in
         FeatureOAuthURLHandler.handle(url)
       }
-      .task {
-        await refreshNotificationPermission()
+      .onChange(of: store.state.animationID) { _, _ in
+        Task { await refreshNotificationPermission() }
       }
       .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
         Task { await refreshNotificationPermission() }
@@ -69,11 +71,29 @@ private struct RootView: View {
 
 private extension RootView {
   func refreshNotificationPermission() async {
-    guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+    guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
+          notificationPermissionRefreshGate.beginIfNeeded(
+            isHome: store.state.animationID == "home"
+          ) else { return }
+    defer { notificationPermissionRefreshGate.finish() }
     let result = await appDelegate.requestNotificationPermission()
     if notificationSettingsAlertGate.shouldShow(for: result) {
       showNotificationSettingsAlert = true
     }
+  }
+}
+
+struct NotificationPermissionRefreshGate {
+  private var isRefreshing = false
+
+  mutating func beginIfNeeded(isHome: Bool) -> Bool {
+    guard isHome, !isRefreshing else { return false }
+    isRefreshing = true
+    return true
+  }
+
+  mutating func finish() {
+    isRefreshing = false
   }
 }
 
