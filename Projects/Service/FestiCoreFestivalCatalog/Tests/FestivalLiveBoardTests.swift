@@ -159,7 +159,7 @@ struct FestivalLiveBoardTests {
         "serverAt":"2026-10-20T09:00:00Z",
         "activeFlags":[{"flagId":"flg_a","status":"active","zoneId":"A","activity":"sing",
         "updatedAt":"2026-10-20T09:00:01.123Z"}],
-        "me":{"following":["flg_a","flg_b"],"pinnedFlagId":"flg_b",
+        "me":{"following":["flg_a","flg_b"],"pinnedFlagId":"flg_b","bearerOf":["flg_b"],
         "crew":{"id":"crw_a","name":"우리 크루","ownerId":"usr_a",
         "gatherRequest":{"zoneId":"B","byUserId":"usr_a","at":"2026-10-20T09:00:02Z"},
         "gatherAvailableAt":"2026-10-20T09:10:00.456Z",
@@ -187,6 +187,7 @@ struct FestivalLiveBoardTests {
     #expect(board.followedFlags.map(\.name) == ["첫 깃발", "두 번째 깃발"])
     #expect(board.serverAt == date("2026-10-20T09:00:00Z"))
     #expect(board.pinnedFlagID == "flg_b")
+    #expect(board.bearerFlagIDs == ["flg_b"])
     #expect(board.activeFlags.first?.tags == ["sing"])
     #expect(board.activeFlags.first?.updatedAt == date("2026-10-20T09:00:01.123Z"))
     #expect(board.followedFlags.last?.tags == ["slam", "newbie"])
@@ -223,6 +224,7 @@ struct FestivalLiveBoardTests {
 
     #expect(board.serverAt == date("2026-10-20T09:00:00Z"))
     #expect(board.pinnedFlagID == nil)
+    #expect(board.bearerFlagIDs.isEmpty)
     #expect(board.activeFlags.first?.updatedAt == date("2026-10-20T09:00:01Z"))
     #expect(board.activeFlags.first?.tags == [])
     #expect(board.crew?.ownerID == nil)

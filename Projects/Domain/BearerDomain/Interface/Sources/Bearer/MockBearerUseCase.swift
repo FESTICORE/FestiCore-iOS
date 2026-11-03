@@ -35,8 +35,9 @@ public struct MockBearerUseCase: BearerUseCaseInterface {
     try await repository.updateProfile(flagID: flagID, change: change)
   }
 
-  public func uploadPhoto(flagID: String, imageData: Data) async throws -> BearerFlagPhoto {
-    try await repository.uploadPhoto(flagID: flagID, jpegData: imageData)
+  public func uploadPhoto(flagID: String, imageData: Data) -> AsyncThrowingStream<BearerPhotoUploadEvent, Error> {
+    reportIssue("\(dependencyName) 미등록")
+    return AsyncThrowingStream { $0.finish(throwing: BearerError.unavailable) }
   }
 
   public func makeStatusRequest(_ change: BearerStatusChange) -> BearerStatusRequest {
@@ -46,6 +47,24 @@ public struct MockBearerUseCase: BearerUseCaseInterface {
 
   public func sendStatus(flagID: String, request: BearerStatusRequest) async throws -> BearerFlagStatus {
     try await repository.sendStatus(flagID: flagID, request: request)
+  }
+
+  public func enqueueStatus(flagID: String, ownerUserID: String, request: BearerStatusRequest) async {
+    reportIssue("\(dependencyName) 미등록")
+  }
+
+  public func pendingStatus(flagID: String) async -> [BearerStatusRequest] {
+    reportIssue("\(dependencyName) 미등록")
+    return []
+  }
+
+  public func statusEvents(flagID: String) async -> AsyncStream<BearerOutboxEvent> {
+    reportIssue("\(dependencyName) 미등록")
+    return AsyncStream { $0.finish() }
+  }
+
+  public func retryPendingStatus() async {
+    reportIssue("\(dependencyName) 미등록")
   }
 
   public func inviteCoBearer(flagID: String) async throws -> BearerInvite {

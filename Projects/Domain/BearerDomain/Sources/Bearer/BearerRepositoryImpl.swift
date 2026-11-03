@@ -72,11 +72,15 @@ public struct BearerRepositoryImpl: BearerRepositoryInterface {
     return response.data.toDomain(baseURL: baseURL)
   }
 
-  public func uploadPhoto(flagID: String, jpegData: Data) async throws -> BearerFlagPhoto {
+  public func uploadPhoto(
+    flagID: String,
+    jpegData: Data,
+    progress: @escaping @Sendable (Double) -> Void
+  ) async throws -> BearerFlagPhoto {
     let sessionID = try await authenticatedSessionID()
     let request = FlagPhotoUploadRequest<BearerPhotoResponseDTO>(flagID: flagID, imageData: jpegData, sessionID: sessionID)
     do {
-      let response = try await client.upload(request)
+      let response = try await client.upload(request, progress: progress)
       return BearerFlagPhoto(
         photoURL: BearerImageURL.resolve(response.data.photoUrl, baseURL: baseURL),
         thumbnailURL: BearerImageURL.resolve(response.data.thumbUrl, baseURL: baseURL)

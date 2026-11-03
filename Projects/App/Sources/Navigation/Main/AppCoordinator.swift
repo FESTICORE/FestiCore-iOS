@@ -938,10 +938,11 @@ private extension AppCoordinator {
   }
 
   func isBooked(_ id: String, in festival: FestivalCoordinator.State) -> Bool {
-    guard let screen = festival.routes.last?.screen else { return false }
+    guard let screen = festival.routes.last(where: { !$0.screen.is(\.bearerBoard) })?.screen else { return false }
     switch screen {
     case let .festivalList(list): return list.bookedFestivalIDs.contains(id)
     case let .liveBoard(board): return board.bookedFestivalIDs.contains(id)
+    case .bearerBoard: return false
     }
   }
 }

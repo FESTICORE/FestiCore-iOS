@@ -28,7 +28,11 @@ public struct MockBearerRepository: BearerRepositoryInterface {
     throw unregistered()
   }
 
-  public func uploadPhoto(flagID: String, jpegData: Data) async throws -> BearerFlagPhoto {
+  public func uploadPhoto(
+    flagID: String,
+    jpegData: Data,
+    progress: @escaping @Sendable (Double) -> Void
+  ) async throws -> BearerFlagPhoto {
     throw unregistered()
   }
 

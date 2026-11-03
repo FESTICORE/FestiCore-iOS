@@ -59,7 +59,8 @@ public extension FestivalLiveBoardDataDTO {
       serverAt: serverTime,
       pinnedFlagID: me?.pinnedFlagId,
       directoryFlags: directoryFlags,
-      receivedAt: receivedAt
+      receivedAt: receivedAt,
+      bearerFlagIDs: me?.bearerOf ?? []
     )
   }
 
