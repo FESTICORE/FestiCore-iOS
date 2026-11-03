@@ -86,9 +86,10 @@ public struct TimetableFeature {
       days.indices.contains(selectedDayIndex) ? days[selectedDayIndex] : nil
     }
 
-    /// 내 일정 고르기를 열 수 있는지. 서버 일정을 읽거나 저장하는 동안에는 열지 않는다.
+    /// 내 일정 고르기를 열 수 있는지. 서버 일정과 맞춰져 있고 저장 중이 아닐 때만 연다.
+    /// 로그인 전이거나 서버 일정을 읽지 못했으면 다른 기기 일정을 덮어쓰지 않도록 열지 않는다.
     public var canPickSchedule: Bool {
-      festivalID != nil && isPublished && scheduleSync != .loading && !isSaving
+      festivalID != nil && isPublished && scheduleSync == .ready && !isSaving
     }
 
     public var mySetCount: Int {
@@ -324,11 +325,12 @@ extension TimetableFeature {
       return .send(.delegate(.requestNotification))
 
     case .schedulePickTapped:
-      guard state.canPickSchedule, let festivalID = state.festivalID else { return .none }
+      guard state.destination == nil, state.canPickSchedule, let festivalID = state.festivalID else { return .none }
       state.destination = .schedulePick(SchedulePickFeature.State(
         festivalID: festivalID,
         days: state.days,
-        selectedSetIDs: state.mySetIDs
+        selectedSetIDs: state.mySetIDs,
+        previousClientAt: state.lastClientAt
       ))
       return .none
 
@@ -339,10 +341,13 @@ extension TimetableFeature {
       return changeAccount(state: &state)
 
     case .packUpdated:
+      // 열린 내 일정 고르기는 이전 공연 목록을 들고 있으므로 닫고 새 목록으로 정리한다.
+      state.destination = nil
       return trimSchedule(state: &state)
 
     case .timetableAppeared:
-      guard state.festivalID != nil, !state.isSaving else { return .none }
+      // 내 일정 고르기가 열려 있으면 저장이 겹치지 않도록 다시 읽거나 저장하지 않는다.
+      guard state.festivalID != nil, !state.isSaving, state.destination == nil else { return .none }
       return state.uncertainSave == nil ? loadSchedule(state: &state) : saveSchedule(state: &state)
     }
   }
@@ -425,9 +430,15 @@ extension TimetableFeature {
       state.scheduleSync = .ready
       state.isScheduleLimitReached = false
       state.uncertainSave = nil
-      // 다음 저장이 방금 저장한 목록보다 늦은 요청이 되게 한다.
-      state.lastClientAt = max(now, state.lastClientAt ?? .distantPast)
-      return .send(.delegate(.scheduleSaved(festivalID: festivalID, setIDs: state.mySetIDs)))
+      // 이전 저장의 늦은 응답이 서버 목록을 되돌리거나 delegate를 한 번 더 보내지 않게 한다.
+      state.isSaving = false
+      state.needsSave = false
+      // 다음 저장이 방금 저장한 요청보다 늦은 요청이 되게 한다.
+      state.lastClientAt = max(now, (state.lastClientAt ?? .distantPast).addingTimeInterval(0.001))
+      return .merge(
+        .cancel(id: CancelID.save),
+        .send(.delegate(.scheduleSaved(festivalID: festivalID, setIDs: state.mySetIDs)))
+      )
 
     case .skipped, .later:
       return .none

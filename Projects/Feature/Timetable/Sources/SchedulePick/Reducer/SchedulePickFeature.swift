@@ -15,6 +15,10 @@ import TimetableInterface
 public struct SchedulePickFeature {
   public init() {}
 
+  enum CancelID {
+    case save
+  }
+
   @ObservableState
   public struct State: Equatable {
     public let festivalID: String
@@ -24,15 +28,19 @@ public struct SchedulePickFeature {
     public var selectedSetIDs: Set<String>
     public var isSaving = false
     public var errorMessage: String?
+    /// 부모가 마지막으로 저장한 요청 시각. 이번 저장은 이보다 늦게 보낸다.
+    public let previousClientAt: Date?
 
     public init(
       festivalID: String,
       days: [TimetableDay],
-      selectedSetIDs: Set<String> = []
+      selectedSetIDs: Set<String> = [],
+      previousClientAt: Date? = nil
     ) {
       self.festivalID = festivalID
       self.days = days
       self.selectedSetIDs = selectedSetIDs
+      self.previousClientAt = previousClientAt
     }
 
     public var selectedDay: TimetableDay? {
@@ -43,11 +51,11 @@ public struct SchedulePickFeature {
       !isSaving && !selectedSetIDs.isEmpty
     }
 
-    /// 같은 날 먼저 시작하는 고른 공연과 겹치면 그 공연 이름과 겹친 분을 돌려준다.
+    /// 같은 날 먼저(또는 같은 시각에) 시작하는 고른 공연과 겹치면 그 공연 이름과 겹친 분을 돌려준다.
     public func overlap(of set: TimetableSet) -> (artist: String, minutes: Int)? {
       guard selectedSetIDs.contains(set.id), let day = selectedDay else { return nil }
       return day.sets
-        .filter { $0.id != set.id && selectedSetIDs.contains($0.id) && $0.start < set.start }
+        .filter { $0.id != set.id && selectedSetIDs.contains($0.id) && $0.start <= set.start }
         .compactMap { other -> (artist: String, minutes: Int)? in
           let minutes = min(other.end, set.end) - max(other.start, set.start)
           return minutes > 0 ? (other.artist, minutes) : nil
@@ -163,7 +171,8 @@ extension SchedulePickFeature {
     case .save:
       let festivalID = state.festivalID
       let setIDs = state.selectedSetIDs.sorted()
-      let clientAt = now
+      // 서버는 같은 시각의 다른 목록을 충돌로 보므로 부모의 이전 요청보다 1ms 이상 늦춘다.
+      let clientAt = max(now, (state.previousClientAt ?? .distantPast).addingTimeInterval(0.001))
       return .run { [scheduleUseCase] send in
         do throws(FestivalScheduleError) {
           let schedule = try await scheduleUseCase.saveMySchedule(
@@ -176,6 +185,7 @@ extension SchedulePickFeature {
           await send(.inner(.saveFailed(error)))
         }
       }
+      .cancellable(id: CancelID.save, cancelInFlight: true)
     }
   }
 

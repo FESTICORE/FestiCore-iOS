@@ -12,7 +12,7 @@ import SwiftUI
 /// Figma S15-1 준비 안내 · 내 일정 고르기
 @ViewAction(for: SchedulePickFeature.self)
 public struct SchedulePickView: View {
-  @Bindable public var store: StoreOf<SchedulePickFeature>
+  public let store: StoreOf<SchedulePickFeature>
 
   public init(store: StoreOf<SchedulePickFeature>) {
     self.store = store
