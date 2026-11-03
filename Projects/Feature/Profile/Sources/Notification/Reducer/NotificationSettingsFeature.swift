@@ -22,6 +22,10 @@ public struct NotificationSettingsFeature {
     public var load = Load.loading
     /// 저장에 실패하면 잠깐 보이는 문구
     public var message: String?
+    /// 서버에 보내는 중인 변경이 있는지. 한 번에 하나만 보낸다.
+    public var isSaving = false
+    /// 저장 중에 바뀌어 다음에 보낼 항목
+    public var pendingChanges: [Kind: Bool] = [:]
 
     public init() {}
 
@@ -37,16 +41,9 @@ public struct NotificationSettingsFeature {
     case failed
   }
 
-  public enum Kind: CaseIterable, Equatable, Sendable {
-    case flagStatus
-    case crewStatus
-    case crewGather
-    case setReminders
-    case homecoming
-    case packUpdates
-  }
+  public typealias Kind = FestivalNotificationKind
 
-  private enum CancelID { case save }
+  private enum CancelID { case load, save }
 
   @CasePathable
   public enum Action: ViewAction, Equatable {
@@ -72,7 +69,7 @@ public struct NotificationSettingsFeature {
   @CasePathable
   public enum AsyncAction: Equatable {
     case load
-    case save(new: FestivalNotificationSettings, previous: FestivalNotificationSettings)
+    case save([Kind: Bool])
   }
 
   // MARK: - 앱내에서 사용하는 액션
@@ -81,7 +78,7 @@ public struct NotificationSettingsFeature {
   public enum InnerAction: Equatable {
     case loaded(FestivalNotificationPermission, FestivalNotificationSettings?)
     case saved(FestivalNotificationSettings)
-    case saveFailed(previous: FestivalNotificationSettings)
+    case saveFailed
   }
 
   // MARK: - DelegateAction
@@ -107,31 +104,6 @@ public struct NotificationSettingsFeature {
 
       case .delegate:
         return .none
-      }
-    }
-  }
-}
-
-public extension FestivalNotificationSettings {
-  subscript(kind: NotificationSettingsFeature.Kind) -> Bool {
-    get {
-      switch kind {
-      case .flagStatus: flagStatus
-      case .crewStatus: crewStatus
-      case .crewGather: crewGather
-      case .setReminders: setReminders
-      case .homecoming: homecoming
-      case .packUpdates: packUpdates
-      }
-    }
-    set {
-      switch kind {
-      case .flagStatus: flagStatus = newValue
-      case .crewStatus: crewStatus = newValue
-      case .crewGather: crewGather = newValue
-      case .setReminders: setReminders = newValue
-      case .homecoming: homecoming = newValue
-      case .packUpdates: packUpdates = newValue
       }
     }
   }
@@ -169,7 +141,8 @@ extension NotificationSettingsFeature {
       updated[kind] = isOn
       state.settings = updated
       state.message = nil
-      return .send(.async(.save(new: updated, previous: previous)))
+      state.pendingChanges[kind] = isOn
+      return saveNextIfIdle(&state)
     }
   }
 
@@ -184,16 +157,17 @@ extension NotificationSettingsFeature {
         let settings = try? await notificationSettingsUseCase.settings()
         await send(.inner(.loaded(permission, settings)))
       }
+      .cancellable(id: CancelID.load, cancelInFlight: true)
 
-    case let .save(new, previous):
+    case .save(let changes):
       return .run { send in
         do {
-          await send(.inner(.saved(try await notificationSettingsUseCase.updateSettings(new))))
+          await send(.inner(.saved(try await notificationSettingsUseCase.updateSettings(changes))))
         } catch {
-          await send(.inner(.saveFailed(previous: previous)))
+          await send(.inner(.saveFailed))
         }
       }
-      .cancellable(id: CancelID.save, cancelInFlight: true)
+      .cancellable(id: CancelID.save)
     }
   }
 
@@ -204,6 +178,8 @@ extension NotificationSettingsFeature {
     switch action {
     case let .loaded(permission, settings):
       state.permission = permission
+      // 저장 중이거나 보낼 변경이 남아 있으면 화면의 토글을 서버 값으로 덮지 않는다.
+      guard !state.isSaving, state.pendingChanges.isEmpty else { return .none }
       if let settings {
         state.settings = settings
         state.load = .loaded
@@ -213,13 +189,28 @@ extension NotificationSettingsFeature {
       return .none
 
     case .saved(let settings):
-      state.settings = settings
-      return .none
+      state.isSaving = false
+      // 아직 보내지 않은 변경은 화면에 남겨 두고 이어서 보낸다.
+      var merged = settings
+      for (kind, isOn) in state.pendingChanges { merged[kind] = isOn }
+      state.settings = merged
+      return saveNextIfIdle(&state)
 
-    case .saveFailed(let previous):
-      state.settings = previous
+    case .saveFailed:
+      // 어느 변경까지 반영됐는지 알 수 없으니 서버 값을 다시 읽는다.
+      state.isSaving = false
+      state.pendingChanges = [:]
       state.message = "알림 설정을 저장하지 못했어요. 다시 시도해 주세요."
-      return .none
+      return .send(.async(.load))
     }
+  }
+
+  /// 보내는 중인 요청이 없을 때만 모아 둔 변경을 한 번에 보낸다.
+  private func saveNextIfIdle(_ state: inout State) -> Effect<Action> {
+    guard !state.isSaving, !state.pendingChanges.isEmpty else { return .none }
+    let changes = state.pendingChanges
+    state.pendingChanges = [:]
+    state.isSaving = true
+    return .send(.async(.save(changes)))
   }
 }

@@ -5,15 +5,12 @@
 //  Created by FestiCore on 11/3/26.
 //
 
-import APIEndpoint
 import Dependencies
 import FestiCoreDeviceInterface
-import FestiCoreNetworkInterface
 import FestivalDomainInterface
 
 public struct FestivalNotificationSettingsUseCaseImpl: FestivalNotificationSettingsUseCaseInterface {
-  @Dependency(\.networkClient) private var client
-  @Dependency(\.deviceRegistrationService) private var deviceService
+  @Dependency(\.deviceNotificationSettingsService) private var settingsService
   @Dependency(\.festivalNotificationPermission) private var permissionClient
 
   public init() {}
@@ -23,31 +20,22 @@ public struct FestivalNotificationSettingsUseCaseImpl: FestivalNotificationSetti
   }
 
   public func settings() async throws -> FestivalNotificationSettings {
-    let device = try await authorization()
-    let response = try await client.send(
-      DeviceNotificationSettingsRequest.fetch(deviceID: device.deviceID, bearerToken: device.bearerToken),
-      as: FestivalNotificationSettingsResponseDTO.self
-    )
-    guard response.code == "SUCCESS" else { throw FestivalNotificationSettingsError.invalidResponse }
-    return response.data.toDomain()
+    try await mapErrors { try await settingsService.settings().toDomain() }
   }
 
-  public func updateSettings(_ settings: FestivalNotificationSettings) async throws -> FestivalNotificationSettings {
-    let device = try await authorization()
-    let response = try await client.send(
-      DeviceNotificationSettingsRequest.update(
-        settings.requestBody, deviceID: device.deviceID, bearerToken: device.bearerToken
-      ),
-      as: FestivalNotificationSettingsResponseDTO.self
-    )
-    guard response.code == "SUCCESS" else { throw FestivalNotificationSettingsError.invalidResponse }
-    return response.data.toDomain()
+  public func updateSettings(_ changes: [FestivalNotificationKind: Bool]) async throws -> FestivalNotificationSettings {
+    try await mapErrors { try await settingsService.update(DeviceNotificationSettingsChange(changes)).toDomain() }
   }
 
-  private func authorization() async throws -> DeviceAuthorization {
-    guard let device = try await deviceService.authorization() else {
+  private func mapErrors(
+    _ operation: () async throws -> FestivalNotificationSettings
+  ) async throws -> FestivalNotificationSettings {
+    do {
+      return try await operation()
+    } catch DeviceNotificationSettingsError.deviceNotRegistered {
       throw FestivalNotificationSettingsError.deviceNotRegistered
+    } catch DeviceNotificationSettingsError.invalidResponse {
+      throw FestivalNotificationSettingsError.invalidResponse
     }
-    return device
   }
 }

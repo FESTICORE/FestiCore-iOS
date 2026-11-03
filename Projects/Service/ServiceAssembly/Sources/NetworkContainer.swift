@@ -29,6 +29,9 @@ public enum NetworkContainer {
   public static var deviceRegistrationService: any DeviceRegistrationService {
     assembly.deviceRegistrationService
   }
+  public static var deviceNotificationSettingsService: any DeviceNotificationSettingsService {
+    assembly.deviceNotificationSettingsService
+  }
   public static var packSyncService: any PackSyncService { assembly.packSyncService }
   public static var festivalCatalogService: any FestivalCatalogService { assembly.festivalCatalogService }
   public static var festivalLiveBoardService: any FestivalLiveBoardService { assembly.festivalLiveBoardService }
@@ -46,6 +49,10 @@ public enum NetworkContainer {
       authenticatedClient: auth.authenticatedClient,
       authService: auth,
       deviceRegistrationService: deviceRegistrationService,
+      deviceNotificationSettingsService: NetworkDeviceNotificationSettingsService(
+        client: auth.authenticatedClient,
+        registration: deviceRegistrationService
+      ),
       liveActivityRegistrationService: NetworkLiveActivityRegistrationService(client: auth.authenticatedClient),
       packSyncService: NetworkPackSyncService(
         baseURL: NetworkClientFactory.bundleBaseURL,
@@ -81,6 +88,7 @@ private extension NetworkContainer {
     let authenticatedClient: any FestiCoreNetworkClient
     let authService: any AuthService
     let deviceRegistrationService: any DeviceRegistrationService
+    let deviceNotificationSettingsService: any DeviceNotificationSettingsService
     let liveActivityRegistrationService: any LiveActivityRegistrationService
     let packSyncService: any PackSyncService
     let festivalCatalogService: any FestivalCatalogService

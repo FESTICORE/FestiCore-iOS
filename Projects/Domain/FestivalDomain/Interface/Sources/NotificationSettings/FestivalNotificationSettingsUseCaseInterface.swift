@@ -11,8 +11,8 @@ import Dependencies
 public protocol FestivalNotificationSettingsUseCaseInterface: Sendable {
   func permission() async -> FestivalNotificationPermission
   func settings() async throws -> FestivalNotificationSettings
-  /// 저장 후 서버가 돌려준 전체 설정
-  func updateSettings(_ settings: FestivalNotificationSettings) async throws -> FestivalNotificationSettings
+  /// 바뀐 항목만 저장하고 서버가 돌려준 전체 설정을 반환한다.
+  func updateSettings(_ changes: [FestivalNotificationKind: Bool]) async throws -> FestivalNotificationSettings
 }
 
 public enum FestivalNotificationSettingsUseCaseDependency: TestDependencyKey {
@@ -33,7 +33,7 @@ public extension DependencyValues {
 public struct MockFestivalNotificationSettingsUseCase: FestivalNotificationSettingsUseCaseInterface {
   private let permissionHandler: @Sendable () async -> FestivalNotificationPermission
   private let settingsHandler: @Sendable () async throws -> FestivalNotificationSettings
-  private let updateHandler: @Sendable (FestivalNotificationSettings) async throws -> FestivalNotificationSettings
+  private let updateHandler: @Sendable ([FestivalNotificationKind: Bool]) async throws -> FestivalNotificationSettings
 
   public init(
     permission: @escaping @Sendable () async -> FestivalNotificationPermission = {
@@ -44,7 +44,8 @@ public struct MockFestivalNotificationSettingsUseCase: FestivalNotificationSetti
       reportIssue("festivalNotificationSettingsUseCase.settings 미등록")
       throw FestivalNotificationSettingsError.notRegistered
     },
-    updateSettings: @escaping @Sendable (FestivalNotificationSettings) async throws -> FestivalNotificationSettings = { _ in
+    updateSettings: @escaping @Sendable ([FestivalNotificationKind: Bool]) async throws
+      -> FestivalNotificationSettings = { _ in
       reportIssue("festivalNotificationSettingsUseCase.updateSettings 미등록")
       throw FestivalNotificationSettingsError.notRegistered
     }
@@ -56,7 +57,7 @@ public struct MockFestivalNotificationSettingsUseCase: FestivalNotificationSetti
 
   public func permission() async -> FestivalNotificationPermission { await permissionHandler() }
   public func settings() async throws -> FestivalNotificationSettings { try await settingsHandler() }
-  public func updateSettings(_ settings: FestivalNotificationSettings) async throws -> FestivalNotificationSettings {
-    try await updateHandler(settings)
+  public func updateSettings(_ changes: [FestivalNotificationKind: Bool]) async throws -> FestivalNotificationSettings {
+    try await updateHandler(changes)
   }
 }

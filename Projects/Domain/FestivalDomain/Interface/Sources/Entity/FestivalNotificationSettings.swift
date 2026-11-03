@@ -27,6 +27,41 @@ public struct FestivalNotificationSettings: Equatable, Sendable {
   }
 }
 
+/// 알림 설정 화면의 토글 하나에 해당하는 알림 종류
+public enum FestivalNotificationKind: CaseIterable, Hashable, Sendable {
+  case flagStatus
+  case crewStatus
+  case crewGather
+  case setReminders
+  case homecoming
+  case packUpdates
+}
+
+public extension FestivalNotificationSettings {
+  subscript(kind: FestivalNotificationKind) -> Bool {
+    get {
+      switch kind {
+      case .flagStatus: flagStatus
+      case .crewStatus: crewStatus
+      case .crewGather: crewGather
+      case .setReminders: setReminders
+      case .homecoming: homecoming
+      case .packUpdates: packUpdates
+      }
+    }
+    set {
+      switch kind {
+      case .flagStatus: flagStatus = newValue
+      case .crewStatus: crewStatus = newValue
+      case .crewGather: crewGather = newValue
+      case .setReminders: setReminders = newValue
+      case .homecoming: homecoming = newValue
+      case .packUpdates: packUpdates = newValue
+      }
+    }
+  }
+}
+
 /// 기기 설정의 알림 허용 상태
 public enum FestivalNotificationPermission: Equatable, Sendable {
   case allowed
