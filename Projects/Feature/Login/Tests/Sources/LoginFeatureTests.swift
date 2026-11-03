@@ -19,6 +19,15 @@ struct LoginFeatureTests {
     await store.receive(.delegate(.signInRequested(.apple)))
   }
 
+  @Test @MainActor func contextChangedUpdatesSheetCopyAndFlowMessage() async {
+    let store = TestStore(initialState: LoginFeature.State()) { LoginFeature() }
+
+    await store.send(.view(.contextChanged(.flag, flowMessage: "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."))) {
+      $0.context = .flag
+      $0.flowMessage = "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."
+    }
+  }
+
   @Test func flowMessageShowsBeforeLoginError() {
     var state = LoginFeature.State()
     state.errorMessage = "로그인에 실패했습니다. 다시 시도해 주세요."
