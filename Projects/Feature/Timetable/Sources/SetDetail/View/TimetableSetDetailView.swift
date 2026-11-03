@@ -44,6 +44,7 @@ extension TimetableSetDetailView {
       helper: scheduleHelper
     )
     .scheduleDisabled(store.content.isScheduleLoading)
+    .artistImage(detail.imageURL)
     .source(store.content.source.isEmpty ? nil : store.content.source)
   }
 

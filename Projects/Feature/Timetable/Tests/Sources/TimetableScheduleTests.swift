@@ -378,6 +378,18 @@ struct TimetableScheduleTests {
     #expect(state.setDetailContent(id: "lime", now: firstDay.addingTimeInterval(TimeInterval(18 * 60 * 60)))?.detail.status == .ended)
   }
 
+  @Test func detailCarriesArtistImage() throws {
+    var state = TimetableFeature.State.sample()
+    let url = try #require(URL(string: "https://example.com/lime.webp"))
+    let dayIndex = try #require(state.days.firstIndex { $0.sets.contains { $0.id == "lime" } })
+    let setIndex = try #require(state.days[dayIndex].sets.firstIndex { $0.id == "lime" })
+    state.days[dayIndex].sets[setIndex].imageURL = url
+    let now = Date(timeIntervalSince1970: 1_786_028_400)
+
+    #expect(state.setDetailContent(id: "lime", now: now)?.detail.imageURL == url)
+    #expect(state.setDetailContent(id: "noise", now: now)?.detail.imageURL == nil)
+  }
+
   @Test func overlapAcrossMidnightIsDetected() {
     var state = TimetableFeature.State.sample()
     state.days[1].sets = [
