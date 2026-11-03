@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 import OSLog
 
 /// Privacy-preserving OSLog entry point shared by core modules.
@@ -18,6 +19,19 @@ public enum FestiCoreLogger {
     .notice
     #endif
   }()
+
+  /// 외부 출력 대상에는 info 이상만 보낸다. 릴리스는 `minimumLevel`(notice) 이상만 남는다.
+  static let sinkMinimumLevel: FestiCoreLogLevel = .info
+  private static let sinks = OSAllocatedUnfairLock<[any FestiCoreLogSink]>(initialState: [])
+
+  /// 앱 시작 시 SDK를 아는 모듈이 출력 대상을 등록한다.
+  public static func addSink(_ sink: any FestiCoreLogSink) {
+    sinks.withLock { $0.append(sink) }
+  }
+
+  static func removeAllSinks() {
+    sinks.withLock { $0.removeAll() }
+  }
 
   public static func debug(_ message: String, category: FestiCoreLogCategory, fileID: String = #fileID, function: String = #function, line: Int = #line) {
     emit(.debug, message, category, fileID, function, line)
@@ -46,5 +60,10 @@ public enum FestiCoreLogger {
       level: level.osLogType,
       "\(level.emoji, privacy: .public) [\(category.rawValue, privacy: .public)] \(message, privacy: .private) ↳ \(file, privacy: .public):\(line, privacy: .public) \(function, privacy: .public)"
     )
+    guard level >= sinkMinimumLevel else { return }
+    let entry = FestiCoreLogEntry(level: level, category: category, message: message, file: file, function: function, line: line)
+    for sink in sinks.withLock({ $0 }) {
+      sink.send(entry)
+    }
   }
 }

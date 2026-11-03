@@ -45,7 +45,7 @@ struct MainTabCoordinator {
       case .live:
         return festivalState.routes.count == 1
       case .timetable:
-        return timetableState.selectedSetID != nil
+        return timetableState.setDetail != nil
       case .my:
         return profileState.isAccountPresented
           || profileState.isLogoutConfirmationPresented
@@ -212,13 +212,13 @@ struct MainTabCoordinator {
     state: inout State,
     appearing: Bool
   ) -> Effect<Action> {
-    var selected: (festivalID: String?, pack: FestivalPackDocument)?
+    var selected: (festivalID: String?, pack: FestivalPackDocument, imageURL: (String?) -> URL?)?
     if let screen = state.festivalState.routes.last?.screen,
        case let .liveBoard(home) = screen,
        let pack = home.selectedPack {
-      selected = (home.selectedFestivalID, pack)
+      selected = (home.selectedFestivalID, pack, home.imageURL(for:))
     }
-    let days = selected.map { FestivalPackTimetableMapper.days(from: $0.pack) } ?? []
+    let days = selected.map { FestivalPackTimetableMapper.days(from: $0.pack, imageURL: $0.imageURL) } ?? []
     let daysChanged = state.timetableState.days != days
     if daysChanged {
       let selectedID = state.timetableState.selectedDay?.id
@@ -229,14 +229,14 @@ struct MainTabCoordinator {
 
     let festivalID = selected?.festivalID
     if festivalID != state.timetableState.festivalID {
-      return .send(.timetable(.festivalChanged(festivalID)))
+      return .send(.timetable(.inner(.festivalChanged(festivalID))))
     }
     var effects: [Effect<Action>] = []
     if daysChanged {
-      effects.append(.send(.timetable(.packUpdated)))
+      effects.append(.send(.timetable(.inner(.packUpdated))))
     }
     if appearing {
-      effects.append(.send(.timetable(.timetableAppeared)))
+      effects.append(.send(.timetable(.inner(.timetableAppeared))))
     }
     return .concatenate(effects)
   }

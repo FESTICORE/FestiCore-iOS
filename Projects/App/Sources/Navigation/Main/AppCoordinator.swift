@@ -8,6 +8,7 @@
 import AuthDomainInterface
 import ComposableArchitecture
 import FeatureAssembly
+import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
@@ -19,8 +20,18 @@ struct AppCoordinator {
   @Dependency(\.authService) private var authService
   @Dependency(\.festivalBookedStore) private var bookedStore
   @Dependency(\.authSessionExpiryClient) private var authSessionExpiryClient
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
 
   private enum CancelID { case sessionExpiry, accountOperation }
+
+  /// 약관 상세 기준 주소. 탭 코디네이터와 가입 화면이 같은 값을 쓴다.
+  private let legalBaseURL: URL?
+
+  init(legalBaseURL: URL? = AppCoordinatorView.legalBaseURL(
+    host: Bundle.main.object(forInfoDictionaryKey: "FestiCoreAPIHost") as? String
+  )) {
+    self.legalBaseURL = legalBaseURL
+  }
 
   struct AuthFlow: Equatable {
     enum Presentation: Equatable {
@@ -96,6 +107,27 @@ struct AppCoordinator {
       }
     }
 
+    /// 로그인 시트가 떠 있을 때 따르는 부모 값. 바뀌면 `LoginFeature`에 `view(.contextChanged)`로 알린다.
+    var loginSheetInput: LoginSheetInput? {
+      guard case let .home(home) = self, home.authFlow.presentation == .login else { return nil }
+      let context: LoginFeature.State.Context = switch home.selectedTab {
+      case .my: .profile
+      case .flag: .flag
+      case .live, .timetable: .bookmark
+      }
+      return LoginSheetInput(context: context, flowMessage: home.authFlow.message)
+    }
+
+    /// 가입 시트가 떠 있을 때 따르는 부모 값. 바뀌면 `SignUpFeature`에 `view(.flowChanged)`로, 닫히면 `view(.sheetClosed)`로 알린다.
+    var signUpSheetInput: SignUpSheetInput? {
+      guard case let .home(home) = self, home.authFlow.presentation == .onboarding else { return nil }
+      return SignUpSheetInput(
+        isSubmitting: home.authFlow.isLoading,
+        message: home.authFlow.message,
+        termsUpdateExhausted: home.authFlow.termsUpdateExhausted
+      )
+    }
+
     /// 라이브 보드에 전달할 세션. 세션 여부와 확인된 사용자 ID가 바뀌면 `FestivalFeature`에 알린다.
     var festivalSession: FestivalSession {
       guard case let .home(home) = self, home.authFlow.hasSession else {
@@ -114,6 +146,17 @@ struct AppCoordinator {
     let userID: String?
   }
 
+  struct LoginSheetInput: Equatable {
+    let context: LoginFeature.State.Context
+    let flowMessage: String?
+  }
+
+  struct SignUpSheetInput: Equatable {
+    let isSubmitting: Bool
+    let message: String?
+    let termsUpdateExhausted: Bool
+  }
+
   enum Action: ViewAction {
     case view(View)
     case inner(InnerAction)
@@ -124,6 +167,7 @@ struct AppCoordinator {
   enum View {
     case presentHome
     case foregrounded
+    /// 로그인 시트의 로그인 요청(`LoginDelegate.signInRequested`)도 여기서 시트 상태를 확인한다.
     case startLogin(OAuthProvider)
     case dismissFlow
     case retryProfile
@@ -195,7 +239,25 @@ struct AppCoordinator {
       }
     }
     .ifCaseLet(\.splash, action: \.scope.splash) { SplashFeature() }
-    .ifCaseLet(\.home, action: \.scope.home) { MainTabCoordinator() }
+    .ifCaseLet(\.home, action: \.scope.home) { MainTabCoordinator(legalBaseURL: legalBaseURL) }
+    .onChange(of: \.loginSheetInput) { _, input in
+      Reduce { _, _ in
+        guard let input else { return .none }
+        return .send(.scope(.home(.login(.view(.contextChanged(input.context, flowMessage: input.flowMessage))))))
+      }
+    }
+    .onChange(of: \.signUpSheetInput) { _, input in
+      Reduce { _, _ in
+        // 가입 시트가 닫히는 모든 경로(닫기·포그라운드 갱신·로그인 상실)에서 그 위의 약관 상세도 닫는다.
+        guard let input else { return .send(.scope(.home(.signUp(.view(.sheetClosed))))) }
+        return .send(.scope(.home(.signUp(.view(.flowChanged(
+          isSubmitting: input.isSubmitting,
+          message: input.message,
+          termsUpdateExhausted: input.termsUpdateExhausted,
+          legalBaseURL: legalBaseURL
+        ))))))
+      }
+    }
     .onChange(of: \.festivalSession) { previous, state in
       let session = state.festivalSession
       let changed: Effect<Action> = .send(.scope(.home(.festival(.sessionChanged(
@@ -213,14 +275,14 @@ struct AppCoordinator {
       if switchedAccounts {
         return .concatenate(
           flagChanged,
-          .send(.scope(.home(.timetable(.accountChanged)))),
+          .send(.scope(.home(.timetable(.inner(.accountChanged))))),
           changed
         )
       }
       guard !session.hasSession else { return changed }
       return .concatenate(
         flagChanged,
-        .send(.scope(.home(.timetable(.accountChanged)))),
+        .send(.scope(.home(.timetable(.inner(.accountChanged))))),
         changed
       )
     }
@@ -582,6 +644,8 @@ private extension AppCoordinator {
       home.authFlow.isLoading = false
       switch result {
       case .success:
+        // 계정 분리 — 다음 사용자와 섞이지 않게 분석 식별자와 슈퍼 프로퍼티를 초기화한다.
+        analyticsUseCase.reset()
         var cleared = AuthFlow()
         cleared.generation = max(home.authFlow.generation, generation)
         home.authFlow = cleared
@@ -590,6 +654,7 @@ private extension AppCoordinator {
         state = .home(home)
         return clear
       case .failure(.unauthenticated):
+        analyticsUseCase.reset()
         var cleared = AuthFlow()
         cleared.generation = max(home.authFlow.generation, generation)
         if operation == .withdraw {
@@ -669,6 +734,9 @@ private extension AppCoordinator {
 
     case .home(.signUp(.delegate(.closeRequested))):
       return handleViewAction(state: &state, action: .dismissFlow)
+
+    case let .home(.login(.delegate(.signInRequested(provider)))):
+      return handleViewAction(state: &state, action: .startLogin(provider))
 
     case let .home(.login(.delegate(.signedIn(result)))):
       guard case let .home(home) = state else { return .none }
@@ -790,6 +858,11 @@ private extension AppCoordinator {
       home.authFlow.profile = nil
       home.authFlow.presentation = nil
       home.authFlow.loginAttemptGeneration = nil
+      // 로그인이 확정된 직후 사용자 ID를 분석 도구에 연결하고, 신규 계정이면 sign_up을 남긴다.
+      analyticsUseCase.identify(result.user.id, result.user.provider)
+      if result.newUser, let provider = AnalyticsProvider(rawValue: result.user.provider) {
+        analyticsUseCase.track(.signUp(method: provider))
+      }
       home.authFlow.generation += 1
       home.authFlow.isLoading = true
       let generation = home.authFlow.generation

@@ -13,12 +13,13 @@ concurrency:
 jobs:
   deploy:
     runs-on: self-hosted
-    # 준비 15분 + 빌드·업로드 50분 + 내부 배포 45분 + 정리 여유
-    timeout-minutes: 120
+    # 준비 15분 + 빌드·업로드 50분 + 내부 배포 45분 + 외부 배포 15분 + 정리 여유
+    timeout-minutes: 135
     permissions:
       contents: read
     env:
       FESTICORE_SENTRY_DSN: ${{ secrets.FESTICORE_SENTRY_DSN }}
+      FESTICORE_MIXPANEL_TOKEN: ${{ secrets.FESTICORE_MIXPANEL_TOKEN }}
       MATCH_GIT_URL: git@github.com:Roy-wonji/FastlaneMatch.git
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
@@ -73,6 +74,13 @@ jobs:
           version:"${{ steps.ver.outputs.version }}"
           build_number:"${{ steps.deploy.outputs.build_number }}"
           changelog:"$(git log -1 --pretty=%s)"
+      # 외부 테스트는 Apple 베타 심사를 거친다. 내부 배포가 끝난 빌드만 제출한다.
+      - name: Distribute to external TestFlight group
+        timeout-minutes: 15
+        run: >-
+          bundle exec fastlane ios distribute_external
+          version:"${{ steps.ver.outputs.version }}"
+          build_number:"${{ steps.deploy.outputs.build_number }}"
       - name: Clean deploy DerivedData
         if: always()
         run: bash Scripts/clean-ci-derived-data.sh FestiCore-deploy

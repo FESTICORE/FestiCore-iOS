@@ -8,6 +8,7 @@
 import ComposableArchitecture
 import FeatureAssembly
 import FestiCoreDesignKit
+import FestiCoreSharedUI
 import SwiftUI
 
 /// Figma 커스텀 탭바(`FCTabBar`)로 탭을 바꾸는 메인 화면
@@ -31,8 +32,13 @@ struct MainTabView: View {
       }
       .background(FestiCoreSemanticColor.backgroundNormal.color)
       .overlay {
-        if store.selectedTab == .timetable, store.timetableState.selectedSetID != nil {
-          timetableView.modalOverlay
+        if store.selectedTab == .timetable, store.timetableState.setDetail != nil {
+          // 공연 상세 시트는 탭바까지 덮도록 탭을 그리는 이 화면에서 띄운다.
+          Color.clear.fcModal($store.scope(state: \.timetableState.setDetail, action: \.timetable.scope.setDetail)) { detailStore in
+            TimetableSetDetailView(store: detailStore)
+          } accessory: { detailStore in
+            TimetableScheduleToast(isVisible: detailStore.isScheduleToastVisible)
+          }
         } else if store.selectedTab == .my, store.profileState.isAccountPresented {
           profileView.modalOverlay
         }

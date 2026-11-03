@@ -9,34 +9,17 @@ import ComposableArchitecture
 import FestiCoreDesignKit
 import LoginInterface
 import SwiftUI
+import UIKit
+import Web
 
 /// Figma S14-2 가입 정보(닉네임·약관 동의)
 @ViewAction(for: SignUpFeature.self)
 public struct SignUpView: View {
   @Bindable public var store: StoreOf<SignUpFeature>
-  private let isSubmitting: Bool
-  private let message: String?
-  private let termsUpdateExhausted: Bool
-  private let legalBaseURL: URL?
-  private let keyboardInset: CGFloat
-  private let onLegalLink: (LegalDocument) -> Void
+  @State private var keyboardInset: CGFloat = 0
 
-  public init(
-    store: StoreOf<SignUpFeature>,
-    isSubmitting: Bool,
-    message: String?,
-    termsUpdateExhausted: Bool,
-    legalBaseURL: URL?,
-    keyboardInset: CGFloat,
-    onLegalLink: @escaping (LegalDocument) -> Void
-  ) {
+  public init(store: StoreOf<SignUpFeature>) {
     self.store = store
-    self.isSubmitting = isSubmitting
-    self.message = message
-    self.termsUpdateExhausted = termsUpdateExhausted
-    self.legalBaseURL = legalBaseURL
-    self.keyboardInset = keyboardInset
-    self.onLegalLink = onLegalLink
   }
 
   public var body: some View {
@@ -60,7 +43,7 @@ public struct SignUpView: View {
           .maxLength(12)
           .helper("크루원과 깃발에 보이는 이름이에요. 나중에 마이에서 바꿀 수 있어요.")
           consentBox
-          if let message {
+          if let message = store.message {
             Text(message)
               .festiCoreFont(.baseCaption1Regular)
               .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
@@ -69,7 +52,7 @@ public struct SignUpView: View {
         .padding(FestiCoreSpacing.paddingP16)
       }
       .scrollDismissesKeyboard(.interactively)
-      FCPrimaryButton("시작하기", isEnabled: canSubmit) {
+      FCPrimaryButton("시작하기", isEnabled: store.canSubmit) {
         send(.submitTapped)
       }
       .padding(.horizontal, FestiCoreSpacing.paddingP16)
@@ -77,6 +60,16 @@ public struct SignUpView: View {
       .padding(.bottom, FestiCoreSpacing.paddingP8)
     }
     .padding(.bottom, keyboardInset)
+    .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
+      guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+      keyboardInset = max(0, UIScreen.main.bounds.height - frame.minY)
+    }
+    .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+      keyboardInset = 0
+    }
+    .fullScreenCover(item: $store.scope(state: \.destination?.legalDocument, action: \.destination.legalDocument)) { webStore in
+      WebView(store: webStore)
+    }
   }
 }
 
@@ -89,12 +82,12 @@ private extension SignUpView {
       FestiCoreSemanticColor.lineNormal.color
         .frame(height: 1)
       VStack(spacing: .zero) {
-        FCConsentRow("서비스 이용약관", isChecked: store.acceptedServiceTerms) {
+        FCConsentRow(LegalDocument.terms.title, isChecked: store.acceptedServiceTerms) {
           send(.serviceTermsChanged(!store.acceptedServiceTerms))
         }
         .tag("필수")
         .onDetail(legalLink(.terms))
-        FCConsentRow("개인정보 수집 · 이용", isChecked: store.acceptedPrivacyTerms) {
+        FCConsentRow(LegalDocument.privacy.title, isChecked: store.acceptedPrivacyTerms) {
           send(.privacyTermsChanged(!store.acceptedPrivacyTerms))
         }
         .tag("필수")
@@ -113,18 +106,13 @@ private extension SignUpView {
     }
   }
 
-  var canSubmit: Bool {
-    !isSubmitting
-      && !termsUpdateExhausted
-      && store.acceptedTerms
-      && store.consentedVersion == store.currentTermsVersion
-      && legalBaseURL != nil
-      && !store.nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-  }
-
   /// 약관 상세 링크. 기준 주소가 없으면 화살표를 숨긴다.
   func legalLink(_ document: LegalDocument) -> (() -> Void)? {
-    guard legalBaseURL != nil else { return nil }
-    return { onLegalLink(document) }
+    guard store.legalBaseURL != nil else { return nil }
+    return { send(.legalDocumentTapped(document)) }
   }
+}
+
+#Preview {
+  SignUpView(store: Store(initialState: SignUpFeature.State()) { SignUpFeature() })
 }

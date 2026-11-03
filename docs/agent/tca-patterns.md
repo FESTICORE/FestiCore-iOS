@@ -2,23 +2,23 @@
 
 ## 리듀서 구성
 
-`Projects/Feature/Login/Sources/Login/Reducer/LoginFeature.swift`가 기준 예시다.
+Attendance(`Projects/Feature/Management/Sources/StaffMain/Reducer/StaffFeature.swift`)와 같은 구성을 따른다. 이 저장소에서는 `Projects/Feature/Login/Sources/Login/Reducer/LoginFeature.swift`가 기준 예시다.
 
 - 파일 순서: `init` → `@ObservableState State` → `Action` → 액션별 enum → `@Dependency` → `body` → `extension <Feature>`의 처리 함수.
-- `Action: ViewAction`은 `view`·`async`·`inner`·`delegate`로 나눈다. 자식 화면이나 알림이 있으면 `scope`, 바인딩이 있으면 `binding`을 추가한다. 액션 enum마다 `// MARK:`를 단다.
+- `Action: ViewAction`은 `view`·`async`·`inner`·`delegate`로 나눈다. 바인딩이 있으면 `binding`, 띄우는 화면이 있으면 `destination(PresentationAction<Destination.Action>)`을 추가한다. 자식 Feature 액션은 `case vote(VoteFeature.Action)`처럼 최상위 case로 두고 `scope(...)` 같은 묶음 case를 만들지 않는다. 액션 enum마다 `// MARK:`를 단다.
   - `view`: 사용자 입력
   - `async`: 효과를 시작하는 요청
   - `inner`: 효과 결과와 내부 전이
   - `delegate`: 부모에게 알리는 결과. 계약은 `Interface/Sources/<X>Delegate.swift`에 두고 `typealias DelegateAction = <X>Delegate`로 받는다.
-- `body`는 액션 종류만 나눈다(`case .view(let action): return handleViewAction(state: &state, action: action)`). 처리는 같은 파일 `extension <Feature>`의 `private func handleViewAction`·`handleAsyncAction`·`handleInnerAction`·`handleDelegateAction`(·`handleScopeAction`)에 둔다.
+- `body`는 액션 종류만 나눈다(`case .view(let action): return handleViewAction(state: &state, action: action)`). 처리는 같은 파일 `extension <Feature>`의 `private func handleViewAction`·`handleAsyncAction`·`handleInnerAction`·`handleDelegateAction`에 둔다. 자식·`destination` 액션 중 부모가 받을 것만 `body`에서 직접 매칭하고 나머지는 `default: return .none`으로 둔다. 자식은 `Scope(\.child, action: \.child)`로 연결한다.
 - `.run` 효과는 async 핸들러에서 시작한다. view 핸들러는 중복 입력 가드와 상태 변경 뒤 `.send(.async(...))`로 넘긴다.
 - 취소·중복 요청 정책은 `CancelID`로 명시한다.
 
 ## 화면과 리듀서
 
 - 한 화면에는 리듀서 하나와 View 하나를 둔다. 여러 화면이 리듀서 하나를 공유하거나, 같은 리듀서를 다른 화면으로 다시 push하지 않는다.
-- 시트·모달·알림으로 띄우는 화면은 `@Presents`로 들고 `.ifLet(\.$child, action: \.scope.child)`로 합친다.
-- 부모는 자식 상태를 직접 쓰지 않는다. 자식에 알릴 값은 자식의 view·inner 액션이나 공개 입력 액션으로 보내고, 자식의 결과는 delegate로 받는다.
+- 시트·모달·알림으로 띄우는 화면은 `@Reducer enum Destination`과 `@Presents var destination`으로 들고 `.ifLet(\.$destination, action: \.destination)`로 합친다. 띄우는 화면이 하나뿐이면 `@Presents var child`와 `.ifLet(\.$child, action: \.child)`도 쓸 수 있다.
+- 부모는 자식 상태를 직접 쓰지 않는다. 자식에 알릴 명령은 Attendance처럼 자식의 `view` 액션으로 보낸다(예: `.send(.vote(.view(.requestExit)))`). 자식의 `inner`는 자식 내부 결과 처리용이라 부모가 보내지 않는다. 자식의 결과는 `delegate`로 받는다.
 
 ## 의존성
 

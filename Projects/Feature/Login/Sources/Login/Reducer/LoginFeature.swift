@@ -15,10 +15,26 @@ public struct LoginFeature {
 
   @ObservableState
   public struct State: Equatable {
+    /// 로그인을 요청한 문맥. 시트 문구를 고른다.
+    public enum Context: Equatable, Sendable {
+      case bookmark
+      case profile
+      case flag
+    }
+
     public var isSigningIn = false
     public var errorMessage: String?
+    /// 부모가 `view(.contextChanged)`로 알린다.
+    public var context: Context = .bookmark
+    /// 부모 흐름(예약·세션 확인)이 시트에 보여 줄 문구. 부모가 `view(.contextChanged)`로 알린다.
+    public var flowMessage: String?
 
     public init() {}
+
+    /// 시트 아래 안내 문구. 부모 흐름 문구를 로그인 오류보다 먼저 보여 준다.
+    public var visibleMessage: String? {
+      flowMessage ?? errorMessage
+    }
   }
 
   @CasePathable
@@ -33,7 +49,10 @@ public struct LoginFeature {
 
   @CasePathable
   public enum View: Equatable {
+    case signInTapped(OAuthProvider)
     case signIn(OAuthProvider)
+    /// 부모가 시트 문맥과 흐름 문구를 알린다.
+    case contextChanged(State.Context, flowMessage: String?)
   }
 
   // MARK: - AsyncAction 비동기 처리 액션
@@ -83,11 +102,19 @@ extension LoginFeature {
     action: View
   ) -> Effect<Action> {
     switch action {
+    case .signInTapped(let provider):
+      return .send(.delegate(.signInRequested(provider)))
+
     case .signIn(let provider):
       guard !state.isSigningIn else { return .none }
       state.isSigningIn = true
       state.errorMessage = nil
       return .send(.async(.signIn(provider)))
+
+    case let .contextChanged(context, flowMessage):
+      state.context = context
+      state.flowMessage = flowMessage
+      return .none
     }
   }
 
@@ -138,7 +165,7 @@ extension LoginFeature {
     action: DelegateAction
   ) -> Effect<Action> {
     switch action {
-    case .signedIn:
+    case .signInRequested, .signedIn:
       return .none
     }
   }
