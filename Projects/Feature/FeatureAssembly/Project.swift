@@ -16,6 +16,7 @@ let project = Project.makeModule(
     .feature(.bearer),
     .feature(.festival),
     .feature(.login),
+    .feature(.onboarding),
     .feature(.profile),
     .feature(.timetable),
     .feature(.web),

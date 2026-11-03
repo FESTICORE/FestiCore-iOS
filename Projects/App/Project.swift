@@ -22,6 +22,7 @@ let project = Project.makeAppModule(
     .domain(.timetable, .interface),
     .service(.auth, .interface),
     .core(.network, .interface),
+    .core(.storage, .interface),
     .ui(.designSystem),
     .ui(.sharedUI),
     .ui(.animation),

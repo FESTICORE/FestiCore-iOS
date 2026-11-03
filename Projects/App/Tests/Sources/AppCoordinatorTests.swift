@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Synchronization
 import Testing
 
 import ComposableArchitecture
@@ -15,10 +16,16 @@ import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
+import FestiCoreStorageInterface
 import FestiCoreSharedUI
 import TCAFlow
 import TimetableDomainInterface
 @testable import FestiCore
+
+private enum OnboardingTestError: Error {
+  case unreadable
+  case unwritable
+}
 
 @MainActor
 struct AppCoordinatorTests {
@@ -44,13 +51,124 @@ struct AppCoordinatorTests {
       $0.authUseCase = UnauthenticatedAuthUseCase()
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
       $0.authSessionExpiryClient = AuthSessionExpiryClient(events: { AsyncStream { $0.finish() } })
+      $0.firstInstallOnboardingStore = FirstInstallOnboardingStore(
+        hasCompleted: { true }, markCompleted: {}
+      )
     }
     store.exhaustivity = .off
     await store.send(.scope(.splash(.delegate(.presentHome))))
     await store.receive(\.view.presentHome)
+    await store.receive(\.inner.firstInstallStatus)
     await store.receive(\.inner.completeHomeTransition) {
       $0 = .home(.init())
     }
+  }
+
+  @Test func firstInstallShowsOnboardingAfterSplashAndSkipOpensHome() async {
+    let saves = Mutex(0)
+    let store = TestStore(initialState: AppCoordinator.State()) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.firstInstallOnboardingStore = FirstInstallOnboardingStore(
+        hasCompleted: { false }, markCompleted: { saves.withLock { $0 += 1 } }
+      )
+      $0.festivalCatalogService = EmptyFestivalCatalogService()
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.authService = StubAuthService(loggedIn: false, userID: nil)
+      $0.authSessionExpiryClient = AuthSessionExpiryClient(events: { AsyncStream { $0.finish() } })
+    }
+    store.exhaustivity = .off
+    await store.send(.scope(.splash(.delegate(.presentHome))))
+    await store.receive(\.view.presentHome)
+    await store.receive(\.inner.firstInstallStatus) {
+      $0 = .onboarding(.init())
+    }
+    await store.send(.scope(.onboarding(.view(.skipTapped))))
+    await store.receive(\.scope.onboarding.delegate.completed)
+    await store.receive(\.inner.completeHomeTransition) {
+      $0 = .home(.init())
+    }
+    #expect(saves.withLock { $0 } == 1)
+  }
+
+  @Test func unreadableInstallReceiptOpensHome() async {
+    let store = TestStore(initialState: AppCoordinator.State()) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.firstInstallOnboardingStore = FirstInstallOnboardingStore(
+        hasCompleted: { throw OnboardingTestError.unreadable }, markCompleted: {}
+      )
+      $0.festivalCatalogService = EmptyFestivalCatalogService()
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.authService = StubAuthService(loggedIn: false, userID: nil)
+      $0.authSessionExpiryClient = AuthSessionExpiryClient(events: { AsyncStream { $0.finish() } })
+    }
+    store.exhaustivity = .off
+    await store.send(.scope(.splash(.delegate(.presentHome))))
+    await store.receive(\.view.presentHome)
+    await store.receive(\.inner.firstInstallStatus)
+    await store.receive(\.inner.completeHomeTransition) { $0 = .home(.init()) }
+  }
+
+  @Test func failedReceiptWriteOpensHomeButRelaunchShowsOnboarding() async {
+    let saves = Mutex(0)
+    let first = TestStore(initialState: AppCoordinator.State.onboarding(.init())) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.firstInstallOnboardingStore = FirstInstallOnboardingStore(
+        hasCompleted: { false },
+        markCompleted: {
+          saves.withLock { $0 += 1 }
+          throw OnboardingTestError.unwritable
+        }
+      )
+      $0.festivalCatalogService = EmptyFestivalCatalogService()
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.authService = StubAuthService(loggedIn: false, userID: nil)
+      $0.authSessionExpiryClient = AuthSessionExpiryClient(events: { AsyncStream { $0.finish() } })
+    }
+    first.exhaustivity = .off
+    await first.send(.scope(.onboarding(.view(.skipTapped))))
+    await first.receive(\.scope.onboarding.delegate.completed)
+    await first.receive(\.inner.completeHomeTransition) { $0 = .home(.init()) }
+    #expect(saves.withLock { $0 } == 1)
+
+    let relaunched = TestStore(initialState: AppCoordinator.State()) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.firstInstallOnboardingStore = FirstInstallOnboardingStore(
+        hasCompleted: { false }, markCompleted: {}
+      )
+    }
+    relaunched.exhaustivity = .off
+    await relaunched.send(.scope(.splash(.delegate(.presentHome))))
+    await relaunched.receive(\.view.presentHome)
+    await relaunched.receive(\.inner.firstInstallStatus) { $0 = .onboarding(.init()) }
+  }
+
+  @Test func completingLastOnboardingPageSavesExactlyOnce() async {
+    let saves = Mutex(0)
+    var onboarding = OnboardingFeature.State()
+    onboarding.page = 3
+    let store = TestStore(initialState: AppCoordinator.State.onboarding(onboarding)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.firstInstallOnboardingStore = FirstInstallOnboardingStore(
+        hasCompleted: { false }, markCompleted: { saves.withLock { $0 += 1 } }
+      )
+      $0.festivalCatalogService = EmptyFestivalCatalogService()
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.authService = StubAuthService(loggedIn: false, userID: nil)
+      $0.authSessionExpiryClient = AuthSessionExpiryClient(events: { AsyncStream { $0.finish() } })
+    }
+    store.exhaustivity = .off
+    await store.send(.scope(.onboarding(.view(.nextTapped))))
+    await store.receive(\.scope.onboarding.delegate.completed)
+    await store.receive(\.inner.completeHomeTransition) { $0 = .home(.init()) }
+    #expect(saves.withLock { $0 } == 1)
   }
 
   @Test func repeatedHomeTransitionKeepsExistingState() async {

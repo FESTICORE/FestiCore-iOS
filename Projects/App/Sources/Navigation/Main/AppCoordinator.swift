@@ -7,11 +7,13 @@
 
 import AuthDomainInterface
 import ComposableArchitecture
+import CoreAssembly
 import FeatureAssembly
 import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
+import FestiCoreStorageInterface
 import Foundation
 
 @Reducer
@@ -21,6 +23,7 @@ struct AppCoordinator {
   @Dependency(\.festivalBookedStore) private var bookedStore
   @Dependency(\.authSessionExpiryClient) private var authSessionExpiryClient
   @Dependency(\.analyticsUseCase) private var analyticsUseCase
+  @Dependency(\.firstInstallOnboardingStore) private var firstInstallOnboardingStore
 
   private enum CancelID { case sessionExpiry, accountOperation }
 
@@ -96,6 +99,7 @@ struct AppCoordinator {
   @ObservableState
   enum State: Equatable {
     case splash(SplashFeature.State)
+    case onboarding(OnboardingFeature.State)
     case home(MainTabCoordinator.State)
 
     init() { self = .splash(SplashFeature.State()) }
@@ -103,6 +107,7 @@ struct AppCoordinator {
     var animationID: String {
       switch self {
       case .splash: "splash"
+      case .onboarding: "onboarding"
       case .home: "home"
       }
     }
@@ -196,6 +201,7 @@ struct AppCoordinator {
 
   @CasePathable
   enum InnerAction {
+    case firstInstallStatus(Bool)
     case completeHomeTransition
     case sessionExpired
     case sessionRestored(generation: Int, userID: String?, isLoggedIn: Bool)
@@ -209,6 +215,7 @@ struct AppCoordinator {
   @CasePathable
   enum ScopeAction {
     case splash(SplashFeature.Action)
+    case onboarding(OnboardingFeature.Action)
     case home(MainTabCoordinator.Action)
   }
 
@@ -259,6 +266,7 @@ struct AppCoordinator {
       }
     }
     .ifCaseLet(\.splash, action: \.scope.splash) { SplashFeature() }
+    .ifCaseLet(\.onboarding, action: \.scope.onboarding) { OnboardingFeature() }
     .ifCaseLet(\.home, action: \.scope.home) { MainTabCoordinator(legalBaseURL: legalBaseURL) }
     .onChange(of: \.loginSheetInput) { _, input in
       Reduce { _, _ in
@@ -322,7 +330,15 @@ private extension AppCoordinator {
   func handleViewAction(state: inout State, action: View) -> Effect<Action> {
     switch action {
     case .presentHome:
-      return .send(.inner(.completeHomeTransition))
+      guard case .splash = state else { return .none }
+      return .run { send in
+        do {
+          await send(.inner(.firstInstallStatus(try firstInstallOnboardingStore.hasCompleted())))
+        } catch {
+          FestiCoreLogger.error("첫 설치 기록을 확인할 수 없음: \(error.localizedDescription)", category: .app)
+          await send(.inner(.firstInstallStatus(true)))
+        }
+      }
 
     case .foregrounded:
       guard case var .home(home) = state,
@@ -405,8 +421,17 @@ private extension AppCoordinator {
 
   func handleInnerAction(state: inout State, action: InnerAction) -> Effect<Action> {
     switch action {
-    case .completeHomeTransition:
+    case let .firstInstallStatus(hasCompleted):
       guard case .splash = state else { return .none }
+      if hasCompleted { return .send(.inner(.completeHomeTransition)) }
+      state = .onboarding(.init())
+      return .none
+
+    case .completeHomeTransition:
+      switch state {
+      case .splash, .onboarding: break
+      case .home: return .none
+      }
       state = .home(.init())
       return .merge(
         .send(.view(.foregrounded)),
@@ -705,6 +730,15 @@ private extension AppCoordinator {
     switch action {
     case .splash(.delegate(.presentHome)):
       return .send(.view(.presentHome))
+    case .onboarding(.delegate(.completed)):
+      return .run { send in
+        do {
+          try firstInstallOnboardingStore.markCompleted()
+        } catch {
+          FestiCoreLogger.error("첫 설치 기록을 저장할 수 없음: \(error.localizedDescription)", category: .app)
+        }
+        await send(.inner(.completeHomeTransition))
+      }
 
     case let .home(.festival(.delegate(.bookmarkRequested(id)))):
       guard case var .home(home) = state,

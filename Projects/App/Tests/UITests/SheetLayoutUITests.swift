@@ -13,9 +13,14 @@ final class SheetLayoutUITests: XCTestCase {
     let app = XCUIApplication()
     app.launch()
 
+    let onboardingSkip = app.buttons["onboarding.skip"]
+    if onboardingSkip.waitForExistence(timeout: 8) {
+      onboardingSkip.tap()
+    }
+
     let notificationDeny = XCUIApplication(bundleIdentifier: "com.apple.springboard")
       .buttons["허용 안 함"]
-    if notificationDeny.waitForExistence(timeout: 3) {
+    if notificationDeny.waitForExistence(timeout: 8) {
       notificationDeny.tap()
     }
 
