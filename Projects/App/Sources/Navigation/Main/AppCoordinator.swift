@@ -786,6 +786,15 @@ private extension AppCoordinator {
     case .home(.delegate(.myWithdrawRequested)):
       return myAccountOperation(state: &state, operation: .withdraw)
 
+    case let .home(.delegate(.myProfileUpdated(user))):
+      // 바꾼 닉네임을 세션의 표시 이름에 바로 반영한다. 같은 계정일 때만 받는다.
+      guard case var .home(home) = state,
+            let previous = home.authFlow.profile,
+            previous.user.id == user.id else { return .none }
+      home.authFlow.profile = AuthProfile(user: user, currentTermsVersion: previous.currentTermsVersion)
+      state = .home(home)
+      return .none
+
     default:
       return .none
     }

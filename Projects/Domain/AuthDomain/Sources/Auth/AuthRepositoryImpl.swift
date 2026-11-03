@@ -82,6 +82,26 @@ public struct AuthRepositoryImpl: AuthInterface {
     }
   }
 
+  public func updateNickname(_ nickname: String) async throws -> AuthUser {
+    guard let sessionID = await authService.authenticatedSessionID else {
+      throw AuthDomainError.notAuthenticated
+    }
+    // 가입 화면과 같은 규칙: 앞뒤 공백을 빼고 1~12자
+    let trimmed = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard (1 ... 12).contains(trimmed.count) else { throw AuthDomainError.invalidNickname }
+    do {
+      let response = try await client.send(
+        AuthRequest.updateNickname(body: AuthNicknameUpdateBody(nickname: trimmed), sessionID: sessionID),
+        as: AuthProfileUpdateResponseDTO.self
+      )
+      guard response.code == "SUCCESS" else { throw AuthDomainError.invalidResponse }
+      return response.data.toDomain()
+    } catch {
+      try await clearUnauthorizedSession(error, sessionID: sessionID)
+      throw error
+    }
+  }
+
   private func clearUnauthorizedSession(_ error: any Error, sessionID: UUID) async throws {
     if let networkError = error as? FestiCoreNetworkError,
        case let .response(response) = networkError,

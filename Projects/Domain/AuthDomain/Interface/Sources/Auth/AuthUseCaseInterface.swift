@@ -11,6 +11,8 @@ public protocol AuthUseCaseInterface: Sendable {
   func signIn(with credential: AuthCredential) async throws -> AuthLoginResult
   func fetchProfile() async throws -> AuthProfile
   func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser
+  /// 가입을 마친 계정의 닉네임만 바꾼다.
+  func updateNickname(_ nickname: String) async throws -> AuthUser
   func signOut() async throws
   func withdraw() async throws
 }

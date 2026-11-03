@@ -37,11 +37,8 @@ public struct ProfileFeature {
     public var isLockScreenAvailable = false
     public var isNoticeAvailable = false
 
-    public var isAccountPresented = false
-    /// 로그아웃·회원 탈퇴·문서 안내 확인 팝업. 계정 시트 위에 `fcAlert`로 띄운다.
+    /// 문서 안내 팝업, 계정·팩 상세 화면
     @Presents public var destination: Destination.State?
-    /// 지금 띄운 확인 팝업이 무엇을 확인하는지
-    public var confirmation: Confirmation?
 
     public init() {}
   }
@@ -56,15 +53,10 @@ public struct ProfileFeature {
 
   private enum CancelID { case packs }
 
-  public enum Confirmation: Equatable, Sendable {
-    case logout
-    case withdraw
-    case legalLinkUnavailable
-  }
-
   @Reducer
   public enum Destination {
     case alert(FCConfirmAlert)
+    case account(AccountSettingsFeature)
     case packDetail(PackDetailFeature)
   }
 
@@ -91,10 +83,6 @@ public struct ProfileFeature {
     case notificationsTapped
     case lockScreenTapped
     case accountTapped
-    case accountDismissed
-    case refreshTapped
-    case logoutTapped
-    case withdrawTapped
     case noticeTapped
     case termsTapped
     case privacyTapped
@@ -162,11 +150,15 @@ extension ProfileFeature {
       state.hasSession = hasSession
       state.isLoading = isLoading
       state.message = message
-      // 로그아웃되면 열려 있던 계정 시트와 확인 팝업을 닫는다.
-      if lostSession && state.isAccountPresented {
-        return .send(.view(.accountDismissed))
+      guard state.destination?.account != nil else { return .none }
+      // 로그아웃되면 열려 있던 계정 화면과 확인 팝업을 닫는다.
+      if lostSession {
+        state.destination = nil
+        return .none
       }
-      return .none
+      return .send(.destination(.presented(.account(.view(.accountChanged(
+        profile: profile, isLoading: isLoading, message: message
+      ))))))
 
     case .onAppear:
       guard state.packLoad != .loading else { return .none }
@@ -200,26 +192,7 @@ extension ProfileFeature {
       guard state.profile != nil || state.hasSession else {
         return .send(.delegate(.loginRequested))
       }
-      state.isAccountPresented = true
-      return .none
-
-    case .accountDismissed:
-      state.isAccountPresented = false
-      if state.confirmation == .logout || state.confirmation == .withdraw {
-        state.destination = nil
-        state.confirmation = nil
-      }
-      return .none
-
-    case .refreshTapped:
-      return .send(.delegate(.profileRefreshRequested))
-
-    case .logoutTapped:
-      presentConfirmation(.logout, state: &state)
-      return .none
-
-    case .withdrawTapped:
-      presentConfirmation(.withdraw, state: &state)
+      state.destination = .account(.init(profile: state.profile, isLoading: state.isLoading, message: state.message))
       return .none
 
     case .noticeTapped:
@@ -277,19 +250,26 @@ extension ProfileFeature {
     action: PresentationAction<Destination.Action>
   ) -> Effect<Action> {
     switch action {
-    case .presented(.alert(.confirmTapped)):
-      let confirmation = state.confirmation
+    case .presented(.alert):
       state.destination = nil
-      state.confirmation = nil
-      switch confirmation {
-      case .logout: return .send(.delegate(.logoutRequested))
-      case .withdraw: return .send(.delegate(.withdrawRequested))
-      case .legalLinkUnavailable, nil: return .none
+      return .none
+
+    case .presented(.account(.delegate(let delegateAction))):
+      switch delegateAction {
+      case .backRequested:
+        state.destination = nil
+        return .none
+      case .logoutRequested:
+        return .send(.delegate(.logoutRequested))
+      case .withdrawRequested:
+        return .send(.delegate(.withdrawRequested))
+      case .refreshRequested:
+        return .send(.delegate(.profileRefreshRequested))
+      case .nicknameUpdated(let user):
+        return .send(.delegate(.profileUpdated(user)))
       }
 
-    case .presented(.alert(.cancelTapped)):
-      state.destination = nil
-      state.confirmation = nil
+    case .presented(.account):
       return .none
 
     case .presented(.packDetail(.delegate(.backRequested))):
@@ -307,7 +287,6 @@ extension ProfileFeature {
       return .none
 
     case .dismiss:
-      state.confirmation = nil
       return .none
     }
   }
@@ -319,20 +298,10 @@ extension ProfileFeature {
     return .none
   }
 
-  /// 이미 같은 팝업이 떠 있으면 다시 띄우지 않는다.
-  private func presentConfirmation(_ confirmation: Confirmation, state: inout State) {
-    guard state.confirmation != confirmation else { return }
-    state.confirmation = confirmation
-    switch confirmation {
-    case .logout: state.destination = .alert(.logout())
-    case .withdraw: state.destination = .alert(.withdraw())
-    case .legalLinkUnavailable: state.destination = .alert(.legalLinkUnavailable())
-    }
-  }
-
   private func openLegalURL(path: String, state: inout State) -> Effect<Action> {
     guard let legalBaseURL else {
-      presentConfirmation(.legalLinkUnavailable, state: &state)
+      // 이미 떠 있으면 다시 띄우지 않는다.
+      if state.destination?.alert == nil { state.destination = .alert(.legalLinkUnavailable()) }
       return .none
     }
     return open(legalBaseURL.appending(path: path))

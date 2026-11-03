@@ -5,6 +5,7 @@
 //  Created by FestiCore on 10/30/26.
 //
 
+import AuthDomainInterface
 import ComposableArchitecture
 import FestiCoreSharedUI
 import FestivalDomainInterface
@@ -104,65 +105,6 @@ struct ProfileFeatureTests {
     await store.receive(\.delegate.loginRequested)
   }
 
-  @Test func losingSessionClosesAccountSheetAndConfirmation() async {
-    var state = signedInState()
-    state.isAccountPresented = true
-    state.destination = .alert(.logout())
-    state.confirmation = .logout
-    let store = TestStore(initialState: state) { ProfileFeature() }
-
-    await store.send(.view(.accountChanged(profile: nil, hasSession: false, isLoading: false, message: nil))) {
-      $0.hasSession = false
-    }
-    await store.receive(\.view.accountDismissed) {
-      $0.isAccountPresented = false
-      $0.destination = nil
-      $0.confirmation = nil
-    }
-  }
-
-  @Test func accountChangeWhileSignedInKeepsSheetOpen() async {
-    var state = signedInState()
-    state.isAccountPresented = true
-    let store = TestStore(initialState: state) { ProfileFeature() }
-
-    await store.send(.view(.accountChanged(profile: nil, hasSession: true, isLoading: true, message: nil))) {
-      $0.isLoading = true
-    }
-  }
-
-  @Test func signedInAccountRequiresConfirmationBeforeLogout() async {
-    let store = TestStore(initialState: signedInState()) { ProfileFeature() }
-
-    await store.send(.view(.accountTapped)) { $0.isAccountPresented = true }
-    await store.send(.view(.logoutTapped)) {
-      $0.destination = .alert(.logout())
-      $0.confirmation = .logout
-    }
-    await store.send(.destination(.presented(.alert(.confirmTapped)))) {
-      $0.destination = nil
-      $0.confirmation = nil
-    }
-    await store.receive(\.delegate.logoutRequested)
-    #expect(store.state.isAccountPresented)
-    await store.send(.view(.logoutTapped)) {
-      $0.destination = .alert(.logout())
-      $0.confirmation = .logout
-    }
-  }
-
-  @Test func repeatedTapDoesNotPresentConfirmationAgain() async {
-    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
-
-    await store.send(.view(.withdrawTapped)) {
-      $0.destination = .alert(.withdraw())
-      $0.confirmation = .withdraw
-    }
-    let presentationID = store.state.destination?.alert?.presentationID
-    await store.send(.view(.withdrawTapped))
-    #expect(store.state.destination?.alert?.presentationID == presentationID)
-  }
-
   @Test func packTapOpensPackDetailAndDeletionReloadsPacks() async {
     var state = ProfileFeature.State()
     state.packs = [FestivalReceivedPack(id: "fst_a", name: "원더리벳 2026", packVersion: 12)]
@@ -188,60 +130,48 @@ struct ProfileFeatureTests {
     await store.receive(\.inner.packsRefreshed)
   }
 
-  @Test func dismissingAccountAlsoClosesPendingConfirmation() async {
+  @Test func accountTapOpensAccountScreenAndForwardsAccountChanges() async {
     let store = TestStore(initialState: signedInState()) { ProfileFeature() }
 
-    await store.send(.view(.accountTapped)) { $0.isAccountPresented = true }
-    await store.send(.view(.withdrawTapped)) {
-      $0.destination = .alert(.withdraw())
-      $0.confirmation = .withdraw
+    await store.send(.view(.accountTapped)) {
+      $0.destination = .account(.init(profile: nil))
     }
-    await store.send(.view(.accountDismissed)) {
-      $0.isAccountPresented = false
-      $0.destination = nil
-      $0.confirmation = nil
+    await store.send(.view(.accountChanged(profile: nil, hasSession: true, isLoading: true, message: nil))) {
+      $0.isLoading = true
+    }
+    await store.receive(\.destination.presented.account.view.accountChanged) {
+      $0.destination = .account(.init(profile: nil, isLoading: true))
     }
   }
 
-  @Test func withdrawalFailureCanBeRetriedFromAccountSheet() async {
-    let store = TestStore(initialState: signedInState()) { ProfileFeature() }
+  @Test func losingSessionClosesAccountScreen() async {
+    var state = signedInState()
+    state.destination = .account(.init(profile: nil))
+    let store = TestStore(initialState: state) { ProfileFeature() }
 
-    await store.send(.view(.accountTapped)) { $0.isAccountPresented = true }
-    await store.send(.view(.withdrawTapped)) {
-      $0.destination = .alert(.withdraw())
-      $0.confirmation = .withdraw
-    }
-    await store.send(.destination(.presented(.alert(.confirmTapped)))) {
+    await store.send(.view(.accountChanged(profile: nil, hasSession: false, isLoading: false, message: nil))) {
+      $0.hasSession = false
       $0.destination = nil
-      $0.confirmation = nil
     }
+  }
+
+  @Test func accountScreenRequestsAreForwardedToApp() async {
+    let user = AuthUser(
+      id: "user-a", provider: "apple", email: nil, nickname: "새이름", nicknameConfirmed: true,
+      termsAcceptedAt: "2026-10-01", termsVersion: "2026-10", pushOptIn: false, profileImageURL: nil
+    )
+    var state = signedInState()
+    state.destination = .account(.init(profile: nil))
+    let store = TestStore(initialState: state) { ProfileFeature() }
+
+    await store.send(.destination(.presented(.account(.delegate(.logoutRequested)))))
+    await store.receive(\.delegate.logoutRequested)
+    await store.send(.destination(.presented(.account(.delegate(.withdrawRequested)))))
     await store.receive(\.delegate.withdrawRequested)
-    #expect(store.state.isAccountPresented)
-    await store.send(.view(.withdrawTapped)) {
-      $0.destination = .alert(.withdraw())
-      $0.confirmation = .withdraw
-    }
-  }
-
-  @Test func cancelTapOrDimDismissClosesWithoutRunningAction() async {
-    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
-
-    await store.send(.view(.withdrawTapped)) {
-      $0.destination = .alert(.withdraw())
-      $0.confirmation = .withdraw
-    }
-    await store.send(.destination(.presented(.alert(.cancelTapped)))) {
+    await store.send(.destination(.presented(.account(.delegate(.nicknameUpdated(user))))))
+    await store.receive(\.delegate.profileUpdated)
+    await store.send(.destination(.presented(.account(.delegate(.backRequested))))) {
       $0.destination = nil
-      $0.confirmation = nil
-    }
-    await store.send(.view(.logoutTapped)) {
-      $0.destination = .alert(.logout())
-      $0.confirmation = .logout
-    }
-    // 딤을 탭하면 fcAlert가 바인딩을 비워 dismiss를 보낸다.
-    await store.send(.destination(.dismiss)) {
-      $0.destination = nil
-      $0.confirmation = nil
     }
   }
 
@@ -252,13 +182,11 @@ struct ProfileFeatureTests {
 
     await store.send(.view(.termsTapped)) {
       $0.destination = .alert(.legalLinkUnavailable())
-      $0.confirmation = .legalLinkUnavailable
     }
     // 이미 떠 있는 팝업에 같은 동작이 다시 와도 새로 띄우지 않는다.
     await store.send(.view(.privacyTapped))
     await store.send(.destination(.presented(.alert(.confirmTapped)))) {
       $0.destination = nil
-      $0.confirmation = nil
     }
   }
 

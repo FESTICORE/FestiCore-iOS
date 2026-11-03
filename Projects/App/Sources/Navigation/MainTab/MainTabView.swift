@@ -39,8 +39,6 @@ struct MainTabView: View {
           } accessory: { detailStore in
             TimetableScheduleToast(isVisible: detailStore.isScheduleToastVisible)
           }
-        } else if store.selectedTab == .my, store.profileState.isAccountPresented {
-          profileView.modalOverlay
         }
       }
       .overlay {

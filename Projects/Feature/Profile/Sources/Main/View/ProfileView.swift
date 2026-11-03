@@ -29,6 +29,11 @@ public struct ProfileView: View {
         ) { detailStore in
           PackDetailView(store: detailStore)
         }
+        .navigationDestination(
+          item: $store.scope(state: \.destination?.account, action: \.destination.account)
+        ) { accountStore in
+          AccountSettingsView(store: accountStore)
+        }
     }
   }
 }
@@ -73,26 +78,6 @@ extension ProfileView {
     .background(FestiCoreSemanticColor.backgroundNormal.color)
     .onAppear { send(.onAppear) }
   }
-}
-
-// MARK: - 상위 화면이 함께 그리는 오버레이
-
-public extension ProfileView {
-  /// 탭 화면 전체 위에 올려 탭바 영역까지 시트가 덮도록 한다.
-  var modalOverlay: some View {
-    Color.clear
-      .presentFCSheet(item: accountItem) { _ in
-        ProfileAccountSheet(
-          profile: store.profile,
-          isLoading: store.isLoading,
-          message: store.message,
-          onRefresh: { send(.refreshTapped) },
-          onLogout: { send(.logoutTapped) },
-          onWithdraw: { send(.withdrawTapped) }
-        )
-      }
-  }
-
 }
 
 private extension ProfileView {
@@ -239,25 +224,6 @@ private extension ProfileView {
       rowDivider
       FCListRow("개인정보 처리방침") { send(.privacyTapped) }
     }
-  }
-
-  enum AccountSheet: String, Identifiable {
-    case account
-
-    var id: String {
-      rawValue
-    }
-  }
-
-  var accountItem: Binding<AccountSheet?> {
-    Binding(
-      get: { store.isAccountPresented ? .account : nil },
-      set: {
-        if $0 == nil {
-          send(.accountDismissed)
-        }
-      }
-    )
   }
 
   func sectionTitle(_ title: String) -> some View {
