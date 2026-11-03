@@ -38,6 +38,7 @@ private extension FestivalView {
       bookedFestivalIDs: store.bookedFestivalIDs,
       imageRevision: store.imageRevision,
       isLoading: store.festivals.isEmpty && store.viewState == .loading,
+      hasCatalogFailure: store.catalogCacheReadFailed || store.catalogRefreshFailed,
       offlineMessage: offlineMessage,
       imageURL: imageURL,
       onSelect: { send(.selectFestival($0)) },
@@ -72,33 +73,14 @@ private extension FestivalView {
   }
 
   var offlineMessage: String? {
-    if (store.connection != .live && store.connection != .unavailable) || store.cacheReadFailed {
-      statusText
-    } else {
-      nil
+    if store.catalogCacheReadFailed {
+      return "저장된 페스티벌 목록을 읽지 못했습니다 · 연결 후 다시 시도해 주세요"
     }
-  }
-
-  var statusText: String {
-    if store.cacheReadFailed {
-      return store.selectedPack == nil
-        ? "저장된 정보를 읽지 못했습니다 · 연결 후 다시 시도해 주세요"
-        : "일부 저장 정보를 읽지 못했습니다 · 표시 중인 팩은 사용할 수 있습니다"
+    if store.catalogRefreshFailed {
+      return store.festivals.isEmpty
+        ? "페스티벌 목록을 불러오지 못했습니다 · 다시 시도해 주세요"
+        : "최신 페스티벌 목록을 불러오지 못했습니다 · 저장된 목록을 표시합니다"
     }
-    return switch store.connection {
-    case .loading: "저장된 축제를 불러오는 중"
-    case .cached: "저장된 정보 표시 중 · 연결되면 갱신됩니다"
-    case .connecting: "최신 정보를 확인하는 중"
-    case .reconnecting:
-      store.selectedPack == nil
-        ? "연결을 다시 시도하는 중 · 저장된 상세 정보가 없습니다"
-        : "연결을 다시 시도하는 중 · 저장된 정보를 표시합니다"
-    case .live: "최신 정보로 갱신됨"
-    case .offline:
-      store.selectedPack == nil
-        ? "오프라인 · 저장된 상세 정보가 없습니다"
-        : "오프라인 · 저장된 정보를 표시합니다"
-    case .unavailable: "이 축제의 오프라인 팩은 아직 없습니다"
-    }
+    return nil
   }
 }

@@ -10,6 +10,7 @@ struct FestivalListView: View {
   let bookedFestivalIDs: Set<String>
   let imageRevision: Int
   let isLoading: Bool
+  let hasCatalogFailure: Bool
   let offlineMessage: String?
   let imageURL: (String?) -> URL?
   let onSelect: (String) -> Void
@@ -44,6 +45,7 @@ struct FestivalListView: View {
           selection: $selectedFilter,
           items: ["전체", "예매 완료"]
         )
+        .indicatorColor(FestiCoreSemanticColor.staticLime.color)
         offlineBadge
         ScrollView {
           LazyVStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
@@ -90,21 +92,23 @@ private extension FestivalListView {
   }
 
   var searchResults: [FestivalOverview] {
-    FestivalListPresentation.visible(
-      festivals,
-      query: trimmedQuery,
-      bookedIDs: bookedFestivalIDs,
-      onlyBooked: false
+    FestivalListPresentation.sorted(
+      FestivalListPresentation.visible(
+        festivals,
+        query: trimmedQuery,
+        bookedIDs: bookedFestivalIDs,
+        onlyBooked: false
+      ),
+      now: .now
     )
   }
 
   var upcomingFestivals: [FestivalOverview] {
-    festivals.filter {
-      if case .daysUntil = FestivalListPresentation.timing(for: $0, now: .now) {
-        return true
-      }
+    FestivalListPresentation.sorted(festivals.filter {
+      guard !FestivalListPresentation.isOpeningSoon($0) else { return false }
+      if case .daysUntil = FestivalListPresentation.timing(for: $0, now: .now) { return true }
       return false
-    }
+    }, now: .now)
   }
 
   /// 목록을 좌우로 밀면 전체·예매 완료 탭을 바꾼다.
@@ -141,8 +145,11 @@ private extension FestivalListView {
       FCEmptyCard(
         icon: .bell,
         title: "불러온 페스티벌이 없어요",
-        message: "연결되면 페스티벌 목록을 가져와요."
+        message: hasCatalogFailure
+          ? "연결을 확인하고 다시 시도해 주세요."
+          : "새 페스티벌이 등록되면 여기에 표시해요."
       )
+      .action(hasCatalogFailure ? FCCardAction("다시 시도", action: onRefresh) : nil)
     } else {
       FCEmptyCard(
         icon: .bookmark20,
@@ -198,7 +205,17 @@ private extension FestivalListView {
 
   @ViewBuilder
   var searchContent: some View {
-    if trimmedQuery.isEmpty {
+    if isLoading {
+      searchSkeleton
+    } else if festivals.isEmpty && hasCatalogFailure {
+      FCEmptyCard(
+        icon: .bell,
+        title: "페스티벌을 불러오지 못했어요",
+        message: "연결을 확인하고 다시 시도해 주세요."
+      )
+      .action(FCCardAction("다시 시도", action: onRefresh))
+      .padding(FestiCoreSpacing.paddingP16)
+    } else if trimmedQuery.isEmpty {
       VStack(alignment: .leading, spacing: .zero) {
         if !recentSearches.isEmpty {
           FCSectionHeader("최근 검색")
@@ -206,19 +223,17 @@ private extension FestivalListView {
             .padding(.top, FestiCoreSpacing.paddingP20)
             .padding(.bottom, FestiCoreSpacing.paddingP8)
             .padding(.horizontal, FestiCoreSpacing.paddingP16)
-          ScrollView(.horizontal) {
-            HStack(spacing: FestiCoreSpacing.paddingP8) {
-              ForEach(recentSearches, id: \.self) { keyword in
-                FCRecentKeyword(
-                  keyword,
-                  onSelect: { query = keyword },
-                  onDelete: { onRecentSearchRemoved(keyword) }
-                )
-              }
+          FCFlowLayout {
+            ForEach(recentSearches, id: \.self) { keyword in
+              FCRecentKeyword(
+                keyword,
+                onSelect: { query = keyword },
+                onDelete: { onRecentSearchRemoved(keyword) }
+              )
             }
-            .padding(.horizontal, FestiCoreSpacing.paddingP16)
           }
-          .scrollIndicators(.hidden)
+          .spacing(FestiCoreSpacing.paddingP8)
+          .padding(.horizontal, FestiCoreSpacing.paddingP16)
         }
         if !upcomingFestivals.isEmpty {
           FCSectionHeader("다가오는 페스티벌")
@@ -226,6 +241,13 @@ private extension FestivalListView {
             .padding(.bottom, FestiCoreSpacing.paddingP8)
             .padding(.horizontal, FestiCoreSpacing.paddingP16)
           resultRows(upcomingFestivals)
+        } else if recentSearches.isEmpty {
+          FCEmptyCard(
+            icon: .bell,
+            title: "다가오는 페스티벌이 없어요",
+            message: "새 페스티벌이 등록되면 여기에서 찾아볼 수 있어요."
+          )
+          .padding(FestiCoreSpacing.paddingP16)
         }
       }
     } else if searchResults.isEmpty {
@@ -240,6 +262,27 @@ private extension FestivalListView {
         resultRows(searchResults)
       }
     }
+  }
+
+  var searchSkeleton: some View {
+    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
+      FCSkeletonView(.round())
+        .frame(width: 120, height: 20)
+      ForEach(0..<3, id: \.self) { _ in
+        HStack(spacing: FestiCoreSpacing.paddingP12) {
+          FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r12))
+            .frame(width: 48, height: 48)
+          VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
+            FCSkeletonView(.round())
+              .frame(width: 180, height: 18)
+            FCSkeletonView(.round())
+              .frame(width: 230, height: 16)
+          }
+        }
+      }
+    }
+    .padding(FestiCoreSpacing.paddingP16)
+    .accessibilityIdentifier(FestivalAccessibilityID.searchSkeleton)
   }
 
   func resultRows(_ items: [FestivalOverview]) -> some View {
@@ -257,6 +300,8 @@ private extension FestivalListView {
             onSelect(festival.id)
           }
         )
+        .highlightedQuery(trimmedQuery)
+        .urgent(isUrgent(festival))
         .thumbnail(
           FestivalPosterView(
             url: imageURL(festival.thumbnailURL?.absoluteString),
@@ -301,6 +346,11 @@ private extension FestivalListView {
     case .live: "진행 중"
     case .ended, .undated: nil
     }
+  }
+
+  func isUrgent(_ festival: FestivalOverview) -> Bool {
+    if case .closing = FestivalListPresentation.cardStatus(for: festival, now: .now) { return true }
+    return false
   }
 
   func meta(for festival: FestivalOverview) -> String {

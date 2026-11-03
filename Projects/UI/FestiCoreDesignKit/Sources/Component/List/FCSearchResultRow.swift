@@ -18,6 +18,8 @@ public struct FCSearchResultRow: View {
   private var title: String
   private var meta: String
   private var action: () -> Void
+  private var highlightedQuery = ""
+  private var isUrgent = false
   private(set) var thumbnail: AnyView?
 
   public init(
@@ -37,9 +39,10 @@ public struct FCSearchResultRow: View {
       HStack(spacing: FestiCoreSpacing.paddingP12) {
         leading
         VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
-          Text(title)
+          highlightedTitle
             .festiCoreFont(.baseCalloutBold)
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+            .accessibilityLabel(title)
           Text(meta)
             .festiCoreFont(.baseFootnoteRegular)
             .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
@@ -83,10 +86,15 @@ public struct FCSearchResultRow: View {
       if let dDay {
         Text(dDay)
           .festiCoreFont(.baseCaption2Bold)
-          .foregroundStyle(FestiCoreSemanticColor.inverseLabel.color)
+          .foregroundStyle(
+            isUrgent ? FestiCoreSemanticColor.staticWhite.color : FestiCoreSemanticColor.inverseLabel.color
+          )
           .padding(.vertical, FestiCoreSpacing.paddingP4)
           .padding(.horizontal, FestiCoreSpacing.marginM6)
-          .background(FestiCoreSemanticColor.inverseBackground.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r4))
+          .background(
+            isUrgent ? FestiCoreSemanticColor.accentPointRed.color : FestiCoreSemanticColor.inverseBackground.color,
+            in: RoundedRectangle(cornerRadius: FestiCoreRadius.r4)
+          )
       }
     case .artist:
       Image(asset: .chevronRight16)
@@ -107,9 +115,36 @@ public extension FCSearchResultRow {
     copy.thumbnail = AnyView(view)
     return copy
   }
+
+  /// 제목에서 검색어와 일치하는 부분을 강조한다.
+  func highlightedQuery(_ query: String) -> Self {
+    var copy = self
+    copy.highlightedQuery = query
+    return copy
+  }
+
+  /// 임박한 공연 날짜 배지를 경고색으로 표시한다.
+  func urgent(_ isUrgent: Bool) -> Self {
+    var copy = self
+    copy.isUrgent = isUrgent
+    return copy
+  }
 }
 
 private extension FCSearchResultRow {
+  var highlightedTitle: Text {
+    guard !highlightedQuery.isEmpty else { return Text(title) }
+    var remaining = title[...]
+    var result = Text("")
+    while let range = remaining.localizedStandardRange(of: highlightedQuery), !range.isEmpty {
+      result = result
+        + Text(String(remaining[..<range.lowerBound]))
+        + Text(String(remaining[range])).foregroundColor(FestiCoreSemanticColor.secondaryNormal.color)
+      remaining = remaining[range.upperBound...]
+    }
+    return result + Text(String(remaining))
+  }
+
   enum Metric {
     static let leadingSize: CGFloat = 48
     static let iconSize: CGFloat = 16

@@ -54,6 +54,7 @@ public struct FestivalFeature {
     public var hasStarted = false
     public var isForeground = true
     public var catalogCacheReadFailed = false
+    public var catalogRefreshFailed = false
     public var packCacheReadFailed = false
     var liveActivities: [String: FestivalLiveActivityRecord] = [:]
     var liveActivityReady = false
@@ -608,6 +609,7 @@ extension FestivalFeature {
 
     case let .catalogRefreshed(catalog):
       state.viewState = .loaded
+      state.catalogRefreshFailed = false
       if state.liveActivityReady { state.liveActivityNow = date.now }
       let previouslyAvailable = (state.selectedFestival?.packVersion ?? 0) > 0
       let restartFailedWatch = state.packWatchFailed
@@ -632,6 +634,7 @@ extension FestivalFeature {
 
     case .catalogFailed:
       state.viewState = .loaded
+      state.catalogRefreshFailed = true
       if state.connection != .live {
         state.imageRetryPending = true
         state.connection = .offline
