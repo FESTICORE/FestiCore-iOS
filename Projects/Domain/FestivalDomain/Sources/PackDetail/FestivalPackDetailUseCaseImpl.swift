@@ -36,7 +36,12 @@ public struct FestivalPackDetailUseCaseImpl: FestivalPackDetailUseCaseInterface 
       throw FestivalPackError.retryLater
     }
     // 받은 버전이 최신인지 다시 판단하도록 서버 목록도 새로 받는다.
-    let catalog = (try? await catalogService.refresh()) ?? ((try? await catalogService.cachedFestivals()) ?? [])
+    let catalog: [FestivalCatalogItem]
+    if let refreshed = try? await catalogService.refresh() {
+      catalog = refreshed
+    } else {
+      catalog = (try? await catalogService.cachedFestivals()) ?? []
+    }
     guard let cached = try await packService.cachedPack(for: festivalID) else { return nil }
     return detail(from: cached, catalog: catalog)
   }
