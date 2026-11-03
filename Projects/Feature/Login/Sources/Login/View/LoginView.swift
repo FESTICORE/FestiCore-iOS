@@ -24,21 +24,21 @@ public struct LoginView: View {
       sheetContent
       if let message = store.visibleMessage {
         Text(message)
-          .foregroundStyle(.red)
+          .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
           .padding(.bottom, 16)
       }
     }
   }
 }
 
-extension LoginView {
-  private enum Metric {
+private extension LoginView {
+  enum Metric {
     static let markSize: CGFloat = 56
     static let iconSize: CGFloat = 24
   }
 
   /// 깃발 마크, 문구, 소셜 로그인 버튼, 나중에 하기 버튼
-  private var sheetContent: some View {
+  var sheetContent: some View {
     VStack(spacing: FestiCoreSpacing.paddingP16) {
       Image(asset: .flag)
         .resizable()
@@ -76,7 +76,7 @@ extension LoginView {
   }
 
   /// 로그인을 요청한 문맥에 맞춘 시트 문구
-  private var copy: (title: String, message: String) {
+  var copy: (title: String, message: String) {
     switch store.context {
     case .profile:
       return ("계정 정보를 보려면 로그인이 필요해요", "로그인 후 프로필을 확인할 수 있어요.")
