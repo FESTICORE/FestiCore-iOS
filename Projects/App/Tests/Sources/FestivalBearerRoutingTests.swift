@@ -32,6 +32,13 @@ struct FestivalBearerRoutingTests {
     await store.send(.router(.routeAction(id: 2, action: .bearerBoard(.delegate(.closeRequested))))) {
       $0.routes.dismiss()
     }
+    // 닫은 뒤 다시 열면 새 기수 보드를 띄운다.
+    await store.send(.router(.routeAction(
+      id: 1,
+      action: .liveBoard(.delegate(.bearerBoardRequested(festivalID: "fst", flagID: "flg_1", userID: "usr_me")))
+    ))) {
+      $0.routes.presentCover(.bearerBoard(.init(festivalID: "fst", flagID: "flg_1", viewerUserID: "usr_me")))
+    }
   }
 
   @Test("계정이 바뀌면 열린 기수 보드를 닫는다")
