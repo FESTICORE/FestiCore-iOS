@@ -81,6 +81,19 @@ struct BearerBoardFeatureTests {
     await store.send(.view(.onDisappear))
   }
 
+  @Test("화면이 사라지면 멈춘 로딩과 체크 표시를 지운다")
+  func disappearClearsTransientState() async {
+    var state = loaded(board(.active))
+    state.isLoading = true
+    state.check = .init(id: 1, title: "쉬는 중으로 바뀌었어요", message: "팔로워에게 알렸어요")
+    let store = TestStore(initialState: state) { BearerBoardFeature() }
+
+    await store.send(.view(.onDisappear)) {
+      $0.isLoading = false
+      $0.check = nil
+    }
+  }
+
   @Test("누른 사용자를 모르면 대기열에 넣지 않는다")
   func requiresViewer() async {
     let store = TestStore(initialState: loaded(board(.active), viewer: nil)) { BearerBoardFeature() }

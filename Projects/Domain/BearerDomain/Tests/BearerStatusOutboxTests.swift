@@ -85,18 +85,21 @@ struct BearerStatusOutboxTests {
     #expect(clock.sleeps == [.seconds(15)])
   }
 
-  @Test("보내는 중이거나 한 번 보내 본 건 앞에는 더 이른 변경을 끼워 넣지 않는다")
+  @Test("한 번 보내 본 건은 재시도 전이라도 그 앞에 더 이른 변경을 끼워 넣지 않는다")
   func keepsAttemptedItemFirst() async {
+    let auth = StubAuthService()
     let repository = GatedRepository([.failure(.offline), .success(resting), .success(resting)])
-    let outbox = makeOutbox(repository, clock: RecordingClock())
+    let outbox = makeOutbox(repository, auth: auth, clock: RecordingClock())
     let events = await outbox.events(flagID: "flg_1")
 
     await outbox.enqueue(flagID: "flg_1", ownerUserID: "usr_me", request: request(.rest, "late", offset: 10))
     await waitUntil { await repository.sentKeys.count == 1 }
-    // 첫 전송이 서버에 닿았을 수 있는 동안 더 이른 시각의 변경이 들어온다.
-    await outbox.enqueue(flagID: "flg_1", ownerUserID: "usr_me", request: request(.end, "early"))
+    // 첫 시도가 실패하고 재시도 전 사용자 확인에서 멈춘 사이(보내는 중이 아닐 때) 더 이른 변경이 들어온다.
+    await auth.hold()
     await repository.release()
-    await waitUntil { await repository.sentKeys.count == 2 }
+    await waitUntil { await auth.waiterCount == 1 }
+    await outbox.enqueue(flagID: "flg_1", ownerUserID: "usr_me", request: request(.end, "early"))
+    await auth.release()
     await repository.release()
     await repository.release()
     _ = await collect(events) { $0 == .pending([]) }

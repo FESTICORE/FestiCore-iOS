@@ -111,6 +111,8 @@ actor StubAuthService: AuthService {
 
   func setUserID(_ userID: String?) { self.userID = userID }
 
+  var waiterCount: Int { waiters.count }
+
   /// 다음 사용자 조회를 release까지 붙잡는다.
   func hold() { isHeld = true }
 
