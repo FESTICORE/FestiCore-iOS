@@ -219,7 +219,11 @@ extension BearerBoardFeature {
 
     case .onDisappear:
       // 화면 라우트를 지워도 자식 효과는 남으므로 구독을 직접 끝낸다. 대기열 전송은 계속된다.
-      return .cancel(id: CancelID.outbox)
+      return .merge(
+        .cancel(id: CancelID.outbox),
+        .cancel(id: CancelID.load),
+        .cancel(id: CancelID.check)
+      )
 
     case .retrySendTapped:
       state.isSendPaused = false
