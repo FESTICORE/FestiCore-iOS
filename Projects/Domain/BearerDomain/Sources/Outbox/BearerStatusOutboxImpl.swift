@@ -105,8 +105,11 @@ private extension BearerStatusOutboxImpl {
 
   func run() async {
     var serverFailures = 0
-    while let item = items.first, !Task.isCancelled {
-      guard let currentUserID = await authService.currentUserID else {
+    while !items.isEmpty, !Task.isCancelled {
+      let currentUserID = await authService.currentUserID
+      // 사용자를 기다리는 사이 더 이른 변경이 들어왔을 수 있어 맨 앞 건을 이때 고른다.
+      guard let item = items.first else { break }
+      guard let currentUserID else {
         emit(.needsLogin, for: item.flagID)
         break
       }
