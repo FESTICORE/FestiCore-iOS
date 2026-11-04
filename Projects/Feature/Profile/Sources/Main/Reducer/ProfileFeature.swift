@@ -83,6 +83,7 @@ public struct ProfileFeature {
     case bearerTapped
     case searchTapped
     case packTapped(String)
+    case openPackDirections(festivalID: String, title: String)
     case notificationsTapped
     case lockScreenTapped
     case accountTapped
@@ -184,6 +185,16 @@ extension ProfileFeature {
     case .packTapped(let id):
       guard let pack = state.packs.first(where: { $0.id == id }) else { return .none }
       state.destination = .packDetail(.init(festivalID: pack.id, title: pack.name))
+      return .none
+
+    case let .openPackDirections(
+      festivalID,
+      title
+    ):
+      state.destination = .packDetail(.init(
+        festivalID: festivalID,
+        title: title
+      ))
       return .none
 
     case .notificationsTapped:

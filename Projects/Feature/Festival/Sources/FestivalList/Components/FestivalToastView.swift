@@ -25,7 +25,10 @@ private extension FestivalToastView {
     case .bookmarked: .booked()
     case .unbookmarked: .unbooked()
     case .ticketLinkMissing: .noLink()
-    case .packDownloadFailed: .init(icon: .circleInfo16, message: "팩을 받지 못했어요. 다시 시도해 주세요")
+    case .packDownloadFailed: .init(
+      icon: .circleInfo16,
+      message: "팩을 받지 못했어요. 다시 시도해 주세요"
+    )
     }
   }
 }

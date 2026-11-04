@@ -8,60 +8,131 @@ import Testing
 struct FestivalListPresentationTests {
   @Test func searchAndBookedFilterUseActualCatalogFields() {
     let festivals = [
-      festival(id: "one", name: "원더리벳", venue: "고양"),
-      festival(id: "two", name: "펜타포트", venue: "인천")
+      festival(
+        id: "one",
+        name: "원더리벳",
+        venue: "고양"
+      ),
+      festival(
+        id: "two",
+        name: "펜타포트",
+        venue: "인천"
+      )
     ]
 
     #expect(FestivalListPresentation.visible(
-      festivals, query: "인천", bookedIDs: ["two"], onlyBooked: false
+      festivals,
+      query: "인천",
+      bookedIDs: ["two"],
+      onlyBooked: false
     ).map(\.id) == ["two"])
     #expect(FestivalListPresentation.visible(
-      festivals, query: "", bookedIDs: ["one"], onlyBooked: true
+      festivals,
+      query: "",
+      bookedIDs: ["one"],
+      onlyBooked: true
     ).map(\.id) == ["one"])
     #expect(FestivalListPresentation.visible(
-      festivals, query: "펜타", bookedIDs: ["one"], onlyBooked: true
+      festivals,
+      query: "펜타",
+      bookedIDs: ["one"],
+      onlyBooked: true
     ).isEmpty)
   }
 
   @Test func searchMatchesCaseDiacriticsAndFullWidthCharacters() {
-    let festivals = [festival(id: "one", name: "Ｃａｆé Festival", venue: "서울")]
-    #expect(FestivalListPresentation.visible(festivals, query: "cafe", bookedIDs: [], onlyBooked: false).map(\.id) == ["one"])
-    #expect(FestivalListPresentation.visible(festivals, query: "ＣＡＦＥ", bookedIDs: [], onlyBooked: false).map(\.id) == ["one"])
+    let festivals = [festival(
+      id: "one",
+      name: "Ｃａｆé Festival",
+      venue: "서울"
+    )]
+    #expect(FestivalListPresentation.visible(
+      festivals,
+      query: "cafe",
+      bookedIDs: [],
+      onlyBooked: false
+    ).map(\.id) == ["one"])
+    #expect(FestivalListPresentation.visible(
+      festivals,
+      query: "ＣＡＦＥ",
+      bookedIDs: [],
+      onlyBooked: false
+    ).map(\.id) == ["one"])
   }
 
   @Test func artistSearchUsesServerProjectionAndKeepsFestivalResultSeparate() {
     let item = FestivalCatalogItem(
-      id: "one", name: "원더리벳", venue: "고양", packVersion: 1,
-      artists: [FestivalCatalogArtist(name: "삼보마스터", performances: [
-        FestivalCatalogPerformance(startsAt: "2026-11-21T09:00:00Z", date: "2026-11-21", stageName: "리벳 스테이지")
-      ])]
+      id: "one",
+      name: "원더리벳",
+      venue: "고양",
+      packVersion: 1,
+      artists: [FestivalCatalogArtist(
+        name: "삼보마스터",
+        performances: [
+        FestivalCatalogPerformance(
+          startsAt: "2026-11-21T09:00:00Z",
+          date: "2026-11-21",
+          stageName: "리벳 스테이지"
+        )
+      ]
+      )]
     )
-    let festival = FestivalOverview(item: item, isCached: false)
+    let festival = FestivalOverview(
+      item: item,
+      isCached: false
+    )
 
-    #expect(FestivalListPresentation.visible([festival], query: "삼보", bookedIDs: [], onlyBooked: false).isEmpty)
-    let matches = FestivalListPresentation.matchingArtists([festival], query: "삼보")
+    #expect(FestivalListPresentation.visible(
+      [festival],
+      query: "삼보",
+      bookedIDs: [],
+      onlyBooked: false
+    ).isEmpty)
+    let matches = FestivalListPresentation.matchingArtists(
+      [festival],
+      query: "삼보"
+    )
     #expect(matches.map(\.artist.name) == ["삼보마스터"])
     #expect(matches.map(\.festival.id) == ["one"])
-    #expect(FestivalListPresentation.artistMeta(matches[0], now: utc("2026-11-01T03:00:00Z"))
+    #expect(FestivalListPresentation.artistMeta(
+      matches[0],
+      now: utc("2026-11-01T03:00:00Z")
+    )
       == "원더리벳 · 11/21(토) 리벳 스테이지")
-    #expect(FestivalListPresentation.matchingArtists([festival], query: " ").isEmpty)
-    #expect(FestivalOverview(item: FestivalCatalogItem(id: "old", name: "옛 데이터", packVersion: 1), isCached: false).artists == nil)
+    #expect(FestivalListPresentation.matchingArtists(
+      [festival],
+      query: " "
+    ).isEmpty)
+    #expect(FestivalOverview(
+      item: FestivalCatalogItem(
+      id: "old",
+      name: "옛 데이터",
+      packVersion: 1
+    ),
+      isCached: false
+    ).artists == nil)
   }
 
   @Test func dDayLiveAndEndedUseKoreanCalendarDays() {
     let festival = festival(
-      id: "one", name: "공연", venue: nil,
-      firstDate: "2026-10-30", lastDate: "2026-10-31"
+      id: "one",
+      name: "공연",
+      venue: nil,
+      firstDate: "2026-10-30",
+      lastDate: "2026-10-31"
     )
 
     #expect(FestivalListPresentation.timing(
-      for: festival, now: utc("2026-10-27T15:00:00Z")
+      for: festival,
+      now: utc("2026-10-27T15:00:00Z")
     ) == .daysUntil(2))
     #expect(FestivalListPresentation.timing(
-      for: festival, now: utc("2026-10-30T00:00:00Z")
+      for: festival,
+      now: utc("2026-10-30T00:00:00Z")
     ) == .live)
     #expect(FestivalListPresentation.timing(
-      for: festival, now: utc("2026-10-31T15:00:00Z")
+      for: festival,
+      now: utc("2026-10-31T15:00:00Z")
     ) == .ended)
   }
 
@@ -72,10 +143,31 @@ struct FestivalListPresentationTests {
 
   @Test func cardStatusFollowsFigmaPrecedenceAndRedThreshold() {
     let now = utc("2026-11-01T03:00:00Z")
-    #expect(FestivalListPresentation.cardStatus(for: festival(id: "d3", firstDate: "2026-11-04"), now: now) == .closing("D-3"))
-    #expect(FestivalListPresentation.cardStatus(for: festival(id: "d4", firstDate: "2026-11-05"), now: now) == .dDay("D-4"))
-    #expect(FestivalListPresentation.cardStatus(for: festival(id: "live", firstDate: "2026-11-01"), now: now) == .dDay("진행 중"))
-    #expect(FestivalListPresentation.cardStatus(for: festival(id: "none"), now: now) == .dDay("일정 확인"))
+    #expect(FestivalListPresentation.cardStatus(
+      for: festival(
+      id: "d3",
+      firstDate: "2026-11-04"
+    ),
+      now: now
+    ) == .closing("D-3"))
+    #expect(FestivalListPresentation.cardStatus(
+      for: festival(
+      id: "d4",
+      firstDate: "2026-11-05"
+    ),
+      now: now
+    ) == .dDay("D-4"))
+    #expect(FestivalListPresentation.cardStatus(
+      for: festival(
+      id: "live",
+      firstDate: "2026-11-01"
+    ),
+      now: now
+    ) == .dDay("진행 중"))
+    #expect(FestivalListPresentation.cardStatus(
+      for: festival(id: "none"),
+      now: now
+    ) == .dDay("일정 확인"))
     #expect(FestivalListPresentation.cardStatus(
       for: festival(
         id: "soon",
@@ -85,10 +177,21 @@ struct FestivalListPresentationTests {
       now: now
     ) == .closing("D-1"))
     #expect(FestivalListPresentation.cardStatus(
-      for: festival(id: "v0", firstDate: "2026-11-02", packVersion: 0), now: now
+      for: festival(
+        id: "v0",
+        firstDate: "2026-11-02",
+        packVersion: 0
+      ),
+      now: now
     ) == .upcoming)
     #expect(FestivalListPresentation.cardStatus(
-      for: festival(id: "end", firstDate: "2026-10-01", lastDate: "2026-10-02", status: "discovered"), now: now
+      for: festival(
+        id: "end",
+        firstDate: "2026-10-01",
+        lastDate: "2026-10-02",
+        status: "discovered"
+      ),
+      now: now
     ) == .ended)
     #expect(FestivalListPresentation.searchBadge(
       for: festival(
@@ -99,54 +202,109 @@ struct FestivalListPresentationTests {
       now: now
     ) == "D-1")
     #expect(FestivalListPresentation.searchBadge(
-      for: festival(id: "end", firstDate: "2026-10-01", lastDate: "2026-10-02"), now: now
+      for: festival(
+        id: "end",
+        firstDate: "2026-10-01",
+        lastDate: "2026-10-02"
+      ),
+      now: now
     ) == nil)
   }
 
   @Test func pastLastDateEndsFestivalEvenWithoutValidFirstDate() {
     let now = utc("2026-11-01T03:00:00Z")
-    #expect(FestivalListPresentation.timing(for: festival(id: "a", lastDate: "2026-10-02"), now: now) == .ended)
     #expect(FestivalListPresentation.timing(
-      for: festival(id: "b", firstDate: "2026-02-30", lastDate: "2026-10-02"), now: now
+      for: festival(
+      id: "a",
+      lastDate: "2026-10-02"
+    ),
+      now: now
     ) == .ended)
-    #expect(FestivalListPresentation.timing(for: festival(id: "c", lastDate: "2026-12-02"), now: now) == .undated)
+    #expect(FestivalListPresentation.timing(
+      for: festival(
+        id: "b",
+        firstDate: "2026-02-30",
+        lastDate: "2026-10-02"
+      ),
+      now: now
+    ) == .ended)
+    #expect(FestivalListPresentation.timing(
+      for: festival(
+      id: "c",
+      lastDate: "2026-12-02"
+    ),
+      now: now
+    ) == .undated)
   }
 
   @Test func endedOrderFallsBackToFirstDateWhenLastDateIsInvalid() {
     let now = utc("2026-11-10T03:00:00Z")
     let festivals = [
-      festival(id: "early", firstDate: "2026-10-01", lastDate: "2026-10-02"),
-      festival(id: "lateInvalidEnd", firstDate: "2026-10-31", lastDate: "2026-02-30")
+      festival(
+        id: "early",
+        firstDate: "2026-10-01",
+        lastDate: "2026-10-02"
+      ),
+      festival(
+        id: "lateInvalidEnd",
+        firstDate: "2026-10-31",
+        lastDate: "2026-02-30"
+      )
     ]
 
-    #expect(FestivalListPresentation.sorted(festivals, now: now).map(\.id) == ["lateInvalidEnd", "early"])
+    #expect(FestivalListPresentation.sorted(
+      festivals,
+      now: now
+    ).map(\.id) == ["lateInvalidEnd", "early"])
   }
 
-  @Test func packCopyUsesPublicationAndCacheRegardlessOfFestivalTiming() {
+  @Test func packCopyPreservesReceivedPacksAndAllowsPublishedEndedDownloads() {
     func copy(_ festival: FestivalOverview) -> FestivalListPresentation.PackCopy {
       return FestivalListPresentation.packCopy(
         for: festival,
         now: utc("2026-11-01T03:00:00Z")
       )
     }
+    let endedCopy = FestivalListPresentation.PackCopy.ready("팩 받기")
     #expect(copy(festival(
       id: "end",
       firstDate: "2026-10-01"
     )) == .ready("팩 받기"))
-    for cachedVersion in [1, 2, 3] {
-      #expect(copy(festival(
-        id: "ended-cached",
-        firstDate: "2026-10-01",
-        packVersion: 2,
-        cachedPackVersion: cachedVersion
-      )) == (cachedVersion >= 2 ? .received("팩 받음 · 최신 버전") : .ready("팩 업데이트")))
-    }
     #expect(copy(festival(
-      id: "ended-unpublished",
+      id: "endedStale",
+      firstDate: "2026-10-01",
+      packVersion: 3,
+      cachedPackVersion: 2
+    )) == .ready("팩 업데이트"))
+    #expect(copy(festival(
+      id: "endedUnpublished",
       firstDate: "2026-10-01",
       packVersion: 0
     )) == .unavailable("팩 발행을 기다리고 있어요"))
-    let discovered = festival(id: "soon", firstDate: "2026-11-20", status: "discovered")
+    #expect(copy(festival(
+      id: "endedReceived",
+      firstDate: "2026-10-01",
+      packVersion: 2,
+      cachedPackVersion: 2
+    ))
+      == .received("팩 받음 · 최신 버전"))
+    #expect(copy(festival(
+      id: "endedNewer",
+      firstDate: "2026-10-01",
+      packVersion: 2,
+      cachedPackVersion: 3
+    ))
+      == .received("팩 받음 · 최신 버전"))
+    #expect(copy(festival(
+      id: "lastDay",
+      firstDate: "2026-11-01",
+      lastDate: "2026-11-01"
+    )) == .ready("팩 받기"))
+    let discovered = festival(
+      id: "soon",
+      firstDate: "2026-11-20",
+      status: "discovered"
+    )
     #expect(copy(discovered) == .ready("팩 받기"))
     #expect(copy(festival(
       id: "unpublished",
@@ -159,15 +317,31 @@ struct FestivalListPresentationTests {
       firstDate: "2026-11-20",
       status: "upcoming"
     )) == .ready("팩 받기"))
-    #expect(copy(festival(id: "same", firstDate: "2026-11-20", packVersion: 2, cachedPackVersion: 2))
+    #expect(copy(festival(
+      id: "same",
+      firstDate: "2026-11-20",
+      packVersion: 2,
+      cachedPackVersion: 2
+    ))
       == .received("팩 받음 · 최신 버전"))
-    #expect(copy(festival(id: "newer", firstDate: "2026-11-20", packVersion: 2, cachedPackVersion: 3))
+    #expect(copy(festival(
+      id: "newer",
+      firstDate: "2026-11-20",
+      packVersion: 2,
+      cachedPackVersion: 3
+    ))
       == .received("팩 받음 · 최신 버전"))
-    #expect(copy(festival(id: "stale", firstDate: "2026-11-20", packVersion: 3, cachedPackVersion: 2))
+    #expect(copy(festival(
+      id: "stale",
+      firstDate: "2026-11-20",
+      packVersion: 3,
+      cachedPackVersion: 2
+    ))
       == .ready("팩 업데이트"))
   }
 
-  @Test func packCopyOffersDownloadAndUpdateWithoutBookmarkInput() {
+  @Test
+  func packCopyDependsOnlyOnPublishedAndCachedVersions() {
     for cachedVersion: Int? in [nil, 1, 2, 3] {
       let copy = FestivalListPresentation.packCopy(
         for: festival(
@@ -189,21 +363,42 @@ struct FestivalListPresentationTests {
   @Test func sortedUsesScheduleDatesBeforeUndatedAndEndedRegardlessOfPackPublication() {
     let now = utc("2026-11-01T03:00:00Z")
     let festivals = [
-      festival(id: "endedOld", firstDate: "2026-10-01", lastDate: "2026-10-02"),
-      festival(id: "far", firstDate: "2026-12-01"),
+      festival(
+        id: "endedOld",
+        firstDate: "2026-10-01",
+        lastDate: "2026-10-02"
+      ),
+      festival(
+        id: "far",
+        firstDate: "2026-12-01"
+      ),
       festival(
         id: "soon",
         firstDate: "2026-11-03",
         status: "discovered",
         packVersion: 0
       ),
-      festival(id: "endedNew", firstDate: "2026-10-20", lastDate: "2026-10-21"),
-      festival(id: "near", firstDate: "2026-11-05"),
-      festival(id: "live", firstDate: "2026-10-31", lastDate: "2026-11-02"),
+      festival(
+        id: "endedNew",
+        firstDate: "2026-10-20",
+        lastDate: "2026-10-21"
+      ),
+      festival(
+        id: "near",
+        firstDate: "2026-11-05"
+      ),
+      festival(
+        id: "live",
+        firstDate: "2026-10-31",
+        lastDate: "2026-11-02"
+      ),
       festival(id: "undated")
     ]
 
-    #expect(FestivalListPresentation.sorted(festivals, now: now).map(\.id)
+    #expect(FestivalListPresentation.sorted(
+      festivals,
+      now: now
+    ).map(\.id)
       == ["live", "soon", "near", "far", "undated", "endedNew", "endedOld"])
   }
 

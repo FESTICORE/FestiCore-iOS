@@ -110,7 +110,7 @@ public extension FCAlertState where Action == FCAlertAction {
   static func hideGuide() -> FCAlertState<FCAlertAction> {
     .alert(
       title: "이 안내를 숨길까요?",
-      message: "마이 > 설정에서 다시 켤 수 있어요.",
+      message: "이번 페스티벌 동안 라이브 보드에서 이 안내를 숨깁니다. 깃발 탭에서는 언제든 깃발을 찾을 수 있어요.",
       confirmTitle: "숨기기"
     )
   }

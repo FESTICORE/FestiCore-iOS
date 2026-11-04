@@ -35,7 +35,7 @@ private extension NoticeListView {
   var content: some View {
     switch store.load {
     case .idle, .loading:
-      loadingContent
+      loadingContent()
     case .failed:
       messageContent("공지사항을 불러오지 못했어요", retry: true)
     case .loaded where store.notices.isEmpty:
@@ -60,7 +60,8 @@ private extension NoticeListView {
     }
   }
 
-  var loadingContent: some View {
+  @ViewBuilder
+  func loadingContent() -> some View {
     VStack(spacing: FestiCoreSpacing.paddingP8) {
       ForEach(0..<4) { _ in
         FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r16))
@@ -71,6 +72,7 @@ private extension NoticeListView {
     .accessibilityLabel("공지사항을 불러오는 중")
   }
 
+  @ViewBuilder
   func messageContent(_ message: String, retry: Bool) -> some View {
     VStack(spacing: FestiCoreSpacing.paddingP12) {
       Text(message)

@@ -35,6 +35,9 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
   private let client: any FestiCoreRequestClient
   private let storage: any SecureStorage
   private let userSession: @Sendable () async -> DeviceUserSession?
+  private var lastRegisteredMetadata: DeviceRegistrationMetadata?
+  private var needsTokenRestoration = false
+  private var tokenRestorationTask: Task<Void, Error>?
 
   public init(
     client: any FestiCoreRequestClient,
@@ -62,6 +65,8 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
       throw DeviceRegistrationError.invalidResponse
     }
     if let session, boundUserID == session.userID {
+      lastRegisteredMetadata = metadata
+      needsTokenRestoration = false
       return DeviceAuthorization(
         deviceID: deviceID,
         sessionID: session.id
@@ -73,6 +78,8 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
     if token != currentToken {
       try storage.save(token, for: .deviceAccessToken)
     }
+    lastRegisteredMetadata = metadata
+    needsTokenRestoration = false
     return DeviceAuthorization(deviceID: deviceID, bearerToken: token)
   }
 
@@ -104,7 +111,10 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
     guard let session = await userSession() else { throw DeviceRegistrationError.notAuthenticated }
     let deviceID = try await installationDeviceID()
     if let boundUserID = try storage.load(.deviceBoundUserID) {
-      if boundUserID == session.userID { return }
+      if boundUserID == session.userID {
+        try await restorePushTokensIfNeeded()
+        return
+      }
       try await recoverBoundDevice()
     }
     guard let token = try storage.load(.deviceAccessToken), !token.isEmpty else {
@@ -122,6 +132,7 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
       for: .deviceBoundUserID
     )
     try? storage.remove(.deviceUnbindKey)
+    try await restorePushTokensIfNeeded()
   }
 
   public func unbindCurrentUser() async throws {
@@ -141,6 +152,7 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
           let token = response.data.deviceAccessToken, !token.isEmpty else {
       throw DeviceRegistrationError.invalidResponse
     }
+    needsTokenRestoration = true
     try storage.save(
       token,
       for: .deviceAccessToken
@@ -183,12 +195,26 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
           let token = response.data.deviceAccessToken, !token.isEmpty else {
       throw DeviceRegistrationError.invalidResponse
     }
+    needsTokenRestoration = true
     try storage.save(
       token,
       for: .deviceAccessToken
     )
     try storage.remove(.deviceBoundUserID)
     try storage.remove(.deviceUnbindKey)
+  }
+
+  /// 서버의 연결 해제는 푸시 토큰도 지운다. 같은 프로세스의 재로그인은
+  /// APNs 콜백이 다시 오지 않아도 마지막 등록 정보를 한 번 복원한다.
+  private func restorePushTokensIfNeeded() async throws {
+    guard needsTokenRestoration, let metadata = lastRegisteredMetadata else { return }
+    if let task = tokenRestorationTask {
+      return try await task.value
+    }
+    let task = Task { _ = try await self.register(metadata) }
+    tokenRestorationTask = task
+    defer { tokenRestorationTask = nil }
+    try await task.value
   }
 
   private func pendingUnbindKey() throws -> String {

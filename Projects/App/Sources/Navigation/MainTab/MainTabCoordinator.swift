@@ -51,7 +51,7 @@ struct MainTabCoordinator {
     }
 
     var isNotificationInboxOnTop: Bool {
-      festivalState.routes.last?.screen.is(\.notificationInbox) == true
+      return festivalState.routes.last?.screen.is(\.notificationInbox) == true
     }
 
     var shouldHideTabBar: Bool {
@@ -59,6 +59,7 @@ struct MainTabCoordinator {
       switch selectedTab {
       case .live:
         return festivalState.routes.count == 1 || isNotificationInboxOnTop
+          || festivalState.routes.last?.screen.liveBoard?.alert != nil
       case .timetable:
         return timetableState.destination?.schedulePick != nil || timetableState.setDetail != nil
       case .my:
@@ -99,6 +100,8 @@ struct MainTabCoordinator {
   enum Delegate {
     case myProfileUpdated(AuthUser)
     case myLoginRequested
+    case myCrewLoginRequested
+    case myFollowLoginRequested
     case myLogoutRequested
     case myWithdrawRequested
     case myProfileRefreshRequested
@@ -173,6 +176,30 @@ struct MainTabCoordinator {
 
       case .festival(.delegate(.loginRequested)):
         return .send(.delegate(.myLoginRequested))
+
+      case .festival(.delegate(.flagTabRequested)):
+        return .send(.selectTab(.flag))
+
+      case .festival(.delegate(.crewLoginRequested)):
+        return .send(.delegate(.myCrewLoginRequested))
+
+      case .festival(.delegate(.followLoginRequested)):
+        return .send(.delegate(.myFollowLoginRequested))
+
+      case .festival(.delegate(.flagDirectoryRequested)):
+        return .send(.selectTab(.flag))
+
+      case let .festival(.delegate(.packDirectionsRequested(
+        festivalID,
+        title
+      ))):
+        return .concatenate(
+          .send(.selectTab(.my)),
+          .send(.profileCoordinator(.profile(.view(.openPackDirections(
+            festivalID: festivalID,
+            title: title
+          )))))
+        )
 
       case .festival:
         switch state.selectedTab {

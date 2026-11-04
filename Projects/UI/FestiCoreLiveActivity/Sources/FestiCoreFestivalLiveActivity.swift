@@ -184,7 +184,7 @@ public enum FestiCoreFestivalLiveActivity {
     phase: FestiCoreFestivalActivityAttributes.ContentState.Phase,
     startDate: Date,
     endDate: Date? = nil,
-    nowStages: [FestiCoreFestivalActivityAttributes.ContentState.NowStage] = [],
+    nowStages: [FestiCoreFestivalActivityAttributes.ContentState.NowStage]? = nil,
     nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil
   ) async {
     guard let activity = Activity<FestiCoreFestivalActivityAttributes>.activities.first(where: { $0.id == id }) else {
@@ -211,14 +211,22 @@ public enum FestiCoreFestivalLiveActivity {
     guard let activity = Activity<FestiCoreFestivalActivityAttributes>.activities.first(where: { $0.id == id }) else {
       return
     }
-    await activity.end(content(phase: .finished, startDate: startDate), dismissalPolicy: .default)
+    await activity.end(
+      content(
+        phase: .finished,
+        startDate: startDate,
+        endDate: activity.content.state.endDate,
+        previousState: activity.content.state
+      ),
+      dismissalPolicy: .default
+    )
   }
 
-  private static func content(
+  static func content(
     phase: FestiCoreFestivalActivityAttributes.ContentState.Phase,
     startDate: Date,
     endDate: Date? = nil,
-    nowStages: [FestiCoreFestivalActivityAttributes.ContentState.NowStage] = [],
+    nowStages: [FestiCoreFestivalActivityAttributes.ContentState.NowStage]? = nil,
     nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil,
     previousState: FestiCoreFestivalActivityAttributes.ContentState? = nil,
     updatedAt: Date = .now
@@ -228,8 +236,8 @@ public enum FestiCoreFestivalLiveActivity {
         phase: phase,
         startDate: startDate,
         endDate: endDate,
-        nowStages: nowStages,
-        nextMine: nextMine,
+        nowStages: nowStages ?? previousState?.nowStages ?? [],
+        nextMine: nowStages == nil ? (nextMine ?? previousState?.nextMine) : nextMine,
         pinnedFlag: previousState?.pinnedFlag,
         crewSummary: previousState?.crewSummary,
         leaveAt: previousState?.leaveAt

@@ -115,13 +115,7 @@ flowchart TD
 
 ### 모듈 그래프
 
-현재 Auth 모듈 이름을 반영한 요약 도식은 [Mermaid](docs/architecture/module-graph.mmd)와 [SVG](docs/architecture/module-graph.svg)에서 확인할 수 있습니다. Tuist 전체·제품 그래프의 생성 방법은 [아키텍처 문서](docs/architecture/README.md)를 참고하세요.
-
-### TCA 화면 흐름과 데이터 경계
-
-앱은 Splash 이후 설치 기록에 따라 온보딩 또는 메인 탭으로 이동합니다. 화면은 `View → Reducer → UseCase Interface → Repository Interface → APIEndpoint` 경계를 따르며, 의존성은 Feature·Service·Core Assembly에서 조립합니다.
-
-화면 전환과 모듈 의존성은 [아키텍처 그림](docs/architecture/README.md), 요청·저장 흐름은 [화면과 데이터 흐름 도식](docs/architecture/feature-data-flow.mmd), 주입 규칙은 [의존성 주입 문서](docs/agent/dependency-injection.md)를 참고하세요.
+`./make graph`와 `./make graph:prod`는 현재 Tuist 모듈의 전체·제품 의존성 그래프를 생성합니다. 그림과 생성 방법은 [아키텍처 그림](docs/architecture/README.md)을 참고하세요.
 
 ### S00–S05 진행 상태
 
@@ -130,6 +124,8 @@ flowchart TD
 | S00 | 축제 목록·검색과 북마크 결과 토스트 코드가 있습니다. 디자인 대조와 실기기 검증은 진행 중입니다. |
 | S01 | 라이브 보드 알림함과 내 알림 API 연결 코드가 있습니다. 화면별 디자인 일치와 실기기 검증은 완료로 표시하지 않습니다. |
 | S02–S05 | 이 브랜치에서 화면별 디자인 일치와 실기기 검증 완료를 확인하지 않았습니다. |
+
+현재 Auth 모듈 도식은 [Mermaid](docs/architecture/module-graph.mmd)와 [SVG](docs/architecture/module-graph.svg)를 참고하세요.
 
 ## 기술 스택
 

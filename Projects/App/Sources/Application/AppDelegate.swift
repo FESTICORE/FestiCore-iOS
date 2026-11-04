@@ -19,14 +19,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   @Dependency(\.deviceRegistrationService) var deviceRegistrationService
   @Dependency(\.liveActivityRegistrationService) var liveActivityRegistrationService
   @Dependency(\.analyticsUseCase) var analyticsUseCase
-  var registrationTask: Task<Void, Never>?
-  var lastRegisteredDeviceMetadata: DeviceRegistrationMetadata?
-  var notificationAuthorizationClient = NotificationAuthorizationClient.live
-  var notificationAuthorizationTask: Task<NotificationPermissionResult, Never>?
-  var hasRequestedAPNsRegistration = false
-  var liveActivityStartToken: String?
-  var liveActivityStartTokenTask: Task<Void, Never>?
-  var liveActivityTokenSync: LiveActivityTokenSync?
+  var deviceRegistration = DeviceRegistrationRuntime()
+  var notificationAuthorization = NotificationAuthorizationRuntime()
+
+  @MainActor
+  struct DeviceRegistrationRuntime {
+    var task: Task<Void, Never>?
+    var lastMetadata: DeviceRegistrationMetadata?
+    var liveActivityStartToken: String?
+    var liveActivityStartTokenTask: Task<Void, Never>?
+    var liveActivityTokenSync: LiveActivityTokenSync?
+  }
+
+  @MainActor
+  struct NotificationAuthorizationRuntime {
+    var client = NotificationAuthorizationClient.live
+    var task: Task<NotificationPermissionResult, Never>?
+    var hasRequestedAPNsRegistration = false
+  }
 
   func application(
     _ application: UIApplication,
@@ -41,7 +51,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     configurationForConnecting connectingSceneSession: UISceneSession,
     options: UIScene.ConnectionOptions
   ) -> UISceneConfiguration {
-    UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
+    return UISceneConfiguration(
+      name: "Default Configuration",
+      sessionRole: connectingSceneSession.role
+    )
   }
 
   func application(

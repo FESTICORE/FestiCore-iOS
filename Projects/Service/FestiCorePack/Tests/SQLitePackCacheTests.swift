@@ -111,7 +111,7 @@ struct SQLitePackCacheTests {
       to: directory.appendingPathComponent("fst_example.json")
     )
     #expect(throws: PackSyncError.invalidPack) { try cache.load(value.festivalID) }
-    #expect(throws: PackSyncError.invalidPack) { try cache.loadAll() }
+    #expect(try cache.loadAll().isEmpty)
 
     let oversized = CachedFestivalPack(
       festivalID: value.festivalID,
@@ -125,21 +125,71 @@ struct SQLitePackCacheTests {
     #expect(throws: PackSyncError.packTooLarge) { try cache.save(oversized) }
   }
 
-  @Test("DB 행이 없는 손상 JSON은 전체 목록에서도 오류를 드러낸다")
-  func invalidFileWithoutDatabaseRowIsNotHidden() throws {
+  @Test("손상된 JSON 하나가 정상 팩 목록을 지우지 않는다")
+  func loadAllSkipsCorruptedLegacyFile() throws {
     let directory = temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let cache = PackCache(directory: directory)
+    let expected = [
+      pack(
+        id: "fst_a",
+        version: 1
+      ),
+      pack(
+        id: "fst_b",
+        version: 2
+      )
+    ]
+    for value in expected { try cache.save(value) }
+    try Data("invalid json".utf8).write(to: directory.appendingPathComponent("fst_corrupt.json"))
+
+    #expect(throws: PackSyncError.invalidPack) { try cache.load("fst_corrupt") }
+    #expect(try cache.loadAll() == expected)
+  }
+
+  @Test("복구본 없는 손상 SQLite 행 하나가 정상 팩 목록을 지우지 않는다")
+  func loadAllSkipsCorruptedDatabaseRecord() throws {
+    let directory = temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
     let database = try testDatabase()
     let cache = PackCache(
       directory: directory,
       database: database
     )
-    try PackCache(directory: directory).save(pack(version: 1))
-    try Data("corrupted".utf8).write(
-      to: directory.appendingPathComponent("fst_example.json")
+    let expected = [
+      pack(
+        id: "fst_a",
+        version: 1
+      ),
+      pack(
+        id: "fst_b",
+        version: 2
+      )
+    ]
+    for value in expected { try cache.save(value) }
+    try cache.save(pack(
+      id: "fst_corrupt",
+      version: 1
+    ))
+    try FileManager.default.removeItem(at: directory.appendingPathComponent("fst_corrupt.json"))
+    try database.write { db in
+      try #sql("UPDATE cachedFestivalPacks SET sha256 = 'invalid' WHERE festivalID = 'fst_corrupt'").execute(db)
+    }
+
+    #expect(throws: PackSyncError.invalidPack) { try cache.load("fst_corrupt") }
+    #expect(try cache.loadAll() == expected)
+  }
+
+  @Test("DB 목록 조회 실패는 빈 목록으로 숨기지 않는다")
+  func loadAllPropagatesDatabaseQueryFailure() throws {
+    let database = try testDatabase()
+    try database.write { db in try #sql("DROP TABLE cachedFestivalPacks").execute(db) }
+    let cache = PackCache(
+      directory: temporaryDirectory(),
+      database: database
     )
 
-    #expect(throws: PackSyncError.invalidPack) { try cache.load("fst_example") }
-    #expect(throws: PackSyncError.invalidPack) { try cache.loadAll() }
+    #expect(throws: (any Error).self) { try cache.loadAll() }
   }
 
   @Test("DB 삭제 실패 시 파일을 되돌리고 재시도 후 두 저장소에서 제거한다")
@@ -171,12 +221,15 @@ struct SQLitePackCacheTests {
     #expect(try cache.loadAll().isEmpty)
   }
 
-  private func pack(version: Int) -> CachedFestivalPack {
+  private func pack(
+    id: String = "fst_example",
+    version: Int
+  ) -> CachedFestivalPack {
     return CachedFestivalPack(
-      festivalID: "fst_example",
+      festivalID: id,
       packVersion: version,
       etag: "\"v\(version)\"",
-      pack: Data("{\"id\":\"fst_example\",\"packVersion\":\(version)}".utf8)
+      pack: Data("{\"id\":\"\(id)\",\"packVersion\":\(version)}".utf8)
     )
   }
 

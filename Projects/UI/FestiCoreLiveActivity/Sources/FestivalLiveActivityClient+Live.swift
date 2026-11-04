@@ -37,7 +37,7 @@ extension FestivalLiveActivityClient: @retroactive DependencyKey {
         phase: .init(rawValue: phase.rawValue) ?? .upcoming,
         startDate: startDate,
         endDate: endDate,
-        nowStages: presentation.nowStages,
+        nowStages: pack == nil ? nil : presentation.nowStages,
         nextMine: presentation.nextMine
       )
     },

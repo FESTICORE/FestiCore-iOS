@@ -146,7 +146,10 @@ public struct FCHomeCard: View {
       HStack(spacing: FestiCoreSpacing.paddingP8) {
         Image(asset: .route16)
           .resizable()
-          .frame(width: 16, height: 16)
+          .frame(
+              width: 16,
+              height: 16
+            )
           .accessibilityHidden(true)
         Text(label)
           .festiCoreFont(.baseFootnoteBold)
@@ -235,6 +238,7 @@ public struct FCEmptyCard: View {
   private var title: String
   private var message: String
   private(set) var action: FCCardAction?
+  private var closeAction: (() -> Void)?
 
   public init(
     icon: ImageAsset = .users24,
@@ -276,6 +280,26 @@ public struct FCEmptyCard: View {
     .frame(maxWidth: .infinity)
     .padding(FestiCoreSpacing.paddingP20)
     .background(FestiCoreSemanticColor.backgroundElevated.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
+    .overlay(alignment: .topTrailing) {
+      if let closeAction {
+        Button(action: closeAction) {
+          Image(asset: .xmark16)
+            .resizable()
+            .frame(
+              width: 16,
+              height: 16
+            )
+            .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+            .frame(
+              width: 44,
+              height: 44
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("안내 닫기")
+        .padding(FestiCoreSpacing.paddingP4)
+      }
+    }
   }
 }
 
@@ -286,6 +310,13 @@ public extension FCEmptyCard {
   func action(_ action: FCCardAction?) -> Self {
     var copy = self
     copy.action = action
+    return copy
+  }
+
+  /// 오른쪽 위 닫기 버튼을 표시한다.
+  func onClose(_ action: @escaping () -> Void) -> Self {
+    var copy = self
+    copy.closeAction = action
     return copy
   }
 }

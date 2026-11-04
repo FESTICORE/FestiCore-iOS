@@ -211,6 +211,112 @@ struct DeviceRegistrationTests {
     #expect(storage.load(.deviceUnbindKey) == nil)
   }
 
+  @Test(
+    "같은 프로세스에서 재로그인하면 동일 APNs와 시작 토큰을 한 번 복원한다",
+    arguments: [false, true]
+  )
+  func rebindRestoresUnchangedPushTokensOnce(recoverExpiredSession: Bool) async throws {
+    let storage = MemoryDeviceStorage()
+    let client = StubDeviceClient()
+    let session = DeviceUserSession(
+      id: UUID(),
+      userID: "user-a"
+    )
+    let service = NetworkDeviceRegistrationService(
+      client: client,
+      storage: storage,
+      userSession: { session }
+    )
+    let tokens = DeviceRegistrationMetadata(
+      apnsEnvironment: .sandbox,
+      apnsToken: "test-apns",
+      liveActivityPushToStartToken: "test-start",
+      appVersion: "1.0.0",
+      osVersion: "18.0",
+      locale: "ko-KR",
+      timezone: "Asia/Seoul"
+    )
+    _ = try await service.register(tokens)
+    try await service.linkDeviceToCurrentUser()
+    #expect(client.captured.filter { $0.path == "api/v1/devices" }.count == 1)
+    if recoverExpiredSession {
+      try await service.recoverBoundDevice()
+    } else {
+      try await service.unbindCurrentUser()
+    }
+    try await service.linkDeviceToCurrentUser()
+    try await service.linkDeviceToCurrentUser()
+
+    let registrations = client.captured.filter { $0.path == "api/v1/devices" }
+    #expect(registrations.count == 2)
+    let restored = try #require(registrations.last)
+    #expect(restored.authorization == .sessionBound(session.id))
+    let body = try #require(restored.parameters)
+    let fields = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(body)) as? [String: Any])
+    #expect(fields["apnsToken"] as? String == tokens.apnsToken)
+    #expect(fields["liveActivityPushToStartToken"] as? String == tokens.liveActivityPushToStartToken)
+  }
+
+  @Test("동시에 바인딩해도 진행 중인 토큰 복원 요청을 공유한다")
+  func concurrentRebindSharesPushTokenRestoration() async throws {
+    let started = AsyncStream<Void>.makeStream()
+    let resume = AsyncStream<Void>.makeStream()
+    defer { started.continuation.finish(); resume.continuation.finish() }
+    let client = StubDeviceClient(beforeTokenRestoration: {
+      started.continuation.yield(())
+      for await _ in resume.stream { break }
+    })
+    let session = DeviceUserSession(
+      id: UUID(),
+      userID: "user-a"
+    )
+    let service = NetworkDeviceRegistrationService(
+      client: client,
+      storage: MemoryDeviceStorage(),
+      userSession: { session }
+    )
+    _ = try await service.register(metadata)
+    try await service.linkDeviceToCurrentUser()
+    try await service.unbindCurrentUser()
+
+    async let first: Void = service.linkDeviceToCurrentUser()
+    var iterator = started.stream.makeAsyncIterator()
+    await iterator.next()
+    async let second: Void = service.linkDeviceToCurrentUser()
+    await Task.yield()
+    resume.continuation.yield(())
+    resume.continuation.finish()
+    _ = try await (
+      first,
+      second
+    )
+    #expect(client.captured.filter { $0.path == "api/v1/devices" }.count == 2)
+  }
+
+  @Test("재로그인 토큰 복원 실패는 다음 바인딩에서 재시도한다")
+  func rebindRetriesFailedPushTokenRestoration() async throws {
+    let storage = MemoryDeviceStorage()
+    let client = StubDeviceClient(failsRegistrationAfterUnbindOnce: true)
+    let session = DeviceUserSession(
+      id: UUID(),
+      userID: "user-a"
+    )
+    let service = NetworkDeviceRegistrationService(
+      client: client,
+      storage: storage,
+      userSession: { session }
+    )
+    _ = try await service.register(metadata)
+    try await service.linkDeviceToCurrentUser()
+    try await service.unbindCurrentUser()
+    await #expect(throws: FestiCoreNetworkError.self) { try await service.linkDeviceToCurrentUser() }
+    try await service.linkDeviceToCurrentUser()
+    try await service.linkDeviceToCurrentUser()
+
+    #expect(client.captured.filter { $0.path == "api/v1/devices" }.count == 3)
+    #expect(client.captured.filter { $0.path == "api/v1/devices/bind-user" && $0.method == .put }.count == 2)
+  }
+
   @Test("해제 응답을 잃으면 저장된 동일 재시도 키로 다시 요청한다")
   func unbindRetryUsesSameKey() async throws {
     let storage = MemoryDeviceStorage()
@@ -344,6 +450,9 @@ private final class StubDeviceClient: FestiCoreRequestClient, @unchecked Sendabl
   private let failsRegistration: Bool
   private var failsUnbindOnce: Bool
   private let rejectsRecoveryBearer: Bool
+  private var failsRegistrationAfterUnbindOnce: Bool
+  private var hasUnbound = false
+  private let beforeTokenRestoration: (@Sendable () async -> Void)?
   struct Captured {
     let path: String
     let method: HTTPMethod
@@ -359,11 +468,15 @@ private final class StubDeviceClient: FestiCoreRequestClient, @unchecked Sendabl
   init(
     failsRegistration: Bool = false,
     failsUnbindOnce: Bool = false,
-    rejectsRecoveryBearer: Bool = false
+    rejectsRecoveryBearer: Bool = false,
+    failsRegistrationAfterUnbindOnce: Bool = false,
+    beforeTokenRestoration: (@Sendable () async -> Void)? = nil
   ) {
     self.failsRegistration = failsRegistration
     self.failsUnbindOnce = failsUnbindOnce
     self.rejectsRecoveryBearer = rejectsRecoveryBearer
+    self.failsRegistrationAfterUnbindOnce = failsRegistrationAfterUnbindOnce
+    self.beforeTokenRestoration = beforeTokenRestoration
   }
 
   var bearerTokens: [String?] { lock.withLock { requests.map { $0.bearerToken } } }
@@ -387,6 +500,11 @@ private final class StubDeviceClient: FestiCoreRequestClient, @unchecked Sendabl
         unbindKey: request.headers.value(for: "X-Device-Unbind-Key"),
         parameters: request.parameters
       ))
+      if request.method == .delete { hasUnbound = true }
+      if request.path == "api/v1/devices", hasUnbound, failsRegistrationAfterUnbindOnce {
+        failsRegistrationAfterUnbindOnce = false
+        return true
+      }
       if request.method == .delete && failsUnbindOnce {
         failsUnbindOnce = false
         return true
@@ -394,6 +512,9 @@ private final class StubDeviceClient: FestiCoreRequestClient, @unchecked Sendabl
       return false
     }
     if shouldFail { throw .request(.invalidURL) }
+    if request.path == "api/v1/devices", lock.withLock({ hasUnbound }) {
+      await beforeTokenRestoration?()
+    }
     if request.path == "api/v1/devices/bind-user/recover", bearer != nil, rejectsRecoveryBearer {
       throw .response(ResponseError(httpStatus: 401))
     }

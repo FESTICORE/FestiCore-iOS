@@ -70,6 +70,7 @@ struct AppCoordinator {
       }
     }
     var presentation: Presentation?
+    var loginContextOverride: LoginFeature.State.Context?
     /// 가입 정보 초안과 약관 상세 push 경로
     var signUpFlow = SignUpFlowCoordinator.State()
     var signUp: SignUpFeature.State {
@@ -760,6 +761,12 @@ private extension AppCoordinator {
     case .home(.signUp(.delegate(.closeRequested))):
       return handleViewAction(state: &state, action: .dismissFlow)
 
+    case .home(.login(.delegate(.closeRequested))):
+      return handleViewAction(
+        state: &state,
+        action: .dismissFlow
+      )
+
     case let .home(.login(.delegate(.signInRequested(provider)))):
       return handleViewAction(state: &state, action: .startLogin(provider))
 
@@ -782,13 +789,23 @@ private extension AppCoordinator {
         await send(.inner(.loginCommitted(result, generation: generation, committed: committed)))
       }
 
-    case .home(.delegate(.myLoginRequested)):
+    case .home(.delegate(.myLoginRequested)),
+         .home(.delegate(.myCrewLoginRequested)),
+         .home(.delegate(.myFollowLoginRequested)):
       guard case var .home(home) = state,
             !home.authFlow.isLoading else { return .none }
       home.authFlow.generation += 1
       home.authFlow.pendingFestivalID = nil
       home.authFlow.pendingOwnerID = nil
       home.authFlow.message = nil
+      switch action {
+      case .home(.delegate(.myCrewLoginRequested)):
+        home.authFlow.loginContextOverride = .crew
+      case .home(.delegate(.myFollowLoginRequested)):
+        home.authFlow.loginContextOverride = .follow
+      default:
+        home.authFlow.loginContextOverride = nil
+      }
       home.authFlow.presentation = .login
       state = .home(home)
       return .none
@@ -908,7 +925,7 @@ private extension AppCoordinator {
   }
 
   func fetchProfile(generation: Int) -> Effect<Action> {
-    .run { send in
+    return .run { send in
       let isLoggedIn = await authService.isLoggedIn
       let userID = await authService.currentUserID
       await send(.inner(.sessionRestored(generation: generation, userID: userID, isLoggedIn: isLoggedIn)))
@@ -927,7 +944,7 @@ private extension AppCoordinator {
 
   /// 시트가 열려 있고 현재 세대의 로그인 시도일 때만 결과를 받아들인다.
   func isActiveLoginAttempt(_ flow: AuthFlow) -> Bool {
-    flow.presentation == .login && flow.loginAttemptGeneration == flow.generation
+    return flow.presentation == .login && flow.loginAttemptGeneration == flow.generation
   }
 
   func acceptLogin(_ result: AuthLoginResult, state: inout State) -> Effect<Action> {

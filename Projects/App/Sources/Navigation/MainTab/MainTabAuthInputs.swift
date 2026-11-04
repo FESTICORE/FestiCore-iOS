@@ -50,7 +50,7 @@ extension MainTabCoordinator.State {
       case .live, .timetable: .bookmark
       }
       login = .init(
-        context: context,
+        context: flow.loginContextOverride ?? context,
         message: flow.message
       )
     } else {

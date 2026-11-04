@@ -13,7 +13,7 @@ enum FestivalListPresentation {
   struct ArtistSearchResult: Equatable, Identifiable {
     let festival: FestivalOverview
     let artist: FestivalCatalogArtist
-    var id: String { "\(festival.id):\(artist.name)" }
+    var id: String { return "\(festival.id):\(artist.name)" }
   }
 
   static func visible(
@@ -26,26 +26,48 @@ enum FestivalListPresentation {
     return festivals.filter { festival in
       (!onlyBooked || bookedIDs.contains(festival.id))
         && (search.isEmpty
-          || contains(festival.name, search)
-          || festival.venue.map { contains($0, search) } == true)
+          || contains(
+            festival.name,
+            search
+          )
+          || festival.venue.map { contains(
+            $0,
+            search
+          ) } == true)
     }
   }
 
-  static func matchingArtists(_ festivals: [FestivalOverview], query: String) -> [ArtistSearchResult] {
+  static func matchingArtists(
+    _ festivals: [FestivalOverview],
+    query: String
+  ) -> [ArtistSearchResult] {
     let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !search.isEmpty else { return [] }
     return festivals.flatMap { festival in
       (festival.artists ?? [])
-        .filter { contains($0.name, search) }
-        .map { ArtistSearchResult(festival: festival, artist: $0) }
+        .filter { contains(
+          $0.name,
+          search
+        ) }
+        .map { ArtistSearchResult(
+          festival: festival,
+          artist: $0
+        ) }
     }
   }
 
-  static func artistMeta(_ result: ArtistSearchResult, now: Date) -> String {
+  static func artistMeta(
+    _ result: ArtistSearchResult,
+    now: Date
+  ) -> String {
     let performances = result.artist.performances
       .compactMap { performance -> (time: Date, day: Date, stage: String?)? in
         guard let time = performance.startsAt.isoDate ?? performance.date.date(as: .day) else { return nil }
-        return (time, performance.date.date(as: .day) ?? time, performance.stageName)
+        return (
+          time,
+          performance.date.date(as: .day) ?? time,
+          performance.stageName
+        )
       }
       .sorted { lhs, rhs in
         if lhs.time != rhs.time { return lhs.time < rhs.time }
@@ -62,11 +84,21 @@ enum FestivalListPresentation {
     return [result.festival.name, schedule].compactMap { $0 }.joined(separator: " · ")
   }
 
-  private static func contains(_ value: String, _ query: String) -> Bool {
-    value.range(of: query, options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: .current) != nil
+  private static func contains(
+    _ value: String,
+    _ query: String
+  ) -> Bool {
+    return value.range(
+      of: query,
+      options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+      locale: .current
+    ) != nil
   }
 
-  static func timing(for festival: FestivalOverview, now: Date) -> Timing {
+  static func timing(
+    for festival: FestivalOverview,
+    now: Date
+  ) -> Timing {
     let calendar = AppDateFormat.calendar
     let today = calendar.startOfDay(for: now)
     let validLast = festival.lastDate?.date(as: .day)
@@ -77,7 +109,11 @@ enum FestivalListPresentation {
     }
     let last = validLast ?? first
     if today > last { return .ended }
-    let days = calendar.dateComponents([.day], from: today, to: first).day ?? 0
+    let days = calendar.dateComponents(
+      [.day],
+      from: today,
+      to: first
+    ).day ?? 0
     return days > 0 ? .daysUntil(days) : .live
   }
 }
@@ -100,12 +136,18 @@ extension FestivalListPresentation {
 
   /// 아직 팩이 발행되지 않은 축제의 상태 배지
   static func isOpeningSoon(_ festival: FestivalOverview) -> Bool {
-    festival.packVersion == 0
+    return festival.packVersion == 0
   }
 
   /// 종료 > 오픈 예정 > 진행 중 > D-3~D-1(빨강) > D-4 이상 > 날짜 없음
-  static func cardStatus(for festival: FestivalOverview, now: Date) -> CardStatus {
-    let timing = timing(for: festival, now: now)
+  static func cardStatus(
+    for festival: FestivalOverview,
+    now: Date
+  ) -> CardStatus {
+    let timing = timing(
+      for: festival,
+      now: now
+    )
     if timing == .ended { return .ended }
     if isOpeningSoon(festival) { return .upcoming }
     switch timing {
@@ -116,8 +158,14 @@ extension FestivalListPresentation {
     }
   }
 
-  static func searchBadge(for festival: FestivalOverview, now: Date) -> String? {
-    switch cardStatus(for: festival, now: now) {
+  static func searchBadge(
+    for festival: FestivalOverview,
+    now: Date
+  ) -> String? {
+    return switch cardStatus(
+      for: festival,
+      now: now
+    ) {
     case let .dDay(label), let .closing(label): label
     case .upcoming: "오픈 예정"
     case .ended: nil
@@ -144,7 +192,10 @@ extension FestivalListPresentation {
     now: Date
   ) -> [FestivalOverview] {
     return festivals
-      .map { (festival: $0, key: sortKey(for: $0, now: now)) }
+      .map { (festival: $0, key: sortKey(
+        for: $0,
+        now: now
+      )) }
       .sorted { lhs, rhs in
         if lhs.key.rank != rhs.key.rank { return lhs.key.rank < rhs.key.rank }
         if lhs.key.order != rhs.key.order { return lhs.key.order < rhs.key.order }
@@ -165,7 +216,10 @@ extension FestivalListPresentation {
       // timing과 같이 파싱에 성공한 종료일, 없으면 시작일을 쓴다.
       let lastDay = festival.lastDate?.date(as: .day) ?? festival.firstDate?.date(as: .day)
       let last = lastDay.map { Int($0.timeIntervalSince1970) } ?? 0
-      return (3, -last)
+      return (
+        3,
+        -last
+      )
     }
     let first = festival.firstDate?.date(as: .day).map { Int($0.timeIntervalSince1970) } ?? Int.max
     switch timing {
@@ -179,7 +233,10 @@ extension FestivalListPresentation {
         1,
         first
       )
-    case .undated, .ended: return (2, Int.max)
+    case .undated, .ended: return (
+      2,
+      Int.max
+    )
     }
   }
 }

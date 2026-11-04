@@ -14,46 +14,46 @@ import ServiceAssembly
 
 extension AppDelegate {
   func configureDeviceRegistration() {
-    liveActivityStartToken = FestiCoreFestivalLiveActivity.pushToStartToken
+    deviceRegistration.liveActivityStartToken = FestiCoreFestivalLiveActivity.pushToStartToken
     registerDeviceWithStoredAPNsToken()
     registerForRemoteNotificationsIfNeeded()
     observeLiveActivityStartToken()
     let deviceRegistrationService = deviceRegistrationService
-    liveActivityTokenSync = LiveActivityTokenSync(
+    deviceRegistration.liveActivityTokenSync = LiveActivityTokenSync(
       authorization: { [weak self] in
-        await self?.registrationTask?.value
+        await self?.deviceRegistration.task?.value
         if let authorization = try await deviceRegistrationService.authorization() {
           return authorization
         }
         self?.registerDeviceWithStoredAPNsToken()
-        await self?.registrationTask?.value
+        await self?.deviceRegistration.task?.value
         return try await deviceRegistrationService.authorization()
       },
       registrationService: liveActivityRegistrationService
     )
-    liveActivityTokenSync?.start()
+    deviceRegistration.liveActivityTokenSync?.start()
   }
 
   func requestNotificationPermission() async -> NotificationPermissionResult {
-    if let notificationAuthorizationTask {
-      return await notificationAuthorizationTask.value
+    if let task = notificationAuthorization.task {
+      return await task.value
     }
     let task = Task { @MainActor in
-      await resolveNotificationPermission()
+      return await resolveNotificationPermission()
     }
-    notificationAuthorizationTask = task
+    notificationAuthorization.task = task
     let result = await task.value
-    notificationAuthorizationTask = nil
+    notificationAuthorization.task = nil
     return result
   }
 
   private func resolveNotificationPermission() async -> NotificationPermissionResult {
-    let status = await notificationAuthorizationClient.authorizationStatus()
+    let status = await notificationAuthorization.client.authorizationStatus()
     let result: NotificationPermissionResult
     switch status {
     case .notDetermined:
       do {
-        result = try await notificationAuthorizationClient.requestAuthorization() ? .authorized : .denied
+        result = try await notificationAuthorization.client.requestAuthorization() ? .authorized : .denied
       } catch {
         FestiCoreLogger.error("알림 권한 요청 실패: \(error.localizedDescription)", category: .app)
         result = .unavailable
@@ -71,18 +71,18 @@ extension AppDelegate {
   }
 
   private func registerForRemoteNotificationsIfNeeded() {
-    guard !hasRequestedAPNsRegistration else { return }
-    hasRequestedAPNsRegistration = true
-    notificationAuthorizationClient.registerForRemoteNotifications()
+    guard !notificationAuthorization.hasRequestedAPNsRegistration else { return }
+    notificationAuthorization.hasRequestedAPNsRegistration = true
+    notificationAuthorization.client.registerForRemoteNotifications()
   }
 
   private func observeLiveActivityStartToken() {
-    liveActivityStartTokenTask?.cancel()
-    liveActivityStartTokenTask = Task { @MainActor [weak self] in
+    deviceRegistration.liveActivityStartTokenTask?.cancel()
+    deviceRegistration.liveActivityStartTokenTask = Task { @MainActor [weak self] in
       for await token in FestiCoreFestivalLiveActivity.pushToStartTokenUpdates() {
         guard let self, !Task.isCancelled else { return }
-        guard liveActivityStartToken != token else { continue }
-        liveActivityStartToken = token
+        guard deviceRegistration.liveActivityStartToken != token else { continue }
+        deviceRegistration.liveActivityStartToken = token
         registerDeviceWithStoredAPNsToken()
       }
     }
@@ -110,7 +110,7 @@ extension AppDelegate {
   }
 
   func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-    hasRequestedAPNsRegistration = false
+    notificationAuthorization.hasRequestedAPNsRegistration = false
     FestiCoreLogger.error("APNs 토큰 등록 실패: \(error.localizedDescription)", category: .app)
   }
 
@@ -132,20 +132,20 @@ extension AppDelegate {
     let metadata = DeviceRegistrationMetadata(
       apnsEnvironment: apnsEnvironment,
       apnsToken: apnsToken,
-      liveActivityPushToStartToken: liveActivityStartToken,
+      liveActivityPushToStartToken: deviceRegistration.liveActivityStartToken,
       appVersion: appVersion,
       osVersion: UIDevice.current.systemVersion,
       locale: Locale.current.identifier(.bcp47),
       timezone: TimeZone.current.identifier
     )
 
-    let previousRegistration = registrationTask
-    registrationTask = Task {
+    let previousRegistration = deviceRegistration.task
+    deviceRegistration.task = Task {
       await previousRegistration?.value
-      guard lastRegisteredDeviceMetadata != metadata else { return }
+      guard deviceRegistration.lastMetadata != metadata else { return }
       do {
         _ = try await deviceRegistrationService.register(metadata)
-        lastRegisteredDeviceMetadata = metadata
+        deviceRegistration.lastMetadata = metadata
         // 앱 재시작 때 복원된 세션도 익명 기기를 소유 계정에 연결한다.
         if await authService.isLoggedIn {
           do {
@@ -178,10 +178,10 @@ struct NotificationAuthorizationClient {
 
   static let live = Self(
     authorizationStatus: {
-      await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+      return await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
     },
     requestAuthorization: {
-      try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
+      return try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
     },
     registerForRemoteNotifications: {
       UIApplication.shared.registerForRemoteNotifications()

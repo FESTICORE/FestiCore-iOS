@@ -9,6 +9,8 @@ flowchart LR
   RepositoryImpl["Domain Repository implementation"]
   CatalogService["S00 목록 · FestiCoreFestivalCatalog<br/>요청 클라이언트 · 파일 캐시"]
   PackService["S00 팩 받기 · FestiCorePack<br/>WebSocket · 팩 캐시"]
+  GuideStore["S01 FestivalGuideVisibilityStore<br/>축제별 안내 숨김 · UserDefaults"]
+  FlagTab["MainTabCoordinator<br/>깃발 탭 · 선택 축제 동기화"]
   Endpoint["APIEndpoint"]
   Network["FestiCoreNetwork Interface"]
   ServiceAssembly["ServiceAssembly · CoreAssembly"]
@@ -22,6 +24,9 @@ flowchart LR
   Reducer -->|Dependency| UseCaseInterface
   UseCaseInterface --> UseCaseImpl
   UseCaseImpl --> RepositoryInterface
+  Reducer -->|S01 안내 숨김| UseCaseInterface
+  UseCaseImpl -->|S01 안내 저장| GuideStore
+  Reducer -->|S01 깃발 찾기 delegate| FlagTab
   RepositoryInterface --> RepositoryImpl
   RepositoryImpl -->|S00 목록| CatalogService
   RepositoryImpl -->|S00 팩 받기| PackService

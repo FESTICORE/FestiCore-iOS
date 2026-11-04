@@ -40,11 +40,24 @@ struct FestivalFeatureStateTests {
   @Test func savedFestivalWinsOverCachedFallbackAndMissingSelectionDoesNot() {
     var state = FestivalFeature.State(selectedFestivalID: "missing")
     state.catalog = [
-      .init(id: "cached", name: "cached", packVersion: 1),
-      .init(id: "saved", name: "saved", packVersion: 1)
+      .init(
+        id: "cached",
+        name: "cached",
+        packVersion: 1
+      ),
+      .init(
+        id: "saved",
+        name: "saved",
+        packVersion: 1
+      )
     ]
     state.cachedPacks = [
-      "cached": CachedFestivalPack(festivalID: "cached", packVersion: 1, etag: "e", pack: Data())
+      "cached": CachedFestivalPack(
+        festivalID: "cached",
+        packVersion: 1,
+        etag: "e",
+        pack: Data()
+      )
     ]
 
     #expect(state.initialSelectedFestivalID(savedID: "saved") == "saved")
@@ -56,8 +69,18 @@ struct FestivalFeatureStateTests {
     let image = URL(string: "https://example.com/poster.jpg")!
     var state = FestivalFeature.State()
     state.catalog = [
-      .init(id: "one", name: "하나", thumbnailURL: image, packVersion: 1),
-      .init(id: "two", name: "둘", thumbnailURL: image, packVersion: 1)
+      .init(
+        id: "one",
+        name: "하나",
+        thumbnailURL: image,
+        packVersion: 1
+      ),
+      .init(
+        id: "two",
+        name: "둘",
+        thumbnailURL: image,
+        packVersion: 1
+      )
     ]
     state.imageURLs = [image.absoluteString: image]
 
@@ -67,11 +90,14 @@ struct FestivalFeatureStateTests {
 
   @Test func selectedPackImagesIncludeArtistsAndPerformances() throws {
     var state = FestivalFeature.State(selectedFestivalID: "festival")
-    state.selectedPack = try JSONDecoder().decode(FestivalPackDocument.self, from: Data(#"""
+    state.selectedPack = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: Data(#"""
       {"id":"festival","thumbUrl":"https://example.com/poster.webp",
       "artists":[{"name":"가수","imageUrl":"https://example.com/artist.webp"}],
       "timetable":[{"id":"set_1","imageUrl":"https://example.com/set.webp"}]}
-      """#.utf8))
+      """#.utf8)
+    )
     let urls = ["poster", "artist", "set"].map { URL(string: "https://example.com/\($0).webp")! }
     state.imageURLs = Dictionary(uniqueKeysWithValues: urls.map { ($0.absoluteString, $0) })
 
@@ -81,9 +107,12 @@ struct FestivalFeatureStateTests {
 
   @Test func packWithoutTimetablePrefetchesSetImages() throws {
     var state = FestivalFeature.State(selectedFestivalID: "festival")
-    state.selectedPack = try JSONDecoder().decode(FestivalPackDocument.self, from: Data(#"""
+    state.selectedPack = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: Data(#"""
       {"id":"festival","sets":[{"id":"set_1","imageUrl":"https://example.com/set.webp"}]}
-      """#.utf8))
+      """#.utf8)
+    )
     let url = URL(string: "https://example.com/set.webp")!
     state.imageURLs = [url.absoluteString: url]
 

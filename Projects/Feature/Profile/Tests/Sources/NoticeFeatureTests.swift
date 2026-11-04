@@ -131,6 +131,6 @@ private struct StubNoticeUseCase: NoticeUseCaseInterface {
     detail = notice
   }
 
-  func notices() async throws -> [NoticeSummary] { try await list() }
-  func notice(id: String) async throws -> NoticeDetail { try await detail(id) }
+  func notices() async throws -> [NoticeSummary] { return try await list() }
+  func notice(id: String) async throws -> NoticeDetail { return try await detail(id) }
 }

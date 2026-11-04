@@ -43,6 +43,14 @@ enum FestivalLiveBoardPresentation {
     let sub: String
   }
 
+  enum Phase: Equatable {
+    case beforeOpening(Countdown)
+    case live
+    case finalHour(Countdown)
+    case ended
+    case unknown
+  }
+
   struct CrewMember: Equatable, Identifiable {
     let id: String
     let nickname: String
@@ -77,7 +85,7 @@ extension FestivalLiveBoardPresentation {
   static func sortedActiveFlags(
     _ flags: [FestivalLiveBoardSnapshot.Flag]
   ) -> [FestivalLiveBoardSnapshot.Flag] {
-    flags.sorted {
+    return flags.sorted {
       let left = $0.updatedAt ?? .distantPast
       let right = $1.updatedAt ?? .distantPast
       return left == right ? $0.id < $1.id : left > right
@@ -85,14 +93,24 @@ extension FestivalLiveBoardPresentation {
   }
 
   /// 서버 시각에 첫 수신 후 흐른 기기 시간을 더한다. 304 확인은 기준점을 바꾸지 않는다.
-  static func serverNow(serverAt: Date?, clockAnchorAt: Date?, deviceNow: Date) -> Date {
+  static func serverNow(
+    serverAt: Date?,
+    clockAnchorAt: Date?,
+    deviceNow: Date
+  ) -> Date {
     guard let serverAt, let clockAnchorAt else { return deviceNow }
     return serverAt.addingTimeInterval(deviceNow.timeIntervalSince(clockAnchorAt))
   }
 
-  static func relativeTime(_ date: Date?, now: Date) -> String? {
+  static func relativeTime(
+    _ date: Date?,
+    now: Date
+  ) -> String? {
     guard let date else { return nil }
-    let minutes = max(0, Int(now.timeIntervalSince(date) / 60))
+    let minutes = max(
+      0,
+      Int(now.timeIntervalSince(date) / 60)
+    )
     if minutes < 1 { return "방금" }
     if minutes < 60 { return "\(minutes)분 전" }
     let hours = minutes / 60
@@ -100,13 +118,25 @@ extension FestivalLiveBoardPresentation {
   }
 
   /// 다음 일정 카드의 갱신 문구. 수신 시각과 같은 기기 시각으로 잰다.
-  static func updatedText(receivedAt: Date?, deviceNow: Date) -> String {
-    relativeTime(receivedAt, now: deviceNow).map { "\($0) 업데이트" } ?? "시간표 기준"
+  static func updatedText(
+    receivedAt: Date?,
+    deviceNow: Date
+  ) -> String {
+    return relativeTime(
+      receivedAt,
+      now: deviceNow
+    ).map { "\($0) 업데이트" } ?? "시간표 기준"
   }
 
   /// 오프라인 배너 문구. 경과 시간은 기기 시각으로 잰다.
-  static func offlineText(receivedAt: Date?, deviceNow: Date) -> String {
-    guard let age = relativeTime(receivedAt, now: deviceNow) else { return "오프라인" }
+  static func offlineText(
+    receivedAt: Date?,
+    deviceNow: Date
+  ) -> String {
+    guard let age = relativeTime(
+      receivedAt,
+      now: deviceNow
+    ) else { return "오프라인" }
     return "오프라인 · \(age) 정보"
   }
 }
@@ -114,9 +144,74 @@ extension FestivalLiveBoardPresentation {
 // MARK: - 축제·일정
 
 extension FestivalLiveBoardPresentation {
+  /// 팩에 게시된 개장·종료 시각만으로 S01의 시간대별 상태를 고른다.
+  static func phase(
+    pack: FestivalPackDocument?,
+    festival: FestivalOverview,
+    now: Date
+  ) -> Phase {
+    guard let pack else { return .unknown }
+    let days = (pack.days ?? []).compactMap { day -> (date: String, start: Date, end: Date?)? in
+      guard let date = day.date,
+            let start = day.startsAt.flatMap(FestivalLiveBoardSchedule.parse) else { return nil }
+      let end = day.endsAt.flatMap(FestivalLiveBoardSchedule.parse)
+      return (
+        date,
+        start,
+        end.flatMap { $0 > start ? $0 : nil }
+      )
+    }.sorted { $0.start < $1.start }
+    guard !days.isEmpty else { return .unknown }
+
+    // 카탈로그의 마지막 날짜와 팩의 마지막 날짜가 다르면 팩이 일부만 내려온 상태다.
+    let last = days.last
+    let hasFinalDay = festival.lastDate == nil || last?.date == festival.lastDate
+    let finalEnd = hasFinalDay ? last?.end : nil
+    if let finalEnd, now >= finalEnd { return .ended }
+
+    if let next = days.first(where: { now < $0.start }),
+       !days.contains(where: { $0.start <= now && ($0.end.map { now < $0 } ?? true) }) {
+      var sub = "\(next.start.formatted(.time)) 개장"
+      let followingStart = days.first(where: { $0.start > next.start })?.start
+      if let firstSet = FestivalLiveBoardSchedule.entries(pack: pack).first(where: { entry in
+        entry.slot.startsAt >= next.start &&
+          (next.end.map { entry.slot.startsAt < $0 } ?? true) &&
+          (followingStart.map { entry.slot.startsAt < $0 } ?? true)
+      }) {
+        sub += " · 첫 공연 \(firstSet.slot.startsAt.formatted(.time)) \(firstSet.stageName)"
+      }
+      return .beforeOpening(.init(
+        time: duration(
+        from: now,
+        to: next.start
+      ),
+        sub: sub
+      ))
+    }
+
+    if let finalEnd, now >= finalEnd.addingTimeInterval(-3_600) {
+      return .finalHour(.init(
+        time: duration(
+        from: now,
+        to: finalEnd
+      ),
+        sub: "\(finalEnd.formatted(.time)) 종료"
+      ))
+    }
+    return .live
+  }
+
   /// `DAY n · M/d(E) · HH:mm–HH:mm`. 오늘 날짜가 없으면 첫날을 쓴다.
-  static func dayLine(pack: FestivalPackDocument?, festival: FestivalOverview, now: Date) -> String? {
-    guard let day = selectedDay(pack: pack, festival: festival, now: now) else { return nil }
+  static func dayLine(
+    pack: FestivalPackDocument?,
+    festival: FestivalOverview,
+    now: Date
+  ) -> String? {
+    guard let day = selectedDay(
+      pack: pack,
+      festival: festival,
+      now: now
+    ) else { return nil }
     var parts = ["DAY \(day.index + 1)"]
     if let date = day.date.date(as: .day) { parts.append(date.formatted(.liveBoardDay)) }
     if let start = day.startsAt, let end = day.endsAt {
@@ -126,18 +221,37 @@ extension FestivalLiveBoardPresentation {
   }
 
   /// 오늘 개장 전이면 카운트다운을 돌려준다.
-  static func countdown(pack: FestivalPackDocument?, festival: FestivalOverview, now: Date) -> Countdown? {
-    guard let day = selectedDay(pack: pack, festival: festival, now: now),
+  static func countdown(
+    pack: FestivalPackDocument?,
+    festival: FestivalOverview,
+    now: Date
+  ) -> Countdown? {
+    guard let day = selectedDay(
+      pack: pack,
+      festival: festival,
+      now: now
+    ),
           let opensAt = day.startsAt, now < opensAt else { return nil }
     var sub = "\(opensAt.formatted(.time)) 개장"
     if let pack, let first = FestivalLiveBoardSchedule.entries(pack: pack).first(where: { $0.slot.startsAt >= opensAt }) {
       sub += " · 첫 공연 \(first.slot.startsAt.formatted(.time)) \(first.stageName)"
     }
-    return Countdown(time: duration(from: now, to: opensAt), sub: sub)
+    return Countdown(
+      time: duration(
+      from: now,
+      to: opensAt
+    ),
+      sub: sub
+    )
   }
 
   /// 내 다음 일정, 없으면 전체 다음 공연. 개장 전에는 첫 공연 시작 시각을 보인다.
-  static func setCard(pack: FestivalPackDocument?, mySetIDs: Set<String>, isBeforeOpening: Bool, now: Date) -> SetCard? {
+  static func setCard(
+    pack: FestivalPackDocument?,
+    mySetIDs: Set<String>,
+    isBeforeOpening: Bool,
+    now: Date
+  ) -> SetCard? {
     guard let pack else { return nil }
     let entries = FestivalLiveBoardSchedule.entries(pack: pack)
     let mine = entries.first { mySetIDs.contains($0.slot.id) && (($0.slot.endsAt ?? $0.slot.startsAt) > now) }
@@ -155,27 +269,62 @@ extension FestivalLiveBoardPresentation {
     let range = slot.endsAt.map { "\(slot.startsAt.formatted(.time))–\($0.formatted(.time))" } ?? slot.startsAt.formatted(.time)
     let meta = "\(entry.stageName) · \(range)"
     if isBeforeOpening {
-      return SetCard(label: label, artist: slot.artist, meta: meta, remain: slot.startsAt.formatted(.time), progress: 0)
+      return SetCard(
+        label: label,
+        artist: slot.artist,
+        meta: meta,
+        remain: slot.startsAt.formatted(.time),
+        progress: 0
+      )
     }
     if slot.startsAt <= now, let end = slot.endsAt {
       let elapsed = now.timeIntervalSince(slot.startsAt) / end.timeIntervalSince(slot.startsAt)
-      return SetCard(label: label, artist: slot.artist, meta: meta, remain: "공연 중", progress: min(max(elapsed, 0), 1))
+      return SetCard(
+        label: label,
+        artist: slot.artist,
+        meta: meta,
+        remain: "공연 중",
+        progress: min(
+        max(
+        elapsed,
+        0
+      ),
+        1
+      )
+      )
     }
     let minutes = slot.startsAt.timeIntervalSince(now) / 60
     return SetCard(
-      label: label, artist: slot.artist, meta: meta,
+      label: label,
+      artist: slot.artist,
+      meta: meta,
       remain: remaining(minutes: Int(minutes)),
-      progress: min(max(1 - minutes / 60, 0), 1)
+      progress: min(
+        max(
+        1 - minutes / 60,
+        0
+      ),
+        1
+      )
     )
   }
 
-  static func stageRows(_ stages: [FestivalLiveBoardSchedule.Stage], mySetIDs: Set<String>) -> [StageRow] {
-    stages.map { stage in
+  static func stageRows(
+    _ stages: [FestivalLiveBoardSchedule.Stage],
+    mySetIDs: Set<String>
+  ) -> [StageRow] {
+    return stages.map { stage in
       StageRow(
         id: stage.id,
         name: stage.name,
-        now: stage.current.map { .init(artist: $0.artist, time: $0.endsAt.map { "\($0.formatted(.time)) 종료" } ?? "공연 중") },
-        next: stage.next.map { .init(artist: $0.artist, time: "\($0.startsAt.formatted(.time)) 시작") },
+        now: stage.current.map { .init(
+          artist: $0.artist,
+          time: $0.endsAt.map { "\($0.formatted(.time)) 종료" } ?? "공연 중"
+        ) },
+        next: stage.next.map { .init(
+          artist: $0.artist,
+          time: "\($0.startsAt.formatted(.time)) 시작"
+        ) },
         isMine: [stage.current?.id, stage.next?.id].contains { $0.map(mySetIDs.contains) ?? false }
       )
     }
@@ -205,7 +354,10 @@ extension FestivalLiveBoardPresentation {
         isMe: sessionUserID != nil && member.id == sessionUserID,
         zone: zoneName(member.zoneID),
         status: member.state.flatMap(crewStateText),
-        time: relativeTime(member.updatedAt, now: now),
+        time: relativeTime(
+          member.updatedAt,
+          now: now
+        ),
         isLeaving: member.state == "leaving"
       )
     }
@@ -213,10 +365,18 @@ extension FestivalLiveBoardPresentation {
     for zone in members.compactMap(\.zone) { counts[zone, default: 0] += 1 }
     let busiest = counts.max { $0.value == $1.value ? $0.key > $1.key : $0.value < $1.value }
     let subtitle = busiest.map { "\(members.count)명 · \($0.value)명이 \($0.key) 근처" } ?? "\(members.count)명"
-    return Crew(title: "내 크루 · \(crew.name)", subtitle: subtitle, members: members)
+    return Crew(
+      title: "내 크루 · \(crew.name)",
+      subtitle: subtitle,
+      members: members
+    )
   }
 
-  static func flag(_ flag: FestivalLiveBoardSnapshot.Flag, zoneName: (String?) -> String?, now: Date) -> Flag {
+  static func flag(
+    _ flag: FestivalLiveBoardSnapshot.Flag,
+    zoneName: (String?) -> String?,
+    now: Date
+  ) -> Flag {
     let zone = zoneName(flag.zoneID)
     return Flag(
       id: flag.id,
@@ -225,13 +385,16 @@ extension FestivalLiveBoardPresentation {
       zone: zone,
       tags: flag.tags.compactMap(tagText).joined(separator: " · "),
       meta: [zone, flag.activity.flatMap(tagText)].compactMap { $0 }.joined(separator: " · "),
-      time: relativeTime(flag.updatedAt, now: now),
+      time: relativeTime(
+        flag.updatedAt,
+        now: now
+      ),
       thumbnailURL: flag.thumbnailURL
     )
   }
 
   static func flagStatus(_ value: String) -> FlagStatus? {
-    switch value {
+    return switch value {
     case "active": .active
     case "resting": .resting
     case "ended": .ended
@@ -240,7 +403,7 @@ extension FestivalLiveBoardPresentation {
   }
 
   static func crewStateText(_ value: String) -> String? {
-    switch value {
+    return switch value {
     case "here": "나 여기"
     case "eating": "밥"
     case "toilet": "화장실"
@@ -251,7 +414,7 @@ extension FestivalLiveBoardPresentation {
 
   /// 깃발 성향 태그와 활동 문구. `resting` 같은 값은 표시하지 않는다.
   static func tagText(_ value: String) -> String? {
-    switch value {
+    return switch value {
     case "slam": "슬램"
     case "sing": "떼창"
     case "train": "기차놀이"
@@ -271,7 +434,11 @@ private extension FestivalLiveBoardPresentation {
   }
 
 
-  static func selectedDay(pack: FestivalPackDocument?, festival: FestivalOverview, now: Date) -> Day? {
+  static func selectedDay(
+    pack: FestivalPackDocument?,
+    festival: FestivalOverview,
+    now: Date
+  ) -> Day? {
     let packDays = (pack?.days ?? []).filter { $0.date?.date(as: .day) != nil }
     let dates: [String] = packDays.isEmpty
       ? [festival.firstDate, festival.lastDate].compactMap { $0 }.filter { $0.date(as: .day) != nil }
@@ -289,15 +456,24 @@ private extension FestivalLiveBoardPresentation {
     )
   }
 
-  static func duration(from now: Date, to date: Date) -> String {
-    let minutes = max(0, Int(date.timeIntervalSince(now) / 60))
+  static func duration(
+    from now: Date,
+    to date: Date
+  ) -> String {
+    let minutes = max(
+      0,
+      Int(date.timeIntervalSince(now) / 60)
+    )
     let hours = minutes / 60
     if hours >= 24 { return "\(hours / 24)일 \(hours % 24)시간" }
     return hours > 0 ? "\(hours)시간 \(minutes % 60)분" : "\(minutes)분"
   }
 
   static func remaining(minutes: Int) -> String {
-    let minutes = max(0, minutes)
+    let minutes = max(
+      0,
+      minutes
+    )
     if minutes < 60 { return "\(minutes)분 후" }
     let hours = minutes / 60
     return hours < 24 ? "\(hours)시간 후" : "\(hours / 24)일 후"

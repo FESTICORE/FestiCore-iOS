@@ -70,12 +70,12 @@ private enum AppDateFormatter {
   }()
 
   static func string(from date: Date, as format: AppDateFormat) -> String {
-    lock.withLock { formatters[format]!.string(from: date) }
+    return lock.withLock { formatters[format]!.string(from: date) }
   }
 
   /// 서버 날짜는 형식이 정확히 일치할 때만 받아들인다.
   static func date(from value: String, as format: AppDateFormat) -> Date? {
-    lock.withLock {
+    return lock.withLock {
       let formatter = formatters[format]!
       guard let date = formatter.date(from: value), formatter.string(from: date) == value else {
         return nil
@@ -85,32 +85,38 @@ private enum AppDateFormatter {
   }
 
   static func isoDate(from value: String) -> Date? {
-    lock.withLock { isoFractionalParser.date(from: value) ?? isoParser.date(from: value) }
+    return lock.withLock { isoFractionalParser.date(from: value) ?? isoParser.date(from: value) }
   }
 
   static func isoString(from date: Date) -> String {
-    lock.withLock { isoSeoulWriter.string(from: date) }
+    return lock.withLock { isoSeoulWriter.string(from: date) }
   }
 }
 
 public extension String {
   func date(as format: AppDateFormat) -> Date? {
-    AppDateFormatter.date(from: self, as: format)
+    return AppDateFormatter.date(
+      from: self,
+      as: format
+    )
   }
 
   /// ISO 8601 시각. 소수초가 있든 없든 받아들인다.
   var isoDate: Date? {
-    AppDateFormatter.isoDate(from: self)
+    return AppDateFormatter.isoDate(from: self)
   }
 }
 
 public extension Date {
   func formatted(_ format: AppDateFormat) -> String {
-    AppDateFormatter.string(from: self, as: format)
+    return AppDateFormatter.string(
+      from: self,
+      as: format
+    )
   }
 
   /// `yyyy-MM-ddTHH:mm:ss.SSS+09:00`
   var isoString: String {
-    AppDateFormatter.isoString(from: self)
+    return AppDateFormatter.isoString(from: self)
   }
 }

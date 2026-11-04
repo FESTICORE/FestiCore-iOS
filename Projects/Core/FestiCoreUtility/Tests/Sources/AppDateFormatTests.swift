@@ -15,6 +15,11 @@ struct AppDateFormatTests {
     #expect(date.formatted(.time) == "12:05")
   }
 
+  @Test func dottedDayUsesSeoulDayAcrossUTCMidnightBoundary() throws {
+    let date = try #require("2026-11-03T15:30:00Z".isoDate)
+    #expect(date.formatted(.noticeDay) == "2026.11.04")
+  }
+
   @Test func koreanDayFormatsUseSeoulCalendar() throws {
     let date = try #require("2026-10-30".date(as: .day))
     #expect(date.formatted(.festivalDay) == "10/30(금)")

@@ -20,6 +20,8 @@ public struct LoginFeature {
       case bookmark
       case profile
       case flag
+      case crew
+      case follow
     }
 
     public var isSigningIn = false
@@ -33,7 +35,7 @@ public struct LoginFeature {
 
     /// 시트 아래 안내 문구. 부모 흐름 문구를 로그인 오류보다 먼저 보여 준다.
     public var visibleMessage: String? {
-      flowMessage ?? errorMessage
+      return flowMessage ?? errorMessage
     }
   }
 
@@ -51,6 +53,7 @@ public struct LoginFeature {
   public enum View: Equatable {
     case signInTapped(OAuthProvider)
     case signIn(OAuthProvider)
+    case closeTapped
     /// 부모가 시트 문맥과 흐름 문구를 알린다.
     case contextChanged(State.Context, flowMessage: String?)
   }
@@ -111,6 +114,9 @@ extension LoginFeature {
       state.errorMessage = nil
       return .send(.async(.signIn(provider)))
 
+    case .closeTapped:
+      return .send(.delegate(.closeRequested))
+
     case let .contextChanged(context, flowMessage):
       state.context = context
       state.flowMessage = flowMessage
@@ -165,7 +171,7 @@ extension LoginFeature {
     action: DelegateAction
   ) -> Effect<Action> {
     switch action {
-    case .signInRequested, .signedIn:
+    case .signInRequested, .signedIn, .closeRequested:
       return .none
     }
   }

@@ -1,10 +1,20 @@
 import ActivityKit
+import Dependencies
 import FestivalDomainInterface
 import Foundation
 import Testing
 @testable import FestiCoreLiveActivity
 
 struct FestivalActivityPayloadTests {
+  @Test func resolvesLiveActivityClientWithoutAppRegistration() {
+    withDependencies {
+      $0.context = .live
+    } operation: {
+      @Dependency(\.festivalLiveActivityClient) var client
+      _ = client
+    }
+  }
+
   @Test func localPackProducesCurrentStageAndNextSavedPerformance() throws {
     let pack = try JSONDecoder().decode(
       FestivalPackDocument.self,
@@ -114,6 +124,54 @@ struct FestivalActivityPayloadTests {
     #expect(state.pinnedFlag?.status == .active)
     #expect(state.crewSummary?.memberCount == 4)
     #expect(state.leaveAt == nil)
+  }
+
+  @Test func localPhaseUpdatesPreserveRemoteContent() throws {
+    let payload = Data(#"""
+      {
+        "phase": "upcoming", "startDate": 0, "endDate": 86400,
+        "nowStages": [{"setId":"now","stageId":"main","artist":"Now","startsAt":"2026-11-20T23:00:00+09:00","endsAt":"2026-11-21T02:00:00+09:00"}],
+        "nextMine": {"setId":"next","stageId":"main","artist":"Next","startsAt":"2026-11-21T01:00:00+09:00"},
+        "pinnedFlag": {"flagId":"flag","status":"active","zoneId":"zone","activity":"이동 중"},
+        "crewSummary": {"crewId":"crew","name":"우리 크루","memberCount":4,"hereCount":2,"gatherZoneId":"zone"},
+        "leaveAt": 72000
+      }
+      """#.utf8)
+    let remote = try JSONDecoder().decode(
+      FestiCoreFestivalActivityAttributes.ContentState.self,
+      from: payload
+    )
+    let start = Date(timeIntervalSinceReferenceDate: 60)
+    let end = Date(timeIntervalSinceReferenceDate: 90_000)
+
+    for phase in [FestiCoreFestivalActivityAttributes.ContentState.Phase.ongoing, .finished] {
+      let content = FestiCoreFestivalLiveActivity.content(
+        phase: phase,
+        startDate: start,
+        endDate: end,
+        previousState: remote,
+        updatedAt: start
+      )
+      var expected = remote
+      expected.phase = phase
+      expected.startDate = start
+      expected.endDate = end
+      #expect(content.state == expected)
+      #expect(content.staleDate == (phase == .ongoing ? start.addingTimeInterval(3_600) : nil))
+
+      let cleared = FestiCoreFestivalLiveActivity.content(
+        phase: phase,
+        startDate: start,
+        endDate: end,
+        nowStages: [],
+        nextMine: nil,
+        previousState: remote,
+        updatedAt: start
+      )
+      expected.nowStages = []
+      expected.nextMine = nil
+      #expect(cleared.state == expected)
+    }
   }
 
   @Test func locallyStartedStateKeepsServerFieldsEmpty() {

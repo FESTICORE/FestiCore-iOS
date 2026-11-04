@@ -29,6 +29,7 @@ struct FestivalPackDocumentTests {
   func decodesLegacyPack() throws {
     let pack = try document(#"{"id":"fst_test","days":[{"date":"2026-10-20"}]}"#)
 
+    #expect(pack.eventPeriod == nil)
     #expect(pack.flagsEnabled == nil)
     #expect(pack.zones == nil)
     #expect(pack.source == nil)
@@ -47,6 +48,25 @@ struct FestivalPackDocumentTests {
     #expect(pack.zones?.map(\.id) == ["valid"])
     #expect(pack.zoneName(for: "valid") == "메인 앞")
     #expect(pack.zoneName(for: "missing_name") == nil)
+  }
+
+  @Test("공연 일정 없는 팩의 개최 기간과 아티스트를 읽는다")
+  func decodesMetadataOnlyPack() throws {
+    let pack = try document(#"{"id":"fst_test","eventPeriod":{"firstDate":"2026-10-29","lastDate":"2026-10-31"},"days":[],"stages":[],"sets":[],"artists":[{"name":"Artist"}]}"#)
+
+    #expect(pack.eventPeriod?.firstDate == "2026-10-29")
+    #expect(pack.eventPeriod?.lastDate == "2026-10-31")
+    #expect(pack.artists?.first?.name == "Artist")
+    #expect(pack.days?.isEmpty == true)
+    #expect(pack.performances.isEmpty)
+  }
+
+  @Test("잘못된 개최 기간 메타데이터가 팩 읽기를 막지 않는다")
+  func skipsMalformedEventPeriod() throws {
+    for period in ["null", "[]", "12", #"{"firstDate":false,"lastDate":"2026-10-31"}"#, #"{"firstDate":"2026-10-29"}"#] {
+      let pack = try document("{\"id\":\"fst_test\",\"eventPeriod\":\(period)}")
+      #expect(pack.eventPeriod == nil)
+    }
   }
 
   private func document(_ json: String) throws -> FestivalPackDocument {

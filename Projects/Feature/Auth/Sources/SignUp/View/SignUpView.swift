@@ -16,7 +16,6 @@ import UIKit
 @ViewAction(for: SignUpFeature.self)
 public struct SignUpView: View {
   @Bindable public var store: StoreOf<SignUpFeature>
-  @State private var keyboardInset: CGFloat = 0
 
   public init(store: StoreOf<SignUpFeature>) {
     self.store = store
@@ -70,13 +69,19 @@ private extension SignUpView {
       .padding(.top, FestiCoreSpacing.paddingP12)
       .padding(.bottom, FestiCoreSpacing.paddingP8)
     }
-    .padding(.bottom, keyboardInset)
+    .padding(
+      .bottom,
+      store.keyboardInset
+    )
     .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
       guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-      keyboardInset = max(0, UIScreen.main.bounds.height - frame.minY)
+      send(.keyboardFrameChanged(
+        minY: frame.minY,
+        screenHeight: UIScreen.main.bounds.height
+      ))
     }
     .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-      keyboardInset = 0
+      send(.keyboardHidden)
     }
   }
 

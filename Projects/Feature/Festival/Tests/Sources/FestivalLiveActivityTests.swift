@@ -21,8 +21,8 @@ struct HomeLiveActivityTests {
       festivalID: "festival",
       setIDs: ["saved-set"]
     )
-    state.liveActivityReady = true
-    state.liveActivityNow = now
+    state.liveActivity.isReady = true
+    state.liveActivity.now = now
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
       $0.date.now = now
@@ -43,14 +43,14 @@ struct HomeLiveActivityTests {
     await store.send(.inner(.liveActivityBoundary))
     await store.receive(\.inner.autoStartLiveActivity) {
       $0.autoActivityHandledStarts["festival"] = performanceStart
-      $0.liveActivityBusyFestivalID = "festival"
-      $0.liveActivityRevision = 1
+      $0.liveActivity.busyFestivalID = "festival"
+      $0.liveActivity.revision = 1
     }
     await store.receive(\.async.startLiveActivity)
     await store.receive(\.inner.liveActivityStarted) {
-      $0.liveActivityBusyFestivalID = nil
-      $0.liveActivityRevision = 2
-      $0.liveActivities["festival"] = .init(
+      $0.liveActivity.busyFestivalID = nil
+      $0.liveActivity.revision = 2
+      $0.liveActivity.activities["festival"] = .init(
         id: "automatic-activity",
         festivalID: "festival",
         phase: .upcoming,
@@ -79,8 +79,8 @@ struct HomeLiveActivityTests {
       festivalID: "festival",
       setIDs: ["saved-set"]
     )
-    state.liveActivityReady = true
-    state.liveActivityNow = now
+    state.liveActivity.isReady = true
+    state.liveActivity.now = now
     state.autoActivityHandledStarts["festival"] = performanceStart
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
@@ -124,7 +124,7 @@ struct HomeLiveActivityTests {
     )
     #expect(state.showsLiveActivityControl)
     state.mySchedule = nil
-    state.liveActivities["festival"] = .init(
+    state.liveActivity.activities["festival"] = .init(
       id: "activity",
       festivalID: "festival",
       phase: .ongoing,
@@ -136,12 +136,12 @@ struct HomeLiveActivityTests {
 
   @Test @MainActor func startThatCanNoLongerResolveReleasesBusyState() async {
     var state = FestivalFeature.State()
-    state.liveActivityReady = true
-    state.liveActivityBusyFestivalID = "missing"
+    state.liveActivity.isReady = true
+    state.liveActivity.busyFestivalID = "missing"
     let store = TestStore(initialState: state) { FestivalFeature() }
 
     await store.send(.async(.startLiveActivity(festivalID: "missing"))) {
-      $0.liveActivityBusyFestivalID = nil
+      $0.liveActivity.busyFestivalID = nil
     }
   }
 
@@ -172,9 +172,9 @@ struct HomeLiveActivityTests {
       festivalID: "festival",
       setIDs: ["saved-set"]
     )
-    state.liveActivityReady = true
+    state.liveActivity.isReady = true
     state.hasStarted = true
-    state.liveActivityNow = now
+    state.liveActivity.now = now
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
       $0.date.now = now
@@ -190,28 +190,31 @@ struct HomeLiveActivityTests {
     }
 
     await store.send(.view(.liveActivityTapped)) {
-      $0.liveActivityBusyFestivalID = "festival"
-      $0.liveActivityRevision = 1
+      $0.liveActivity.busyFestivalID = "festival"
+      $0.liveActivity.revision = 1
     }
     await store.receive(\.async.startLiveActivity)
     await store.receive(\.inner.liveActivityStarted) {
-      $0.liveActivityBusyFestivalID = nil
-      $0.liveActivityRevision = 2
-      $0.liveActivities["festival"] = .init(
-        id: "activity", festivalID: "festival", phase: .ongoing,
-        startDate: startDate, endDate: endDate
+      $0.liveActivity.busyFestivalID = nil
+      $0.liveActivity.revision = 2
+      $0.liveActivity.activities["festival"] = .init(
+        id: "activity",
+        festivalID: "festival",
+        phase: .ongoing,
+        startDate: startDate,
+        endDate: endDate
       )
     }
     #expect(store.state.liveActivityState.title == "Live Activity 끄기")
     await store.send(.view(.liveActivityTapped)) {
-      $0.liveActivityBusyFestivalID = "festival"
-      $0.liveActivityRevision = 3
+      $0.liveActivity.busyFestivalID = "festival"
+      $0.liveActivity.revision = 3
     }
     await store.receive(\.async.endLiveActivity)
     await store.receive(\.inner.liveActivityStopped) {
-      $0.liveActivityBusyFestivalID = nil
-      $0.liveActivityRevision = 4
-      $0.liveActivities = [:]
+      $0.liveActivity.busyFestivalID = nil
+      $0.liveActivity.revision = 4
+      $0.liveActivity.activities = [:]
     }
     await store.send(.view(.foregroundChanged(false))) {
       $0.isForeground = false
@@ -232,16 +235,16 @@ struct HomeLiveActivityTests {
       festivalID: "festival",
       setIDs: ["saved-set"]
     )
-    state.liveActivityReady = true
+    state.liveActivity.isReady = true
 
-    state.liveActivityNow = start.addingTimeInterval(-7_201)
+    state.liveActivity.now = start.addingTimeInterval(-7_201)
     #expect(!state.liveActivityState.isEnabled)
-    state.liveActivityNow = start.addingTimeInterval(-7_200)
+    state.liveActivity.now = start.addingTimeInterval(-7_200)
     #expect(state.liveActivityState.isEnabled)
-    state.liveActivityNow = start
+    state.liveActivity.now = start
     #expect(!state.liveActivityState.isEnabled)
 
-    state.liveActivityNow = start.addingTimeInterval(-7_200)
+    state.liveActivity.now = start.addingTimeInterval(-7_200)
     state.mySchedule = .init(
       festivalID: "festival",
       setIDs: []
@@ -264,12 +267,15 @@ struct HomeLiveActivityTests {
     var state = FestivalFeature.State()
     state.catalog = [festival(id: "selected"), festival(id: "other")]
     state.selectedFestivalID = "selected"
-    state.liveActivityReady = true
+    state.liveActivity.isReady = true
     state.hasStarted = true
-    state.liveActivityNow = now
-    state.liveActivities["other"] = .init(
-      id: "activity-other", festivalID: "other", phase: .ongoing,
-      startDate: oldStart, endDate: endDate
+    state.liveActivity.now = now
+    state.liveActivity.activities["other"] = .init(
+      id: "activity-other",
+      festivalID: "other",
+      phase: .ongoing,
+      startDate: oldStart,
+      endDate: endDate
     )
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
@@ -292,9 +298,12 @@ struct HomeLiveActivityTests {
 
     await store.send(.inner(.liveActivityBoundary))
     await store.receive(\.inner.liveActivityUpdated) {
-      $0.liveActivities["other"] = .init(
-        id: "activity-other", festivalID: "other", phase: .ongoing,
-        startDate: startDate, endDate: endDate
+      $0.liveActivity.activities["other"] = .init(
+        id: "activity-other",
+        festivalID: "other",
+        phase: .ongoing,
+        startDate: startDate,
+        endDate: endDate
       )
     }
     await store.send(.view(.foregroundChanged(false))) {
@@ -307,11 +316,14 @@ struct HomeLiveActivityTests {
   @Test @MainActor func staleSnapshotReloadsAfterConcurrentStateChange() async {
     let now = Date(timeIntervalSince1970: 1_793_266_200)
     var state = FestivalFeature.State()
-    state.liveActivityReady = true
-    state.liveActivityRevision = 2
-    state.liveActivities["removed"] = .init(
-      id: "old", festivalID: "removed", phase: .upcoming,
-      startDate: now, endDate: nil
+    state.liveActivity.isReady = true
+    state.liveActivity.revision = 2
+    state.liveActivity.activities["removed"] = .init(
+      id: "old",
+      festivalID: "removed",
+      phase: .upcoming,
+      startDate: now,
+      endDate: nil
     )
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
@@ -326,10 +338,13 @@ struct HomeLiveActivityTests {
       )
     }
 
-    await store.send(.inner(.liveActivitiesLoaded([], 1)))
+    await store.send(.inner(.liveActivitiesLoaded(
+      [],
+      1
+    )))
     await store.receive(\.inner.liveActivitiesLoaded) {
-      $0.liveActivityNow = now
-      $0.liveActivities = [:]
+      $0.liveActivity.now = now
+      $0.liveActivity.activities = [:]
     }
     await store.finish()
   }
@@ -343,21 +358,31 @@ struct HomeLiveActivityTests {
     let clock = TestClock()
     var state = FestivalFeature.State()
     state.catalog = [
-      festival(id: "ended", first: "2026-10-27T09:00:00Z", last: "2026-10-28T09:00:00Z"),
+      festival(
+        id: "ended",
+        first: "2026-10-27T09:00:00Z",
+        last: "2026-10-28T09:00:00Z"
+      ),
       festival(id: "selected")
     ]
     state.selectedFestivalID = "selected"
-    state.liveActivityReady = true
+    state.liveActivity.isReady = true
     state.hasStarted = true
-    state.liveActivityBusyFestivalID = "selected"
-    state.liveActivityNow = now
-    state.liveActivities["ended"] = .init(
-      id: "ended-activity", festivalID: "ended", phase: .ongoing,
-      startDate: oldStart, endDate: oldEnd
+    state.liveActivity.busyFestivalID = "selected"
+    state.liveActivity.now = now
+    state.liveActivity.activities["ended"] = .init(
+      id: "ended-activity",
+      festivalID: "ended",
+      phase: .ongoing,
+      startDate: oldStart,
+      endDate: oldEnd
     )
-    state.liveActivities["selected"] = .init(
-      id: "selected-activity", festivalID: "selected", phase: .ongoing,
-      startDate: activeStart, endDate: activeEnd
+    state.liveActivity.activities["selected"] = .init(
+      id: "selected-activity",
+      festivalID: "selected",
+      phase: .ongoing,
+      startDate: activeStart,
+      endDate: activeEnd
     )
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
@@ -375,10 +400,10 @@ struct HomeLiveActivityTests {
 
     await store.send(.inner(.liveActivityBoundary))
     await store.receive(\.inner.liveActivityStopped) {
-      $0.liveActivityRevision = 1
-      $0.liveActivities.removeValue(forKey: "ended")
+      $0.liveActivity.revision = 1
+      $0.liveActivity.activities.removeValue(forKey: "ended")
     }
-    #expect(store.state.liveActivityBusyFestivalID == "selected")
+    #expect(store.state.liveActivity.busyFestivalID == "selected")
     await store.send(.view(.foregroundChanged(false))) {
       $0.isForeground = false
     }

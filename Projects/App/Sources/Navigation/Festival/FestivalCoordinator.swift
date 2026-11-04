@@ -58,13 +58,25 @@ struct FestivalCoordinator {
   enum Delegate {
     case bookmarkRequested(String)
     case loginRequested
+    case flagTabRequested
+    case crewLoginRequested
+    case followLoginRequested
+    case flagDirectoryRequested
+    case packDirectionsRequested(festivalID: String, title: String)
   }
 
   func handleRoute(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case let .router(.routeAction(id: _, action: .festivalList(.view(.selectFestival(festivalID))))):
-      var board = FestivalFeature.State(selectedFestivalID: festivalID)
-      if let list = state.routes.first?.screen.festivalList {
+      let list = state.routes.first?.screen.festivalList
+      var board = FestivalFeature.State(
+        selectedFestivalID: festivalID,
+        selectedCatalogItem: list?.catalog[id: festivalID]
+      )
+      if let list {
+        if let pack = list.cachedPacks[festivalID] {
+          board.cachedPacks[festivalID] = pack
+        }
         board.bookedUserID = list.bookedUserID
         board.hasSession = list.hasSession
         board.sessionUserID = list.sessionUserID
@@ -84,6 +96,12 @@ struct FestivalCoordinator {
       guard !state.routes.contains(where: { $0.screen.is(\.notificationInbox) }) else { return .none }
       state.routes.push(.notificationInbox(.init()))
       return .none
+
+    case .router(.routeAction(
+      id: _,
+      action: .liveBoard(.delegate(.flagTabRequested))
+    )):
+      return .send(.delegate(.flagTabRequested))
 
     case .router(.routeAction(id: _, action: .notificationInbox(.delegate(.backRequested)))):
       state.routes.goBack()
@@ -131,6 +149,36 @@ struct FestivalCoordinator {
     case .router(.routeAction(id: _, action: .festivalList(.delegate(.loginRequested)))),
          .router(.routeAction(id: _, action: .liveBoard(.delegate(.loginRequested)))):
       return .send(.delegate(.loginRequested))
+
+    case .router(.routeAction(
+      id: _,
+      action: .liveBoard(.delegate(.crewLoginRequested))
+    )):
+      return .send(.delegate(.crewLoginRequested))
+
+    case .router(.routeAction(
+      id: _,
+      action: .liveBoard(.delegate(.followLoginRequested))
+    )):
+      return .send(.delegate(.followLoginRequested))
+
+    case .router(.routeAction(
+      id: _,
+      action: .liveBoard(.delegate(.flagDirectoryRequested))
+    )):
+      return .send(.delegate(.flagDirectoryRequested))
+
+    case let .router(.routeAction(
+      id: _,
+      action: .liveBoard(.delegate(.packDirectionsRequested(
+        festivalID,
+        title
+      )))
+    )):
+      return .send(.delegate(.packDirectionsRequested(
+        festivalID: festivalID,
+        title: title
+      )))
 
     case let .reloadBookmarks(userID):
       return broadcast(state, .view(.reloadBookmarks(userID: userID)))
@@ -298,7 +346,7 @@ struct FestivalCoordinator {
 private extension FestivalCoordinator {
   /// 열린 모든 라우트에 같은 `FestivalFeature` 액션을 보낸다.
   func broadcast(_ state: State, _ action: FestivalFeature.Action) -> Effect<Action> {
-    .merge(state.routes.enumerated().map { index, route in
+    return .merge(state.routes.enumerated().map { index, route in
       let screenAction: FestivalScreen.Action
       switch route.screen {
       case .festivalList:

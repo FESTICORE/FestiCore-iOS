@@ -19,6 +19,13 @@ struct LoginFeatureTests {
     await store.receive(.delegate(.signInRequested(.apple)))
   }
 
+  @Test @MainActor func closeTapAsksParentToDismissSheet() async {
+    let store = TestStore(initialState: LoginFeature.State()) { LoginFeature() }
+
+    await store.send(.view(.closeTapped))
+    await store.receive(.delegate(.closeRequested))
+  }
+
   @Test @MainActor func contextChangedUpdatesSheetCopyAndFlowMessage() async {
     let store = TestStore(initialState: LoginFeature.State()) { LoginFeature() }
 
@@ -26,6 +33,22 @@ struct LoginFeatureTests {
       $0.context = .flag
       $0.flowMessage = "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."
     }
+  }
+
+  @Test(arguments: [LoginFeature.State.Context.crew, .follow])
+  @MainActor func s01LoginContextSwitchesWithoutStartingAuthentication(
+    _ context: LoginFeature.State.Context
+  ) async {
+    let store = TestStore(initialState: LoginFeature.State()) { LoginFeature() }
+
+    await store.send(.view(.contextChanged(
+      context,
+      flowMessage: nil
+    ))) {
+      $0.context = context
+    }
+    #expect(store.state.isSigningIn == false)
+    #expect(store.state.visibleMessage == nil)
   }
 
   @Test func flowMessageShowsBeforeLoginError() {
@@ -119,7 +142,7 @@ struct LoginFeatureTests {
   }
 
   private func loginResult(newUser: Bool) -> AuthLoginResult {
-    AuthLoginResult(
+    return AuthLoginResult(
       newUser: newUser,
       user: AuthUser(
         id: "user_1", provider: "google", email: "person@example.com",
@@ -134,7 +157,7 @@ private struct ImmediateOAuth: OAuthUseCaseInterface {
   let result: Result<AuthLoginResult, any Error>
 
   func signIn(provider: OAuthProvider) async throws -> AuthLoginResult {
-    try result.get()
+    return try result.get()
   }
 }
 

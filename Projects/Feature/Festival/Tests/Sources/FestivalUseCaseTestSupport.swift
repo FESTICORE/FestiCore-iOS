@@ -15,6 +15,10 @@ extension DependencyValues {
     festivalScheduleUseCase = ServiceBackedScheduleUseCase()
     festivalImageUseCase = ServiceBackedImageUseCase()
     festivalLiveActivityUseCase = ServiceBackedLiveActivityUseCase()
+    festivalGuideVisibilityUseCase = MockFestivalGuideVisibilityUseCase(
+      isHidden: { _ in false },
+      hide: { _ in }
+    )
     userNotificationUseCase = MockUserNotificationUseCase(unreadCount: { 0 })
   }
 }
@@ -24,8 +28,8 @@ private struct ServiceBackedCatalogUseCase: FestivalCatalogUseCaseInterface {
   @Dependency(\.festivalSelectionStore) var selectionStore
 
   func cachedFestivals() async throws -> [FestivalCatalogItem] { try await catalogService.cachedFestivals() }
-  func refreshFestivals() async throws -> [FestivalCatalogItem] { try await catalogService.refresh() }
-  func savedFestivalID() -> String? { selectionStore.load() }
+  func refreshFestivals() async throws -> [FestivalCatalogItem] { return try await catalogService.refresh() }
+  func savedFestivalID() -> String? { return selectionStore.load() }
   func saveSelectedFestivalID(_ festivalID: String?) { selectionStore.save(festivalID) }
 }
 
@@ -34,10 +38,10 @@ private struct ServiceBackedPackUseCase: FestivalPackUseCaseInterface {
 
   func cachedPacks() async throws -> [CachedFestivalPack] { try await packService.cachedPacks() }
   func packUpdates(for festivalID: String) -> AsyncThrowingStream<PackSyncResult, Error> {
-    packService.updates(for: festivalID)
+    return packService.updates(for: festivalID)
   }
   func downloadPack(for festivalID: String) -> AsyncThrowingStream<PackDownloadEvent, Error> {
-    packService.download(for: festivalID)
+    return packService.download(for: festivalID)
   }
 }
 
@@ -46,10 +50,22 @@ private struct ServiceBackedLibraryUseCase: FestivalLibraryUseCaseInterface {
   @Dependency(\.festivalRecentSearchStore) var recentSearchStore
 
   func bookedFestivalIDs(for userID: String) -> Set<String> { bookedStore.load(for: userID) }
-  func recentSearches(for userID: String?) -> [String] { recentSearchStore.load(for: userID) }
-  func addRecentSearch(_ query: String, for userID: String?) -> [String] { recentSearchStore.add(query, for: userID) }
-  func removeRecentSearch(_ query: String, for userID: String?) -> [String] {
-    recentSearchStore.remove(query, for: userID)
+  func recentSearches(for userID: String?) -> [String] { return recentSearchStore.load(for: userID) }
+  func addRecentSearch(
+    _ query: String,
+    for userID: String?
+  ) -> [String] { return recentSearchStore.add(
+    query,
+    for: userID
+  ) }
+  func removeRecentSearch(
+    _ query: String,
+    for userID: String?
+  ) -> [String] {
+    return recentSearchStore.remove(
+      query,
+      for: userID
+    )
   }
   func clearRecentSearches(for userID: String?) { recentSearchStore.clear(for: userID) }
 }
@@ -69,9 +85,15 @@ private struct ServiceBackedScheduleUseCase: FestivalScheduleUseCaseInterface {
     try await scheduleService.fetch(festivalID: festivalID)
   }
   func saveMySchedule(
-    festivalID: String, setIDs: [String], clientAt: Date
+    festivalID: String,
+    setIDs: [String],
+    clientAt: Date
   ) async throws(FestivalScheduleError) -> FestivalSchedule {
-    try await scheduleService.replace(festivalID: festivalID, setIDs: setIDs, clientAt: clientAt)
+    return try await scheduleService.replace(
+      festivalID: festivalID,
+      setIDs: setIDs,
+      clientAt: clientAt
+    )
   }
 }
 
@@ -88,11 +110,21 @@ private struct ServiceBackedLiveActivityUseCase: FestivalLiveActivityUseCaseInte
   @Dependency(\.festivalLiveActivityClient) var client
 
   func activities() async -> [FestivalLiveActivityRecord] { await client.activities() }
-  func activityChanges() -> AsyncStream<Void> { client.changes() }
+  func activityChanges() -> AsyncStream<Void> { return client.changes() }
   func start(
-    festivalID: String, festivalName: String, startDate: Date, endDate: Date, phase: FestivalLiveActivityPhase
+    festivalID: String,
+    festivalName: String,
+    startDate: Date,
+    endDate: Date,
+    phase: FestivalLiveActivityPhase
   ) async throws -> String {
-    try await client.start(festivalID, festivalName, startDate, endDate, phase)
+    return try await client.start(
+      festivalID,
+      festivalName,
+      startDate,
+      endDate,
+      phase
+    )
   }
   func update(
     activityID: String,
@@ -111,6 +143,12 @@ private struct ServiceBackedLiveActivityUseCase: FestivalLiveActivityUseCaseInte
       savedSetIDs
     )
   }
-  func finish(activityID: String, startDate: Date) async { await client.finish(activityID, startDate) }
+  func finish(
+    activityID: String,
+    startDate: Date
+  ) async { await client.finish(
+    activityID,
+    startDate
+  ) }
   func end(activityID: String) async { await client.end(activityID) }
 }

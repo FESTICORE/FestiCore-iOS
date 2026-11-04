@@ -7,6 +7,7 @@
 
 import AuthDomainInterface
 import ComposableArchitecture
+import CoreGraphics
 import Foundation
 import AuthInterface
 
@@ -22,6 +23,8 @@ public struct SignUpFeature {
     /// 현재 서버 약관 버전. 부모가 프로필을 받거나 잃을 때 갱신한다.
     public var currentTermsVersion: String?
     public var nickname = ""
+    /// 키보드가 화면을 가리는 높이. 가입 화면의 하단 버튼 여백에 사용한다.
+    public var keyboardInset: CGFloat = 0
     /// 사용자가 닉네임을 직접 고쳤는지. 고친 값(빈 값 포함)은 프로필 닉네임으로 덮어쓰지 않는다.
     public var nicknameEdited = false
     public var acceptedServiceTerms = false
@@ -46,21 +49,21 @@ public struct SignUpFeature {
 
     /// 두 필수 약관(서비스 이용약관·개인정보 수집 이용)이 모두 체크됐을 때만 true다.
     public var acceptedTerms: Bool {
-      acceptedServiceTerms && acceptedPrivacyTerms
+      return acceptedServiceTerms && acceptedPrivacyTerms
     }
 
     /// 두 필수 약관이 모두 체크됐을 때만 체크한 시점의 약관 버전에 동의한 것으로 본다.
     public var consentedVersion: String? {
-      acceptedTerms ? termsDraftVersion : nil
+      return acceptedTerms ? termsDraftVersion : nil
     }
 
     public var isAllConsented: Bool {
-      acceptedServiceTerms && acceptedPrivacyTerms && pushOptIn
+      return acceptedServiceTerms && acceptedPrivacyTerms && pushOptIn
     }
 
     /// 현재 약관 버전에 동의했고 닉네임이 있으며 제출할 수 있는 상태일 때만 true다.
     public var canSubmit: Bool {
-      !isSubmitting
+      return !isSubmitting
         && !termsUpdateExhausted
         && acceptedTerms
         && consentedVersion == currentTermsVersion
@@ -70,11 +73,11 @@ public struct SignUpFeature {
 
     /// 약관 상세 주소. 기준 주소가 없으면 nil이다.
     public func legalURL(for document: LegalDocument) -> URL? {
-      legalBaseURL?.appending(path: document.path)
+      return legalBaseURL?.appending(path: document.path)
     }
 
     var hasDraft: Bool {
-      !nickname.isEmpty || nicknameEdited || acceptedServiceTerms || acceptedPrivacyTerms || pushOptIn
+      return !nickname.isEmpty || nicknameEdited || acceptedServiceTerms || acceptedPrivacyTerms || pushOptIn
     }
 
     /// 계정이 확인될 때 다른 계정이 만들었거나 소유자를 모르는 초안은 버린다. 초안을 버렸으면 true다.
@@ -144,6 +147,8 @@ public struct SignUpFeature {
 
   @CasePathable
   public enum View: Equatable {
+    case keyboardFrameChanged(minY: CGFloat, screenHeight: CGFloat)
+    case keyboardHidden
     case nicknameChanged(String)
     case termsAcceptanceChanged(Bool)
     case serviceTermsChanged(Bool)
@@ -162,73 +167,11 @@ public struct SignUpFeature {
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
       switch action {
-      case let .view(.nicknameChanged(nickname)):
-        state.claimDraft()
-        state.nickname = AuthNicknameRule.limited(nickname)
-        state.nicknameEdited = true
-        return .none
-
-      case let .view(.termsAcceptanceChanged(accepted)):
-        state.claimDraft()
-        state.acceptedServiceTerms = accepted
-        state.acceptedPrivacyTerms = accepted
-        state.syncRequiredTerms()
-        return .none
-
-      case let .view(.serviceTermsChanged(accepted)):
-        state.claimDraft()
-        state.acceptedServiceTerms = accepted
-        state.syncRequiredTerms()
-        return .none
-
-      case let .view(.privacyTermsChanged(accepted)):
-        state.claimDraft()
-        state.acceptedPrivacyTerms = accepted
-        state.syncRequiredTerms()
-        return .none
-
-      case .view(.allConsentToggled):
-        state.claimDraft()
-        let accepted = !state.isAllConsented
-        state.acceptedServiceTerms = accepted
-        state.acceptedPrivacyTerms = accepted
-        state.pushOptIn = accepted
-        state.syncRequiredTerms()
-        return .none
-
-      case let .view(.pushOptInChanged(optedIn)):
-        state.claimDraft()
-        state.pushOptIn = optedIn
-        return .none
-
-      case let .view(.legalDocumentTapped(document)):
-        guard let url = state.legalURL(for: document) else { return .none }
-        return .send(.delegate(.legalDocumentRequested(
-          url: url,
-          title: document.title
-        )))
-
-      case .view(.submitTapped):
-        guard state.canSubmit else { return .none }
-        let nickname = state.nickname.trimmingCharacters(in: .whitespacesAndNewlines)
-        return .send(.delegate(.submitRequested(SignUpSubmission(
-          nickname: nickname,
-          pushOptIn: state.pushOptIn,
-          isNicknameValid: AuthNicknameRule.isValid(nickname)
-        ))))
-
-      case .view(.closeTapped):
-        return .send(.delegate(.closeRequested))
-
-      case let .view(.flowChanged(isSubmitting, message, termsUpdateExhausted, legalBaseURL)):
-        state.isSubmitting = isSubmitting
-        state.message = message
-        state.termsUpdateExhausted = termsUpdateExhausted
-        state.legalBaseURL = legalBaseURL
-        return .none
-
-      case .view(.sheetClosed):
-        return .none
+      case .view(let viewAction):
+        return handleViewAction(
+          state: &state,
+          action: viewAction
+        )
 
       case .delegate:
         return .none
@@ -237,10 +180,106 @@ public struct SignUpFeature {
   }
 }
 
+extension SignUpFeature {
+  private func handleViewAction(
+    state: inout State,
+    action: View
+  ) -> Effect<Action> {
+    switch action {
+    case let .keyboardFrameChanged(
+      minY,
+      screenHeight
+    ):
+      state.keyboardInset = max(
+        0,
+        screenHeight - minY
+      )
+      return .none
+
+    case .keyboardHidden:
+      state.keyboardInset = 0
+      return .none
+
+    case let .nicknameChanged(nickname):
+      state.claimDraft()
+      state.nickname = AuthNicknameRule.limited(nickname)
+      state.nicknameEdited = true
+      return .none
+
+    case let .termsAcceptanceChanged(accepted):
+      state.claimDraft()
+      state.acceptedServiceTerms = accepted
+      state.acceptedPrivacyTerms = accepted
+      state.syncRequiredTerms()
+      return .none
+
+    case let .serviceTermsChanged(accepted):
+      state.claimDraft()
+      state.acceptedServiceTerms = accepted
+      state.syncRequiredTerms()
+      return .none
+
+    case let .privacyTermsChanged(accepted):
+      state.claimDraft()
+      state.acceptedPrivacyTerms = accepted
+      state.syncRequiredTerms()
+      return .none
+
+    case .allConsentToggled:
+      state.claimDraft()
+      let accepted = !state.isAllConsented
+      state.acceptedServiceTerms = accepted
+      state.acceptedPrivacyTerms = accepted
+      state.pushOptIn = accepted
+      state.syncRequiredTerms()
+      return .none
+
+    case let .pushOptInChanged(optedIn):
+      state.claimDraft()
+      state.pushOptIn = optedIn
+      return .none
+
+    case let .legalDocumentTapped(document):
+      guard let url = state.legalURL(for: document) else { return .none }
+      return .send(.delegate(.legalDocumentRequested(
+        url: url,
+        title: document.title
+      )))
+
+    case .submitTapped:
+      guard state.canSubmit else { return .none }
+      let nickname = state.nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+      return .send(.delegate(.submitRequested(SignUpSubmission(
+        nickname: nickname,
+        pushOptIn: state.pushOptIn,
+        isNicknameValid: AuthNicknameRule.isValid(nickname)
+      ))))
+
+    case .closeTapped:
+      return .send(.delegate(.closeRequested))
+
+    case let .flowChanged(
+      isSubmitting,
+      message,
+      termsUpdateExhausted,
+      legalBaseURL
+    ):
+      state.isSubmitting = isSubmitting
+      state.message = message
+      state.termsUpdateExhausted = termsUpdateExhausted
+      state.legalBaseURL = legalBaseURL
+      return .none
+
+    case .sheetClosed:
+      return .none
+    }
+  }
+}
+
 extension LegalDocument {
   /// 가입 화면 동의 항목과 약관 상세 화면이 함께 쓰는 제목
   var title: String {
-    switch self {
+    return switch self {
     case .terms: "서비스 이용약관"
     case .privacy: "개인정보 수집 · 이용"
     }

@@ -12,7 +12,31 @@ import Dependencies
 import SQLiteData
 
 public enum StorageFactory {
-  private static let preparedDatabase = prepareDatabaseResult()
+  private static let liveDatabase = prepareDatabaseResult(context: .live)
+  private static let previewDatabase = prepareDatabaseResult(context: .preview)
+  private static let testDatabase = prepareDatabaseResult(context: .test)
+
+  private static var preparedDatabase: (writer: (any DatabaseWriter)?, isPersistent: Bool) {
+    // 의존성 캐시와 전역 초기화의 잠금 순서가 뒤집히지 않도록 context를 먼저 읽는다.
+    @Dependency(\.context) var context
+    switch context {
+    case .live:
+      return liveDatabase
+    case .preview:
+      return previewDatabase
+    case .test:
+      return testDatabase
+    }
+  }
+
+  static func prepareDatabaseResult(context: DependencyContext) -> (writer: (any DatabaseWriter)?, isPersistent: Bool) {
+    return withDependencies {
+      $0.context = context
+    } operation: {
+      return prepareDatabaseResult()
+    }
+  }
+
   private static var database: (any DatabaseWriter)? {
     return preparedDatabase.writer
   }
@@ -64,7 +88,7 @@ public enum StorageFactory {
   }
 
   public static var secureStorage: any SecureStorage {
-    KeychainStorage()
+    return KeychainStorage()
   }
 
   public static var sharedValueStorage: any SharedValueStorage {

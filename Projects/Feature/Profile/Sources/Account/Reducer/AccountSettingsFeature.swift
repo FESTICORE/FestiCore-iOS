@@ -25,7 +25,11 @@ public struct AccountSettingsFeature {
     /// 지금 띄운 확인 팝업이 무엇을 확인하는지
     public var confirmation: Confirmation?
 
-    public init(profile: AuthProfile?, isLoading: Bool = false, message: String? = nil) {
+    public init(
+      profile: AuthProfile?,
+      isLoading: Bool = false,
+      message: String? = nil
+    ) {
       self.profile = profile
       self.isLoading = isLoading
       self.message = message

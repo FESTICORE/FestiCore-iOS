@@ -67,7 +67,7 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
   @State private var dragOffset: CGFloat = 0
   @State private var dismissOffset: CGFloat = 0
   @State private var isDragging = false
-  @State private var pendingDismissal: DispatchWorkItem?
+  @State private var pendingDismissal: FCSheetDismissalRequest<Item>?
   @State private var isDismissDisabled = false
 
   public init(
@@ -98,7 +98,28 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
         }
       }
       .onDisappear {
-        if item == nil { cancelPendingDismissal() }
+        cancelPendingDismissal()
+      }
+      .task(id: pendingDismissal) {
+        guard let request = pendingDismissal else { return }
+        do {
+          try await Task.sleep(for: .seconds(dismissalDelay))
+          try Task.checkCancellation()
+        } catch {
+          if pendingDismissal == request {
+            pendingDismissal = nil
+            dragOffset = 0
+            dismissOffset = 0
+          }
+          return
+        }
+        guard pendingDismissal == request, item == request.item else { return }
+        Self.completeDismissal(
+          of: request.item,
+          item: $item
+        )
+        dismissOffset = 0
+        pendingDismissal = nil
       }
       .overlay {
         GeometryReader { geometry in
@@ -120,6 +141,8 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .allowsHitTesting(item != nil)
       }
+      // 루트 제거는 즉시 끝내고 시트·딤의 전환은 내부 overlay에서만 처리한다.
+      .transition(.identity)
   }
 
 }
@@ -187,18 +210,10 @@ extension FCSheetModifier {
       dismissOffset = Metric.slideDistance
     }
     dragOffset = 0
-    let work = DispatchWorkItem {
-      guard item == dismissedItem else { return }
-      Self.completeDismissal(of: dismissedItem, item: $item)
-      dismissOffset = 0
-      pendingDismissal = nil
-    }
-    pendingDismissal = work
-    DispatchQueue.main.asyncAfter(deadline: .now() + dismissalDelay, execute: work)
+    pendingDismissal = FCSheetDismissalRequest(item: dismissedItem)
   }
 
   private func cancelPendingDismissal() {
-    pendingDismissal?.cancel()
     pendingDismissal = nil
   }
 
@@ -270,6 +285,11 @@ public extension View {
       )
     )
   }
+}
+
+private struct FCSheetDismissalRequest<Item: Equatable>: Equatable {
+  let id = UUID()
+  let item: Item
 }
 
 private enum Metric {
