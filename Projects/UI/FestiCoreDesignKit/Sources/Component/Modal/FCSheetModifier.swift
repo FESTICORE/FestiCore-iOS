@@ -85,23 +85,23 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
   }
 
   public func body(content: Content) -> some View {
-    GeometryReader { geometry in
-      content
-        .onChange(of: item) { oldValue, newValue in
-          // 닫히거나 다른 아이템으로 바뀌면 이전 콘텐츠가 남긴 닫기 막기를 풀어 다음 시트가 닫히게 한다.
-          isDismissDisabled = false
-          let wasDismissing = pendingDismissal != nil
-          cancelPendingDismissal()
-          if newValue != nil, oldValue == nil || wasDismissing {
-            dragOffset = 0
-            dismissOffset = 0
-            isDragging = false
-          }
+    content
+      .onChange(of: item) { oldValue, newValue in
+        // 닫히거나 다른 아이템으로 바뀌면 이전 콘텐츠가 남긴 닫기 막기를 풀어 다음 시트가 닫히게 한다.
+        isDismissDisabled = false
+        let wasDismissing = pendingDismissal != nil
+        cancelPendingDismissal()
+        if newValue != nil, oldValue == nil || wasDismissing {
+          dragOffset = 0
+          dismissOffset = 0
+          isDragging = false
         }
-        .onDisappear {
-          if item == nil { cancelPendingDismissal() }
-        }
-        .overlay {
+      }
+      .onDisappear {
+        if item == nil { cancelPendingDismissal() }
+      }
+      .overlay {
+        GeometryReader { geometry in
           ZStack(alignment: .bottom) {
             if item != nil {
               FestiCoreSemanticColor.materialDimmer.color
@@ -117,8 +117,9 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
           }
           .animation(.easeOut(duration: Metric.longDuration), value: item != nil)
         }
-    }
-    .ignoresSafeArea(.keyboard, edges: .bottom)
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+        .allowsHitTesting(item != nil)
+      }
   }
 
 }
@@ -274,7 +275,8 @@ public extension View {
 private enum Metric {
   static let grabberWidth: CGFloat = 36
   static let grabberHeight: CGFloat = 5
-  static let slideDistance: CGFloat = 600
+  // Attendance CustomModalModifier와 같은 이동 거리와 닫기 타이밍을 사용한다.
+  static let slideDistance: CGFloat = 400
   static let dismissThreshold: CGFloat = 100
   static let shortDuration: Double = 0.2
   static let mediumDuration: Double = 0.3
