@@ -68,4 +68,38 @@ public struct FestivalCrewRepositoryImpl: FestivalCrewRepositoryInterface {
       throw error
     }
   }
+  public func gather(
+    crewID: String,
+    zoneID: String
+  ) async throws {
+    guard let sessionID = await authService.authenticatedSessionID else {
+      throw FestivalCrewError.unauthenticated
+    }
+    do {
+      let response = try await client.send(
+        CrewGatherRequest(
+          crewID: crewID,
+          body: CrewGatherBody(zoneId: zoneID),
+          sessionID: sessionID
+        ),
+        as: BaseResponseDTO<FestivalCrewGatherDataDTO>.self
+      )
+      guard response.code == "SUCCESS", response.data.zoneId == zoneID else {
+        throw FestivalCrewError.invalidResponse
+      }
+    } catch let error as FestiCoreNetworkError {
+      if case let .response(response) = error {
+        switch response.httpStatus {
+        case 400: throw FestivalCrewError.invalidInput
+        case 401: throw FestivalCrewError.unauthenticated
+        case 403: throw response.code == "TERMS_REQUIRED" ? FestivalCrewError.termsRequired : .forbidden
+        case 410: throw FestivalCrewError.festivalEnded
+        case 429: throw FestivalCrewError.cooldown
+        default: break
+        }
+      }
+      throw error
+    }
+  }
+
 }

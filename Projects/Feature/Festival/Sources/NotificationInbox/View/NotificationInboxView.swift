@@ -15,7 +15,7 @@ public struct NotificationInboxView: View {
 
   public var body: some View {
     VStack(spacing: .zero) {
-      topBar
+      topBar()
       TimelineView(.periodic(from: .now, by: 60)) { _ in
         content(now: date.now)
       }
@@ -35,26 +35,17 @@ public struct NotificationInboxView: View {
 
 private extension NotificationInboxView {
   @ViewBuilder
-  var topBar: some View {
+  func topBar() -> some View {
     if store.isEditing {
-      HStack {
-        Text("\(store.selectedIDs.count)개 선택")
-          .festiCoreFont(.baseBodyBold)
-          .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-        Spacer()
-        Button { send(.cancelSelectionTapped) } label: {
-          Image(asset: .xmark16)
-            .resizable()
-            .frame(width: 20, height: 20)
-            .frame(width: 44, height: 44)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("선택 취소")
-      }
-      .padding(.leading, FestiCoreSpacing.paddingP16)
-      .padding(.trailing, FestiCoreSpacing.paddingP8)
-      .frame(height: 52)
-      .background(FestiCoreSemanticColor.backgroundElevated.color)
+      FCTopBar(
+        .back,
+        title: "\(store.selectedIDs.count)개 선택"
+      )
+        .onBack { send(.backTapped) }
+        .trailingAction(
+          icon: .xmark16,
+          accessibilityLabel: "선택 취소"
+        ) { send(.cancelSelectionTapped) }
     } else {
       if store.load == .loaded, !store.items.isEmpty {
         FCTopBar(.back, title: "알림")

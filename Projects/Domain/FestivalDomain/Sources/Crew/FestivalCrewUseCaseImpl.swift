@@ -26,4 +26,18 @@ public struct FestivalCrewUseCaseImpl: FestivalCrewUseCaseInterface {
       nickname: nickname
     )
   }
+  public func gather(
+    crewID: String,
+    zoneID: String
+  ) async throws {
+    guard !crewID.isEmpty, !zoneID.isEmpty,
+          crewID.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else {
+      throw FestivalCrewError.invalidInput
+    }
+    try await repository.gather(
+      crewID: crewID,
+      zoneID: zoneID
+    )
+  }
+
 }

@@ -77,14 +77,14 @@ private extension FestivalLiveBoardScreen {
             notification,
             now: timeline.date
           )
-            .padding(
-              .horizontal,
-              FestiCoreSpacing.paddingP16
-            )
-            .padding(
-              .vertical,
-              FestiCoreSpacing.paddingP8
-            )
+          .padding(
+            .horizontal,
+            FestiCoreSpacing.paddingP16
+          )
+          .padding(
+            .vertical,
+            FestiCoreSpacing.paddingP8
+          )
         }
         ScrollView {
           VStack(
@@ -163,7 +163,6 @@ private extension FestivalLiveBoardScreen {
                   )
                 }
               }
-              if model.showsLiveActivityControl { liveActivityControl() }
               crewSection(now: now)
               if model.pack?.flagsEnabled != false {
                 followedSection(now: now)
@@ -239,8 +238,8 @@ private extension FestivalLiveBoardScreen {
               for: notification,
               now: now
             ))
-              .festiCoreFont(.baseCaption1Regular)
-              .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+            .festiCoreFont(.baseCaption1Regular)
+            .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
           }
           Text(notification.body)
             .festiCoreFont(.baseFootnoteRegular)
@@ -349,7 +348,7 @@ private extension FestivalLiveBoardScreen {
           "다시 시도",
           action: { send(.onlineDetailOnAppear) }
         )
-          .festiCoreFont(.baseCaption1Bold)
+        .festiCoreFont(.baseCaption1Bold)
       }
     } else {
       FCEmptyCard(
@@ -395,7 +394,7 @@ private extension FestivalLiveBoardScreen {
           festival: festival,
           now: now
         )]
-          .compactMap { $0 }.joined(separator: " · "),
+        .compactMap { $0 }.joined(separator: " · "),
         stats: [
           .init(
             value: "\(summary.seenSetCount)",
@@ -416,13 +415,13 @@ private extension FestivalLiveBoardScreen {
         title: "오늘의 기록을 불러오지 못했어요",
         message: "연결을 확인한 뒤 다시 시도해 주세요."
       )
-        .action(FCCardAction("다시 시도") { send(.retryMySchedule) })
+      .action(FCCardAction("다시 시도") { send(.retryMySchedule) })
     } else if model.hasSession, model.liveBoardUnavailable {
       FCEmptyCard(
         title: "오늘의 기록을 불러오지 못했어요",
         message: "연결을 확인한 뒤 다시 시도해 주세요."
       )
-        .action(FCCardAction("다시 시도") { send(.retryLiveBoard) })
+      .action(FCCardAction("다시 시도") { send(.retryLiveBoard) })
     } else if model.hasSession {
       FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r16))
         .frame(height: 164)
@@ -435,12 +434,25 @@ private extension FestivalLiveBoardScreen {
     if !model.hasSession {
       FestivalLiveBoardLoginCard(title: "크루와 함께 보려면 로그인") { send(.crewLoginTapped) }
     } else if let crew = model.liveBoard?.crew {
-      FestivalLiveBoardCrewCard(crew: FestivalLiveBoardPresentation.crew(
-        crew,
-        sessionUserID: model.sessionUserID,
-        zoneName: { model.pack?.zoneName(for: $0) },
-        now: now
-      ))
+      FestivalLiveBoardCrewCard(
+        crew: FestivalLiveBoardPresentation.crew(
+          crew,
+          sessionUserID: model.sessionUserID,
+          zoneName: { model.pack?.zoneName(for: $0) },
+          now: now
+        ),
+        showsGather: store.selectedFestival.map {
+          FestivalLiveBoardPresentation.phase(
+            pack: model.pack,
+            festival: $0,
+            now: now
+          ) != .ended
+        } ?? false,
+        canGather: !model.showsOfflineStatus && (crew.gatherAvailableAt.map { $0 <= now } ?? true),
+        onGather: {
+          send(.gatherCrewTapped)
+        }
+      )
     } else if model.liveBoard == nil, !model.liveBoardUnavailable {
       FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r16))
         .frame(height: 228)
@@ -450,23 +462,23 @@ private extension FestivalLiveBoardScreen {
         title: "내 크루를 불러오지 못했어요",
         message: loadingMessage
       )
-        .action(FCCardAction("다시 시도") { send(.retryLiveBoard) })
+      .action(FCCardAction("다시 시도") { send(.retryLiveBoard) })
     } else {
       FCEmptyCard(
         title: "아직 크루가 없어요",
         message: "친구를 초대하면 서로 어느 존에 있는지 바로 볼 수 있어요."
       )
-        .action(FCCardAction(
-          "크루 만들기",
-          style: .primary
-        ) { send(.createCrewTapped) })
+      .action(FCCardAction(
+        "크루 만들기",
+        style: .primary
+      ) { send(.createCrewTapped) })
     }
   }
 
   @ViewBuilder
   func followedSection(now: Date) -> some View {
     if !(model.hasSession && model.liveBoard != nil &&
-         (model.liveBoard?.followedFlags.isEmpty ?? true) && !model.showsFollowGuide) {
+      (model.liveBoard?.followedFlags.isEmpty ?? true) && !model.showsFollowGuide) {
       VStack(
         alignment: .leading,
         spacing: FestiCoreSpacing.paddingP16
@@ -504,33 +516,33 @@ private extension FestivalLiveBoardScreen {
             title: "팔로우한 깃발을 불러오지 못했어요",
             message: loadingMessage
           )
-            .action(FCCardAction("다시 시도") { send(.retryLiveBoard) })
+          .action(FCCardAction("다시 시도") { send(.retryLiveBoard) })
         } else if model.showsFollowGuide {
           FCEmptyCard(
             icon: .flag20,
             title: "만나보고 싶은 깃발이 있나요?",
             message: "팔로우하면 깃발이 움직일 때 조용히 알려 드려요."
           )
-            .action(FCCardAction(
-              "깃발 찾기",
-              style: .primary
-            ) { send(.findFlagTapped) })
-            .overlay(alignment: .topTrailing) {
-              Button { send(.hideFollowGuideTapped) } label: {
-                Image(systemName: "xmark")
-                  .font(.system(
-                    size: 12,
-                    weight: .medium
-                  ))
-                  .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
-                  .frame(
-                    width: 44,
-                    height: 44
-                  )
-                  .contentShape(Rectangle())
-              }
-              .accessibilityLabel("깃발 안내 숨기기")
+          .action(FCCardAction(
+            "깃발 찾기",
+            style: .primary
+          ) { send(.findFlagTapped) })
+          .overlay(alignment: .topTrailing) {
+            Button { send(.hideFollowGuideTapped) } label: {
+              Image(systemName: "xmark")
+                .font(.system(
+                  size: 12,
+                  weight: .medium
+                ))
+                .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+                .frame(
+                  width: 44,
+                  height: 44
+                )
+                .contentShape(Rectangle())
             }
+            .accessibilityLabel("깃발 안내 숨기기")
+          }
         }
       }
     }
@@ -565,7 +577,7 @@ private extension FestivalLiveBoardScreen {
           title: "활성 깃발을 불러오지 못했어요",
           message: loadingMessage
         )
-          .action(FCCardAction("다시 시도") { send(.retryLiveBoard) })
+        .action(FCCardAction("다시 시도") { send(.retryLiveBoard) })
       } else {
         FCEmptyCard(
           icon: .flag20,
@@ -591,28 +603,4 @@ private extension FestivalLiveBoardScreen {
     return model.liveBoardUnavailable ? "실시간 정보를 불러올 수 없습니다. 잠시 후 다시 시도합니다." : "실시간 정보를 불러오는 중입니다."
   }
 
-  @ViewBuilder
-  func liveActivityControl() -> some View {
-    VStack(
-      alignment: .leading,
-      spacing: FestiCoreSpacing.paddingP8
-    ) {
-      Button(model.liveActivityState.title) { send(.liveActivityTapped) }
-        .festiCoreFont(.baseBodyBold)
-        .frame(maxWidth: .infinity)
-        .padding(FestiCoreSpacing.paddingP16)
-        .foregroundStyle(FestiCoreSemanticColor.primaryOnPrimary.color)
-        .background(
-          FestiCoreSemanticColor.primaryNormal.color,
-                    in: RoundedRectangle(cornerRadius: FestiCoreRadius.r12)
-        )
-        .disabled(!model.liveActivityState.isEnabled)
-        .opacity(model.liveActivityState.isEnabled ? 1 : 0.5)
-      if let message = model.liveActivityState.message {
-        Text(message)
-          .festiCoreFont(.baseCaption1Regular)
-          .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-      }
-    }
-  }
 }

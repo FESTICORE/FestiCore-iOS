@@ -77,6 +77,7 @@ public struct FestivalFeature {
     public var mySchedule: MySchedule?
     public var myScheduleUnavailable = false
     @Presents public var festivalSwitcher: FestivalSwitcherFeature.State?
+    @Presents public var crewGather: FestivalCrewGatherFeature.State?
     @Presents public var crewCreate: FestivalCrewCreateFeature.State?
     @Presents public var followGuideAlert: FCAlertState<FCAlertAction>?
     public var hiddenFollowGuideFestivalIDs: Set<String> = []
@@ -280,6 +281,7 @@ public struct FestivalFeature {
       bookedFestivalIDs = []
       notificationUnreadCount = 0
       notificationBanner = nil
+      crewGather = nil
     }
   }
 
@@ -336,6 +338,7 @@ public struct FestivalFeature {
     case async(AsyncAction)
     case inner(InnerAction)
     case festivalSwitcher(PresentationAction<FestivalSwitcherFeature.Action>)
+    case crewGather(PresentationAction<FestivalCrewGatherFeature.Action>)
     case crewCreate(PresentationAction<FestivalCrewCreateFeature.Action>)
     case followGuideAlert(PresentationAction<FCAlertAction>)
     case delegate(FestivalDelegate)
@@ -375,6 +378,7 @@ public struct FestivalFeature {
     case festivalSwitchTapped
     case crewLoginTapped
     case followLoginTapped
+    case gatherCrewTapped
     case createCrewTapped
     case findFlagTapped
     case hideFollowGuideTapped
@@ -516,6 +520,13 @@ public struct FestivalFeature {
       case .festivalSwitcher:
         return .none
 
+      case .crewGather(.presented(.delegate(.gathered))):
+        state.crewGather = nil
+        return .send(.async(.startLiveBoard))
+
+      case .crewGather:
+        return .none
+
       case .crewCreate(.presented(.delegate(.created(_)))):
         state.crewCreate = nil
         return .send(.async(.startLiveBoard))
@@ -551,6 +562,10 @@ public struct FestivalFeature {
       \.$festivalSwitcher,
       action: \.festivalSwitcher
     ) { FestivalSwitcherFeature() }
+    .ifLet(
+      \.$crewGather,
+      action: \.crewGather
+    ) { FestivalCrewGatherFeature() }
     .ifLet(
       \.$crewCreate,
       action: \.crewCreate
@@ -807,6 +822,23 @@ extension FestivalFeature {
     case .followLoginTapped:
       return .send(.delegate(.followLoginRequested))
 
+    case .gatherCrewTapped:
+      guard state.hasSession, !state.liveBoardUnavailable,
+            state.connection != .offline, state.connection != .reconnecting,
+            let crew = state.liveBoard?.crew,
+            let festival = state.selectedFestival,
+            FestivalLiveBoardPresentation.phase(
+              pack: state.displayDocument,
+              festival: festival,
+              now: date.now
+            ) != .ended else { return .none }
+      state.crewGather = FestivalCrewGatherFeature.State(
+        crewID: crew.id,
+        zones: state.displayDocument?.zones ?? [],
+        availableAt: crew.gatherAvailableAt
+      )
+      return .none
+
     case .createCrewTapped:
       guard state.hasSession else { return .send(.delegate(.crewLoginRequested)) }
       guard let festivalID = state.selectedFestivalID, state.crewCreate == nil else { return .none }
@@ -890,6 +922,7 @@ extension FestivalFeature {
       state.recentSearches = libraryUseCase.recentSearches(for: nil)
       state.hasSession = false
       state.sessionUserID = nil
+      state.crewGather = nil
       state.accountGeneration += 1
       return .merge(downloadIDs.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) } + [
         state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
@@ -915,6 +948,7 @@ extension FestivalFeature {
       state.sessionUserID = userID
       state.notificationUnreadCount = 0
       state.notificationBanner = nil
+      state.crewGather = nil
       state.accountGeneration += 1
       state.liveBoard = nil
       state.liveBoardUnavailable = false

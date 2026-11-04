@@ -67,6 +67,12 @@ public struct FestivalLiveBoardRouteView: View {
       FestivalSwitcherView(store: switcherStore)
     }
     .fcModal($store.scope(
+      state: \.crewGather,
+      action: \.crewGather
+    )) { gatherStore in
+      FestivalCrewGatherView(store: gatherStore)
+    }
+    .fcModal($store.scope(
       state: \.crewCreate,
       action: \.crewCreate
     )) { crewStore in

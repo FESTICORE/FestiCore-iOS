@@ -98,6 +98,7 @@ struct TimetableFeatureTests {
 
   @Test func currentTimeContinuesThroughCrossMidnightSet() async {
     var state = TimetableFeature.State.sample()
+    state.days[0].sets = [state.days[0].sets[0]]
     state.days[0].sets[0].end = 1500
     let date = state.days[0].date.addingTimeInterval(1460 * 60)
     let store = TestStore(initialState: state) {

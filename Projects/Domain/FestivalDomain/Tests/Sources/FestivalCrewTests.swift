@@ -71,6 +71,13 @@ struct FestivalCrewTests {
 }
 
 private actor RecordingCrewRepository: FestivalCrewRepositoryInterface {
+  func gather(
+    crewID: String,
+    zoneID: String
+  ) async throws {
+    throw FestivalCrewError.unavailable
+  }
+
   struct Input: Equatable, Sendable {
     let festivalID: String
     let name: String
