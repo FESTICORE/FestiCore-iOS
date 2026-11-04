@@ -4,6 +4,7 @@ require "shellwords"
 APP_NAME = "FestiCore"
 BUNDLE_ID = "io.festiCore.co"
 LIVE_ACTIVITY_BUNDLE_ID = "#{BUNDLE_ID}.LiveActivity"
+APP_GROUP_ID = "group.#{BUNDLE_ID}"
 LIVE_ACTIVITY_TARGET = "FestiCoreLiveActivityExtension"
 NOTIFICATION_SERVICE_BUNDLE_ID = "#{BUNDLE_ID}.NotificationService"
 NOTIFICATION_SERVICE_TARGET = "FestiCoreNotificationServiceExtension"
@@ -62,6 +63,50 @@ def prepare_signing_keychain
       lock_when_sleeps: false,
       add_to_search_list: true
     )
+  end
+end
+
+# produce와 같은 Portal API로 그룹을 연결한다. 기존 다른 그룹 연결은 보존한다.
+# App Store Connect API 키만으로 그룹을 만들 수 없어 Apple ID 세션이 필요하다.
+def ensure_widget_app_group!
+  require_environment!("FASTLANE_USER")
+  require "spaceship"
+  # 인증 만료 시 새 로그인·2FA를 시작하지 않고 서명 작업을 중단한다.
+  client = Spaceship::PortalClient.new
+  client.user = ENV.fetch("FASTLANE_USER")
+  if ENV["FASTLANE_SESSION"].to_s.empty?
+    UI.user_error!("기존 Fastlane Portal 세션이 없습니다.") unless client.load_session_from_file
+  else
+    client.load_session_from_env
+  end
+  begin
+    # 이 작업은 Developer Portal 권한만 필요하다. ASC Olympus 세션을 별도로 요구하지 않는다.
+    teams = client.teams
+  rescue => error
+    UI.user_error!("Fastlane Portal 세션 검증 실패: #{error.class}. 유효한 Apple ID 세션이 필요합니다.")
+  end
+  UI.user_error!("Fastlane 계정에 대상 Apple Team 권한이 없습니다.") unless teams.any? { |team| team["teamId"] == TEAM_ID }
+  client.team_id = TEAM_ID
+  Spaceship::Portal.client = client
+  group = Spaceship::Portal.app_group.find(APP_GROUP_ID)
+  group ||= Spaceship::Portal.app_group.create!(
+    group_id: APP_GROUP_ID,
+    name: "FestiCore Shared Widgets"
+  )
+  [BUNDLE_ID, LIVE_ACTIVITY_BUNDLE_ID].each do |identifier|
+    app = Spaceship::Portal.app.find(identifier)
+    UI.user_error!("Developer Portal에 앱 ID가 없습니다: #{identifier}") unless app
+    app = app.details
+    groups = Array(app.associated_groups)
+    unless groups.any? { |candidate| candidate.group_id == APP_GROUP_ID }
+      app = app.update_service(Spaceship::Portal::AppService::AppGroup.on)
+      app.associate_groups(groups + [group])
+    end
+    verified = Spaceship::Portal.app.find(identifier).details
+    unless Array(verified.associated_groups).any? { |candidate| candidate.group_id == APP_GROUP_ID }
+      UI.user_error!("App Group 연결 확인 실패: #{identifier}")
+    end
+    UI.success("App Group 연결 확인: #{identifier} → #{APP_GROUP_ID}")
   end
 end
 
@@ -263,13 +308,26 @@ platform :ios do
         keychain_password: ENV.fetch("MATCH_KEYCHAIN_PASSWORD")
       )
     end
-    signed_ipa(
-      PROD_SCHEME,
-      "Prod",
-      ENV.fetch("FESTICORE_VERSION", "1.0.0"),
-      ENV.fetch("GITHUB_RUN_NUMBER", "1"),
-      api_key
+  end
+
+  desc "기존 Apple ID 세션으로 앱·위젯 App Group만 연결 (프로파일 발급·빌드 없음)"
+  lane :register_widget_app_group do
+    ensure_widget_app_group!
+  end
+
+  desc "앱·위젯 App Group 연결 및 Development·AppStore 프로파일 재발급 (빌드·배포 없음)"
+  lane :provision_widget_app_group do
+    # 원격 그룹을 바꾸기 전에 후속 프로파일 발급 자격 증명도 확인한다.
+    require_environment!(
+      "FASTLANE_USER",
+      "MATCH_PASSWORD",
+      "MATCH_KEYCHAIN_PASSWORD",
+      "APP_STORE_CONNECT_API_KEY_ID",
+      "APP_STORE_CONNECT_ISSUER_ID",
+      "APP_STORE_CONNECT_API_KEY_CONTENT"
     )
+    ensure_widget_app_group!
+    provision_live_activity_signing(force: true)
   end
 
   desc "Stage 시뮬레이터 테스트"

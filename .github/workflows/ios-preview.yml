@@ -10,6 +10,11 @@ on:
         type: boolean
         required: false
         default: false
+      provision_widget_app_group:
+        description: 앱·위젯 App Group 연결과 서명 프로파일 재발급 (빌드·배포 없음)
+        type: boolean
+        required: false
+        default: false
       force_regenerate_profiles:
         description: Push 권한 변경 후 앱 및 확장 프로파일 강제 재발급
         type: boolean
@@ -25,7 +30,7 @@ env:
 
 jobs:
   share:
-    if: ${{ github.event_name != 'workflow_dispatch' || !(inputs.provision_live_activity_profile || inputs.force_regenerate_profiles) }}
+    if: ${{ github.event_name != 'workflow_dispatch' || !(inputs.provision_live_activity_profile || inputs.force_regenerate_profiles || inputs.provision_widget_app_group) }}
     runs-on: self-hosted
     timeout-minutes: 30
     permissions:
@@ -91,12 +96,14 @@ jobs:
         run: bash Scripts/clean-ci-derived-data.sh FestiCore-preview
 
   provision-signing:
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.provision_live_activity_profile || inputs.force_regenerate_profiles) }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.provision_live_activity_profile || inputs.force_regenerate_profiles || inputs.provision_widget_app_group) }}
     runs-on: self-hosted
     timeout-minutes: 30
     permissions:
       contents: read
     env:
+      FASTLANE_USER: ${{ secrets.FASTLANE_USER }}
+      FASTLANE_SESSION: ${{ secrets.FASTLANE_SESSION }}
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
       MATCH_GIT_URL: git@github.com:Roy-wonji/FastlaneMatch.git
@@ -111,7 +118,11 @@ jobs:
           derived-data-directory: FestiCore-live-activity-signing
       - name: Install Fastlane dependencies
         run: bundle install
+      - name: Provision widget App Group and profiles
+        if: ${{ inputs.provision_widget_app_group }}
+        run: bundle exec fastlane provision_widget_app_group
       - name: Provision Live Activity profiles
+        if: ${{ !inputs.provision_widget_app_group }}
         run: bundle exec fastlane provision_live_activity_signing force:${{ inputs.force_regenerate_profiles }}
       - name: Clean signing DerivedData
         if: always()
