@@ -67,6 +67,25 @@ struct FestiCoreDesignKitTests {
     #expect(harness.box.item == .login)
   }
 
+  @Test @MainActor func removingModifierCancelsDismissalWhileItemRemainsPresented() async throws {
+    let harness = SheetTestHarness(conditional: true)
+    defer { harness.close() }
+    try await harness.render()
+    let dismiss = try #require(harness.box.dismiss)
+    let clock = ContinuousClock()
+    let requested = clock.now
+
+    dismiss()
+    harness.box.isModifierMounted = false
+    try await harness.render()
+    #expect(harness.box.modifierDisappearCount == 1)
+    #expect(harness.box.item == .login)
+    #expect(requested.duration(to: clock.now) < SheetTestTiming.preDeadlineLimit)
+
+    try await Task.sleep(for: SheetTestTiming.resultWait)
+    #expect(harness.box.item == .login)
+  }
+
   @Test @MainActor func pendingDismissalKeepsReplacementSheet() async throws {
     let harness = SheetTestHarness(conditional: false)
     defer { harness.close() }
@@ -310,6 +329,8 @@ private enum TestSheet: Identifiable {
 @Observable
 private final class TestSheetBox {
   var item: TestSheet? = .login
+  var isModifierMounted = true
+  @ObservationIgnored var modifierDisappearCount = 0
   var dismiss: (() -> Void)?
   @ObservationIgnored var backgroundFrame: CGRect?
   @ObservationIgnored var sheetFrame: CGRect?
@@ -346,7 +367,7 @@ private struct SheetTestHost: View {
 
   var body: some View {
     Group {
-      if conditional && box.item == nil {
+      if conditional && (!box.isModifierMounted || box.item == nil) {
         Color.clear
       } else {
         ZStack(alignment: .topLeading) {
@@ -360,6 +381,7 @@ private struct SheetTestHost: View {
         )) { _ in
           SheetTestContent(box: box)
         }
+        .onDisappear { box.modifierDisappearCount += 1 }
       }
     }
     .environment(\.fcSheetDismissalDelay, SheetTestTiming.dismissalDelay)

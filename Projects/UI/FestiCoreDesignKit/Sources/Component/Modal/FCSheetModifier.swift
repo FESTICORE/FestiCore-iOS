@@ -98,7 +98,8 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
         }
       }
       .onDisappear {
-        if item == nil { cancelPendingDismissal() }
+        // 제거된 modifier의 예약 작업이 같은 binding으로 다시 열린 시트를 닫지 않게 한다.
+        cancelPendingDismissal()
       }
       .overlay {
         GeometryReader { geometry in
