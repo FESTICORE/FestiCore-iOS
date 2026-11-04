@@ -59,11 +59,14 @@ private extension FestivalLiveBoardScreen {
             receivedAt: model.liveBoardReceivedAt, deviceNow: timeline.date
           ))
         }
+        if let notification = store.notificationBanner {
+          notificationBanner(notification, now: timeline.date)
+            .padding(.horizontal, FestiCoreSpacing.paddingP16)
+            .padding(.vertical, FestiCoreSpacing.paddingP8)
+        }
         ScrollView {
           VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
-            if let notification = store.notificationBanner {
-              notificationBanner(notification, now: timeline.date)
-            } else {
+            if store.notificationBanner == nil {
               festivalHeader(now: now, festival: festival)
             }
             if model.liveBoardUnpublished {
@@ -120,7 +123,7 @@ private extension FestivalLiveBoardScreen {
             }
           }
           .padding(.horizontal, FestiCoreSpacing.paddingP16)
-          .padding(.top, FestiCoreSpacing.paddingP16)
+          .padding(.top, store.notificationBanner == nil ? FestiCoreSpacing.paddingP16 : .zero)
           .padding(.bottom, FestiCoreSpacing.paddingP24)
         }
         .scrollIndicators(.hidden)
