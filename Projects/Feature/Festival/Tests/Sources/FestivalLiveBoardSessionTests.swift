@@ -227,7 +227,6 @@ struct FestivalLiveBoardSessionTests {
     #expect(calls.value == 1)
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
-      $0.myScheduleRequestID = 1
     }
   }
 
@@ -272,7 +271,6 @@ struct FestivalLiveBoardSessionTests {
     #expect(calls.value == 1)
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
-      $0.myScheduleRequestID = 1
     }
   }
 
