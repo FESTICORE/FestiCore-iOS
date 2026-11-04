@@ -122,7 +122,14 @@ struct FestivalCoordinator {
       return broadcast(state, .view(.reloadBookmarks(userID: userID)))
 
     case let .bookmarkSaved(id, booked):
-      return broadcast(state, .view(.bookmarkSaved(id: id, booked: booked)))
+      guard let index = state.routes.indices.last else { return .none }
+      let action: FestivalScreen.Action
+      switch state.routes[index].screen {
+      case .festivalList: action = .festivalList(.view(.bookmarkSaved(id: id, booked: booked)))
+      case .liveBoard: action = .liveBoard(.view(.bookmarkSaved(id: id, booked: booked)))
+      case .bearerBoard, .notificationInbox: return .none
+      }
+      return .send(.router(.routeAction(id: index, action: action)))
 
     case .accountChanged:
       return broadcast(state, .view(.accountChanged))

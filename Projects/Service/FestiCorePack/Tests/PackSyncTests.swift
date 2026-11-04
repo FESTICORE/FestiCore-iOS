@@ -293,7 +293,97 @@ struct PackSyncTests {
     guard case .finished(.updated) = events[0] else { Issue.record("saved snapshot expected"); return }
   }
 
-  @Test("단발 다운로드의 PACK_BUSY는 세 번만 재요청하고 완료 이벤트 없이 오류로 끝낸다")
+  @Test("4MiB가 넘는 팩도 작은 청크로 받아 저장한다")
+  func largePackDownloadsBeyondSingleMessageLimit() async throws {
+    let pack = Data("{\"id\":\"fst_example\",\"packVersion\":4,\"padding\":\"\(String(repeating: "x", count: 4 * 1024 * 1024))\"}".utf8)
+    let socket = ScriptSocket { request in
+      let requestID = request["requestId"] as? String ?? ""
+      let chunks = stride(from: 0, to: pack.count, by: 48 * 1024).enumerated().map { index, offset in
+        message("pack.chunk", requestID, [
+          "index": index,
+          "base64": pack.subdata(in: offset..<min(offset + 48 * 1024, pack.count)).base64EncodedString()
+        ])
+      }
+      return [message("pack.start", requestID, [
+        "festivalId": "fst_example", "packVersion": 4, "etag": "\"four\"",
+        "totalBytes": pack.count, "chunkCount": chunks.count, "sha256": PackCache.digest(pack)
+      ])] + chunks + [message("pack.complete", requestID, nil)]
+    }
+    let syncService = service(directory: temporaryDirectory(), sockets: [socket])
+    var lastProgress: PackDownloadProgress?
+    var savedPack: CachedFestivalPack?
+    for try await event in syncService.download(for: id) {
+      switch event {
+      case let .progress(progress): lastProgress = progress
+      case let .finished(.updated(pack)): savedPack = pack
+      case .reset, .finished: break
+      }
+    }
+    #expect(pack.count > 4 * 1024 * 1024)
+    #expect(lastProgress == PackDownloadProgress(receivedBytes: pack.count, totalBytes: pack.count))
+    #expect(savedPack?.pack == pack)
+  }
+
+  @Test("전송 중 서버 갱신 알림으로 재요청하면 이전 진행률을 지운다")
+  func updateHintResetsDownloadProgress() async throws {
+    let pack = Data("{\"id\":\"fst_example\",\"packVersion\":1}".utf8)
+    let socket = ScriptSocket { request in
+      let requestID = request["requestId"] as? String ?? ""
+      if (request["data"] as? [String: Any])?["ifNoneMatch"] != nil {
+        return [snapshot(request, version: 2, etag: "\"two\"")]
+      }
+      return [
+        message("pack.start", requestID, [
+          "festivalId": "fst_example", "packVersion": 1, "etag": "\"one\"",
+          "totalBytes": pack.count, "chunkCount": 1, "sha256": PackCache.digest(pack)
+        ]),
+        message("pack.updated", "", ["festivalId": "fst_example", "packVersion": 2]),
+        message("pack.chunk", requestID, ["index": 0, "base64": pack.base64EncodedString()]),
+        message("pack.complete", requestID, nil)
+      ]
+    }
+    let syncService = service(directory: temporaryDirectory(), sockets: [socket])
+    var events: [PackDownloadEvent] = []
+    for try await event in syncService.download(for: id) { events.append(event) }
+
+    #expect(events.count == 3)
+    #expect(events[0] == .progress(.init(receivedBytes: pack.count, totalBytes: pack.count)))
+    #expect(events[1] == .reset)
+    guard case .finished(.updated(let saved)) = events[2] else {
+      Issue.record("new snapshot expected"); return
+    }
+    #expect(saved.packVersion == 2)
+    #expect(socket.requests.count == 2)
+  }
+
+  @Test("활성 전송은 재시도 대기 예산보다 오래 걸려도 완료한다")
+  func activeTransferDoesNotConsumeRetryBudget() async throws {
+    let pack = Data("{\"id\":\"fst_example\",\"packVersion\":1}".utf8)
+    let socket = ScriptSocket(delayNanoseconds: 20_000_000) { request in
+      let requestID = request["requestId"] as? String ?? ""
+      return [
+        message("pack.start", requestID, [
+          "festivalId": "fst_example", "packVersion": 1, "etag": "\"one\"",
+          "totalBytes": pack.count, "chunkCount": 1, "sha256": PackCache.digest(pack)
+        ]),
+        message("pack.chunk", requestID, ["index": 0, "base64": pack.base64EncodedString()]),
+        message("pack.complete", requestID, nil)
+      ]
+    }
+    let syncService = NetworkPackSyncService(
+      baseURL: URL(string: "https://festicore-dev.up.railway.app"),
+      cacheDirectory: temporaryDirectory(), downloadRetryBudgetNanoseconds: 10_000_000,
+      client: SocketFactory([socket])
+    )
+    var finished = false
+    for try await event in syncService.download(for: id) {
+      if case .finished(.updated) = event { finished = true }
+    }
+    #expect(finished)
+    #expect(socket.requests.count == 1)
+  }
+
+  @Test("단발 다운로드의 PACK_BUSY는 최초 요청 포함 세 번만 시도한다")
   func busyDownloadIsBounded() async throws {
     let socket = ScriptSocket { request in
       [message("pack.retry", request["requestId"] as? String ?? "", [
@@ -308,8 +398,26 @@ struct PackSyncTests {
     } catch PackSyncError.server(let code) {
       #expect(code == "PACK_BUSY")
     }
-    #expect(events.isEmpty)
+    #expect(events == [.reset, .reset])
     #expect(socket.requests.count == 3)
+  }
+
+  @Test("서버 재시도 간격이 남은 예산보다 길면 조기 재요청하지 않는다")
+  func busyDownloadHonorsServerRetryDelay() async throws {
+    let socket = ScriptSocket { request in
+      [message("pack.retry", request["requestId"] as? String ?? "", [
+        "festivalId": "fst_example", "retryAfterMs": 50
+      ])]
+    }
+    let syncService = NetworkPackSyncService(
+      baseURL: URL(string: "https://festicore-dev.up.railway.app"),
+      cacheDirectory: temporaryDirectory(), downloadRetryBudgetNanoseconds: 10_000_000,
+      client: SocketFactory([socket])
+    )
+    await #expect(throws: PackSyncError.timeout) {
+      for try await _ in syncService.download(for: id) {}
+    }
+    #expect(socket.requests.count == 1)
   }
 
   @Test("단발 다운로드 취소는 대기 중인 웹소켓을 닫는다")

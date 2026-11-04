@@ -208,6 +208,7 @@ public struct FestivalFeature {
   public enum View: Equatable {
     case onAppear
     case foregroundChanged(Bool)
+    case backgrounded
     case refreshRequested
     case selectFestival(String)
     case backToFestivalList
@@ -264,6 +265,7 @@ public struct FestivalFeature {
     case packReceived(String, PackSyncResult)
     case packFailed(String)
     case packDownloadProgress(String, generation: Int, PackDownloadProgress)
+    case packDownloadReset(String, generation: Int)
     case packDownloadFinished(String, generation: Int, PackSyncResult)
     case packDownloadFailed(String, generation: Int)
     case liveActivitiesLoaded([FestivalLiveActivityRecord], Int)
@@ -347,14 +349,17 @@ extension FestivalFeature {
         if state.liveActivityReady { state.liveActivityNow = date.now }
         return .send(.async(.resumeForeground))
       }
-      let downloadCancels = state.packDownloads.keys.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) }
-      state.packDownloads = [:]
-      return .merge(downloadCancels + [
+      return .merge(
         .cancel(id: CancelID.packUpdates),
         .cancel(id: CancelID.liveBoard),
         .cancel(id: CancelID.liveActivityBoundary),
         .send(.async(.prefetchImages))
-      ])
+      )
+
+    case .backgrounded:
+      let downloadCancels = state.packDownloads.keys.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) }
+      state.packDownloads = [:]
+      return .merge(downloadCancels)
 
     case .refreshRequested:
       state.packWatchFailed = false
@@ -587,6 +592,8 @@ extension FestivalFeature {
         do {
           for try await event in packUseCase.downloadPack(for: id) {
             switch event {
+            case .reset:
+              await send(.inner(.packDownloadReset(id, generation: generation)))
             case let .progress(progress):
               await send(.inner(.packDownloadProgress(id, generation: generation, progress)))
             case let .finished(result):
@@ -744,6 +751,11 @@ extension FestivalFeature {
     case let .packDownloadProgress(id, generation, progress):
       guard generation == state.accountGeneration, state.packDownloads.keys.contains(id) else { return .none }
       state.packDownloads[id] = .downloading(progress)
+      return .none
+
+    case let .packDownloadReset(id, generation):
+      guard generation == state.accountGeneration, state.packDownloads.keys.contains(id) else { return .none }
+      state.packDownloads[id] = .downloading(nil)
       return .none
 
     case let .packDownloadFinished(id, generation, result):

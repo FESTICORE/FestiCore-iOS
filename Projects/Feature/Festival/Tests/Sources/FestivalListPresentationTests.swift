@@ -23,6 +23,12 @@ struct FestivalListPresentationTests {
     ).isEmpty)
   }
 
+  @Test func searchMatchesCaseDiacriticsAndFullWidthCharacters() {
+    let festivals = [festival(id: "one", name: "Ｃａｆé Festival", venue: "서울")]
+    #expect(FestivalListPresentation.visible(festivals, query: "cafe", bookedIDs: [], onlyBooked: false).map(\.id) == ["one"])
+    #expect(FestivalListPresentation.visible(festivals, query: "ＣＡＦＥ", bookedIDs: [], onlyBooked: false).map(\.id) == ["one"])
+  }
+
   @Test func artistSearchUsesServerProjectionAndKeepsFestivalResultSeparate() {
     let item = FestivalCatalogItem(
       id: "one", name: "원더리벳", venue: "고양", packVersion: 1,
@@ -79,6 +85,12 @@ struct FestivalListPresentationTests {
     #expect(FestivalListPresentation.cardStatus(
       for: festival(id: "end", firstDate: "2026-10-01", lastDate: "2026-10-02", status: "discovered"), now: now
     ) == .ended)
+    #expect(FestivalListPresentation.searchBadge(
+      for: festival(id: "soon", firstDate: "2026-11-02", status: "discovered"), now: now
+    ) == "오픈 예정")
+    #expect(FestivalListPresentation.searchBadge(
+      for: festival(id: "end", firstDate: "2026-10-01", lastDate: "2026-10-02"), now: now
+    ) == nil)
   }
 
   @Test func pastLastDateEndsFestivalEvenWithoutValidFirstDate() {

@@ -23,6 +23,7 @@ public struct FestivalView: View {
     }
     .onChange(of: scenePhase) { _, phase in
       send(.foregroundChanged(phase == .active))
+      if phase == .background { send(.backgrounded) }
     }
   }
 
@@ -66,6 +67,7 @@ private extension FestivalView {
       }
     }
     .animation(.easeOut(duration: 0.2), value: store.toastRevision)
+    .animation(.easeOut(duration: 0.2), value: store.toast)
   }
 
   func imageURL(_ value: String?) -> URL? {

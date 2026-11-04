@@ -53,4 +53,40 @@ struct FestivalPackDownloadFeatureTests {
     await store.send(.view(.downloadPack("festival")))
     #expect(store.state.packDownloads.isEmpty)
   }
+
+  @Test @MainActor func updateHintResetsProgressAndStaleAccountEventsAreIgnored() async {
+    var initial = FestivalFeature.State()
+    initial.accountGeneration = 2
+    initial.packDownloads["festival"] = .downloading(.init(receivedBytes: 80, totalBytes: 100))
+    let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
+
+    await store.send(.inner(.packDownloadReset("festival", generation: 1)))
+    await store.send(.inner(.packDownloadReset("festival", generation: 2))) {
+      $0.packDownloads["festival"] = .downloading(nil)
+    }
+    await store.send(.inner(.packDownloadProgress(
+      "festival", generation: 1, .init(receivedBytes: 90, totalBytes: 100)
+    )))
+    #expect(store.state.packDownloads["festival"] == .downloading(nil))
+  }
+
+  @Test @MainActor func inactiveSceneKeepsPackDownloadUntilBackground() async {
+    var initial = FestivalFeature.State()
+    initial.hasStarted = true
+    initial.packDownloads["festival"] = .downloading(.init(receivedBytes: 40, totalBytes: 100))
+    let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
+    store.exhaustivity = .off
+
+    await store.send(.view(.foregroundChanged(false))) {
+      $0.isForeground = false
+    }
+    #expect(store.state.packDownloads["festival"] == .downloading(.init(receivedBytes: 40, totalBytes: 100)))
+    await store.send(.view(.backgrounded)) {
+      $0.packDownloads = [:]
+    }
+  }
 }

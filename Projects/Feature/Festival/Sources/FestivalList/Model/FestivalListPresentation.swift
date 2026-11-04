@@ -26,8 +26,8 @@ enum FestivalListPresentation {
     return festivals.filter { festival in
       (!onlyBooked || bookedIDs.contains(festival.id))
         && (search.isEmpty
-          || festival.name.localizedStandardContains(search)
-          || festival.venue?.localizedStandardContains(search) == true)
+          || contains(festival.name, search)
+          || festival.venue.map { contains($0, search) } == true)
     }
   }
 
@@ -36,7 +36,7 @@ enum FestivalListPresentation {
     guard !search.isEmpty else { return [] }
     return festivals.flatMap { festival in
       (festival.artists ?? [])
-        .filter { $0.name.localizedStandardContains(search) }
+        .filter { contains($0.name, search) }
         .map { ArtistSearchResult(festival: festival, artist: $0) }
     }
   }
@@ -47,7 +47,11 @@ enum FestivalListPresentation {
         guard let time = performance.startsAt.isoDate ?? performance.date.date(as: .day) else { return nil }
         return (time, performance.date.date(as: .day) ?? time, performance.stageName)
       }
-      .sorted { $0.time < $1.time }
+      .sorted { lhs, rhs in
+        if lhs.time != rhs.time { return lhs.time < rhs.time }
+        if lhs.day != rhs.day { return lhs.day < rhs.day }
+        return (lhs.stage ?? "").localizedStandardCompare(rhs.stage ?? "") == .orderedAscending
+      }
     let upcoming = performances.first { $0.time >= now }
     let performance = upcoming ?? performances.last
     let schedule = performance.map { item in
@@ -56,6 +60,10 @@ enum FestivalListPresentation {
         .joined(separator: " ")
     }
     return [result.festival.name, schedule].compactMap { $0 }.joined(separator: " · ")
+  }
+
+  private static func contains(_ value: String, _ query: String) -> Bool {
+    value.range(of: query, options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: .current) != nil
   }
 
   static func timing(for festival: FestivalOverview, now: Date) -> Timing {
@@ -105,6 +113,14 @@ extension FestivalListPresentation {
     case let .daysUntil(days): return days <= 3 ? .closing("D-\(days)") : .dDay("D-\(days)")
     case .undated: return .dDay("일정 확인")
     case .ended: return .ended
+    }
+  }
+
+  static func searchBadge(for festival: FestivalOverview, now: Date) -> String? {
+    switch cardStatus(for: festival, now: now) {
+    case let .dDay(label), let .closing(label): label
+    case .upcoming: "오픈 예정"
+    case .ended: nil
     }
   }
 

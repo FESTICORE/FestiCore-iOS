@@ -108,7 +108,7 @@ private extension FestivalListView {
   }
 
   var artistResults: [FestivalListPresentation.ArtistSearchResult] {
-    FestivalListPresentation.matchingArtists(festivals, query: trimmedQuery)
+    FestivalListPresentation.matchingArtists(FestivalListPresentation.sorted(festivals, now: .now), query: trimmedQuery)
   }
 
   var supportsArtistSearch: Bool {
@@ -314,7 +314,7 @@ private extension FestivalListView {
         FCSearchResultRow(
           .festival(
             image: nil,
-            dDay: dDay(for: festival)
+            dDay: FestivalListPresentation.searchBadge(for: festival, now: .now)
           ),
           title: festival.name,
           meta: meta(for: festival),
@@ -385,14 +385,6 @@ private extension FestivalListView {
     case let .unavailable(text): .unavailable(text)
     case let .ready(title): .ready(title: title, action: { onDownloadPack(festival.id) })
     case let .received(text): .received(text)
-    }
-  }
-
-  func dDay(for festival: FestivalOverview) -> String? {
-    switch FestivalListPresentation.timing(for: festival, now: .now) {
-    case let .daysUntil(days): "D-\(days)"
-    case .live: "진행 중"
-    case .ended, .undated: nil
     }
   }
 

@@ -1,4 +1,5 @@
 import FestiCoreDesignKit
+import FestiCoreSharedUI
 import SwiftUI
 
 /// 축제 목록과 라이브 보드에서 같은 북마크 결과를 표시한다.
@@ -7,7 +8,7 @@ struct FestivalToastView: View {
   let revision: Int
 
   var body: some View {
-    FCToast(.init(icon: icon, message: message))
+    FCToast(item)
       .iconColor(toast == .bookmarked ? FestiCoreSemanticColor.staticLime.color : FestiCoreSemanticColor.staticWhite.color)
       .id(revision)
       .padding(.bottom, FestiCoreSpacing.paddingP16)
@@ -16,21 +17,12 @@ struct FestivalToastView: View {
 }
 
 private extension FestivalToastView {
-  var icon: ImageAsset {
+  var item: FCToast.Item {
     switch toast {
-    case .bookmarked: .bookmark16
-    case .unbookmarked: .xmark16
-    case .ticketLinkMissing: .circleInfo16
-    case .packDownloadFailed: .circleInfo16
-    }
-  }
-
-  var message: String {
-    switch toast {
-    case .bookmarked: "내가 예매한 페스티벌에 담았어요"
-    case .unbookmarked: "내가 예매한 페스티벌에서 제외했어요"
-    case .ticketLinkMissing: "예매처 정보가 없습니다"
-    case .packDownloadFailed: "팩을 받지 못했어요. 다시 시도해 주세요"
+    case .bookmarked: .booked()
+    case .unbookmarked: .unbooked()
+    case .ticketLinkMissing: .noLink()
+    case .packDownloadFailed: .init(icon: .circleInfo16, message: "팩을 받지 못했어요. 다시 시도해 주세요")
     }
   }
 }

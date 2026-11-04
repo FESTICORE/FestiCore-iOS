@@ -136,7 +136,11 @@ private extension FCSearchResultRow {
     guard !highlightedQuery.isEmpty else { return Text(title) }
     var remaining = title[...]
     var result = Text("")
-    while let range = remaining.localizedStandardRange(of: highlightedQuery), !range.isEmpty {
+    while let range = remaining.range(
+      of: highlightedQuery,
+      options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+      locale: .current
+    ), !range.isEmpty {
       result = result
         + Text(String(remaining[..<range.lowerBound]))
         + Text(String(remaining[range])).foregroundColor(FestiCoreSemanticColor.secondaryNormal.color)

@@ -63,6 +63,7 @@ public struct FestivalLiveBoardRouteView: View {
       }
     }
     .animation(.easeOut(duration: 0.2), value: store.toastRevision)
+    .animation(.easeOut(duration: 0.2), value: store.toast)
     .task {
       send(.onAppear)
       send(.liveActivityOnAppear)
@@ -71,6 +72,7 @@ public struct FestivalLiveBoardRouteView: View {
     .onDisappear { send(.liveBoardOnDisappear) }
     .onChange(of: scenePhase) { _, phase in
       send(.foregroundChanged(phase == .active))
+      if phase == .background { send(.backgrounded) }
     }
   }
 }

@@ -43,6 +43,8 @@ public struct PackDownloadProgress: Sendable, Equatable {
 }
 
 public enum PackDownloadEvent: Sendable, Equatable {
+  /// 서버 갱신 알림이나 재시도로 새 요청을 시작할 때 이전 요청의 바이트를 지운다.
+  case reset
   case progress(PackDownloadProgress)
   /// 완성된 팩을 캐시에 저장하거나 기존 캐시를 검증한 뒤에만 보낸다.
   case finished(PackSyncResult)
