@@ -106,6 +106,20 @@ struct FestivalLiveActivityScheduleTests {
     ) == nil)
   }
 
+  @Test func nextSavedPerformanceIgnoresUnsavedAndPastSets() throws {
+    let pack = try JSONDecoder().decode(FestivalPackDocument.self, from: Data(
+      #"{"id":"fst_1","sets":[{"id":"past","startsAt":"2026-10-29T08:00:00Z"},{"id":"later","startsAt":"2026-10-29T12:00:00Z"},{"id":"first","startsAt":"2026-10-29T10:00:00Z"},{"id":"other","startsAt":"2026-10-29T09:00:00Z"}]}"#.utf8
+    ))
+    let now = utc("2026-10-29T09:30:00Z")
+
+    #expect(FestivalLiveActivitySchedule.nextSavedPerformanceStart(
+      pack: pack, setIDs: ["past", "later", "first"], now: now
+    ) == utc("2026-10-29T10:00:00Z"))
+    #expect(FestivalLiveActivitySchedule.nextSavedPerformanceStart(
+      pack: pack, setIDs: ["past"], now: now
+    ) == nil)
+  }
+
   private func overview(first: String?, last: String?) -> FestivalOverview {
     FestivalOverview(item: FestivalCatalogItem(
       id: "fst_1", name: "축제", firstDate: first, lastDate: last, packVersion: 1

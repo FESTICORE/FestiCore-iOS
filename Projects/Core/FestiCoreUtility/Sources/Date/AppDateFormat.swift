@@ -13,6 +13,7 @@ public enum AppDateFormat: String, CaseIterable, Sendable {
   case festivalDay = "M/d(E)"
   case liveBoardDay = "MM.dd (E)"
   case monthDayTime = "MM/dd HH:mm"
+  case noticeDay = "yyyy.MM.dd"
 
   public static let timeZone = TimeZone(identifier: "Asia/Seoul") ?? .gmt
 
@@ -26,7 +27,7 @@ public enum AppDateFormat: String, CaseIterable, Sendable {
   fileprivate var locale: Locale {
     switch self {
     case .festivalDay, .liveBoardDay: Locale(identifier: "ko_KR")
-    case .day, .time, .monthDayTime: Locale(identifier: "en_US_POSIX")
+    case .day, .time, .monthDayTime, .noticeDay: Locale(identifier: "en_US_POSIX")
     }
   }
 }

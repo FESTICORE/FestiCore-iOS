@@ -9,7 +9,9 @@ import Dependencies
 
 /// 설정 > 알림 화면의 기기 알림 허용 상태와 알림 종류 설정
 public protocol FestivalNotificationSettingsUseCaseInterface: Sendable {
+  /// 기기의 알림 권한 상태를 읽는다.
   func permission() async -> FestivalNotificationPermission
+  /// 서버에 저장된 알림 종류별 설정을 읽는다.
   func settings() async throws -> FestivalNotificationSettings
   /// 바뀐 항목만 저장하고 서버가 돌려준 전체 설정을 반환한다.
   func updateSettings(_ changes: [FestivalNotificationKind: Bool]) async throws -> FestivalNotificationSettings

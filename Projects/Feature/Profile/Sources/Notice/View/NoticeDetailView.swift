@@ -5,6 +5,7 @@
 
 import ComposableArchitecture
 import FestiCoreDesignKit
+import FestiCoreUtility
 import NoticeDomainInterface
 import SwiftUI
 
@@ -44,7 +45,7 @@ private extension NoticeDetailView {
             Text(detail.title)
               .festiCoreFont(.baseTitle3Bold)
               .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-            Text(NoticeDisplayDate.format(detail.publishedAt))
+            Text(detail.publishedAt.formatted(.noticeDay))
               .festiCoreFont(.baseCaption1Regular)
               .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
             FestiCoreSemanticColor.lineNormal.color.frame(height: 1)

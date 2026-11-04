@@ -18,6 +18,8 @@ public struct FestivalFeature {
 
     public var viewState: ViewState = .loading
     public var catalog: IdentifiedArrayOf<FestivalCatalogItem> = []
+    var catalogNextCursor: String?
+    var isLoadingMoreCatalog = false
     public var cachedPacks: [String: CachedFestivalPack] = [:]
     public var packDownloads: [String: PackDownloadStatus] = [:]
     public var imageURLs: [String: URL] = [:]
@@ -28,6 +30,7 @@ public struct FestivalFeature {
     public var bookedFestivalIDs: Set<String> = []
     public var bookedUserID: String?
     public var recentSearches: [String] = []
+    var listInteraction = FestivalListInteractionState()
     /// 화면 하단에 2초 동안 보이는 안내. 같은 종류도 다시 표시할 수 있게 revision을 올린다.
     public var toast: Toast?
     public var toastRevision = 0
@@ -88,7 +91,7 @@ public struct FestivalFeature {
     }
 
     public var selectedFestival: FestivalOverview? {
-      festivals.first { $0.id == selectedFestivalID }
+      return festivals.first { $0.id == selectedFestivalID }
     }
 
     /// 로그인한 사용자가 이 축제에서 맡은 깃발. 여러 개면 첫 번째를 연다.
@@ -110,6 +113,24 @@ public struct FestivalFeature {
       if liveActivities[festival.id] != nil {
         return .init(title: "Live Activity 끄기", isEnabled: true, message: liveActivityError)
       }
+      guard hasSession else {
+        return .init(title: "Live Activity 켜기", isEnabled: false, message: "로그인 후 내 공연을 저장해 주세요.")
+      }
+      guard let mySchedule, mySchedule.festivalID == festival.id else {
+        return .init(title: "Live Activity 켜기", isEnabled: false,
+                     message: myScheduleUnavailable ? "내 일정을 불러오지 못했습니다." : "내 일정을 불러오는 중입니다.")
+      }
+      guard !mySchedule.setIDs.isEmpty else {
+        return .init(title: "Live Activity 켜기", isEnabled: false, message: "내 공연을 저장하면 시작 2시간 전에 자동으로 켜집니다.")
+      }
+      guard let selectedPackDocument = pack(for: festival.id) else {
+        return .init(title: "Live Activity 켜기", isEnabled: false, message: "공연 일정을 불러오는 중입니다.")
+      }
+      guard let performanceStart = FestivalLiveActivitySchedule.nextSavedPerformanceStart(
+        pack: selectedPackDocument, setIDs: mySchedule.setIDs, now: liveActivityNow
+      ) else {
+        return .init(title: "Live Activity 켜기", isEnabled: false, message: "시작 전인 저장 공연이 없습니다.")
+      }
       guard let schedule = FestivalLiveActivitySchedule.resolve(
         festival: festival,
         pack: pack(for: festival.id),
@@ -119,10 +140,12 @@ public struct FestivalFeature {
       }
       return .init(
         title: "Live Activity 켜기",
-        isEnabled: schedule.canStart,
+        isEnabled: schedule.phase != .finished && liveActivityNow >= performanceStart.addingTimeInterval(-7_200),
         message: liveActivityError ?? (schedule.phase == .finished
           ? "종료된 축제입니다."
-          : schedule.canStart ? nil : "축제 시작 2시간 전부터 사용할 수 있습니다.")
+          : liveActivityNow >= performanceStart.addingTimeInterval(-7_200)
+            ? "자동 시작을 기다리는 동안 직접 켤 수 있습니다."
+            : "저장한 공연 시작 2시간 전에 자동으로 켜집니다.")
       )
     }
 
@@ -143,7 +166,7 @@ public struct FestivalFeature {
     }
 
     public func imageURL(for value: String?) -> URL? {
-      value.flatMap { imageURLs[$0] }
+      return value.flatMap { imageURLs[$0] }
     }
 
     /// 로그아웃·인증 상실 때 이전 계정의 라이브 보드와 예약 목록을 비운다.
@@ -219,6 +242,11 @@ public struct FestivalFeature {
     case recentSearchSubmitted(String)
     case recentSearchRemoved(String)
     case recentSearchesCleared
+    case searchOpened
+    case searchClosed
+    case searchQueryChanged(String)
+    case listFilterChanged(FestivalListInteractionState.Filter)
+    case loadMoreFestivals
     case liveActivityOnAppear
     case liveBoardOnAppear
     case liveBoardOnDisappear
@@ -264,6 +292,7 @@ public struct FestivalFeature {
     case cachedLoaded([FestivalCatalogItem], [CachedFestivalPack], String?, Bool, Bool)
     case cachedPacksReloaded([CachedFestivalPack])
     case catalogRefreshed([FestivalCatalogItem])
+    case catalogPageLoaded(FestivalCatalogPage, after: String?)
     case catalogFailed
     case packReceived(String, PackSyncResult)
     case packFailed(String)
@@ -288,7 +317,7 @@ public struct FestivalFeature {
   }
 
   enum CancelID {
-    case packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary
+    case catalog, packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary
     case liveBoard, mySchedule, notificationUnreadCount, notificationMarkRead, toast
   }
   private struct LiveActivitySyncID: Hashable { let id: String }
@@ -367,7 +396,14 @@ extension FestivalFeature {
     case .refreshRequested:
       state.packWatchFailed = false
       state.viewState = .loading
+      state.catalogNextCursor = nil
       return .send(.async(.refresh))
+
+    case .loadMoreFestivals:
+      guard let cursor = state.catalogNextCursor, !state.isLoadingMoreCatalog,
+            !state.listInteraction.isSearching, state.listInteraction.selectedFilter == .all else { return .none }
+      state.isLoadingMoreCatalog = true
+      return loadCatalogPage(after: cursor)
 
     case .reloadCachedPacks:
       return .send(.async(.reloadCachedPacks))
@@ -425,6 +461,26 @@ extension FestivalFeature {
       state.recentSearches = []
       return .none
 
+    case .searchOpened:
+      state.listInteraction.isSearching = true
+      return .none
+
+    case .searchClosed:
+      state.listInteraction.isSearching = false
+      state.listInteraction.query = ""
+      return .none
+
+    case let .searchQueryChanged(query):
+      let wasEmpty = state.listInteraction.trimmedQuery.isEmpty
+      state.listInteraction.query = query
+      return wasEmpty && !state.listInteraction.trimmedQuery.isEmpty && state.catalogNextCursor != nil
+        ? refreshFullCatalog() : .none
+
+    case let .listFilterChanged(filter):
+      state.listInteraction.selectedFilter = filter
+      return filter == .booked && state.catalogNextCursor != nil
+        ? refreshFullCatalog() : .none
+
     case .liveActivityOnAppear:
       return .send(.async(.startLiveActivities))
 
@@ -456,9 +512,7 @@ extension FestivalFeature {
         state.liveActivityRevision += 1
         return .send(.async(.endLiveActivity(festivalID: festival.id, activityID: existing.id)))
       }
-      guard let schedule = FestivalLiveActivitySchedule.resolve(
-        festival: festival, pack: state.pack(for: festival.id), now: state.liveActivityNow
-      ), schedule.canStart else { return .none }
+      guard state.liveActivityState.isEnabled else { return .none }
       state.liveActivityBusyFestivalID = festival.id
       state.liveActivityRevision += 1
       return .send(.async(.startLiveActivity(festivalID: festival.id)))
@@ -484,12 +538,14 @@ extension FestivalFeature {
       return .send(.async(.expireToast))
 
     case let .reloadBookmarks(userID):
+      if state.bookedUserID != userID { state.listInteraction.reset() }
       state.bookedUserID = userID
       state.bookedFestivalIDs = userID.map { libraryUseCase.bookedFestivalIDs(for: $0) } ?? []
       state.recentSearches = libraryUseCase.recentSearches(for: userID)
       return .none
 
     case .accountChanged:
+      state.listInteraction.reset()
       // 같은 로그아웃 전환의 `sessionChanged`가 먼저 처리됐다면 라이브 보드는 이미 비우고 다시 불렀다.
       let downloadIDs = Array(state.packDownloads.keys)
       state.packDownloads = [:]
@@ -513,6 +569,7 @@ extension FestivalFeature {
 
     case let .sessionChanged(hasSession, userID):
       guard state.hasSession != hasSession || state.sessionUserID != userID else { return .none }
+      state.listInteraction.reset()
       if let bookedUserID = state.bookedUserID, bookedUserID != userID {
         state.bookedUserID = nil
         state.bookedFestivalIDs = []
@@ -546,7 +603,7 @@ extension FestivalFeature {
       state.myScheduleRequestID += 1
       state.mySchedule = MySchedule(festivalID: festivalID, setIDs: setIDs)
       state.myScheduleUnavailable = false
-      return .cancel(id: CancelID.mySchedule)
+      return .merge(.cancel(id: CancelID.mySchedule), liveActivityBoundary(state))
     }
   }
 
@@ -634,9 +691,15 @@ extension FestivalFeature {
 
     case let .startLiveActivity(festivalID):
       guard let festival = state.festivals.first(where: { $0.id == festivalID }),
+            state.hasSession,
+            let setIDs = state.mySchedule?.setIDs,
+            let performanceStart = FestivalLiveActivitySchedule.nextSavedPerformanceStart(
+              pack: state.pack(for: festivalID), setIDs: setIDs, now: date.now
+            ),
+            date.now >= performanceStart.addingTimeInterval(-7_200),
             let schedule = FestivalLiveActivitySchedule.resolve(
-              festival: festival, pack: state.pack(for: festivalID), now: state.liveActivityNow
-            ) else {
+              festival: festival, pack: state.pack(for: festivalID), now: date.now
+            ), schedule.phase != .finished else {
         // 시작할 수 없게 됐으면 버튼이 처리 중에 멈추지 않도록 잠금을 푼다.
         if state.liveActivityBusyFestivalID == festivalID { state.liveActivityBusyFestivalID = nil }
         return .none
@@ -700,6 +763,9 @@ extension FestivalFeature {
     case let .catalogRefreshed(catalog):
       state.viewState = .loaded
       state.catalogRefreshFailed = false
+      let hasMoreCatalogPages = state.catalogNextCursor != nil
+      state.catalogNextCursor = nil
+      state.isLoadingMoreCatalog = false
       if state.liveActivityReady { state.liveActivityNow = date.now }
       let previouslyAvailable = (state.selectedFestival?.packVersion ?? 0) > 0
       let restartFailedWatch = state.packWatchFailed
@@ -707,7 +773,8 @@ extension FestivalFeature {
       state.catalog = State.uniqueCatalog(catalog)
       retryImagesAfterRecovery(in: &state)
       state.catalogCacheReadFailed = false
-      if state.selectedFestival == nil, let first = state.festivals.first(where: { $0.isCached || $0.packVersion > 0 }) ?? state.festivals.first {
+      if state.selectedFestival == nil, (state.selectedFestivalID == nil || !hasMoreCatalogPages),
+         let first = state.festivals.first(where: { $0.isCached || $0.packVersion > 0 }) ?? state.festivals.first {
         state.selectedFestivalID = first.id
         showCachedPack(in: &state)
         resolveImageURLs(in: &state)
@@ -722,9 +789,21 @@ extension FestivalFeature {
         ? .merge(watchSelectedPack(state), prefetch, syncLiveActivities(state))
         : .merge(prefetch, syncLiveActivities(state))
 
+    case let .catalogPageLoaded(page, after):
+      guard after == nil || after == state.catalogNextCursor else { return .none }
+      let items = after == nil ? page.items : Array(state.catalog) + page.items
+      state.catalogNextCursor = page.nextCursor
+      let effects = handleInnerAction(state: &state, action: .catalogRefreshed(items))
+      state.catalogNextCursor = page.nextCursor
+      state.isLoadingMoreCatalog = false
+      return page.nextCursor != nil &&
+        (!state.listInteraction.trimmedQuery.isEmpty || state.listInteraction.selectedFilter == .booked)
+        ? .merge(effects, refreshFullCatalog()) : effects
+
     case .catalogFailed:
       state.viewState = .loaded
       state.catalogRefreshFailed = true
+      state.isLoadingMoreCatalog = false
       if state.connection != .live {
         state.imageRetryPending = true
         state.connection = .offline
@@ -782,7 +861,8 @@ extension FestivalFeature {
       switch result {
       case let .updated(pack), let .notModified(pack):
         if state.selectedFestivalID == id {
-          return handleInnerAction(state: &state, action: .packReceived(id, result))
+          let received = handleInnerAction(state: &state, action: .packReceived(id, result))
+          return .merge(received, watchSelectedPack(state))
         }
         state.cachedPacks[id] = pack
         return .none
@@ -831,7 +911,7 @@ extension FestivalFeature {
             state.isLiveBoardVisible, state.hasSession else { return .none }
       state.mySchedule = MySchedule(festivalID: festivalID, setIDs: setIDs)
       state.myScheduleUnavailable = false
-      return .none
+      return liveActivityBoundary(state)
 
     case let .myScheduleFailed(festivalID, requestID, generation):
       guard state.selectedFestivalID == festivalID,
@@ -909,13 +989,41 @@ extension FestivalFeature {
 extension FestivalFeature {
   private func refreshCatalog() -> Effect<Action> {
     .run { send in
+      do {
+        let page = try await catalogUseCase.festivalPage(after: nil, limit: 10)
+        if page.nextCursor == nil {
+          await send(.inner(.catalogRefreshed(page.items)))
+        } else {
+          await send(.inner(.catalogPageLoaded(page, after: nil)))
+        }
+      }
+      catch { await send(.inner(.catalogFailed)) }
+    }
+    .cancellable(id: CancelID.catalog, cancelInFlight: true)
+  }
+
+  private func loadCatalogPage(after: String) -> Effect<Action> {
+    .run { send in
+      do {
+        let page = try await catalogUseCase.festivalPage(after: after, limit: 10)
+        await send(.inner(.catalogPageLoaded(page, after: after)))
+      } catch {
+        await send(.inner(.catalogFailed))
+      }
+    }
+    .cancellable(id: CancelID.catalog, cancelInFlight: true)
+  }
+
+  private func refreshFullCatalog() -> Effect<Action> {
+    .run { send in
       do { await send(.inner(.catalogRefreshed(try await catalogUseCase.refreshFestivals()))) }
       catch { await send(.inner(.catalogFailed)) }
     }
+    .cancellable(id: CancelID.catalog, cancelInFlight: true)
   }
 
   private func loadLiveActivities(revision: Int) -> Effect<Action> {
-    .run { send in
+    return .run { send in
       await send(.inner(.liveActivitiesLoaded(await liveActivityUseCase.activities(), revision)))
     }
   }
@@ -966,7 +1074,7 @@ extension FestivalFeature {
       return .cancel(id: CancelID.liveActivityBoundary)
     }
     let relevantIDs = Set(state.liveActivities.keys).union(state.selectedFestivalID.map { [$0] } ?? [])
-    let next = state.festivals
+    let festivalBoundary = state.festivals
       .filter { relevantIDs.contains($0.id) }
       .compactMap { festival in
         FestivalLiveActivitySchedule.resolve(
@@ -974,6 +1082,17 @@ extension FestivalFeature {
         )?.nextBoundary
       }
       .min()
+    let performanceBoundary = state.selectedFestivalID.flatMap { id in
+      state.mySchedule.flatMap { schedule in
+        FestivalLiveActivitySchedule.nextSavedPerformanceStart(
+          pack: state.pack(for: id), setIDs: schedule.setIDs, now: state.liveActivityNow
+        )
+      }
+    }.map { start in
+      let eligibility = start.addingTimeInterval(-7_200)
+      return eligibility > state.liveActivityNow ? eligibility : start
+    }
+    let next = [festivalBoundary, performanceBoundary].compactMap { $0 }.min()
     guard let next else { return .cancel(id: CancelID.liveActivityBoundary) }
     let delay = max(1, Int64(next.timeIntervalSince(state.liveActivityNow) * 1000))
     return .run { send in

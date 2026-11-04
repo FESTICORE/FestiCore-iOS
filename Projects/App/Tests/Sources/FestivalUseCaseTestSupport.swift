@@ -10,6 +10,7 @@ extension DependencyValues {
     festivalLibraryUseCase = ServiceBackedLibraryUseCase()
     festivalLiveBoardUseCase = ServiceBackedLiveBoardUseCase()
     festivalScheduleUseCase = ServiceBackedScheduleUseCase()
+    festivalLiveActivityUseCase = MockFestivalLiveActivityUseCase(activities: { [] })
   }
 }
 

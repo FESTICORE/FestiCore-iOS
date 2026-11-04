@@ -16,6 +16,7 @@ let project = Project.makeModule(
   dependencies: [
     .core(.assembly),
     .core(.network),
+    .core(.storage),
     .domain(.festival, .interface),
     .service(.auth),
     .service(.device),

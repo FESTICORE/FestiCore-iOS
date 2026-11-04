@@ -82,7 +82,6 @@ public struct FCFestivalCard<Media: View>: View {
           .lineLimit(1)
           .opacity(endedOpacity)
         packArea
-          .opacity(endedOpacity)
       }
       .padding(FestiCoreSpacing.paddingP12)
       if let onTicketLink {

@@ -5,6 +5,7 @@
 
 import ComposableArchitecture
 import FestiCoreDesignKit
+import FestiCoreUtility
 import NoticeDomainInterface
 import SwiftUI
 
@@ -55,7 +56,7 @@ private extension NoticeListView {
                 .padding(.leading, FestiCoreSpacing.paddingP16)
             }
             FCListRow(notice.title) { send(.noticeTapped(notice.id)) }
-              .value(NoticeDisplayDate.format(notice.publishedAt))
+              .value(notice.publishedAt.formatted(.noticeDay))
           }
         }
         .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))

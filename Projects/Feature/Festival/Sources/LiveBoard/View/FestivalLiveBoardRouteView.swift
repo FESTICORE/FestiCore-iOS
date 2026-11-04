@@ -57,7 +57,7 @@ public struct FestivalLiveBoardRouteView: View {
           .background(FestiCoreSemanticColor.backgroundNormal.color)
       }
     }
-    .overlay(alignment: .bottom) {
+    .overlay(alignment: .top) {
       if let toast = store.toast {
         FestivalToastView(toast: toast, revision: store.toastRevision)
       }

@@ -10,6 +10,20 @@ struct FestivalLiveActivitySchedule: Equatable, Sendable {
   let canStart: Bool
   let nextBoundary: Date?
 
+  /// 서버의 자동 시작 예약과 같은 기준: 현재 시각 이후의 첫 번째 저장 공연.
+  static func nextSavedPerformanceStart(
+    pack: FestivalPackDocument?,
+    setIDs: Set<String>,
+    now: Date
+  ) -> Date? {
+    guard let pack, !setIDs.isEmpty else { return nil }
+    return pack.performances
+      .filter { setIDs.contains($0.id) }
+      .compactMap { $0.startsAt.flatMap(FestivalLiveBoardSchedule.parse) }
+      .filter { $0 > now }
+      .min()
+  }
+
   static func resolve(
     festival: FestivalOverview,
     pack: FestivalPackDocument?,
@@ -79,14 +93,20 @@ struct FestivalLiveActivitySchedule: Equatable, Sendable {
 
   private static let seoul = TimeZone(identifier: "Asia/Seoul")!
 
-  private static func parse(_ value: String, endOfDay: Bool) -> Date? {
+  private static func parse(
+    _ value: String,
+    endOfDay: Bool
+  ) -> Date? {
     if value.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil {
       return parseDay(value, endOfDay: endOfDay)
     }
     return parseTimestamp(value)
   }
 
-  private static func parseDay(_ value: String, endOfDay: Bool) -> Date? {
+  private static func parseDay(
+    _ value: String,
+    endOfDay: Bool
+  ) -> Date? {
     let parts = value.split(separator: "-").compactMap { Int($0) }
     guard parts.count == 3 else { return nil }
 

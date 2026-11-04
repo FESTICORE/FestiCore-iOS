@@ -31,13 +31,16 @@ struct HomeLiveActivityTests {
   }
 
   @Test @MainActor func successfulStartCanBeStoppedByUser() async {
-    let now = Date(timeIntervalSince1970: 1_793_266_200)
+    let now = ISO8601DateFormatter().date(from: "2026-10-29T09:30:00Z")!
     let startDate = ISO8601DateFormatter().date(from: "2026-10-29T09:00:00Z")!
     let endDate = ISO8601DateFormatter().date(from: "2026-10-30T09:00:00Z")!
     let clock = TestClock()
     var state = FestivalFeature.State()
     state.catalog = [festival(id: "festival")]
     state.selectedFestivalID = "festival"
+    state.selectedPack = savedPerformancePack()
+    state.hasSession = true
+    state.mySchedule = .init(festivalID: "festival", setIDs: ["saved-set"])
     state.liveActivityReady = true
     state.hasStarted = true
     state.liveActivityNow = now
@@ -84,6 +87,32 @@ struct HomeLiveActivityTests {
     }
     await store.receive(\.async.prefetchImages)
     await store.finish()
+  }
+
+  @Test func savedPerformanceControlsManualStartWindow() throws {
+    let start = ISO8601DateFormatter().date(from: "2026-10-29T10:00:00Z")!
+    let pack = savedPerformancePack()
+    var state = FestivalFeature.State()
+    state.catalog = [festival(id: "festival")]
+    state.selectedFestivalID = "festival"
+    state.selectedPack = pack
+    state.hasSession = true
+    state.mySchedule = .init(festivalID: "festival", setIDs: ["saved-set"])
+    state.liveActivityReady = true
+
+    state.liveActivityNow = start.addingTimeInterval(-7_201)
+    #expect(!state.liveActivityState.isEnabled)
+    state.liveActivityNow = start.addingTimeInterval(-7_200)
+    #expect(state.liveActivityState.isEnabled)
+    state.liveActivityNow = start
+    #expect(!state.liveActivityState.isEnabled)
+
+    state.liveActivityNow = start.addingTimeInterval(-7_200)
+    state.mySchedule = .init(festivalID: "festival", setIDs: [])
+    #expect(!state.liveActivityState.isEnabled)
+    state.mySchedule = .init(festivalID: "festival", setIDs: ["saved-set"])
+    state.hasSession = false
+    #expect(!state.liveActivityState.isEnabled)
   }
 
   @Test @MainActor func nonSelectedFestivalReceivesScheduleUpdate() async {
@@ -222,12 +251,18 @@ struct HomeLiveActivityTests {
     first: String = "2026-10-29T09:00:00Z",
     last: String = "2026-10-30T09:00:00Z"
   ) -> FestivalCatalogItem {
-    FestivalCatalogItem(
+    return FestivalCatalogItem(
       id: id,
       name: "축제",
       firstDate: first,
       lastDate: last,
       packVersion: 0
     )
+  }
+
+  private func savedPerformancePack() -> FestivalPackDocument {
+    return try! JSONDecoder().decode(FestivalPackDocument.self, from: Data(
+      #"{"id":"festival","sets":[{"id":"saved-set","startsAt":"2026-10-29T10:00:00Z","endsAt":"2026-10-29T11:00:00Z"}]}"#.utf8
+    ))
   }
 }

@@ -24,6 +24,21 @@ public struct SignUpView: View {
   }
 
   public var body: some View {
+    NavigationStack {
+      content
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(
+          item: $store.scope(state: \.destination?.legalDocument, action: \.destination.legalDocument)
+        ) { webStore in
+          WebView(store: webStore)
+            .toolbar(.hidden, for: .navigationBar)
+        }
+    }
+  }
+}
+
+private extension SignUpView {
+  var content: some View {
     VStack(spacing: .zero) {
       FCTopBar(.back)
         .onBack { send(.closeTapped) }
@@ -68,13 +83,8 @@ public struct SignUpView: View {
     .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
       keyboardInset = 0
     }
-    .fullScreenCover(item: $store.scope(state: \.destination?.legalDocument, action: \.destination.legalDocument)) { webStore in
-      WebView(store: webStore)
-    }
   }
-}
 
-private extension SignUpView {
   var consentBox: some View {
     VStack(spacing: .zero) {
       FCConsentAll(isChecked: store.isAllConsented) {

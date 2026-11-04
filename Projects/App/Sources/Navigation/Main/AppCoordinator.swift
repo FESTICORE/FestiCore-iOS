@@ -12,14 +12,18 @@ import FeatureAssembly
 import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestiCoreAuthInterface
+import FestiCoreDeviceInterface
 import FestiCoreNetworkInterface
 import FestiCoreStorageInterface
 import Foundation
+import OSLog
 
 @Reducer
 struct AppCoordinator {
   @Dependency(\.authUseCase) private var authUseCase
   @Dependency(\.authService) private var authService
+  @Dependency(\.deviceRegistrationService) private var deviceRegistrationService
+  @Dependency(\.festivalLiveActivityUseCase) private var festivalLiveActivityUseCase
   @Dependency(\.festivalBookedStore) private var bookedStore
   @Dependency(\.authSessionExpiryClient) private var authSessionExpiryClient
   @Dependency(\.analyticsUseCase) private var analyticsUseCase
@@ -475,7 +479,14 @@ private extension AppCoordinator {
       }
       let clear = clearAccountData(&home)
       state = .home(home)
-      return .merge(clear, .cancel(id: CancelID.accountOperation))
+      return .merge(
+        clear,
+        .cancel(id: CancelID.accountOperation),
+        .run { _ in
+          try? await deviceRegistrationService.recoverBoundDevice()
+          await endLocalLiveActivities()
+        }
+      )
 
     case let .sessionRestored(generation, userID, isLoggedIn):
       guard case var .home(home) = state,
@@ -500,6 +511,14 @@ private extension AppCoordinator {
       state = .home(home)
       return .merge(
         clear,
+        .run { _ in
+          if isLoggedIn {
+            try? await deviceRegistrationService.bindToCurrentUser()
+          } else {
+            try? await deviceRegistrationService.recoverBoundDevice()
+            await endLocalLiveActivities()
+          }
+        },
         .send(.scope(.home(.festival(.reloadBookmarks(userID: eligibleID)))))
       )
 
@@ -666,7 +685,12 @@ private extension AppCoordinator {
       if home.authFlow.generation == generation, isActiveLoginAttempt(home.authFlow) {
         home.authFlow.pendingCommitSessionID = nil
         state = .home(home)
-        if committed { return acceptLogin(result, state: &state) }
+        if committed {
+          return .merge(
+            acceptLogin(result, state: &state),
+            .run { _ in try? await deviceRegistrationService.bindToCurrentUser() }
+          )
+        }
         // 저장에 실패한 로그인은 시트를 유지해 다시 시도할 수 있게 한다.
         home.authFlow.loginAttemptGeneration = nil
         home.authFlow.isLoading = false
@@ -873,8 +897,14 @@ private extension AppCoordinator {
     return .run { send in
       do {
         switch operation {
-        case .signOut: try await authUseCase.signOut()
-        case .withdraw: try await authUseCase.withdraw()
+        case .signOut:
+          await unbindDeviceForAccountOperation()
+          await endLocalLiveActivities()
+          try await authUseCase.signOut()
+        case .withdraw:
+          await unbindDeviceForAccountOperation()
+          await endLocalLiveActivities()
+          try await authUseCase.withdraw()
         }
         await send(.inner(.myAccountFinished(generation: generation, operation: operation, result: .success(()))))
       } catch {
@@ -882,12 +912,30 @@ private extension AppCoordinator {
           await send(.inner(.sessionExpired))
           return
         }
+        // 인증 요청은 실패했지만 계정이 유지되면 해제했던 기기 소유권을 복원한다.
+        try? await deviceRegistrationService.bindToCurrentUser()
         await send(.inner(.myAccountFinished(
           generation: generation, operation: operation, result: .failure(ProfileFailure(error))
         )))
       }
     }
     .cancellable(id: CancelID.accountOperation, cancelInFlight: true)
+  }
+
+  func unbindDeviceForAccountOperation() async {
+    do {
+      try await deviceRegistrationService.unbindCurrentUser()
+    } catch {
+      // 바인딩은 다음 실행에서 복구한다. 해제 실패로 계정 요청을 막지 않는다.
+      Logger(subsystem: "io.festiCore.co", category: "DeviceRegistration")
+        .error("계정 작업 중 기기 바인딩 해제 실패; 다음 실행에서 복구")
+    }
+  }
+
+  func endLocalLiveActivities() async {
+    for activity in await festivalLiveActivityUseCase.activities() {
+      await festivalLiveActivityUseCase.end(activityID: activity.id)
+    }
   }
 
   func fetchProfile(generation: Int) -> Effect<Action> {

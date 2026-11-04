@@ -11,29 +11,58 @@ import FestiCoreDeviceInterface
 import FestiCoreNetworkInterface
 import FestiCoreStorageInterface
 
-public enum DeviceRegistrationError: Error, Sendable {
+public enum DeviceRegistrationError: Error, Equatable, Sendable {
   case invalidResponse
+  case accountMismatch
+  case deviceNotRegistered
+  case notAuthenticated
+}
+
+public struct DeviceUserSession: Sendable {
+  public let id: UUID
+  public let userID: String
+
+  public init(
+    id: UUID,
+    userID: String
+  ) {
+    self.id = id
+    self.userID = userID
+  }
 }
 
 public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
   private let client: any FestiCoreRequestClient
   private let storage: any SecureStorage
+  private let userSession: @Sendable () async -> DeviceUserSession?
 
-  public init(client: any FestiCoreRequestClient, storage: any SecureStorage) {
+  public init(
+    client: any FestiCoreRequestClient,
+    storage: any SecureStorage,
+    userSession: @escaping @Sendable () async -> DeviceUserSession? = { nil }
+  ) {
     self.client = client
     self.storage = storage
+    self.userSession = userSession
   }
 
   public func register(_ metadata: DeviceRegistrationMetadata) async throws -> DeviceAuthorization {
     let deviceID = try await installationDeviceID()
     let currentToken = try storage.load(.deviceAccessToken)
+    let boundUserID = try storage.load(.deviceBoundUserID)
+    let session = await userSession()
+    if let boundUserID, boundUserID != session?.userID { throw DeviceRegistrationError.accountMismatch }
     let response = try await client.send(DeviceRegistrationRequest(
       deviceID: deviceID,
-      bearerToken: currentToken,
+      bearerToken: boundUserID == nil ? currentToken : nil,
+      sessionID: boundUserID == nil ? nil : session?.id,
       metadata: metadata
     ))
     guard response.code == "SUCCESS", response.data.deviceId == deviceID else {
       throw DeviceRegistrationError.invalidResponse
+    }
+    if let session, boundUserID == session.userID {
+      return DeviceAuthorization(deviceID: deviceID, sessionID: session.id)
     }
     guard let token = response.data.deviceAccessToken ?? currentToken, !token.isEmpty else {
       throw DeviceRegistrationError.invalidResponse
@@ -56,11 +85,88 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
   }
 
   public func authorization() async throws -> DeviceAuthorization? {
-    guard let deviceID = try storage.load(.deviceID),
-          let token = try storage.load(.deviceAccessToken), !token.isEmpty else {
-      return nil
+    guard let deviceID = try storage.load(.deviceID) else { return nil }
+    if let boundUserID = try storage.load(.deviceBoundUserID) {
+      guard let session = await userSession(), session.userID == boundUserID else { return nil }
+      return DeviceAuthorization(deviceID: deviceID, sessionID: session.id)
     }
+    guard let token = try storage.load(.deviceAccessToken), !token.isEmpty else { return nil }
     return DeviceAuthorization(deviceID: deviceID, bearerToken: token)
+  }
+
+  public func bindToCurrentUser() async throws {
+    guard let session = await userSession() else { throw DeviceRegistrationError.notAuthenticated }
+    let deviceID = try await installationDeviceID()
+    if let boundUserID = try storage.load(.deviceBoundUserID) {
+      if boundUserID == session.userID { return }
+      try await recoverBoundDevice()
+    }
+    guard let token = try storage.load(.deviceAccessToken), !token.isEmpty else {
+      throw DeviceRegistrationError.deviceNotRegistered
+    }
+    let response = try await client.send(DeviceUserBindingRequest(
+      operation: .bind(token), deviceID: deviceID, sessionID: session.id
+    ))
+    guard response.code == "SUCCESS", response.data.deviceId == deviceID,
+          response.data.userId == session.userID else { throw DeviceRegistrationError.invalidResponse }
+    try storage.save(session.userID, for: .deviceBoundUserID)
+    try? storage.remove(.deviceUnbindKey)
+  }
+
+  public func unbindCurrentUser() async throws {
+    guard let boundUserID = try storage.load(.deviceBoundUserID) else { return }
+    guard let session = await userSession(), session.userID == boundUserID else {
+      throw DeviceRegistrationError.accountMismatch
+    }
+    let deviceID = try await installationDeviceID()
+    let unbindKey = try pendingUnbindKey()
+    let response = try await client.send(DeviceUserBindingRequest(
+      operation: .unbind(unbindKey), deviceID: deviceID, sessionID: session.id
+    ))
+    guard response.code == "SUCCESS", response.data.deviceId == deviceID,
+          response.data.userId == nil,
+          let token = response.data.deviceAccessToken, !token.isEmpty else {
+      throw DeviceRegistrationError.invalidResponse
+    }
+    try storage.save(token, for: .deviceAccessToken)
+    try storage.remove(.deviceBoundUserID)
+    try storage.remove(.deviceUnbindKey)
+  }
+
+  public func recoverBoundDevice() async throws {
+    guard try storage.load(.deviceBoundUserID) != nil else { return }
+    let deviceID = try await installationDeviceID()
+    guard let oldToken = try storage.load(.deviceAccessToken), !oldToken.isEmpty else {
+      throw DeviceRegistrationError.deviceNotRegistered
+    }
+    let unbindKey = try pendingUnbindKey()
+    let request = DeviceUserBindingRequest(
+      operation: .recover(oldToken, unbindKey), deviceID: deviceID, sessionID: nil
+    )
+    let response: DeviceUserBindingRequest.Response
+    do {
+      response = try await client.send(request)
+    } catch {
+      guard case let .response(failure) = error, failure.isUnauthorized else { throw error }
+      response = try await client.send(DeviceUserBindingRequest(
+        operation: .recover(nil, unbindKey), deviceID: deviceID, sessionID: nil
+      ))
+    }
+    guard response.code == "SUCCESS", response.data.deviceId == deviceID,
+          response.data.userId == nil,
+          let token = response.data.deviceAccessToken, !token.isEmpty else {
+      throw DeviceRegistrationError.invalidResponse
+    }
+    try storage.save(token, for: .deviceAccessToken)
+    try storage.remove(.deviceBoundUserID)
+    try storage.remove(.deviceUnbindKey)
+  }
+
+  private func pendingUnbindKey() throws -> String {
+    if let pendingKey = try storage.load(.deviceUnbindKey) { return pendingKey }
+    let key = UUID().uuidString.lowercased()
+    try storage.save(key, for: .deviceUnbindKey)
+    return key
   }
 }
 
@@ -69,11 +175,15 @@ struct DeviceRegistrationRequest: FestiCoreDataRequest {
 
   let deviceID: String
   let bearerToken: String?
+  var sessionID: UUID?
   let metadata: DeviceRegistrationMetadata
 
   var path: String { "api/v1/devices" }
   var method: HTTPMethod { .put }
-  var authorization: FestiCoreAuthorization { .none }
+  var authorization: FestiCoreAuthorization {
+    if let sessionID { return .sessionBound(sessionID) }
+    return .none
+  }
   // 같은 기기 ID로 재등록하므로 네트워크 계층의 일시적 오류 재시도를 사용한다.
   var maxRetryAttempts: Int { 2 }
   var headers: HTTPHeaders {
@@ -86,6 +196,52 @@ struct DeviceRegistrationRequest: FestiCoreDataRequest {
   var parameters: (any Encodable & Sendable)? {
     DeviceRegistrationBody(metadata: metadata)
   }
+}
+
+struct DeviceUserBindingRequest: FestiCoreDataRequest {
+  typealias Response = BaseResponseDTO<DeviceUserBindingResult>
+
+  enum Operation { case bind(String), unbind(String), recover(String?, String) }
+
+  let operation: Operation
+  let deviceID: String
+  let sessionID: UUID?
+
+  var path: String {
+    if case .recover = operation { return "api/v1/devices/bind-user/recover" }
+    return "api/v1/devices/bind-user"
+  }
+  var method: HTTPMethod {
+    switch operation {
+    case .bind: return .put
+    case .unbind, .recover: return .delete
+    }
+  }
+  var authorization: FestiCoreAuthorization {
+    guard let sessionID else { return .none }
+    return .sessionBound(sessionID)
+  }
+  var maxRetryAttempts: Int { return 0 }
+  var headers: HTTPHeaders {
+    var headers: HTTPHeaders = ["X-Device-Id": deviceID]
+    switch operation {
+    case let .bind(token):
+      headers.add(name: "X-Device-Access-Token", value: token)
+    case let .unbind(key):
+      headers.add(name: "X-Device-Unbind-Key", value: key)
+    case let .recover(token, key):
+      headers.add(name: "X-Device-Unbind-Key", value: key)
+      if let token { headers.add(name: "Authorization", value: "Bearer \(token)") }
+    }
+    return headers
+  }
+  var parameters: (any Encodable & Sendable)? { return nil }
+}
+
+struct DeviceUserBindingResult: Decodable, Sendable {
+  let deviceId: String
+  let userId: String?
+  let deviceAccessToken: String?
 }
 
 private struct DeviceRegistrationBody: Encodable, Sendable {

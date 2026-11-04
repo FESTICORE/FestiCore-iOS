@@ -81,8 +81,8 @@ struct FestivalLiveBoardScreen: View {
                 followedSection(now: now)
                 activeSection(now: now)
               }
-              liveActivityControl
             }
+            liveActivityControl
           }
           .padding(.horizontal, FestiCoreSpacing.paddingP16)
           .padding(.top, FestiCoreSpacing.paddingP16)

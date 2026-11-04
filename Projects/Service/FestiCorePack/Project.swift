@@ -7,7 +7,8 @@ let project = Project.makeModule(
   name: "FestiCorePack",
   product: .framework,
   dependencies: [
-    .core(.network, .interface)
+    .core(.network, .interface),
+    .SPM.sqliteData
   ],
   hasTests: true,
   hasInterface: true,

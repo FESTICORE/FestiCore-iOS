@@ -29,6 +29,7 @@ extension LoginView {
 - 화면 View는 store 하나만 받는다. 값·클로저 묶음을 init으로 받지 않는다.
 - 하위 `<화면>/Components` View만 원시 값을 받는다. 자식 화면에는 scope한 store를 넘긴다.
 - 타입 본문에는 저장 속성, 초기화, `body`만 둔다. 화면 섹션, 하위 뷰 빌더, UI 전용 계산 값과 액션 헬퍼는 같은 파일의 `extension`에 `private`로 둔다. 테스트가 접근하는 내부 헬퍼가 있으면 일반 `extension`에서 비공개 멤버에 각각 `private`를 붙인다. 외부에서 호출하는 체이닝 설정은 `public extension`에 둔다.
+- 단일 View 조각은 계산 `var ...: some View`로 두고, 여러 View를 묶거나 분기하는 섹션은 `@ViewBuilder func ... -> some View`로 분리한다. 일반 계산 속성과 함수에는 명시적 `return`을 사용하되 결과 빌더는 Swift 문법을 따른다.
 
 ## DesignKit 컴포넌트 설정
 

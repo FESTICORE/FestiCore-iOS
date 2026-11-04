@@ -8,6 +8,7 @@
 import ComposableArchitecture
 import FestiCoreDesignKit
 import FestiCoreSharedUI
+import FestiCoreUtility
 import FestivalDomainInterface
 import SwiftUI
 
@@ -448,11 +449,7 @@ extension PackDetailView {
 
   /// Figma처럼 "10/16 14:00"으로 쓴다.
   private func dateText(_ date: Date) -> String {
-    date.formatted(Date.VerbatimFormatStyle(
-      format: "\(month: .defaultDigits)/\(day: .defaultDigits) \(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)):\(minute: .twoDigits)",
-      timeZone: .current,
-      calendar: Calendar(identifier: .gregorian)
-    ))
+    return date.formatted(.monthDayTime)
   }
 
   private func packStatus(_ pack: FestivalReceivedPack) -> String {

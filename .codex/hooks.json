@@ -1,0 +1,17 @@
+{
+  "description": "FestiCore Swift source convention feedback",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|apply_patch|exec_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$(git rev-parse --show-toplevel)\" && python3 .claude/hooks/check-swift-conventions.py --hook",
+            "statusMessage": "Checking Swift conventions"
+          }
+        ]
+      }
+    ]
+  }
+}

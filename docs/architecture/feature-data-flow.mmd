@@ -21,12 +21,12 @@ flowchart LR
   View -->|action · state| Reducer
   Reducer -->|Dependency| UseCaseInterface
   UseCaseInterface --> UseCaseImpl
-  UseCaseImpl -->|공지 · 팩 상세| RepositoryInterface
-  UseCaseImpl -->|축제 목록| CatalogService
-  UseCaseImpl -->|팩 받기| PackService
+  UseCaseImpl --> RepositoryInterface
   RepositoryInterface --> RepositoryImpl
-  RepositoryImpl --> Endpoint
-  RepositoryImpl --> Network
+  RepositoryImpl -->|S00 목록| CatalogService
+  RepositoryImpl -->|S00 팩 받기| PackService
+  RepositoryImpl -->|기타 HTTP 기능| Endpoint
+  RepositoryImpl -->|기타 HTTP 기능| Network
   CatalogService --> Endpoint
   CatalogService --> Network
   PackService --> Network

@@ -26,6 +26,11 @@ struct AppDateFormatTests {
     #expect(date.formatted(.monthDayTime) == "10/31 00:05")
   }
 
+  @Test func noticeDayUsesSeoulDateAcrossUTCMidnight() throws {
+    let date = try #require("2026-11-03T15:30:00Z".isoDate)
+    #expect(date.formatted(.noticeDay) == "2026.11.04")
+  }
+
   @Test func isoParsingAcceptsFractionalAndWholeSeconds() {
     #expect("2026-10-30T12:00:00+09:00".isoDate != nil)
     #expect("2026-10-30T12:00:00.250+09:00".isoDate != nil)
