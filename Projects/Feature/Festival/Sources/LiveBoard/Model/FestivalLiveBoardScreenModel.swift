@@ -17,6 +17,7 @@ struct FestivalLiveBoardScreenModel {
 
   let pack: FestivalPackDocument?
   let liveBoard: FestivalLiveBoardSnapshot?
+  let connection: FestivalFeature.Connection
   let liveBoardUnavailable: Bool
   let liveBoardUnpublished: Bool
   let isPackLoading: Bool
@@ -34,6 +35,7 @@ struct FestivalLiveBoardScreenModel {
   let showsFollowGuide: Bool
 
   init(state: FestivalFeature.State) {
+    connection = state.connection
     pack = state.selectedPack
     liveBoard = state.liveBoard
     liveBoardUnavailable = state.liveBoardUnavailable
@@ -51,6 +53,10 @@ struct FestivalLiveBoardScreenModel {
     liveActivityState = state.liveActivityState
     showsLiveActivityControl = state.showsLiveActivityControl
     showsFollowGuide = state.showsFollowGuide
+  }
+
+  var showsOfflineStatus: Bool {
+    return (liveBoardUnavailable && !liveBoardUnpublished) || connection == .offline || connection == .reconnecting
   }
 
   func homeRide(now: Date) -> HomeRide? {
@@ -104,7 +110,10 @@ struct FestivalLiveBoardScreenModel {
     )
   }
 
-  private func departureDate(_ value: String, now: Date) -> Date? {
+  private func departureDate(
+    _ value: String,
+    now: Date
+  ) -> Date? {
     if let date = FestivalLiveBoardSchedule.parse(value) { return date }
     let parts = value.split(separator: ":")
     guard parts.count == 2,

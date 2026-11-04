@@ -93,12 +93,19 @@ extension FestivalLiveBoardPresentation {
   }
 
   /// 서버 시각에 첫 수신 후 흐른 기기 시간을 더한다. 304 확인은 기준점을 바꾸지 않는다.
-  static func serverNow(serverAt: Date?, clockAnchorAt: Date?, deviceNow: Date) -> Date {
+  static func serverNow(
+    serverAt: Date?,
+    clockAnchorAt: Date?,
+    deviceNow: Date
+  ) -> Date {
     guard let serverAt, let clockAnchorAt else { return deviceNow }
     return serverAt.addingTimeInterval(deviceNow.timeIntervalSince(clockAnchorAt))
   }
 
-  static func relativeTime(_ date: Date?, now: Date) -> String? {
+  static func relativeTime(
+    _ date: Date?,
+    now: Date
+  ) -> String? {
     guard let date else { return nil }
     let minutes = max(0, Int(now.timeIntervalSince(date) / 60))
     if minutes < 1 { return "방금" }
@@ -108,12 +115,18 @@ extension FestivalLiveBoardPresentation {
   }
 
   /// 다음 일정 카드의 갱신 문구. 수신 시각과 같은 기기 시각으로 잰다.
-  static func updatedText(receivedAt: Date?, deviceNow: Date) -> String {
+  static func updatedText(
+    receivedAt: Date?,
+    deviceNow: Date
+  ) -> String {
     return relativeTime(receivedAt, now: deviceNow).map { "\($0) 업데이트" } ?? "시간표 기준"
   }
 
   /// 오프라인 배너 문구. 경과 시간은 기기 시각으로 잰다.
-  static func offlineText(receivedAt: Date?, deviceNow: Date) -> String {
+  static func offlineText(
+    receivedAt: Date?,
+    deviceNow: Date
+  ) -> String {
     guard let age = relativeTime(receivedAt, now: deviceNow) else { return "오프라인" }
     return "오프라인 · \(age) 정보"
   }
@@ -123,7 +136,11 @@ extension FestivalLiveBoardPresentation {
 
 extension FestivalLiveBoardPresentation {
   /// 팩에 게시된 개장·종료 시각만으로 S01의 시간대별 상태를 고른다.
-  static func phase(pack: FestivalPackDocument?, festival: FestivalOverview, now: Date) -> Phase {
+  static func phase(
+    pack: FestivalPackDocument?,
+    festival: FestivalOverview,
+    now: Date
+  ) -> Phase {
     guard let pack else { return .unknown }
     let days = (pack.days ?? []).compactMap { day -> (date: String, start: Date, end: Date?)? in
       guard let date = day.date,
@@ -159,8 +176,27 @@ extension FestivalLiveBoardPresentation {
     return .live
   }
 
+  static func switcherSubtitle(
+    pack: FestivalPackDocument?,
+    festival: FestivalOverview,
+    now: Date
+  ) -> String {
+    if let day = selectedDay(pack: pack, festival: festival, now: now),
+       day.date.date(as: .day) == AppDateFormat.calendar.startOfDay(for: now),
+       let start = day.startsAt, let end = day.endsAt {
+      let status = now < start ? "시작 전" : (now < end ? "진행 중" : "종료")
+      return "오늘 · DAY \(day.index + 1) \(status)"
+    }
+    return [FestivalListPresentation.searchBadge(for: festival, now: now), festival.venue]
+      .compactMap { $0 }.joined(separator: " · ")
+  }
+
   /// `DAY n · M/d(E) · HH:mm–HH:mm`. 오늘 날짜가 없으면 첫날을 쓴다.
-  static func dayLine(pack: FestivalPackDocument?, festival: FestivalOverview, now: Date) -> String? {
+  static func dayLine(
+    pack: FestivalPackDocument?,
+    festival: FestivalOverview,
+    now: Date
+  ) -> String? {
     guard let day = selectedDay(pack: pack, festival: festival, now: now) else { return nil }
     var parts = ["DAY \(day.index + 1)"]
     if let date = day.date.date(as: .day) { parts.append(date.formatted(.liveBoardDay)) }
@@ -171,7 +207,11 @@ extension FestivalLiveBoardPresentation {
   }
 
   /// 오늘 개장 전이면 카운트다운을 돌려준다.
-  static func countdown(pack: FestivalPackDocument?, festival: FestivalOverview, now: Date) -> Countdown? {
+  static func countdown(
+    pack: FestivalPackDocument?,
+    festival: FestivalOverview,
+    now: Date
+  ) -> Countdown? {
     guard let day = selectedDay(pack: pack, festival: festival, now: now),
           let opensAt = day.startsAt, now < opensAt else { return nil }
     var sub = "\(opensAt.formatted(.time)) 개장"
@@ -182,7 +222,12 @@ extension FestivalLiveBoardPresentation {
   }
 
   /// 내 다음 일정, 없으면 전체 다음 공연. 개장 전에는 첫 공연 시작 시각을 보인다.
-  static func setCard(pack: FestivalPackDocument?, mySetIDs: Set<String>, isBeforeOpening: Bool, now: Date) -> SetCard? {
+  static func setCard(
+    pack: FestivalPackDocument?,
+    mySetIDs: Set<String>,
+    isBeforeOpening: Bool,
+    now: Date
+  ) -> SetCard? {
     guard let pack else { return nil }
     let entries = FestivalLiveBoardSchedule.entries(pack: pack)
     let mine = entries.first { mySetIDs.contains($0.slot.id) && (($0.slot.endsAt ?? $0.slot.startsAt) > now) }
@@ -214,7 +259,10 @@ extension FestivalLiveBoardPresentation {
     )
   }
 
-  static func stageRows(_ stages: [FestivalLiveBoardSchedule.Stage], mySetIDs: Set<String>) -> [StageRow] {
+  static func stageRows(
+    _ stages: [FestivalLiveBoardSchedule.Stage],
+    mySetIDs: Set<String>
+  ) -> [StageRow] {
     return stages.map { stage in
       StageRow(
         id: stage.id,
@@ -261,7 +309,11 @@ extension FestivalLiveBoardPresentation {
     return Crew(title: "내 크루 · \(crew.name)", subtitle: subtitle, members: members)
   }
 
-  static func flag(_ flag: FestivalLiveBoardSnapshot.Flag, zoneName: (String?) -> String?, now: Date) -> Flag {
+  static func flag(
+    _ flag: FestivalLiveBoardSnapshot.Flag,
+    zoneName: (String?) -> String?,
+    now: Date
+  ) -> Flag {
     let zone = zoneName(flag.zoneID)
     return Flag(
       id: flag.id,
@@ -316,7 +368,11 @@ private extension FestivalLiveBoardPresentation {
   }
 
 
-  static func selectedDay(pack: FestivalPackDocument?, festival: FestivalOverview, now: Date) -> Day? {
+  static func selectedDay(
+    pack: FestivalPackDocument?,
+    festival: FestivalOverview,
+    now: Date
+  ) -> Day? {
     let packDays = (pack?.days ?? []).filter { $0.date?.date(as: .day) != nil }
     let dates: [String] = packDays.isEmpty
       ? [festival.firstDate, festival.lastDate].compactMap { $0 }.filter { $0.date(as: .day) != nil }
@@ -334,7 +390,10 @@ private extension FestivalLiveBoardPresentation {
     )
   }
 
-  static func duration(from now: Date, to date: Date) -> String {
+  static func duration(
+    from now: Date,
+    to date: Date
+  ) -> String {
     let minutes = max(0, Int(date.timeIntervalSince(now) / 60))
     let hours = minutes / 60
     if hours >= 24 { return "\(hours / 24)일 \(hours % 24)시간" }

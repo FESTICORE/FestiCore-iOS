@@ -64,6 +64,7 @@ public struct FestivalFeature {
     public var hasSession = false
     /// 알림함의 읽지 않은 전체 알림 수. 계정이 바뀌면 즉시 비운다.
     public var notificationUnreadCount = 0
+    public var notificationBanner: UserNotificationItem?
     public var hasUnreadNotifications: Bool { notificationUnreadCount > 0 }
     /// 확인된 사용자 ID. 크루의 `나` 표시에만 쓴다.
     public var sessionUserID: String?
@@ -91,7 +92,10 @@ public struct FestivalFeature {
       catalogCacheReadFailed || packCacheReadFailed
     }
 
-    public init(selectedFestivalID: String? = nil, selectedCatalogItem: FestivalCatalogItem? = nil) {
+    public init(
+      selectedFestivalID: String? = nil,
+      selectedCatalogItem: FestivalCatalogItem? = nil
+    ) {
       self.selectedFestivalID = selectedFestivalID
       self.selectedCatalogItem = selectedCatalogItem
     }
@@ -221,6 +225,7 @@ public struct FestivalFeature {
       bookedUserID = nil
       bookedFestivalIDs = []
       notificationUnreadCount = 0
+      notificationBanner = nil
     }
   }
 
@@ -382,6 +387,7 @@ public struct FestivalFeature {
     case homeDetailsLoaded(String, FestivalPackDetail.Directions?)
     case homeDetailsFailed(String)
     case notificationUnreadCountLoaded(Int, generation: Int)
+    case notificationBannerLoaded(UserNotificationItem?, generation: Int)
     case toastExpired
   }
 
@@ -658,8 +664,11 @@ extension FestivalFeature {
       )
       state.festivalSwitcher = FestivalSwitcherFeature.State(
         festivals: booked.map { festival in
-          let status = FestivalListPresentation.searchBadge(for: festival, now: date.now)
-          let subtitle = [status, festival.venue].compactMap { $0 }.joined(separator: " · ")
+          let subtitle = FestivalLiveBoardPresentation.switcherSubtitle(
+            pack: state.pack(for: festival.id),
+            festival: festival,
+            now: date.now
+          )
           return FestivalSwitcherFeature.State.Item(
             id: festival.id,
             name: festival.name,
@@ -720,6 +729,7 @@ extension FestivalFeature {
     case let .notificationUnreadCountChanged(count):
       guard state.hasSession else { return .none }
       state.notificationUnreadCount = max(0, count)
+      if count <= 0 { state.notificationBanner = nil }
       return .none
 
     case .ticketLinkMissing:
@@ -770,6 +780,7 @@ extension FestivalFeature {
       state.packDownloads = [:]
       state.sessionUserID = userID
       state.notificationUnreadCount = 0
+      state.notificationBanner = nil
       state.accountGeneration += 1
       state.liveBoard = nil
       state.liveBoardUnavailable = false
@@ -1144,9 +1155,15 @@ extension FestivalFeature {
       state.homeDetails = .failed(id)
       return .none
 
+    case let .notificationBannerLoaded(item, generation):
+      guard state.hasSession, state.accountGeneration == generation, state.notificationUnreadCount > 0 else { return .none }
+      state.notificationBanner = item
+      return .none
+
     case let .notificationUnreadCountLoaded(count, generation):
       guard state.hasSession, state.accountGeneration == generation else { return .none }
       state.notificationUnreadCount = max(0, count)
+      if count <= 0 { state.notificationBanner = nil }
       return .none
 
     case let .liveActivitiesLoaded(activities, revision):

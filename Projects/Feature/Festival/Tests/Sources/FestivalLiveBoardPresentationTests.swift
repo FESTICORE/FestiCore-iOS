@@ -252,6 +252,17 @@ struct FestivalLiveBoardPresentationTests {
     isCached: true
   )
 
+  @Test func switcherShowsTodayDayAndCurrentStatus() throws {
+    let pack = try document(packJSON)
+    for (time, status) in [("12:00:00", "시작 전"), ("15:00:00", "진행 중"), ("23:00:00", "종료")] {
+      #expect(FestivalLiveBoardPresentation.switcherSubtitle(
+        pack: pack,
+        festival: festival,
+        now: date("2026-10-20T\(time)+09:00")
+      ) == "오늘 · DAY 1 \(status)")
+    }
+  }
+
   private let packJSON = #"""
     {"id":"fst","flagsEnabled":true,
     "days":[{"date":"2026-10-20","startsAt":"2026-10-20T13:00:00+09:00","endsAt":"2026-10-20T23:00:00+09:00"}],

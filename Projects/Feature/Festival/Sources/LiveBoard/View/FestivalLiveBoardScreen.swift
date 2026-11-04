@@ -4,6 +4,7 @@ import FestiCoreSharedUI
 import FestiCoreUtility
 import FestivalDomainInterface
 import SwiftUI
+import UserNotificationDomainInterface
 
 /// S01 라이브 보드. 시각은 서버 시각으로 보정하고 30초마다 다시 계산한다.
 @ViewAction(for: FestivalFeature.self)
@@ -53,14 +54,18 @@ private extension FestivalLiveBoardScreen {
       let phase = FestivalLiveBoardPresentation.phase(pack: model.pack, festival: festival, now: now)
       VStack(spacing: .zero) {
         topBar()
-        if model.liveBoardUnavailable, model.liveBoard != nil {
-          FCOfflineBadge(FestivalLiveBoardPresentation.offlineText(
+        if model.showsOfflineStatus {
+          FCOfflineBadge(model.liveBoardReceivedAt == nil ? "오프라인 · 저장된 정보" : FestivalLiveBoardPresentation.offlineText(
             receivedAt: model.liveBoardReceivedAt, deviceNow: timeline.date
           ))
         }
         ScrollView {
           VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
-            festivalHeader(now: now, festival: festival)
+            if let notification = store.notificationBanner {
+              notificationBanner(notification, now: timeline.date)
+            } else {
+              festivalHeader(now: now, festival: festival)
+            }
             if model.liveBoardUnpublished {
               FCEmptyCard(
                 icon: .music24,
@@ -137,8 +142,49 @@ private extension FestivalLiveBoardScreen {
     }
   }
 
+  func notificationBanner(
+    _ notification: UserNotificationItem,
+    now: Date
+  ) -> some View {
+    return Button { send(.notificationTapped) } label: {
+      HStack(spacing: FestiCoreSpacing.paddingP12) {
+        Image(asset: NotificationInboxPresentation.icon(for: notification.type))
+          .resizable()
+          .frame(width: 16, height: 16)
+          .foregroundStyle(FestiCoreSemanticColor.primaryOnPrimary.color)
+          .frame(width: 40, height: 40)
+          .background(FestiCoreSemanticColor.primaryNormal.color)
+          .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
+          .accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
+          HStack {
+            Text(notification.title)
+              .festiCoreFont(.baseCalloutBold)
+              .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+              .frame(maxWidth: .infinity, alignment: .leading)
+            Text(NotificationInboxPresentation.time(for: notification, now: now))
+              .festiCoreFont(.baseCaption1Regular)
+              .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+          }
+          Text(notification.body)
+            .festiCoreFont(.baseFootnoteRegular)
+            .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+            .lineLimit(2)
+        }
+      }
+      .padding(FestiCoreSpacing.paddingP16)
+      .background(FestiCoreSemanticColor.backgroundElevated.color)
+      .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r20))
+    }
+    .buttonStyle(.plain)
+    .accessibilityHint("알림함으로 이동합니다")
+  }
+
   @ViewBuilder
-  func festivalHeader(now: Date, festival: FestivalOverview) -> some View {
+  func festivalHeader(
+    now: Date,
+    festival: FestivalOverview
+  ) -> some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
       Button { send(.festivalSwitchTapped) } label: {
         HStack(spacing: FestiCoreSpacing.paddingP8) {
@@ -163,7 +209,11 @@ private extension FestivalLiveBoardScreen {
   }
 
   @ViewBuilder
-  func scheduleCards(now: Date, deviceNow: Date, festival: FestivalOverview) -> some View {
+  func scheduleCards(
+    now: Date,
+    deviceNow: Date,
+    festival: FestivalOverview
+  ) -> some View {
     let countdown = FestivalLiveBoardPresentation.countdown(pack: model.pack, festival: festival, now: now)
     if let countdown {
       FCCountdownCard(label: "개장까지", time: countdown.time, sub: countdown.sub)
@@ -208,7 +258,10 @@ private extension FestivalLiveBoardScreen {
   }
 
   @ViewBuilder
-  func doneCard(festival: FestivalOverview, now: Date) -> some View {
+  func doneCard(
+    festival: FestivalOverview,
+    now: Date
+  ) -> some View {
     if let summary = model.doneSummary(now: now) {
       FCDoneCard(
         title: "오늘 재미있게 즐겼나요?",
@@ -324,7 +377,10 @@ private extension FestivalLiveBoardScreen {
     }
   }
 
-  func presentation(_ flag: FestivalLiveBoardSnapshot.Flag, now: Date) -> FestivalLiveBoardPresentation.Flag {
+  func presentation(
+    _ flag: FestivalLiveBoardSnapshot.Flag,
+    now: Date
+  ) -> FestivalLiveBoardPresentation.Flag {
     return FestivalLiveBoardPresentation.flag(flag, zoneName: { model.pack?.zoneName(for: $0) }, now: now)
   }
 

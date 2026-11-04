@@ -6,6 +6,18 @@ import Testing
 @testable import Festival
 
 struct HomeOfflineTests {
+  @Test func offlineIndicatorDoesNotRequireLiveBoardSnapshot() {
+    var state = FestivalFeature.State()
+    state.connection = .offline
+    #expect(FestivalLiveBoardScreenModel(state: state).showsOfflineStatus)
+    state.connection = .live
+    state.liveBoardUnpublished = true
+    state.liveBoardUnavailable = true
+    #expect(!FestivalLiveBoardScreenModel(state: state).showsOfflineStatus)
+    state.liveBoardUnpublished = false
+    #expect(FestivalLiveBoardScreenModel(state: state).showsOfflineStatus)
+  }
+
   @Test @MainActor func refreshingCachedListShowsSkeletonUntilRequestFails() async {
     var state = FestivalFeature.State()
     state.catalog = [FestivalCatalogItem(id: "fst_a", name: "저장된 축제", packVersion: 1)]
@@ -529,42 +541,42 @@ struct HomeOfflineTests {
 private struct OfflineCatalog: FestivalCatalogService {
   struct NetworkUnavailable: Error {}
 
-  func cachedFestivals() async throws -> [FestivalCatalogItem] { [] }
+  func cachedFestivals() async throws -> [FestivalCatalogItem] { return [] }
   func refresh() async throws -> [FestivalCatalogItem] { throw NetworkUnavailable() }
-  func imageURL(for _: String?) -> URL? { nil }
+  func imageURL(for _: String?) -> URL? { return nil }
 }
 
 private struct CachedPackService: PackSyncService {
   let pack: CachedFestivalPack
 
-  func cachedPack(for _: String) async throws -> CachedFestivalPack? { pack }
-  func cachedPacks() async throws -> [CachedFestivalPack] { [pack] }
-  func sync(for _: String) async throws -> PackSyncResult { .notModified(pack) }
+  func cachedPack(for _: String) async throws -> CachedFestivalPack? { return pack }
+  func cachedPacks() async throws -> [CachedFestivalPack] { return [pack] }
+  func sync(for _: String) async throws -> PackSyncResult { return .notModified(pack) }
   func deletePack(for _: String) async throws {}
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
-    AsyncThrowingStream { $0.finish() }
+    return AsyncThrowingStream { $0.finish() }
   }
 }
 
 private struct BrokenCatalog: FestivalCatalogService {
   func cachedFestivals() async throws -> [FestivalCatalogItem] { throw OfflineCatalog.NetworkUnavailable() }
   func refresh() async throws -> [FestivalCatalogItem] { throw OfflineCatalog.NetworkUnavailable() }
-  func imageURL(for _: String?) -> URL? { nil }
+  func imageURL(for _: String?) -> URL? { return nil }
 }
 
 private struct BrokenPackService: PackSyncService {
-  func cachedPack(for _: String) async throws -> CachedFestivalPack? { nil }
+  func cachedPack(for _: String) async throws -> CachedFestivalPack? { return nil }
   func cachedPacks() async throws -> [CachedFestivalPack] { throw OfflineCatalog.NetworkUnavailable() }
   func sync(for _: String) async throws -> PackSyncResult { throw OfflineCatalog.NetworkUnavailable() }
   func deletePack(for _: String) async throws {}
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
-    AsyncThrowingStream { $0.finish() }
+    return AsyncThrowingStream { $0.finish() }
   }
 }
 
 private struct NoSocketPackService: PackSyncService {
-  func cachedPack(for _: String) async throws -> CachedFestivalPack? { nil }
-  func cachedPacks() async throws -> [CachedFestivalPack] { [] }
+  func cachedPack(for _: String) async throws -> CachedFestivalPack? { return nil }
+  func cachedPacks() async throws -> [CachedFestivalPack] { return [] }
   func sync(for _: String) async throws -> PackSyncResult { throw OfflineCatalog.NetworkUnavailable() }
   func deletePack(for _: String) async throws {}
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
@@ -584,8 +596,8 @@ private final class PackWatchCounter: @unchecked Sendable {
 private struct RecordingPackWatchService: PackSyncService {
   let counter: PackWatchCounter
 
-  func cachedPack(for _: String) async throws -> CachedFestivalPack? { nil }
-  func cachedPacks() async throws -> [CachedFestivalPack] { [] }
+  func cachedPack(for _: String) async throws -> CachedFestivalPack? { return nil }
+  func cachedPacks() async throws -> [CachedFestivalPack] { return [] }
   func sync(for _: String) async throws -> PackSyncResult { throw OfflineCatalog.NetworkUnavailable() }
   func deletePack(for _: String) async throws {}
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
@@ -595,9 +607,9 @@ private struct RecordingPackWatchService: PackSyncService {
 }
 
 private struct ImageCatalog: FestivalCatalogService {
-  func cachedFestivals() async throws -> [FestivalCatalogItem] { [] }
-  func refresh() async throws -> [FestivalCatalogItem] { [] }
-  func imageURL(for value: String?) -> URL? { value.flatMap(URL.init(string:)) }
+  func cachedFestivals() async throws -> [FestivalCatalogItem] { return [] }
+  func refresh() async throws -> [FestivalCatalogItem] { return [] }
+  func imageURL(for value: String?) -> URL? { return value.flatMap(URL.init(string:)) }
 }
 
 private actor PrefetchRecorder {
@@ -610,7 +622,7 @@ private actor PrefetchRecorder {
     starts += 1
   }
   func stop() { stops += 1 }
-  func startedURLs() -> [URL] { urls }
-  func startCount() -> Int { starts }
-  func stopCount() -> Int { stops }
+  func startedURLs() -> [URL] { return urls }
+  func startCount() -> Int { return starts }
+  func stopCount() -> Int { return stops }
 }
