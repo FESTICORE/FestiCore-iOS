@@ -70,7 +70,10 @@ struct FestivalLiveBoardSessionTests {
       }
     }
 
-    await store.send(.view(.sessionChanged(hasSession: true, userID: nil))) {
+    await store.send(.view(.sessionChanged(
+      hasSession: true,
+      userID: nil
+    ))) {
       $0.hasSession = true
       $0.accountGeneration = 1
     }
@@ -83,7 +86,10 @@ struct FestivalLiveBoardSessionTests {
     await store.receive(\.async.loadNotificationUnreadCount)
     await store.receive(\.inner.notificationUnreadCountLoaded)
     await store.receive(\.inner.myScheduleLoaded) {
-      $0.mySchedule = .init(festivalID: "fst", setIDs: ["set_a"])
+      $0.mySchedule = .init(
+        festivalID: "fst",
+        setIDs: ["set_a"]
+      )
     }
     #expect(fetched.value == ["fst"])
     await store.send(.view(.liveBoardOnDisappear)) {
@@ -118,7 +124,7 @@ struct FestivalLiveBoardSessionTests {
     #expect(fetched.value == 0)
   }
 
-  @Test("다른 축제·이전 요청·이전 세대 응답은 버리고 숨긴 뒤 같은 요청은 유지한다")
+  @Test("다른 축제·이전 요청·이전 세대의 내 일정 응답은 버리고 화면을 닫아도 일정을 유지한다")
   func staleMyScheduleResponsesAreIgnored() async {
     let store = TestStore(initialState: {
       var state = FestivalFeature.State(selectedFestivalID: "B")
@@ -131,19 +137,55 @@ struct FestivalLiveBoardSessionTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.inner(.myScheduleLoaded(festivalID: "A", requestID: 2, generation: 1, ["x"])))
-    await store.send(.inner(.myScheduleLoaded(festivalID: "B", requestID: 1, generation: 1, ["x"])))
-    await store.send(.inner(.myScheduleLoaded(festivalID: "B", requestID: 2, generation: 0, ["x"])))
-    await store.send(.inner(.myScheduleLoaded(festivalID: "B", requestID: 2, generation: 1, ["x"]))) {
-      $0.mySchedule = .init(festivalID: "B", setIDs: ["x"])
+    await store.send(.inner(.myScheduleLoaded(
+      festivalID: "A",
+      requestID: 2,
+      generation: 1,
+      ["x"]
+    )))
+    await store.send(.inner(.myScheduleLoaded(
+      festivalID: "B",
+      requestID: 1,
+      generation: 1,
+      ["x"]
+    )))
+    await store.send(.inner(.myScheduleLoaded(
+      festivalID: "B",
+      requestID: 2,
+      generation: 0,
+      ["x"]
+    )))
+    await store.send(.inner(.myScheduleLoaded(
+      festivalID: "B",
+      requestID: 2,
+      generation: 1,
+      ["x"]
+    ))) {
+      $0.mySchedule = .init(
+        festivalID: "B",
+        setIDs: ["x"]
+      )
     }
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
     }
-    await store.send(.inner(.myScheduleLoaded(festivalID: "B", requestID: 2, generation: 1, ["y"]))) {
-      $0.mySchedule = .init(festivalID: "B", setIDs: ["y"])
+    await store.send(.inner(.myScheduleLoaded(
+      festivalID: "B",
+      requestID: 2,
+      generation: 1,
+      ["y"]
+    ))) {
+      $0.mySchedule = .init(
+        festivalID: "B",
+        setIDs: ["y"]
+      )
     }
-    await store.send(.inner(.myScheduleLoaded(festivalID: "B", requestID: 3, generation: 1, ["z"])))
+    await store.send(.inner(.myScheduleLoaded(
+      festivalID: "B",
+      requestID: 3,
+      generation: 1,
+      ["z"]
+    )))
   }
 
   @Test("계정 변경·익명에서 로그인 전환 뒤 이전 세대의 라이브 보드 응답은 버린다")
@@ -162,15 +204,29 @@ struct FestivalLiveBoardSessionTests {
       $0.sessionUserID = nil
       $0.accountGeneration = 1
     }
-    await store.send(.inner(.liveBoardLoaded("fst", generation: 0, previousAccountBoard)))
-    await store.send(.inner(.liveBoardFailed("fst", generation: 0)))
+    await store.send(.inner(.liveBoardLoaded(
+      "fst",
+      generation: 0,
+      previousAccountBoard
+    )))
+    await store.send(.inner(.liveBoardFailed(
+      "fst",
+      generation: 0
+    )))
 
-    await store.send(.view(.sessionChanged(hasSession: true, userID: "user-b"))) {
+    await store.send(.view(.sessionChanged(
+      hasSession: true,
+      userID: "user-b"
+    ))) {
       $0.hasSession = true
       $0.sessionUserID = "user-b"
       $0.accountGeneration = 2
     }
-    await store.send(.inner(.liveBoardLoaded("fst", generation: 1, previousAccountBoard)))
+    await store.send(.inner(.liveBoardLoaded(
+      "fst",
+      generation: 1,
+      previousAccountBoard
+    )))
   }
 
   @Test("같은 세션 값이 다시 와도 비우거나 다시 불러오지 않는다")
@@ -186,7 +242,10 @@ struct FestivalLiveBoardSessionTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.view(.sessionChanged(hasSession: true, userID: "user-a")))
+    await store.send(.view(.sessionChanged(
+      hasSession: true,
+      userID: "user-a"
+    )))
   }
 
   @Test("로그아웃 때 보이는 라이브 보드는 한 번만 다시 불러온다")
@@ -223,7 +282,10 @@ struct FestivalLiveBoardSessionTests {
       $0.liveBoardReceivedAt = receivedAt
     }
     // AppCoordinator의 세션 변화 감지가 같은 전환으로 보내는 값은 무시된다.
-    await store.send(.view(.sessionChanged(hasSession: false, userID: nil)))
+    await store.send(.view(.sessionChanged(
+      hasSession: false,
+      userID: nil
+    )))
     #expect(calls.value == 1)
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
@@ -254,7 +316,10 @@ struct FestivalLiveBoardSessionTests {
       }
     }
 
-    await store.send(.view(.sessionChanged(hasSession: false, userID: nil))) {
+    await store.send(.view(.sessionChanged(
+      hasSession: false,
+      userID: nil
+    ))) {
       $0.hasSession = false
       $0.sessionUserID = nil
       $0.accountGeneration = 1
@@ -295,7 +360,10 @@ struct FestivalLiveBoardSessionTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.view(.sessionChanged(hasSession: true, userID: "user-b"))) {
+    await store.send(.view(.sessionChanged(
+      hasSession: true,
+      userID: "user-b"
+    ))) {
       $0.hasSession = true
       $0.sessionUserID = "user-b"
       $0.accountGeneration = 1
@@ -316,7 +384,10 @@ struct FestivalLiveBoardSessionTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.view(.sessionChanged(hasSession: true, userID: "user-b"))) {
+    await store.send(.view(.sessionChanged(
+      hasSession: true,
+      userID: "user-b"
+    ))) {
       $0.bookedUserID = nil
       $0.bookedFestivalIDs = []
       $0.sessionUserID = "user-b"
@@ -324,8 +395,8 @@ struct FestivalLiveBoardSessionTests {
     }
   }
 
-  @Test("저장한 일정은 화면을 떠나도 같은 축제에 반영한다")
-  func savedScheduleUpdatesSameFestivalWhileHidden() async {
+  @Test("저장한 일정은 같은 축제에 반영하고 보드가 숨겨져도 유지한다")
+  func savedScheduleUpdatesSameFestivalEvenWhenBoardIsHidden() async {
     let store = TestStore(initialState: {
       var state = FestivalFeature.State(selectedFestivalID: "fst")
       state.hasSession = true
@@ -336,18 +407,38 @@ struct FestivalLiveBoardSessionTests {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.view(.myScheduleSaved(festivalID: "other", setIDs: ["other"])))
-    await store.send(.view(.myScheduleSaved(festivalID: "fst", setIDs: ["set-a"]))) {
+    await store.send(.view(.myScheduleSaved(
+      festivalID: "other",
+      setIDs: ["other"]
+    )))
+    await store.send(.view(.myScheduleSaved(
+      festivalID: "fst",
+      setIDs: ["set-a"]
+    ))) {
       $0.myScheduleRequestID = 2
-      $0.mySchedule = .init(festivalID: "fst", setIDs: ["set-a"])
+      $0.mySchedule = .init(
+        festivalID: "fst",
+        setIDs: ["set-a"]
+      )
     }
-    await store.send(.inner(.myScheduleLoaded(festivalID: "fst", requestID: 1, generation: 0, ["stale"])))
+    await store.send(.inner(.myScheduleLoaded(
+      festivalID: "fst",
+      requestID: 1,
+      generation: 0,
+      ["stale"]
+    )))
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
     }
-    await store.send(.view(.myScheduleSaved(festivalID: "fst", setIDs: ["hidden"]))) {
+    await store.send(.view(.myScheduleSaved(
+      festivalID: "fst",
+      setIDs: ["hidden"]
+    ))) {
       $0.myScheduleRequestID = 3
-      $0.mySchedule = .init(festivalID: "fst", setIDs: ["hidden"])
+      $0.mySchedule = .init(
+        festivalID: "fst",
+        setIDs: ["hidden"]
+      )
     }
   }
 
@@ -357,11 +448,18 @@ struct FestivalLiveBoardSessionTests {
       var state = FestivalFeature.State(selectedFestivalID: "fst")
       state.hasSession = true
       state.myScheduleRequestID = 2
-      state.mySchedule = .init(festivalID: "fst", setIDs: ["set-a"])
+      state.mySchedule = .init(
+        festivalID: "fst",
+        setIDs: ["set-a"]
+      )
       return state
     }()) { FestivalFeature() }
 
-    await store.send(.inner(.myScheduleFailed(festivalID: "fst", requestID: 2, generation: 0))) {
+    await store.send(.inner(.myScheduleFailed(
+      festivalID: "fst",
+      requestID: 2,
+      generation: 0
+    ))) {
       $0.myScheduleUnavailable = true
     }
     #expect(store.state.mySchedule?.setIDs == ["set-a"])
@@ -373,7 +471,11 @@ struct FestivalLiveBoardSessionTests {
     let firstReceivedAt = Date(timeIntervalSince1970: 2_000)
     let revalidatedAt = firstReceivedAt.addingTimeInterval(35)
     let board = FestivalLiveBoardSnapshot(
-      festivalID: "fst", activeFlags: [], followedFlags: [], crew: nil, serverAt: serverAt
+      festivalID: "fst",
+      activeFlags: [],
+      followedFlags: [],
+      crew: nil,
+      serverAt: serverAt
     )
     let store = TestStore(initialState: {
       var state = FestivalFeature.State(selectedFestivalID: "fst")
@@ -386,7 +488,11 @@ struct FestivalLiveBoardSessionTests {
       $0.date = .constant(revalidatedAt)
     }
 
-    await store.send(.inner(.liveBoardLoaded("fst", generation: 0, board))) {
+    await store.send(.inner(.liveBoardLoaded(
+      "fst",
+      generation: 0,
+      board
+    ))) {
       $0.liveBoardReceivedAt = revalidatedAt
     }
     #expect(store.state.liveBoardClockAnchorAt == firstReceivedAt)
@@ -439,7 +545,10 @@ struct FestivalLiveBoardSessionTests {
       $0.myScheduleRequestID = 2
     }
     await store.receive(\.inner.myScheduleLoaded) {
-      $0.mySchedule = .init(festivalID: "fst", setIDs: ["set_a"])
+      $0.mySchedule = .init(
+        festivalID: "fst",
+        setIDs: ["set_a"]
+      )
     }
     #expect(attempts.value == 2)
     await store.send(.view(.liveBoardOnDisappear)) {
@@ -448,20 +557,36 @@ struct FestivalLiveBoardSessionTests {
   }
 }
 
-private let emptyBoard = FestivalLiveBoardSnapshot(festivalID: "fst", activeFlags: [], followedFlags: [], crew: nil)
+private let emptyBoard = FestivalLiveBoardSnapshot(
+  festivalID: "fst",
+  activeFlags: [],
+  followedFlags: [],
+  crew: nil
+)
 
 private let previousAccountBoard = FestivalLiveBoardSnapshot(
   festivalID: "fst",
   activeFlags: [],
-  followedFlags: [.init(id: "followed", name: "이전 계정 깃발", status: "active", zoneID: nil, activity: nil, thumbnailURL: nil)],
-  crew: .init(id: "crew", name: "이전 계정 크루", members: [])
+  followedFlags: [.init(
+    id: "followed",
+    name: "이전 계정 깃발",
+    status: "active",
+    zoneID: nil,
+    activity: nil,
+    thumbnailURL: nil
+  )],
+  crew: .init(
+    id: "crew",
+    name: "이전 계정 크루",
+    members: []
+  )
 )
 
 private struct SessionLiveBoardService: FestivalLiveBoardService {
   let handler: @Sendable (String) async throws -> FestivalLiveBoardSnapshot
 
   func refresh(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
-    try await handler(festivalID)
+    return try await handler(festivalID)
   }
 }
 
@@ -478,7 +603,11 @@ private struct SessionScheduleService: FestivalScheduleService {
     }
   }
 
-  func replace(festivalID _: String, setIDs: [String], clientAt _: Date) async throws(FestivalScheduleError) -> FestivalSchedule {
-    FestivalSchedule(setIDs: setIDs)
+  func replace(
+    festivalID _: String,
+    setIDs: [String],
+    clientAt _: Date
+  ) async throws(FestivalScheduleError) -> FestivalSchedule {
+    return FestivalSchedule(setIDs: setIDs)
   }
 }

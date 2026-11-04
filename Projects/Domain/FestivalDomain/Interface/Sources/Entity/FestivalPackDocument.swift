@@ -27,7 +27,10 @@ public struct FestivalPackDocument: Decodable, Equatable, Sendable {
     name = try container.decodeIfPresent(String.self, forKey: .name)
     venue = try container.decodeIfPresent(String.self, forKey: .venue)
     thumbUrl = try container.decodeIfPresent(String.self, forKey: .thumbUrl)
-    eventPeriod = try? container.decodeIfPresent(EventPeriod.self, forKey: .eventPeriod)
+    eventPeriod = try? container.decodeIfPresent(
+      EventPeriod.self,
+      forKey: .eventPeriod
+    )
     days = try container.decodeIfPresent([Day].self, forKey: .days)
     artists = try container.decodeIfPresent([Artist].self, forKey: .artists)
     timetable = try container.decodeIfPresent([Performance].self, forKey: .timetable)

@@ -25,7 +25,10 @@ public actor NetworkPackSyncService: PackSyncService {
     client: any FestiCoreWebSocketClient
   ) {
     self.baseURL = baseURL
-    cache = PackCache(directory: cacheDirectory, database: database)
+    cache = PackCache(
+      directory: cacheDirectory,
+      database: database
+    )
     self.client = client
     responseTimeoutNanoseconds = 15_000_000_000
     rejectedHandshakeRetryNanoseconds = 300_000_000_000
@@ -42,7 +45,10 @@ public actor NetworkPackSyncService: PackSyncService {
     client: any FestiCoreWebSocketClient
   ) {
     self.baseURL = baseURL
-    cache = PackCache(directory: cacheDirectory, database: database)
+    cache = PackCache(
+      directory: cacheDirectory,
+      database: database
+    )
     self.client = client
     self.responseTimeoutNanoseconds = responseTimeoutNanoseconds
     self.rejectedHandshakeRetryNanoseconds = rejectedHandshakeRetryNanoseconds

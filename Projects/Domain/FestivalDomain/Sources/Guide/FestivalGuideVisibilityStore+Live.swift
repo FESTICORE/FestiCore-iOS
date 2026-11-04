@@ -29,7 +29,10 @@ extension FestivalGuideVisibilityStore: DependencyKey {
         box.withLock { defaults in
           var hidden = Set(defaults.stringArray(forKey: key) ?? [])
           hidden.insert(festivalID)
-          defaults.set(hidden.sorted(), forKey: key)
+          defaults.set(
+            hidden.sorted(),
+            forKey: key
+          )
         }
       }
     )

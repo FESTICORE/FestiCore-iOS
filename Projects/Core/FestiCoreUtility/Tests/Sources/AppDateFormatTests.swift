@@ -17,7 +17,7 @@ struct AppDateFormatTests {
 
   @Test func dottedDayUsesSeoulDayAcrossUTCMidnightBoundary() throws {
     let date = try #require("2026-11-03T15:30:00Z".isoDate)
-    #expect(date.formatted(.dottedDay) == "2026.11.04")
+    #expect(date.formatted(.noticeDay) == "2026.11.04")
   }
 
   @Test func koreanDayFormatsUseSeoulCalendar() throws {
@@ -33,7 +33,7 @@ struct AppDateFormatTests {
 
   @Test func noticeDayUsesSeoulDateAcrossUTCMidnight() throws {
     let date = try #require("2026-11-03T15:30:00Z".isoDate)
-    #expect(date.formatted(.dottedDay) == "2026.11.04")
+    #expect(date.formatted(.noticeDay) == "2026.11.04")
   }
 
   @Test func isoParsingAcceptsFractionalAndWholeSeconds() {

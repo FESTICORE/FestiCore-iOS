@@ -12,9 +12,16 @@ struct FestivalCrewRepositoryTests {
 
   @Test func createsCrewWithSessionAndMapsResponse() async throws {
     let client = CrewRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"id":"flg_1","festivalId":"fst_1","name":"친구들","ownerId":"usr_1","members":[{"userId":"usr_1","nickname":"로이","joinedAt":"2026-10-21T01:00:00.000Z"}],"inviteCode":"K7P2QX","inviteExpiresAt":"2026-10-23T01:00:00.000Z"}}"#)
-    let repository = makeRepository(client: client, sessionID: sessionID)
+    let repository = makeRepository(
+      client: client,
+      sessionID: sessionID
+    )
 
-    let crew = try await repository.create(festivalID: "fst_1", name: "친구들", nickname: nil)
+    let crew = try await repository.create(
+      festivalID: "fst_1",
+      name: "친구들",
+      nickname: nil
+    )
     #expect(crew.id == "flg_1")
     #expect(crew.members.map(\.nickname) == ["로이"])
     let sent = try #require(await client.sent)
@@ -28,9 +35,16 @@ struct FestivalCrewRepositoryTests {
 
   @Test func refusesRequestWithoutSession() async {
     let client = CrewRecordingClient(json: "")
-    let repository = makeRepository(client: client, sessionID: nil)
+    let repository = makeRepository(
+      client: client,
+      sessionID: nil
+    )
     await #expect(throws: FestivalCrewError.unauthenticated) {
-      try await repository.create(festivalID: "fst_1", name: "친구들", nickname: nil)
+      try await repository.create(
+        festivalID: "fst_1",
+        name: "친구들",
+        nickname: nil
+      )
     }
     #expect(await client.sent == nil)
   }
@@ -40,15 +54,32 @@ struct FestivalCrewRepositoryTests {
     (410, "FESTIVAL_ENDED", FestivalCrewError.festivalEnded),
     (403, "TERMS_REQUIRED", FestivalCrewError.termsRequired)
   ])
-  func mapsBackendErrors(status: Int, code: String, expected: FestivalCrewError) async {
-    let client = CrewRecordingClient(error: .response(.init(httpStatus: status, code: code)))
-    let repository = makeRepository(client: client, sessionID: sessionID)
+  func mapsBackendErrors(
+    status: Int,
+    code: String,
+    expected: FestivalCrewError
+  ) async {
+    let client = CrewRecordingClient(error: .response(.init(
+      httpStatus: status,
+      code: code
+    )))
+    let repository = makeRepository(
+      client: client,
+      sessionID: sessionID
+    )
     await #expect(throws: expected) {
-      try await repository.create(festivalID: "fst_1", name: "친구들", nickname: nil)
+      try await repository.create(
+        festivalID: "fst_1",
+        name: "친구들",
+        nickname: nil
+      )
     }
   }
 
-  private func makeRepository(client: CrewRecordingClient, sessionID: UUID?) -> FestivalCrewRepositoryImpl {
+  private func makeRepository(
+    client: CrewRecordingClient,
+    sessionID: UUID?
+  ) -> FestivalCrewRepositoryImpl {
     return withDependencies {
       $0.networkClient = client
       $0.authService = CrewAuthService(sessionID: sessionID)
@@ -70,22 +101,32 @@ private actor CrewRecordingClient: FestiCoreNetworkClient {
   private(set) var sent: Sent?
 
   init(json: String) {
-    result = .success(FestiCoreHTTPResponse(statusCode: 201, data: Data(json.utf8)))
+    result = .success(FestiCoreHTTPResponse(
+      statusCode: 201,
+      data: Data(json.utf8)
+    ))
   }
 
   init(error: FestiCoreNetworkError) { result = .failure(error) }
 
   func send<R: FestiCoreDataRequest, T: Decodable & Sendable>(
-    _ request: R, as type: T.Type
+    _ request: R,
+    as type: T.Type
   ) async throws(FestiCoreNetworkError) -> T {
     let response = try record(request)
-    do { return try JSONDecoder().decode(type, from: response.data) } catch {
+    do { return try JSONDecoder().decode(
+      type,
+      from: response.data
+    ) } catch {
       throw .decoding(.failed(error))
     }
   }
 
   func send<R: FestiCoreDataRequest>(_ request: R) async throws(FestiCoreNetworkError) -> R.Response {
-    return try await send(request, as: R.Response.self)
+    return try await send(
+      request,
+      as: R.Response.self
+    )
   }
 
   func sendResponse<R: FestiCoreDataRequest>(
@@ -104,7 +145,9 @@ private actor CrewRecordingClient: FestiCoreNetworkClient {
 
   private func record<R: FestiCoreDataRequest>(_ request: R) throws(FestiCoreNetworkError) -> FestiCoreHTTPResponse {
     sent = Sent(
-      path: request.path, method: request.method.rawValue, authorization: request.authorization,
+      path: request.path,
+      method: request.method.rawValue,
+      authorization: request.authorization,
       body: try? request.asURLRequest(baseURL: URL(string: "https://festicore.test")!).httpBody
     )
     return try result.get()
@@ -125,14 +168,20 @@ private struct CrewAuthService: AuthService {
   var hasPendingSignOutCleanup: Bool { get async { return false } }
   var hasPendingWithdrawalAuthorizationCleanup: Bool { get async { return false } }
   var hasPendingWithdrawalCleanup: Bool { get async { return false } }
-  func stageSession(accessToken: String, refreshToken: String) async -> UUID { return UUID() }
+  func stageSession(
+    accessToken: String,
+    refreshToken: String
+  ) async -> UUID { return UUID() }
   func commitSession(_ id: UUID) async -> Bool { return false }
   func discardSession(_ id: UUID) async -> Bool { return false }
   func signOut(ifSession id: UUID) async -> Bool { return false }
   func rememberUserID(_ userID: String) async {}
   func signOut() async -> Bool { return false }
   func signOut(ifSessionIDMatches sessionID: UUID) async -> Bool { return false }
-  func prepareRevocation(_ kind: AuthRevocationKind, ifSessionIDMatches sessionID: UUID) async -> Bool { return false }
+  func prepareRevocation(
+    _ kind: AuthRevocationKind,
+    ifSessionIDMatches sessionID: UUID
+  ) async -> Bool { return false }
   func finishRevocationRequest() async {}
   func confirmSignOut() async -> Bool { return false }
   func confirmWithdrawalAuthorizationRejected() async -> Bool { return false }

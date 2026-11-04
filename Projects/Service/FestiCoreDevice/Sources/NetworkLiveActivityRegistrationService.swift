@@ -62,7 +62,10 @@ struct LiveActivityRegistrationRequest: FestiCoreDataRequest {
   var headers: HTTPHeaders {
     var headers: HTTPHeaders = ["X-Device-Id": deviceAuthorization.deviceID]
     if let token = deviceAuthorization.bearerToken {
-      headers.add(name: "Authorization", value: "Bearer \(token)")
+      headers.add(
+        name: "Authorization",
+        value: "Bearer \(token)"
+      )
     }
     return headers
   }

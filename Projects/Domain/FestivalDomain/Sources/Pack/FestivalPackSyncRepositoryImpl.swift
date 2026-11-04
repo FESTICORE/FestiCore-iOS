@@ -2,6 +2,7 @@ import Dependencies
 import FestiCorePackInterface
 import FestivalDomainInterface
 
+/// 공용 팩 서비스의 캐시·다운로드·변경 스트림을 도메인에 전달한다.
 public struct FestivalPackSyncRepositoryImpl: FestivalPackSyncRepositoryInterface {
   @Dependency(\.packSyncService) private var packService
 

@@ -25,11 +25,18 @@ public struct FestivalCatalogUseCaseImpl: FestivalCatalogUseCaseInterface {
     try await catalogRepository.refreshFestivals()
   }
 
+  public func festivalDetail(for festivalID: String) async throws -> FestivalPackDocument {
+    return try await catalogRepository.festivalDetail(for: festivalID)
+  }
+
   public func festivalPage(
     after: String?,
     limit: Int
   ) async throws -> FestivalCatalogPage {
-    return try await catalogRepository.festivalPage(after: after, limit: limit)
+    return try await catalogRepository.festivalPage(
+      after: after,
+      limit: limit
+    )
   }
 
   /// 마지막 선택 축제 ID를 기기에서 읽는다.

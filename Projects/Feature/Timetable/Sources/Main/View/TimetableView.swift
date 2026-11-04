@@ -51,9 +51,6 @@ public struct TimetableView: View {
     }
     .frame(maxHeight: .infinity, alignment: .top)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
-    .fullScreenCover(item: $store.scope(state: \.destination?.schedulePick, action: \.destination.schedulePick)) { pickStore in
-      SchedulePickView(store: pickStore)
-    }
   }
 }
 

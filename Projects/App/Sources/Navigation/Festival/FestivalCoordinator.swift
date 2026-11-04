@@ -1,9 +1,15 @@
 import ComposableArchitecture
+import CoreAssembly
 import FeatureAssembly
+import FestivalDomainInterface
 import TCAFlow
 
 @FlowCoordinator(screen: "FestivalScreen", navigation: true)
 struct FestivalCoordinator {
+  @Dependency(\.festivalPackUseCase) private var packUseCase
+  @Dependency(\.continuousClock) private var clock
+  private enum CancelID { case widgetLink, widgetLookupToast }
+
   @ObservableState
   struct State: Equatable {
     var routes: [Route<FestivalScreen.State>]
@@ -37,6 +43,12 @@ struct FestivalCoordinator {
     case reloadBookmarks(userID: String?)
     case reloadCachedPacks
     case bookmarkSaved(id: String, booked: Bool)
+    case showFestivalList
+    case openWidgetFestival(String)
+    case widgetPackValidated(id: String, available: Bool)
+    case widgetPackLookupFailed
+    case widgetPackLookupToastExpired(Int)
+    case foregrounded
     case backgrounded
     case accountChanged
     case sessionChanged(hasSession: Bool, userID: String?)
@@ -85,7 +97,10 @@ struct FestivalCoordinator {
       state.routes.push(.notificationInbox(.init()))
       return .none
 
-    case .router(.routeAction(id: _, action: .liveBoard(.delegate(.flagTabRequested)))):
+    case .router(.routeAction(
+      id: _,
+      action: .liveBoard(.delegate(.flagTabRequested))
+    )):
       return .send(.delegate(.flagTabRequested))
 
     case .router(.routeAction(id: _, action: .notificationInbox(.delegate(.backRequested)))):
@@ -135,17 +150,35 @@ struct FestivalCoordinator {
          .router(.routeAction(id: _, action: .liveBoard(.delegate(.loginRequested)))):
       return .send(.delegate(.loginRequested))
 
-    case .router(.routeAction(id: _, action: .liveBoard(.delegate(.crewLoginRequested)))):
+    case .router(.routeAction(
+      id: _,
+      action: .liveBoard(.delegate(.crewLoginRequested))
+    )):
       return .send(.delegate(.crewLoginRequested))
 
-    case .router(.routeAction(id: _, action: .liveBoard(.delegate(.followLoginRequested)))):
+    case .router(.routeAction(
+      id: _,
+      action: .liveBoard(.delegate(.followLoginRequested))
+    )):
       return .send(.delegate(.followLoginRequested))
 
-    case .router(.routeAction(id: _, action: .liveBoard(.delegate(.flagDirectoryRequested)))):
+    case .router(.routeAction(
+      id: _,
+      action: .liveBoard(.delegate(.flagDirectoryRequested))
+    )):
       return .send(.delegate(.flagDirectoryRequested))
 
-    case let .router(.routeAction(id: _, action: .liveBoard(.delegate(.packDirectionsRequested(festivalID, title))))):
-      return .send(.delegate(.packDirectionsRequested(festivalID: festivalID, title: title)))
+    case let .router(.routeAction(
+      id: _,
+      action: .liveBoard(.delegate(.packDirectionsRequested(
+        festivalID,
+        title
+      )))
+    )):
+      return .send(.delegate(.packDirectionsRequested(
+        festivalID: festivalID,
+        title: title
+      )))
 
     case let .reloadBookmarks(userID):
       return broadcast(state, .view(.reloadBookmarks(userID: userID)))
@@ -162,6 +195,126 @@ struct FestivalCoordinator {
       case .bearerBoard, .notificationInbox: return .none
       }
       return .send(.router(.routeAction(id: index, action: action)))
+
+    case .showFestivalList:
+      state.routes.removeAll { !$0.screen.is(\.festivalList) }
+      return .cancel(id: CancelID.widgetLink)
+
+    case let .openWidgetFestival(id):
+      return .run { send in
+        do {
+          let packs = try await packUseCase.cachedPacks()
+          let available = packs.contains { $0.festivalID == id }
+          guard !Task.isCancelled else { return }
+          await send(.widgetPackValidated(
+            id: id,
+            available: available
+          ))
+        } catch {
+          guard !Task.isCancelled else { return }
+          FestiCoreLogger.error(
+            "위젯 축제 팩 조회 실패",
+            category: .app
+          )
+          await send(.widgetPackLookupFailed)
+        }
+      }
+      .cancellable(
+        id: CancelID.widgetLink,
+        cancelInFlight: true
+      )
+
+    case let .widgetPackValidated(
+      id,
+      available
+    ):
+      state.routes.removeAll { !$0.screen.is(\.festivalList) }
+      guard available else { return .none }
+      return .send(.router(.routeAction(
+        id: 0,
+        action: .festivalList(.view(.selectFestival(id)))
+      )))
+
+    case .widgetPackLookupFailed:
+      guard let index = state.routes.lastIndex(where: {
+        $0.screen.is(\.festivalList) || $0.screen.is(\.liveBoard)
+      }) else { return .none }
+      let revision: Int
+      switch state.routes[index].screen {
+      case var .festivalList(list):
+        list.toast = .packDownloadFailed
+        list.toastRevision += 1
+        revision = list.toastRevision
+        state.routes[index].screen = .festivalList(list)
+      case var .liveBoard(board):
+        board.toast = .packDownloadFailed
+        board.toastRevision += 1
+        revision = board.toastRevision
+        state.routes[index].screen = .liveBoard(board)
+      case .bearerBoard, .notificationInbox:
+        return .none
+      }
+      return .run { send in
+        try await clock.sleep(for: .seconds(2))
+        await send(.widgetPackLookupToastExpired(revision))
+      }
+      .cancellable(
+        id: CancelID.widgetLookupToast,
+        cancelInFlight: true
+      )
+
+    case let .widgetPackLookupToastExpired(revision):
+      guard let index = state.routes.lastIndex(where: {
+        $0.screen.is(\.festivalList) || $0.screen.is(\.liveBoard)
+      }) else { return .none }
+      switch state.routes[index].screen {
+      case var .festivalList(list) where list.toastRevision == revision:
+        list.toast = nil
+        state.routes[index].screen = .festivalList(list)
+      case var .liveBoard(board) where board.toastRevision == revision:
+        board.toast = nil
+        state.routes[index].screen = .liveBoard(board)
+      case .festivalList, .liveBoard, .bearerBoard, .notificationInbox:
+        break
+      }
+      return .none
+
+    case .foregrounded:
+      let targets = state.routes.enumerated().compactMap { index, route -> (Int, Bool)? in
+        switch route.screen {
+        case .festivalList:
+          return (
+            index,
+            true
+          )
+        case .liveBoard:
+          return (
+            index,
+            false
+          )
+        case .bearerBoard, .notificationInbox: return nil
+        }
+      }
+      return .run { @MainActor send in
+        for target in targets {
+          let action: FestivalScreen.Action = target.1
+            ? .festivalList(.view(.foregroundChanged(true)))
+            : .liveBoard(.view(.foregroundChanged(true)))
+          await send(.router(.routeAction(
+            id: target.0,
+            action: action
+          )))
+        }
+        for target in targets {
+          let action: FestivalScreen.Action = target.1
+            ? .festivalList(.view(.liveActivityOnAppear))
+            : .liveBoard(.view(.liveActivityOnAppear))
+          await send(.router(.routeAction(
+            id: target.0,
+            action: action
+          )))
+        }
+      }
 
     case .backgrounded:
       return broadcast(state, .view(.backgrounded))

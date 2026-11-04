@@ -63,7 +63,6 @@ public struct FCFestivalCard<Media: View>: View {
         .clipped()
         // 채우기 이미지가 넘친 만큼 터치 영역이 커지지 않게 미디어 영역으로 제한한다.
         .contentShape(Rectangle())
-        .opacity(mediaOpacity)
         .overlay { mediaDim }
         .overlay(alignment: .topTrailing) { bookmarkButton }
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
@@ -212,12 +211,6 @@ private extension FCFestivalCard {
     .buttonStyle(.plain)
   }
 
-  /// Figma S00: 오픈 예정은 이미지 50% 불투명
-  private var mediaOpacity: Double {
-    if case .upcoming = status { return Metric.upcomingMediaOpacity }
-    return 1
-  }
-
   /// Figma S00: 마감은 이미지 위에 Static/Black 60% 레이어
   @ViewBuilder
   private var mediaDim: some View {
@@ -288,7 +281,6 @@ public extension FCFestivalCard {
 
 private enum Metric {
   static let mediaHeight: CGFloat = 140
-  static let upcomingMediaOpacity = 0.5
   static let bookmarkSize: CGFloat = 36
   static let bookmarkIconSize: CGFloat = 20
   static let iconSize: CGFloat = 16

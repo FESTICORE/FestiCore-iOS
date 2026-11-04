@@ -11,6 +11,7 @@ import WidgetKit
 @main
 struct FestiCoreLiveActivityBundle: WidgetBundle {
   var body: some Widget {
+    FestiCoreFestivalWidget()
     FestiCoreFestivalActivityWidget()
   }
 }

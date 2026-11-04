@@ -19,7 +19,10 @@ struct DeviceNotificationSettingsTests {
     let sessionID = UUID()
     let request = DeviceNotificationSettingsRequest(
       operation: .fetch,
-      deviceAuthorization: DeviceAuthorization(deviceID: "device-a", sessionID: sessionID)
+      deviceAuthorization: DeviceAuthorization(
+        deviceID: "device-a",
+        sessionID: sessionID
+      )
     )
 
     #expect(request.authorization == .sessionBound(sessionID))

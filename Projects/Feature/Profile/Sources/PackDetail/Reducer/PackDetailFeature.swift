@@ -403,7 +403,10 @@ extension PackDetailFeature {
       state.isDeleting = true
       // 확인 팝업이 떠 있는 동안 시작한 업데이트가 지운 팩을 다시 받지 않게 멈춘다.
       state.isUpdating = false
-      return .concatenate(.cancel(id: CancelID.update), .send(.async(.delete)))
+      return .run { send in
+        Task.cancel(id: CancelID.update)
+        await send(.async(.delete))
+      }
 
     case .presented(.alert(.cancelTapped)):
       state.destination = nil

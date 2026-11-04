@@ -110,7 +110,7 @@ struct OverlayView: View {
         )
       }
     }
-    .presentFCSheet(item: $sheet) { sheet in
+    .fcModal(item: $sheet) { sheet in
       switch sheet {
       case .report:
         FCReportSheet(

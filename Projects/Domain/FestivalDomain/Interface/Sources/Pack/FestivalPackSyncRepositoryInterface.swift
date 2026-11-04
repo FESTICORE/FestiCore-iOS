@@ -25,6 +25,7 @@ extension DependencyValues {
   }
 }
 
+/// 팩 저장소를 주입하지 않은 테스트 호출을 오류로 알린다.
 private struct UnregisteredFestivalPackSyncRepository: FestivalPackSyncRepositoryInterface {
   func cachedPacks() async throws -> [CachedFestivalPack] {
     reportIssue("festivalPackSyncRepository.cachedPacks 미등록")

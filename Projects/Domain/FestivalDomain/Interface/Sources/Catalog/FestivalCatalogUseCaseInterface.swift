@@ -13,6 +13,7 @@ public protocol FestivalCatalogUseCaseInterface: Sendable {
   func cachedFestivals() async throws -> [FestivalCatalogItem]
   /// 서버에서 축제 목록을 다시 받는다.
   func refreshFestivals() async throws -> [FestivalCatalogItem]
+  func festivalDetail(for festivalID: String) async throws -> FestivalPackDocument
   func festivalPage(
     after: String?,
     limit: Int
@@ -24,11 +25,17 @@ public protocol FestivalCatalogUseCaseInterface: Sendable {
 }
 
 public extension FestivalCatalogUseCaseInterface {
+  func festivalDetail(for festivalID: String) async throws -> FestivalPackDocument {
+    throw FestivalUseCaseNotRegistered()
+  }
   func festivalPage(
     after: String?,
     limit: Int
   ) async throws -> FestivalCatalogPage {
-    return FestivalCatalogPage(items: try await refreshFestivals(), nextCursor: nil)
+    return FestivalCatalogPage(
+      items: try await refreshFestivals(),
+      nextCursor: nil
+    )
   }
 }
 

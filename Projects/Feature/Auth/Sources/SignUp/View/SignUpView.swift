@@ -1,17 +1,16 @@
 //
 //  SignUpView.swift
-//  Login
+//  Auth
 //
 //  Created by FestiCore on 11/2/26.
 //
 
 import AuthDomainInterface
+import AuthInterface
 import ComposableArchitecture
 import FestiCoreDesignKit
-import AuthInterface
 import SwiftUI
 import UIKit
-import Web
 
 /// Figma S14-2 가입 정보(닉네임·약관 동의)
 @ViewAction(for: SignUpFeature.self)
@@ -23,21 +22,17 @@ public struct SignUpView: View {
   }
 
   public var body: some View {
-    NavigationStack {
-      content
-        .toolbar(.hidden, for: .navigationBar)
-        .navigationDestination(
-          item: $store.scope(state: \.destination?.legalDocument, action: \.destination.legalDocument)
-        ) { webStore in
-          WebView(store: webStore)
-            .toolbar(.hidden, for: .navigationBar)
-        }
-    }
+    content()
+      .toolbar(
+        .hidden,
+        for: .navigationBar
+      )
   }
 }
 
 private extension SignUpView {
-  var content: some View {
+  @ViewBuilder
+  func content() -> some View {
     VStack(spacing: .zero) {
       FCTopBar(.back)
         .onBack { send(.closeTapped) }
@@ -74,10 +69,16 @@ private extension SignUpView {
       .padding(.top, FestiCoreSpacing.paddingP12)
       .padding(.bottom, FestiCoreSpacing.paddingP8)
     }
-    .padding(.bottom, store.keyboardInset)
+    .padding(
+      .bottom,
+      store.keyboardInset
+    )
     .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
       guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-      send(.keyboardFrameChanged(minY: frame.minY, screenHeight: UIScreen.main.bounds.height))
+      send(.keyboardFrameChanged(
+        minY: frame.minY,
+        screenHeight: UIScreen.main.bounds.height
+      ))
     }
     .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
       send(.keyboardHidden)
