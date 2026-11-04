@@ -49,6 +49,7 @@ struct MainTabCoordinator {
       switch selectedTab {
       case .live:
         return festivalState.routes.count == 1 || isNotificationInboxOnTop
+          || festivalState.routes.last?.screen.liveBoard?.alert != nil
       case .timetable:
         return timetableState.setDetail != nil
       case .my:
@@ -141,6 +142,9 @@ struct MainTabCoordinator {
 
       case .festival(.delegate(.loginRequested)):
         return .send(.delegate(.myLoginRequested))
+
+      case .festival(.delegate(.flagTabRequested)):
+        return .send(.selectTab(.flag))
 
       case .festival:
         switch state.selectedTab {

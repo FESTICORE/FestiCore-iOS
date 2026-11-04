@@ -46,6 +46,7 @@ struct FestivalCoordinator {
   enum Delegate {
     case bookmarkRequested(String)
     case loginRequested
+    case flagTabRequested
   }
 
   func handleRoute(state: inout State, action: Action) -> Effect<Action> {
@@ -72,6 +73,9 @@ struct FestivalCoordinator {
       guard !state.routes.contains(where: { $0.screen.is(\.notificationInbox) }) else { return .none }
       state.routes.push(.notificationInbox(.init()))
       return .none
+
+    case .router(.routeAction(id: _, action: .liveBoard(.delegate(.flagTabRequested)))):
+      return .send(.delegate(.flagTabRequested))
 
     case .router(.routeAction(id: _, action: .notificationInbox(.delegate(.backRequested)))):
       state.routes.goBack()
