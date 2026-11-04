@@ -169,6 +169,22 @@ Point-Free Dependencies를 사용합니다. `ServiceAssembly`가 네트워크·�
 
 화면 Reducer는 Interface만 import해 `@Dependency(\.authUseCase)`로 유스케이스를 받고, 테스트는 `TestStore`나 `withDependencies`에서 해당 값을 대역으로 교체합니다. 모듈별 경계와 테스트 규칙은 [의존성 주입 문서](docs/agent/dependency-injection.md)를 참고하세요.
 
+### 화면과 데이터 경계
+
+화면은 Attendance와 같은 방향으로 `View → @Reducer → UseCase Interface → UseCase 구현`을 따릅니다. 공지·팩 상세처럼 Repository가 있는 기능은 여기서 `Repository Interface → Repository 구현 → APIEndpoint · Network Interface`로 이어집니다. S00 목록은 `FestiCoreFestivalCatalog` 서비스의 요청 클라이언트·파일 캐시를, 팩 받기는 `FestiCorePack` 서비스의 WebSocket·팩 캐시를 사용합니다. `FeatureAssembly`가 Feature와 Domain 구현을 연결하고, `ServiceAssembly`와 `CoreAssembly`가 공용 네트워크·인증·저장소 구현을 조립합니다. 실제 경로는 [화면과 데이터 흐름 도식](docs/architecture/feature-data-flow.mmd)에 표시했습니다.
+
+첫 실행에는 `AppCoordinator`가 Splash 이후 설치 기록에 따라 네 장의 온보딩 화면 또는 `MainTabCoordinator`를 표시합니다. 이용약관·개인정보 처리방침은 `Profile`과 가입 화면에서 `WebFeature`의 앱 내 `WKWebView`로 엽니다. 축제 카드의 예매 링크는 `FestivalView`의 시스템 `openURL`로 앱 밖에서 엽니다. 현재 코드는 Safari 앱을 직접 지정하지 않으므로 기기의 기본 브라우저 설정을 따릅니다.
+
+화면은 `FestiCoreDesignKit`의 컴포넌트를 사용합니다. S00 축제 카드는 `FCFestivalCard`에 `.pack`, `.booked`, `.ticketLink`를 체이닝하고, 목록을 읽는 동안 `FCSkeletonView`로 같은 카드 구조를 표시합니다. 빈 목록과 읽기 실패는 별도 상태로 표시합니다. 화면별 컴포넌트와 로딩·빈 상태·실패 상태는 구현할 때마다 확인합니다.
+
+### S00–S05 진행 상태
+
+| 범위 | 현재 확인된 상태 |
+| --- | --- |
+| S00 | 축제 목록·검색과 북마크 결과 토스트 코드가 있습니다. 디자인 대조와 실기기 검증은 진행 중입니다. |
+| S01 | 라이브 보드 알림함과 내 알림 API 연결 코드가 있습니다. 화면별 디자인 일치와 실기기 검증은 완료로 표시하지 않습니다. |
+| S02–S05 | 이 브랜치에서 화면별 디자인 일치와 실기기 검증 완료를 확인하지 않았습니다. |
+
 ## 기술 스택
 
 | 영역 | 기술 |

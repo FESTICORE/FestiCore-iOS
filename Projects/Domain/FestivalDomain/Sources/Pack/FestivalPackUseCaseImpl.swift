@@ -21,4 +21,8 @@ public struct FestivalPackUseCaseImpl: FestivalPackUseCaseInterface {
   public func packUpdates(for festivalID: String) -> AsyncThrowingStream<PackSyncResult, Error> {
     packService.updates(for: festivalID)
   }
+
+  public func downloadPack(for festivalID: String) -> AsyncThrowingStream<PackDownloadEvent, Error> {
+    packService.download(for: festivalID)
+  }
 }

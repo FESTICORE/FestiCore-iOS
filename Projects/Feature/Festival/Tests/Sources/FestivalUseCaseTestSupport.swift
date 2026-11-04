@@ -36,6 +36,9 @@ private struct ServiceBackedPackUseCase: FestivalPackUseCaseInterface {
   func packUpdates(for festivalID: String) -> AsyncThrowingStream<PackSyncResult, Error> {
     packService.updates(for: festivalID)
   }
+  func downloadPack(for festivalID: String) -> AsyncThrowingStream<PackDownloadEvent, Error> {
+    packService.download(for: festivalID)
+  }
 }
 
 private struct ServiceBackedLibraryUseCase: FestivalLibraryUseCaseInterface {

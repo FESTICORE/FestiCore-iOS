@@ -6,8 +6,21 @@ extension FestivalItemDTO {
     FestivalCatalogItem(
       id: id, name: name, venue: venue, firstDate: firstDate, lastDate: lastDate,
       thumbnailURL: imageURL, packVersion: packVersion, status: status,
-      ticketLinks: (ticketLinks?.items ?? []).compactMap(\.domain)
+      ticketLinks: (ticketLinks?.items ?? []).compactMap(\.domain),
+      artists: artists?.map(\.domain)
     )
+  }
+}
+
+extension FestivalCatalogArtistDTO {
+  var domain: FestivalCatalogArtist {
+    FestivalCatalogArtist(name: name, performances: performances.map(\.domain))
+  }
+}
+
+extension FestivalCatalogPerformanceDTO {
+  var domain: FestivalCatalogPerformance {
+    FestivalCatalogPerformance(startsAt: startsAt, date: date, stageName: stageName)
   }
 }
 

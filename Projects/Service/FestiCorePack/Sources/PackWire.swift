@@ -54,7 +54,8 @@ enum PackWire {
 
   static func chunkedPack(
     start: Message, socket: any PackSocket, requestID: String,
-    festivalID: String, timeoutNanoseconds: UInt64
+    festivalID: String, timeoutNanoseconds: UInt64,
+    onProgress: (@Sendable (PackDownloadProgress) -> Void)? = nil
   ) async throws -> (CachedFestivalPack, Bool) {
     guard let data = start.data,
           data["festivalId"] as? String == festivalID,
@@ -82,6 +83,7 @@ enum PackWire {
             part.count == min(chunkBytes, total - bytes.count),
             bytes.count + part.count <= total else { throw PackSyncError.invalidChunk }
       bytes.append(part)
+      onProgress?(PackDownloadProgress(receivedBytes: bytes.count, totalBytes: total))
     }
     let (complete, completeHint) = try await transferMessage(
       on: socket, festivalID: festivalID, timeoutNanoseconds: timeoutNanoseconds

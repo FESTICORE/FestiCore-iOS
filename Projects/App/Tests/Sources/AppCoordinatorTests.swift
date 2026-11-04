@@ -241,6 +241,7 @@ struct AppCoordinatorTests {
 
   @Test func offlineRestartRestoresAndSavesOnlyTheCurrentAccountsBookmarks() async {
     let box = BookmarkBox(ids: ["saved"])
+    let clock = TestClock()
     var home = MainTabCoordinator.State()
     home.authFlow.generation = 1
     home.authFlow.isLoading = true
@@ -248,6 +249,7 @@ struct AppCoordinatorTests {
     home.authFlow.pendingOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
+      $0.continuousClock = clock
       $0.festivalBookedStore = FestivalBookedStore(
         load: { userID in userID == "user-a" ? box.ids : [] },
         save: { ids, userID in if userID == "user-a" { box.ids = ids } },
@@ -1326,6 +1328,7 @@ struct AppCoordinatorTests {
 
   @Test func completedBookmarkSetsRequestedStateAfterMigration() async {
     let box = BookmarkBox(ids: ["festival"])
+    let clock = TestClock()
     let bookedStore = FestivalBookedStore(
       load: { _ in box.ids },
       save: { ids, _ in box.ids = ids }
@@ -1342,6 +1345,7 @@ struct AppCoordinatorTests {
       MainTabCoordinator()
     } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
+      $0.continuousClock = clock
       $0.festivalBookedStore = bookedStore
     }
     store.exhaustivity = .off

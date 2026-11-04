@@ -11,6 +11,7 @@ import SwiftUI
 public struct FCTabItem: View {
   private var label: String
   private var isSelected: Bool
+  private var indicatorColor = FestiCoreSemanticColor.labelNormal.color
 
   public init(
     _ label: String,
@@ -34,7 +35,7 @@ public struct FCTabItem: View {
         topLeadingRadius: Metric.indicatorRadius,
         topTrailingRadius: Metric.indicatorRadius
       )
-      .fill(isSelected ? FestiCoreSemanticColor.labelNormal.color : .clear)
+      .fill(isSelected ? indicatorColor : .clear)
       .frame(height: Metric.indicatorHeight)
     }
     .padding(.top, FestiCoreSpacing.paddingP12)
@@ -48,6 +49,13 @@ public extension FCTabItem {
   func isSelected(_ isSelected: Bool) -> Self {
     var copy = self
     copy.isSelected = isSelected
+    return copy
+  }
+
+  /// 선택된 밑줄 색을 바꾼 사본을 돌려준다.
+  func indicatorColor(_ color: Color) -> Self {
+    var copy = self
+    copy.indicatorColor = color
     return copy
   }
 }

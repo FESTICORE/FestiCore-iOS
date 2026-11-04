@@ -71,9 +71,11 @@ struct HomeOfflineTests {
       $0.connection = .cached
     }
     await store.receive(\.inner.catalogFailed) {
+      $0.catalogRefreshFailed = true
       $0.connection = .offline
       $0.imageRetryPending = true
     }
+    #expect(store.state.catalogRefreshFailed)
     #expect(store.state.selectedPack?.name == "오프라인 축제")
   }
 
@@ -96,6 +98,7 @@ struct HomeOfflineTests {
     }
     await store.receive(\.inner.catalogFailed) {
       $0.viewState = .loaded
+      $0.catalogRefreshFailed = true
       $0.connection = .offline
       $0.imageRetryPending = true
     }
@@ -127,6 +130,7 @@ struct HomeOfflineTests {
       $0.connection = .cached
     }
     await store.receive(\.inner.catalogFailed) {
+      $0.catalogRefreshFailed = true
       $0.connection = .offline
       $0.imageRetryPending = true
     }
@@ -174,6 +178,7 @@ struct HomeOfflineTests {
       $0.packWatchFailed = true
       $0.connection = .offline
     }
+    #expect(!store.state.catalogRefreshFailed, "팩 연결 실패는 목록 오류가 아니다")
     await store.send(.inner(.catalogRefreshed([]))) {
       $0.viewState = .loaded
       $0.packWatchFailed = false
@@ -362,15 +367,18 @@ struct HomeOfflineTests {
 
     await store.send(.inner(.catalogFailed)) {
       $0.viewState = .loaded
+      $0.catalogRefreshFailed = true
       $0.connection = .offline
       $0.imageRetryPending = true
     }
     await store.send(.inner(.catalogRefreshed([item]))) {
+      $0.catalogRefreshFailed = false
       $0.imageRevision = 1
       $0.imageRetryPending = false
       $0.imageURLs = [item.thumbnailURL!.absoluteString: item.thumbnailURL!]
       $0.connection = .unavailable
     }
+    #expect(!store.state.catalogRefreshFailed)
     await store.send(.inner(.catalogRefreshed([item])))
     #expect(store.state.imageRevision == 1)
   }
@@ -412,7 +420,10 @@ struct HomeOfflineTests {
     #expect(store.state.imageRevision == 0)
     #expect(await recorder.startCount() == 1)
 
-    await store.send(.inner(.catalogFailed)) { $0.viewState = .loaded }
+    await store.send(.inner(.catalogFailed)) {
+      $0.viewState = .loaded
+      $0.catalogRefreshFailed = true
+    }
     await store.send(.inner(.packReceived(pack.festivalID, .notModified(pack))))
     await store.finish()
     #expect(store.state.imageRevision == 0)

@@ -1,0 +1,36 @@
+flowchart LR
+  App["AppCoordinator<br/>Splash → first-install Onboarding → MainTabCoordinator"]
+  Assembly["FeatureAssembly"]
+  View["Feature View"]
+  Reducer["Feature @Reducer"]
+  UseCaseInterface["Domain UseCase Interface"]
+  UseCaseImpl["Domain UseCase implementation"]
+  RepositoryInterface["Domain Repository Interface"]
+  RepositoryImpl["Domain Repository implementation"]
+  CatalogService["S00 목록 · FestiCoreFestivalCatalog<br/>요청 클라이언트 · 파일 캐시"]
+  PackService["S00 팩 받기 · FestiCorePack<br/>WebSocket · 팩 캐시"]
+  Endpoint["APIEndpoint"]
+  Network["FestiCoreNetwork Interface"]
+  ServiceAssembly["ServiceAssembly · CoreAssembly"]
+  Design["FestiCoreDesignKit<br/>components · skeleton · popup"]
+  Web["WebFeature · WKWebView<br/>terms · privacy in app"]
+  Ticket["FestivalView openURL<br/>ticket link outside app"]
+
+  App --> Assembly
+  Assembly --> View
+  View -->|action · state| Reducer
+  Reducer -->|Dependency| UseCaseInterface
+  UseCaseInterface --> UseCaseImpl
+  UseCaseImpl -->|공지 · 팩 상세| RepositoryInterface
+  UseCaseImpl -->|축제 목록| CatalogService
+  UseCaseImpl -->|팩 받기| PackService
+  RepositoryInterface --> RepositoryImpl
+  RepositoryImpl --> Endpoint
+  RepositoryImpl --> Network
+  CatalogService --> Endpoint
+  CatalogService --> Network
+  PackService --> Network
+  ServiceAssembly --> Network
+  View --> Design
+  View -->|legal documents| Web
+  View -->|ticket link| Ticket

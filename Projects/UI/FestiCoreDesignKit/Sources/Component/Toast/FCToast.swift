@@ -25,6 +25,7 @@ public struct FCToast: View {
   }
 
   private var item: Item
+  private var iconColor = FestiCoreSemanticColor.staticWhite.color
 
   public init(_ item: Item) {
     self.item = item
@@ -35,6 +36,7 @@ public struct FCToast: View {
       Image(asset: item.icon)
         .resizable()
         .frame(width: Metric.iconSize, height: Metric.iconSize)
+        .foregroundStyle(iconColor)
         .accessibilityHidden(true)
       Text(item.message)
         .festiCoreFont(.baseFootnoteMedium)
@@ -44,6 +46,15 @@ public struct FCToast: View {
     .padding(.horizontal, FestiCoreSpacing.paddingP16)
     .background(FestiCoreSemanticColor.staticalphaBlack80.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
     .accessibilityElement(children: .combine)
+  }
+}
+
+public extension FCToast {
+  /// 아이콘 색을 바꾼 사본을 돌려준다.
+  func iconColor(_ color: Color) -> Self {
+    var copy = self
+    copy.iconColor = color
+    return copy
   }
 }
 

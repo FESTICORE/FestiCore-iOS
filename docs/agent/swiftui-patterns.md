@@ -30,6 +30,12 @@ extension LoginView {
 - 하위 `<화면>/Components` View만 원시 값을 받는다. 자식 화면에는 scope한 store를 넘긴다.
 - 타입 본문에는 저장 속성, 초기화, `body`만 둔다. 화면 섹션, 하위 뷰 빌더, UI 전용 계산 값과 액션 헬퍼는 같은 파일의 `extension`에 `private`로 둔다. 테스트가 접근하는 내부 헬퍼가 있으면 일반 `extension`에서 비공개 멤버에 각각 `private`를 붙인다. 외부에서 호출하는 체이닝 설정은 `public extension`에 둔다.
 
+## DesignKit 컴포넌트 설정
+
+- 컴포넌트 생성자에는 콘텐츠와 필수 액션만 둔다. 선택적 스타일·상태·동작은 `public extension`의 `func 설정(_ 값: 값타입) -> Self` 체이닝으로 제공한다.
+- 체이닝 함수는 `var copy = self`로 사본을 만들고 해당 속성만 바꾼 뒤 반환한다. 화면에서는 `FCTab(selection: $selection, items: items).indicatorColor(color)`처럼 조합한다.
+- 공용 컴포넌트의 기본값은 기존 화면을 유지하고, Figma 화면별 차이는 호출 화면에서 체이닝으로 지정한다. `FCTab`의 S00 라임색 밑줄과 `FCSearchResultRow`의 검색어 강조·임박 배지가 그 예다.
+
 ## 폴더
 
 - `Sources/<화면>/Reducer`, `Sources/<화면>/View`, `Sources/<화면>/Components`, `Sources/<화면>/Model`, `Sources/Accessibility/<모듈>AccessibilityID.swift`

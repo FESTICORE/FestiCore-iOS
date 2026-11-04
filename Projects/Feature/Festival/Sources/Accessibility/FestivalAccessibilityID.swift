@@ -8,6 +8,7 @@
 /// Festival 화면의 UI 테스트·접근성 식별자
 enum FestivalAccessibilityID {
   static let listSkeleton = "festivalListSkeleton"
+  static let searchSkeleton = "festivalSearchSkeleton"
   static let liveBoardSkeleton = "festivalLiveBoardSkeleton"
 
   static func card(_ festivalID: String) -> String {

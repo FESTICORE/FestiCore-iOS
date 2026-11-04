@@ -11,6 +11,7 @@ import SwiftUI
 public struct FCTab: View {
   @Binding private var selection: Int
   private var items: [String]
+  private var indicatorColor = FestiCoreSemanticColor.labelNormal.color
 
   public init(
     selection: Binding<Int>,
@@ -33,6 +34,7 @@ public struct FCTab: View {
               item,
               isSelected: isSelected
             )
+              .indicatorColor(indicatorColor)
               .frame(maxWidth: .infinity)
               .contentShape(Rectangle())
           }
@@ -50,6 +52,13 @@ public extension FCTab {
   func items(_ items: [String]) -> Self {
     var copy = self
     copy.items = items
+    return copy
+  }
+
+  /// 선택된 탭의 밑줄 색을 바꾼 사본을 돌려준다.
+  func indicatorColor(_ color: Color) -> Self {
+    var copy = self
+    copy.indicatorColor = color
     return copy
   }
 }

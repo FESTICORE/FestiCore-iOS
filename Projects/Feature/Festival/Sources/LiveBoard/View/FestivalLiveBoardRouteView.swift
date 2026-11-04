@@ -57,6 +57,13 @@ public struct FestivalLiveBoardRouteView: View {
           .background(FestiCoreSemanticColor.backgroundNormal.color)
       }
     }
+    .overlay(alignment: .bottom) {
+      if let toast = store.toast {
+        FestivalToastView(toast: toast, revision: store.toastRevision)
+      }
+    }
+    .animation(.easeOut(duration: 0.2), value: store.toastRevision)
+    .animation(.easeOut(duration: 0.2), value: store.toast)
     .task {
       send(.onAppear)
       send(.liveActivityOnAppear)

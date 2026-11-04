@@ -23,6 +23,31 @@ struct FestivalListPresentationTests {
     ).isEmpty)
   }
 
+  @Test func searchMatchesCaseDiacriticsAndFullWidthCharacters() {
+    let festivals = [festival(id: "one", name: "Ｃａｆé Festival", venue: "서울")]
+    #expect(FestivalListPresentation.visible(festivals, query: "cafe", bookedIDs: [], onlyBooked: false).map(\.id) == ["one"])
+    #expect(FestivalListPresentation.visible(festivals, query: "ＣＡＦＥ", bookedIDs: [], onlyBooked: false).map(\.id) == ["one"])
+  }
+
+  @Test func artistSearchUsesServerProjectionAndKeepsFestivalResultSeparate() {
+    let item = FestivalCatalogItem(
+      id: "one", name: "원더리벳", venue: "고양", packVersion: 1,
+      artists: [FestivalCatalogArtist(name: "삼보마스터", performances: [
+        FestivalCatalogPerformance(startsAt: "2026-11-21T09:00:00Z", date: "2026-11-21", stageName: "리벳 스테이지")
+      ])]
+    )
+    let festival = FestivalOverview(item: item, isCached: false)
+
+    #expect(FestivalListPresentation.visible([festival], query: "삼보", bookedIDs: [], onlyBooked: false).isEmpty)
+    let matches = FestivalListPresentation.matchingArtists([festival], query: "삼보")
+    #expect(matches.map(\.artist.name) == ["삼보마스터"])
+    #expect(matches.map(\.festival.id) == ["one"])
+    #expect(FestivalListPresentation.artistMeta(matches[0], now: utc("2026-11-01T03:00:00Z"))
+      == "원더리벳 · 11/21(토) 리벳 스테이지")
+    #expect(FestivalListPresentation.matchingArtists([festival], query: " ").isEmpty)
+    #expect(FestivalOverview(item: FestivalCatalogItem(id: "old", name: "옛 데이터", packVersion: 1), isCached: false).artists == nil)
+  }
+
   @Test func dDayLiveAndEndedUseKoreanCalendarDays() {
     let festival = festival(
       id: "one", name: "공연", venue: nil,
@@ -60,6 +85,12 @@ struct FestivalListPresentationTests {
     #expect(FestivalListPresentation.cardStatus(
       for: festival(id: "end", firstDate: "2026-10-01", lastDate: "2026-10-02", status: "discovered"), now: now
     ) == .ended)
+    #expect(FestivalListPresentation.searchBadge(
+      for: festival(id: "soon", firstDate: "2026-11-02", status: "discovered"), now: now
+    ) == "오픈 예정")
+    #expect(FestivalListPresentation.searchBadge(
+      for: festival(id: "end", firstDate: "2026-10-01", lastDate: "2026-10-02"), now: now
+    ) == nil)
   }
 
   @Test func pastLastDateEndsFestivalEvenWithoutValidFirstDate() {

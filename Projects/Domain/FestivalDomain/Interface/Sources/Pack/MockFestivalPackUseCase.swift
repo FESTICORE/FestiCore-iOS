@@ -12,6 +12,7 @@ import FestiCorePackInterface
 public struct MockFestivalPackUseCase: FestivalPackUseCaseInterface {
   private let cachedPacksHandler: @Sendable () async throws -> [CachedFestivalPack]
   private let packUpdatesHandler: @Sendable (String) -> AsyncThrowingStream<PackSyncResult, Error>
+  private let downloadPackHandler: @Sendable (String) -> AsyncThrowingStream<PackDownloadEvent, Error>
 
   public init(
     cachedPacks: @escaping @Sendable () async throws -> [CachedFestivalPack] = {
@@ -21,10 +22,15 @@ public struct MockFestivalPackUseCase: FestivalPackUseCaseInterface {
     packUpdates: @escaping @Sendable (String) -> AsyncThrowingStream<PackSyncResult, Error> = { _ in
       reportIssue("festivalPackUseCase.packUpdates 미등록")
       return AsyncThrowingStream { $0.finish(throwing: FestivalUseCaseNotRegistered()) }
+    },
+    downloadPack: @escaping @Sendable (String) -> AsyncThrowingStream<PackDownloadEvent, Error> = { _ in
+      reportIssue("festivalPackUseCase.downloadPack 미등록")
+      return AsyncThrowingStream { $0.finish(throwing: FestivalUseCaseNotRegistered()) }
     }
   ) {
     self.cachedPacksHandler = cachedPacks
     self.packUpdatesHandler = packUpdates
+    self.downloadPackHandler = downloadPack
   }
 
   public func cachedPacks() async throws -> [CachedFestivalPack] {
@@ -33,5 +39,9 @@ public struct MockFestivalPackUseCase: FestivalPackUseCaseInterface {
 
   public func packUpdates(for festivalID: String) -> AsyncThrowingStream<PackSyncResult, Error> {
     packUpdatesHandler(festivalID)
+  }
+
+  public func downloadPack(for festivalID: String) -> AsyncThrowingStream<PackDownloadEvent, Error> {
+    downloadPackHandler(festivalID)
   }
 }

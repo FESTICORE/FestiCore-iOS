@@ -19,6 +19,7 @@ public struct FestivalFeature {
     public var viewState: ViewState = .loading
     public var catalog: IdentifiedArrayOf<FestivalCatalogItem> = []
     public var cachedPacks: [String: CachedFestivalPack] = [:]
+    public var packDownloads: [String: PackDownloadStatus] = [:]
     public var imageURLs: [String: URL] = [:]
     public var imageRevision = 0
     public var imageRetryPending = false
@@ -27,8 +28,9 @@ public struct FestivalFeature {
     public var bookedFestivalIDs: Set<String> = []
     public var bookedUserID: String?
     public var recentSearches: [String] = []
-    /// 목록 하단에 2초 동안 보이는 안내
-    public var toast: String?
+    /// 화면 하단에 2초 동안 보이는 안내. 같은 종류도 다시 표시할 수 있게 revision을 올린다.
+    public var toast: Toast?
+    public var toastRevision = 0
     public var selectedPack: FestivalPackDocument?
     public var liveBoard: FestivalLiveBoardSnapshot?
     public var liveBoardUnavailable = false
@@ -54,6 +56,7 @@ public struct FestivalFeature {
     public var hasStarted = false
     public var isForeground = true
     public var catalogCacheReadFailed = false
+    public var catalogRefreshFailed = false
     public var packCacheReadFailed = false
     var liveActivities: [String: FestivalLiveActivityRecord] = [:]
     var liveActivityReady = false
@@ -144,6 +147,7 @@ public struct FestivalFeature {
 
     /// 로그아웃·인증 상실 때 이전 계정의 라이브 보드와 예약 목록을 비운다.
     public mutating func clearAccountData() {
+      toast = nil
       liveBoard = nil
       liveBoardUnavailable = false
       liveBoardUnpublished = false
@@ -173,6 +177,17 @@ public struct FestivalFeature {
     case unavailable
   }
 
+  public enum Toast: Equatable {
+    case bookmarked
+    case unbookmarked
+    case ticketLinkMissing
+    case packDownloadFailed
+  }
+
+  public enum PackDownloadStatus: Equatable {
+    case downloading(PackDownloadProgress?)
+  }
+
   struct LiveActivityControlState: Equatable {
     let title: String
     let isEnabled: Bool
@@ -192,10 +207,13 @@ public struct FestivalFeature {
   public enum View: Equatable {
     case onAppear
     case foregroundChanged(Bool)
+    case backgrounded
     case refreshRequested
     case selectFestival(String)
     case backToFestivalList
     case toggleBookedFestival(String)
+    case downloadPack(String)
+    case bookmarkSaved(id: String, booked: Bool)
     case recentSearchSubmitted(String)
     case recentSearchRemoved(String)
     case recentSearchesCleared
@@ -225,6 +243,7 @@ public struct FestivalFeature {
     case resumeForeground
     case prefetchImages
     case selectedFestivalChanged(String)
+    case downloadPack(String, generation: Int)
     case startLiveActivities
     case startLiveBoard
     case loadMySchedule
@@ -244,6 +263,10 @@ public struct FestivalFeature {
     case catalogFailed
     case packReceived(String, PackSyncResult)
     case packFailed(String)
+    case packDownloadProgress(String, generation: Int, PackDownloadProgress)
+    case packDownloadReset(String, generation: Int)
+    case packDownloadFinished(String, generation: Int, PackSyncResult)
+    case packDownloadFailed(String, generation: Int)
     case liveActivitiesLoaded([FestivalLiveActivityRecord], Int)
     case liveActivityStarted(FestivalLiveActivityRecord)
     case liveActivityUpdated(FestivalLiveActivityRecord)
@@ -265,6 +288,7 @@ public struct FestivalFeature {
     case liveBoard, mySchedule, notificationUnreadCount, notificationMarkRead, toast
   }
   private struct LiveActivitySyncID: Hashable { let id: String }
+  private struct PackDownloadID: Hashable { let id: String }
 
   @Dependency(\.festivalCatalogUseCase) private var catalogUseCase
   @Dependency(\.festivalPackUseCase) private var packUseCase
@@ -331,6 +355,11 @@ extension FestivalFeature {
         .send(.async(.prefetchImages))
       )
 
+    case .backgrounded:
+      let downloadCancels = state.packDownloads.keys.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) }
+      state.packDownloads = [:]
+      return .merge(downloadCancels)
+
     case .refreshRequested:
       state.packWatchFailed = false
       return .send(.async(.refresh))
@@ -358,6 +387,23 @@ extension FestivalFeature {
     case let .toggleBookedFestival(id):
       guard state.festivals.contains(where: { $0.id == id }) else { return .none }
       return .send(.delegate(.bookmarkRequested(id)))
+
+    case let .downloadPack(id):
+      guard state.isForeground,
+            state.bookedFestivalIDs.contains(id),
+            state.packDownloads[id] == nil,
+            let festival = state.festivals.first(where: { $0.id == id }),
+            festival.packVersion > 0,
+            (festival.cachedPackVersion ?? -1) < festival.packVersion,
+            FestivalListPresentation.timing(for: festival, now: date.now) != .ended,
+            !FestivalListPresentation.isOpeningSoon(festival) else { return .none }
+      state.packDownloads[id] = .downloading(nil)
+      return .send(.async(.downloadPack(id, generation: state.accountGeneration)))
+
+    case let .bookmarkSaved(_, booked):
+      state.toast = booked ? .bookmarked : .unbookmarked
+      state.toastRevision += 1
+      return .send(.async(.expireToast))
 
     case let .recentSearchSubmitted(query):
       state.recentSearches = libraryUseCase.addRecentSearch(query, for: state.bookedUserID)
@@ -426,34 +472,41 @@ extension FestivalFeature {
       return .none
 
     case .ticketLinkMissing:
-      state.toast = "예매처 정보가 없습니다"
+      state.toast = .ticketLinkMissing
+      state.toastRevision += 1
       return .send(.async(.expireToast))
 
     case let .reloadBookmarks(userID):
       state.bookedUserID = userID
       state.bookedFestivalIDs = userID.map { libraryUseCase.bookedFestivalIDs(for: $0) } ?? []
       state.recentSearches = libraryUseCase.recentSearches(for: userID)
-      return .none
+      // 프로필 재조회 중의 nil은 확정된 예약 해제가 아니므로 전송을 유지한다.
+      guard userID != nil else { return .none }
+      let removed = state.packDownloads.keys.filter { !state.bookedFestivalIDs.contains($0) }
+      removed.forEach { state.packDownloads.removeValue(forKey: $0) }
+      return .merge(removed.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) })
 
     case .accountChanged:
       // 같은 로그아웃 전환의 `sessionChanged`가 먼저 처리됐다면 라이브 보드는 이미 비우고 다시 불렀다.
+      let downloadIDs = Array(state.packDownloads.keys)
+      state.packDownloads = [:]
       guard state.hasSession || state.sessionUserID != nil else {
         state.bookedUserID = nil
         state.bookedFestivalIDs = []
         state.recentSearches = libraryUseCase.recentSearches(for: nil)
-        return .none
+        return .merge(downloadIDs.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) })
       }
       state.clearAccountData()
       state.recentSearches = libraryUseCase.recentSearches(for: nil)
       state.hasSession = false
       state.sessionUserID = nil
       state.accountGeneration += 1
-      return .merge(
+      return .merge(downloadIDs.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) } + [
         state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
         .cancel(id: CancelID.mySchedule),
         .cancel(id: CancelID.notificationUnreadCount),
         .cancel(id: CancelID.notificationMarkRead)
-      )
+      ])
 
     case let .sessionChanged(hasSession, userID):
       guard state.hasSession != hasSession || state.sessionUserID != userID else { return .none }
@@ -463,6 +516,8 @@ extension FestivalFeature {
       }
       state.recentSearches = libraryUseCase.recentSearches(for: state.bookedUserID)
       state.hasSession = hasSession
+      let downloadIDs = Array(state.packDownloads.keys)
+      state.packDownloads = [:]
       state.sessionUserID = userID
       state.notificationUnreadCount = 0
       state.accountGeneration += 1
@@ -473,14 +528,14 @@ extension FestivalFeature {
       state.liveBoardReceivedAt = nil
       state.mySchedule = nil
       state.myScheduleUnavailable = false
-      return .merge(
+      return .merge(downloadIDs.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) } + [
         state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
         loadMySchedule(&state),
         hasSession && state.isLiveBoardVisible
           ? .send(.async(.loadNotificationUnreadCount))
           : .cancel(id: CancelID.notificationUnreadCount),
         .cancel(id: CancelID.notificationMarkRead)
-      )
+      ])
 
     case let .myScheduleSaved(festivalID, setIDs):
       guard state.selectedFestivalID == festivalID,
@@ -532,6 +587,25 @@ extension FestivalFeature {
         prefetchImages(state),
         liveActivityBoundary(state)
       )
+
+    case let .downloadPack(id, generation):
+      return .run { send in
+        do {
+          for try await event in packUseCase.downloadPack(for: id) {
+            switch event {
+            case .reset:
+              await send(.inner(.packDownloadReset(id, generation: generation)))
+            case let .progress(progress):
+              await send(.inner(.packDownloadProgress(id, generation: generation, progress)))
+            case let .finished(result):
+              await send(.inner(.packDownloadFinished(id, generation: generation, result)))
+            }
+          }
+        } catch {
+          await send(.inner(.packDownloadFailed(id, generation: generation)))
+        }
+      }
+      .cancellable(id: PackDownloadID(id: id), cancelInFlight: true)
 
     case .startLiveActivities:
       return .merge(loadLiveActivities(revision: state.liveActivityRevision), watchLiveActivityChanges())
@@ -608,6 +682,7 @@ extension FestivalFeature {
 
     case let .catalogRefreshed(catalog):
       state.viewState = .loaded
+      state.catalogRefreshFailed = false
       if state.liveActivityReady { state.liveActivityNow = date.now }
       let previouslyAvailable = (state.selectedFestival?.packVersion ?? 0) > 0
       let restartFailedWatch = state.packWatchFailed
@@ -632,6 +707,7 @@ extension FestivalFeature {
 
     case .catalogFailed:
       state.viewState = .loaded
+      state.catalogRefreshFailed = true
       if state.connection != .live {
         state.imageRetryPending = true
         state.connection = .offline
@@ -672,6 +748,39 @@ extension FestivalFeature {
       state.packWatchFailed = true
       state.connection = .offline
       return .none
+
+    case let .packDownloadProgress(id, generation, progress):
+      guard generation == state.accountGeneration, state.packDownloads.keys.contains(id) else { return .none }
+      state.packDownloads[id] = .downloading(progress)
+      return .none
+
+    case let .packDownloadReset(id, generation):
+      guard generation == state.accountGeneration, state.packDownloads.keys.contains(id) else { return .none }
+      state.packDownloads[id] = .downloading(nil)
+      return .none
+
+    case let .packDownloadFinished(id, generation, result):
+      guard generation == state.accountGeneration, state.packDownloads.keys.contains(id) else { return .none }
+      state.packDownloads.removeValue(forKey: id)
+      switch result {
+      case let .updated(pack), let .notModified(pack):
+        if state.selectedFestivalID == id {
+          return handleInnerAction(state: &state, action: .packReceived(id, result))
+        }
+        state.cachedPacks[id] = pack
+        return .none
+      case .retryAfter, .reconnecting:
+        state.toast = .packDownloadFailed
+        state.toastRevision += 1
+        return .send(.async(.expireToast))
+      }
+
+    case let .packDownloadFailed(id, generation):
+      guard generation == state.accountGeneration, state.packDownloads.keys.contains(id) else { return .none }
+      state.packDownloads.removeValue(forKey: id)
+      state.toast = .packDownloadFailed
+      state.toastRevision += 1
+      return .send(.async(.expireToast))
 
     case let .liveBoardLoaded(id, generation, snapshot):
       guard state.selectedFestivalID == id, state.accountGeneration == generation else { return .none }

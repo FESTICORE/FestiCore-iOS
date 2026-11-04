@@ -192,6 +192,7 @@ struct AppCoordinator {
   enum View {
     case presentHome
     case foregrounded
+    case backgrounded
     /// 로그인 시트의 로그인 요청(`LoginDelegate.signInRequested`)도 여기서 시트 상태를 확인한다.
     case startLogin(OAuthProvider)
     case dismissFlow
@@ -355,6 +356,10 @@ private extension AppCoordinator {
         fetchProfile(generation: generation),
         .send(.scope(.home(.festival(.reloadBookmarks(userID: nil)))))
       )
+
+    case .backgrounded:
+      guard case .home = state else { return .none }
+      return .send(.scope(.home(.festival(.backgrounded))))
 
     case let .startLogin(provider):
       // 수락한 로그인을 확정하는 동안 새 로그인을 시작하면 두 결과가 서로의 임시 세션을 무효로 만든다.

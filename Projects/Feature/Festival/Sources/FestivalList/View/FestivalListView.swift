@@ -8,12 +8,15 @@ struct FestivalListView: View {
   let recentSearches: [String]
   let festivals: [FestivalOverview]
   let bookedFestivalIDs: Set<String>
+  let packDownloads: [String: FestivalFeature.PackDownloadStatus]
   let imageRevision: Int
   let isLoading: Bool
+  let hasCatalogFailure: Bool
   let offlineMessage: String?
   let imageURL: (String?) -> URL?
   let onSelect: (String) -> Void
   let onToggleBooked: (String) -> Void
+  let onDownloadPack: (String) -> Void
   let onTicketLink: (FestivalOverview) -> Void
   let onRefresh: () -> Void
   let onRecentSearchSubmitted: (String) -> Void
@@ -44,12 +47,15 @@ struct FestivalListView: View {
           selection: $selectedFilter,
           items: ["전체", "예매 완료"]
         )
+        .indicatorColor(FestiCoreSemanticColor.staticLime.color)
         offlineBadge
         ScrollView {
           LazyVStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
             listContent
           }
-          .padding(FestiCoreSpacing.paddingP16)
+          .padding(.horizontal, FestiCoreSpacing.paddingP16)
+          .padding(.bottom, FestiCoreSpacing.paddingP16)
+          .padding(.top, FestiCoreSpacing.paddingP16 * 2)
         }
         .scrollIndicators(.hidden)
         .refreshable { onRefresh() }
@@ -90,21 +96,31 @@ private extension FestivalListView {
   }
 
   var searchResults: [FestivalOverview] {
-    FestivalListPresentation.visible(
-      festivals,
-      query: trimmedQuery,
-      bookedIDs: bookedFestivalIDs,
-      onlyBooked: false
+    FestivalListPresentation.sorted(
+      FestivalListPresentation.visible(
+        festivals,
+        query: trimmedQuery,
+        bookedIDs: bookedFestivalIDs,
+        onlyBooked: false
+      ),
+      now: .now
     )
   }
 
+  var artistResults: [FestivalListPresentation.ArtistSearchResult] {
+    FestivalListPresentation.matchingArtists(FestivalListPresentation.sorted(festivals, now: .now), query: trimmedQuery)
+  }
+
+  var supportsArtistSearch: Bool {
+    festivals.contains { $0.artists != nil }
+  }
+
   var upcomingFestivals: [FestivalOverview] {
-    festivals.filter {
-      if case .daysUntil = FestivalListPresentation.timing(for: $0, now: .now) {
-        return true
-      }
+    FestivalListPresentation.sorted(festivals.filter {
+      guard !FestivalListPresentation.isOpeningSoon($0) else { return false }
+      if case .daysUntil = FestivalListPresentation.timing(for: $0, now: .now) { return true }
       return false
-    }
+    }, now: .now)
   }
 
   /// 목록을 좌우로 밀면 전체·예매 완료 탭을 바꾼다.
@@ -141,8 +157,11 @@ private extension FestivalListView {
       FCEmptyCard(
         icon: .bell,
         title: "불러온 페스티벌이 없어요",
-        message: "연결되면 페스티벌 목록을 가져와요."
+        message: hasCatalogFailure
+          ? "연결을 확인하고 다시 시도해 주세요."
+          : "새 페스티벌이 등록되면 여기에 표시해요."
       )
+      .action(hasCatalogFailure ? FCCardAction("다시 시도", action: onRefresh) : nil)
     } else {
       FCEmptyCard(
         icon: .bookmark20,
@@ -188,7 +207,7 @@ private extension FestivalListView {
 
   var searchBar: some View {
     FCTopBar(.search(text: $query))
-      .searchPlaceholder("페스티벌, 장소 검색")
+      .searchPlaceholder(supportsArtistSearch ? "페스티벌, 아티스트, 장소 검색" : "페스티벌, 장소 검색")
       .onCancel {
         query = ""
         isSearching = false
@@ -198,7 +217,17 @@ private extension FestivalListView {
 
   @ViewBuilder
   var searchContent: some View {
-    if trimmedQuery.isEmpty {
+    if isLoading {
+      searchSkeleton
+    } else if festivals.isEmpty && hasCatalogFailure {
+      FCEmptyCard(
+        icon: .bell,
+        title: "페스티벌을 불러오지 못했어요",
+        message: "연결을 확인하고 다시 시도해 주세요."
+      )
+      .action(FCCardAction("다시 시도", action: onRefresh))
+      .padding(FestiCoreSpacing.paddingP16)
+    } else if trimmedQuery.isEmpty {
       VStack(alignment: .leading, spacing: .zero) {
         if !recentSearches.isEmpty {
           FCSectionHeader("최근 검색")
@@ -206,19 +235,17 @@ private extension FestivalListView {
             .padding(.top, FestiCoreSpacing.paddingP20)
             .padding(.bottom, FestiCoreSpacing.paddingP8)
             .padding(.horizontal, FestiCoreSpacing.paddingP16)
-          ScrollView(.horizontal) {
-            HStack(spacing: FestiCoreSpacing.paddingP8) {
-              ForEach(recentSearches, id: \.self) { keyword in
-                FCRecentKeyword(
-                  keyword,
-                  onSelect: { query = keyword },
-                  onDelete: { onRecentSearchRemoved(keyword) }
-                )
-              }
+          FCFlowLayout {
+            ForEach(recentSearches, id: \.self) { keyword in
+              FCRecentKeyword(
+                keyword,
+                onSelect: { query = keyword },
+                onDelete: { onRecentSearchRemoved(keyword) }
+              )
             }
-            .padding(.horizontal, FestiCoreSpacing.paddingP16)
           }
-          .scrollIndicators(.hidden)
+          .spacing(FestiCoreSpacing.paddingP8)
+          .padding(.horizontal, FestiCoreSpacing.paddingP16)
         }
         if !upcomingFestivals.isEmpty {
           FCSectionHeader("다가오는 페스티벌")
@@ -226,20 +253,59 @@ private extension FestivalListView {
             .padding(.bottom, FestiCoreSpacing.paddingP8)
             .padding(.horizontal, FestiCoreSpacing.paddingP16)
           resultRows(upcomingFestivals)
+        } else if recentSearches.isEmpty {
+          FCEmptyCard(
+            icon: .bell,
+            title: "다가오는 페스티벌이 없어요",
+            message: "새 페스티벌이 등록되면 여기에서 찾아볼 수 있어요."
+          )
+          .padding(FestiCoreSpacing.paddingP16)
         }
       }
-    } else if searchResults.isEmpty {
+    } else if searchResults.isEmpty && artistResults.isEmpty {
       FCSearchEmpty(query: trimmedQuery)
-        .message("페스티벌 이름이나 장소로 다시 찾아보세요")
+        .message(supportsArtistSearch
+          ? "페스티벌, 아티스트 이름이나 장소로 다시 찾아보세요"
+          : "페스티벌 이름이나 장소로 다시 찾아보세요")
     } else {
       VStack(alignment: .leading, spacing: .zero) {
-        FCSectionHeader("페스티벌 \(searchResults.count)")
-          .padding(.top, FestiCoreSpacing.paddingP20)
-          .padding(.bottom, FestiCoreSpacing.paddingP8)
-          .padding(.horizontal, FestiCoreSpacing.paddingP16)
-        resultRows(searchResults)
+        if !searchResults.isEmpty {
+          FCSectionHeader("페스티벌 \(searchResults.count)")
+            .padding(.top, FestiCoreSpacing.paddingP20)
+            .padding(.bottom, FestiCoreSpacing.paddingP8)
+            .padding(.horizontal, FestiCoreSpacing.paddingP16)
+          resultRows(searchResults)
+        }
+        if !artistResults.isEmpty {
+          FCSectionHeader("아티스트 \(artistResults.count)")
+            .padding(.top, FestiCoreSpacing.paddingP20)
+            .padding(.bottom, FestiCoreSpacing.paddingP8)
+            .padding(.horizontal, FestiCoreSpacing.paddingP16)
+          artistResultRows
+        }
       }
     }
+  }
+
+  var searchSkeleton: some View {
+    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
+      FCSkeletonView(.round())
+        .frame(width: 120, height: 20)
+      ForEach(0..<3, id: \.self) { _ in
+        HStack(spacing: FestiCoreSpacing.paddingP12) {
+          FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r12))
+            .frame(width: 48, height: 48)
+          VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
+            FCSkeletonView(.round())
+              .frame(width: 180, height: 18)
+            FCSkeletonView(.round())
+              .frame(width: 230, height: 16)
+          }
+        }
+      }
+    }
+    .padding(FestiCoreSpacing.paddingP16)
+    .accessibilityIdentifier(FestivalAccessibilityID.searchSkeleton)
   }
 
   func resultRows(_ items: [FestivalOverview]) -> some View {
@@ -248,7 +314,7 @@ private extension FestivalListView {
         FCSearchResultRow(
           .festival(
             image: nil,
-            dDay: dDay(for: festival)
+            dDay: FestivalListPresentation.searchBadge(for: festival, now: .now)
           ),
           title: festival.name,
           meta: meta(for: festival),
@@ -257,12 +323,31 @@ private extension FestivalListView {
             onSelect(festival.id)
           }
         )
+        .highlightedQuery(trimmedQuery)
+        .badgeStyle(badgeStyle(for: festival))
         .thumbnail(
           FestivalPosterView(
             url: imageURL(festival.thumbnailURL?.absoluteString),
             imageRevision: imageRevision
           )
         )
+      }
+    }
+  }
+
+  var artistResultRows: some View {
+    LazyVStack(spacing: .zero) {
+      ForEach(artistResults) { result in
+        FCSearchResultRow(
+          .artist(initial: String(result.artist.name.prefix(1))),
+          title: result.artist.name,
+          meta: FestivalListPresentation.artistMeta(result, now: .now),
+          action: {
+            saveRecentSearch()
+            onSelect(result.festival.id)
+          }
+        )
+        .highlightedQuery(trimmedQuery)
       }
     }
   }
@@ -282,6 +367,14 @@ private extension FestivalListView {
   }
 
   func pack(for festival: FestivalOverview) -> FCFestivalCard<FestivalPosterView>.Pack {
+    if case let .some(.downloading(progress)) = packDownloads[festival.id] {
+      let fraction = progress.flatMap { value -> Double? in
+        guard value.totalBytes > 0 else { return nil }
+        return min(max(Double(value.receivedBytes) / Double(value.totalBytes), 0), 1)
+      }
+      let text = fraction.map { "팩 받는 중 · \(Int(($0 * 100).rounded()))%" } ?? "팩 받는 중"
+      return .downloading(progress: fraction, text: text)
+    }
     let copy = FestivalListPresentation.packCopy(
       for: festival,
       isBooked: bookedFestivalIDs.contains(festival.id),
@@ -290,16 +383,16 @@ private extension FestivalListView {
     )
     return switch copy {
     case let .unavailable(text): .unavailable(text)
-    case let .ready(title): .ready(title: title, action: { onSelect(festival.id) })
+    case let .ready(title): .ready(title: title, action: { onDownloadPack(festival.id) })
     case let .received(text): .received(text)
     }
   }
 
-  func dDay(for festival: FestivalOverview) -> String? {
-    switch FestivalListPresentation.timing(for: festival, now: .now) {
-    case let .daysUntil(days): "D-\(days)"
-    case .live: "진행 중"
-    case .ended, .undated: nil
+  func badgeStyle(for festival: FestivalOverview) -> FCSearchResultRow.BadgeStyle {
+    switch FestivalListPresentation.cardStatus(for: festival, now: .now) {
+    case .closing: .closing
+    case .upcoming: .upcoming
+    case .dDay, .ended: .day
     }
   }
 

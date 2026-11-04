@@ -1,4 +1,5 @@
 import FestiCoreUtility
+import FestivalDomainInterface
 import Foundation
 
 enum FestivalListPresentation {
@@ -7,6 +8,12 @@ enum FestivalListPresentation {
     case live
     case ended
     case undated
+  }
+
+  struct ArtistSearchResult: Equatable, Identifiable {
+    let festival: FestivalOverview
+    let artist: FestivalCatalogArtist
+    var id: String { "\(festival.id):\(artist.name)" }
   }
 
   static func visible(
@@ -19,9 +26,44 @@ enum FestivalListPresentation {
     return festivals.filter { festival in
       (!onlyBooked || bookedIDs.contains(festival.id))
         && (search.isEmpty
-          || festival.name.localizedStandardContains(search)
-          || festival.venue?.localizedStandardContains(search) == true)
+          || contains(festival.name, search)
+          || festival.venue.map { contains($0, search) } == true)
     }
+  }
+
+  static func matchingArtists(_ festivals: [FestivalOverview], query: String) -> [ArtistSearchResult] {
+    let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !search.isEmpty else { return [] }
+    return festivals.flatMap { festival in
+      (festival.artists ?? [])
+        .filter { contains($0.name, search) }
+        .map { ArtistSearchResult(festival: festival, artist: $0) }
+    }
+  }
+
+  static func artistMeta(_ result: ArtistSearchResult, now: Date) -> String {
+    let performances = result.artist.performances
+      .compactMap { performance -> (time: Date, day: Date, stage: String?)? in
+        guard let time = performance.startsAt.isoDate ?? performance.date.date(as: .day) else { return nil }
+        return (time, performance.date.date(as: .day) ?? time, performance.stageName)
+      }
+      .sorted { lhs, rhs in
+        if lhs.time != rhs.time { return lhs.time < rhs.time }
+        if lhs.day != rhs.day { return lhs.day < rhs.day }
+        return (lhs.stage ?? "").localizedStandardCompare(rhs.stage ?? "") == .orderedAscending
+      }
+    let upcoming = performances.first { $0.time >= now }
+    let performance = upcoming ?? performances.last
+    let schedule = performance.map { item in
+      [item.day.formatted(.festivalDay), item.stage?.isEmpty == false ? item.stage : nil]
+        .compactMap { $0 }
+        .joined(separator: " ")
+    }
+    return [result.festival.name, schedule].compactMap { $0 }.joined(separator: " · ")
+  }
+
+  private static func contains(_ value: String, _ query: String) -> Bool {
+    value.range(of: query, options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: .current) != nil
   }
 
   static func timing(for festival: FestivalOverview, now: Date) -> Timing {
@@ -71,6 +113,14 @@ extension FestivalListPresentation {
     case let .daysUntil(days): return days <= 3 ? .closing("D-\(days)") : .dDay("D-\(days)")
     case .undated: return .dDay("일정 확인")
     case .ended: return .ended
+    }
+  }
+
+  static func searchBadge(for festival: FestivalOverview, now: Date) -> String? {
+    switch cardStatus(for: festival, now: now) {
+    case let .dDay(label), let .closing(label): label
+    case .upcoming: "오픈 예정"
+    case .ended: nil
     }
   }
 

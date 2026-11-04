@@ -11,6 +11,7 @@ public actor NetworkPackSyncService: PackSyncService {
   private let client: any FestiCoreWebSocketClient
   private let responseTimeoutNanoseconds: UInt64
   private let rejectedHandshakeRetryNanoseconds: UInt64
+  private let downloadRetryBudgetNanoseconds: UInt64
   private var requestGeneration: [String: Int] = [:]
   private var committedGeneration: [String: Int] = [:]
   /// 팩을 지운 횟수. 지우기 전에 시작한 업데이트 감시가 팩을 다시 받지 않게 한다.
@@ -22,12 +23,14 @@ public actor NetworkPackSyncService: PackSyncService {
     self.client = client
     responseTimeoutNanoseconds = 15_000_000_000
     rejectedHandshakeRetryNanoseconds = 300_000_000_000
+    downloadRetryBudgetNanoseconds = 30_000_000_000
   }
 
   init(
     baseURL: URL?, cacheDirectory: URL,
     responseTimeoutNanoseconds: UInt64 = 15_000_000_000,
     rejectedHandshakeRetryNanoseconds: UInt64 = 300_000_000_000,
+    downloadRetryBudgetNanoseconds: UInt64 = 30_000_000_000,
     client: any FestiCoreWebSocketClient
   ) {
     self.baseURL = baseURL
@@ -35,6 +38,7 @@ public actor NetworkPackSyncService: PackSyncService {
     self.client = client
     self.responseTimeoutNanoseconds = responseTimeoutNanoseconds
     self.rejectedHandshakeRetryNanoseconds = rejectedHandshakeRetryNanoseconds
+    self.downloadRetryBudgetNanoseconds = downloadRetryBudgetNanoseconds
   }
 
   public func cachedPack(for festivalID: String) async throws -> CachedFestivalPack? {
@@ -52,6 +56,61 @@ public actor NetworkPackSyncService: PackSyncService {
       return try await synchronize(for: festivalID, on: socket)
     } onCancel: {
       socket.cancel()
+    }
+  }
+
+  public nonisolated func download(for festivalID: String) -> AsyncThrowingStream<PackDownloadEvent, Error> {
+    AsyncThrowingStream { continuation in
+      let task = Task { await self.runDownload(for: festivalID, continuation: continuation) }
+      continuation.onTermination = { @Sendable _ in task.cancel() }
+    }
+  }
+
+  private func runDownload(
+    for festivalID: String,
+    continuation: AsyncThrowingStream<PackDownloadEvent, Error>.Continuation
+  ) async {
+    do {
+      guard isValidFestivalID(festivalID) else { throw PackSyncError.invalidFestivalID }
+      let socket = client.connect(to: try endpoint())
+      defer { socket.cancel() }
+      let progress: @Sendable (PackDownloadProgress) -> Void = { value in
+        continuation.yield(.progress(value))
+      }
+      let reset: @Sendable () -> Void = { continuation.yield(.reset) }
+      let result = try await withTaskCancellationHandler {
+        var attempts = 0
+        var remainingRetryBudget = downloadRetryBudgetNanoseconds
+        while true {
+          try Task.checkCancellation()
+          if attempts > 0 { reset() }
+          attempts += 1
+          let result: PackSyncResult
+          result = try await synchronize(for: festivalID, on: socket, onProgress: progress, onReset: reset)
+          switch result {
+          case .updated, .notModified:
+            return result
+          case let .retryAfter(seconds):
+            guard attempts < 3 else { throw PackSyncError.server("PACK_BUSY") }
+            // 서버가 지정한 간격을 줄이면 같은 바쁜 팩에 너무 빨리 재요청한다.
+            guard seconds.isFinite, seconds > 0,
+                  seconds <= Double(remainingRetryBudget) / 1_000_000_000 else {
+              throw PackSyncError.timeout
+            }
+            let wait = UInt64(seconds * 1_000_000_000)
+            try await Task.sleep(nanoseconds: wait)
+            remainingRetryBudget -= wait
+          case .reconnecting:
+            throw PackSyncError.invalidMessage
+          }
+        }
+      } onCancel: {
+        socket.cancel()
+      }
+      continuation.yield(.finished(result))
+      continuation.finish()
+    } catch {
+      continuation.finish(throwing: error)
     }
   }
 
@@ -151,10 +210,15 @@ public actor NetworkPackSyncService: PackSyncService {
     if (deletionCount[festivalID] ?? 0) != count { throw PackUpdateWaitError.packDeleted }
   }
 
-  private func synchronize(for festivalID: String, on socket: any PackSocket) async throws -> PackSyncResult {
+  private func synchronize(
+    for festivalID: String, on socket: any PackSocket,
+    onProgress: (@Sendable (PackDownloadProgress) -> Void)? = nil,
+    onReset: (@Sendable () -> Void)? = nil
+  ) async throws -> PackSyncResult {
     var receivedSnapshot = false
-    for _ in 0..<5 {
-      let reply = try await requestPack(for: festivalID, on: socket)
+    for requestIndex in 0..<5 {
+      if requestIndex > 0 { onReset?() }
+      let reply = try await requestPack(for: festivalID, on: socket, onProgress: onProgress)
       if case .updated = reply.result { receivedSnapshot = true }
       if !reply.hadUpdateHint {
         if receivedSnapshot, case .notModified(let cached) = reply.result { return .updated(cached) }
@@ -170,7 +234,10 @@ public actor NetworkPackSyncService: PackSyncService {
     let hadUpdateHint: Bool
   }
 
-  private func requestPack(for festivalID: String, on socket: any PackSocket) async throws -> Reply {
+  private func requestPack(
+    for festivalID: String, on socket: any PackSocket,
+    onProgress: (@Sendable (PackDownloadProgress) -> Void)? = nil
+  ) async throws -> Reply {
     let stored = try cache.load(festivalID)
     let generation = (requestGeneration[festivalID] ?? 0) + 1
     requestGeneration[festivalID] = generation
@@ -193,7 +260,7 @@ public actor NetworkPackSyncService: PackSyncService {
       case "pack.start":
         let (updated, chunkHint) = try await PackWire.chunkedPack(
           start: message, socket: socket, requestID: requestID, festivalID: festivalID,
-          timeoutNanoseconds: responseTimeoutNanoseconds
+          timeoutNanoseconds: responseTimeoutNanoseconds, onProgress: onProgress
         )
         return Reply(result: try store(updated, generation: generation), hadUpdateHint: hadUpdateHint || chunkHint)
       case "pack.not_modified":

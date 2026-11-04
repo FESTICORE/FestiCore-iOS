@@ -7,6 +7,54 @@ import TCAFlow
 
 @MainActor
 struct FestivalNotificationInboxRoutingTests {
+  @Test("다른 탭에 있어도 앱이 백그라운드로 가면 팩 전송을 취소한다")
+  func appBackgroundCancelsPackOnHiddenFestivalTab() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    var list = FestivalFeature.State()
+    list.packDownloads["fst"] = .downloading(.init(receivedBytes: 40, totalBytes: 100))
+    home.festivalState.routes[0].screen = .festivalList(list)
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
+    store.exhaustivity = .off
+
+    await store.send(.view(.backgrounded))
+    await store.receive {
+      guard case .scope(.home(.festival(.backgrounded))) = $0 else { return false }
+      return true
+    }
+    await store.receive {
+      guard case .scope(.home(.festival(.router(.routeAction(
+        id: 0, action: .festivalList(.view(.backgrounded))
+      ))))) = $0 else { return false }
+      return true
+    }
+    guard case let .home(updated) = store.state else { return }
+    #expect(updated.festivalState.routes[0].screen.festivalList?.packDownloads.isEmpty == true)
+  }
+
+  @Test("북마크 결과 토스트는 현재 보이는 축제 화면에만 보인다")
+  func bookmarkToastTargetsTopFestivalRoute() async {
+    var state = FestivalCoordinator.State()
+    state.routes.push(.liveBoard(.init(selectedFestivalID: "fst")))
+    let clock = TestClock()
+    let store = TestStore(initialState: state) { FestivalCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.continuousClock = clock
+    }
+    store.exhaustivity = .off
+
+    await store.send(.bookmarkSaved(id: "fst", booked: true))
+    await store.receive {
+      guard case .router(.routeAction(
+        id: 1, action: .liveBoard(.view(.bookmarkSaved(id: "fst", booked: true)))
+      )) = $0 else { return false }
+      return true
+    }
+    #expect(store.state.routes[0].screen.festivalList?.toast == nil)
+    #expect(store.state.routes[1].screen.liveBoard?.toast == .bookmarked)
+  }
+
   @Test("로그인한 라이브 보드에서 알림함을 열고 뒤로 돌아온다")
   func opensInboxAndReturns() async {
     var state = FestivalCoordinator.State()
