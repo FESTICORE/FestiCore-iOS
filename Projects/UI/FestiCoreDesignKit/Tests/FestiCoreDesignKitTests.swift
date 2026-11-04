@@ -61,6 +61,7 @@ struct FestiCoreDesignKitTests {
     try await harness.render()
     harness.box.item = .login
     try await harness.render()
+    #expect(harness.box.modifierDisappearCount >= 1)
     #expect(requested.duration(to: clock.now) < SheetTestTiming.preDeadlineLimit)
 
     try await Task.sleep(for: SheetTestTiming.resultWait)

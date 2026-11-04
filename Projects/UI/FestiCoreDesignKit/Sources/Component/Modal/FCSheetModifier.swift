@@ -68,6 +68,7 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
   @State private var dismissOffset: CGFloat = 0
   @State private var isDragging = false
   @State private var pendingDismissal: DispatchWorkItem?
+  @State private var dismissalLifetime = FCSheetDismissalLifetime()
   @State private var isDismissDisabled = false
 
   public init(
@@ -85,8 +86,11 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
   }
 
   public func body(content: Content) -> some View {
-    content
+    // 콜백에서 제거된 @State를 다시 읽지 않고 현재 presentation의 수명을 직접 캡처한다.
+    let lifetime = dismissalLifetime
+    return content
       .onChange(of: item) { oldValue, newValue in
+        lifetime.generation += 1
         // 닫히거나 다른 아이템으로 바뀌면 이전 콘텐츠가 남긴 닫기 막기를 풀어 다음 시트가 닫히게 한다.
         isDismissDisabled = false
         let wasDismissing = pendingDismissal != nil
@@ -98,7 +102,8 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
         }
       }
       .onDisappear {
-        // 제거된 modifier의 예약 작업이 같은 binding으로 다시 열린 시트를 닫지 않게 한다.
+        // @State 작업 참조를 잃어 취소하지 못하더라도 이전 콜백은 binding을 바꿀 수 없다.
+        lifetime.generation += 1
         cancelPendingDismissal()
       }
       .overlay {
@@ -188,8 +193,10 @@ extension FCSheetModifier {
       dismissOffset = Metric.slideDistance
     }
     dragOffset = 0
+    let lifetime = dismissalLifetime
+    let generation = lifetime.generation
     let work = DispatchWorkItem {
-      guard item == dismissedItem else { return }
+      guard lifetime.generation == generation, item == dismissedItem else { return }
       Self.completeDismissal(of: dismissedItem, item: $item)
       dismissOffset = 0
       pendingDismissal = nil
@@ -271,6 +278,10 @@ public extension View {
       )
     )
   }
+}
+
+private final class FCSheetDismissalLifetime {
+  var generation = 0
 }
 
 private enum Metric {
