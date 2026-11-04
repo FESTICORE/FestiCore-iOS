@@ -133,6 +133,10 @@ extension FestivalListPresentation {
     if timing(for: festival, now: now) == .ended {
       return .unavailable("종료된 페스티벌이라 팩을 받을 수 없어요")
     }
+    // 백엔드의 discovered/packVersion=0은 팩 미발행이며 티켓 오픈 여부를 뜻하지 않는다.
+    if festival.packVersion == 0 {
+      return .unavailable("아직 받을 수 있는 팩이 없어요")
+    }
     if isOpeningSoon(festival) {
       return .unavailable(onlyBooked ? "티켓이 열리면 팩을 받을 수 있어요" : "티켓 오픈 후 등록하고 팩을 받을 수 있어요")
     }
