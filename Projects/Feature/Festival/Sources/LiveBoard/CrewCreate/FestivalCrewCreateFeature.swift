@@ -81,8 +81,10 @@ public struct FestivalCrewCreateFeature {
       case let .delegate(delegateAction):
         return handleDelegateAction(delegateAction)
       case .alert(.presented(.confirmTapped)):
+        state.alert = nil
         return .send(.view(.submitTapped))
       case .alert:
+        state.alert = nil
         return .none
       }
     }

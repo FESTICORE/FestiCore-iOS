@@ -183,16 +183,32 @@ struct FestivalNotificationInboxRoutingTests {
     #expect(state.routes.last?.screen.is(\.notificationInbox) == true)
   }
 
-  @Test("알림함에서는 라이브 탭바와 탭바 여백을 숨긴다")
+  @Test("알림함에서는 탭바와 여백을 숨기고 라이브 보드로 돌아오면 복구한다")
   func inboxHidesTabBar() {
     var state = MainTabCoordinator.State()
-    state.festivalState.routes.push(.liveBoard(.init()))
     #expect(state.shouldHideTabBar)
     #expect(!state.shouldReserveTabBarSpace)
 
-    state.festivalState.routes.push(.notificationInbox(.init()))
+    var board = FestivalFeature.State(selectedFestivalID: "festival")
+    board.hasSession = true
+    state.festivalState.routes.push(.liveBoard(board))
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+
+    let coordinator = FestivalCoordinator()
+    _ = coordinator.handleRoute(state: &state.festivalState, action: .router(.routeAction(
+      id: 1, action: .liveBoard(.delegate(.notificationInboxRequested))
+    )))
     #expect(state.isNotificationInboxOnTop)
     #expect(state.shouldHideTabBar)
     #expect(!state.shouldReserveTabBarSpace)
+
+    _ = coordinator.handleRoute(state: &state.festivalState, action: .router(.routeAction(
+      id: 2, action: .notificationInbox(.delegate(.backRequested))
+    )))
+    #expect(!state.isNotificationInboxOnTop)
+    #expect(state.festivalState.routes.last?.screen.liveBoard?.selectedFestivalID == "festival")
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
   }
 }

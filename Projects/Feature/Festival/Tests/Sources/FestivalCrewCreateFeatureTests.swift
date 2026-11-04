@@ -78,6 +78,24 @@ struct FestivalCrewCreateFeatureTests {
     }
   }
 
+  @Test("생성 실패 팝업을 닫으면 이름을 유지하고 재요청하지 않는다")
+  func dismissesRetryAlert() async {
+    var state = FestivalCrewCreateFeature.State(festivalID: "festival-1")
+    state.name = "우리 크루"
+    state.alert = .alert(
+      title: "크루를 만들지 못했어요",
+      message: "연결을 확인하고 다시 시도해 주세요.",
+      confirmTitle: "다시 시도",
+      cancelTitle: "닫기"
+    )
+    let store = TestStore(initialState: state) { FestivalCrewCreateFeature() }
+
+    await store.send(.alert(.presented(.cancelTapped))) { $0.alert = nil }
+    #expect(store.state.name == "우리 크루")
+    #expect(store.state.canSubmit)
+    await store.finish()
+  }
+
   private var sampleCrew: FestivalCrew {
     return FestivalCrew(
       id: "crew-1",
