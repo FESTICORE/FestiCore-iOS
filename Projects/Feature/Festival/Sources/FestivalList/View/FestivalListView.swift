@@ -2,7 +2,7 @@ import FestiCoreDesignKit
 import FestiCoreUtility
 import SwiftUI
 
-/// Figma S00 페스티벌 목록. 전체·예매 완료 탭과 검색(최근 검색·다가오는 페스티벌·결과·결과 없음)을 보여 준다.
+/// Figma S00 페스티벌 목록. 전체·예매 완료 탭과 검색(최근 검색·결과·결과 없음)을 보여 준다.
 struct FestivalListView: View {
   let userID: String?
   let recentSearches: [String]
@@ -115,14 +115,6 @@ private extension FestivalListView {
     festivals.contains { $0.artists != nil }
   }
 
-  var upcomingFestivals: [FestivalOverview] {
-    FestivalListPresentation.sorted(festivals.filter {
-      guard !FestivalListPresentation.isOpeningSoon($0) else { return false }
-      if case .daysUntil = FestivalListPresentation.timing(for: $0, now: .now) { return true }
-      return false
-    }, now: .now)
-  }
-
   /// 목록을 좌우로 밀면 전체·예매 완료 탭을 바꾼다.
   var filterSwipe: some Gesture {
     DragGesture(minimumDistance: Metric.swipeMinimumDistance)
@@ -217,17 +209,7 @@ private extension FestivalListView {
 
   @ViewBuilder
   var searchContent: some View {
-    if isLoading {
-      searchSkeleton
-    } else if festivals.isEmpty && hasCatalogFailure {
-      FCEmptyCard(
-        icon: .bell,
-        title: "페스티벌을 불러오지 못했어요",
-        message: "연결을 확인하고 다시 시도해 주세요."
-      )
-      .action(FCCardAction("다시 시도", action: onRefresh))
-      .padding(FestiCoreSpacing.paddingP16)
-    } else if trimmedQuery.isEmpty {
+    if trimmedQuery.isEmpty {
       VStack(alignment: .leading, spacing: .zero) {
         if !recentSearches.isEmpty {
           FCSectionHeader("최근 검색")
@@ -247,21 +229,17 @@ private extension FestivalListView {
           .spacing(FestiCoreSpacing.paddingP8)
           .padding(.horizontal, FestiCoreSpacing.paddingP16)
         }
-        if !upcomingFestivals.isEmpty {
-          FCSectionHeader("다가오는 페스티벌")
-            .padding(.top, FestiCoreSpacing.paddingP20)
-            .padding(.bottom, FestiCoreSpacing.paddingP8)
-            .padding(.horizontal, FestiCoreSpacing.paddingP16)
-          resultRows(upcomingFestivals)
-        } else if recentSearches.isEmpty {
-          FCEmptyCard(
-            icon: .bell,
-            title: "다가오는 페스티벌이 없어요",
-            message: "새 페스티벌이 등록되면 여기에서 찾아볼 수 있어요."
-          )
-          .padding(FestiCoreSpacing.paddingP16)
-        }
       }
+    } else if isLoading {
+      searchSkeleton
+    } else if festivals.isEmpty && hasCatalogFailure {
+      FCEmptyCard(
+        icon: .bell,
+        title: "페스티벌을 불러오지 못했어요",
+        message: "연결을 확인하고 다시 시도해 주세요."
+      )
+      .action(FCCardAction("다시 시도", action: onRefresh))
+      .padding(FestiCoreSpacing.paddingP16)
     } else if searchResults.isEmpty && artistResults.isEmpty {
       FCSearchEmpty(query: trimmedQuery)
         .message(supportsArtistSearch
