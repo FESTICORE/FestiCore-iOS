@@ -36,6 +36,7 @@ struct FestivalCoordinator {
     case delegate(Delegate)
     case reloadBookmarks(userID: String?)
     case bookmarkSaved(id: String, booked: Bool)
+    case backgrounded
     case accountChanged
     case sessionChanged(hasSession: Bool, userID: String?)
     case myScheduleSaved(festivalID: String, setIDs: Set<String>)
@@ -130,6 +131,9 @@ struct FestivalCoordinator {
       case .bearerBoard, .notificationInbox: return .none
       }
       return .send(.router(.routeAction(id: index, action: action)))
+
+    case .backgrounded:
+      return broadcast(state, .view(.backgrounded))
 
     case .accountChanged:
       return broadcast(state, .view(.accountChanged))

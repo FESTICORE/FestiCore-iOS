@@ -9,6 +9,12 @@ import SwiftUI
 
 /// 검색 결과 한 줄. festival은 썸네일과 D-day, artist는 이니셜과 화살표를 표시한다.
 public struct FCSearchResultRow: View {
+  public enum BadgeStyle {
+    case day
+    case closing
+    case upcoming
+  }
+
   public enum Kind {
     case festival(image: Image?, dDay: String?)
     case artist(initial: String)
@@ -19,7 +25,7 @@ public struct FCSearchResultRow: View {
   private var meta: String
   private var action: () -> Void
   private var highlightedQuery = ""
-  private var isUrgent = false
+  private var badgeStyle: BadgeStyle = .day
   private(set) var thumbnail: AnyView?
 
   public init(
@@ -86,15 +92,10 @@ public struct FCSearchResultRow: View {
       if let dDay {
         Text(dDay)
           .festiCoreFont(.baseCaption2Bold)
-          .foregroundStyle(
-            isUrgent ? FestiCoreSemanticColor.staticWhite.color : FestiCoreSemanticColor.inverseLabel.color
-          )
+          .foregroundStyle(badgeColors.foreground.color)
           .padding(.vertical, FestiCoreSpacing.paddingP4)
           .padding(.horizontal, FestiCoreSpacing.marginM6)
-          .background(
-            isUrgent ? FestiCoreSemanticColor.accentPointRed.color : FestiCoreSemanticColor.inverseBackground.color,
-            in: RoundedRectangle(cornerRadius: FestiCoreRadius.r4)
-          )
+          .background(badgeColors.background.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r4))
       }
     case .artist:
       Image(asset: .chevronRight16)
@@ -123,15 +124,23 @@ public extension FCSearchResultRow {
     return copy
   }
 
-  /// 임박한 공연 날짜 배지를 경고색으로 표시한다.
-  func urgent(_ isUrgent: Bool) -> Self {
+  /// 검색 결과 배지의 상태 색상을 카드와 맞춘다.
+  func badgeStyle(_ style: BadgeStyle) -> Self {
     var copy = self
-    copy.isUrgent = isUrgent
+    copy.badgeStyle = style
     return copy
   }
 }
 
 private extension FCSearchResultRow {
+  var badgeColors: (background: FestiCoreSemanticColor, foreground: FestiCoreSemanticColor) {
+    switch badgeStyle {
+    case .day: (.inverseBackground, .inverseLabel)
+    case .closing: (.accentPointRed, .staticWhite)
+    case .upcoming: (.fillStrong, .labelNormal)
+    }
+  }
+
   var highlightedTitle: Text {
     guard !highlightedQuery.isEmpty else { return Text(title) }
     var remaining = title[...]

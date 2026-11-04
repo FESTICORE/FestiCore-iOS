@@ -148,7 +148,6 @@ public struct FestivalFeature {
     /// 로그아웃·인증 상실 때 이전 계정의 라이브 보드와 예약 목록을 비운다.
     public mutating func clearAccountData() {
       toast = nil
-      packDownloads = [:]
       liveBoard = nil
       liveBoardUnavailable = false
       liveBoardUnpublished = false
@@ -481,6 +480,8 @@ extension FestivalFeature {
       state.bookedUserID = userID
       state.bookedFestivalIDs = userID.map { libraryUseCase.bookedFestivalIDs(for: $0) } ?? []
       state.recentSearches = libraryUseCase.recentSearches(for: userID)
+      // 프로필 재조회 중의 nil은 확정된 예약 해제가 아니므로 전송을 유지한다.
+      guard userID != nil else { return .none }
       let removed = state.packDownloads.keys.filter { !state.bookedFestivalIDs.contains($0) }
       removed.forEach { state.packDownloads.removeValue(forKey: $0) }
       return .merge(removed.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) })

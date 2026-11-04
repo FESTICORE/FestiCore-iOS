@@ -89,4 +89,54 @@ struct FestivalPackDownloadFeatureTests {
       $0.packDownloads = [:]
     }
   }
+
+  @Test @MainActor func accountClearKeepsDownloadUntilAccountChangedCancelsIt() async {
+    var initial = FestivalFeature.State()
+    initial.hasSession = true
+    initial.sessionUserID = "user-a"
+    initial.packDownloads["festival"] = .downloading(.init(receivedBytes: 40, totalBytes: 100))
+    initial.clearAccountData()
+    #expect(initial.packDownloads["festival"] != nil)
+
+    let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
+    store.exhaustivity = .off
+    await store.send(.view(.accountChanged)) {
+      $0.packDownloads = [:]
+      $0.hasSession = false
+      $0.sessionUserID = nil
+      $0.accountGeneration = 1
+    }
+  }
+
+  @Test @MainActor func temporaryBookmarkReloadDoesNotCancelDownload() async {
+    var initial = FestivalFeature.State()
+    initial.bookedUserID = "user-a"
+    initial.bookedFestivalIDs = ["festival"]
+    initial.packDownloads["festival"] = .downloading(.init(receivedBytes: 40, totalBytes: 100))
+    let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.festivalBookedStore = FestivalBookedStore(
+        load: { userID in userID == "user-a" ? ["festival"] : [] },
+        save: { _, _ in }
+      )
+    }
+
+    await store.send(.view(.reloadBookmarks(userID: nil))) {
+      $0.bookedUserID = nil
+      $0.bookedFestivalIDs = []
+    }
+    #expect(store.state.packDownloads["festival"] != nil)
+    await store.send(.view(.reloadBookmarks(userID: "user-a"))) {
+      $0.bookedUserID = "user-a"
+      $0.bookedFestivalIDs = ["festival"]
+    }
+    #expect(store.state.packDownloads["festival"] != nil)
+    await store.send(.view(.reloadBookmarks(userID: "user-b"))) {
+      $0.bookedUserID = "user-b"
+      $0.bookedFestivalIDs = []
+      $0.packDownloads = [:]
+    }
+  }
 }

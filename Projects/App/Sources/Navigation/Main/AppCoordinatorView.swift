@@ -66,6 +66,7 @@ struct AppCoordinatorView: View {
     }
     .onChange(of: scenePhase) { _, phase in
       if phase == .active { store.send(.view(.foregrounded)) }
+      if phase == .background { store.send(.view(.backgrounded)) }
     }
   }
 }

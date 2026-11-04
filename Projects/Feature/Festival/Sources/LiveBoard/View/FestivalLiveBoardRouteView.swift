@@ -72,7 +72,6 @@ public struct FestivalLiveBoardRouteView: View {
     .onDisappear { send(.liveBoardOnDisappear) }
     .onChange(of: scenePhase) { _, phase in
       send(.foregroundChanged(phase == .active))
-      if phase == .background { send(.backgrounded) }
     }
   }
 }

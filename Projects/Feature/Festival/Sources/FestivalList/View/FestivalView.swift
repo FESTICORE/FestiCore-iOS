@@ -23,7 +23,6 @@ public struct FestivalView: View {
     }
     .onChange(of: scenePhase) { _, phase in
       send(.foregroundChanged(phase == .active))
-      if phase == .background { send(.backgrounded) }
     }
   }
 

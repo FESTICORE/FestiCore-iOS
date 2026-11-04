@@ -324,7 +324,7 @@ private extension FestivalListView {
           }
         )
         .highlightedQuery(trimmedQuery)
-        .urgent(isUrgent(festival))
+        .badgeStyle(badgeStyle(for: festival))
         .thumbnail(
           FestivalPosterView(
             url: imageURL(festival.thumbnailURL?.absoluteString),
@@ -388,9 +388,12 @@ private extension FestivalListView {
     }
   }
 
-  func isUrgent(_ festival: FestivalOverview) -> Bool {
-    if case .closing = FestivalListPresentation.cardStatus(for: festival, now: .now) { return true }
-    return false
+  func badgeStyle(for festival: FestivalOverview) -> FCSearchResultRow.BadgeStyle {
+    switch FestivalListPresentation.cardStatus(for: festival, now: .now) {
+    case .closing: .closing
+    case .upcoming: .upcoming
+    case .dDay, .ended: .day
+    }
   }
 
   func meta(for festival: FestivalOverview) -> String {
