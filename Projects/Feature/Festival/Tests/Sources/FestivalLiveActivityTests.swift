@@ -96,6 +96,44 @@ struct HomeLiveActivityTests {
     await store.finish()
   }
 
+  @Test func controlVisibilityRequiresActiveActivityOrValidSavedPerformance() throws {
+    var state = FestivalFeature.State(selectedFestivalID: "festival")
+    state.catalog = [festival(id: "festival")]
+    state.selectedPack = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: Data(#"""
+      {"id":"festival","timetable":[
+        {"id":"valid","startsAt":"2026-10-29T09:00:00Z","endsAt":"2026-10-29T10:00:00Z"},
+        {"id":"invalid","startsAt":"2026-10-29T10:00:00Z","endsAt":"2026-10-29T09:00:00Z"}
+      ]}
+      """#.utf8))
+    #expect(!state.showsLiveActivityControl)
+    state.mySchedule = .init(
+      festivalID: "other",
+      setIDs: ["valid"]
+    )
+    #expect(!state.showsLiveActivityControl)
+    state.mySchedule = .init(
+      festivalID: "festival",
+      setIDs: ["invalid"]
+    )
+    #expect(!state.showsLiveActivityControl)
+    state.mySchedule = .init(
+      festivalID: "festival",
+      setIDs: ["valid"]
+    )
+    #expect(state.showsLiveActivityControl)
+    state.mySchedule = nil
+    state.liveActivities["festival"] = .init(
+      id: "activity",
+      festivalID: "festival",
+      phase: .ongoing,
+      startDate: Date(timeIntervalSince1970: 0),
+      endDate: nil
+    )
+    #expect(state.showsLiveActivityControl)
+  }
+
   @Test @MainActor func startThatCanNoLongerResolveReleasesBusyState() async {
     var state = FestivalFeature.State()
     state.liveActivityReady = true

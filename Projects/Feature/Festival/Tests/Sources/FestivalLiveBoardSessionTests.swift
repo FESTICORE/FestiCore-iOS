@@ -370,6 +370,29 @@ struct FestivalLiveBoardSessionTests {
     }
   }
 
+  @Test("내 일정 재조회 실패 시 이전 일정은 유지한다")
+  func failedScheduleRefreshKeepsPreviouslyLoadedSchedule() async {
+    let store = TestStore(initialState: {
+      var state = FestivalFeature.State(selectedFestivalID: "fst")
+      state.hasSession = true
+      state.myScheduleRequestID = 2
+      state.mySchedule = .init(
+        festivalID: "fst",
+        setIDs: ["set-a"]
+      )
+      return state
+    }()) { FestivalFeature() }
+
+    await store.send(.inner(.myScheduleFailed(
+      festivalID: "fst",
+      requestID: 2,
+      generation: 0
+    ))) {
+      $0.myScheduleUnavailable = true
+    }
+    #expect(store.state.mySchedule?.setIDs == ["set-a"])
+  }
+
   @Test("304로 같은 서버 시각을 다시 받아도 시계 기준점은 유지한다")
   func cachedLiveBoardDoesNotResetClock() async {
     let serverAt = Date(timeIntervalSince1970: 1_000)

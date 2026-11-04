@@ -175,6 +175,19 @@ public struct FestivalFeature {
       )
     }
 
+    var showsLiveActivityControl: Bool {
+      guard let festival = selectedFestival else { return false }
+      if liveActivities[festival.id] != nil { return true }
+      guard let mySchedule, mySchedule.festivalID == festival.id,
+            let pack = pack(for: festival.id), !mySchedule.setIDs.isEmpty else { return false }
+      return pack.performances.contains { performance in
+        guard mySchedule.setIDs.contains(performance.id),
+              let start = performance.startsAt.flatMap(FestivalLiveBoardSchedule.parse),
+              let end = performance.endsAt.flatMap(FestivalLiveBoardSchedule.parse) else { return false }
+        return end > start
+      }
+    }
+
     /// 선택 축제의 팩을 처음 받는 중이다. 이때는 공연 영역에 빈 상태 대신 스켈레톤을 보여 준다.
     /// 오프라인·재연결 중에는 팩 서비스가 재시도만 하고 끝나지 않으므로 스켈레톤을 남기지 않는다.
     var isPackLoading: Bool {
@@ -1071,7 +1084,6 @@ extension FestivalFeature {
             state.myScheduleRequestID == requestID,
             state.accountGeneration == generation,
             state.hasSession else { return .none }
-      state.mySchedule = nil
       state.myScheduleUnavailable = true
       return .none
 
