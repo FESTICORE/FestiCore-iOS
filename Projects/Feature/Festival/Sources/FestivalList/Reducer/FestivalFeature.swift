@@ -126,6 +126,19 @@ public struct FestivalFeature {
       )
     }
 
+    var showsLiveActivityControl: Bool {
+      guard let festival = selectedFestival else { return false }
+      if liveActivities[festival.id] != nil { return true }
+      guard let mySchedule, mySchedule.festivalID == festival.id,
+            let pack = pack(for: festival.id), !mySchedule.setIDs.isEmpty else { return false }
+      return pack.performances.contains { performance in
+        guard mySchedule.setIDs.contains(performance.id),
+              let start = performance.startsAt.flatMap(FestivalLiveBoardSchedule.parse),
+              let end = performance.endsAt.flatMap(FestivalLiveBoardSchedule.parse) else { return false }
+        return end > start
+      }
+    }
+
     /// 선택 축제의 팩을 처음 받는 중이다. 이때는 공연 영역에 빈 상태 대신 스켈레톤을 보여 준다.
     /// 오프라인·재연결 중에는 팩 서비스가 재시도만 하고 끝나지 않으므로 스켈레톤을 남기지 않는다.
     var isPackLoading: Bool {
@@ -438,10 +451,7 @@ extension FestivalFeature {
 
     case .liveBoardOnDisappear:
       state.isLiveBoardVisible = false
-      state.mySchedule = nil
-      state.myScheduleUnavailable = false
-      state.myScheduleRequestID += 1
-      return .merge(.cancel(id: CancelID.liveBoard), .cancel(id: CancelID.mySchedule))
+      return .cancel(id: CancelID.liveBoard)
 
     case .retryMySchedule:
       return .send(.async(.loadMySchedule))
@@ -547,7 +557,7 @@ extension FestivalFeature {
 
     case let .myScheduleSaved(festivalID, setIDs):
       guard state.selectedFestivalID == festivalID,
-            state.hasSession, state.isLiveBoardVisible else { return .none }
+            state.hasSession else { return .none }
       state.myScheduleRequestID += 1
       state.mySchedule = MySchedule(festivalID: festivalID, setIDs: setIDs)
       state.myScheduleUnavailable = false
@@ -833,7 +843,7 @@ extension FestivalFeature {
       guard state.selectedFestivalID == festivalID,
             state.myScheduleRequestID == requestID,
             state.accountGeneration == generation,
-            state.isLiveBoardVisible, state.hasSession else { return .none }
+            state.hasSession else { return .none }
       state.mySchedule = MySchedule(festivalID: festivalID, setIDs: setIDs)
       state.myScheduleUnavailable = false
       return .none
@@ -842,8 +852,7 @@ extension FestivalFeature {
       guard state.selectedFestivalID == festivalID,
             state.myScheduleRequestID == requestID,
             state.accountGeneration == generation,
-            state.isLiveBoardVisible, state.hasSession else { return .none }
-      state.mySchedule = nil
+            state.hasSession else { return .none }
       state.myScheduleUnavailable = true
       return .none
 
@@ -1038,7 +1047,7 @@ extension FestivalFeature {
     .cancellable(id: CancelID.liveBoard, cancelInFlight: true)
   }
 
-  /// 세션이 있고 라이브 보드가 보일 때 내 일정을 불러온다.
+  /// 세션이 있고 라이브 보드가 보일 때 내 일정을 불러온다. 화면을 떠난 뒤 도착한 결과도 유지한다.
   private func loadMySchedule(_ state: inout State) -> Effect<Action> {
     guard state.hasSession, state.isLiveBoardVisible, let id = state.selectedFestivalID else {
       return .cancel(id: CancelID.mySchedule)

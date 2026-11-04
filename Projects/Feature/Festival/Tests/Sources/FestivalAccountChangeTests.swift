@@ -86,7 +86,6 @@ struct FestivalAccountChangeTests {
     #expect(store.state.liveBoard == current)
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
-      $0.myScheduleRequestID = 2
     }
   }
 }

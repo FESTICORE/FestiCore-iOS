@@ -20,6 +20,7 @@ struct FestivalLiveBoardScreen: View {
   let mySetIDs: Set<String>
   let myScheduleUnavailable: Bool
   let liveActivityState: FestivalFeature.LiveActivityControlState
+  let showsLiveActivityControl: Bool
   let onLiveActivityTap: () -> Void
   let onLoginTap: () -> Void
   let onNotificationTap: () -> Void
@@ -49,12 +50,14 @@ struct FestivalLiveBoardScreen: View {
                 title: "라이브 보드 공개 전이에요",
                 message: "축제 라이브 보드가 아직 공개되지 않았어요. 공개 후 공연과 깃발 현황을 확인해 주세요."
               )
+              if showsLiveActivityControl { liveActivityControl }
             } else {
               if isPackLoading {
                 FestivalLiveBoardSkeletonView()
               } else {
                 scheduleCards(now: now, deviceNow: timeline.date)
               }
+              if showsLiveActivityControl { liveActivityControl }
               if myScheduleUnavailable {
                 HStack(spacing: FestiCoreSpacing.paddingP8) {
                   Text("내 일정을 불러오지 못했습니다.")
@@ -81,7 +84,6 @@ struct FestivalLiveBoardScreen: View {
                 followedSection(now: now)
                 activeSection(now: now)
               }
-              liveActivityControl
             }
           }
           .padding(.horizontal, FestiCoreSpacing.paddingP16)
