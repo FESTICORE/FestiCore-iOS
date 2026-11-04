@@ -149,7 +149,7 @@ flowchart TD
 
 ### 모듈 그래프
 
-`./make graph`와 `./make graph:prod`는 현재 Tuist 프로젝트에서 전체·제품 모듈 그래프를 생성합니다. 생성 방법은 [아키텍처 문서](docs/architecture/README.md)를 참고하세요.
+현재 Auth 모듈 이름을 반영한 요약 도식은 [Mermaid](docs/architecture/module-graph.mmd)와 [SVG](docs/architecture/module-graph.svg)에서 확인할 수 있습니다. Tuist 전체·제품 그래프의 생성 방법은 [아키텍처 문서](docs/architecture/README.md)를 참고하세요.
 
 ### TCA 화면 흐름과 데이터 경계
 

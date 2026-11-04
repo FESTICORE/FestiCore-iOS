@@ -15,4 +15,6 @@ README에는 직접 작성한 Mermaid 의존성 흐름과 SVG 요약도를 표�
 
 `./make graph`는 현재 `Project.swift`에서 Tests·Interface를 포함한 `module-graph-all.png`를 생성합니다. `./make graph:prod`는 테스트 타깃을 뺀 `module-graph-prod.png`를 생성합니다. 두 명령 모두 외부 패키지와 Demo 타깃을 제외하고 `docs/architecture/`에 저장합니다. Graphviz의 `dot`이 필요합니다.
 
+현재 요약 도식의 Auth 모듈 이름은 `.mmd`와 `.svg`에 반영되어 있습니다. 두 PNG는 Auth 이름 변경 전 생성본이며, Tuist 외부 의존성 설치 후 다시 생성해야 합니다.
+
 모듈을 추가하거나 의존성을 바꾼 뒤 두 명령을 다시 실행하고 생성된 PNG를 함께 커밋합니다. 위의 Excalidraw·Mermaid 그림은 주요 경계를 설명하는 요약 그림이므로, 구조가 바뀌면 함께 갱신합니다.
