@@ -173,6 +173,7 @@
       state.showsMineOnly = showsMineOnly
       state.nowMinute = 928
       if isUnpublished {
+        state.contentStatus = .unpublished
         state.lineup = [
           TimetableLineupDay(
             id: "0807",

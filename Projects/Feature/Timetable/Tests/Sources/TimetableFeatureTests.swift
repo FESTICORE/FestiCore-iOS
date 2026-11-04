@@ -6,6 +6,76 @@ import TimetableDomainInterface
 
 @MainActor
 struct TimetableFeatureTests {
+  @Test func clockRefreshesOnEntryTickAndDayChangeThenCancels() async {
+    let clock = TestClock()
+    let initial = TimetableFeature.State.sample()
+    let date = LockIsolated(initial.days[0].date.addingTimeInterval(928 * 60))
+    let store = TestStore(initialState: initial) {
+      TimetableFeature()
+    } withDependencies: {
+      $0.continuousClock = clock
+      $0.date = DateGenerator { date.value }
+    }
+
+    await store.send(.view(.clockStarted)) {
+      $0.clockDate = date.value
+    }
+    await store.receive(\.async.observeClock)
+    date.withValue { $0 = $0.addingTimeInterval(60) }
+    await clock.advance(by: .seconds(1))
+    await store.receive(\.inner.clockUpdated) {
+      $0.clockDate = date.value
+      $0.nowMinute = 929
+    }
+    await store.send(.view(.daySelected(1))) {
+      $0.selectedDayIndex = 1
+      $0.nowMinute = nil
+    }
+    await store.send(.view(.daySelected(0))) {
+      $0.selectedDayIndex = 0
+      $0.nowMinute = 929
+    }
+    await store.send(.view(.clockStopped))
+    await clock.advance(by: .seconds(2))
+    await store.finish()
+  }
+
+  @Test func currentTimeContinuesThroughCrossMidnightSet() async {
+    var state = TimetableFeature.State.sample()
+    state.days[0].sets[0].end = 1500
+    let date = state.days[0].date.addingTimeInterval(1460 * 60)
+    let store = TestStore(initialState: state) {
+      TimetableFeature()
+    }
+    await store.send(.inner(.clockUpdated(date))) {
+      $0.clockDate = date
+      $0.nowMinute = 1460
+    }
+    await store.send(.inner(.clockUpdated(date.addingTimeInterval(40 * 60)))) {
+      $0.clockDate = date.addingTimeInterval(40 * 60)
+      $0.nowMinute = nil
+    }
+  }
+
+  @Test func contentStatusDoesNotInferPublicationFromEmptyLineup() {
+    var state = TimetableFeature.State(days: [], source: "")
+    for status in [TimetableFeature.ContentStatus.loading, .failed, .noFestival, .unpublished] {
+      state.contentStatus = status
+      #expect(!state.isPublished)
+      #expect(!state.canPickSchedule)
+    }
+    state.contentStatus = .published
+    #expect(state.isPublished)
+  }
+
+  @Test func retryAsksParentToReloadPack() async {
+    let store = TestStore(initialState: TimetableFeature.State(days: [], source: "")) {
+      TimetableFeature()
+    }
+    await store.send(.view(.retryTapped))
+    await store.receive(\.delegate.retry)
+  }
+
   @Test func tappingSetOpensDetailWithoutChangingSchedule() async {
     // 샘플 첫날(2026-08-07 KST) 정오. lime(17:00–17:50)은 5시간 뒤 시작한다.
     let now = Date(timeIntervalSince1970: 1_786_028_400 + 12 * 60 * 60)

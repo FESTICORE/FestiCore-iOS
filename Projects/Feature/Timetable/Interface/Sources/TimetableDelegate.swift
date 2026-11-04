@@ -10,6 +10,7 @@ import ComposableArchitecture
 @CasePathable
 public enum TimetableDelegate: Equatable, Sendable {
   case showChanges
+  case retry
   case search
   case requestNotification
   case scheduleSaved(festivalID: String, setIDs: Set<String>)
