@@ -41,8 +41,11 @@ struct FestivalListView: View {
           }
           .padding(.horizontal, FestiCoreSpacing.paddingP16)
           .padding(.bottom, FestiCoreSpacing.paddingP16)
-          .padding(.top, FestiCoreSpacing.paddingP16 * 2)
         }
+        .padding(
+          .top,
+          FestiCoreSpacing.paddingP20
+        )
         .scrollIndicators(.hidden)
         .refreshable { send(.refreshRequested) }
         .simultaneousGesture(filterSwipe)
@@ -151,7 +154,7 @@ private extension FestivalListView {
     Text(store.listInteraction.selectedFilter == .all ? Copy.allGuide : Copy.bookedGuide)
       .festiCoreFont(.baseSubheadlineMedium)
       .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-    if store.viewState == .loading {
+    if store.viewState == .loading, festivals.isEmpty {
       FestivalListSkeletonView()
     } else if visibleFestivals.isEmpty {
       emptyCard()
@@ -265,7 +268,7 @@ private extension FestivalListView {
           .padding(.horizontal, FestiCoreSpacing.paddingP16)
         }
       }
-    } else if store.viewState == .loading {
+    } else if store.viewState == .loading, festivals.isEmpty {
       searchSkeleton
     } else if festivals.isEmpty && hasCatalogFailure {
       FCEmptyCard(
