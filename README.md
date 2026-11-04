@@ -171,7 +171,7 @@ Point-Free Dependencies를 사용합니다. `ServiceAssembly`가 네트워크·�
 
 ### 화면과 데이터 경계
 
-화면은 Attendance와 같은 방향으로 `View → @Reducer → UseCase Interface → UseCase 구현 → Repository Interface → Repository 구현 → APIEndpoint · Network Interface`를 따릅니다. `FeatureAssembly`가 Feature와 Domain 구현을 연결하고, `ServiceAssembly`와 `CoreAssembly`가 공용 네트워크·인증·저장소 구현을 조립합니다. 예를 들어 공지 목록·상세는 `Profile`에서 `NoticeDomainInterface`를 주입받고, `NoticeDomain`의 Repository가 `APIEndpoint` 요청을 공용 `networkClient`로 전송합니다. 실제 연결은 [화면과 데이터 흐름 도식](docs/architecture/feature-data-flow.mmd)에 표시했습니다.
+화면은 Attendance와 같은 방향으로 `View → @Reducer → UseCase Interface → UseCase 구현`을 따릅니다. 공지·팩 상세처럼 Repository가 있는 기능은 여기서 `Repository Interface → Repository 구현 → APIEndpoint · Network Interface`로 이어집니다. S00 목록은 `FestiCoreFestivalCatalog` 서비스의 요청 클라이언트·파일 캐시를, 팩 받기는 `FestiCorePack` 서비스의 WebSocket·팩 캐시를 사용합니다. `FeatureAssembly`가 Feature와 Domain 구현을 연결하고, `ServiceAssembly`와 `CoreAssembly`가 공용 네트워크·인증·저장소 구현을 조립합니다. 실제 경로는 [화면과 데이터 흐름 도식](docs/architecture/feature-data-flow.mmd)에 표시했습니다.
 
 첫 실행에는 `AppCoordinator`가 Splash 이후 설치 기록에 따라 네 장의 온보딩 화면 또는 `MainTabCoordinator`를 표시합니다. 이용약관·개인정보 처리방침은 `Profile`과 가입 화면에서 `WebFeature`의 앱 내 `WKWebView`로 엽니다. 축제 카드의 예매 링크는 `FestivalView`의 시스템 `openURL`로 앱 밖에서 엽니다. 현재 코드는 Safari 앱을 직접 지정하지 않으므로 기기의 기본 브라우저 설정을 따릅니다.
 
