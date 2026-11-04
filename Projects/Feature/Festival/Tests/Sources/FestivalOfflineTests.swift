@@ -6,6 +6,29 @@ import Testing
 @testable import Festival
 
 struct HomeOfflineTests {
+  @Test @MainActor func refreshingCachedListShowsSkeletonUntilRequestFails() async {
+    var state = FestivalFeature.State()
+    state.catalog = [FestivalCatalogItem(id: "fst_a", name: "저장된 축제", packVersion: 1)]
+    state.viewState = .loaded
+    let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.festivalCatalogUseCase = MockFestivalCatalogUseCase(
+        refreshFestivals: { throw OfflineCatalog.NetworkUnavailable() }
+      )
+    }
+
+    await store.send(.view(.refreshRequested)) {
+      $0.viewState = .loading
+    }
+    await store.receive(\.async.refresh)
+    await store.receive(\.inner.catalogFailed) {
+      $0.viewState = .loaded
+      $0.catalogRefreshFailed = true
+      $0.connection = .offline
+      $0.imageRetryPending = true
+    }
+    #expect(store.state.festivals.map(\.name) == ["저장된 축제"])
+  }
+
   @Test func defaultCatalogKeepsHostedAppOffline() async throws {
     let catalog = FestivalCatalogServiceDependency.testValue
     #expect(try await catalog.cachedFestivals().isEmpty)

@@ -38,7 +38,7 @@ private extension FestivalView {
       bookedFestivalIDs: store.bookedFestivalIDs,
       packDownloads: store.packDownloads,
       imageRevision: store.imageRevision,
-      isLoading: store.festivals.isEmpty && store.viewState == .loading,
+      isLoading: store.viewState == .loading,
       hasCatalogFailure: store.catalogCacheReadFailed || store.catalogRefreshFailed,
       offlineMessage: offlineMessage,
       imageURL: imageURL,

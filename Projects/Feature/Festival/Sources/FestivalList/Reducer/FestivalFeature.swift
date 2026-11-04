@@ -366,6 +366,7 @@ extension FestivalFeature {
 
     case .refreshRequested:
       state.packWatchFailed = false
+      state.viewState = .loading
       return .send(.async(.refresh))
 
     case .reloadCachedPacks:
