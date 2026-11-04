@@ -11,7 +11,11 @@ extension FestivalCrewDataDTO {
             let joinedAt = Self.parseDate(member.joinedAt) else {
         throw FestivalCrewError.invalidResponse
       }
-      return FestivalCrew.Member(userID: member.userId, nickname: member.nickname, joinedAt: joinedAt)
+      return FestivalCrew.Member(
+        userID: member.userId,
+        nickname: member.nickname,
+        joinedAt: joinedAt
+      )
     }
     let expiresAt: Date?
     if let inviteExpiresAt {
@@ -21,8 +25,13 @@ extension FestivalCrewDataDTO {
       expiresAt = nil
     }
     return FestivalCrew(
-      id: id, festivalID: festivalId, name: name, ownerID: ownerId,
-      members: members, inviteCode: inviteCode, inviteExpiresAt: expiresAt
+      id: id,
+      festivalID: festivalId,
+      name: name,
+      ownerID: ownerId,
+      members: members,
+      inviteCode: inviteCode,
+      inviteExpiresAt: expiresAt
     )
   }
 

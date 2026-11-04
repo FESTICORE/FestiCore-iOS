@@ -8,7 +8,10 @@ struct CrewRequestTests {
   @Test func createUsesAuthenticatedPostAndOmitsAbsentNickname() throws {
     let sessionID = UUID()
     let endpoint = CrewRequest.create(
-      body: CrewCreateBody(festivalId: "fst_1", name: "친구들"),
+      body: CrewCreateBody(
+        festivalId: "fst_1",
+        name: "친구들"
+      ),
       sessionID: sessionID
     )
     let request = try endpoint.asURLRequest(baseURL: URL(string: "https://festicore.test")!)
@@ -24,7 +27,11 @@ struct CrewRequestTests {
 
   @Test func createIncludesProvidedNickname() throws {
     let endpoint = CrewRequest.create(
-      body: CrewCreateBody(festivalId: "fst_1", name: "친구들", nickname: "로이"),
+      body: CrewCreateBody(
+        festivalId: "fst_1",
+        name: "친구들",
+        nickname: "로이"
+      ),
       sessionID: UUID()
     )
     let request = try endpoint.asURLRequest(baseURL: URL(string: "https://festicore.test")!)

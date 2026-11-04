@@ -53,7 +53,8 @@ struct FestiCoreSharedUITests {
   @Test func logoutAlertUsesConfirmationStyle() {
     let alert = FCAlertState.logout()
 
-    #expect(alert.title == "로그아웃")
+    #expect(alert.title == "로그아웃할까요?")
+    #expect(alert.message == "받은 팩은 이 기기에 그대로 남아 있어요.")
     #expect(alert.confirmTitle == "로그아웃")
     #expect(alert.style == .confirmation)
     #expect(alert == .logout())

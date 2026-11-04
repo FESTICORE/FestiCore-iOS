@@ -68,7 +68,10 @@ public extension View {
     overlay(alignment: .top) {
       if let current = item.wrappedValue {
         FCToast(current)
-          .padding(.top, topPadding)
+          .padding(
+            .top,
+            topPadding
+          )
           .transition(.move(edge: .top).combined(with: .opacity))
           .task(id: current.id) {
             try? await Task.sleep(for: .seconds(duration))

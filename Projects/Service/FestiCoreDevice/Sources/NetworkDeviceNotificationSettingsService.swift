@@ -32,7 +32,8 @@ public struct NetworkDeviceNotificationSettingsService: DeviceNotificationSettin
       throw DeviceNotificationSettingsError.deviceNotRegistered
     }
     let response = try await client.send(DeviceNotificationSettingsRequest(
-      operation: operation, deviceAuthorization: device
+      operation: operation,
+      deviceAuthorization: device
     ))
     guard response.code == "SUCCESS" else { throw DeviceNotificationSettingsError.invalidResponse }
     return response.data.settings
@@ -65,7 +66,10 @@ struct DeviceNotificationSettingsRequest: FestiCoreDataRequest {
   var headers: HTTPHeaders {
     var headers: HTTPHeaders = ["X-Device-Id": deviceAuthorization.deviceID]
     if let token = deviceAuthorization.bearerToken {
-      headers.add(name: "Authorization", value: "Bearer \(token)")
+      headers.add(
+        name: "Authorization",
+        value: "Bearer \(token)"
+      )
     }
     return headers
   }

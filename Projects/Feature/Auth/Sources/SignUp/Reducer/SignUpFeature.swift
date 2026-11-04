@@ -10,8 +10,6 @@ import ComposableArchitecture
 import CoreGraphics
 import Foundation
 import AuthInterface
-import Web
-import WebInterface
 
 /// 가입 정보(닉네임·약관 동의) 초안과 그 규칙. 제출·닫기는 부모가 처리하도록 delegate로 올리고, 약관 상세는 앱 안 Web 화면으로 띄운다.
 @Reducer
@@ -44,8 +42,6 @@ public struct SignUpFeature {
     public var termsUpdateExhausted = false
     /// 약관 상세 기준 주소. 없으면 상세 링크를 숨기고 제출을 막는다. 부모가 `view(.flowChanged)`로 알린다.
     public var legalBaseURL: URL?
-    /// 가입 화면 위에 전체 화면으로 띄운 화면(약관 상세)
-    @Presents public var destination: Destination.State?
 
     public init(legalBaseURL: URL? = nil) {
       self.legalBaseURL = legalBaseURL
@@ -146,13 +142,7 @@ public struct SignUpFeature {
   @CasePathable
   public enum Action: ViewAction, Equatable {
     case view(View)
-    case destination(PresentationAction<Destination.Action>)
     case delegate(SignUpDelegate)
-  }
-
-  @Reducer(state: .equatable, action: .equatable)
-  public enum Destination {
-    case legalDocument(WebFeature)
   }
 
   @CasePathable
@@ -170,7 +160,7 @@ public struct SignUpFeature {
     case closeTapped
     /// 부모 흐름 값(제출 중·문구·약관 소진·약관 기준 주소)을 부모가 알린다.
     case flowChanged(isSubmitting: Bool, message: String?, termsUpdateExhausted: Bool, legalBaseURL: URL?)
-    /// 부모가 가입 시트를 닫았다. 위에 띄운 화면도 닫는다.
+    /// 부모가 가입 시트를 닫았다.
     case sheetClosed
   }
 
@@ -178,17 +168,15 @@ public struct SignUpFeature {
     Reduce { state, action in
       switch action {
       case .view(let viewAction):
-        return handleViewAction(state: &state, action: viewAction)
+        return handleViewAction(
+          state: &state,
+          action: viewAction
+        )
 
-      case .destination(.presented(.legalDocument(.delegate(.backToRoot)))):
-        state.destination = nil
-        return .none
-
-      case .destination, .delegate:
+      case .delegate:
         return .none
       }
     }
-    .ifLet(\.$destination, action: \.destination)
   }
 }
 
@@ -198,8 +186,14 @@ extension SignUpFeature {
     action: View
   ) -> Effect<Action> {
     switch action {
-    case let .keyboardFrameChanged(minY, screenHeight):
-      state.keyboardInset = max(0, screenHeight - minY)
+    case let .keyboardFrameChanged(
+      minY,
+      screenHeight
+    ):
+      state.keyboardInset = max(
+        0,
+        screenHeight - minY
+      )
       return .none
 
     case .keyboardHidden:
@@ -247,8 +241,10 @@ extension SignUpFeature {
 
     case let .legalDocumentTapped(document):
       guard let url = state.legalURL(for: document) else { return .none }
-      state.destination = .legalDocument(WebFeature.State(url: url, title: document.title))
-      return .none
+      return .send(.delegate(.legalDocumentRequested(
+        url: url,
+        title: document.title
+      )))
 
     case .submitTapped:
       guard state.canSubmit else { return .none }
@@ -262,7 +258,12 @@ extension SignUpFeature {
     case .closeTapped:
       return .send(.delegate(.closeRequested))
 
-    case let .flowChanged(isSubmitting, message, termsUpdateExhausted, legalBaseURL):
+    case let .flowChanged(
+      isSubmitting,
+      message,
+      termsUpdateExhausted,
+      legalBaseURL
+    ):
       state.isSubmitting = isSubmitting
       state.message = message
       state.termsUpdateExhausted = termsUpdateExhausted
@@ -270,7 +271,6 @@ extension SignUpFeature {
       return .none
 
     case .sheetClosed:
-      state.destination = nil
       return .none
     }
   }

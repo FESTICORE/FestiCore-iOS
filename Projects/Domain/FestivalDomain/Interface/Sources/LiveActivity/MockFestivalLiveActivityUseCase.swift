@@ -14,7 +14,14 @@ public struct MockFestivalLiveActivityUseCase: FestivalLiveActivityUseCaseInterf
   private let activityChangesHandler: @Sendable () -> AsyncStream<Void>
   private let startHandler:
     @Sendable (String, String, Date, Date, FestivalLiveActivityPhase) async throws -> String
-  private let updateHandler: @Sendable (String, FestivalLiveActivityPhase, Date, Date) async -> Void
+  private let updateHandler: @Sendable (
+    String,
+    FestivalLiveActivityPhase,
+    Date,
+    Date,
+    FestivalPackDocument?,
+    Set<String>
+  ) async -> Void
   private let finishHandler: @Sendable (String, Date) async -> Void
   private let endHandler: @Sendable (String) async -> Void
 
@@ -35,8 +42,13 @@ public struct MockFestivalLiveActivityUseCase: FestivalLiveActivityUseCaseInterf
       throw FestivalUseCaseNotRegistered()
     },
     update: @escaping @Sendable (
-      _ activityID: String, _ phase: FestivalLiveActivityPhase, _ startDate: Date, _ endDate: Date
-    ) async -> Void = { _, _, _, _ in
+      _ activityID: String,
+      _ phase: FestivalLiveActivityPhase,
+      _ startDate: Date,
+      _ endDate: Date,
+      _ pack: FestivalPackDocument?,
+      _ savedSetIDs: Set<String>
+    ) async -> Void = { _, _, _, _, _, _ in
       reportIssue("festivalLiveActivityUseCase.update 미등록")
     },
     finish: @escaping @Sendable (_ activityID: String, _ startDate: Date) async -> Void = { _, _ in
@@ -68,8 +80,22 @@ public struct MockFestivalLiveActivityUseCase: FestivalLiveActivityUseCaseInterf
     try await startHandler(festivalID, festivalName, startDate, endDate, phase)
   }
 
-  public func update(activityID: String, phase: FestivalLiveActivityPhase, startDate: Date, endDate: Date) async {
-    await updateHandler(activityID, phase, startDate, endDate)
+  public func update(
+    activityID: String,
+    phase: FestivalLiveActivityPhase,
+    startDate: Date,
+    endDate: Date,
+    pack: FestivalPackDocument?,
+    savedSetIDs: Set<String>
+  ) async {
+    await updateHandler(
+      activityID,
+      phase,
+      startDate,
+      endDate,
+      pack,
+      savedSetIDs
+    )
   }
 
   public func finish(activityID: String, startDate: Date) async {

@@ -118,8 +118,8 @@ public extension FCAlertState where Action == FCAlertAction {
   /// 로그아웃 확인
   static func logout() -> FCAlertState<FCAlertAction> {
     .alert(
-      title: "로그아웃",
-      message: "이 기기에서 로그아웃하시겠습니까?",
+      title: "로그아웃할까요?",
+      message: "받은 팩은 이 기기에 그대로 남아 있어요.",
       confirmTitle: "로그아웃"
     )
   }

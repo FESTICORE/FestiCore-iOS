@@ -10,7 +10,10 @@ struct FestivalListRequest: FestiCoreDataRequest {
   var path: String { "api/v1/festivals" }
   var method: HTTPMethod { .get }
   var authorization: FestiCoreAuthorization { .none }
-  var parameters: (any Encodable & Sendable)? { return FestivalListParameters(after: after, limit: limit) }
+  var parameters: (any Encodable & Sendable)? { return FestivalListParameters(
+    after: after,
+    limit: limit
+  ) }
 }
 
 private struct FestivalListParameters: Encodable, Sendable {

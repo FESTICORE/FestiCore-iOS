@@ -41,7 +41,10 @@ struct LoginFeatureTests {
   ) async {
     let store = TestStore(initialState: LoginFeature.State()) { LoginFeature() }
 
-    await store.send(.view(.contextChanged(context, flowMessage: nil))) {
+    await store.send(.view(.contextChanged(
+      context,
+      flowMessage: nil
+    ))) {
       $0.context = context
     }
     #expect(store.state.isSigningIn == false)

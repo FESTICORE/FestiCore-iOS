@@ -6,7 +6,14 @@ public struct FestivalLiveActivityClient: Sendable {
   public var changes: @Sendable () -> AsyncStream<Void>
   public var start:
     @Sendable (String, String, Date, Date, FestivalLiveActivityPhase) async throws -> String
-  public var update: @Sendable (String, FestivalLiveActivityPhase, Date, Date) async -> Void
+  public var update: @Sendable (
+    String,
+    FestivalLiveActivityPhase,
+    Date,
+    Date,
+    FestivalPackDocument?,
+    Set<String>
+  ) async -> Void
   public var finish: @Sendable (String, Date) async -> Void
   public var end: @Sendable (String) async -> Void
 
@@ -16,7 +23,14 @@ public struct FestivalLiveActivityClient: Sendable {
     start:
       @escaping @Sendable (String, String, Date, Date, FestivalLiveActivityPhase) async throws ->
       String,
-    update: @escaping @Sendable (String, FestivalLiveActivityPhase, Date, Date) async -> Void,
+    update: @escaping @Sendable (
+      String,
+      FestivalLiveActivityPhase,
+      Date,
+      Date,
+      FestivalPackDocument?,
+      Set<String>
+    ) async -> Void,
     finish: @escaping @Sendable (String, Date) async -> Void,
     end: @escaping @Sendable (String) async -> Void
   ) {
@@ -34,7 +48,7 @@ extension FestivalLiveActivityClient: TestDependencyKey {
     activities: { [] },
     changes: { AsyncStream { $0.finish() } },
     start: { _, _, _, _, _ in "test-activity" },
-    update: { _, _, _, _ in },
+    update: { _, _, _, _, _, _ in },
     finish: { _, _ in },
     end: { _ in }
   )

@@ -13,7 +13,12 @@ public struct FestivalSwitcherFeature {
       public let subtitle: String
       public let thumbnailURL: URL?
 
-      public init(id: String, name: String, subtitle: String, thumbnailURL: URL?) {
+      public init(
+        id: String,
+        name: String,
+        subtitle: String,
+        thumbnailURL: URL?
+      ) {
         self.id = id
         self.name = name
         self.subtitle = subtitle
@@ -24,7 +29,10 @@ public struct FestivalSwitcherFeature {
     public var festivals: [Item]
     public var selectedFestivalID: String?
 
-    public init(festivals: [Item], selectedFestivalID: String?) {
+    public init(
+      festivals: [Item],
+      selectedFestivalID: String?
+    ) {
       self.festivals = festivals
       self.selectedFestivalID = selectedFestivalID
     }
@@ -56,7 +64,10 @@ public struct FestivalSwitcherFeature {
     Reduce { state, action in
       switch action {
       case let .view(viewAction):
-        return handleViewAction(state: &state, action: viewAction)
+        return handleViewAction(
+          state: &state,
+          action: viewAction
+        )
       case .delegate:
         return .none
       }
@@ -65,7 +76,10 @@ public struct FestivalSwitcherFeature {
 }
 
 private extension FestivalSwitcherFeature {
-  func handleViewAction(state: inout State, action: View) -> Effect<Action> {
+  func handleViewAction(
+    state: inout State,
+    action: View
+  ) -> Effect<Action> {
     switch action {
     case let .festivalTapped(id):
       guard state.festivals.contains(where: { $0.id == id }) else { return .none }

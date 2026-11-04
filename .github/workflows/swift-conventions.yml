@@ -1,0 +1,28 @@
+name: Swift Conventions
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: swift-conventions-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  swift-conventions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify convention checker
+        run: python3 -m unittest discover -s .claude/hooks/tests -p 'test_check_swift_conventions.py'
+      - name: Check changed Swift lines
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 .claude/hooks/check-swift-conventions.py --base "$BASE_SHA"

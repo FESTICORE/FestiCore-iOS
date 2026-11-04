@@ -11,7 +11,10 @@ struct FestivalToastView: View {
     FCToast(item)
       .iconColor(toast == .bookmarked ? FestiCoreSemanticColor.staticLime.color : FestiCoreSemanticColor.staticWhite.color)
       .id(revision)
-      .padding(.top, 30)
+      .padding(
+        .top,
+        30
+      )
       .transition(.move(edge: .top).combined(with: .opacity))
   }
 }
@@ -22,7 +25,10 @@ private extension FestivalToastView {
     case .bookmarked: .booked()
     case .unbookmarked: .unbooked()
     case .ticketLinkMissing: .noLink()
-    case .packDownloadFailed: .init(icon: .circleInfo16, message: "팩을 받지 못했어요. 다시 시도해 주세요")
+    case .packDownloadFailed: .init(
+      icon: .circleInfo16,
+      message: "팩을 받지 못했어요. 다시 시도해 주세요"
+    )
     }
   }
 }

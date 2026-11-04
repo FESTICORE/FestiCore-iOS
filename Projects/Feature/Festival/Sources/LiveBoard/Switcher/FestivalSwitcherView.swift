@@ -21,17 +21,29 @@ public struct FestivalSwitcherView: View {
         }
       }
       .scrollIndicators(.hidden)
-      .frame(height: min(CGFloat(store.festivals.count) * 68, 204))
+      .frame(height: min(
+        CGFloat(store.festivals.count) * 68,
+        204
+      ))
 
       Rectangle()
         .fill(FestiCoreSemanticColor.lineNormal.color)
         .frame(height: 1)
-        .padding(.top, FestiCoreSpacing.paddingP16)
+        .padding(
+          .top,
+          FestiCoreSpacing.paddingP16
+        )
 
       allFestivalsRow
     }
-    .padding(.horizontal, FestiCoreSpacing.paddingP20)
-    .padding(.bottom, FestiCoreSpacing.paddingP8)
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP20
+    )
+    .padding(
+      .bottom,
+      FestiCoreSpacing.paddingP8
+    )
     .background(FestiCoreSemanticColor.backgroundElevated.color)
   }
 }
@@ -39,7 +51,10 @@ public struct FestivalSwitcherView: View {
 private extension FestivalSwitcherView {
   @ViewBuilder
   func heading() -> some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP4
+    ) {
       Text("페스티벌 바꾸기")
         .festiCoreFont(.baseHeadlineBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
@@ -48,19 +63,37 @@ private extension FestivalSwitcherView {
         .festiCoreFont(.baseCaption1Regular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(.top, FestiCoreSpacing.paddingP4)
-    .padding(.bottom, FestiCoreSpacing.paddingP12)
+    .frame(
+      maxWidth: .infinity,
+      alignment: .leading
+    )
+    .padding(
+      .top,
+      FestiCoreSpacing.paddingP4
+    )
+    .padding(
+      .bottom,
+      FestiCoreSpacing.paddingP12
+    )
   }
 
   func festivalRow(_ festival: FestivalSwitcherFeature.State.Item) -> some View {
     let isSelected = festival.id == store.selectedFestivalID
     return Button { send(.festivalTapped(festival.id)) } label: {
       HStack(spacing: FestiCoreSpacing.paddingP12) {
-        FestivalPosterView(url: festival.thumbnailURL, imageRevision: 0)
-          .frame(width: 44, height: 44)
+        FestivalPosterView(
+          url: festival.thumbnailURL,
+          imageRevision: 0
+        )
+          .frame(
+            width: 44,
+            height: 44
+          )
           .accessibilityHidden(true)
-        VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
+        VStack(
+          alignment: .leading,
+          spacing: FestiCoreSpacing.paddingP4
+        ) {
           Text(festival.name)
             .festiCoreFont(.baseCalloutMedium)
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
@@ -70,11 +103,17 @@ private extension FestivalSwitcherView {
             .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
             .lineLimit(1)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(
+          maxWidth: .infinity,
+          alignment: .leading
+        )
         if isSelected {
           Image(asset: .check)
             .resizable()
-            .frame(width: 16, height: 16)
+            .frame(
+              width: 16,
+              height: 16
+            )
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
             .accessibilityHidden(true)
         }
@@ -97,7 +136,10 @@ private extension FestivalSwitcherView {
         Spacer()
         Image(asset: .chevronRight16)
           .resizable()
-          .frame(width: 16, height: 16)
+          .frame(
+            width: 16,
+            height: 16
+          )
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
           .accessibilityHidden(true)
       }

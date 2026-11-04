@@ -21,9 +21,14 @@ struct LiveActivityRegistrationTests {
     let sessionID = UUID()
     let request = LiveActivityRegistrationRequest(
       method: .put,
-      authorization: DeviceAuthorization(deviceID: "device-id", sessionID: sessionID),
+      authorization: DeviceAuthorization(
+        deviceID: "device-id",
+        sessionID: sessionID
+      ),
       registration: LiveActivityRegistration(
-        festivalID: "fst_abc", activityID: "activity-id", pushToken: "a1b2"
+        festivalID: "fst_abc",
+        activityID: "activity-id",
+        pushToken: "a1b2"
       )
     )
 

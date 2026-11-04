@@ -12,7 +12,10 @@ let project = Project.makeModule(
     .service(.pack, .interface),
     .service(.apiEndpoint),
     .service(.device, .interface),
-    .service(.auth, .interface),
+    .service(
+      .auth,
+      .interface
+    ),
     .SPM.kingfisher,
     .SPM.dependencies,
   ],

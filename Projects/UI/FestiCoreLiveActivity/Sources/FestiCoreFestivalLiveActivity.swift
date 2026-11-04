@@ -183,14 +183,20 @@ public enum FestiCoreFestivalLiveActivity {
     id: String,
     phase: FestiCoreFestivalActivityAttributes.ContentState.Phase,
     startDate: Date,
-    endDate: Date? = nil
+    endDate: Date? = nil,
+    nowStages: [FestiCoreFestivalActivityAttributes.ContentState.NowStage]? = nil,
+    nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil
   ) async {
     guard let activity = Activity<FestiCoreFestivalActivityAttributes>.activities.first(where: { $0.id == id }) else {
       return
     }
     await activity.update(content(
-      phase: phase, startDate: startDate, endDate: endDate,
-      preserving: activity.content.state
+      phase: phase,
+      startDate: startDate,
+      endDate: endDate,
+      nowStages: nowStages,
+      nextMine: nextMine,
+      previousState: activity.content.state
     ))
   }
 
@@ -205,31 +211,54 @@ public enum FestiCoreFestivalLiveActivity {
     guard let activity = Activity<FestiCoreFestivalActivityAttributes>.activities.first(where: { $0.id == id }) else {
       return
     }
-    await activity.end(content(
-      phase: .finished, startDate: startDate, endDate: activity.content.state.endDate,
-      preserving: activity.content.state
-    ), dismissalPolicy: .default)
+    await activity.end(
+      content(
+        phase: .finished,
+        startDate: startDate,
+        endDate: activity.content.state.endDate,
+        previousState: activity.content.state
+      ),
+      dismissalPolicy: .default
+    )
   }
 
   static func content(
     phase: FestiCoreFestivalActivityAttributes.ContentState.Phase,
     startDate: Date,
     endDate: Date? = nil,
-    preserving current: FestiCoreFestivalActivityAttributes.ContentState? = nil
+    nowStages: [FestiCoreFestivalActivityAttributes.ContentState.NowStage]? = nil,
+    nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil,
+    previousState: FestiCoreFestivalActivityAttributes.ContentState? = nil,
+    updatedAt: Date = .now
   ) -> ActivityContent<FestiCoreFestivalActivityAttributes.ContentState> {
-    let staleDate: Date? = switch phase {
-    case .upcoming: startDate
-    case .ongoing: endDate
-    case .finished: nil
-    }
-    var state = current ?? .init(phase: phase, startDate: startDate, endDate: endDate)
-    state.phase = phase
-    state.startDate = startDate
-    state.endDate = endDate
     return ActivityContent(
-      state: state,
-      staleDate: staleDate
+      state: .init(
+        phase: phase,
+        startDate: startDate,
+        endDate: endDate,
+        nowStages: nowStages ?? previousState?.nowStages ?? [],
+        nextMine: nowStages == nil ? (nextMine ?? previousState?.nextMine) : nextMine,
+        pinnedFlag: previousState?.pinnedFlag,
+        crewSummary: previousState?.crewSummary,
+        leaveAt: previousState?.leaveAt
+      ),
+      staleDate: staleDate(
+        for: phase,
+        updatedAt: updatedAt
+      )
     )
+  }
+
+  static func staleDate(
+    for phase: FestiCoreFestivalActivityAttributes.ContentState.Phase,
+    updatedAt: Date
+  ) -> Date? {
+    switch phase {
+    case .upcoming, .ongoing:
+      return updatedAt.addingTimeInterval(3_600)
+    case .finished:
+      return nil
+    }
   }
 
   private static func pushToken(

@@ -9,11 +9,11 @@ import Foundation
 
 public enum AppDateFormat: String, CaseIterable, Sendable {
   case day = "yyyy-MM-dd"
-  case dottedDay = "yyyy.MM.dd"
   case time = "HH:mm"
   case festivalDay = "M/d(E)"
   case liveBoardDay = "MM.dd (E)"
   case monthDayTime = "MM/dd HH:mm"
+  case noticeDay = "yyyy.MM.dd"
 
   public static let timeZone = TimeZone(identifier: "Asia/Seoul") ?? .gmt
 
@@ -27,7 +27,7 @@ public enum AppDateFormat: String, CaseIterable, Sendable {
   fileprivate var locale: Locale {
     switch self {
     case .festivalDay, .liveBoardDay: Locale(identifier: "ko_KR")
-    case .day, .dottedDay, .time, .monthDayTime: Locale(identifier: "en_US_POSIX")
+    case .day, .time, .monthDayTime, .noticeDay: Locale(identifier: "en_US_POSIX")
     }
   }
 }
@@ -95,7 +95,10 @@ private enum AppDateFormatter {
 
 public extension String {
   func date(as format: AppDateFormat) -> Date? {
-    return AppDateFormatter.date(from: self, as: format)
+    return AppDateFormatter.date(
+      from: self,
+      as: format
+    )
   }
 
   /// ISO 8601 시각. 소수초가 있든 없든 받아들인다.
@@ -106,7 +109,10 @@ public extension String {
 
 public extension Date {
   func formatted(_ format: AppDateFormat) -> String {
-    return AppDateFormatter.string(from: self, as: format)
+    return AppDateFormatter.string(
+      from: self,
+      as: format
+    )
   }
 
   /// `yyyy-MM-ddTHH:mm:ss.SSS+09:00`

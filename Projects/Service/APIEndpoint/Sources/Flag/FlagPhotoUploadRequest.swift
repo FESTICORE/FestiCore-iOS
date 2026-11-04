@@ -12,7 +12,7 @@ import Foundation
 
 /// `POST flags/:flagId/photo` multipart 업로드. 파일 필드 이름은 `photo`다.
 public struct FlagPhotoUploadRequest<Response: Decodable & Sendable>: FestiCoreUploadRequest, Sendable {
-  public static var fieldName: String { "photo" }
+  public static var fieldName: String { return "photo" }
 
   public let flagID: String
   public let imageData: Data
@@ -42,6 +42,11 @@ public struct FlagPhotoUploadRequest<Response: Decodable & Sendable>: FestiCoreU
   public var timeoutInterval: TimeInterval? { return 60 }
 
   public var parts: [FestiCoreMultipartPart] {
-    return [FestiCoreMultipartPart(name: Self.fieldName, source: .data(imageData), fileName: fileName, mimeType: mimeType)]
+    return [FestiCoreMultipartPart(
+      name: Self.fieldName,
+      source: .data(imageData),
+      fileName: fileName,
+      mimeType: mimeType
+    )]
   }
 }

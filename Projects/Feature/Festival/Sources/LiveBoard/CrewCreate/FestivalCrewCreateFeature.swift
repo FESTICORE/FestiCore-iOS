@@ -73,11 +73,17 @@ public struct FestivalCrewCreateFeature {
     Reduce { state, action in
       switch action {
       case let .view(viewAction):
-        return handleViewAction(state: &state, action: viewAction)
+        return handleViewAction(
+          state: &state,
+          action: viewAction
+        )
       case let .async(asyncAction):
         return handleAsyncAction(action: asyncAction)
       case let .inner(innerAction):
-        return handleInnerAction(state: &state, action: innerAction)
+        return handleInnerAction(
+          state: &state,
+          action: innerAction
+        )
       case let .delegate(delegateAction):
         return handleDelegateAction(delegateAction)
       case .alert(.presented(.confirmTapped)):
@@ -88,12 +94,18 @@ public struct FestivalCrewCreateFeature {
         return .none
       }
     }
-    .ifLet(\.$alert, action: \.alert) { FCConfirmAlert() }
+    .ifLet(
+      \.$alert,
+      action: \.alert
+    ) { FCConfirmAlert() }
   }
 }
 
 private extension FestivalCrewCreateFeature {
-  func handleViewAction(state: inout State, action: View) -> Effect<Action> {
+  func handleViewAction(
+    state: inout State,
+    action: View
+  ) -> Effect<Action> {
     switch action {
     case let .nameChanged(name):
       state.name = String(name.prefix(20))
@@ -102,7 +114,10 @@ private extension FestivalCrewCreateFeature {
       guard state.canSubmit else { return .none }
       state.isSubmitting = true
       let name = state.name.trimmingCharacters(in: .whitespacesAndNewlines)
-      return .send(.async(.create(festivalID: state.festivalID, name: name)))
+      return .send(.async(.create(
+        festivalID: state.festivalID,
+        name: name
+      )))
     case .closeTapped:
       guard !state.isSubmitting else { return .none }
       return .send(.delegate(.closeRequested))
@@ -111,10 +126,17 @@ private extension FestivalCrewCreateFeature {
 
   func handleAsyncAction(action: AsyncAction) -> Effect<Action> {
     switch action {
-    case let .create(festivalID, name):
+    case let .create(
+      festivalID,
+      name
+    ):
       return .run { send in
         do {
-          let crew = try await crewUseCase.create(festivalID: festivalID, name: name, nickname: nil)
+          let crew = try await crewUseCase.create(
+            festivalID: festivalID,
+            name: name,
+            nickname: nil
+          )
           await send(.inner(.createSucceeded(crew)))
         } catch {
           await send(.inner(.createFailed))
@@ -124,7 +146,10 @@ private extension FestivalCrewCreateFeature {
     }
   }
 
-  func handleInnerAction(state: inout State, action: InnerAction) -> Effect<Action> {
+  func handleInnerAction(
+    state: inout State,
+    action: InnerAction
+  ) -> Effect<Action> {
     switch action {
     case let .createSucceeded(crew):
       state.isSubmitting = false

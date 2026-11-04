@@ -6,7 +6,11 @@ public struct FestivalCrew: Equatable, Sendable {
     public let nickname: String
     public let joinedAt: Date
 
-    public init(userID: String, nickname: String, joinedAt: Date) {
+    public init(
+      userID: String,
+      nickname: String,
+      joinedAt: Date
+    ) {
       self.userID = userID
       self.nickname = nickname
       self.joinedAt = joinedAt
@@ -22,8 +26,13 @@ public struct FestivalCrew: Equatable, Sendable {
   public let inviteExpiresAt: Date?
 
   public init(
-    id: String, festivalID: String, name: String, ownerID: String,
-    members: [Member], inviteCode: String?, inviteExpiresAt: Date?
+    id: String,
+    festivalID: String,
+    name: String,
+    ownerID: String,
+    members: [Member],
+    inviteCode: String?,
+    inviteExpiresAt: Date?
   ) {
     self.id = id
     self.festivalID = festivalID

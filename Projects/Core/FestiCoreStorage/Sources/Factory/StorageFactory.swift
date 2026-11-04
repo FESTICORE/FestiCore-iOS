@@ -61,7 +61,10 @@ public enum StorageFactory {
     do {
       let database = try primary()
       try migrate(database)
-      return (database, true)
+      return (
+        database,
+        true
+      )
     } catch {
       Logger(subsystem: "io.festiCore.co", category: "storage")
         .fault("Failed to prepare app database: \(String(describing: error), privacy: .public)")
@@ -70,11 +73,17 @@ public enum StorageFactory {
     do {
       let database = try fallback()
       try migrate(database)
-      return (database, false)
+      return (
+        database,
+        false
+      )
     } catch {
       Logger(subsystem: "io.festiCore.co", category: "storage")
         .fault("Failed to prepare in-memory database: \(String(describing: error), privacy: .public)")
-      return (nil, false)
+      return (
+        nil,
+        false
+      )
     }
   }
 

@@ -11,6 +11,7 @@ import Dependencies
 public struct MockFestivalCatalogUseCase: FestivalCatalogUseCaseInterface {
   private let cachedFestivalsHandler: @Sendable () async throws -> [FestivalCatalogItem]
   private let refreshFestivalsHandler: @Sendable () async throws -> [FestivalCatalogItem]
+  private let festivalDetailHandler: @Sendable (String) async throws -> FestivalPackDocument
   private let savedFestivalIDHandler: @Sendable () -> String?
   private let saveSelectedFestivalIDHandler: @Sendable (String?) -> Void
 
@@ -23,6 +24,10 @@ public struct MockFestivalCatalogUseCase: FestivalCatalogUseCaseInterface {
       reportIssue("festivalCatalogUseCase.refreshFestivals 미등록")
       throw FestivalUseCaseNotRegistered()
     },
+    festivalDetail: @escaping @Sendable (String) async throws -> FestivalPackDocument = { _ in
+      reportIssue("festivalCatalogUseCase.festivalDetail 미등록")
+      throw FestivalUseCaseNotRegistered()
+    },
     savedFestivalID: @escaping @Sendable () -> String? = {
       reportIssue("festivalCatalogUseCase.savedFestivalID 미등록")
       return nil
@@ -33,6 +38,7 @@ public struct MockFestivalCatalogUseCase: FestivalCatalogUseCaseInterface {
   ) {
     self.cachedFestivalsHandler = cachedFestivals
     self.refreshFestivalsHandler = refreshFestivals
+    self.festivalDetailHandler = festivalDetail
     self.savedFestivalIDHandler = savedFestivalID
     self.saveSelectedFestivalIDHandler = saveSelectedFestivalID
   }
@@ -43,6 +49,10 @@ public struct MockFestivalCatalogUseCase: FestivalCatalogUseCaseInterface {
 
   public func refreshFestivals() async throws -> [FestivalCatalogItem] {
     try await refreshFestivalsHandler()
+  }
+
+  public func festivalDetail(for festivalID: String) async throws -> FestivalPackDocument {
+    return try await festivalDetailHandler(festivalID)
   }
 
   public func savedFestivalID() -> String? {

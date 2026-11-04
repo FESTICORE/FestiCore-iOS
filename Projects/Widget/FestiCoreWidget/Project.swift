@@ -15,6 +15,13 @@ let project = Project.makeAppExtensionModule(
   bundleId: "\(Project.Environment.mainBundleId).LiveActivity",
   infoPlist: .liveActivityWidgetInfoPlist,
   dependencies: [
-    .ui(.liveActivity)
-  ]
+    .ui(.liveActivity),
+    .ui(.designSystem),
+    .core(.utility),
+    .domain(
+      .festival,
+      .interface
+    )
+  ],
+  entitlements: .file(path: "../../../Entitlements/FestiCoreWidget.entitlements")
 )
