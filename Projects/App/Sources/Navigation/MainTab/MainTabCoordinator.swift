@@ -129,7 +129,9 @@ struct MainTabCoordinator {
           return syncTimetable(state: &state, appearing: true)
         case .flag:
           return syncFlag(state: &state)
-        case .live, .my:
+        case .live:
+          return .send(.festival(.reloadCachedPacks))
+        case .my:
           return .none
         }
 
@@ -172,6 +174,9 @@ struct MainTabCoordinator {
         return .send(.delegate(.myWithdrawRequested))
       case let .profile(.delegate(.profileUpdated(user))):
         return .send(.delegate(.myProfileUpdated(user)))
+      case .profile(.destination(.presented(.packDetail(.delegate(.packDeleted))))),
+           .profile(.destination(.presented(.packDetail(.delegate(.packChanged))))):
+        return .send(.festival(.reloadCachedPacks))
       case .profile:
         return .none
 

@@ -1030,6 +1030,47 @@ struct AppCoordinatorTests {
     await store.receive(\.tabReselected)
   }
 
+  @Test func returningToFestivalTabReloadsPackCache() async {
+    let store = TestStore(initialState: MainTabCoordinator.State(selectedTab: .my)) {
+      MainTabCoordinator()
+    } withDependencies: {
+      $0.festivalPackUseCase = MockFestivalPackUseCase(cachedPacks: { [] })
+      $0.festivalImageUseCase = MockFestivalImageUseCase(
+        imageURL: { _ in nil }, startPrefetch: { _ in }, stopPrefetch: {}
+      )
+    }
+    store.exhaustivity = .off
+
+    await store.send(.selectTab(.live)) {
+      $0.selectedTab = .live
+      $0.previousTab = .my
+    }
+    await store.receive(\.festival.reloadCachedPacks)
+    await store.finish()
+  }
+
+  @Test func deletingPackInProfileReloadsFestivalList() async {
+    var state = MainTabCoordinator.State(selectedTab: .my)
+    state.profileState.packs = [FestivalReceivedPack(id: "festival", name: "축제", packVersion: 1)]
+    state.profileState.destination = .packDetail(.init(festivalID: "festival", title: "축제"))
+    let store = TestStore(initialState: state) { MainTabCoordinator() } withDependencies: {
+      $0.festivalReceivedPackUseCase = MockFestivalReceivedPackUseCase(
+        receivedPacks: { [] }, refreshReceivedPacks: { [] }
+      )
+      $0.festivalPackUseCase = MockFestivalPackUseCase(cachedPacks: { [] })
+      $0.festivalImageUseCase = MockFestivalImageUseCase(
+        imageURL: { _ in nil }, startPrefetch: { _ in }, stopPrefetch: {}
+      )
+    }
+    store.exhaustivity = .off
+
+    await store.send(.profile(.destination(.presented(.packDetail(.delegate(.packDeleted)))))) {
+      $0.profileState.destination = nil
+    }
+    await store.receive(\.festival.reloadCachedPacks)
+    await store.finish()
+  }
+
   @Test func homeCoordinatorStartsWithFestivalFeatureRoute() {
     let coordinator = FestivalCoordinator.State()
     #expect(coordinator.routes.count == 1)

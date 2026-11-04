@@ -229,6 +229,9 @@ private extension FestivalListView {
           .spacing(FestiCoreSpacing.paddingP8)
           .padding(.horizontal, FestiCoreSpacing.paddingP16)
         }
+        FCSearchEmpty(query: "")
+          .message("페스티벌, 아티스트, 장소를 검색해 보세요")
+          .padding(.top, FestiCoreSpacing.paddingP24)
       }
     } else if isLoading {
       searchSkeleton

@@ -35,6 +35,7 @@ struct FestivalCoordinator {
     case router(IndexedRouterActionOf<FestivalScreen>)
     case delegate(Delegate)
     case reloadBookmarks(userID: String?)
+    case reloadCachedPacks
     case bookmarkSaved(id: String, booked: Bool)
     case backgrounded
     case accountChanged
@@ -121,6 +122,9 @@ struct FestivalCoordinator {
 
     case let .reloadBookmarks(userID):
       return broadcast(state, .view(.reloadBookmarks(userID: userID)))
+
+    case .reloadCachedPacks:
+      return broadcast(state, .view(.reloadCachedPacks))
 
     case let .bookmarkSaved(id, booked):
       guard let index = state.routes.indices.last else { return .none }

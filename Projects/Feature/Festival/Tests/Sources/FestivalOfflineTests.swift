@@ -6,6 +6,29 @@ import Testing
 @testable import Festival
 
 struct HomeOfflineTests {
+  @Test @MainActor func refreshingCachedListShowsSkeletonUntilRequestFails() async {
+    var state = FestivalFeature.State()
+    state.catalog = [FestivalCatalogItem(id: "fst_a", name: "저장된 축제", packVersion: 1)]
+    state.viewState = .loaded
+    let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.festivalCatalogUseCase = MockFestivalCatalogUseCase(
+        refreshFestivals: { throw OfflineCatalog.NetworkUnavailable() }
+      )
+    }
+
+    await store.send(.view(.refreshRequested)) {
+      $0.viewState = .loading
+    }
+    await store.receive(\.async.refresh)
+    await store.receive(\.inner.catalogFailed) {
+      $0.viewState = .loaded
+      $0.catalogRefreshFailed = true
+      $0.connection = .offline
+      $0.imageRetryPending = true
+    }
+    #expect(store.state.festivals.map(\.name) == ["저장된 축제"])
+  }
+
   @Test func defaultCatalogKeepsHostedAppOffline() async throws {
     let catalog = FestivalCatalogServiceDependency.testValue
     #expect(try await catalog.cachedFestivals().isEmpty)
@@ -18,6 +41,9 @@ struct HomeOfflineTests {
       FestivalCatalogItem(id: "fst_a", name: "팩 있는 축제", packVersion: 1),
       FestivalCatalogItem(id: "fst_b", name: "팩 없는 축제", packVersion: 0),
     ]
+    state.cachedPacks["fst_a"] = CachedFestivalPack(
+      festivalID: "fst_a", packVersion: 1, etag: "v1", pack: Data()
+    )
     state.connection = .connecting
     #expect(state.isPackLoading, "팩을 기다리는 동안 스켈레톤을 보여 준다")
 
@@ -45,6 +71,9 @@ struct HomeOfflineTests {
     state.selectedPack = nil
     state.selectedFestivalID = "fst_b"
     #expect(!state.isPackLoading, "팩이 공개되지 않은 축제는 기다리지 않는다")
+    state.selectedFestivalID = "fst_a"
+    state.cachedPacks = [:]
+    #expect(!state.isPackLoading, "삭제한 팩은 다시 받기 전까지 스켈레톤을 보여 주지 않는다")
   }
 
   @Test @MainActor func cachedPackAppearsBeforeFailedRefresh() async {
@@ -94,7 +123,7 @@ struct HomeOfflineTests {
     await store.receive(\.inner.cachedLoaded) {
       $0.catalogCacheReadFailed = true
       $0.packCacheReadFailed = true
-      $0.connection = .connecting
+      $0.connection = .unavailable
     }
     await store.receive(\.inner.catalogFailed) {
       $0.viewState = .loaded

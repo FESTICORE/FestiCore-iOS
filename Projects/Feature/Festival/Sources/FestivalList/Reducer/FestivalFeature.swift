@@ -129,7 +129,8 @@ public struct FestivalFeature {
     /// 선택 축제의 팩을 처음 받는 중이다. 이때는 공연 영역에 빈 상태 대신 스켈레톤을 보여 준다.
     /// 오프라인·재연결 중에는 팩 서비스가 재시도만 하고 끝나지 않으므로 스켈레톤을 남기지 않는다.
     var isPackLoading: Bool {
-      guard selectedPack == nil, !packWatchFailed, (selectedFestival?.packVersion ?? 0) > 0 else {
+      guard selectedPack == nil, !packWatchFailed,
+            selectedFestivalID.flatMap({ cachedPacks[$0] }) != nil else {
         return false
       }
       return connection == .loading || connection == .connecting
@@ -209,6 +210,7 @@ public struct FestivalFeature {
     case foregroundChanged(Bool)
     case backgrounded
     case refreshRequested
+    case reloadCachedPacks
     case selectFestival(String)
     case backToFestivalList
     case toggleBookedFestival(String)
@@ -239,6 +241,7 @@ public struct FestivalFeature {
   @CasePathable
   public enum AsyncAction: Equatable {
     case loadCachedFestivals
+    case reloadCachedPacks
     case refresh
     case resumeForeground
     case prefetchImages
@@ -259,6 +262,7 @@ public struct FestivalFeature {
   @CasePathable
   public enum InnerAction: Equatable {
     case cachedLoaded([FestivalCatalogItem], [CachedFestivalPack], String?, Bool, Bool)
+    case cachedPacksReloaded([CachedFestivalPack])
     case catalogRefreshed([FestivalCatalogItem])
     case catalogFailed
     case packReceived(String, PackSyncResult)
@@ -362,7 +366,11 @@ extension FestivalFeature {
 
     case .refreshRequested:
       state.packWatchFailed = false
+      state.viewState = .loading
       return .send(.async(.refresh))
+
+    case .reloadCachedPacks:
+      return .send(.async(.reloadCachedPacks))
 
     case let .selectFestival(id):
       guard state.festivals.contains(where: { $0.id == id }) else { return .none }
@@ -564,6 +572,13 @@ extension FestivalFeature {
         )))
       }
 
+    case .reloadCachedPacks:
+      return .run { send in
+        if let packs = try? await packUseCase.cachedPacks() {
+          await send(.inner(.cachedPacksReloaded(packs)))
+        }
+      }
+
     case .refresh:
       return .merge(refreshCatalog(), watchSelectedPack(state))
 
@@ -679,6 +694,13 @@ extension FestivalFeature {
       showCachedPack(in: &state)
       resolveImageURLs(in: &state)
       return .merge(refreshCatalog(), watchSelectedPack(state), prefetchImages(state), syncLiveActivities(state))
+
+    case let .cachedPacksReloaded(packs):
+      state.cachedPacks = Dictionary(uniqueKeysWithValues: packs.map { ($0.festivalID, $0) })
+      state.packCacheReadFailed = false
+      showCachedPack(in: &state)
+      resolveImageURLs(in: &state)
+      return .merge(watchSelectedPack(state), prefetchImages(state), syncLiveActivities(state))
 
     case let .catalogRefreshed(catalog):
       state.viewState = .loaded
@@ -1043,7 +1065,7 @@ extension FestivalFeature {
   private func watchSelectedPack(_ state: State) -> Effect<Action> {
     guard state.isForeground,
           let id = state.selectedFestivalID,
-          (state.selectedFestival?.packVersion ?? 0) > 0 || state.cachedPacks[id] != nil else {
+          state.cachedPacks[id] != nil else {
       return .cancel(id: CancelID.packUpdates)
     }
     return .run { send in
@@ -1064,7 +1086,7 @@ extension FestivalFeature {
       state.connection = .cached
     } else {
       state.selectedPack = nil
-      state.connection = state.selectedFestival?.packVersion == 0 ? .unavailable : .connecting
+      state.connection = .unavailable
     }
   }
 }
