@@ -95,6 +95,45 @@ struct TimetableRoutingTests {
     )
   }
 
+  @Test("타임테이블 버튼의 Router 액션이 일정 선택을 push하고 나중에 액션으로 pop한다")
+  func routedSchedulePickButtonPushesAndLaterPops() async {
+    var state = TimetableCoordinator.State()
+    state.timetableState.festivalID = "festival"
+    state.timetableState.scheduleSync = .ready
+    let store = TestStore(initialState: state) { TimetableCoordinator() }
+
+    await store.send(.router(.routeAction(
+      id: 0,
+      action: .timetable(.view(.schedulePickTapped))
+    )))
+    await store.receive(\.timetable.view.schedulePickTapped) {
+      $0.timetableState.destination = .schedulePick(.init(
+        festivalID: "festival",
+        days: []
+      ))
+    }
+    #expect(store.state.routes.count == 2)
+    #expect(store.state.routes[1].isPush)
+    #expect(store.state.routes[1].screen.is(\.schedulePick))
+    var home = MainTabCoordinator.State(selectedTab: .timetable)
+    home.timetableCoordinatorState = store.state
+    #expect(home.shouldHideTabBar)
+    #expect(!home.shouldReserveTabBarSpace)
+
+    await store.send(.router(.routeAction(
+      id: 1,
+      action: .schedulePick(.view(.laterTapped))
+    )))
+    await store.receive(\.timetable.destination.presented.schedulePick.view.laterTapped)
+    await store.receive(\.timetable.destination.presented.schedulePick.delegate.later) {
+      $0.timetableState.destination = nil
+    }
+    #expect(store.state.routes.count == 1)
+    home.timetableCoordinatorState = store.state
+    #expect(!home.shouldHideTabBar)
+    #expect(home.shouldReserveTabBarSpace)
+  }
+
   @Test("내 일정 고르기에서는 탭바와 여백을 숨기고 뒤로 가면 복원한다")
   func schedulePickHidesTabBarUntilDismissed() {
     var state = MainTabCoordinator.State(selectedTab: .timetable)
