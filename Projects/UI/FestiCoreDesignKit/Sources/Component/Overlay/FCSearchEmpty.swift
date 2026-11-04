@@ -24,7 +24,7 @@ public struct FCSearchEmpty: View {
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
         .accessibilityHidden(true)
       VStack(spacing: FestiCoreSpacing.paddingP12) {
-        Text("‘\(query)’ 검색 결과가 없어요")
+        Text(query.isEmpty ? "검색어를 입력해 주세요" : "‘\(query)’ 검색 결과가 없어요")
           .festiCoreFont(.baseCalloutBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         Text(message)
