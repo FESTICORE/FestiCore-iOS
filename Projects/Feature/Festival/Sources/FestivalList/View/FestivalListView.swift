@@ -358,7 +358,6 @@ private extension FestivalListView {
     }
     let copy = FestivalListPresentation.packCopy(
       for: festival,
-      isBooked: bookedFestivalIDs.contains(festival.id),
       onlyBooked: selectedFilter == 1,
       now: .now
     )

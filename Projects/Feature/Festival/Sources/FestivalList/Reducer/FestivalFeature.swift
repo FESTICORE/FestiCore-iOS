@@ -398,7 +398,6 @@ extension FestivalFeature {
 
     case let .downloadPack(id):
       guard state.isForeground,
-            state.bookedFestivalIDs.contains(id),
             state.packDownloads[id] == nil,
             let festival = state.festivals.first(where: { $0.id == id }),
             festival.packVersion > 0,
@@ -488,11 +487,7 @@ extension FestivalFeature {
       state.bookedUserID = userID
       state.bookedFestivalIDs = userID.map { libraryUseCase.bookedFestivalIDs(for: $0) } ?? []
       state.recentSearches = libraryUseCase.recentSearches(for: userID)
-      // 프로필 재조회 중의 nil은 확정된 예약 해제가 아니므로 전송을 유지한다.
-      guard userID != nil else { return .none }
-      let removed = state.packDownloads.keys.filter { !state.bookedFestivalIDs.contains($0) }
-      removed.forEach { state.packDownloads.removeValue(forKey: $0) }
-      return .merge(removed.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) })
+      return .none
 
     case .accountChanged:
       // 같은 로그아웃 전환의 `sessionChanged`가 먼저 처리됐다면 라이브 보드는 이미 비우고 다시 불렀다.

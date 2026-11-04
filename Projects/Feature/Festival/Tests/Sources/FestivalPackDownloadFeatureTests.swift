@@ -17,7 +17,6 @@ struct FestivalPackDownloadFeatureTests {
     initial.cachedPacks = ["festival": oldPack]
     initial.selectedPack = try JSONDecoder().decode(FestivalPackDocument.self, from: oldPack.pack)
     initial.connection = .cached
-    initial.bookedFestivalIDs = ["festival"]
     let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
       $0.festivalPackUseCase = MockFestivalPackUseCase(
         cachedPacks: { [] },
@@ -41,7 +40,7 @@ struct FestivalPackDownloadFeatureTests {
     await store.finish()
     #expect(watched.value == 0)
     let copy = FestivalListPresentation.packCopy(
-      for: try #require(store.state.festivals.first), isBooked: true, onlyBooked: false,
+      for: try #require(store.state.festivals.first), onlyBooked: false,
       now: Date(timeIntervalSince1970: 1_800_000_000)
     )
     #expect(copy == .ready("팩 받기"))
@@ -79,7 +78,7 @@ struct FestivalPackDownloadFeatureTests {
     await store.finish()
     #expect(watched.value == 1)
     let copy = FestivalListPresentation.packCopy(
-      for: try #require(store.state.festivals.first), isBooked: true, onlyBooked: false,
+      for: try #require(store.state.festivals.first), onlyBooked: false,
       now: Date(timeIntervalSince1970: 1_800_000_000)
     )
     #expect(copy == .received("팩 받음 · 최신 버전"))
@@ -94,7 +93,6 @@ struct FestivalPackDownloadFeatureTests {
     )
     var initial = FestivalFeature.State()
     initial.catalog = [festival]
-    initial.bookedFestivalIDs = ["festival"]
     let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
       $0.date = .constant(Date(timeIntervalSince1970: 1_800_000_000))
@@ -122,9 +120,9 @@ struct FestivalPackDownloadFeatureTests {
     }
   }
 
-  @Test @MainActor func unbookedFestivalCannotDownload() async {
+  @Test @MainActor func unpublishedFestivalCannotDownload() async {
     var initial = FestivalFeature.State()
-    initial.catalog = [FestivalCatalogItem(id: "festival", name: "축제", firstDate: "2099-11-21", packVersion: 2)]
+    initial.catalog = [FestivalCatalogItem(id: "festival", name: "축제", firstDate: "2099-11-21", packVersion: 0)]
     let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
     }
@@ -189,7 +187,7 @@ struct FestivalPackDownloadFeatureTests {
     }
   }
 
-  @Test @MainActor func temporaryBookmarkReloadDoesNotCancelDownload() async {
+  @Test @MainActor func bookmarkReloadDoesNotCancelPublishedPackDownload() async {
     var initial = FestivalFeature.State()
     initial.bookedUserID = "user-a"
     initial.bookedFestivalIDs = ["festival"]
@@ -215,7 +213,7 @@ struct FestivalPackDownloadFeatureTests {
     await store.send(.view(.reloadBookmarks(userID: "user-b"))) {
       $0.bookedUserID = "user-b"
       $0.bookedFestivalIDs = []
-      $0.packDownloads = [:]
     }
+    #expect(store.state.packDownloads["festival"] != nil)
   }
 }
