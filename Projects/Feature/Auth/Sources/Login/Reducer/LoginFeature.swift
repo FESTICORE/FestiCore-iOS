@@ -171,7 +171,7 @@ extension LoginFeature {
     action: DelegateAction
   ) -> Effect<Action> {
     switch action {
-    case .signInRequested, .signedIn:
+    case .signInRequested, .signedIn, .closeRequested:
       return .none
     }
   }
