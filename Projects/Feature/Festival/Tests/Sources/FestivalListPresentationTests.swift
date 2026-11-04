@@ -112,21 +112,18 @@ struct FestivalListPresentationTests {
     #expect(FestivalListPresentation.sorted(festivals, now: now).map(\.id) == ["lateInvalidEnd", "early"])
   }
 
-  @Test func packCopyDependsOnTimingBookingAndCachedVersion() {
+  @Test func packCopyDependsOnPublicationTimingAndCachedVersion() {
     let now = utc("2026-11-01T03:00:00Z")
-    func copy(_ festival: FestivalOverview, booked: Bool = true, onlyBooked: Bool = false) -> FestivalListPresentation.PackCopy {
-      FestivalListPresentation.packCopy(for: festival, isBooked: booked, onlyBooked: onlyBooked, now: now)
+    func copy(_ festival: FestivalOverview, onlyBooked: Bool = false) -> FestivalListPresentation.PackCopy {
+      FestivalListPresentation.packCopy(for: festival, onlyBooked: onlyBooked, now: now)
     }
     #expect(copy(festival(id: "end", firstDate: "2026-10-01")) == .unavailable("종료된 페스티벌이라 팩을 받을 수 없어요"))
     let discovered = festival(id: "soon", firstDate: "2026-11-20", status: "discovered")
     #expect(copy(discovered) == .unavailable("티켓 오픈 후 등록하고 팩을 받을 수 있어요"))
     #expect(copy(discovered, onlyBooked: true) == .unavailable("티켓이 열리면 팩을 받을 수 있어요"))
-    let unpublished = festival(id: "unpublished", firstDate: "2026-11-20", status: "discovered", packVersion: 0)
-    #expect(copy(unpublished) == .unavailable("아직 받을 수 있는 팩이 없어요"))
-    #expect(copy(unpublished, booked: false, onlyBooked: true) == .unavailable("아직 받을 수 있는 팩이 없어요"))
-    #expect(copy(festival(id: "free", firstDate: "2026-11-20"), booked: false)
-      == .unavailable("예매한 페스티벌로 등록하면 팩을 받을 수 있어요"))
-    #expect(copy(festival(id: "new", firstDate: "2026-11-20")) == .ready("팩 받기"))
+    #expect(copy(festival(id: "unpublished", firstDate: "2026-11-20", packVersion: 0))
+      == .unavailable("티켓 오픈 후 등록하고 팩을 받을 수 있어요"))
+    #expect(copy(festival(id: "published", firstDate: "2026-11-20", status: "upcoming")) == .ready("팩 받기"))
     #expect(copy(festival(id: "same", firstDate: "2026-11-20", packVersion: 2, cachedPackVersion: 2))
       == .received("팩 받음 · 최신 버전"))
     #expect(copy(festival(id: "newer", firstDate: "2026-11-20", packVersion: 2, cachedPackVersion: 3))

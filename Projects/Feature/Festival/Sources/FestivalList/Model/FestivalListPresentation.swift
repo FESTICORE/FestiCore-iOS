@@ -126,7 +126,6 @@ extension FestivalListPresentation {
 
   static func packCopy(
     for festival: FestivalOverview,
-    isBooked: Bool,
     onlyBooked: Bool,
     now: Date
   ) -> PackCopy {
@@ -140,7 +139,6 @@ extension FestivalListPresentation {
     if isOpeningSoon(festival) {
       return .unavailable(onlyBooked ? "티켓이 열리면 팩을 받을 수 있어요" : "티켓 오픈 후 등록하고 팩을 받을 수 있어요")
     }
-    guard isBooked else { return .unavailable("예매한 페스티벌로 등록하면 팩을 받을 수 있어요") }
     guard let cachedVersion = festival.cachedPackVersion else { return .ready("팩 받기") }
     // 카탈로그 캐시가 팩보다 오래됐을 수 있으므로 같거나 높으면 최신으로 본다.
     return cachedVersion >= festival.packVersion ? .received("팩 받음 · 최신 버전") : .ready("팩 업데이트")
