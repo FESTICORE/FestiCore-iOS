@@ -22,6 +22,7 @@ struct HomeLiveActivityTests {
       setIDs: ["saved-set"]
     )
     state.liveActivityReady = true
+    state.hasStarted = true
     state.liveActivityNow = now
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
@@ -80,6 +81,7 @@ struct HomeLiveActivityTests {
       setIDs: ["saved-set"]
     )
     state.liveActivityReady = true
+    state.hasStarted = true
     state.liveActivityNow = now
     state.autoActivityHandledStarts["festival"] = performanceStart
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
@@ -204,6 +206,7 @@ struct HomeLiveActivityTests {
     }
     #expect(store.state.liveActivityState.title == "Live Activity 끄기")
     await store.send(.view(.liveActivityTapped)) {
+      $0.autoActivityHandledStarts["festival"] = ISO8601DateFormatter().date(from: "2026-10-29T10:00:00Z")!
       $0.liveActivityBusyFestivalID = "festival"
       $0.liveActivityRevision = 3
     }

@@ -216,14 +216,40 @@ struct AppCoordinator {
 
   var body: some ReducerOf<Self> {
     Reduce { state, action in
+      let previousSession: MainTabCoordinator.AuthInputs.Session?
+      if case let .home(home) = state {
+        previousSession = home.authInputs.session
+      } else {
+        previousSession = nil
+      }
+      let effect: Effect<Action>
       switch action {
       case let .view(viewAction):
-        return handleViewAction(state: &state, action: viewAction)
+        effect = handleViewAction(
+          state: &state,
+          action: viewAction
+        )
       case let .inner(innerAction):
-        return handleInnerAction(state: &state, action: innerAction)
+        effect = handleInnerAction(
+          state: &state,
+          action: innerAction
+        )
       case let .scope(scopeAction):
-        return handleScopeAction(state: &state, action: scopeAction)
+        effect = handleScopeAction(
+          state: &state,
+          action: scopeAction
+        )
       }
+      if let previousSession, case var .home(home) = state {
+        let currentSession = home.authInputs.session
+        if previousSession.userID != nil && previousSession.userID != currentSession.userID {
+          clearAccountDisplayData(&home)
+        } else if !previousSession.hasSession && currentSession.hasSession {
+          home.flagState.clearAccountData()
+        }
+        state = .home(home)
+      }
+      return effect
     }
     .ifCaseLet(\.splash, action: \.scope.splash) { SplashFeature() }
     .ifCaseLet(\.onboarding, action: \.scope.onboarding) { OnboardingFeature() }
@@ -987,10 +1013,20 @@ private extension AppCoordinator {
 
   /// 이전 계정의 라이브 보드·예약 목록을 바로 비운다.
   func clearAccountData(_ home: inout MainTabCoordinator.State) -> Effect<Action> {
-    // 세션이 이미 끊긴 뒤 처리되는 `accountChanged`는 예약 목록만 비우므로 라이브 보드 개인 데이터는 여기서 바로 지운다.
-    // 자식 액션은 진행 중 요청 취소와 새 계정 갱신을 맡는다. 깃발은 세션 변경 감지에서 비운다.
-    home.festivalState.clearAccountData()
+    clearAccountDisplayData(&home)
     return .send(.scope(.home(.festival(.accountChanged))))
+  }
+
+  /// 비동기 입력 액션 전에 개인 데이터가 화면에 남지 않도록 동기 정리한다.
+  func clearAccountDisplayData(_ home: inout MainTabCoordinator.State) {
+    home.festivalState.clearAccountData()
+    home.flagState.clearAccountData()
+    home.timetableState.mySetIDs = []
+    home.timetableState.scheduleSync = .idle
+    home.timetableState.isScheduleLimitReached = false
+    home.timetableState.setDetail = nil
+    home.timetableState.destination = nil
+    home.profileState.destination = nil
   }
 
   func isBooked(_ id: String, in festival: FestivalCoordinator.State) -> Bool {

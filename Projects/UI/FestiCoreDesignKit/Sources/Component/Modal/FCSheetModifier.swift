@@ -97,9 +97,6 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
           isDragging = false
         }
       }
-      .onDisappear {
-        if item == nil { cancelPendingDismissal() }
-      }
       .overlay {
         GeometryReader { geometry in
           ZStack(alignment: .bottom) {
@@ -158,6 +155,17 @@ extension FCSheetModifier {
       .ignoresSafeArea(edges: .bottom)
       .transition(.asymmetric(insertion: .move(edge: .bottom), removal: .identity))
       .accessibilityAddTraits(.isModal)
+      .onAppear {
+        cancelPendingDismissal()
+        dragOffset = 0
+        dismissOffset = 0
+        isDragging = false
+      }
+      .onDisappear { [pendingDismissal] in
+        // 배경 콘텐츠와 별개로 제거되는 시트의 예약 작업을 정리한다.
+        pendingDismissal?.cancel()
+        cancelPendingDismissal()
+      }
     }
   }
 

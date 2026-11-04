@@ -59,12 +59,20 @@ struct FestiCoreDesignKitTests {
     try await harness.render()
     harness.box.item = nil
     try await harness.render()
+    #expect(harness.box.sheetDisappearCount == 1)
     harness.box.item = .login
     try await harness.render()
     #expect(requested.duration(to: clock.now) < SheetTestTiming.preDeadlineLimit)
 
     try await Task.sleep(for: SheetTestTiming.resultWait)
     #expect(harness.box.item == .login)
+    let reopenedFrame = try #require(harness.box.sheetFrame)
+    #expect(reopenedFrame.minY < harness.window.bounds.height)
+
+    let reopenedDismiss = try #require(harness.box.dismiss)
+    reopenedDismiss()
+    try await Task.sleep(for: SheetTestTiming.resultWait)
+    #expect(harness.box.item == nil)
   }
 
   @Test @MainActor func pendingDismissalKeepsReplacementSheet() async throws {
@@ -313,6 +321,7 @@ private final class TestSheetBox {
   var dismiss: (() -> Void)?
   @ObservationIgnored var backgroundFrame: CGRect?
   @ObservationIgnored var sheetFrame: CGRect?
+  @ObservationIgnored var sheetDisappearCount = 0
 }
 
 @MainActor
@@ -373,6 +382,7 @@ private struct SheetTestContent: View {
   var body: some View {
     Text("Sheet")
       .onAppear { box.dismiss = dismiss }
+      .onDisappear { box.sheetDisappearCount += 1 }
       .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { box.sheetFrame = $0 }
   }
 }

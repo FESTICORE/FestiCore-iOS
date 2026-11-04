@@ -172,7 +172,7 @@ struct PackCache: Sendable {
     if let database {
       let records = try database.read { db in try CachedPackRecord.all.fetchAll(db) }
       for record in records {
-        if let value = try load(record.festivalID) {
+        if let value = try loadListedPack(record.festivalID) {
           packs[value.festivalID] = value
         }
       }
@@ -192,11 +192,22 @@ struct PackCache: Sendable {
         properties.isRegularFile == true,
         properties.isSymbolicLink != true,
         (properties.fileSize ?? Int.max) <= Self.maxBytes * 2,
-        let pack = try load(file.deletingPathExtension().lastPathComponent)
+        let pack = try loadListedPack(file.deletingPathExtension().lastPathComponent)
       else { continue }
       packs[pack.festivalID] = pack
     }
     return packs.values.sorted { $0.festivalID < $1.festivalID }
+  }
+
+  /// 손상 항목만 목록에서 제외한다. DB와 파일 시스템 접근 오류는 호출자에게 전달한다.
+  private func loadListedPack(_ festivalID: String) throws -> CachedFestivalPack? {
+    do {
+      return try load(festivalID)
+    } catch PackSyncError.invalidPack {
+      return nil
+    } catch PackSyncError.invalidFestivalID {
+      return nil
+    }
   }
 
   @discardableResult

@@ -156,8 +156,8 @@ struct FestivalNotificationInboxRoutingTests {
   func inboxHidesTabBar() {
     var state = MainTabCoordinator.State()
     state.festivalState.routes.push(.liveBoard(.init()))
-    #expect(state.shouldHideTabBar)
-    #expect(!state.shouldReserveTabBarSpace)
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
 
     state.festivalState.routes.push(.notificationInbox(.init()))
     #expect(state.isNotificationInboxOnTop)
