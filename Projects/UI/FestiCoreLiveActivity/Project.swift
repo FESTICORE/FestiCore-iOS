@@ -12,6 +12,7 @@ import DependencyPackagePlugin
 
 let project = Project.makeModule(
   name: "FestiCoreLiveActivity",
+  product: .framework,
   dependencies: [
     .domain(.festival, .interface),
     .SPM.dependencies

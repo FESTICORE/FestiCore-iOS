@@ -11,8 +11,14 @@ final class PackDownloadDeviceUITests: XCTestCase {
       onboardingSkip.tap()
     }
 
-    let card = app.descendants(matching: .any).matching(
-      NSPredicate(format: "identifier BEGINSWITH %@", "festival.card.")
+    let notificationDeny = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+      .buttons["허용 안 함"]
+    if notificationDeny.waitForExistence(timeout: 8) {
+      notificationDeny.tap()
+    }
+
+    let card = app.images.matching(
+      NSPredicate(format: "identifier BEGINSWITH %@", "festivalCard_")
     ).firstMatch
     XCTAssertTrue(card.waitForExistence(timeout: 30), app.debugDescription)
     card.tap()

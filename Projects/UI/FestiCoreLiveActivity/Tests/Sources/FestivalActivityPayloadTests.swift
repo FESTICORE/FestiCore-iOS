@@ -1,9 +1,20 @@
 import ActivityKit
+import Dependencies
+import FestivalDomainInterface
 import Foundation
 import Testing
 @testable import FestiCoreLiveActivity
 
 struct FestivalActivityPayloadTests {
+  @Test func resolvesLiveActivityClientWithoutAppRegistration() {
+    withDependencies {
+      $0.context = .live
+    } operation: {
+      @Dependency(\.festivalLiveActivityClient) var client
+      _ = client
+    }
+  }
+
   @Test func pushToStartStateDecodesOwnSetAndStage() throws {
     let payload = Data(#"""
       {
