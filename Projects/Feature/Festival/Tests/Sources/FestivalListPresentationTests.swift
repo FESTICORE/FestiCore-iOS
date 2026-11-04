@@ -122,31 +122,30 @@ struct FestivalListPresentationTests {
     #expect(FestivalListPresentation.sorted(festivals, now: now).map(\.id) == ["lateInvalidEnd", "early"])
   }
 
-  @Test func packCopyShowsEndedGuidanceBeforePublishedAndCachedVersion() {
+  @Test func packCopyUsesPublicationAndCacheRegardlessOfFestivalTiming() {
     func copy(_ festival: FestivalOverview) -> FestivalListPresentation.PackCopy {
       return FestivalListPresentation.packCopy(
         for: festival,
-        isBooked: true,
         now: utc("2026-11-01T03:00:00Z")
       )
     }
     #expect(copy(festival(
       id: "end",
       firstDate: "2026-10-01"
-    )) == .unavailable("종료된 페스티벌이라 팩을 받을 수 없어요"))
+    )) == .ready("팩 받기"))
     for cachedVersion in [1, 2, 3] {
       #expect(copy(festival(
         id: "ended-cached",
         firstDate: "2026-10-01",
         packVersion: 2,
         cachedPackVersion: cachedVersion
-      )) == .unavailable("종료된 페스티벌이라 팩을 받을 수 없어요"))
+      )) == (cachedVersion >= 2 ? .received("팩 받음 · 최신 버전") : .ready("팩 업데이트")))
     }
     #expect(copy(festival(
       id: "ended-unpublished",
       firstDate: "2026-10-01",
       packVersion: 0
-    )) == .unavailable("종료된 페스티벌이라 팩을 받을 수 없어요"))
+    )) == .unavailable("팩 발행을 기다리고 있어요"))
     let discovered = festival(id: "soon", firstDate: "2026-11-20", status: "discovered")
     #expect(copy(discovered) == .ready("팩 받기"))
     #expect(copy(festival(
@@ -154,7 +153,7 @@ struct FestivalListPresentationTests {
       firstDate: "2026-11-20",
       packVersion: 0
     ))
-      == .unavailable("티켓 오픈 후 등록하고 팩을 받을 수 있어요"))
+      == .unavailable("팩 발행을 기다리고 있어요"))
     #expect(copy(festival(
       id: "published",
       firstDate: "2026-11-20",
@@ -168,8 +167,7 @@ struct FestivalListPresentationTests {
       == .ready("팩 업데이트"))
   }
 
-  @Test(arguments: [false, true])
-  func packCopyRequiresBookmarkForDownloadAndUpdate(isBooked: Bool) {
+  @Test func packCopyOffersDownloadAndUpdateWithoutBookmarkInput() {
     for cachedVersion: Int? in [nil, 1, 2, 3] {
       let copy = FestivalListPresentation.packCopy(
         for: festival(
@@ -178,15 +176,12 @@ struct FestivalListPresentationTests {
           packVersion: 2,
           cachedPackVersion: cachedVersion
         ),
-        isBooked: isBooked,
         now: utc("2026-11-01T03:00:00Z")
       )
       if let cachedVersion, cachedVersion >= 2 {
         #expect(copy == .received("팩 받음 · 최신 버전"))
-      } else if isBooked {
-        #expect(copy == .ready(cachedVersion == nil ? "팩 받기" : "팩 업데이트"))
       } else {
-        #expect(copy == .unavailable("예매한 페스티벌로 등록하면 팩을 받을 수 있어요"))
+        #expect(copy == .ready(cachedVersion == nil ? "팩 받기" : "팩 업데이트"))
       }
     }
   }

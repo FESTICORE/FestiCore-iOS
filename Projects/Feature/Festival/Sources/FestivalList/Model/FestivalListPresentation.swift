@@ -126,24 +126,14 @@ extension FestivalListPresentation {
 
   static func packCopy(
     for festival: FestivalOverview,
-    isBooked: Bool,
     now: Date = .now
   ) -> PackCopy {
-    guard timing(
-      for: festival,
-      now: now
-    ) != .ended else {
-      return .unavailable("종료된 페스티벌이라 팩을 받을 수 없어요")
-    }
     guard festival.packVersion > 0 else {
-      return .unavailable("티켓 오픈 후 등록하고 팩을 받을 수 있어요")
+      return .unavailable("팩 발행을 기다리고 있어요")
     }
     // 카탈로그 캐시가 팩보다 오래됐을 수 있으므로 같거나 높으면 최신으로 본다.
     if let cachedVersion = festival.cachedPackVersion, cachedVersion >= festival.packVersion {
       return .received("팩 받음 · 최신 버전")
-    }
-    guard isBooked else {
-      return .unavailable("예매한 페스티벌로 등록하면 팩을 받을 수 있어요")
     }
     return .ready(festival.cachedPackVersion == nil ? "팩 받기" : "팩 업데이트")
   }

@@ -409,8 +409,7 @@ private extension FestivalListView {
       return .downloading(progress: fraction, text: text)
     }
     let copy = FestivalListPresentation.packCopy(
-      for: festival,
-      isBooked: store.bookedFestivalIDs.contains(festival.id)
+      for: festival
     )
     return switch copy {
     case let .unavailable(text): .unavailable(text)
