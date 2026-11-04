@@ -43,6 +43,14 @@ enum FestivalLiveBoardPresentation {
     let sub: String
   }
 
+  enum Phase: Equatable {
+    case beforeOpening(Countdown)
+    case live
+    case finalHour(Countdown)
+    case ended
+    case unknown
+  }
+
   struct CrewMember: Equatable, Identifiable {
     let id: String
     let nickname: String
@@ -77,7 +85,7 @@ extension FestivalLiveBoardPresentation {
   static func sortedActiveFlags(
     _ flags: [FestivalLiveBoardSnapshot.Flag]
   ) -> [FestivalLiveBoardSnapshot.Flag] {
-    flags.sorted {
+    return flags.sorted {
       let left = $0.updatedAt ?? .distantPast
       let right = $1.updatedAt ?? .distantPast
       return left == right ? $0.id < $1.id : left > right
@@ -101,7 +109,7 @@ extension FestivalLiveBoardPresentation {
 
   /// 다음 일정 카드의 갱신 문구. 수신 시각과 같은 기기 시각으로 잰다.
   static func updatedText(receivedAt: Date?, deviceNow: Date) -> String {
-    relativeTime(receivedAt, now: deviceNow).map { "\($0) 업데이트" } ?? "시간표 기준"
+    return relativeTime(receivedAt, now: deviceNow).map { "\($0) 업데이트" } ?? "시간표 기준"
   }
 
   /// 오프라인 배너 문구. 경과 시간은 기기 시각으로 잰다.
@@ -114,6 +122,43 @@ extension FestivalLiveBoardPresentation {
 // MARK: - 축제·일정
 
 extension FestivalLiveBoardPresentation {
+  /// 팩에 게시된 개장·종료 시각만으로 S01의 시간대별 상태를 고른다.
+  static func phase(pack: FestivalPackDocument?, festival: FestivalOverview, now: Date) -> Phase {
+    guard let pack else { return .unknown }
+    let days = (pack.days ?? []).compactMap { day -> (date: String, start: Date, end: Date?)? in
+      guard let date = day.date,
+            let start = day.startsAt.flatMap(FestivalLiveBoardSchedule.parse) else { return nil }
+      let end = day.endsAt.flatMap(FestivalLiveBoardSchedule.parse)
+      return (date, start, end.flatMap { $0 > start ? $0 : nil })
+    }.sorted { $0.start < $1.start }
+    guard !days.isEmpty else { return .unknown }
+
+    // 카탈로그의 마지막 날짜와 팩의 마지막 날짜가 다르면 팩이 일부만 내려온 상태다.
+    let last = days.last
+    let hasFinalDay = festival.lastDate == nil || last?.date == festival.lastDate
+    let finalEnd = hasFinalDay ? last?.end : nil
+    if let finalEnd, now >= finalEnd { return .ended }
+
+    if let next = days.first(where: { now < $0.start }),
+       !days.contains(where: { $0.start <= now && ($0.end.map { now < $0 } ?? true) }) {
+      var sub = "\(next.start.formatted(.time)) 개장"
+      let followingStart = days.first(where: { $0.start > next.start })?.start
+      if let firstSet = FestivalLiveBoardSchedule.entries(pack: pack).first(where: { entry in
+        entry.slot.startsAt >= next.start &&
+          (next.end.map { entry.slot.startsAt < $0 } ?? true) &&
+          (followingStart.map { entry.slot.startsAt < $0 } ?? true)
+      }) {
+        sub += " · 첫 공연 \(firstSet.slot.startsAt.formatted(.time)) \(firstSet.stageName)"
+      }
+      return .beforeOpening(.init(time: duration(from: now, to: next.start), sub: sub))
+    }
+
+    if let finalEnd, now >= finalEnd.addingTimeInterval(-3_600) {
+      return .finalHour(.init(time: duration(from: now, to: finalEnd), sub: "\(finalEnd.formatted(.time)) 종료"))
+    }
+    return .live
+  }
+
   /// `DAY n · M/d(E) · HH:mm–HH:mm`. 오늘 날짜가 없으면 첫날을 쓴다.
   static func dayLine(pack: FestivalPackDocument?, festival: FestivalOverview, now: Date) -> String? {
     guard let day = selectedDay(pack: pack, festival: festival, now: now) else { return nil }
@@ -170,7 +215,7 @@ extension FestivalLiveBoardPresentation {
   }
 
   static func stageRows(_ stages: [FestivalLiveBoardSchedule.Stage], mySetIDs: Set<String>) -> [StageRow] {
-    stages.map { stage in
+    return stages.map { stage in
       StageRow(
         id: stage.id,
         name: stage.name,

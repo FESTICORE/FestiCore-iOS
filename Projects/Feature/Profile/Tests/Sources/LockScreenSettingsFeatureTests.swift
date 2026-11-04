@@ -29,7 +29,7 @@ struct LockScreenSettingsFeatureTests {
     await store.receive(\.inner.activitiesLoaded) {
       $0.isLoading = false
       $0.hasLoaded = true
-      $0.activityCount = 1
+      $0.activities = [activity]
     }
   }
 
@@ -72,13 +72,13 @@ struct LockScreenSettingsFeatureTests {
     await store.receive(\.inner.activitiesLoaded) {
       $0.isLoading = false
       $0.hasLoaded = true
-      $0.activityCount = 1
+      $0.activities = [activity]
     }
     await store.send(.view(.onAppear))
     await store.receive(\.async.loadActivities)
     await store.receive(\.inner.activitiesLoaded) {
       $0.isLoading = false
-      $0.activityCount = 0
+      $0.activities = []
     }
     #expect(calls.value == 2)
   }
@@ -99,5 +99,39 @@ struct LockScreenSettingsFeatureTests {
     #expect(openedURL.value?.absoluteString == UIApplication.openSettingsURLString)
     await store.send(.view(.backTapped))
     await store.receive(\.delegate.backRequested)
+  }
+
+  @Test func stopAllEndsEachActivityAndRefreshesList() async {
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    let activities = ["one", "two"].map {
+      FestivalLiveActivityRecord(id: $0, festivalID: $0, phase: .ongoing, startDate: now, endDate: nil)
+    }
+    let ended = LockIsolated<[String]>([])
+    let store = TestStore(initialState: LockScreenSettingsFeature.State()) {
+      LockScreenSettingsFeature()
+    } withDependencies: {
+      $0.festivalLiveActivityUseCase = MockFestivalLiveActivityUseCase(
+        activities: { ended.value.isEmpty ? activities : [] },
+        end: { id in ended.withValue { $0.append(id) } }
+      )
+    }
+
+    await store.send(.view(.onAppear))
+    await store.receive(\.async.loadActivities)
+    await store.receive(\.inner.activitiesLoaded) {
+      $0.isLoading = false
+      $0.hasLoaded = true
+      $0.activities = activities
+    }
+    await store.send(.view(.stopAllTapped)) { $0.isStopping = true }
+    await store.receive(\.async.stopActivities)
+    await store.receive(\.inner.activitiesStopped)
+    await store.receive(\.async.loadActivities)
+    await store.receive(\.inner.activitiesLoaded) {
+      $0.activities = []
+      $0.isStopping = false
+    }
+    #expect(ended.value == ["one", "two"])
+    #expect(store.state.activityCount == 0)
   }
 }

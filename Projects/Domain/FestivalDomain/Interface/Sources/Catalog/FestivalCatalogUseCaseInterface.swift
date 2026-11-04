@@ -13,9 +13,23 @@ public protocol FestivalCatalogUseCaseInterface: Sendable {
   func cachedFestivals() async throws -> [FestivalCatalogItem]
   /// 서버에서 축제 목록을 다시 받는다.
   func refreshFestivals() async throws -> [FestivalCatalogItem]
+  func festivalPage(
+    after: String?,
+    limit: Int
+  ) async throws -> FestivalCatalogPage
   /// 마지막으로 고른 축제 ID.
   func savedFestivalID() -> String?
+  /// 다음 실행에서 복원할 축제 ID를 저장한다. nil이면 선택을 지운다.
   func saveSelectedFestivalID(_ festivalID: String?)
+}
+
+public extension FestivalCatalogUseCaseInterface {
+  func festivalPage(
+    after: String?,
+    limit: Int
+  ) async throws -> FestivalCatalogPage {
+    return FestivalCatalogPage(items: try await refreshFestivals(), nextCursor: nil)
+  }
 }
 
 public enum FestivalCatalogUseCaseDependency: TestDependencyKey {

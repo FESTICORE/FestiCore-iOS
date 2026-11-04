@@ -21,6 +21,8 @@ public extension SecureStorageKey {
   static let sessionUserID = SecureStorageKey("SESSION_USER_ID")
   static let deviceID = SecureStorageKey("DEVICE_ID")
   static let deviceAccessToken = SecureStorageKey("DEVICE_ACCESS_TOKEN")
+  static let deviceBoundUserID = SecureStorageKey("DEVICE_BOUND_USER_ID")
+  static let deviceUnbindKey = SecureStorageKey("DEVICE_UNBIND_KEY")
   static let apnsToken = SecureStorageKey("APNS_DEVICE_TOKEN")
 
   // 로그아웃 시 앱 설치 단위의 기기 식별 정보는 유지합니다.

@@ -6,6 +6,43 @@ import Testing
 
 @Suite("축제 목록 오프라인 복구")
 struct FestivalCatalogTests {
+  @Test("목록 페이지를 10개 단위 커서로 요청하고 받은 페이지를 캐시에 누적한다")
+  func loadsTenItemPages() async throws {
+    let cacheURL = temporaryCacheURL()
+    let client = ScriptClient(pages: [
+      #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"fst_a","name":"첫 축제","packVersion":1}],"nextCursor":"cursor-a"}}"#,
+      #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"fst_b","name":"둘째 축제","packVersion":1}],"nextCursor":null}}"#
+    ])
+    let service = NetworkFestivalCatalogService(client: client, cacheURL: cacheURL)
+
+    let first = try await service.page(after: nil, limit: 10)
+    let second = try await service.page(after: first.nextCursor, limit: 10)
+
+    #expect(first.items.map(\.id) == ["fst_a"])
+    #expect(second.items.map(\.id) == ["fst_b"])
+    #expect(second.nextCursor == nil)
+    #expect(await client.requests() == ["nil/10", "cursor-a/10"])
+    #expect(try await service.cachedFestivals().map(\.id) == ["fst_a", "fst_b"])
+  }
+
+  @Test("새 목록의 모든 페이지를 받기 전에는 기존 전체 오프라인 캐시를 유지한다")
+  func keepsCompleteCacheUntilLastPage() async throws {
+    let cacheURL = temporaryCacheURL()
+    let existing = NetworkFestivalCatalogService(client: ScriptClient(pages: [
+      #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"fst_old_a","name":"이전 첫 축제","packVersion":1},{"id":"fst_old_b","name":"이전 둘째 축제","packVersion":1}],"nextCursor":null}}"#
+    ]), cacheURL: cacheURL)
+    _ = try await existing.refresh()
+    let updated = NetworkFestivalCatalogService(client: ScriptClient(pages: [
+      #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"fst_new_a","name":"새 첫 축제","packVersion":1}],"nextCursor":"cursor-a"}}"#,
+      #"{"code":"SUCCESS","message":"OK","data":{"items":[{"id":"fst_new_b","name":"새 둘째 축제","packVersion":1}],"nextCursor":null}}"#
+    ]), cacheURL: cacheURL)
+
+    let first = try await updated.page(after: nil, limit: 10)
+    #expect(try await updated.cachedFestivals().map(\.id) == ["fst_old_a", "fst_old_b"])
+    _ = try await updated.page(after: first.nextCursor, limit: 10)
+    #expect(try await updated.cachedFestivals().map(\.id) == ["fst_new_a", "fst_new_b"])
+  }
+
   @Test("페이지를 끝까지 읽고 재시작 후 저장 목록을 반환한다")
   func paginatesAndRestores() async throws {
     let cacheURL = temporaryCacheURL()
@@ -121,8 +158,11 @@ private struct DefaultImageCatalogService: FestivalCatalogService {
 
 private actor ScriptClient: FestiCoreRequestClient {
   private var pages: [Data]
+  private var requested: [String] = []
 
   init(pages: [String]) { self.pages = pages.map { Data($0.utf8) } }
+
+  func requests() -> [String] { return requested }
 
   func send<R: FestiCoreDataRequest, T: Decodable & Sendable>(
     _ request: R, as type: T.Type
@@ -132,6 +172,9 @@ private actor ScriptClient: FestiCoreRequestClient {
   }
 
   func send<R: FestiCoreDataRequest>(_ request: R) async throws(FestiCoreNetworkError) -> R.Response {
+    if let request = request as? FestivalListRequest {
+      requested.append("\(request.after ?? "nil")/\(request.limit)")
+    }
     guard !pages.isEmpty else {
       Issue.record("예상하지 않은 페이지 요청")
       throw .request(.invalidURL)

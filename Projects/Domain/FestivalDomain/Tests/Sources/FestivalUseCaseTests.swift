@@ -16,7 +16,7 @@ struct FestivalUseCaseTests {
   @Test func catalogUseCaseReadsCatalogAndRemembersSelection() async throws {
     let saved = LockIsolated<String?>(nil)
     let useCase = withDependencies {
-      $0.festivalCatalogService = StubCatalogService(
+      $0.festivalCatalogRepository = StubCatalogRepository(
         cached: [.init(id: "cached", name: "캐시", packVersion: 1)],
         refreshed: [.init(id: "fresh", name: "새 목록", packVersion: 1)]
       )
@@ -35,7 +35,7 @@ struct FestivalUseCaseTests {
   @Test func packUseCaseForwardsCachedPacksAndUpdates() async throws {
     let pack = CachedFestivalPack(festivalID: "fst", packVersion: 2, etag: "e", pack: Data())
     let useCase = withDependencies {
-      $0.packSyncService = StubPackService(pack: pack)
+      $0.festivalPackSyncRepository = StubPackRepository(pack: pack)
     } operation: {
       FestivalPackUseCaseImpl()
     }
@@ -46,6 +46,42 @@ struct FestivalUseCaseTests {
       results.append(result)
     }
     #expect(results == [.updated(pack)])
+    var downloadEvents: [PackDownloadEvent] = []
+    for try await event in useCase.downloadPack(for: "fst") {
+      downloadEvents.append(event)
+    }
+    #expect(downloadEvents == [.finished(.updated(pack))])
+  }
+
+  @Test func catalogRepositoryForwardsServiceCalls() async throws {
+    let repository = withDependencies {
+      $0.festivalCatalogService = StubCatalogService(
+        cached: [.init(id: "cached", name: "캐시", packVersion: 1)],
+        refreshed: [.init(id: "fresh", name: "새 목록", packVersion: 1)]
+      )
+    } operation: {
+      FestivalCatalogRepositoryImpl()
+    }
+
+    #expect(try await repository.cachedFestivals().map(\.id) == ["cached"])
+    #expect(try await repository.refreshFestivals().map(\.id) == ["fresh"])
+  }
+
+  @Test func packRepositoryForwardsCacheUpdatesAndDownload() async throws {
+    let pack = CachedFestivalPack(festivalID: "fst", packVersion: 2, etag: "e", pack: Data())
+    let repository = withDependencies {
+      $0.packSyncService = StubPackService(pack: pack)
+    } operation: {
+      FestivalPackSyncRepositoryImpl()
+    }
+
+    #expect(try await repository.cachedPacks() == [pack])
+    var updates: [PackSyncResult] = []
+    for try await result in repository.packUpdates(for: "fst") { updates.append(result) }
+    #expect(updates == [.updated(pack)])
+    var downloads: [PackDownloadEvent] = []
+    for try await event in repository.downloadPack(for: "fst") { downloads.append(event) }
+    #expect(downloads == [.finished(.updated(pack))])
   }
 
   @Test func liveBoardUseCaseLoadsBoard() async throws {
@@ -101,7 +137,9 @@ struct FestivalUseCaseTests {
     let end = Date(timeIntervalSince1970: 200)
     let useCase = withDependencies {
       $0.festivalLiveActivityClient = .init(
-        activities: { [.init(id: "a", festivalID: "fst", phase: .upcoming, startDate: start, endDate: end)] },
+        activities: {
+          [.init(id: "a", festivalID: "fst", phase: .upcoming, startDate: start, endDate: end)]
+        },
         changes: { AsyncStream { $0.finish() } },
         start: { id, name, _, _, phase in
           calls.withValue { $0.append("start \(id) \(name) \(phase)") }
@@ -116,15 +154,17 @@ struct FestivalUseCaseTests {
     }
 
     #expect(await useCase.activities().map(\.id) == ["a"])
-    #expect(try await useCase.start(
-      festivalID: "fst", festivalName: "축제", startDate: start, endDate: end, phase: .upcoming
-    ) == "activity")
+    #expect(
+      try await useCase.start(
+        festivalID: "fst", festivalName: "축제", startDate: start, endDate: end, phase: .upcoming
+      ) == "activity")
     await useCase.update(activityID: "activity", phase: .ongoing, startDate: start, endDate: end)
     await useCase.finish(activityID: "activity", startDate: start)
     await useCase.end(activityID: "activity")
-    #expect(calls.value == [
-      "start fst 축제 upcoming", "update activity ongoing", "finish activity", "end activity"
-    ])
+    #expect(
+      calls.value == [
+        "start fst 축제 upcoming", "update activity ongoing", "finish activity", "end activity",
+      ])
   }
 
   @Test func imageUseCaseKeepsHTTPSOnlyAndForwardsPrefetch() async {
@@ -172,12 +212,38 @@ struct FestivalUseCaseTests {
   }
 }
 
+private struct StubCatalogRepository: FestivalCatalogRepositoryInterface {
+  let cached: [FestivalCatalogItem]
+  let refreshed: [FestivalCatalogItem]
+
+  func cachedFestivals() async throws -> [FestivalCatalogItem] { return cached }
+  func refreshFestivals() async throws -> [FestivalCatalogItem] { return refreshed }
+}
+
 private struct StubCatalogService: FestivalCatalogService {
   let cached: [FestivalCatalogItem]
   let refreshed: [FestivalCatalogItem]
 
   func cachedFestivals() async throws -> [FestivalCatalogItem] { cached }
   func refresh() async throws -> [FestivalCatalogItem] { refreshed }
+}
+
+private struct StubPackRepository: FestivalPackSyncRepositoryInterface {
+  let pack: CachedFestivalPack
+
+  func cachedPacks() async throws -> [CachedFestivalPack] { return [pack] }
+  func packUpdates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
+    return AsyncThrowingStream {
+      $0.yield(.updated(pack))
+      $0.finish()
+    }
+  }
+  func downloadPack(for _: String) -> AsyncThrowingStream<PackDownloadEvent, Error> {
+    return AsyncThrowingStream {
+      $0.yield(.finished(.updated(pack)))
+      $0.finish()
+    }
+  }
 }
 
 private struct StubPackService: PackSyncService {
@@ -192,6 +258,12 @@ private struct StubPackService: PackSyncService {
       $0.finish()
     }
   }
+  func download(for _: String) -> AsyncThrowingStream<PackDownloadEvent, Error> {
+    return AsyncThrowingStream {
+      $0.yield(.finished(.updated(pack)))
+      $0.finish()
+    }
+  }
 }
 
 private struct StubLiveBoardService: FestivalLiveBoardService {
@@ -201,7 +273,12 @@ private struct StubLiveBoardService: FestivalLiveBoardService {
 }
 
 private struct StubFollowService: FestivalFlagFollowService {
-  func setFollowing(_ following: Bool, flagID: String) async throws(FestivalFlagFollowError) -> FestivalFlagFollowResult {
+  func setFollowing(
+    _ following: Bool,
+    flagID: String
+  ) async throws(FestivalFlagFollowError)
+    -> FestivalFlagFollowResult
+  {
     guard following else { throw .loginRequired }
     return .init(flagID: flagID, isFollowing: true, followerCount: 1)
   }

@@ -131,6 +131,69 @@ struct FestivalLiveBoardPresentationTests {
       == "DAY 1 · 10.20 (화) · 13:00–23:00")
   }
 
+  @Test("개장 시각과 마지막 1시간 및 종료 시각의 경계를 팩 시간으로 판정한다")
+  func phaseUsesPublishedDayBoundaries() throws {
+    let pack = try document(packJSON)
+    let opening = date("2026-10-20T13:00:00+09:00")
+    let finalHour = date("2026-10-20T22:00:00+09:00")
+    let end = date("2026-10-20T23:00:00+09:00")
+
+    #expect(FestivalLiveBoardPresentation.phase(
+      pack: pack, festival: festival, now: opening.addingTimeInterval(-1)
+    ) == .beforeOpening(.init(time: "0분", sub: "13:00 개장 · 첫 공연 15:00 메인")))
+    #expect(FestivalLiveBoardPresentation.phase(pack: pack, festival: festival, now: opening) == .live)
+    #expect(FestivalLiveBoardPresentation.phase(
+      pack: pack, festival: festival, now: finalHour.addingTimeInterval(-1)
+    ) == .live)
+    #expect(FestivalLiveBoardPresentation.phase(
+      pack: pack, festival: festival, now: finalHour
+    ) == .finalHour(.init(time: "1시간 0분", sub: "23:00 종료")))
+    #expect(FestivalLiveBoardPresentation.phase(
+      pack: pack, festival: festival, now: end.addingTimeInterval(-1)
+    ) == .finalHour(.init(time: "0분", sub: "23:00 종료")))
+    #expect(FestivalLiveBoardPresentation.phase(pack: pack, festival: festival, now: end) == .ended)
+  }
+
+  @Test("여러 날 축제의 중간날 종료는 축제 종료로 간주하지 않는다")
+  func phaseUsesFinalDayOnly() throws {
+    let pack = try document(#"""
+      {"id":"fst","days":[
+        {"date":"2026-10-20","startsAt":"2026-10-20T13:00:00+09:00","endsAt":"2026-10-20T23:00:00+09:00"},
+        {"date":"2026-10-21","startsAt":"2026-10-21T12:00:00+09:00","endsAt":"2026-10-21T22:00:00+09:00"}
+      ]}
+      """#)
+    let festival = FestivalOverview(item: .init(
+      id: "fst", name: "이틀 축제", firstDate: "2026-10-20", lastDate: "2026-10-21", packVersion: 1
+    ), isCached: true)
+    #expect(FestivalLiveBoardPresentation.phase(
+      pack: pack, festival: festival, now: date("2026-10-20T22:30:00+09:00")
+    ) == .live)
+    #expect(FestivalLiveBoardPresentation.phase(
+      pack: pack, festival: festival, now: date("2026-10-21T10:00:00+09:00")
+    ) == .beforeOpening(.init(time: "2시간 0분", sub: "12:00 개장")))
+    #expect(FestivalLiveBoardPresentation.phase(
+      pack: pack, festival: festival, now: date("2026-10-21T22:00:00+09:00")
+    ) == .ended)
+  }
+
+  @Test("게시된 마지막 날짜나 종료 시각이 없으면 종료 상태를 추정하지 않는다")
+  func phaseRequiresVerifiedEnd() throws {
+    let noEnd = try document(#"""
+      {"id":"fst","days":[{"date":"2026-10-20","startsAt":"2026-10-20T13:00:00+09:00"}]}
+      """#)
+    let now = date("2026-10-20T23:30:00+09:00")
+    #expect(FestivalLiveBoardPresentation.phase(pack: nil, festival: festival, now: now) == .unknown)
+    #expect(FestivalLiveBoardPresentation.phase(pack: noEnd, festival: festival, now: now) == .live)
+
+    let missingFinalDay = FestivalOverview(item: .init(
+      id: "fst", name: "이틀 축제", firstDate: "2026-10-20", lastDate: "2026-10-21", packVersion: 1
+    ), isCached: true)
+    let firstDayOnly = try document(packJSON)
+    #expect(FestivalLiveBoardPresentation.phase(
+      pack: firstDayOnly, festival: missingFinalDay, now: now
+    ) == .live)
+  }
+
   @Test("크루 부제는 가장 많은 구역을 고르고 본인·귀가 중을 표시한다")
   func crewSummary() throws {
     let pack = try document(packJSON)
@@ -203,10 +266,10 @@ struct FestivalLiveBoardPresentationTests {
     """#
 
   private func document(_ json: String) throws -> FestivalPackDocument {
-    try JSONDecoder().decode(FestivalPackDocument.self, from: Data(json.utf8))
+    return try JSONDecoder().decode(FestivalPackDocument.self, from: Data(json.utf8))
   }
 
   private func date(_ value: String) -> Date {
-    ISO8601DateFormatter().date(from: value)!
+    return ISO8601DateFormatter().date(from: value)!
   }
 }

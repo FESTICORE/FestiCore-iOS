@@ -5,6 +5,7 @@
 
 import ComposableArchitecture
 import Foundation
+import FestiCoreUtility
 import NoticeDomainInterface
 import Testing
 @testable import Profile
@@ -13,7 +14,7 @@ import Testing
 struct NoticeFeatureTests {
   @Test func noticeDateUsesSeoulDayAcrossUTCMidnightBoundary() throws {
     let date = try #require(ISO8601DateFormatter().date(from: "2026-11-03T15:30:00Z"))
-    #expect(NoticeDisplayDate.format(date) == "2026.11.04")
+    #expect(date.formatted(.dottedDay) == "2026.11.04")
   }
 
   @Test func listLoadsPublishedNoticesAndOpensDetail() async {
@@ -130,6 +131,6 @@ private struct StubNoticeUseCase: NoticeUseCaseInterface {
     detail = notice
   }
 
-  func notices() async throws -> [NoticeSummary] { try await list() }
-  func notice(id: String) async throws -> NoticeDetail { try await detail(id) }
+  func notices() async throws -> [NoticeSummary] { return try await list() }
+  func notice(id: String) async throws -> NoticeDetail { return try await detail(id) }
 }

@@ -78,7 +78,7 @@ struct FestivalListPresentationTests {
     #expect(FestivalListPresentation.cardStatus(for: festival(id: "none"), now: now) == .dDay("일정 확인"))
     #expect(FestivalListPresentation.cardStatus(
       for: festival(id: "soon", firstDate: "2026-11-02", status: "discovered"), now: now
-    ) == .upcoming)
+    ) == .closing("D-1"))
     #expect(FestivalListPresentation.cardStatus(
       for: festival(id: "v0", firstDate: "2026-11-02", packVersion: 0), now: now
     ) == .upcoming)
@@ -87,7 +87,7 @@ struct FestivalListPresentationTests {
     ) == .ended)
     #expect(FestivalListPresentation.searchBadge(
       for: festival(id: "soon", firstDate: "2026-11-02", status: "discovered"), now: now
-    ) == "오픈 예정")
+    ) == "D-1")
     #expect(FestivalListPresentation.searchBadge(
       for: festival(id: "end", firstDate: "2026-10-01", lastDate: "2026-10-02"), now: now
     ) == nil)
@@ -112,21 +112,16 @@ struct FestivalListPresentationTests {
     #expect(FestivalListPresentation.sorted(festivals, now: now).map(\.id) == ["lateInvalidEnd", "early"])
   }
 
-  @Test func packCopyDependsOnTimingBookingAndCachedVersion() {
-    let now = utc("2026-11-01T03:00:00Z")
-    func copy(_ festival: FestivalOverview, booked: Bool = true, onlyBooked: Bool = false) -> FestivalListPresentation.PackCopy {
-      FestivalListPresentation.packCopy(for: festival, isBooked: booked, onlyBooked: onlyBooked, now: now)
+  @Test func packCopyDependsOnPublishedAndCachedVersionRegardlessOfFestivalDate() {
+    func copy(_ festival: FestivalOverview) -> FestivalListPresentation.PackCopy {
+      return FestivalListPresentation.packCopy(for: festival)
     }
-    #expect(copy(festival(id: "end", firstDate: "2026-10-01")) == .unavailable("종료된 페스티벌이라 팩을 받을 수 없어요"))
+    #expect(copy(festival(id: "end", firstDate: "2026-10-01")) == .ready("팩 받기"))
     let discovered = festival(id: "soon", firstDate: "2026-11-20", status: "discovered")
-    #expect(copy(discovered) == .unavailable("티켓 오픈 후 등록하고 팩을 받을 수 있어요"))
-    #expect(copy(discovered, onlyBooked: true) == .unavailable("티켓이 열리면 팩을 받을 수 있어요"))
-    let unpublished = festival(id: "unpublished", firstDate: "2026-11-20", status: "discovered", packVersion: 0)
-    #expect(copy(unpublished) == .unavailable("아직 받을 수 있는 팩이 없어요"))
-    #expect(copy(unpublished, booked: false, onlyBooked: true) == .unavailable("아직 받을 수 있는 팩이 없어요"))
-    #expect(copy(festival(id: "free", firstDate: "2026-11-20"), booked: false)
-      == .unavailable("예매한 페스티벌로 등록하면 팩을 받을 수 있어요"))
-    #expect(copy(festival(id: "new", firstDate: "2026-11-20")) == .ready("팩 받기"))
+    #expect(copy(discovered) == .ready("팩 받기"))
+    #expect(copy(festival(id: "unpublished", firstDate: "2026-11-20", packVersion: 0))
+      == .unavailable("팩 발행을 기다리고 있어요"))
+    #expect(copy(festival(id: "published", firstDate: "2026-11-20", status: "upcoming")) == .ready("팩 받기"))
     #expect(copy(festival(id: "same", firstDate: "2026-11-20", packVersion: 2, cachedPackVersion: 2))
       == .received("팩 받음 · 최신 버전"))
     #expect(copy(festival(id: "newer", firstDate: "2026-11-20", packVersion: 2, cachedPackVersion: 3))
@@ -140,7 +135,7 @@ struct FestivalListPresentationTests {
     let festivals = [
       festival(id: "endedOld", firstDate: "2026-10-01", lastDate: "2026-10-02"),
       festival(id: "far", firstDate: "2026-12-01"),
-      festival(id: "soon", firstDate: "2026-11-03", status: "discovered"),
+      festival(id: "soon", firstDate: "2026-11-03", status: "discovered", packVersion: 0),
       festival(id: "endedNew", firstDate: "2026-10-20", lastDate: "2026-10-21"),
       festival(id: "near", firstDate: "2026-11-05"),
       festival(id: "live", firstDate: "2026-10-31", lastDate: "2026-11-02"),
@@ -164,17 +159,22 @@ struct FestivalListPresentationTests {
   }
 
   private func festival(
-    id: String, name: String? = nil, venue: String? = nil,
-    firstDate: String? = nil, lastDate: String? = nil,
-    status: String? = nil, packVersion: Int = 1, cachedPackVersion: Int? = nil
+    id: String,
+    name: String? = nil,
+    venue: String? = nil,
+    firstDate: String? = nil,
+    lastDate: String? = nil,
+    status: String? = nil,
+    packVersion: Int = 1,
+    cachedPackVersion: Int? = nil
   ) -> FestivalOverview {
-    FestivalOverview(item: FestivalCatalogItem(
+    return FestivalOverview(item: FestivalCatalogItem(
       id: id, name: name ?? id, venue: venue, firstDate: firstDate,
       lastDate: lastDate, packVersion: packVersion, status: status
     ), isCached: cachedPackVersion != nil, cachedPackVersion: cachedPackVersion)
   }
 
   private func utc(_ value: String) -> Date {
-    ISO8601DateFormatter().date(from: value)!
+    return ISO8601DateFormatter().date(from: value)!
   }
 }

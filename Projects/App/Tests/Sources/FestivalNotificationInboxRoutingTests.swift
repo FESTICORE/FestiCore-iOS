@@ -1,12 +1,43 @@
 import ComposableArchitecture
 import FeatureAssembly
 import FestivalDomainInterface
+import FestiCoreSharedUI
 import Testing
 import TCAFlow
 @testable import FestiCore
 
 @MainActor
 struct FestivalNotificationInboxRoutingTests {
+  @Test("라이브 보드의 깃발 찾기는 선택 축제를 유지하며 깃발 탭으로 이동한다")
+  func followedFlagGuideOpensFlagTab() async {
+    var state = MainTabCoordinator.State()
+    state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival-a")))
+    let store = TestStore(initialState: state) { MainTabCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+    }
+
+    await store.send(.festival(.router(.routeAction(
+      id: 1, action: .liveBoard(.delegate(.flagTabRequested))
+    ))))
+    await store.receive(\.festival)
+    await store.receive(\.selectTab) { $0.selectedTab = .flag }
+    await store.receive(\.flag.festivalChanged) {
+      $0.flagState.festivalID = "festival-a"
+      $0.flagState.generation = 1
+    }
+  }
+
+  @Test("깃발 안내 숨김 팝업은 라이브 탭바를 가린다")
+  func followedFlagGuideAlertHidesTabBar() {
+    var state = MainTabCoordinator.State()
+    var board = FestivalFeature.State(selectedFestivalID: "festival-a")
+    board.alert = .hideGuide()
+    state.festivalState.routes.push(.liveBoard(board))
+
+    #expect(state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+  }
+
   @Test("다른 탭에 있어도 앱이 백그라운드로 가면 팩 전송을 취소한다")
   func appBackgroundCancelsPackOnHiddenFestivalTab() async {
     var home = MainTabCoordinator.State(selectedTab: .my)
@@ -156,8 +187,8 @@ struct FestivalNotificationInboxRoutingTests {
   func inboxHidesTabBar() {
     var state = MainTabCoordinator.State()
     state.festivalState.routes.push(.liveBoard(.init()))
-    #expect(!state.shouldHideTabBar)
-    #expect(state.shouldReserveTabBarSpace)
+    #expect(state.shouldHideTabBar)
+    #expect(!state.shouldReserveTabBarSpace)
 
     state.festivalState.routes.push(.notificationInbox(.init()))
     #expect(state.isNotificationInboxOnTop)

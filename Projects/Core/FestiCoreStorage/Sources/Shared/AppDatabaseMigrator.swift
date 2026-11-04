@@ -20,6 +20,20 @@ enum AppDatabaseMigrator {
         """
       ).execute(db)
     }
+    migrator.registerMigration("2026-11-04-create-cached-festival-packs") { db in
+      try #sql(
+        """
+        CREATE TABLE IF NOT EXISTS cachedFestivalPacks (
+          festivalID TEXT PRIMARY KEY NOT NULL,
+          packVersion INTEGER NOT NULL,
+          etag TEXT NOT NULL,
+          pack BLOB NOT NULL,
+          sha256 TEXT NOT NULL,
+          checkedAt REAL NOT NULL
+        )
+        """
+      ).execute(db)
+    }
     try migrator.migrate(database)
   }
 }

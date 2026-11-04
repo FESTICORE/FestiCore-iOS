@@ -15,6 +15,7 @@ extension DependencyValues {
     festivalScheduleUseCase = ServiceBackedScheduleUseCase()
     festivalImageUseCase = ServiceBackedImageUseCase()
     festivalLiveActivityUseCase = ServiceBackedLiveActivityUseCase()
+    festivalGuideVisibilityUseCase = MockFestivalGuideVisibilityUseCase(isHidden: { _ in false }, hide: { _ in })
     userNotificationUseCase = MockUserNotificationUseCase(unreadCount: { 0 })
   }
 }

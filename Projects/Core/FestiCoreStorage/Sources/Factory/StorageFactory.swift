@@ -12,17 +12,28 @@ import Dependencies
 import SQLiteData
 
 public enum StorageFactory {
-  private static let database = prepareDatabase()
+  private static let preparedDatabase = prepareDatabaseResult()
+  private static var database: (any DatabaseWriter)? {
+    return preparedDatabase.writer
+  }
 
   static func prepareDatabase(
     primary: () throws -> any DatabaseWriter = { try SQLiteData.defaultDatabase() },
     fallback: () throws -> any DatabaseWriter = { try DatabaseQueue() },
     migrate: (any DatabaseWriter) throws -> Void = AppDatabaseMigrator.migrate
   ) -> (any DatabaseWriter)? {
+    return prepareDatabaseResult(primary: primary, fallback: fallback, migrate: migrate).writer
+  }
+
+  static func prepareDatabaseResult(
+    primary: () throws -> any DatabaseWriter = { try SQLiteData.defaultDatabase() },
+    fallback: () throws -> any DatabaseWriter = { try DatabaseQueue() },
+    migrate: (any DatabaseWriter) throws -> Void = AppDatabaseMigrator.migrate
+  ) -> (writer: (any DatabaseWriter)?, isPersistent: Bool) {
     do {
       let database = try primary()
       try migrate(database)
-      return database
+      return (database, true)
     } catch {
       Logger(subsystem: "io.festiCore.co", category: "storage")
         .fault("Failed to prepare app database: \(String(describing: error), privacy: .public)")
@@ -31,11 +42,11 @@ public enum StorageFactory {
     do {
       let database = try fallback()
       try migrate(database)
-      return database
+      return (database, false)
     } catch {
       Logger(subsystem: "io.festiCore.co", category: "storage")
         .fault("Failed to prepare in-memory database: \(String(describing: error), privacy: .public)")
-      return nil
+      return (nil, false)
     }
   }
 
@@ -49,11 +60,19 @@ public enum StorageFactory {
   }
 
   public static var databaseWriter: (any DatabaseWriter)? {
-    database
+    return database
+  }
+
+  /// 팩처럼 재시작 뒤에도 보존해야 하는 데이터에만 사용한다.
+  public static var persistentDatabaseWriter: (any DatabaseWriter)? {
+    return preparedDatabase.isPersistent ? preparedDatabase.writer : nil
   }
 
   public static func register(into values: inout DependencyValues) {
-    if let database { values.defaultDatabase = database }
+    if let database {
+      values.defaultDatabase = database
+      values.appDatabase = database
+    }
     values.sharedValueStorage = sharedValueStorage
   }
 }

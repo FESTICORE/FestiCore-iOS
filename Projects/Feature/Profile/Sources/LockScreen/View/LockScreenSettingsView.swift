@@ -24,6 +24,13 @@ public struct LockScreenSettingsView: View {
       ScrollView {
         VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
           activityStatus
+          if !store.activities.isEmpty {
+            activeActivities
+            FCButton("모두 끄기") { send(.stopAllTapped) }
+              .style(.secondary)
+              .size(.medium)
+              .disabled(store.isStopping)
+          }
           Text("축제 라이브 보드에서 라이브 활동을 켜면 잠금화면에서 진행 상황을 볼 수 있어요.")
             .festiCoreFont(.baseBodyRegular)
             .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
@@ -45,6 +52,16 @@ public struct LockScreenSettingsView: View {
 }
 
 private extension LockScreenSettingsView {
+  var activeActivities: some View {
+    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
+      ForEach(store.activities, id: \.id) { activity in
+        Text("축제 ID: \(activity.festivalID)")
+          .festiCoreFont(.baseBodyRegular)
+          .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+      }
+    }
+  }
+
   @ViewBuilder
   var activityStatus: some View {
     if store.isLoading {

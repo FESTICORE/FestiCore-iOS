@@ -17,7 +17,6 @@ struct FestivalPackDownloadFeatureTests {
     initial.cachedPacks = ["festival": oldPack]
     initial.selectedPack = try JSONDecoder().decode(FestivalPackDocument.self, from: oldPack.pack)
     initial.connection = .cached
-    initial.bookedFestivalIDs = ["festival"]
     let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
       $0.festivalPackUseCase = MockFestivalPackUseCase(
         cachedPacks: { [] },
@@ -40,10 +39,7 @@ struct FestivalPackDownloadFeatureTests {
     }
     await store.finish()
     #expect(watched.value == 0)
-    let copy = FestivalListPresentation.packCopy(
-      for: try #require(store.state.festivals.first), isBooked: true, onlyBooked: false,
-      now: Date(timeIntervalSince1970: 1_800_000_000)
-    )
+    let copy = FestivalListPresentation.packCopy(for: try #require(store.state.festivals.first))
     #expect(copy == .ready("팩 받기"))
   }
 
@@ -78,11 +74,76 @@ struct FestivalPackDownloadFeatureTests {
     }
     await store.finish()
     #expect(watched.value == 1)
-    let copy = FestivalListPresentation.packCopy(
-      for: try #require(store.state.festivals.first), isBooked: true, onlyBooked: false,
-      now: Date(timeIntervalSince1970: 1_800_000_000)
-    )
+    let copy = FestivalListPresentation.packCopy(for: try #require(store.state.festivals.first))
     #expect(copy == .received("팩 받음 · 최신 버전"))
+  }
+
+  @Test @MainActor func redownloadAfterDeletingSelectedPackResumesWebSocketUpdates() async throws {
+    let watched = LockIsolated(0)
+    let oldPack = CachedFestivalPack(
+      festivalID: "festival", packVersion: 1, etag: "v1",
+      pack: Data(#"{"id":"festival","name":"기존 축제"}"#.utf8)
+    )
+    let downloadedPack = CachedFestivalPack(
+      festivalID: "festival", packVersion: 2, etag: "v2",
+      pack: Data(#"{"id":"festival","name":"다시 받은 축제"}"#.utf8)
+    )
+    let updatedPack = CachedFestivalPack(
+      festivalID: "festival", packVersion: 3, etag: "v3",
+      pack: Data(#"{"id":"festival","name":"실시간 축제"}"#.utf8)
+    )
+    var initial = FestivalFeature.State(selectedFestivalID: "festival")
+    initial.catalog = [FestivalCatalogItem(id: "festival", name: "축제", firstDate: "2099-11-21", packVersion: 2)]
+    initial.cachedPacks = ["festival": oldPack]
+    initial.selectedPack = try JSONDecoder().decode(FestivalPackDocument.self, from: oldPack.pack)
+    initial.connection = .cached
+    let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
+      $0.date = .constant(Date(timeIntervalSince1970: 1_800_000_000))
+      $0.festivalPackUseCase = MockFestivalPackUseCase(
+        cachedPacks: { [] },
+        packUpdates: { _ in
+          watched.withValue { $0 += 1 }
+          return AsyncThrowingStream { continuation in
+            continuation.yield(.updated(updatedPack))
+            continuation.finish()
+          }
+        },
+        downloadPack: { _ in
+          AsyncThrowingStream { continuation in
+            continuation.yield(.finished(.updated(downloadedPack)))
+            continuation.finish()
+          }
+        }
+      )
+      $0.festivalImageUseCase = MockFestivalImageUseCase(
+        imageURL: { _ in nil }, startPrefetch: { _ in }, stopPrefetch: {}
+      )
+    }
+
+    await store.send(.view(.reloadCachedPacks))
+    await store.receive(\.async.reloadCachedPacks)
+    await store.receive(\.inner.cachedPacksReloaded) {
+      $0.cachedPacks = [:]
+      $0.selectedPack = nil
+      $0.connection = .unavailable
+    }
+    await store.send(.view(.downloadPack("festival"))) {
+      $0.packDownloads["festival"] = .downloading(nil)
+    }
+    await store.receive(.async(.downloadPack("festival", generation: 0)))
+    await store.receive(.inner(.packDownloadFinished("festival", generation: 0, .updated(downloadedPack)))) {
+      $0.packDownloads = [:]
+      $0.cachedPacks["festival"] = downloadedPack
+      $0.selectedPack = try? JSONDecoder().decode(FestivalPackDocument.self, from: downloadedPack.pack)
+      $0.connection = .live
+    }
+    await store.receive(.inner(.packReceived("festival", .updated(updatedPack)))) {
+      $0.cachedPacks["festival"] = updatedPack
+      $0.selectedPack = try? JSONDecoder().decode(FestivalPackDocument.self, from: updatedPack.pack)
+    }
+    await store.finish()
+    #expect(watched.value == 1)
+    #expect(store.state.selectedPack?.name == "실시간 축제")
   }
 
   @Test @MainActor func downloadButtonTracksMeasuredProgressAndCachedResult() async {
@@ -94,7 +155,6 @@ struct FestivalPackDownloadFeatureTests {
     )
     var initial = FestivalFeature.State()
     initial.catalog = [festival]
-    initial.bookedFestivalIDs = ["festival"]
     let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
       $0.date = .constant(Date(timeIntervalSince1970: 1_800_000_000))
@@ -122,9 +182,9 @@ struct FestivalPackDownloadFeatureTests {
     }
   }
 
-  @Test @MainActor func unbookedFestivalCannotDownload() async {
+  @Test @MainActor func unpublishedFestivalCannotDownload() async {
     var initial = FestivalFeature.State()
-    initial.catalog = [FestivalCatalogItem(id: "festival", name: "축제", firstDate: "2099-11-21", packVersion: 2)]
+    initial.catalog = [FestivalCatalogItem(id: "festival", name: "축제", firstDate: "2099-11-21", packVersion: 0)]
     let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
     }
@@ -189,7 +249,7 @@ struct FestivalPackDownloadFeatureTests {
     }
   }
 
-  @Test @MainActor func temporaryBookmarkReloadDoesNotCancelDownload() async {
+  @Test @MainActor func bookmarkReloadDoesNotCancelPublishedPackDownload() async {
     var initial = FestivalFeature.State()
     initial.bookedUserID = "user-a"
     initial.bookedFestivalIDs = ["festival"]
@@ -215,7 +275,7 @@ struct FestivalPackDownloadFeatureTests {
     await store.send(.view(.reloadBookmarks(userID: "user-b"))) {
       $0.bookedUserID = "user-b"
       $0.bookedFestivalIDs = []
-      $0.packDownloads = [:]
     }
+    #expect(store.state.packDownloads["festival"] != nil)
   }
 }

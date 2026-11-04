@@ -1,13 +1,14 @@
 # 아키텍처 그림
 
-README에는 직접 작성한 Mermaid 의존성 흐름과 SVG 요약도를 표시합니다. 같은 이름의 `.excalidraw` 파일은 [Excalidraw](https://excalidraw.com/)에서 편집할 수 있고, `.mmd` 파일에는 현재 `Project.swift`의 주요 모듈 의존성을 요약합니다.
+README의 Mermaid 그림은 주요 모듈 의존성을 요약합니다. `.mmd` 파일에는 화면 경로와 데이터 흐름도 있습니다. 같은 이름의 `.excalidraw` 파일은 [Excalidraw](https://excalidraw.com/)에서 편집할 수 있습니다.
 
 | 그림 | 범위 |
 | --- | --- |
-| `module-graph` | 현재 Tuist 모듈과 주요 의존성. 점선은 앱에 포함되는 확장 타깃입니다. |
-| `tca-flow` | Splash → 첫 설치 온보딩 또는 탭 → 축제·알림함·마이 하위 화면 전환. |
+| [module-graph.mmd](module-graph.mmd) | 현재 Tuist 모듈과 주요 의존성. 점선은 앱에 포함되는 확장 타깃입니다. |
+| [tca-flow.mmd](tca-flow.mmd) | Splash → 첫 설치 온보딩 또는 탭 → 축제·알림함·마이 하위 화면 전환. |
+| [feature-data-flow.mmd](feature-data-flow.mmd) | 화면 → UseCase → Repository → S00 목록·팩 서비스의 요청·캐시 경계. |
 
-모듈을 추가하거나 의존성을 바꾸면 해당 `Project.swift`와 `Modules.swift`를 확인한 뒤 README의 Mermaid 흐름과 `.mmd`를 수정합니다. SVG 요약에 영향을 주는 변경이면 Excalidraw 원본과 SVG도 갱신합니다. 화면 경로를 바꾸면 `AppCoordinator`, `MainTabCoordinator`, 해당 Feature의 목적지를 기준으로 `tca-flow`도 갱신합니다.
+모듈을 추가하거나 의존성을 바꾸면 해당 `Project.swift`와 `Modules.swift`를 확인한 뒤 README의 Mermaid 흐름과 `module-graph.mmd`를 수정합니다. 화면 경로는 `tca-flow.mmd`, 화면의 데이터 경계는 `feature-data-flow.mmd`에 반영합니다. SVG 요약이 바뀌면 Excalidraw 원본과 SVG도 갱신합니다.
 
 그림은 현재 구현을 설명합니다. Live Activity 원격 푸시 시작 경로는 완성된 흐름으로 표시하지 않습니다.
 

@@ -9,6 +9,7 @@ import AuthDomainInterface
 import ComposableArchitecture
 import FestiCoreDesignKit
 import FestiCoreSharedUI
+import FestiCoreUtility
 import FestivalDomainInterface
 import SwiftUI
 import Web
@@ -210,15 +211,8 @@ private extension ProfileView {
       return "새 버전이 있어요 · v\(latest)"
     }
     guard let checkedAt = pack.checkedAt else { return "최신 버전 · v\(pack.packVersion)" }
-    return "최신 버전 · \(checkedAt.formatted(Self.checkedAtFormat)) 확인"
+    return "최신 버전 · \(checkedAt.formatted(.monthDayTime)) 확인"
   }
-
-  /// Figma처럼 "10/16 14:00"으로 쓴다.
-  static let checkedAtFormat = Date.VerbatimFormatStyle(
-    format: "\(month: .defaultDigits)/\(day: .defaultDigits) \(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)):\(minute: .twoDigits)",
-    timeZone: .current,
-    calendar: Calendar(identifier: .gregorian)
-  )
 
   enum Metric {
     static let packThumbnailSize: CGFloat = 44

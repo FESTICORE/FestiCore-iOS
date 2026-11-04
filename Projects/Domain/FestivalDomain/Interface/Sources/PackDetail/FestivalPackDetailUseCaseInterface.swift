@@ -17,9 +17,13 @@ public protocol FestivalPackDetailUseCaseInterface: Sendable {
   func updatePack(festivalID: String) async throws -> FestivalPackDetail?
   /// 기기에서 팩을 지운다. 내 준비물은 남긴다.
   func deletePack(festivalID: String) async throws
+  /// 축제별 준비물 목록을 기기에서 읽는다.
   func checklist(festivalID: String) -> FestivalChecklist
+  /// 축제별 준비물 목록을 기기에 저장한다.
   func saveChecklist(_ checklist: FestivalChecklist, festivalID: String)
+  /// 와이파이 자동 갱신 설정을 읽는다.
   func autoDownloadOnWiFi() -> Bool
+  /// 와이파이 자동 갱신 설정을 저장한다.
   func setAutoDownloadOnWiFi(_ isOn: Bool)
 }
 

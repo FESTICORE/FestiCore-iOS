@@ -9,6 +9,7 @@ import Dependencies
 import FestiCorePackInterface
 import FestivalDomainInterface
 
+/// 받은 팩과 축제 목록을 합쳐 새 버전 상태를 계산한다.
 public struct FestivalReceivedPackUseCaseImpl: FestivalReceivedPackUseCaseInterface {
   @Dependency(\.packSyncService) private var packService
   @Dependency(\.festivalCatalogService) private var catalogService
@@ -17,6 +18,7 @@ public struct FestivalReceivedPackUseCaseImpl: FestivalReceivedPackUseCaseInterf
 
   public init() {}
 
+  /// 캐시만 사용해 받은 팩 목록을 만든다.
   public func receivedPacks() async throws -> [FestivalReceivedPack] {
     let packs = try await packService.cachedPacks()
     // 저장된 축제 목록이 없거나 깨져도 받은 팩은 보여 준다.
@@ -24,6 +26,7 @@ public struct FestivalReceivedPackUseCaseImpl: FestivalReceivedPackUseCaseInterf
     return packs.receivedPacks(catalog: catalog, imageURL: catalogService.imageURL(for:))
   }
 
+  /// 서버 목록을 갱신하고 와이파이 설정에 따라 오래된 팩을 동기화한다.
   public func refreshReceivedPacks() async throws -> [FestivalReceivedPack] {
     var packs = try await packService.cachedPacks()
     let catalog = try await catalogService.refresh()

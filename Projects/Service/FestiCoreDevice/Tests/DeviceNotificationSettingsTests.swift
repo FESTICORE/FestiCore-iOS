@@ -14,6 +14,19 @@ import Testing
 
 @Suite("기기 알림 설정")
 struct DeviceNotificationSettingsTests {
+  @Test("계정에 묶인 기기는 사용자 세션으로 설정을 요청한다")
+  func boundDeviceUsesUserSession() {
+    let sessionID = UUID()
+    let request = DeviceNotificationSettingsRequest(
+      operation: .fetch,
+      deviceAuthorization: DeviceAuthorization(deviceID: "device-a", sessionID: sessionID)
+    )
+
+    #expect(request.authorization == .sessionBound(sessionID))
+    #expect(request.headers.value(for: "X-Device-Id") == "device-a")
+    #expect(request.headers.value(for: "Authorization") == nil)
+  }
+
   @Test("설정 조회는 기기 토큰으로 GET 요청을 보내고 응답을 그대로 옮긴다")
   func fetchSendsDeviceAuthorization() async throws {
     let client = SettingsStubClient()

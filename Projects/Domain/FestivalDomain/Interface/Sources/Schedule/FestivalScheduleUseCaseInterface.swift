@@ -10,6 +10,7 @@ import Foundation
 
 /// 타임테이블의 내 일정을 서버에서 읽고 저장한다.
 public protocol FestivalScheduleUseCaseInterface: Sendable {
+  /// 축제에서 사용자가 고른 공연 일정을 서버에서 읽는다.
   func mySchedule(festivalID: String) async throws(FestivalScheduleError) -> FestivalSchedule
   /// 내 일정 전체를 교체한다. `clientAt`은 축제마다 이전 요청보다 늦어야 한다.
   func saveMySchedule(

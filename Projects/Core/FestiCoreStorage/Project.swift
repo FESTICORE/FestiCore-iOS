@@ -20,6 +20,7 @@ let project = Project.makeModule(
   hasInterface: true,
   interfaceDependencies: [
     .SPM.dependencies,
-    .SPM.sharing
+    .SPM.sharing,
+    .SPM.sqliteData
   ]
 )

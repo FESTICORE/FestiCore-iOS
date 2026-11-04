@@ -13,7 +13,6 @@ import SwiftUI
 @ViewAction(for: LoginFeature.self)
 public struct LoginView: View {
   @Bindable public var store: StoreOf<LoginFeature>
-  @Environment(\.fcSheetDismiss) private var dismiss
 
   public init(store: StoreOf<LoginFeature>) {
     self.store = store
@@ -21,7 +20,7 @@ public struct LoginView: View {
 
   public var body: some View {
     VStack {
-      sheetContent
+      sheetContent()
       if let message = store.visibleMessage {
         Text(message)
           .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
@@ -37,10 +36,11 @@ private extension LoginView {
     static let iconSize: CGFloat = 24
   }
 
-  /// 깃발 마크, 문구, 소셜 로그인 버튼, 나중에 하기 버튼
-  var sheetContent: some View {
+  /// 문맥별 마크와 문구, 소셜 로그인 버튼, 나중에 하기 버튼
+  @ViewBuilder
+  func sheetContent() -> some View {
     VStack(spacing: FestiCoreSpacing.paddingP16) {
-      Image(asset: .flag)
+      Image(asset: store.context == .crew ? .users24 : .flag)
         .resizable()
         .frame(width: Metric.iconSize, height: Metric.iconSize)
         .foregroundStyle(FestiCoreSemanticColor.staticInk.color)
@@ -65,7 +65,7 @@ private extension LoginView {
       }
       .padding(.vertical, FestiCoreSpacing.paddingP8)
       .padding(.horizontal, FestiCoreSpacing.paddingP20)
-      Button("나중에 할게요", action: dismiss)
+      Button("나중에 할게요") { send(.closeTapped) }
         .festiCoreFont(.baseFootnoteMedium)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         .buttonStyle(.plain)
@@ -80,8 +80,10 @@ private extension LoginView {
     switch store.context {
     case .profile:
       return ("계정 정보를 보려면 로그인이 필요해요", "로그인 후 프로필을 확인할 수 있어요.")
-    case .flag:
+    case .flag, .follow:
       return ("깃발을 팔로우 하려면 로그인이 필요해요", "내 취향의 깃발을 팔로우하고,\n함께 페스티벌을 즐길 사람들과 크루를 만들어봐요.")
+    case .crew:
+      return ("크루와 함께 보려면 로그인이 필요해요", "크루원끼리 지금 어느 존에 있는지 서로 볼 수 있어요.\n공연과 타임테이블은 로그인 없이 그대로 쓸 수 있어요.")
     case .bookmark:
       return ("축제를 저장하려면 로그인이 필요해요", "로그인 후 선택한 축제를 저장할 수 있어요.")
     }

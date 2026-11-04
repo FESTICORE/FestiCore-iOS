@@ -7,6 +7,7 @@ public actor NetworkFestivalCatalogService: FestivalCatalogService {
   private let client: any FestiCoreRequestClient
   private let cache: FestivalCatalogCache
   private let imageResolver: FestivalImageURLResolver
+  private var pageItems: [FestivalItemDTO] = []
 
   public init(client: any FestiCoreRequestClient, cacheURL: URL, baseURL: URL? = nil) {
     self.client = client
@@ -29,7 +30,7 @@ public actor NetworkFestivalCatalogService: FestivalCatalogService {
     var after: String?
 
     for _ in 0..<100 {
-      let response = try await client.send(FestivalListRequest(after: after))
+      let response = try await client.send(FestivalListRequest(after: after, limit: 10))
       guard response.code == "SUCCESS" else { throw FestivalCatalogError.invalidResponse }
       for item in response.data.items where seenIDs.insert(item.id).inserted { items.append(item) }
       guard let nextCursor = response.data.nextCursor else {
@@ -40,5 +41,23 @@ public actor NetworkFestivalCatalogService: FestivalCatalogService {
       after = nextCursor
     }
     throw FestivalCatalogError.tooManyPages
+  }
+
+  public func page(
+    after: String?,
+    limit: Int
+  ) async throws -> FestivalCatalogPage {
+    let response = try await client.send(FestivalListRequest(after: after, limit: limit))
+    guard response.code == "SUCCESS" else { throw FestivalCatalogError.invalidResponse }
+    if response.data.nextCursor == after, after != nil { throw FestivalCatalogError.repeatedCursor }
+    let items = response.data.items
+    if after == nil { pageItems = [] }
+    var known = Set(pageItems.map(\.id))
+    pageItems += items.filter { known.insert($0.id).inserted }
+    if response.data.nextCursor == nil { try cache.save(pageItems) }
+    return FestivalCatalogPage(
+      items: items.map { $0.toDomain(imageURL: imageResolver.resolve($0.thumbUrl)) },
+      nextCursor: response.data.nextCursor
+    )
   }
 }

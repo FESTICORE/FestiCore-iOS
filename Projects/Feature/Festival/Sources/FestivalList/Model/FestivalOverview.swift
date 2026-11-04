@@ -1,5 +1,6 @@
 import FestivalDomainInterface
 import FestiCorePackInterface
+import FestiCoreUtility
 import Foundation
 
 public struct FestivalOverview: Equatable, Identifiable {
@@ -43,6 +44,7 @@ public struct FestivalOverview: Equatable, Identifiable {
     name = document.name ?? pack.festivalID
     venue = document.venue
     let dateBounds = FestivalLiveActivitySchedule.packDateBounds(document.days ?? [])
+      ?? Self.eventDateBounds(document.eventPeriod)
     firstDate = dateBounds?.first
     lastDate = dateBounds?.last
     thumbnailURL = document.thumbUrl.flatMap(URL.init(string:))
@@ -51,6 +53,20 @@ public struct FestivalOverview: Equatable, Identifiable {
     cachedPackVersion = pack.packVersion
     catalogStatus = nil
     ticketURL = document.ticketLinks?.lazy.compactMap(\.httpsURL).first
-    artists = nil
+    artists = document.artists?.map {
+      FestivalCatalogArtist(name: $0.name, performances: [])
+    }
+  }
+}
+
+private extension FestivalOverview {
+  static func eventDateBounds(
+    _ period: FestivalPackDocument.EventPeriod?
+  ) -> (first: String, last: String)? {
+    guard let period,
+          let first = period.firstDate.date(as: .day),
+          let last = period.lastDate.date(as: .day),
+          first <= last else { return nil }
+    return (period.firstDate, period.lastDate)
   }
 }

@@ -10,29 +10,68 @@ struct FestivalLiveActivitySchedule: Equatable, Sendable {
   let canStart: Bool
   let nextBoundary: Date?
 
+  /// 서버의 자동 시작 예약과 같은 기준: 현재 시각 이후의 첫 번째 저장 공연.
+  static func nextSavedPerformanceStart(
+    pack: FestivalPackDocument?,
+    setIDs: Set<String>,
+    now: Date
+  ) -> Date? {
+    guard let pack, !setIDs.isEmpty else { return nil }
+    return pack.performances
+      .filter { setIDs.contains($0.id) }
+      .compactMap { $0.startsAt.flatMap(FestivalLiveBoardSchedule.parse) }
+      .filter { $0 > now }
+      .min()
+  }
+
   static func resolve(
     festival: FestivalOverview,
     pack: FestivalPackDocument?,
     now: Date
   ) -> Self? {
+    if let pack, pack.eventPeriod != nil, pack.performances.isEmpty {
+      return nil
+    }
+
     let packDates = (pack?.days ?? []).compactMap(\.date)
-    let packStarts = packDates.compactMap { parse($0, endOfDay: false) }
-    let packEnds = packDates.compactMap { parse($0, endOfDay: true) }
+    var packStarts = packDates.compactMap { parse($0, endOfDay: false) }
+    var packEnds = packDates.compactMap { parse($0, endOfDay: true) }
+    if packStarts.isEmpty || packEnds.isEmpty, let pack {
+      // 일부 팩은 공연 시간표만 제공한다. 공연 시각으로 축제 일자를 복원한다.
+      let performances = pack.performances.compactMap { performance -> (start: Date, end: Date)? in
+        guard let start = performance.startsAt.flatMap(parseTimestamp) else { return nil }
+        let end = performance.endsAt.flatMap(parseTimestamp).flatMap { $0 >= start ? $0 : nil } ?? start
+        return (start, end)
+      }
+      var calendar = Calendar(identifier: .gregorian)
+      calendar.timeZone = seoul
+      if let first = performances.map(\.start).min(), let last = performances.map(\.end).max() {
+        if packStarts.isEmpty { packStarts = [calendar.startOfDay(for: first)] }
+        if packEnds.isEmpty,
+           let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: last)) {
+          packEnds = [end]
+        }
+      }
+    }
 
     let catalogStart = festival.firstDate?.trimmingCharacters(in: .whitespacesAndNewlines)
     let catalogEnd = festival.lastDate?.trimmingCharacters(in: .whitespacesAndNewlines)
     let startDate = catalogStart.flatMap { $0.isEmpty ? packStarts.min() : parse($0, endOfDay: false) }
       ?? (catalogStart == nil ? packStarts.min() : nil)
-    let endDate = catalogEnd.flatMap { $0.isEmpty ? packEnds.max() : parse($0, endOfDay: true) }
+    let calendarEndDate = catalogEnd.flatMap { $0.isEmpty ? packEnds.max() : parse($0, endOfDay: true) }
       ?? (catalogEnd == nil ? packEnds.max() : nil)
 
     guard
       let startDate,
-      let endDate,
-      startDate < endDate
+      let calendarEndDate,
+      startDate < calendarEndDate
     else {
       return nil
     }
+
+    // 마지막 날 자정을 넘어 종료되는 공연도 서버와 같은 종료 경계로 유지한다.
+    let scheduledEndDate = (pack?.days ?? []).compactMap { $0.endsAt.flatMap(parseTimestamp) }.max()
+    let endDate = max(calendarEndDate, scheduledEndDate ?? calendarEndDate)
 
     let eligibilityStart = startDate.addingTimeInterval(-2 * 60 * 60)
     let phase: Phase
@@ -79,14 +118,20 @@ struct FestivalLiveActivitySchedule: Equatable, Sendable {
 
   private static let seoul = TimeZone(identifier: "Asia/Seoul")!
 
-  private static func parse(_ value: String, endOfDay: Bool) -> Date? {
+  private static func parse(
+    _ value: String,
+    endOfDay: Bool
+  ) -> Date? {
     if value.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil {
       return parseDay(value, endOfDay: endOfDay)
     }
     return parseTimestamp(value)
   }
 
-  private static func parseDay(_ value: String, endOfDay: Bool) -> Date? {
+  private static func parseDay(
+    _ value: String,
+    endOfDay: Bool
+  ) -> Date? {
     let parts = value.split(separator: "-").compactMap { Int($0) }
     guard parts.count == 3 else { return nil }
 

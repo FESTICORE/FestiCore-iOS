@@ -11,7 +11,7 @@ public struct OnboardingView: View {
   }
 
   public var body: some View {
-    GeometryReader { geometry in
+    return GeometryReader { geometry in
       TabView(selection: pageSelection) {
         ForEach(OnboardingPage.all.indices, id: \.self) { index in
           pageView(at: index, size: geometry.size)
@@ -27,12 +27,13 @@ public struct OnboardingView: View {
 
 private extension OnboardingView {
   var pageSelection: Binding<Int> {
-    Binding(
+    return Binding(
       get: { store.page },
       set: { store.send(.view(.pageChanged($0))) }
     )
   }
 
+  @ViewBuilder
   func pageView(at index: Int, size: CGSize) -> some View {
     VStack(alignment: .leading, spacing: 0) {
       HStack {
@@ -50,7 +51,7 @@ private extension OnboardingView {
         send(.nextTapped)
       } label: {
         Image(
-          OnboardingPage.all[index].imageName,
+          OnboardingPage.all[index].imageAsset.rawValue,
           bundle: Bundle(for: OnboardingBundleMarker.self)
         )
           .resizable()

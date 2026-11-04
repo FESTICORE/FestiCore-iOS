@@ -10,6 +10,7 @@ import FestiCorePackInterface
 import FestivalDomainInterface
 import Foundation
 
+/// 받은 팩의 상세 정보와 준비물 및 갱신 설정을 관리한다.
 public struct FestivalPackDetailUseCaseImpl: FestivalPackDetailUseCaseInterface {
   @Dependency(\.packSyncService) private var packService
   @Dependency(\.festivalCatalogService) private var catalogService
@@ -18,16 +19,19 @@ public struct FestivalPackDetailUseCaseImpl: FestivalPackDetailUseCaseInterface 
 
   public init() {}
 
+  /// 로컬 팩과 저장된 축제 목록을 합쳐 상세 정보를 만든다.
   public func packDetail(festivalID: String) async throws -> FestivalPackDetail? {
     guard let cached = try await packService.cachedPack(for: festivalID) else { return nil }
     let catalog = (try? await catalogService.cachedFestivals()) ?? []
     return detail(from: cached, catalog: catalog)
   }
 
+  /// 받은 버전 이후 서버 팩의 변경 사항을 조회한다.
   public func packChanges(festivalID: String, fromVersion: Int) async throws -> FestivalPackChanges {
     try await repository.packChanges(festivalID: festivalID, fromVersion: fromVersion)
   }
 
+  /// 팩을 동기화한 뒤 목록도 갱신해 최신 상세 정보를 만든다.
   public func updatePack(festivalID: String) async throws -> FestivalPackDetail? {
     let result: PackSyncResult
     do {
@@ -52,22 +56,27 @@ public struct FestivalPackDetailUseCaseImpl: FestivalPackDetailUseCaseInterface 
     return detail(from: cached, catalog: catalog)
   }
 
+  /// 기기 팩 캐시만 삭제하고 준비물 기록은 유지한다.
   public func deletePack(festivalID: String) async throws {
     try await packService.deletePack(for: festivalID)
   }
 
+  /// 축제별 준비물 기록을 읽는다.
   public func checklist(festivalID: String) -> FestivalChecklist {
     localStore.loadChecklist(festivalID)
   }
 
+  /// 축제별 준비물 기록을 저장한다.
   public func saveChecklist(_ checklist: FestivalChecklist, festivalID: String) {
     localStore.saveChecklist(checklist, festivalID)
   }
 
+  /// 와이파이 자동 갱신 설정을 읽는다.
   public func autoDownloadOnWiFi() -> Bool {
     localStore.autoDownloadOnWiFi()
   }
 
+  /// 와이파이 자동 갱신 설정을 저장한다.
   public func setAutoDownloadOnWiFi(_ isOn: Bool) {
     localStore.setAutoDownloadOnWiFi(isOn)
   }

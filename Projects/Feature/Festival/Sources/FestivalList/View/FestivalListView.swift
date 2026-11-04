@@ -1,39 +1,25 @@
+import ComposableArchitecture
 import FestiCoreDesignKit
 import FestiCoreUtility
 import SwiftUI
+import UIKit
 
 /// Figma S00 페스티벌 목록. 전체·예매 완료 탭과 검색(최근 검색·결과·결과 없음)을 보여 준다.
+@ViewAction(for: FestivalFeature.self)
 struct FestivalListView: View {
-  let userID: String?
-  let recentSearches: [String]
-  let festivals: [FestivalOverview]
-  let bookedFestivalIDs: Set<String>
-  let packDownloads: [String: FestivalFeature.PackDownloadStatus]
-  let imageRevision: Int
-  let isLoading: Bool
-  let hasCatalogFailure: Bool
-  let offlineMessage: String?
-  let imageURL: (String?) -> URL?
-  let onSelect: (String) -> Void
-  let onToggleBooked: (String) -> Void
-  let onDownloadPack: (String) -> Void
-  let onTicketLink: (FestivalOverview) -> Void
-  let onRefresh: () -> Void
-  let onRecentSearchSubmitted: (String) -> Void
-  let onRecentSearchRemoved: (String) -> Void
-  let onRecentSearchesCleared: () -> Void
+  @Bindable var store: StoreOf<FestivalFeature>
 
-  @State private var selectedFilter = 0
-  @State private var isSearching = false
-  @State private var query = ""
+  init(store: StoreOf<FestivalFeature>) {
+    self.store = store
+  }
 
   var body: some View {
-    VStack(spacing: .zero) {
-      if isSearching {
+    return VStack(spacing: .zero) {
+      if store.listInteraction.isSearching {
         searchBar
-        offlineBadge
+        offlineBadge()
         ScrollView {
-          searchContent
+          searchContent()
         }
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.immediately)
@@ -42,65 +28,89 @@ struct FestivalListView: View {
           .large,
           title: "페스티벌"
         )
-        .trailingAction { isSearching = true }
+        .trailingAction { send(.searchOpened) }
         FCTab(
-          selection: $selectedFilter,
+          selection: filterBinding,
           items: ["전체", "예매 완료"]
         )
         .indicatorColor(FestiCoreSemanticColor.staticLime.color)
-        offlineBadge
+        offlineBadge()
         ScrollView {
           LazyVStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
-            listContent
+            listContent()
           }
           .padding(.horizontal, FestiCoreSpacing.paddingP16)
           .padding(.bottom, FestiCoreSpacing.paddingP16)
           .padding(.top, FestiCoreSpacing.paddingP16 * 2)
         }
         .scrollIndicators(.hidden)
-        .refreshable { onRefresh() }
+        .refreshable { send(.refreshRequested) }
         .simultaneousGesture(filterSwipe)
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .animation(.easeOut(duration: Metric.duration), value: isSearching)
-    .onChange(of: userID) { _, _ in
-      isSearching = false
-      query = ""
-      selectedFilter = 0
-    }
+    .animation(.easeOut(duration: Metric.duration), value: store.listInteraction.isSearching)
   }
 
-  // MARK: - 목록
-
-  // MARK: - 검색
-
-  // MARK: - 표시 문구
 }
 
 private extension FestivalListView {
   var trimmedQuery: String {
-    query.trimmingCharacters(in: .whitespacesAndNewlines)
+    return store.listInteraction.trimmedQuery
+  }
+
+  var festivals: [FestivalOverview] {
+    return store.festivals
+  }
+
+  var filterBinding: Binding<Int> {
+    return Binding(
+      get: { store.listInteraction.selectedFilter.rawValue },
+      set: { send(.listFilterChanged(FestivalListInteractionState.Filter(rawValue: $0) ?? .all)) }
+    )
+  }
+
+  var queryBinding: Binding<String> {
+    return Binding(
+      get: { store.listInteraction.query },
+      set: { send(.searchQueryChanged($0)) }
+    )
+  }
+
+  var hasCatalogFailure: Bool {
+    return store.catalogCacheReadFailed || store.catalogRefreshFailed
+  }
+
+  var offlineMessage: String? {
+    if store.catalogCacheReadFailed {
+      return "저장된 페스티벌 목록을 읽지 못했습니다 · 연결 후 다시 시도해 주세요"
+    }
+    if store.catalogRefreshFailed {
+      return festivals.isEmpty
+        ? "페스티벌 목록을 불러오지 못했습니다 · 다시 시도해 주세요"
+        : "최신 페스티벌 목록을 불러오지 못했습니다 · 저장된 목록을 표시합니다"
+    }
+    return nil
   }
 
   var visibleFestivals: [FestivalOverview] {
-    FestivalListPresentation.sorted(
+    return FestivalListPresentation.sorted(
       FestivalListPresentation.visible(
         festivals,
         query: "",
-        bookedIDs: bookedFestivalIDs,
-        onlyBooked: selectedFilter == 1
+        bookedIDs: store.bookedFestivalIDs,
+        onlyBooked: store.listInteraction.selectedFilter == .booked
       ),
       now: .now
     )
   }
 
   var searchResults: [FestivalOverview] {
-    FestivalListPresentation.sorted(
+    return FestivalListPresentation.sorted(
       FestivalListPresentation.visible(
         festivals,
         query: trimmedQuery,
-        bookedIDs: bookedFestivalIDs,
+        bookedIDs: store.bookedFestivalIDs,
         onlyBooked: false
       ),
       now: .now
@@ -108,43 +118,51 @@ private extension FestivalListView {
   }
 
   var artistResults: [FestivalListPresentation.ArtistSearchResult] {
-    FestivalListPresentation.matchingArtists(FestivalListPresentation.sorted(festivals, now: .now), query: trimmedQuery)
+    return FestivalListPresentation.matchingArtists(FestivalListPresentation.sorted(festivals, now: .now), query: trimmedQuery)
   }
 
   var supportsArtistSearch: Bool {
-    festivals.contains { $0.artists != nil }
+    return festivals.contains { $0.artists != nil }
   }
 
   /// 목록을 좌우로 밀면 전체·예매 완료 탭을 바꾼다.
   var filterSwipe: some Gesture {
-    DragGesture(minimumDistance: Metric.swipeMinimumDistance)
+    return DragGesture(minimumDistance: Metric.swipeMinimumDistance)
       .onEnded { value in
         let horizontal = value.translation.width
         guard abs(horizontal) > Metric.swipeThreshold,
               abs(horizontal) > abs(value.translation.height) * Metric.swipeRatio
         else { return }
-        selectedFilter = horizontal < 0 ? 1 : 0
+        send(.listFilterChanged(horizontal < 0 ? .booked : .all))
       }
   }
 
   @ViewBuilder
-  var listContent: some View {
-    Text(selectedFilter == 0 ? Copy.allGuide : Copy.bookedGuide)
+  func listContent() -> some View {
+    Text(store.listInteraction.selectedFilter == .all ? Copy.allGuide : Copy.bookedGuide)
       .festiCoreFont(.baseSubheadlineMedium)
       .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-    if isLoading {
+    if store.viewState == .loading {
       FestivalListSkeletonView()
     } else if visibleFestivals.isEmpty {
-      emptyCard
+      emptyCard()
     } else {
       ForEach(visibleFestivals) { festival in
         festivalCard(festival)
+      }
+      if store.listInteraction.selectedFilter == .all, let cursor = store.catalogNextCursor {
+        if !store.catalogRefreshFailed {
+          ProgressView()
+            .frame(maxWidth: .infinity)
+            .id(cursor)
+            .onAppear { send(.loadMoreFestivals) }
+        }
       }
     }
   }
 
   @ViewBuilder
-  var emptyCard: some View {
+  func emptyCard() -> some View {
     if festivals.isEmpty {
       FCEmptyCard(
         icon: .bell,
@@ -153,7 +171,7 @@ private extension FestivalListView {
           ? "연결을 확인하고 다시 시도해 주세요."
           : "새 페스티벌이 등록되면 여기에 표시해요."
       )
-      .action(hasCatalogFailure ? FCCardAction("다시 시도", action: onRefresh) : nil)
+      .action(hasCatalogFailure ? FCCardAction("다시 시도", action: { send(.refreshRequested) }) : nil)
     } else {
       FCEmptyCard(
         icon: .bookmark20,
@@ -163,77 +181,73 @@ private extension FestivalListView {
       .action(
         FCCardAction(
           "전체 보기",
-          action: { selectedFilter = 0 }
+          action: { send(.listFilterChanged(.all)) }
         )
       )
     }
   }
 
   func festivalCard(_ festival: FestivalOverview) -> some View {
-    FCFestivalCard(
+    return FCFestivalCard(
       title: festival.name,
       meta: meta(for: festival),
       status: status(for: festival)
     ) {
       FestivalPosterView(
-        url: imageURL(festival.thumbnailURL?.absoluteString),
-        imageRevision: imageRevision
+        url: store.state.imageURL(for: festival.thumbnailURL?.absoluteString),
+        imageRevision: store.imageRevision
       )
     }
     .pack(pack(for: festival))
     .booked(
-      bookedFestivalIDs.contains(festival.id),
-      onToggle: { onToggleBooked(festival.id) }
+      store.bookedFestivalIDs.contains(festival.id),
+      onToggle: { send(.toggleBookedFestival(festival.id)) }
     )
-    .ticketLink { onTicketLink(festival) }
-    .onTapGesture { onSelect(festival.id) }
+    .ticketLink { openTicketLink(festival) }
+    .onTapGesture { send(.selectFestival(festival.id)) }
     .accessibilityIdentifier(FestivalAccessibilityID.card(festival.id))
   }
 
   @ViewBuilder
-  var offlineBadge: some View {
+  func offlineBadge() -> some View {
     if let offlineMessage {
       FCOfflineBadge(offlineMessage)
     }
   }
 
   var searchBar: some View {
-    FCTopBar(.search(text: $query))
+    return FCTopBar(.search(text: queryBinding))
       .searchPlaceholder(supportsArtistSearch ? "페스티벌, 아티스트, 장소 검색" : "페스티벌, 장소 검색")
       .onCancel {
-        query = ""
-        isSearching = false
+        send(.searchClosed)
       }
       .onSubmit { saveRecentSearch() }
   }
 
   @ViewBuilder
-  var searchContent: some View {
+  func searchContent() -> some View {
     if trimmedQuery.isEmpty {
       VStack(alignment: .leading, spacing: .zero) {
-        if !recentSearches.isEmpty {
+        if !store.recentSearches.isEmpty {
           FCSectionHeader("최근 검색")
-            .action("전체 삭제", perform: onRecentSearchesCleared)
+            .action("전체 삭제", perform: { send(.recentSearchesCleared) })
             .padding(.top, FestiCoreSpacing.paddingP20)
             .padding(.bottom, FestiCoreSpacing.paddingP8)
             .padding(.horizontal, FestiCoreSpacing.paddingP16)
           FCFlowLayout {
-            ForEach(recentSearches, id: \.self) { keyword in
+            ForEach(store.recentSearches, id: \.self) { keyword in
               FCRecentKeyword(
                 keyword,
-                onSelect: { query = keyword },
-                onDelete: { onRecentSearchRemoved(keyword) }
+                onSelect: { send(.searchQueryChanged(keyword)) },
+                onDelete: { send(.recentSearchRemoved(keyword)) }
               )
             }
           }
           .spacing(FestiCoreSpacing.paddingP8)
           .padding(.horizontal, FestiCoreSpacing.paddingP16)
         }
-        FCSearchEmpty(query: "")
-          .message("페스티벌, 아티스트, 장소를 검색해 보세요")
-          .padding(.top, FestiCoreSpacing.paddingP24)
       }
-    } else if isLoading {
+    } else if store.viewState == .loading {
       searchSkeleton
     } else if festivals.isEmpty && hasCatalogFailure {
       FCEmptyCard(
@@ -241,7 +255,7 @@ private extension FestivalListView {
         title: "페스티벌을 불러오지 못했어요",
         message: "연결을 확인하고 다시 시도해 주세요."
       )
-      .action(FCCardAction("다시 시도", action: onRefresh))
+      .action(FCCardAction("다시 시도", action: { send(.refreshRequested) }))
       .padding(FestiCoreSpacing.paddingP16)
     } else if searchResults.isEmpty && artistResults.isEmpty {
       FCSearchEmpty(query: trimmedQuery)
@@ -269,7 +283,7 @@ private extension FestivalListView {
   }
 
   var searchSkeleton: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
+    return VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
       FCSkeletonView(.round())
         .frame(width: 120, height: 20)
       ForEach(0..<3, id: \.self) { _ in
@@ -290,7 +304,7 @@ private extension FestivalListView {
   }
 
   func resultRows(_ items: [FestivalOverview]) -> some View {
-    LazyVStack(spacing: .zero) {
+    return LazyVStack(spacing: .zero) {
       ForEach(items) { festival in
         FCSearchResultRow(
           .festival(
@@ -301,15 +315,15 @@ private extension FestivalListView {
           meta: meta(for: festival),
           action: {
             saveRecentSearch()
-            onSelect(festival.id)
+            send(.selectFestival(festival.id))
           }
         )
         .highlightedQuery(trimmedQuery)
         .badgeStyle(badgeStyle(for: festival))
         .thumbnail(
           FestivalPosterView(
-            url: imageURL(festival.thumbnailURL?.absoluteString),
-            imageRevision: imageRevision
+            url: store.state.imageURL(for: festival.thumbnailURL?.absoluteString),
+            imageRevision: store.imageRevision
           )
         )
       }
@@ -317,7 +331,7 @@ private extension FestivalListView {
   }
 
   var artistResultRows: some View {
-    LazyVStack(spacing: .zero) {
+    return LazyVStack(spacing: .zero) {
       ForEach(artistResults) { result in
         FCSearchResultRow(
           .artist(initial: String(result.artist.name.prefix(1))),
@@ -325,7 +339,7 @@ private extension FestivalListView {
           meta: FestivalListPresentation.artistMeta(result, now: .now),
           action: {
             saveRecentSearch()
-            onSelect(result.festival.id)
+            send(.selectFestival(result.festival.id))
           }
         )
         .highlightedQuery(trimmedQuery)
@@ -335,11 +349,19 @@ private extension FestivalListView {
 
   func saveRecentSearch() {
     guard !trimmedQuery.isEmpty else { return }
-    onRecentSearchSubmitted(trimmedQuery)
+    send(.recentSearchSubmitted(trimmedQuery))
+  }
+
+  func openTicketLink(_ festival: FestivalOverview) {
+    if let url = festival.ticketURL {
+      UIApplication.shared.open(url)
+    } else {
+      send(.ticketLinkMissing)
+    }
   }
 
   func status(for festival: FestivalOverview) -> FCFestivalCard<FestivalPosterView>.Status {
-    switch FestivalListPresentation.cardStatus(for: festival, now: .now) {
+    return switch FestivalListPresentation.cardStatus(for: festival, now: .now) {
     case let .dDay(label): .dDay(label)
     case let .closing(label): .closing(label)
     case .upcoming: .upcoming()
@@ -348,7 +370,7 @@ private extension FestivalListView {
   }
 
   func pack(for festival: FestivalOverview) -> FCFestivalCard<FestivalPosterView>.Pack {
-    if case let .some(.downloading(progress)) = packDownloads[festival.id] {
+    if case let .some(.downloading(progress)) = store.packDownloads[festival.id] {
       let fraction = progress.flatMap { value -> Double? in
         guard value.totalBytes > 0 else { return nil }
         return min(max(Double(value.receivedBytes) / Double(value.totalBytes), 0), 1)
@@ -356,21 +378,16 @@ private extension FestivalListView {
       let text = fraction.map { "팩 받는 중 · \(Int(($0 * 100).rounded()))%" } ?? "팩 받는 중"
       return .downloading(progress: fraction, text: text)
     }
-    let copy = FestivalListPresentation.packCopy(
-      for: festival,
-      isBooked: bookedFestivalIDs.contains(festival.id),
-      onlyBooked: selectedFilter == 1,
-      now: .now
-    )
+    let copy = FestivalListPresentation.packCopy(for: festival)
     return switch copy {
     case let .unavailable(text): .unavailable(text)
-    case let .ready(title): .ready(title: title, action: { onDownloadPack(festival.id) })
+    case let .ready(title): .ready(title: title, action: { send(.downloadPack(festival.id)) })
     case let .received(text): .received(text)
     }
   }
 
   func badgeStyle(for festival: FestivalOverview) -> FCSearchResultRow.BadgeStyle {
-    switch FestivalListPresentation.cardStatus(for: festival, now: .now) {
+    return switch FestivalListPresentation.cardStatus(for: festival, now: .now) {
     case .closing: .closing
     case .upcoming: .upcoming
     case .dDay, .ended: .day

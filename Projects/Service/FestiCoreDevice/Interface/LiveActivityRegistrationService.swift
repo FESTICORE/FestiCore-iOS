@@ -7,14 +7,26 @@
 
 import Dependencies
 import FestiCoreNetworkInterface
+import Foundation
 
 public struct DeviceAuthorization: Sendable {
   public let deviceID: String
-  public let bearerToken: String
+  public let bearerToken: String?
+  public let sessionID: UUID?
 
   public init(deviceID: String, bearerToken: String) {
     self.deviceID = deviceID
     self.bearerToken = bearerToken
+    sessionID = nil
+  }
+
+  public init(
+    deviceID: String,
+    sessionID: UUID
+  ) {
+    self.deviceID = deviceID
+    bearerToken = nil
+    self.sessionID = sessionID
   }
 }
 
