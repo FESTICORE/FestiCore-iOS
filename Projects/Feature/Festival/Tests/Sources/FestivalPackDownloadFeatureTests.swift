@@ -39,7 +39,9 @@ struct FestivalPackDownloadFeatureTests {
     }
     await store.finish()
     #expect(watched.value == 0)
-    let copy = FestivalListPresentation.packCopy(for: try #require(store.state.festivals.first))
+    let copy = FestivalListPresentation.packCopy(
+      for: try #require(store.state.festivals.first), now: Date(timeIntervalSince1970: 1_793_505_600)
+    )
     #expect(copy == .ready("팩 받기"))
   }
 
@@ -74,7 +76,9 @@ struct FestivalPackDownloadFeatureTests {
     }
     await store.finish()
     #expect(watched.value == 1)
-    let copy = FestivalListPresentation.packCopy(for: try #require(store.state.festivals.first))
+    let copy = FestivalListPresentation.packCopy(
+      for: try #require(store.state.festivals.first), now: Date(timeIntervalSince1970: 1_793_505_600)
+    )
     #expect(copy == .received("팩 받음 · 최신 버전"))
   }
 

@@ -8,6 +8,7 @@ import UIKit
 @ViewAction(for: FestivalFeature.self)
 struct FestivalListView: View {
   @Bindable var store: StoreOf<FestivalFeature>
+  @Dependency(\.date) private var date
 
   init(store: StoreOf<FestivalFeature>) {
     self.store = store
@@ -378,7 +379,7 @@ private extension FestivalListView {
       let text = fraction.map { "팩 받는 중 · \(Int(($0 * 100).rounded()))%" } ?? "팩 받는 중"
       return .downloading(progress: fraction, text: text)
     }
-    let copy = FestivalListPresentation.packCopy(for: festival)
+    let copy = FestivalListPresentation.packCopy(for: festival, now: date.now)
     return switch copy {
     case let .unavailable(text): .unavailable(text)
     case let .ready(title): .ready(title: title, action: { send(.downloadPack(festival.id)) })
