@@ -9,6 +9,8 @@ import SwiftUI
 
 /// 페스티벌 목록 카드. 상태(D-N, 마감 임박, 예정, 종료) · 예매 여부 · 팩 상태를 표시한다.
 public struct FCFestivalCard<Media: View>: View {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
   public enum Status: Sendable {
     /// 진행 전, 태그에 D-N을 표시한다.
     case dDay(String)
@@ -161,6 +163,7 @@ private extension FCFestivalCard {
                 Capsule()
                   .fill(FestiCoreSemanticColor.staticLime.color)
                   .frame(width: proxy.size.width * min(max(progress, 0), 1))
+                  .animation(reduceMotion ? nil : .easeOut(duration: 0.3), value: progress)
               }
             }
             .accessibilityHidden(true)
