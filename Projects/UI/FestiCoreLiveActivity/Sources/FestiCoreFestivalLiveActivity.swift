@@ -195,7 +195,8 @@ public enum FestiCoreFestivalLiveActivity {
       startDate: startDate,
       endDate: endDate,
       nowStages: nowStages,
-      nextMine: nextMine
+      nextMine: nextMine,
+      previousState: activity.content.state
     ))
   }
 
@@ -218,7 +219,8 @@ public enum FestiCoreFestivalLiveActivity {
     startDate: Date,
     endDate: Date? = nil,
     nowStages: [FestiCoreFestivalActivityAttributes.ContentState.NowStage] = [],
-    nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil
+    nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil,
+    previousState: FestiCoreFestivalActivityAttributes.ContentState? = nil
   ) -> ActivityContent<FestiCoreFestivalActivityAttributes.ContentState> {
     let staleDate: Date? = switch phase {
     case .upcoming: startDate
@@ -231,7 +233,10 @@ public enum FestiCoreFestivalLiveActivity {
         startDate: startDate,
         endDate: endDate,
         nowStages: nowStages,
-        nextMine: nextMine
+        nextMine: nextMine,
+        pinnedFlag: previousState?.pinnedFlag,
+        crewSummary: previousState?.crewSummary,
+        leaveAt: previousState?.leaveAt
       ),
       staleDate: staleDate
     )
