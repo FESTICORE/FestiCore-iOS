@@ -1,6 +1,6 @@
 //
 //  Project.swift
-//  Login
+//  Auth
 //
 //  Created by FestiCore on 10/29/26.
 //
@@ -11,7 +11,7 @@ import ProjectDescription
 import ProjectTemplatePlugin
 
 let project = Project.makeModule(
-  name: "Login",
+  name: "Auth",
   dependencies: [
     .domain(.auth, .interface),
     .feature(.web),

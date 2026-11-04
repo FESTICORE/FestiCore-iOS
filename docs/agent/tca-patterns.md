@@ -2,7 +2,7 @@
 
 ## 리듀서 구성
 
-Attendance(`Projects/Feature/Management/Sources/StaffMain/Reducer/StaffFeature.swift`)와 같은 구성을 따른다. 이 저장소에서는 `Projects/Feature/Login/Sources/Login/Reducer/LoginFeature.swift`가 기준 예시다.
+Attendance(`Projects/Feature/Management/Sources/StaffMain/Reducer/StaffFeature.swift`)와 같은 구성을 따른다. 이 저장소에서는 `Projects/Feature/Auth/Sources/Login/Reducer/LoginFeature.swift`가 기준 예시다.
 
 - 파일 순서: `init` → `@ObservableState State` → `Action` → 액션별 enum → `@Dependency` → `body` → `extension <Feature>`의 처리 함수.
 - `Action: ViewAction`은 `view`·`async`·`inner`·`delegate`로 나눈다. 바인딩이 있으면 `binding`, 띄우는 화면이 있으면 `destination(PresentationAction<Destination.Action>)`을 추가한다. 자식 Feature 액션은 `case vote(VoteFeature.Action)`처럼 최상위 case로 두고 `scope(...)` 같은 묶음 case를 만들지 않는다. 액션 enum마다 `// MARK:`를 단다.

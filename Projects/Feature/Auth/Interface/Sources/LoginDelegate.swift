@@ -1,6 +1,6 @@
 //
 //  LoginDelegate.swift
-//  LoginInterface
+//  AuthInterface
 //
 //  Created by FestiCore on 10/29/26.
 //

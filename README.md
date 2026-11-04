@@ -47,7 +47,7 @@ Projects/
 │   ├── FeatureAssembly/           # 화면 모듈 조립
 │   ├── Bearer/                    # 깃발 화면
 │   ├── Festival/                  # 축제 목록·라이브 보드·알림함
-│   ├── Login/                     # 로그인·가입
+│   ├── Auth/                      # 로그인·가입
 │   ├── Onboarding/                # 첫 설치 온보딩
 │   ├── Profile/                   # 마이·알림·계정·잠금화면·공지
 │   ├── Timetable/                 # 선택한 축제의 공연 시간표
@@ -100,7 +100,7 @@ flowchart TD
     FeatureAssembly --> Onboarding
     FeatureAssembly --> Web
     FeatureAssembly --> Bearer
-    FeatureAssembly --> Login
+    FeatureAssembly --> AuthFeature["Auth"]
     FeatureAssembly --> Timetable
     FeatureAssembly --> AuthDomain
     FeatureAssembly --> NoticeDomain
@@ -117,8 +117,8 @@ flowchart TD
     Profile --> AuthDomainInterface["AuthDomain / Interface"]
     Profile --> Web
     Profile --> SharedUI
-    Login --> AuthDomainInterface
-    Login --> Web
+    AuthFeature --> AuthDomainInterface
+    AuthFeature --> Web
     Timetable --> TimetableDomainInterface["TimetableDomain / Interface"]
     AuthDomain --> AuthDomainInterface
     AuthDomain --> AuthInterface["FestiCoreAuth / Interface"]
@@ -143,39 +143,19 @@ flowchart TD
     App -. 포함 .-> Notification["FestiCoreNotificationService"]
 ~~~
 
-- `FeatureAssembly`는 Bearer·Festival·Login·Onboarding·Profile·Timetable·Web과 도메인 구현(공지·내 알림함 포함), `ServiceAssembly`를 연결합니다.
+- `FeatureAssembly`는 Auth·Bearer·Festival·Onboarding·Profile·Timetable·Web과 도메인 구현(공지·내 알림함 포함), `ServiceAssembly`를 연결합니다.
 - 화면은 필요한 도메인·서비스의 Interface를 직접 의존하고, `ServiceAssembly`와 `CoreAssembly`가 라이브 구현을 조립합니다.
 - App은 Feature·Service·Core 조립 모듈과 앱에서 직접 사용하는 UI·설정 모듈을 참조합니다. 위젯과 알림 서비스는 앱에 포함되는 별도 타깃입니다.
 
 ### 모듈 그래프
 
-`./make graph`와 `./make graph:prod`는 현재 Tuist 프로젝트에서 전체·제품 모듈 그래프를 생성합니다. 생성 방법은 [아키텍처 문서](docs/architecture/README.md)를 참고하세요.
+현재 Auth 모듈 이름을 반영한 요약 도식은 [Mermaid](docs/architecture/module-graph.mmd)와 [SVG](docs/architecture/module-graph.svg)에서 확인할 수 있습니다. Tuist 전체·제품 그래프의 생성 방법은 [아키텍처 문서](docs/architecture/README.md)를 참고하세요.
 
-### TCA 화면 흐름
+### TCA 화면 흐름과 데이터 경계
 
-`AppCoordinator`는 Splash가 끝나면 설치 기록을 읽습니다. 기록이 없으면 `OnboardingFeature`의 네 화면을 보여 주고, 완료 또는 건너뛰기 후 기록을 남긴 뒤 `MainTabCoordinator`로 전환합니다. 다운로드한 네 PNG는 모듈 경계에 맞춰 Onboarding Feature의 자산 카탈로그에 3x로 등록했습니다. 첫 실행에는 대기 기록도 저장하므로 완료 기록 쓰기에 실패해도 다음 실행에 온보딩을 다시 표시합니다. 이전 버전의 `FestiCore.selectedFestivalID`, `FestiCore.bookedFestivalIDs*`, `FestiCore.festivalRecentSearches*` 값이 남아 있고 대기 기록이 없으면 기존 설치로 판단해 건너뜁니다. 이 값이 없는 이전 설치와 Keychain만 남은 재설치는 새 설치와 구별할 수 없습니다. `FestivalCoordinator`의 첫 경로는 축제 목록이며, 축제를 선택하면 라이브 보드 경로를 추가합니다. 목록과 라이브 보드의 상태는 `FestivalFeature`가 관리합니다. `MainTabCoordinator`는 선택한 축제 팩의 시간표를 Timetable 탭에 전달합니다.
+앱은 Splash 이후 설치 기록에 따라 온보딩 또는 메인 탭으로 이동합니다. 화면은 `View → Reducer → UseCase Interface → Repository Interface → APIEndpoint` 경계를 따르며, 의존성은 Feature·Service·Core Assembly에서 조립합니다.
 
-마이 탭은 `ProfileFeature`가 팩 상세·알림·계정·잠금화면·공지사항·법적 문서 목적지를 관리합니다. 공지사항 행은 `NoticeListFeature`를 열고, 목록 행은 `NoticeDetailFeature`로 이동합니다. 두 화면은 `NoticeDomainInterface`의 UseCase로 Backend의 공개 공지 API를 읽으며 로딩 Skeleton·빈 상태·실패 재시도를 구분합니다. 법적 문서는 `WebFeature`의 앱 내 웹뷰를 재사용하고, 잠금화면 화면은 `FestivalLiveActivityUseCaseInterface`에서 현재 활동을 읽습니다. 각 행의 뒤로 가기는 자식 delegate로 목적지를 닫습니다. 자세한 화면 및 모듈 흐름은 [아키텍처 그림](docs/architecture/README.md)을 참고하세요.
-
-S01 라이브 보드의 종 버튼은 로그인 상태에서 `FestivalCoordinator`의 알림함 경로를 엽니다. `NotificationInboxFeature`는 `UserNotificationDomainInterface` UseCase로 내 알림 목록·읽지 않은 개수·읽음·선택 삭제를 처리합니다. Repository는 공용 네트워크와 인증 세션을 받아 `GET /api/v1/me/notifications`, `GET /unread-count`, `POST /read`, `POST /delete`를 세션에 묶어 호출합니다. 화면은 DesignKit `FCNotificationRow`, 공용 Skeleton·팝업을 사용하며 오늘·어제 구분은 서울 시간 기준입니다. 알림의 축제 라이브 경로가 항목 축제 ID와 일치하고 catalog에 있으면 해당 라이브 보드로 이동합니다. 아직 독립 화면이 없는 체크리스트·크루·기타 경로는 공용 팝업으로 안내합니다. 로그아웃하면 알림함을 닫고 배지를 지웁니다.
-
-`FestivalFeature.State.catalog`는 `IdentifiedArrayOf<FestivalCatalogItem>`을 사용합니다. `FestivalCatalogUseCase`는 중복 축제와 초기 선택을 처리하고, `FestivalImageUseCase`는 이미지 수집·프리페치 대상을 정리합니다. 두 유스케이스는 목록 상태 파생 함수라 `Projects/Feature/Festival/Sources/FestivalList/Reducer/`에 있습니다. 날짜 포맷은 `FestiCoreUtility`, 라이브 보드 모델과 클라이언트는 `Festival/Sources/LiveBoard/`에 있습니다.
-
-라이브 보드는 `FestivalLiveBoardService` 계약을 Domain에 두고, Service의 `NetworkFestivalLiveBoardService`가 축제별 라이브 상태와 공개 깃발 프로필을 조회합니다. 화면이 열려 있고 앱이 활성 상태일 때 35초 간격으로 갱신하며, 화면을 닫거나 앱이 백그라운드로 가면 갱신을 중단합니다. 기기 등록 ID는 기존 `DeviceRegistrationService`에서 읽습니다.
-
-### 의존성 주입
-
-Point-Free Dependencies를 사용합니다. `ServiceAssembly`가 네트워크·인증 세션을 같은 수명주기로 조립하고, 각 기능 모듈은 자신의 `DependencyKey.liveValue`를 등록합니다. `AuthDomain`은 공용 세션을 `@Dependency`로 받아 API를 호출합니다. 앱 시작점의 별도 전역 등록이나 런타임 DI 컨테이너는 사용하지 않습니다.
-
-화면 Reducer는 Interface만 import해 `@Dependency(\.authUseCase)`로 유스케이스를 받고, 테스트는 `TestStore`나 `withDependencies`에서 해당 값을 대역으로 교체합니다. 모듈별 경계와 테스트 규칙은 [의존성 주입 문서](docs/agent/dependency-injection.md)를 참고하세요.
-
-### 화면과 데이터 경계
-
-화면은 Attendance와 같은 방향으로 `View → @Reducer → UseCase Interface → UseCase 구현`을 따릅니다. 공지·팩 상세처럼 Repository가 있는 기능은 여기서 `Repository Interface → Repository 구현 → APIEndpoint · Network Interface`로 이어집니다. S00 목록은 `FestiCoreFestivalCatalog` 서비스의 요청 클라이언트·파일 캐시를, 팩 받기는 `FestiCorePack` 서비스의 WebSocket·팩 캐시를 사용합니다. `FeatureAssembly`가 Feature와 Domain 구현을 연결하고, `ServiceAssembly`와 `CoreAssembly`가 공용 네트워크·인증·저장소 구현을 조립합니다. 실제 경로는 [화면과 데이터 흐름 도식](docs/architecture/feature-data-flow.mmd)에 표시했습니다.
-
-첫 실행에는 `AppCoordinator`가 Splash 이후 설치 기록에 따라 네 장의 온보딩 화면 또는 `MainTabCoordinator`를 표시합니다. 이용약관·개인정보 처리방침은 `Profile`과 가입 화면에서 `WebFeature`의 앱 내 `WKWebView`로 엽니다. 축제 카드의 예매 링크는 `FestivalView`의 시스템 `openURL`로 앱 밖에서 엽니다. 현재 코드는 Safari 앱을 직접 지정하지 않으므로 기기의 기본 브라우저 설정을 따릅니다.
-
-화면은 `FestiCoreDesignKit`의 컴포넌트를 사용합니다. S00 축제 카드는 `FCFestivalCard`에 `.pack`, `.booked`, `.ticketLink`를 체이닝하고, 목록을 읽는 동안 `FCSkeletonView`로 같은 카드 구조를 표시합니다. 빈 목록과 읽기 실패는 별도 상태로 표시합니다. 화면별 컴포넌트와 로딩·빈 상태·실패 상태는 구현할 때마다 확인합니다.
+화면 전환과 모듈 의존성은 [아키텍처 그림](docs/architecture/README.md), 요청·저장 흐름은 [화면과 데이터 흐름 도식](docs/architecture/feature-data-flow.mmd), 주입 규칙은 [의존성 주입 문서](docs/agent/dependency-injection.md)를 참고하세요.
 
 ### S00–S05 진행 상태
 

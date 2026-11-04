@@ -4,7 +4,7 @@ flowchart LR
   Festival["Festival"]
   Profile["Profile"]
   Web["Web"]
-  Login["Login"]
+  AuthFeature["Auth"]
   Onboarding["Onboarding"]
   Bearer["Bearer"]
   Timetable["Timetable"]
@@ -57,7 +57,7 @@ flowchart LR
   FeatureAssembly --> Festival
   FeatureAssembly --> Profile
   FeatureAssembly --> Web
-  FeatureAssembly --> Login
+  FeatureAssembly --> AuthFeature
   FeatureAssembly --> Onboarding
   FeatureAssembly --> Bearer
   FeatureAssembly --> Timetable
@@ -79,8 +79,8 @@ flowchart LR
   Profile --> SharedUI
   Profile --> Design
   Profile --> Animation
-  Login --> AuthDomainInterface
-  Login --> Web
+  AuthFeature --> AuthDomainInterface
+  AuthFeature --> Web
   Bearer --> BearerDomainInterface
   Timetable --> TimetableDomainInterface
   Onboarding --> Design

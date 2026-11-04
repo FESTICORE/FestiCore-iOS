@@ -8,7 +8,7 @@
 import AuthDomainInterface
 import ComposableArchitecture
 import Foundation
-import LoginInterface
+import AuthInterface
 import Web
 import WebInterface
 

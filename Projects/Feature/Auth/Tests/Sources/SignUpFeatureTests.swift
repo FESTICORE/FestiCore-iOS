@@ -1,16 +1,16 @@
 //
 //  SignUpFeatureTests.swift
-//  LoginTests
+//  AuthTests
 //
 //  Created by FestiCore on 11/2/26.
 //
 
 import ComposableArchitecture
 import Foundation
-import LoginInterface
+import AuthInterface
 import Testing
 import Web
-@testable import Login
+@testable import Auth
 
 struct SignUpFeatureTests {
   @Test @MainActor func legalDetailOpensWebAndKeepsDraftAfterClose() async {
