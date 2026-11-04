@@ -26,12 +26,6 @@ public struct NoticeListView: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
     .toolbar(.hidden, for: .navigationBar)
-    .navigationDestination(
-      item: $store.scope(state: \.destination?.detail, action: \.destination.detail)
-    ) { detailStore in
-      NoticeDetailView(store: detailStore)
-        .toolbar(.hidden, for: .navigationBar)
-    }
     .onAppear { send(.onAppear) }
   }
 }

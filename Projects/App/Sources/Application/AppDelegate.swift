@@ -9,11 +9,13 @@ import UIKit
 import ComposableArchitecture
 import CoreAssembly
 import FestiCoreAnalyticsInterface
+import FestiCoreAuthInterface
 import ServiceAssembly
 
 @MainActor
 class AppDelegate: UIResponder, UIApplicationDelegate {
   var secureStorage = StorageAssembly.secureStorage()
+  @Dependency(\.authService) var authService
   @Dependency(\.deviceRegistrationService) var deviceRegistrationService
   @Dependency(\.liveActivityRegistrationService) var liveActivityRegistrationService
   @Dependency(\.analyticsUseCase) var analyticsUseCase

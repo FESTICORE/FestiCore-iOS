@@ -24,12 +24,14 @@ struct AppCoordinator {
   @Dependency(\.authService) private var authService
   @Dependency(\.deviceRegistrationService) private var deviceRegistrationService
   @Dependency(\.festivalLiveActivityUseCase) private var festivalLiveActivityUseCase
+  @Dependency(\.festivalWidgetClient) private var festivalWidgetClient
+  @Dependency(\.date) private var date
   @Dependency(\.festivalBookedStore) private var bookedStore
   @Dependency(\.authSessionExpiryClient) private var authSessionExpiryClient
   @Dependency(\.analyticsUseCase) private var analyticsUseCase
   @Dependency(\.firstInstallOnboardingStore) private var firstInstallOnboardingStore
 
-  private enum CancelID { case sessionExpiry, accountOperation }
+  private enum CancelID { case sessionExpiry, accountOperation, widgetSnapshot }
 
   /// 약관 상세 기준 주소. 탭 코디네이터와 가입 화면이 같은 값을 쓴다.
   private let legalBaseURL: URL?
@@ -120,6 +122,22 @@ struct AppCoordinator {
       }
     }
 
+    /// 선택한 공개 팩은 로그인 없이 공유하고 개인 일정은 상위 세션이 확인된 동안만 포함한다.
+    var activeWidgetSnapshotContent: FestivalWidgetSnapshot? {
+      guard case let .home(home) = self,
+            let screen = home.festivalState.routes.last(where: {
+              $0.screen.is(\.festivalList) || $0.screen.is(\.liveBoard)
+            })?.screen else { return nil }
+      var festival: FestivalFeature.State
+      switch screen {
+      case let .festivalList(list): festival = list
+      case let .liveBoard(board): festival = board
+      case .bearerBoard, .notificationInbox: return nil
+      }
+      festival.hasSession = home.authFlow.hasSession && festival.hasSession
+      return festival.widgetSnapshotContent
+    }
+
   }
 
   enum Action: ViewAction {
@@ -133,6 +151,7 @@ struct AppCoordinator {
     case presentHome
     case foregrounded
     case backgrounded
+    case openWidgetRoute(WidgetDeepLink)
     /// 로그인 시트의 로그인 요청(`LoginDelegate.signInRequested`)도 여기서 시트 상태를 확인한다.
     case startLogin(OAuthProvider)
     case dismissFlow
@@ -209,22 +228,29 @@ struct AppCoordinator {
     .ifCaseLet(\.splash, action: \.scope.splash) { SplashFeature() }
     .ifCaseLet(\.onboarding, action: \.scope.onboarding) { OnboardingFeature() }
     .ifCaseLet(\.home, action: \.scope.home) { MainTabCoordinator(legalBaseURL: legalBaseURL) }
-    .onChange(of: \.self) { previous, current in
-      Reduce { _, _ in
-        guard case let .home(home) = current else { return .none }
-        let before: MainTabCoordinator.AuthInputs?
-        if case let .home(previousHome) = previous {
-          before = previousHome.authInputs
-        } else {
-          before = nil
-        }
-        let after = home.authInputs
-        guard before != after else { return .none }
-        return .send(.scope(.home(.authInputsChanged(
-          previous: before,
-          current: after
-        ))))
+    .onChange(of: \.self) { previous, state in
+      guard case let .home(home) = state else { return .none }
+      let before: MainTabCoordinator.AuthInputs?
+      if case let .home(previousHome) = previous {
+        before = previousHome.authInputs
+      } else {
+        before = nil
       }
+      let after = home.authInputs
+      guard before != after else { return .none }
+      return .send(.scope(.home(.authInputsChanged(
+        previous: before,
+        current: after
+      ))))
+    }
+    .onChange(of: \.activeWidgetSnapshotContent) { _, state in
+      // 계정이 없어지면 공개 팩만 남기고 홈을 이탈하면 공유 파일을 비운다.
+      let snapshot = state.activeWidgetSnapshotContent?.withUpdatedAt(date.now)
+      return .run { _ in await festivalWidgetClient.save(snapshot) }
+        .cancellable(
+          id: CancelID.widgetSnapshot,
+          cancelInFlight: true
+        )
     }
   }
 }
@@ -235,6 +261,8 @@ private extension AppCoordinator {
     case .presentHome:
       guard case .splash = state else { return .none }
       return .run { send in
+        // 이전 실행에서 남은 개인 Widget 파일은 세션 확인 전에 지운다.
+        await festivalWidgetClient.save(nil)
         do {
           await send(.inner(.firstInstallStatus(try firstInstallOnboardingStore.hasCompleted())))
         } catch {
@@ -244,9 +272,10 @@ private extension AppCoordinator {
       }
 
     case .foregrounded:
-      guard case var .home(home) = state,
-            home.authFlow.presentation != .login,
-            !home.authFlow.isLoading else { return .none }
+      guard case var .home(home) = state else { return .none }
+      let resumeFestival: Effect<Action> = .send(.scope(.home(.festival(.foregrounded))))
+      guard home.authFlow.presentation != .login,
+            !home.authFlow.isLoading else { return resumeFestival }
       home.authFlow.generation += 1
       home.authFlow.isLoading = true
       home.authFlow.profile = nil
@@ -255,6 +284,7 @@ private extension AppCoordinator {
       let generation = home.authFlow.generation
       state = .home(home)
       return .merge(
+        resumeFestival,
         fetchProfile(generation: generation),
         .send(.scope(.home(.festival(.reloadBookmarks(userID: nil)))))
       )
@@ -262,6 +292,10 @@ private extension AppCoordinator {
     case .backgrounded:
       guard case .home = state else { return .none }
       return .send(.scope(.home(.festival(.backgrounded))))
+
+    case let .openWidgetRoute(route):
+      guard case .home = state else { return .none }
+      return .send(.scope(.home(.openWidgetRoute(route))))
 
     case let .startLogin(provider):
       // 수락한 로그인을 확정하는 동안 새 로그인을 시작하면 두 결과가 서로의 임시 세션을 무효로 만든다.
@@ -412,7 +446,7 @@ private extension AppCoordinator {
         clear,
         .run { _ in
           if isLoggedIn {
-            try? await deviceRegistrationService.bindToCurrentUser()
+            await linkDeviceForCurrentUser()
           } else {
             try? await deviceRegistrationService.recoverBoundDevice()
             await endLocalLiveActivities()
@@ -590,7 +624,7 @@ private extension AppCoordinator {
               result,
               state: &state
             ),
-            .run { _ in try? await deviceRegistrationService.bindToCurrentUser() }
+            .run { _ in await linkDeviceForCurrentUser() }
           )
         }
         // 저장에 실패한 로그인은 시트를 유지해 다시 시도할 수 있게 한다.
@@ -834,7 +868,7 @@ private extension AppCoordinator {
           return
         }
         // 인증 요청은 실패했지만 계정이 유지되면 해제했던 기기 소유권을 복원한다.
-        try? await deviceRegistrationService.bindToCurrentUser()
+        await linkDeviceForCurrentUser()
         await send(.inner(.myAccountFinished(
           generation: generation, operation: operation, result: .failure(ProfileFailure(error))
         )))
@@ -853,6 +887,17 @@ private extension AppCoordinator {
         category: "DeviceRegistration"
       )
         .error("계정 작업 중 기기 바인딩 해제 실패; 다음 실행에서 복구")
+    }
+  }
+
+  func linkDeviceForCurrentUser() async {
+    do {
+      try await deviceRegistrationService.linkDeviceToCurrentUser()
+    } catch {
+      FestiCoreLogger.error(
+        "계정 기기 연결 실패",
+        category: .app
+      )
     }
   }
 

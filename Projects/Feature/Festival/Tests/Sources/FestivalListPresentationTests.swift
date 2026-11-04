@@ -122,14 +122,31 @@ struct FestivalListPresentationTests {
     #expect(FestivalListPresentation.sorted(festivals, now: now).map(\.id) == ["lateInvalidEnd", "early"])
   }
 
-  @Test func packCopyDependsOnPublishedAndCachedVersionRegardlessOfFestivalDate() {
+  @Test func packCopyShowsEndedGuidanceBeforePublishedAndCachedVersion() {
     func copy(_ festival: FestivalOverview) -> FestivalListPresentation.PackCopy {
-      return FestivalListPresentation.packCopy(for: festival)
+      return FestivalListPresentation.packCopy(
+        for: festival,
+        isBooked: true,
+        now: utc("2026-11-01T03:00:00Z")
+      )
     }
     #expect(copy(festival(
       id: "end",
       firstDate: "2026-10-01"
-    )) == .ready("팩 받기"))
+    )) == .unavailable("종료된 페스티벌이라 팩을 받을 수 없어요"))
+    for cachedVersion in [1, 2, 3] {
+      #expect(copy(festival(
+        id: "ended-cached",
+        firstDate: "2026-10-01",
+        packVersion: 2,
+        cachedPackVersion: cachedVersion
+      )) == .unavailable("종료된 페스티벌이라 팩을 받을 수 없어요"))
+    }
+    #expect(copy(festival(
+      id: "ended-unpublished",
+      firstDate: "2026-10-01",
+      packVersion: 0
+    )) == .unavailable("종료된 페스티벌이라 팩을 받을 수 없어요"))
     let discovered = festival(id: "soon", firstDate: "2026-11-20", status: "discovered")
     #expect(copy(discovered) == .ready("팩 받기"))
     #expect(copy(festival(
@@ -137,7 +154,7 @@ struct FestivalListPresentationTests {
       firstDate: "2026-11-20",
       packVersion: 0
     ))
-      == .unavailable("팩 발행을 기다리고 있어요"))
+      == .unavailable("티켓 오픈 후 등록하고 팩을 받을 수 있어요"))
     #expect(copy(festival(
       id: "published",
       firstDate: "2026-11-20",
@@ -151,7 +168,30 @@ struct FestivalListPresentationTests {
       == .ready("팩 업데이트"))
   }
 
-  @Test func sortedPutsLiveThenNearestThenOpeningSoonThenRecentlyEnded() {
+  @Test(arguments: [false, true])
+  func packCopyRequiresBookmarkForDownloadAndUpdate(isBooked: Bool) {
+    for cachedVersion: Int? in [nil, 1, 2, 3] {
+      let copy = FestivalListPresentation.packCopy(
+        for: festival(
+          id: "festival",
+          firstDate: "2026-11-20",
+          packVersion: 2,
+          cachedPackVersion: cachedVersion
+        ),
+        isBooked: isBooked,
+        now: utc("2026-11-01T03:00:00Z")
+      )
+      if let cachedVersion, cachedVersion >= 2 {
+        #expect(copy == .received("팩 받음 · 최신 버전"))
+      } else if isBooked {
+        #expect(copy == .ready(cachedVersion == nil ? "팩 받기" : "팩 업데이트"))
+      } else {
+        #expect(copy == .unavailable("예매한 페스티벌로 등록하면 팩을 받을 수 있어요"))
+      }
+    }
+  }
+
+  @Test func sortedUsesScheduleDatesBeforeUndatedAndEndedRegardlessOfPackPublication() {
     let now = utc("2026-11-01T03:00:00Z")
     let festivals = [
       festival(id: "endedOld", firstDate: "2026-10-01", lastDate: "2026-10-02"),
@@ -169,7 +209,36 @@ struct FestivalListPresentationTests {
     ]
 
     #expect(FestivalListPresentation.sorted(festivals, now: now).map(\.id)
-      == ["live", "near", "far", "soon", "undated", "endedNew", "endedOld"])
+      == ["live", "soon", "near", "far", "undated", "endedNew", "endedOld"])
+  }
+
+  @Test func appendedPagesKeepEndedLastAndUseStableIDsForSameDates() {
+    let firstPage = [
+      festival(
+        id: "ended",
+        firstDate: "2026-10-01"
+      ),
+      festival(
+        id: "z",
+        firstDate: "2026-12-01"
+      )
+    ]
+    let nextPage = [
+      festival(
+        id: "near",
+        firstDate: "2026-11-02",
+        packVersion: 0
+      ),
+      festival(
+        id: "a",
+        firstDate: "2026-12-01"
+      )
+    ]
+    let ordered = FestivalListPresentation.sorted(
+      firstPage + nextPage,
+      now: utc("2026-11-01T03:00:00Z")
+    )
+    #expect(ordered.map(\.id) == ["near", "a", "z", "ended"])
   }
 
   @Test func packOnlyRowUsesFirstHttpsTicketLinkFromPack() throws {

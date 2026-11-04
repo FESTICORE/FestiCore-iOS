@@ -20,6 +20,7 @@ struct TimetableCoordinatorView: View {
           )
       case .schedulePick(let pickStore):
         SchedulePickView(store: pickStore)
+          .swipeBackButtonHidden()
       }
     }
   }

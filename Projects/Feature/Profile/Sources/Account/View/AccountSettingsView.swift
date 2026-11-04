@@ -26,8 +26,8 @@ public struct AccountSettingsView: View {
         .onBack { send(.backTapped) }
       ScrollView {
         VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
-          myInfo
-          withdrawal
+          myInfo()
+          withdrawal()
           if let message = store.message, !message.isEmpty, !store.isLoading {
             Text(message)
               .festiCoreFont(.baseSubheadlineRegular)
@@ -55,9 +55,9 @@ public struct AccountSettingsView: View {
   }
 }
 
-extension AccountSettingsView {
+private extension AccountSettingsView {
   @ViewBuilder
-  private var myInfo: some View {
+  func myInfo() -> some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
       sectionTitle("내 정보")
       if let user = store.profile?.user {
@@ -65,7 +65,10 @@ extension AccountSettingsView {
           FCListRow("닉네임") { send(.nicknameTapped) }
             .value(user.nickname ?? "설정 안 됨")
           divider
-          infoRow("로그인", value: providerName(user.provider))
+          infoRow(
+            "로그인",
+            value: providerName(user.provider)
+          )
         }
         .background(
           FestiCoreSemanticColor.backgroundElevated.color,
@@ -88,7 +91,8 @@ extension AccountSettingsView {
     }
   }
 
-  private var withdrawal: some View {
+  @ViewBuilder
+  func withdrawal() -> some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
       Button { send(.withdrawTapped) } label: {
         Text("계정 삭제")
@@ -111,19 +115,31 @@ extension AccountSettingsView {
     }
   }
 
-  private var logoutButton: some View {
+  var logoutButton: some View {
     Button { send(.logoutTapped) } label: {
       Text("로그아웃")
-        .festiCoreFont(.baseSubheadlineMedium)
+        .festiCoreFont(.baseSubheadlineBold)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
-        .frame(maxWidth: .infinity, minHeight: 44)
+        .frame(
+          width: 85,
+          height: 40
+        )
     }
     .buttonStyle(.plain)
     .disabled(store.isLoading)
+    .frame(maxWidth: .infinity)
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP16
+    )
     .padding(.bottom, FestiCoreSpacing.paddingP16)
   }
 
-  private func infoRow(_ title: String, value: String) -> some View {
+  @ViewBuilder
+  func infoRow(
+    _ title: String,
+    value: String
+  ) -> some View {
     HStack {
       Text(title)
         .festiCoreFont(.baseBodyRegular)
@@ -138,21 +154,21 @@ extension AccountSettingsView {
     .accessibilityElement(children: .combine)
   }
 
-  private func sectionTitle(_ title: String) -> some View {
-    Text(title)
+  func sectionTitle(_ title: String) -> some View {
+    return Text(title)
       .festiCoreFont(.baseCaption1Medium)
       .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       .padding(.horizontal, FestiCoreSpacing.paddingP4)
   }
 
-  private var divider: some View {
+  var divider: some View {
     FestiCoreSemanticColor.lineNormal.color
       .frame(height: 1)
       .padding(.leading, FestiCoreSpacing.paddingP16)
   }
 
-  private func providerName(_ provider: String) -> String {
-    switch provider.lowercased() {
+  func providerName(_ provider: String) -> String {
+    return switch provider.lowercased() {
     case "apple": "Apple"
     case "google": "Google"
     default: provider

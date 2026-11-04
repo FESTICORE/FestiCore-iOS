@@ -1,5 +1,6 @@
+import FestiCoreDesignKit
 import ActivityKit
-import CoreText
+import FestiCoreUtility
 import FestiCoreLiveActivity
 import SwiftUI
 import WidgetKit
@@ -8,45 +9,54 @@ struct FestiCoreFestivalActivityWidget: Widget {
   var body: some WidgetConfiguration {
     return ActivityConfiguration(for: FestiCoreFestivalActivityAttributes.self) { context in
       lockScreenCard(
-        festivalName: context.attributes.festivalName,
+        festivalID: context.attributes.festivalID,
         state: context.state,
         isStale: context.isStale
       )
-      .activityBackgroundTint(Metric.black)
-      .activitySystemActionForegroundColor(Metric.lime)
+      .activityBackgroundTint(WidgetPalette.black)
+      .activitySystemActionForegroundColor(FestiCoreSemanticColor.staticLime.color)
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
           Image(systemName: "sparkle")
-            .foregroundStyle(Metric.lime)
+            .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
         }
         DynamicIslandExpandedRegion(.center) {
           Text(context.attributes.festivalName)
-            .font(WidgetFont.pretendardBold(13))
+            .font(.pretendardFontFamily(
+              family: .Bold,
+              size: 13
+            ))
             .lineLimit(1)
         }
         DynamicIslandExpandedRegion(.bottom) {
           VStack(
             alignment: .leading,
-            spacing: 4
+            spacing: FestiCoreSpacing.marginM4
           ) {
             Text(headline(
               for: context.state,
               isStale: context.isStale
             ))
-              .font(WidgetFont.pretendardBold(13))
-            nextSchedule(for: context.state)
+              .font(.pretendardFontFamily(
+                family: .Bold,
+                size: 13
+              ))
+            nextSchedule(
+              for: context.state,
+              festivalID: context.attributes.festivalID
+            )
           }
         }
       } compactLeading: {
         Image(systemName: "sparkle")
-          .foregroundStyle(Metric.lime)
+          .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
       } compactTrailing: {
         Text(shortStatusText(for: context.state))
-          .foregroundStyle(Metric.lime)
+          .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
       } minimal: {
         Image(systemName: "sparkle")
-          .foregroundStyle(Metric.lime)
+          .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
       }
     }
   }
@@ -55,22 +65,24 @@ struct FestiCoreFestivalActivityWidget: Widget {
 private extension FestiCoreFestivalActivityWidget {
   @ViewBuilder
   func lockScreenCard(
-    festivalName: String,
+    festivalID: String,
     state: FestiCoreFestivalActivityAttributes.ContentState,
     isStale: Bool
   ) -> some View {
     VStack(spacing: 0) {
       nowPlayingPanel(
-        festivalName: festivalName,
-        state: state
+        festivalID: festivalID,
+        state: state,
+        isStale: isStale
       )
         .frame(
           maxWidth: .infinity,
           minHeight: 108,
           maxHeight: 108
         )
-        .background(Metric.lime)
+        .background(FestiCoreSemanticColor.staticLime.color)
       nextPanel(
+        festivalID: festivalID,
         state: state,
         isStale: isStale
       )
@@ -79,11 +91,11 @@ private extension FestiCoreFestivalActivityWidget {
           minHeight: 48,
           maxHeight: 48
         )
-        .background(Metric.black)
+        .background(WidgetPalette.black)
     }
     .frame(maxWidth: .infinity)
     .clipShape(RoundedRectangle(
-      cornerRadius: 24,
+      cornerRadius: FestiCoreRadius.r24,
       style: .continuous
     ))
     .environment(
@@ -94,41 +106,61 @@ private extension FestiCoreFestivalActivityWidget {
 
   @ViewBuilder
   func nowPlayingPanel(
-    festivalName: String,
-    state: FestiCoreFestivalActivityAttributes.ContentState
+    festivalID: String,
+    state: FestiCoreFestivalActivityAttributes.ContentState,
+    isStale: Bool
   ) -> some View {
     VStack(
       alignment: .leading,
-      spacing: 3
+      spacing: FestiCoreSpacing.marginM4
     ) {
       HStack(alignment: .firstTextBaseline) {
-        Text("NOW PLAYING")
-          .font(WidgetFont.pretendardBold(10))
-          .tracking(1)
-        Spacer(minLength: 4)
+        Text(isStale ? "오래된 정보" : state.phase == .upcoming ? "UP NEXT" : state.phase == .finished ? "SEE YOU" : "NOW PLAYING")
+          .font(.pretendardFontFamily(
+            family: .Bold,
+            size: 9
+          ))
+          .tracking(0.9)
+        Spacer(minLength: FestiCoreSpacing.marginM4)
         if state.pinnedFlag != nil || state.crewSummary != nil {
           Image(systemName: "star.fill")
-            .font(WidgetFont.pretendardBold(10))
+            .font(.pretendardFontFamily(
+              family: .Bold,
+              size: 10
+            ))
           Text(state.crewSummary?.name ?? "내 깃발")
-            .font(WidgetFont.pretendardMedium(10))
+            .font(.pretendardFontFamily(
+              family: .Medium,
+              size: 10
+            ))
             .lineLimit(1)
         }
       }
-      Text(state.nowStages.first?.stageId ?? festivalName)
-        .font(WidgetFont.pretendardMedium(11))
-        .lineLimit(1)
+      if let stage = state.nowStages.first.flatMap({ $0.stageName ?? stageName(
+        for: $0.setId,
+        festivalID: festivalID
+      ) }) {
+        Text(stage)
+          .font(.pretendardFontFamily(
+            family: .Medium,
+            size: 11
+          ))
+          .lineLimit(1)
+      }
       Text(headline(
         for: state,
         isStale: false
       ))
         .font(WidgetFont.bagel(34))
+        .rotationEffect(.degrees(-3))
+        .opacity(isStale ? 0.4 : 1)
         .minimumScaleFactor(0.7)
         .lineLimit(1)
     }
-    .foregroundStyle(Metric.black)
+    .foregroundStyle(WidgetPalette.black)
     .padding(
       .horizontal,
-      14
+      FestiCoreSpacing.paddingP12 + FestiCoreSpacing.marginM2
     )
     .frame(
       maxWidth: .infinity,
@@ -138,24 +170,31 @@ private extension FestiCoreFestivalActivityWidget {
 
   @ViewBuilder
   func nextPanel(
+    festivalID: String,
     state: FestiCoreFestivalActivityAttributes.ContentState,
     isStale: Bool
   ) -> some View {
     HStack(
       alignment: .center,
-      spacing: 8
+      spacing: FestiCoreSpacing.marginM8
     ) {
       VStack(
         alignment: .leading,
-        spacing: 2
+        spacing: FestiCoreSpacing.marginM2
       ) {
-        Text(isStale ? "정보 확인 필요" : "다음 내 일정")
-          .font(WidgetFont.pretendardMedium(10))
-          .foregroundStyle(.white.opacity(0.7))
-        nextSchedule(for: state)
+        Text("다음 내 일정")
+          .font(.pretendardFontFamily(
+            family: .Medium,
+            size: 10
+          ))
+          .foregroundStyle(FestiCoreSemanticColor.staticWhite.color.opacity(0.7))
+        nextSchedule(
+          for: state,
+          festivalID: festivalID
+        )
       }
-      Spacer(minLength: 4)
-      if !isStale, let next = state.nextMine,
+      Spacer(minLength: FestiCoreSpacing.marginM4)
+      if let next = state.nextMine,
          let start = performanceDate(next.startsAt) {
         Text(
           start,
@@ -164,28 +203,40 @@ private extension FestiCoreFestivalActivityWidget {
           .font(WidgetFont.bagel(24))
           .minimumScaleFactor(0.65)
           .lineLimit(1)
-          .foregroundStyle(Metric.lime)
+          .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
       }
     }
     .padding(
       .horizontal,
-      14
+      FestiCoreSpacing.paddingP12 + FestiCoreSpacing.marginM2
     )
   }
 
   @ViewBuilder
   func nextSchedule(
-    for state: FestiCoreFestivalActivityAttributes.ContentState
+    for state: FestiCoreFestivalActivityAttributes.ContentState,
+    festivalID: String
   ) -> some View {
     if let next = state.nextMine {
-      Text("\(next.artist) · \(next.stageId)")
-        .font(WidgetFont.pretendardMedium(11))
-        .foregroundStyle(.white)
+      Text([next.artist, next.stageName ?? stageName(
+        for: next.setId,
+        festivalID: festivalID
+      ), performanceDate(next.startsAt)?.formatted(.time)]
+        .compactMap { $0 }
+        .joined(separator: " · "))
+        .font(.pretendardFontFamily(
+          family: .Bold,
+          size: 13
+        ))
+        .foregroundStyle(FestiCoreSemanticColor.staticWhite.color)
         .lineLimit(1)
     } else {
       Text(state.phase == .finished ? "축제가 종료됐어요" : "저장한 공연이 없어요")
-        .font(WidgetFont.pretendardMedium(11))
-        .foregroundStyle(.white)
+        .font(.pretendardFontFamily(
+          family: .Bold,
+          size: 13
+        ))
+        .foregroundStyle(FestiCoreSemanticColor.staticWhite.color)
         .lineLimit(1)
     }
   }
@@ -195,11 +246,13 @@ private extension FestiCoreFestivalActivityWidget {
     isStale: Bool
   ) -> String {
     if isStale { return "정보를 확인해 주세요" }
+    if state.phase == .ongoing, let end = state.endDate,
+       end > .now, end.timeIntervalSinceNow <= 3600 { return "귀가 준비!" }
     if let current = state.nowStages.first { return current.artist }
     switch state.phase {
-    case .upcoming: return "곧 시작해요"
+    case .upcoming: return "\(state.startDate.formatted(.time)) 공연 시작"
     case .ongoing: return "공연 진행 중"
-    case .finished: return "공연 종료"
+    case .finished: return "오늘 끝!"
     }
   }
 
@@ -211,70 +264,15 @@ private extension FestiCoreFestivalActivityWidget {
     }
   }
 
+  func stageName(
+    for setID: String,
+    festivalID: String
+  ) -> String? {
+    guard let snapshot = FestivalWidgetStore.load(), snapshot.festivalID == festivalID else { return nil }
+    return snapshot.performances.first { $0.id == setID }?.stageName
+  }
+
   func performanceDate(_ value: String) -> Date? {
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let date = formatter.date(from: value) { return date }
-    formatter.formatOptions = [.withInternetDateTime]
-    return formatter.date(from: value)
-  }
-}
-
-private enum Metric {
-  static let lime = Color(
-    red: 0.776,
-    green: 1,
-    blue: 0.204
-  )
-  static let black = Color(
-    red: 0.067,
-    green: 0.067,
-    blue: 0.075
-  )
-}
-
-private enum WidgetFont {
-  private static let registered: Void = {
-    for name in ["BagelFatOne-Regular", "PretendardVariable"] {
-      guard let url = Bundle.main.url(
-        forResource: name,
-        withExtension: "ttf",
-        subdirectory: "Resources/Fonts"
-      ) ?? Bundle.main.url(
-        forResource: name,
-        withExtension: "ttf"
-      ) else {
-        continue
-      }
-      CTFontManagerRegisterFontsForURL(
-        url as CFURL,
-        .process,
-        nil
-      )
-    }
-  }()
-
-  static func bagel(_ size: CGFloat) -> Font {
-    _ = registered
-    return .custom(
-      "BagelFatOne-Regular",
-      fixedSize: size
-    )
-  }
-
-  static func pretendardBold(_ size: CGFloat) -> Font {
-    _ = registered
-    return .custom(
-      "PretendardVariable-Bold",
-      fixedSize: size
-    )
-  }
-
-  static func pretendardMedium(_ size: CGFloat) -> Font {
-    _ = registered
-    return .custom(
-      "PretendardVariable-Medium",
-      fixedSize: size
-    )
+    return value.isoDate
   }
 }

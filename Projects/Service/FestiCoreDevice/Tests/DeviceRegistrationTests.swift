@@ -165,7 +165,7 @@ struct DeviceRegistrationTests {
     )
 
     let registered = try await service.register(metadata)
-    try await service.bindToCurrentUser()
+    try await service.linkDeviceToCurrentUser()
     let bound = try #require(await service.authorization())
 
     #expect(bound.deviceID == registered.deviceID)
@@ -195,7 +195,7 @@ struct DeviceRegistrationTests {
       userSession: { session }
     )
     _ = try await service.register(metadata)
-    try await service.bindToCurrentUser()
+    try await service.linkDeviceToCurrentUser()
 
     try await service.unbindCurrentUser()
 
@@ -225,7 +225,7 @@ struct DeviceRegistrationTests {
       userSession: { session }
     )
     _ = try await service.register(metadata)
-    try await service.bindToCurrentUser()
+    try await service.linkDeviceToCurrentUser()
 
     await #expect(throws: FestiCoreNetworkError.self) { try await service.unbindCurrentUser() }
     let pendingKey = try #require(storage.load(.deviceUnbindKey))
@@ -259,7 +259,7 @@ struct DeviceRegistrationTests {
 
     #expect(try await service.authorization()?.deviceID == nil)
     await #expect(throws: DeviceRegistrationError.deviceNotRegistered) {
-      try await service.bindToCurrentUser()
+      try await service.linkDeviceToCurrentUser()
     }
   }
 

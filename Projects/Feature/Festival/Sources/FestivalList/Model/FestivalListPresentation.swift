@@ -124,41 +124,71 @@ extension FestivalListPresentation {
     }
   }
 
-  static func packCopy(for festival: FestivalOverview) -> PackCopy {
-    guard festival.packVersion > 0 else {
-      return .unavailable("팩 발행을 기다리고 있어요")
+  static func packCopy(
+    for festival: FestivalOverview,
+    isBooked: Bool,
+    now: Date = .now
+  ) -> PackCopy {
+    guard timing(
+      for: festival,
+      now: now
+    ) != .ended else {
+      return .unavailable("종료된 페스티벌이라 팩을 받을 수 없어요")
     }
-    guard let cachedVersion = festival.cachedPackVersion else { return .ready("팩 받기") }
+    guard festival.packVersion > 0 else {
+      return .unavailable("티켓 오픈 후 등록하고 팩을 받을 수 있어요")
+    }
     // 카탈로그 캐시가 팩보다 오래됐을 수 있으므로 같거나 높으면 최신으로 본다.
-    return cachedVersion >= festival.packVersion ? .received("팩 받음 · 최신 버전") : .ready("팩 업데이트")
+    if let cachedVersion = festival.cachedPackVersion, cachedVersion >= festival.packVersion {
+      return .received("팩 받음 · 최신 버전")
+    }
+    guard isBooked else {
+      return .unavailable("예매한 페스티벌로 등록하면 팩을 받을 수 있어요")
+    }
+    return .ready(festival.cachedPackVersion == nil ? "팩 받기" : "팩 업데이트")
   }
 
-  /// 진행 중 → 가까운 D-day → 오픈 예정·날짜 없음 → 종료(최근 종료 먼저). 같은 순위는 이름순.
-  static func sorted(_ festivals: [FestivalOverview], now: Date) -> [FestivalOverview] {
-    festivals
+  /// 진행 중 → 가까운 일정 → 날짜 없음 → 종료 순서. 팩 발행 여부는 날짜 정렬에 영향을 주지 않는다.
+  static func sorted(
+    _ festivals: [FestivalOverview],
+    now: Date
+  ) -> [FestivalOverview] {
+    return festivals
       .map { (festival: $0, key: sortKey(for: $0, now: now)) }
       .sorted { lhs, rhs in
         if lhs.key.rank != rhs.key.rank { return lhs.key.rank < rhs.key.rank }
         if lhs.key.order != rhs.key.order { return lhs.key.order < rhs.key.order }
-        return lhs.festival.name.localizedStandardCompare(rhs.festival.name) == .orderedAscending
+        return lhs.festival.id < rhs.festival.id
       }
       .map(\.festival)
   }
 
-  private static func sortKey(for festival: FestivalOverview, now: Date) -> (rank: Int, order: Int) {
-    let timing = timing(for: festival, now: now)
+  private static func sortKey(
+    for festival: FestivalOverview,
+    now: Date
+  ) -> (rank: Int, order: Int) {
+    let timing = timing(
+      for: festival,
+      now: now
+    )
     if timing == .ended {
       // timing과 같이 파싱에 성공한 종료일, 없으면 시작일을 쓴다.
       let lastDay = festival.lastDate?.date(as: .day) ?? festival.firstDate?.date(as: .day)
       let last = lastDay.map { Int($0.timeIntervalSince1970) } ?? 0
       return (3, -last)
     }
-    if isOpeningSoon(festival) {
-      return (2, festival.firstDate?.date(as: .day).map { Int($0.timeIntervalSince1970) } ?? Int.max)
-    }
+    let first = festival.firstDate?.date(as: .day).map { Int($0.timeIntervalSince1970) } ?? Int.max
     switch timing {
-    case .live: return (0, 0)
-    case let .daysUntil(days): return (1, days)
+    case .live:
+      return (
+        0,
+        first
+      )
+    case .daysUntil:
+      return (
+        1,
+        first
+      )
     case .undated, .ended: return (2, Int.max)
     }
   }

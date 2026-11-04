@@ -2,7 +2,7 @@ import Dependencies
 import FestivalDomainInterface
 import Foundation
 
-extension FestivalLiveActivityClient: DependencyKey {
+extension FestivalLiveActivityClient: @retroactive DependencyKey {
   public static let liveValue = Self(
     activities: {
       FestiCoreFestivalLiveActivity.activities().map {
@@ -67,7 +67,11 @@ struct FestivalActivityPresentation {
             start <= now, now < end else { return nil }
       return State.NowStage(
         setId: performance.id,
-        stageId: performance.stageName ?? performance.stageId ?? "무대",
+        stageId: performance.stageId ?? "",
+        stageName: stageName(
+          for: performance,
+          in: pack
+        ),
         artist: performance.artist ?? "공연",
         startsAt: startsAt,
         endsAt: endsAt
@@ -81,11 +85,16 @@ struct FestivalActivityPresentation {
         return (
           start,
           State.NextMine(
-          setId: performance.id,
-          stageId: performance.stageName ?? performance.stageId ?? "무대",
-          artist: performance.artist ?? "공연",
-          startsAt: startsAt
-        ))
+            setId: performance.id,
+            stageId: performance.stageId ?? "",
+            stageName: stageName(
+              for: performance,
+              in: pack
+            ),
+            artist: performance.artist ?? "공연",
+            startsAt: startsAt
+          )
+        )
       }
       .min { $0.0 < $1.0 }?.1
     return Self(
@@ -100,5 +109,17 @@ struct FestivalActivityPresentation {
     if let date = formatter.date(from: value) { return date }
     formatter.formatOptions = [.withInternetDateTime]
     return formatter.date(from: value)
+  }
+
+  private static func stageName(
+    for performance: FestivalPackDocument.Performance,
+    in pack: FestivalPackDocument?
+  ) -> String? {
+    let namedStage = performance.stageId.flatMap { id in
+      pack?.stages?.first { $0.id == id }?.name
+    }
+    return [performance.stageName, namedStage]
+      .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+      .first { !$0.isEmpty }
   }
 }

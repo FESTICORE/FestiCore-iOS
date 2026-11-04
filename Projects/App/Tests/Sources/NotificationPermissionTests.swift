@@ -3,6 +3,7 @@ import Foundation
 import Testing
 import UserNotifications
 
+import FestiCoreAuthInterface
 import FestiCoreDeviceInterface
 import FestiCoreStorageInterface
 @testable import FestiCore
@@ -51,6 +52,10 @@ struct NotificationPermissionTests {
   func registersStoredTokenOnLaunch() async {
     let service = RecordingDeviceRegistrationService()
     let delegate = withDependencies {
+      $0.authService = StubAuthService(
+        loggedIn: false,
+        userID: nil
+      )
       $0.deviceRegistrationService = service
     } operation: {
       AppDelegate()

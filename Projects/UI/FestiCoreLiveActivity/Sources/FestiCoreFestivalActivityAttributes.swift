@@ -50,16 +50,48 @@ public struct FestiCoreFestivalActivityAttributes: ActivityAttributes {
     public struct NowStage: Codable, Hashable, Sendable {
       public let setId: String
       public let stageId: String
+      public let stageName: String?
       public let artist: String
       public let startsAt: String
       public let endsAt: String
+
+      public init(
+        setId: String,
+        stageId: String,
+        stageName: String? = nil,
+        artist: String,
+        startsAt: String,
+        endsAt: String
+      ) {
+        self.setId = setId
+        self.stageId = stageId
+        self.stageName = stageName
+        self.artist = artist
+        self.startsAt = startsAt
+        self.endsAt = endsAt
+      }
     }
 
     public struct NextMine: Codable, Hashable, Sendable {
       public let setId: String
       public let stageId: String
+      public let stageName: String?
       public let artist: String
       public let startsAt: String
+
+      public init(
+        setId: String,
+        stageId: String,
+        stageName: String? = nil,
+        artist: String,
+        startsAt: String
+      ) {
+        self.setId = setId
+        self.stageId = stageId
+        self.stageName = stageName
+        self.artist = artist
+        self.startsAt = startsAt
+      }
     }
 
     public struct PinnedFlag: Codable, Hashable, Sendable {

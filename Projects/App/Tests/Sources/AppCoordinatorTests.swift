@@ -3135,7 +3135,7 @@ private struct OutdatedTermsAuthUseCase: AuthUseCaseInterface {
   func withdraw() async throws {}
 }
 
-private struct StubAuthService: AuthService {
+struct StubAuthService: AuthService {
   let loggedIn: Bool
   let userID: String?
   let sessionID = UUID()
@@ -3357,7 +3357,7 @@ private struct UnboundTestDevice: DeviceRegistrationService {
     )
   }
   func authorization() async throws -> DeviceAuthorization? { return nil }
-  func bindToCurrentUser() async throws {}
+  func linkDeviceToCurrentUser() async throws {}
   func unbindCurrentUser() async throws {
     calls?.withValue { $0.append("unbind") }
     if shouldFailUnbind { throw DeviceUnbindTestError.unavailable }
@@ -3396,7 +3396,7 @@ private struct SuspendedUnbindDevice: DeviceRegistrationService {
     )
   }
   func authorization() async throws -> DeviceAuthorization? { return nil }
-  func bindToCurrentUser() async throws { calls.withValue { $0.append("bind") } }
+  func linkDeviceToCurrentUser() async throws { calls.withValue { $0.append("bind") } }
   func unbindCurrentUser() async throws {
     calls.withValue { $0.append("unbind") }
     try await gate.wait()

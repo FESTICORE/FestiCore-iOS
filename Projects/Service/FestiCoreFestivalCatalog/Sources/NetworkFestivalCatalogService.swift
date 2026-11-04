@@ -44,7 +44,7 @@ public actor NetworkFestivalCatalogService: FestivalCatalogService {
     for _ in 0..<100 {
       let response = try await client.send(FestivalListRequest(
         after: after,
-        limit: 10
+        limit: 50
       ))
       guard response.code == "SUCCESS" else { throw FestivalCatalogError.invalidResponse }
       for item in response.data.items where seenIDs.insert(item.id).inserted { items.append(item) }

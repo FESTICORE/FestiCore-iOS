@@ -67,11 +67,24 @@ struct ProfileCoordinator {
 
       case let .router(.routeAction(
         id: id,
+        action: .noticeDetail(childAction)
+      )) where id == 2:
+        guard state.destination?.noticeList?.destination?.detail != nil else { return .none }
+        return .send(.profile(.destination(.presented(.noticeList(
+          .destination(.presented(.detail(childAction)))
+        )))))
+
+      case let .router(.routeAction(
+        id: id,
         action: .notifications(childAction)
       )) where id == 1:
         return .send(.profile(.destination(.presented(.notifications(childAction)))))
 
       case let .router(.updateRoutes(routes)):
+        if state.destination?.noticeList?.destination?.detail != nil,
+           !routes.contains(where: { $0.screen.is(\.noticeDetail) }) {
+          return .send(.profile(.destination(.presented(.noticeList(.destination(.dismiss))))))
+        }
         guard state.destination != nil,
               state.destination?.alert == nil,
               routes.count == 1 else { return .none }

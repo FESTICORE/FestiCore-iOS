@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FeatureAssembly
 import Foundation
 import Testing
 import TCAFlow
@@ -75,6 +76,38 @@ struct ProfileRoutingTests {
     await store.finish()
   }
 
+  @Test("계정 로그아웃 확인은 마이 코디네이터에서 기존 앱 로그아웃 요청으로 전달한다")
+  func accountLogoutConfirmationReachesHome() async {
+    var state = MainTabCoordinator.State(selectedTab: .my)
+    state.profileState.hasSession = true
+    state.profileState.destination = .account(.init(profile: nil))
+    let store = TestStore(initialState: state) {
+      MainTabCoordinator(legalBaseURL: nil)
+    }
+    store.exhaustivity = .off
+
+    await store.send(.profileCoordinator(.router(.routeAction(
+      id: 1,
+      action: .account(.view(.logoutTapped))
+    ))))
+    await store.receive {
+      guard case .profileCoordinator(.profile(.destination(.presented(.account(.view(.logoutTapped)))))) = $0 else {
+        return false
+      }
+      return true
+    }
+    #expect(store.state.profileState.destination?.account?.confirmation == .logout)
+
+    await store.send(.profileCoordinator(.router(.routeAction(
+      id: 1,
+      action: .account(.destination(.presented(.alert(.confirmTapped))))
+    ))))
+    await store.receive {
+      guard case .delegate(.myLogoutRequested) = $0 else { return false }
+      return true
+    }
+  }
+
   @Test("법적 문서는 API 주소를 보존하며 push로 표시한다")
   func legalDocumentIsPushRoute() {
     let url = URL(string: "https://festicore-dev.up.railway.app/api/v1/legal/privacy")!
@@ -105,5 +138,85 @@ struct ProfileRoutingTests {
     ))
     #expect(state.profileState.profileRoutes[1].isPush)
     #expect(state.profileState.profileRoutes[1].screen.packDetail?.festivalID == "festival")
+  }
+
+  @Test("공지 상세는 마이 코디네이터의 세 번째 push 경로이며 뒤로 가면 목록으로 돌아온다")
+  func noticeDetailSwipePopReturnsToList() async {
+    var state = ProfileCoordinator.State()
+    var noticeList = NoticeListFeature.State()
+    noticeList.destination = .detail(.init(
+      id: "notice-1",
+      title: "공지"
+    ))
+    state.destination = .noticeList(noticeList)
+    #expect(state.profileRoutes.count == 3)
+    #expect(state.profileRoutes[2].isPush)
+    #expect(state.profileRoutes[2].screen.noticeDetail?.id == "notice-1")
+
+    let store = TestStore(initialState: state) {
+      ProfileCoordinator(legalBaseURL: nil)
+    }
+    store.exhaustivity = .off
+    await store.send(.router(.updateRoutes(Array(store.state.profileRoutes.prefix(2)))))
+    await store.receive {
+      guard case .profile(.destination(.presented(.noticeList(.destination(.dismiss))))) = $0 else {
+        return false
+      }
+      return true
+    }
+    #expect(store.state.destination?.noticeList?.destination == nil)
+    #expect(store.state.profileRoutes.count == 2)
+  }
+
+  @Test("마이 설정·정보 화면 다섯 곳에서 탭바를 숨기고 복귀하면 표시한다")
+  func profileInformationRoutesHideTabBarUntilDismissed() {
+    var state = MainTabCoordinator.State(selectedTab: .my)
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+
+    state.profileState.destination = .notifications(.init())
+    #expect(state.profileState.profileRoutes.last?.screen.is(\.notifications) == true)
+    #expect(state.shouldHideTabBar)
+    #expect(!state.shouldReserveTabBarSpace)
+
+    state.profileState.destination = .lockScreen(.init())
+    #expect(state.profileState.profileRoutes.last?.screen.is(\.lockScreen) == true)
+    #expect(state.shouldHideTabBar)
+    #expect(!state.shouldReserveTabBarSpace)
+
+    state.profileState.destination = .noticeList(.init())
+    #expect(state.profileState.profileRoutes.last?.screen.is(\.noticeList) == true)
+    #expect(state.shouldHideTabBar)
+    #expect(!state.shouldReserveTabBarSpace)
+
+    let baseURL = URL(string: "https://festicore-dev.up.railway.app/api/v1/legal")!
+    state.profileState.destination = .legalDocument(.init(
+      url: baseURL.appending(path: "terms"),
+      title: "이용약관"
+    ))
+    #expect(state.profileState.profileRoutes.last?.screen.is(\.legalDocument) == true)
+    #expect(state.shouldHideTabBar)
+    #expect(!state.shouldReserveTabBarSpace)
+
+    state.profileState.destination = .legalDocument(.init(
+      url: baseURL.appending(path: "privacy"),
+      title: "개인정보 처리방침"
+    ))
+    #expect(state.profileState.profileRoutes.last?.screen.is(\.legalDocument) == true)
+    #expect(state.shouldHideTabBar)
+    #expect(!state.shouldReserveTabBarSpace)
+
+    state.profileState.destination = nil
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+  }
+
+  @Test("라이브 보드의 메인 탭바는 유지된다")
+  func liveBoardKeepsMainTabBar() {
+    var state = MainTabCoordinator.State(selectedTab: .live)
+    state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
+
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
   }
 }

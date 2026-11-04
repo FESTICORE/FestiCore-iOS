@@ -90,4 +90,89 @@ struct FestivalFeatureStateTests {
     #expect(state.imageSourceValues == [url.absoluteString])
     #expect(state.prefetchImageURLs == [url])
   }
+
+  @Test func widgetContentUsesRealScheduleAndClearsSavedStateOnLogout() throws {
+    var state = FestivalFeature.State(selectedFestivalID: "festival")
+    state.catalog = [.init(
+      id: "festival",
+      name: "축제",
+      firstDate: "2026-11-05",
+      lastDate: "2026-11-06",
+      packVersion: 1
+    )]
+    state.onlineDetail = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: Data(#"{"id":"festival","stages":[{"id":"main","name":"메인"}],"sets":[{"id":"set_1","artist":"가수","stageId":"main","startsAt":"2026-11-05T10:00:00+09:00","endsAt":"2026-11-05T11:00:00+09:00"}]}"#.utf8)
+    )
+    state.hasSession = true
+    state.mySchedule = .init(
+      festivalID: "festival",
+      setIDs: ["set_1"]
+    )
+
+    let signedIn = try #require(state.widgetContent)
+    #expect(signedIn.festivalID == "festival")
+    #expect(signedIn.hasPack == false)
+    #expect(signedIn.performances.map(\.id) == ["set_1"])
+    #expect(signedIn.performances[0].artist == "가수")
+    #expect(signedIn.performances[0].stageName == "메인")
+    #expect(signedIn.performances[0].isSaved)
+    #expect(signedIn.performances[0].endsAt > signedIn.performances[0].startsAt)
+    let comparison = try #require(state.widgetSnapshotContent)
+    #expect(comparison.updatedAt == .distantPast)
+    #expect(comparison == state.widgetSnapshotContent)
+    let saved = comparison.withUpdatedAt(Date(timeIntervalSince1970: 1_000))
+    #expect(saved.updatedAt == Date(timeIntervalSince1970: 1_000))
+    #expect(saved.performances == comparison.performances)
+
+    state.hasSession = false
+    state.clearAccountData()
+    #expect(state.widgetContent?.performances[0].isSaved == false)
+    #expect(state.widgetContent?.crewName == nil)
+
+    state.selectedFestivalID = nil
+    #expect(state.widgetContent == nil)
+  }
+
+  @Test func widgetContentTracksPackDeletionWithoutDroppingOnlineDetail() throws {
+    var state = FestivalFeature.State(selectedFestivalID: "festival")
+    state.catalog = [.init(
+      id: "festival",
+      name: "축제",
+      packVersion: 1
+    )]
+    let document = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: Data(#"{"id":"festival","name":"축제"}"#.utf8)
+    )
+    state.selectedPack = document
+    state.cachedPacks["festival"] = CachedFestivalPack(
+      festivalID: "festival",
+      packVersion: 1,
+      etag: "e",
+      pack: Data()
+    )
+    #expect(state.widgetContent?.hasPack == true)
+
+    state.cachedPacks["festival"] = nil
+    state.selectedPack = nil
+    state.onlineDetail = document
+    #expect(state.widgetContent?.hasPack == false)
+    #expect(state.widgetContent?.festivalName == "축제")
+  }
+
+  @Test func widgetContentDoesNotExposeRawStageID() throws {
+    var state = FestivalFeature.State(selectedFestivalID: "festival")
+    state.catalog = [.init(
+      id: "festival",
+      name: "축제",
+      packVersion: 1
+    )]
+    state.onlineDetail = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: Data(#"{"id":"festival","timetable":[{"id":"set_1","artist":"가수","stageId":"stage_internal_42","startsAt":"2026-11-05T10:00:00+09:00","endsAt":"2026-11-05T11:00:00+09:00"}]}"#.utf8)
+    )
+
+    #expect(state.widgetContent?.performances.first?.stageName == "무대 정보 없음")
+  }
 }

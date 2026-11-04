@@ -34,6 +34,31 @@ struct FestivalCatalogTests {
     #expect(try await service.cachedFestivals().map(\.id) == ["fst_a", "fst_b"])
   }
 
+  @Test("전체 갱신은 50개씩 받아 1,001개 축제도 페이지 상한 안에서 복구한다")
+  func refreshLoadsMoreThanOneThousandFestivals() async throws {
+    let cacheURL = temporaryCacheURL()
+    defer { try? FileManager.default.removeItem(at: cacheURL.deletingLastPathComponent()) }
+    let client = ScriptClient(catalogItemCount: 1_001)
+    let service = NetworkFestivalCatalogService(
+      client: client,
+      cacheURL: cacheURL
+    )
+
+    let items = try await service.refresh()
+
+    #expect(items.map(\.id) == (0..<1_001).map { "fst_\($0)" })
+    let requests = await client.requests()
+    #expect(requests.count == 21)
+    #expect(requests.first == "nil/50")
+    #expect(requests.last == "1000/50")
+    #expect(requests.allSatisfy { $0.hasSuffix("/50") })
+    let offline = NetworkFestivalCatalogService(
+      client: ScriptClient(pages: []),
+      cacheURL: cacheURL
+    )
+    #expect(try await offline.cachedFestivals().map(\.id) == items.map(\.id))
+  }
+
   @Test("새 목록의 모든 페이지를 받기 전에는 기존 전체 오프라인 캐시를 유지한다")
   func keepsCompleteCacheUntilLastPage() async throws {
     let cacheURL = temporaryCacheURL()
@@ -227,9 +252,18 @@ private struct DefaultImageCatalogService: FestivalCatalogService {
 
 private actor ScriptClient: FestiCoreRequestClient {
   private var pages: [Data]
+  private let catalogItemCount: Int?
   private var requested: [String] = []
 
-  init(pages: [String]) { self.pages = pages.map { Data($0.utf8) } }
+  init(pages: [String]) {
+    self.pages = pages.map { Data($0.utf8) }
+    catalogItemCount = nil
+  }
+
+  init(catalogItemCount: Int) {
+    pages = []
+    self.catalogItemCount = catalogItemCount
+  }
 
   func requests() -> [String] { return requested }
 
@@ -244,11 +278,25 @@ private actor ScriptClient: FestiCoreRequestClient {
     if let request = request as? FestivalListRequest {
       requested.append("\(request.after ?? "nil")/\(request.limit)")
     }
-    guard !pages.isEmpty else {
-      Issue.record("예상하지 않은 페이지 요청")
-      throw .request(.invalidURL)
+    let data: Data
+    if let catalogItemCount, let request = request as? FestivalListRequest {
+      let offset = request.after.flatMap(Int.init) ?? 0
+      let end = min(
+        offset + request.limit,
+        catalogItemCount
+      )
+      let items = (offset..<end).map {
+        #"{"id":"fst_\#($0)","name":"축제 \#($0)","packVersion":1}"#
+      }.joined(separator: ",")
+      let cursor = end < catalogItemCount ? "\"\(end)\"" : "null"
+      data = Data(#"{"code":"SUCCESS","message":"OK","data":{"items":[\#(items)],"nextCursor":\#(cursor)}}"#.utf8)
+    } else {
+      guard !pages.isEmpty else {
+        Issue.record("예상하지 않은 페이지 요청")
+        throw .request(.invalidURL)
+      }
+      data = pages.removeFirst()
     }
-    let data = pages.removeFirst()
     do {
       return try JSONDecoder().decode(R.Response.self, from: data)
     } catch {

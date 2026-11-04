@@ -10,6 +10,7 @@ enum ProfileScreen {
   case legalDocument(WebFeature)
   case lockScreen(LockScreenSettingsFeature)
   case noticeList(NoticeListFeature)
+  case noticeDetail(NoticeDetailFeature)
   case notifications(NotificationSettingsFeature)
 }
 

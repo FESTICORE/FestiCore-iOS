@@ -11,6 +11,10 @@ struct FestivalActivityPayloadTests {
       from: Data(#"""
       {
         "id":"festival",
+        "stages":[
+          {"id":"A","name":"첫째 무대"},
+          {"id":"C","name":"셋째 무대"}
+        ],
         "sets":[
           {"id":"now","artist":"지금 공연","stageId":"A","startsAt":"2026-11-07T08:30:00Z","endsAt":"2026-11-07T09:30:00Z"},
           {"id":"later","artist":"다음 공연","stageId":"B","startsAt":"2026-11-07T11:00:00Z","endsAt":"2026-11-07T12:00:00Z"},
@@ -26,9 +30,12 @@ struct FestivalActivityPayloadTests {
     )
 
     #expect(content.nowStages.map(\.setId) == ["now"])
+    #expect(content.nowStages.first?.stageId == "A")
+    #expect(content.nowStages.first?.stageName == "첫째 무대")
     #expect(content.nowStages.first?.artist == "지금 공연")
     #expect(content.nextMine?.setId == "next")
     #expect(content.nextMine?.stageId == "C")
+    #expect(content.nextMine?.stageName == "셋째 무대")
   }
 
   @Test func pushToStartStateDecodesOwnSetAndStage() throws {
@@ -60,6 +67,7 @@ struct FestivalActivityPayloadTests {
     #expect(state.endDate == Date(timeIntervalSinceReferenceDate: 86_400))
     #expect(state.nextMine?.setId == "set_1")
     #expect(state.nextMine?.stageId == "stage_1")
+    #expect(state.nextMine?.stageName == nil)
     #expect(state.nextMine?.artist == "테스트 아티스트")
     #expect(state.nextMine?.startsAt == "2026-11-07T19:00:00+09:00")
   }
@@ -102,6 +110,7 @@ struct FestivalActivityPayloadTests {
 
     #expect(state.nowStages.first?.artist == "지금 공연")
     #expect(state.nowStages.first?.stageId == "stage_a")
+    #expect(state.nowStages.first?.stageName == nil)
     #expect(state.pinnedFlag?.status == .active)
     #expect(state.crewSummary?.memberCount == 4)
     #expect(state.leaveAt == nil)
@@ -117,5 +126,22 @@ struct FestivalActivityPayloadTests {
     #expect(state.nextMine == nil)
     #expect(state.pinnedFlag == nil)
     #expect(state.crewSummary == nil)
+  }
+
+  @Test func localActivityBecomesStaleOneHourAfterLastUpdate() {
+    let updatedAt = Date(timeIntervalSince1970: 1_000)
+
+    #expect(FestiCoreFestivalLiveActivity.staleDate(
+      for: .upcoming,
+      updatedAt: updatedAt
+    ) == updatedAt.addingTimeInterval(3_600))
+    #expect(FestiCoreFestivalLiveActivity.staleDate(
+      for: .ongoing,
+      updatedAt: updatedAt
+    ) == updatedAt.addingTimeInterval(3_600))
+    #expect(FestiCoreFestivalLiveActivity.staleDate(
+      for: .finished,
+      updatedAt: updatedAt
+    ) == nil)
   }
 }

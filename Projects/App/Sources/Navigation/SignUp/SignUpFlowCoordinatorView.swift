@@ -16,6 +16,7 @@ struct SignUpFlowCoordinatorView: View {
         SignUpView(store: signUpStore)
       case let .legalDocument(webStore):
         WebView(store: webStore)
+          .swipeBackButtonHidden()
           .toolbar(
             .hidden,
             for: .navigationBar

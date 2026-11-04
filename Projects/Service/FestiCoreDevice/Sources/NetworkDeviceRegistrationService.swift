@@ -100,7 +100,7 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
     return DeviceAuthorization(deviceID: deviceID, bearerToken: token)
   }
 
-  public func bindToCurrentUser() async throws {
+  public func linkDeviceToCurrentUser() async throws {
     guard let session = await userSession() else { throw DeviceRegistrationError.notAuthenticated }
     let deviceID = try await installationDeviceID()
     if let boundUserID = try storage.load(.deviceBoundUserID) {

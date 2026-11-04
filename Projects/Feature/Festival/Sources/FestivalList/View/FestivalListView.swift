@@ -408,7 +408,10 @@ private extension FestivalListView {
       let text = fraction.map { "팩 받는 중 · \(Int(($0 * 100).rounded()))%" } ?? "팩 받는 중"
       return .downloading(progress: fraction, text: text)
     }
-    let copy = FestivalListPresentation.packCopy(for: festival)
+    let copy = FestivalListPresentation.packCopy(
+      for: festival,
+      isBooked: store.bookedFestivalIDs.contains(festival.id)
+    )
     return switch copy {
     case let .unavailable(text): .unavailable(text)
     case let .ready(title): .ready(

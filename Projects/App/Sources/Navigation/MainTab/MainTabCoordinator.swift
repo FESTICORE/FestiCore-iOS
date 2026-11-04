@@ -44,6 +44,9 @@ struct MainTabCoordinator {
       if selectedTab == .timetable, timetableState.destination?.schedulePick != nil {
         return false
       }
+      if selectedTab == .my, profileState.hidesTabBarForProfileRoute {
+        return false
+      }
       return selectedTab != .live || (festivalState.routes.count != 1 && !isNotificationInboxOnTop)
     }
 
@@ -59,8 +62,9 @@ struct MainTabCoordinator {
       case .timetable:
         return timetableState.destination?.schedulePick != nil || timetableState.setDetail != nil
       case .my:
-        // 계정·팩 상세는 탭바 위에 밀어 넣는 화면이라 탭바를 남기고, 팝업·바텀시트만 탭바까지 덮는다.
+        // 마이의 설정·정보 화면은 탭바 없이 표시한다.
         return profileState.destination?.alert != nil
+          || profileState.hidesTabBarForProfileRoute
           || profileState.destination?.account?.destination != nil
           || profileState.destination?.packDetail?.destination != nil
       case .flag:
@@ -79,6 +83,7 @@ struct MainTabCoordinator {
     case tabTapped(Tab)
     case selectTab(Tab)
     case tabReselected(Tab)
+    case openWidgetRoute(WidgetDeepLink)
     case festival(FestivalCoordinator.Action)
     case timetable(TimetableFeature.Action)
     case timetableCoordinator(TimetableCoordinator.Action)
@@ -155,6 +160,16 @@ struct MainTabCoordinator {
       case let .tabReselected(tab):
         _ = tab
         return .none
+
+      case let .openWidgetRoute(route):
+        if state.selectedTab != .live { state.previousTab = state.selectedTab }
+        state.selectedTab = .live
+        switch route {
+        case .festivalList:
+          return .send(.festival(.showFestivalList))
+        case let .festival(id):
+          return .send(.festival(.openWidgetFestival(id)))
+        }
 
       case .festival(.delegate(.loginRequested)):
         return .send(.delegate(.myLoginRequested))

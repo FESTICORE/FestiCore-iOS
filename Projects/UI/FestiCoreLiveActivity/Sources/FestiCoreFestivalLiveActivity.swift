@@ -220,13 +220,9 @@ public enum FestiCoreFestivalLiveActivity {
     endDate: Date? = nil,
     nowStages: [FestiCoreFestivalActivityAttributes.ContentState.NowStage] = [],
     nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil,
-    previousState: FestiCoreFestivalActivityAttributes.ContentState? = nil
+    previousState: FestiCoreFestivalActivityAttributes.ContentState? = nil,
+    updatedAt: Date = .now
   ) -> ActivityContent<FestiCoreFestivalActivityAttributes.ContentState> {
-    let staleDate: Date? = switch phase {
-    case .upcoming: startDate
-    case .ongoing: endDate
-    case .finished: nil
-    }
     return ActivityContent(
       state: .init(
         phase: phase,
@@ -238,8 +234,23 @@ public enum FestiCoreFestivalLiveActivity {
         crewSummary: previousState?.crewSummary,
         leaveAt: previousState?.leaveAt
       ),
-      staleDate: staleDate
+      staleDate: staleDate(
+        for: phase,
+        updatedAt: updatedAt
+      )
     )
+  }
+
+  static func staleDate(
+    for phase: FestiCoreFestivalActivityAttributes.ContentState.Phase,
+    updatedAt: Date
+  ) -> Date? {
+    switch phase {
+    case .upcoming, .ongoing:
+      return updatedAt.addingTimeInterval(3_600)
+    case .finished:
+      return nil
+    }
   }
 
   private static func pushToken(
