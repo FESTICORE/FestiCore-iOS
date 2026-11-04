@@ -105,6 +105,21 @@ struct FestiCoreDesignKitTests {
     #expect(afterReplacement.minY == beforeReplacement.minY)
   }
 
+  @Test @MainActor func presentingSheetKeepsBackgroundPosition() async throws {
+    let harness = SheetTestHarness(conditional: false)
+    defer { harness.close() }
+    harness.box.item = nil
+    try await harness.render()
+    let beforePresentation = try #require(harness.box.backgroundFrame)
+
+    harness.box.item = .login
+    for _ in 0..<5 { try await harness.render() }
+
+    let afterPresentation = try #require(harness.box.backgroundFrame)
+    #expect(afterPresentation == beforePresentation)
+    #expect(harness.box.sheetFrame != nil)
+  }
+
   @Test @MainActor func delayedDismissalClosesUnchangedSheet() async throws {
     let harness = SheetTestHarness(conditional: false)
     defer { harness.close() }
@@ -296,6 +311,7 @@ private enum TestSheet: Identifiable {
 private final class TestSheetBox {
   var item: TestSheet? = .login
   var dismiss: (() -> Void)?
+  @ObservationIgnored var backgroundFrame: CGRect?
   @ObservationIgnored var sheetFrame: CGRect?
 }
 
@@ -333,7 +349,12 @@ private struct SheetTestHost: View {
       if conditional && box.item == nil {
         Color.clear
       } else {
-        Color.clear.presentFCSheet(item: Binding(
+        ZStack(alignment: .topLeading) {
+          Color.clear
+          Text("Background")
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { box.backgroundFrame = $0 }
+        }
+        .presentFCSheet(item: Binding(
           get: { box.item },
           set: { box.item = $0 }
         )) { _ in
