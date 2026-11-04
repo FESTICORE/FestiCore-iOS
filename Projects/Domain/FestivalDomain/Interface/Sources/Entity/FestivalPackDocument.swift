@@ -5,6 +5,7 @@ public struct FestivalPackDocument: Decodable, Equatable, Sendable {
   public let name: String?
   public let venue: String?
   public let thumbUrl: String?
+  public let eventPeriod: EventPeriod?
   public let days: [Day]?
   public let artists: [Artist]?
   public let timetable: [Performance]?
@@ -17,7 +18,7 @@ public struct FestivalPackDocument: Decodable, Equatable, Sendable {
 
   private enum CodingKeys: String, CodingKey {
     case id, name, venue, thumbUrl, days, artists, timetable, sets, stages
-    case flagsEnabled, zones, source, ticketLinks
+    case flagsEnabled, zones, source, ticketLinks, eventPeriod
   }
 
   public init(from decoder: Decoder) throws {
@@ -26,6 +27,7 @@ public struct FestivalPackDocument: Decodable, Equatable, Sendable {
     name = try container.decodeIfPresent(String.self, forKey: .name)
     venue = try container.decodeIfPresent(String.self, forKey: .venue)
     thumbUrl = try container.decodeIfPresent(String.self, forKey: .thumbUrl)
+    eventPeriod = try? container.decodeIfPresent(EventPeriod.self, forKey: .eventPeriod)
     days = try container.decodeIfPresent([Day].self, forKey: .days)
     artists = try container.decodeIfPresent([Artist].self, forKey: .artists)
     timetable = try container.decodeIfPresent([Performance].self, forKey: .timetable)
@@ -73,6 +75,12 @@ public struct FestivalPackDocument: Decodable, Equatable, Sendable {
         imageUrl: performance.imageUrl
       )
     }
+  }
+
+  /// 공연 시각과 별개인 축제 개최 기간이다.
+  public struct EventPeriod: Decodable, Equatable, Sendable {
+    public let firstDate: String
+    public let lastDate: String
   }
 
   public struct Day: Decodable, Equatable, Sendable {

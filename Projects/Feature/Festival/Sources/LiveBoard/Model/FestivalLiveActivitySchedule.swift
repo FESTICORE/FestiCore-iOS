@@ -15,6 +15,10 @@ struct FestivalLiveActivitySchedule: Equatable, Sendable {
     pack: FestivalPackDocument?,
     now: Date
   ) -> Self? {
+    if let pack, pack.eventPeriod != nil, pack.performances.isEmpty {
+      return nil
+    }
+
     let packDates = (pack?.days ?? []).compactMap(\.date)
     let packStarts = packDates.compactMap { parse($0, endOfDay: false) }
     let packEnds = packDates.compactMap { parse($0, endOfDay: true) }
