@@ -58,11 +58,26 @@ public struct FlagProfileBody: Encodable, Sendable, Equatable {
 
   public func encode(to encoder: any Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
-    try container.encode(name, forKey: .name)
-    try container.encode(bio, forKey: .bio)
-    try container.encode(tags, forKey: .tags)
-    try container.encode(planVisible, forKey: .planVisible)
-    try container.encode(homeZoneId, forKey: .homeZoneId)
+    try container.encode(
+      name,
+      forKey: .name
+    )
+    try container.encode(
+      bio,
+      forKey: .bio
+    )
+    try container.encode(
+      tags,
+      forKey: .tags
+    )
+    try container.encode(
+      planVisible,
+      forKey: .planVisible
+    )
+    try container.encode(
+      homeZoneId,
+      forKey: .homeZoneId
+    )
   }
 }
 

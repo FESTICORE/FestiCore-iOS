@@ -81,21 +81,35 @@ struct FestivalPackDownloadFeatureTests {
   @Test @MainActor func redownloadAfterDeletingSelectedPackResumesWebSocketUpdates() async throws {
     let watched = LockIsolated(0)
     let oldPack = CachedFestivalPack(
-      festivalID: "festival", packVersion: 1, etag: "v1",
+      festivalID: "festival",
+      packVersion: 1,
+      etag: "v1",
       pack: Data(#"{"id":"festival","name":"기존 축제"}"#.utf8)
     )
     let downloadedPack = CachedFestivalPack(
-      festivalID: "festival", packVersion: 2, etag: "v2",
+      festivalID: "festival",
+      packVersion: 2,
+      etag: "v2",
       pack: Data(#"{"id":"festival","name":"다시 받은 축제"}"#.utf8)
     )
     let updatedPack = CachedFestivalPack(
-      festivalID: "festival", packVersion: 3, etag: "v3",
+      festivalID: "festival",
+      packVersion: 3,
+      etag: "v3",
       pack: Data(#"{"id":"festival","name":"실시간 축제"}"#.utf8)
     )
     var initial = FestivalFeature.State(selectedFestivalID: "festival")
-    initial.catalog = [FestivalCatalogItem(id: "festival", name: "축제", firstDate: "2099-11-21", packVersion: 2)]
+    initial.catalog = [FestivalCatalogItem(
+      id: "festival",
+      name: "축제",
+      firstDate: "2099-11-21",
+      packVersion: 2
+    )]
     initial.cachedPacks = ["festival": oldPack]
-    initial.selectedPack = try JSONDecoder().decode(FestivalPackDocument.self, from: oldPack.pack)
+    initial.selectedPack = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: oldPack.pack
+    )
     initial.connection = .cached
     let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
       $0.date = .constant(Date(timeIntervalSince1970: 1_800_000_000))
@@ -116,7 +130,9 @@ struct FestivalPackDownloadFeatureTests {
         }
       )
       $0.festivalImageUseCase = MockFestivalImageUseCase(
-        imageURL: { _ in nil }, startPrefetch: { _ in }, stopPrefetch: {}
+        imageURL: { _ in nil },
+        startPrefetch: { _ in },
+        stopPrefetch: {}
       )
     }
 
@@ -130,16 +146,32 @@ struct FestivalPackDownloadFeatureTests {
     await store.send(.view(.downloadPack("festival"))) {
       $0.packDownloads["festival"] = .downloading(nil)
     }
-    await store.receive(.async(.downloadPack("festival", generation: 0)))
-    await store.receive(.inner(.packDownloadFinished("festival", generation: 0, .updated(downloadedPack)))) {
+    await store.receive(.async(.downloadPack(
+      "festival",
+      generation: 0
+    )))
+    await store.receive(.inner(.packDownloadFinished(
+      "festival",
+      generation: 0,
+      .updated(downloadedPack)
+    ))) {
       $0.packDownloads = [:]
       $0.cachedPacks["festival"] = downloadedPack
-      $0.selectedPack = try? JSONDecoder().decode(FestivalPackDocument.self, from: downloadedPack.pack)
+      $0.selectedPack = try? JSONDecoder().decode(
+        FestivalPackDocument.self,
+        from: downloadedPack.pack
+      )
       $0.connection = .live
     }
-    await store.receive(.inner(.packReceived("festival", .updated(updatedPack)))) {
+    await store.receive(.inner(.packReceived(
+      "festival",
+      .updated(updatedPack)
+    ))) {
       $0.cachedPacks["festival"] = updatedPack
-      $0.selectedPack = try? JSONDecoder().decode(FestivalPackDocument.self, from: updatedPack.pack)
+      $0.selectedPack = try? JSONDecoder().decode(
+        FestivalPackDocument.self,
+        from: updatedPack.pack
+      )
     }
     await store.finish()
     #expect(watched.value == 1)
@@ -184,7 +216,12 @@ struct FestivalPackDownloadFeatureTests {
 
   @Test @MainActor func unpublishedFestivalCannotDownload() async {
     var initial = FestivalFeature.State()
-    initial.catalog = [FestivalCatalogItem(id: "festival", name: "축제", firstDate: "2099-11-21", packVersion: 0)]
+    initial.catalog = [FestivalCatalogItem(
+      id: "festival",
+      name: "축제",
+      firstDate: "2099-11-21",
+      packVersion: 0
+    )]
     let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
     }

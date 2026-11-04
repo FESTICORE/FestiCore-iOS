@@ -1,5 +1,8 @@
 import importlib.util
 import pathlib
+import subprocess
+import sys
+import tempfile
 import unittest
 
 
@@ -10,6 +13,71 @@ spec.loader.exec_module(module)
 
 
 class SwiftConventionsTests(unittest.TestCase):
+    def test_positional_string_arguments_are_counted(self):
+        issues = module.check('download("festival", generation: 0)', "Sample.swift")
+        self.assertTrue(any("인자가 2개" in issue for issue in issues))
+        issues = module.check('render("first", "second")', "Sample.swift")
+        self.assertTrue(any("인자가 2개" in issue for issue in issues))
+        self.assertEqual([], module.check('render(\n  "first",\n  "second"\n)', "Sample.swift"))
+
+    def test_pure_router_container_matches_attendance(self):
+        source = r"""
+        struct ExampleCoordinatorView: View {
+          @Bindable var store: StoreOf<ExampleCoordinator>
+          var body: some View {
+            TCAFlowRouter(store.scope(
+              state: \.routes,
+              action: \.router
+            )) { screen in Text("Page") }
+          }
+        }
+        """
+        self.assertEqual([], module.check(source, "ExampleCoordinatorView.swift"))
+        with_action = source.replace('Text("Page")', 'Button("Go") { store.send(.go) }')
+        issues = module.check(with_action, "ExampleCoordinatorView.swift")
+        self.assertTrue(any("@ViewAction" in issue for issue in issues))
+
+    def test_stdin_mode_reports_violation_without_crashing(self):
+        result = subprocess.run(
+            [sys.executable, str(CHECKER), "--stdin-filename", "Sample.swift"],
+            input="func number() -> Int { 1 }", capture_output=True, text=True,
+        )
+        self.assertEqual(1, result.returncode)
+        self.assertIn("return", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+
+    def test_base_mode_rejects_missing_commit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            subprocess.run(["git", "init", "-q", directory], check=True)
+            result = subprocess.run(
+                [sys.executable, str(CHECKER), "--base", "missing"],
+                cwd=directory, capture_output=True, text=True,
+            )
+            self.assertEqual(2, result.returncode)
+
+    def test_base_mode_checks_new_lines_and_untracked_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            source = root / "Sample.swift"
+            source.write_text("func legacy() -> Int { 1 }\n")
+            for command in [
+                ["git", "init", "-q"],
+                ["git", "add", "Sample.swift"],
+                ["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                 "-c", "core.hooksPath=/dev/null", "commit", "-qm", "fixture"],
+            ]:
+                subprocess.run(command, cwd=root, check=True, capture_output=True)
+            command = [sys.executable, str(CHECKER), "--base", "HEAD"]
+            result = subprocess.run(command, cwd=root, capture_output=True, text=True)
+            self.assertEqual(0, result.returncode, result.stderr)
+            source.write_text(source.read_text() + "func changed() -> Int { 2 }\n")
+            (root / "New.swift").write_text("func added() -> Int { 3 }\n")
+            result = subprocess.run(command, cwd=root, capture_output=True, text=True)
+            self.assertEqual(1, result.returncode)
+            self.assertIn("Sample.swift:2", result.stderr)
+            self.assertIn("New.swift:1", result.stderr)
+            self.assertNotIn("Sample.swift:1", result.stderr)
+
     def test_explicit_return_in_function_and_computed_property(self):
         source = """
         func makeURL() -> URL { URL(string: base)! }
@@ -153,6 +221,63 @@ class SwiftConventionsTests(unittest.TestCase):
         }
         """
         self.assertEqual([], module.check(source, "Sample.swift"))
+
+    def test_two_call_arguments_each_start_on_new_line(self):
+        source = "let result = make(id: 1, name: \"A\")\n"
+        issues = module.check(source, "Sample.swift", changed_lines={1})
+        self.assertEqual(1, len(issues))
+        self.assertIn("인자가 2개 이상", issues[0])
+
+    def test_multiline_call_and_nested_commas_are_accepted(self):
+        source = """
+        let result = make(
+          value: Result<(Int, Int), Error>.success((1, 2)),
+          name: "A"
+        )
+        """
+        self.assertEqual([], module.check(source, "Sample.swift"))
+
+    def test_only_changed_calls_are_checked(self):
+        source = "let old = make(a: 1, b: 2)\nlet new = make(a: 3, b: 4)\n"
+        issues = module.check(source, "Sample.swift", changed_lines={2})
+        self.assertEqual(1, len(issues))
+        self.assertIn(":2:", issues[0])
+
+    def test_multi_statement_returning_function_needs_return(self):
+        source = "func count() -> Int {\n  let value = items.count\n  value\n}\n"
+        issues = module.check(source, "Sample.swift", changed_lines={1})
+        self.assertEqual(1, len(issues))
+        self.assertIn("명시적 return", issues[0])
+
+    def test_void_function_and_viewbuilder_need_no_return(self):
+        source = """
+        func notify() -> Void { print("ok") }
+        @ViewBuilder func content() -> some View { Text("A") }
+        """
+        self.assertEqual([], module.check(source, "Sample.swift"))
+
+    def test_view_helpers_and_direct_store_send_are_blocked(self):
+        source = """
+        @ViewAction(for: Feature.self)
+        struct ExampleView: View {
+          let store: StoreOf<Feature>
+          var body: some View { Text("A") }
+          var title: some View { Text("A") }
+          func tap() { store.send(.view(.tap)) }
+        }
+        """
+        issues = module.check(source, "Projects/Feature/X/View/ExampleView.swift")
+        self.assertTrue(any("private extension" in issue for issue in issues))
+        self.assertTrue(any("store.send" in issue or "send(.viewAction)" in issue for issue in issues))
+
+    def test_domain_contract_requires_doc_comment(self):
+        path = "Projects/Domain/X/Interface/Sources/X/XUseCaseInterface.swift"
+        self.assertTrue(any("///" in issue for issue in module.check(
+            "public protocol XUseCaseInterface: Sendable {}", path
+        )))
+        self.assertEqual([], module.check(
+            "/// Reads X values.\npublic protocol XUseCaseInterface: Sendable {}", path
+        ))
 
 
 if __name__ == "__main__":

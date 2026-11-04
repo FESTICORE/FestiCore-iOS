@@ -94,8 +94,22 @@ private struct ServiceBackedLiveActivityUseCase: FestivalLiveActivityUseCaseInte
   ) async throws -> String {
     try await client.start(festivalID, festivalName, startDate, endDate, phase)
   }
-  func update(activityID: String, phase: FestivalLiveActivityPhase, startDate: Date, endDate: Date) async {
-    await client.update(activityID, phase, startDate, endDate)
+  func update(
+    activityID: String,
+    phase: FestivalLiveActivityPhase,
+    startDate: Date,
+    endDate: Date,
+    pack: FestivalPackDocument?,
+    savedSetIDs: Set<String>
+  ) async {
+    await client.update(
+      activityID,
+      phase,
+      startDate,
+      endDate,
+      pack,
+      savedSetIDs
+    )
   }
   func finish(activityID: String, startDate: Date) async { await client.finish(activityID, startDate) }
   func end(activityID: String) async { await client.end(activityID) }

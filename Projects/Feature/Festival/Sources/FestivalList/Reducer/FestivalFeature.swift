@@ -35,6 +35,10 @@ public struct FestivalFeature {
     public var toast: Toast?
     public var toastRevision = 0
     public var selectedPack: FestivalPackDocument?
+    public var onlineDetail: FestivalPackDocument?
+    public var onlineDetailLoading = false
+    public var onlineDetailFailed = false
+    public var displayDocument: FestivalPackDocument? { onlineDetail ?? selectedPack }
     public var liveBoard: FestivalLiveBoardSnapshot?
     public var liveBoardUnavailable = false
     public var liveBoardUnpublished = false
@@ -67,6 +71,7 @@ public struct FestivalFeature {
     var liveActivityError: String?
     var liveActivityNow: Date = .distantPast
     var liveActivityRevision = 0
+    var autoActivityHandledStarts: [String: Date] = [:]
 
     public var cacheReadFailed: Bool {
       catalogCacheReadFailed || packCacheReadFailed
@@ -114,22 +119,43 @@ public struct FestivalFeature {
         return .init(title: "Live Activity 끄기", isEnabled: true, message: liveActivityError)
       }
       guard hasSession else {
-        return .init(title: "Live Activity 켜기", isEnabled: false, message: "로그인 후 내 공연을 저장해 주세요.")
+        return .init(
+          title: "Live Activity 켜기",
+          isEnabled: false,
+          message: "로그인 후 내 공연을 저장해 주세요."
+        )
       }
       guard let mySchedule, mySchedule.festivalID == festival.id else {
-        return .init(title: "Live Activity 켜기", isEnabled: false,
-                     message: myScheduleUnavailable ? "내 일정을 불러오지 못했습니다." : "내 일정을 불러오는 중입니다.")
+        return .init(
+          title: "Live Activity 켜기",
+          isEnabled: false,
+                     message: myScheduleUnavailable ? "내 일정을 불러오지 못했습니다." : "내 일정을 불러오는 중입니다."
+        )
       }
       guard !mySchedule.setIDs.isEmpty else {
-        return .init(title: "Live Activity 켜기", isEnabled: false, message: "내 공연을 저장하면 시작 2시간 전에 자동으로 켜집니다.")
+        return .init(
+          title: "Live Activity 켜기",
+          isEnabled: false,
+          message: "내 공연을 저장하면 시작 2시간 전에 자동으로 켜집니다."
+        )
       }
       guard let selectedPackDocument = pack(for: festival.id) else {
-        return .init(title: "Live Activity 켜기", isEnabled: false, message: "공연 일정을 불러오는 중입니다.")
+        return .init(
+          title: "Live Activity 켜기",
+          isEnabled: false,
+          message: "공연 일정을 불러오는 중입니다."
+        )
       }
       guard let performanceStart = FestivalLiveActivitySchedule.nextSavedPerformanceStart(
-        pack: selectedPackDocument, setIDs: mySchedule.setIDs, now: liveActivityNow
+        pack: selectedPackDocument,
+        setIDs: mySchedule.setIDs,
+        now: liveActivityNow
       ) else {
-        return .init(title: "Live Activity 켜기", isEnabled: false, message: "시작 전인 저장 공연이 없습니다.")
+        return .init(
+          title: "Live Activity 켜기",
+          isEnabled: false,
+          message: "시작 전인 저장 공연이 없습니다."
+        )
       }
       guard let schedule = FestivalLiveActivitySchedule.resolve(
         festival: festival,
@@ -152,6 +178,8 @@ public struct FestivalFeature {
     /// 선택 축제의 팩을 처음 받는 중이다. 이때는 공연 영역에 빈 상태 대신 스켈레톤을 보여 준다.
     /// 오프라인·재연결 중에는 팩 서비스가 재시도만 하고 끝나지 않으므로 스켈레톤을 남기지 않는다.
     var isPackLoading: Bool {
+      if displayDocument == nil, onlineDetailLoading { return true }
+      if onlineDetailFailed { return false }
       guard selectedPack == nil, !packWatchFailed,
             selectedFestivalID.flatMap({ cachedPacks[$0] }) != nil else {
         return false
@@ -160,7 +188,7 @@ public struct FestivalFeature {
     }
 
     func pack(for festivalID: String) -> FestivalPackDocument? {
-      if selectedFestivalID == festivalID { return selectedPack }
+      if selectedFestivalID == festivalID { return displayDocument }
       guard let cached = cachedPacks[festivalID] else { return nil }
       return try? JSONDecoder().decode(FestivalPackDocument.self, from: cached.pack)
     }
@@ -179,6 +207,7 @@ public struct FestivalFeature {
       liveBoardReceivedAt = nil
       mySchedule = nil
       myScheduleUnavailable = false
+      autoActivityHandledStarts = [:]
       bookedUserID = nil
       bookedFestivalIDs = []
       notificationUnreadCount = 0
@@ -249,6 +278,7 @@ public struct FestivalFeature {
     case loadMoreFestivals
     case liveActivityOnAppear
     case liveBoardOnAppear
+    case onlineDetailOnAppear
     case liveBoardOnDisappear
     case retryMySchedule
     case liveActivityTapped
@@ -277,6 +307,7 @@ public struct FestivalFeature {
     case downloadPack(String, generation: Int)
     case startLiveActivities
     case startLiveBoard
+    case loadOnlineDetail(String)
     case loadMySchedule
     case loadNotificationUnreadCount
     case markNotificationRead(String)
@@ -296,6 +327,8 @@ public struct FestivalFeature {
     case catalogFailed
     case packReceived(String, PackSyncResult)
     case packFailed(String)
+    case onlineDetailLoaded(String, FestivalPackDocument)
+    case onlineDetailFailed(String)
     case packDownloadProgress(String, generation: Int, PackDownloadProgress)
     case packDownloadReset(String, generation: Int)
     case packDownloadFinished(String, generation: Int, PackSyncResult)
@@ -305,6 +338,7 @@ public struct FestivalFeature {
     case liveActivityUpdated(FestivalLiveActivityRecord)
     case liveActivityStopped(String, String)
     case liveActivityFailed(String)
+    case autoStartLiveActivity(festivalID: String, performanceStart: Date)
     case liveActivityBoundary
     case liveActivityChanged
     case liveBoardLoaded(String, generation: Int, FestivalLiveBoardSnapshot)
@@ -318,7 +352,7 @@ public struct FestivalFeature {
 
   enum CancelID {
     case catalog, packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary
-    case liveBoard, mySchedule, notificationUnreadCount, notificationMarkRead, toast
+    case liveBoard, onlineDetail, mySchedule, notificationUnreadCount, notificationMarkRead, toast
   }
   private struct LiveActivitySyncID: Hashable { let id: String }
   private struct PackDownloadID: Hashable { let id: String }
@@ -411,6 +445,9 @@ extension FestivalFeature {
     case let .selectFestival(id):
       guard state.festivals.contains(where: { $0.id == id }) else { return .none }
       state.selectedFestivalID = id
+      state.onlineDetail = nil
+      state.onlineDetailLoading = state.isLiveBoardVisible
+      state.onlineDetailFailed = false
       state.liveBoard = nil
       state.liveBoardUnavailable = false
       state.liveBoardUnpublished = false
@@ -482,7 +519,10 @@ extension FestivalFeature {
         ? refreshFullCatalog() : .none
 
     case .liveActivityOnAppear:
-      return .send(.async(.startLiveActivities))
+      return .merge(
+        .send(.async(.startLiveActivities)),
+        .send(.async(.loadMySchedule))
+      )
 
     case .liveBoardOnAppear:
       state.isLiveBoardVisible = true
@@ -491,12 +531,19 @@ extension FestivalFeature {
         state.hasSession ? .send(.async(.loadNotificationUnreadCount)) : .none
       )
 
+    case .onlineDetailOnAppear:
+      guard let id = state.selectedFestivalID else { return .none }
+      state.onlineDetailLoading = true
+      state.onlineDetailFailed = false
+      return .send(.async(.loadOnlineDetail(id)))
+
     case .liveBoardOnDisappear:
       state.isLiveBoardVisible = false
-      state.mySchedule = nil
-      state.myScheduleUnavailable = false
-      state.myScheduleRequestID += 1
-      return .merge(.cancel(id: CancelID.liveBoard), .cancel(id: CancelID.mySchedule))
+      state.onlineDetailLoading = false
+      return .merge(
+        .cancel(id: CancelID.liveBoard),
+        .cancel(id: CancelID.onlineDetail)
+      )
 
     case .retryMySchedule:
       return .send(.async(.loadMySchedule))
@@ -508,6 +555,14 @@ extension FestivalFeature {
       state.liveActivityNow = date.now
       state.liveActivityError = nil
       if let existing = state.liveActivities[festival.id] {
+        if let mySchedule = state.mySchedule, mySchedule.festivalID == festival.id,
+           let performanceStart = FestivalLiveActivitySchedule.nextSavedPerformanceStart(
+             pack: state.pack(for: festival.id),
+             setIDs: mySchedule.setIDs,
+             now: state.liveActivityNow
+           ) {
+          state.autoActivityHandledStarts[festival.id] = performanceStart
+        }
         state.liveActivityBusyFestivalID = festival.id
         state.liveActivityRevision += 1
         return .send(.async(.endLiveActivity(festivalID: festival.id, activityID: existing.id)))
@@ -588,9 +643,10 @@ extension FestivalFeature {
       state.liveBoardReceivedAt = nil
       state.mySchedule = nil
       state.myScheduleUnavailable = false
+      state.autoActivityHandledStarts = [:]
       return .merge(downloadIDs.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) } + [
         state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
-        loadMySchedule(&state),
+        state.liveActivityReady || state.isLiveBoardVisible ? loadMySchedule(&state) : .none,
         hasSession && state.isLiveBoardVisible
           ? .send(.async(.loadNotificationUnreadCount))
           : .cancel(id: CancelID.notificationUnreadCount),
@@ -599,11 +655,14 @@ extension FestivalFeature {
 
     case let .myScheduleSaved(festivalID, setIDs):
       guard state.selectedFestivalID == festivalID,
-            state.hasSession, state.isLiveBoardVisible else { return .none }
+            state.hasSession else { return .none }
       state.myScheduleRequestID += 1
       state.mySchedule = MySchedule(festivalID: festivalID, setIDs: setIDs)
       state.myScheduleUnavailable = false
-      return .merge(.cancel(id: CancelID.mySchedule), liveActivityBoundary(state))
+      return .merge(
+        .cancel(id: CancelID.mySchedule),
+        syncLiveActivities(state)
+      )
     }
   }
 
@@ -648,6 +707,7 @@ extension FestivalFeature {
     case let .selectedFestivalChanged(id):
       return .merge(
         .run { _ in catalogUseCase.saveSelectedFestivalID(id) },
+        state.isLiveBoardVisible ? .send(.async(.loadOnlineDetail(id))) : .none,
         watchSelectedPack(state),
         state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
         loadMySchedule(&state),
@@ -680,6 +740,23 @@ extension FestivalFeature {
     case .startLiveBoard:
       return .merge(watchLiveBoard(state), loadMySchedule(&state))
 
+    case let .loadOnlineDetail(id):
+      return .run { send in
+        do {
+          let document = try await catalogUseCase.festivalDetail(for: id)
+          await send(.inner(.onlineDetailLoaded(
+            id,
+            document
+          )))
+        } catch {
+          await send(.inner(.onlineDetailFailed(id)))
+        }
+      }
+      .cancellable(
+        id: CancelID.onlineDetail,
+        cancelInFlight: true
+      )
+
     case .loadMySchedule:
       return loadMySchedule(&state)
 
@@ -692,18 +769,24 @@ extension FestivalFeature {
     case let .startLiveActivity(festivalID):
       guard let festival = state.festivals.first(where: { $0.id == festivalID }),
             state.hasSession,
+            state.mySchedule?.festivalID == festivalID,
             let setIDs = state.mySchedule?.setIDs,
             let performanceStart = FestivalLiveActivitySchedule.nextSavedPerformanceStart(
-              pack: state.pack(for: festivalID), setIDs: setIDs, now: date.now
+              pack: state.pack(for: festivalID),
+              setIDs: setIDs,
+              now: date.now
             ),
             date.now >= performanceStart.addingTimeInterval(-7_200),
             let schedule = FestivalLiveActivitySchedule.resolve(
-              festival: festival, pack: state.pack(for: festivalID), now: date.now
+              festival: festival,
+              pack: state.pack(for: festivalID),
+              now: date.now
             ), schedule.phase != .finished else {
         // 시작할 수 없게 됐으면 버튼이 처리 중에 멈추지 않도록 잠금을 푼다.
         if state.liveActivityBusyFestivalID == festivalID { state.liveActivityBusyFestivalID = nil }
         return .none
       }
+      let pack = state.pack(for: festivalID)
       return .run { send in
         do {
           let id = try await liveActivityUseCase.start(
@@ -711,7 +794,12 @@ extension FestivalFeature {
             startDate: schedule.startDate, endDate: schedule.endDate, phase: schedule.phase
           )
           await liveActivityUseCase.update(
-            activityID: id, phase: schedule.phase, startDate: schedule.startDate, endDate: schedule.endDate
+            activityID: id,
+            phase: schedule.phase,
+            startDate: schedule.startDate,
+            endDate: schedule.endDate,
+            pack: pack,
+            savedSetIDs: setIDs
           )
           await send(.inner(.liveActivityStarted(.init(
             id: id, festivalID: festival.id, phase: schedule.phase,
@@ -751,7 +839,15 @@ extension FestivalFeature {
       state.selectedFestivalID = state.initialSelectedFestivalID(savedID: savedID)
       showCachedPack(in: &state)
       resolveImageURLs(in: &state)
-      return .merge(refreshCatalog(), watchSelectedPack(state), prefetchImages(state), syncLiveActivities(state))
+      let detail = loadOnlineDetailIfNeeded(&state)
+      return .merge(
+        refreshCatalog(),
+        watchSelectedPack(state),
+        prefetchImages(state),
+        syncLiveActivities(state),
+        loadMySchedule(&state),
+        detail
+      )
 
     case let .cachedPacksReloaded(packs):
       state.cachedPacks = Dictionary(uniqueKeysWithValues: packs.map { ($0.festivalID, $0) })
@@ -776,9 +872,17 @@ extension FestivalFeature {
       if state.selectedFestival == nil, (state.selectedFestivalID == nil || !hasMoreCatalogPages),
          let first = state.festivals.first(where: { $0.isCached || $0.packVersion > 0 }) ?? state.festivals.first {
         state.selectedFestivalID = first.id
+        state.onlineDetail = nil
         showCachedPack(in: &state)
         resolveImageURLs(in: &state)
-        return .merge(watchSelectedPack(state), prefetchImages(state), syncLiveActivities(state))
+        let detail = loadOnlineDetailIfNeeded(&state)
+        return .merge(
+          watchSelectedPack(state),
+          prefetchImages(state),
+          syncLiveActivities(state),
+          loadMySchedule(&state),
+          detail
+        )
       }
       resolveImageURLs(in: &state)
       if state.selectedPack == nil, state.selectedFestival?.packVersion == 0 {
@@ -789,16 +893,26 @@ extension FestivalFeature {
         ? .merge(watchSelectedPack(state), prefetch, syncLiveActivities(state))
         : .merge(prefetch, syncLiveActivities(state))
 
-    case let .catalogPageLoaded(page, after):
+    case let .catalogPageLoaded(
+      page,
+      after
+    ):
       guard after == nil || after == state.catalogNextCursor else { return .none }
       let items = after == nil ? page.items : Array(state.catalog) + page.items
+      // Preserve a saved selection until the final page confirms it is absent.
       state.catalogNextCursor = page.nextCursor
-      let effects = handleInnerAction(state: &state, action: .catalogRefreshed(items))
+      let effects = handleInnerAction(
+        state: &state,
+        action: .catalogRefreshed(items)
+      )
       state.catalogNextCursor = page.nextCursor
       state.isLoadingMoreCatalog = false
       return page.nextCursor != nil &&
         (!state.listInteraction.trimmedQuery.isEmpty || state.listInteraction.selectedFilter == .booked)
-        ? .merge(effects, refreshFullCatalog()) : effects
+        ? .merge(
+          effects,
+          refreshFullCatalog()
+        ) : effects
 
     case .catalogFailed:
       state.viewState = .loaded
@@ -838,6 +952,31 @@ extension FestivalFeature {
       }
       return .none
 
+    case let .onlineDetailLoaded(
+      id,
+      document
+    ):
+      guard state.selectedFestivalID == id else { return .none }
+      guard document.id == id else {
+        state.onlineDetailLoading = false
+        state.onlineDetailFailed = true
+        return .none
+      }
+      state.onlineDetail = document
+      state.onlineDetailLoading = false
+      state.onlineDetailFailed = false
+      resolveImageURLs(in: &state)
+      return .merge(
+        prefetchImages(state),
+        syncLiveActivities(state)
+      )
+
+    case let .onlineDetailFailed(id):
+      guard state.selectedFestivalID == id, state.isLiveBoardVisible else { return .none }
+      state.onlineDetailLoading = false
+      state.onlineDetailFailed = true
+      return .none
+
     case let .packFailed(id):
       guard state.selectedFestivalID == id else { return .none }
       state.imageRetryPending = true
@@ -861,8 +1000,17 @@ extension FestivalFeature {
       switch result {
       case let .updated(pack), let .notModified(pack):
         if state.selectedFestivalID == id {
-          let received = handleInnerAction(state: &state, action: .packReceived(id, result))
-          return .merge(received, watchSelectedPack(state))
+          let received = handleInnerAction(
+            state: &state,
+            action: .packReceived(
+            id,
+            result
+          )
+          )
+          return .merge(
+            received,
+            watchSelectedPack(state)
+          )
         }
         state.cachedPacks[id] = pack
         return .none
@@ -908,16 +1056,21 @@ extension FestivalFeature {
       guard state.selectedFestivalID == festivalID,
             state.myScheduleRequestID == requestID,
             state.accountGeneration == generation,
-            state.isLiveBoardVisible, state.hasSession else { return .none }
+            state.hasSession else { return .none }
       state.mySchedule = MySchedule(festivalID: festivalID, setIDs: setIDs)
       state.myScheduleUnavailable = false
-      return liveActivityBoundary(state)
+      let detail = state.liveActivityReady && state.pack(for: festivalID) == nil && !setIDs.isEmpty
+        ? Effect<Action>.send(.async(.loadOnlineDetail(festivalID))) : .none
+      return .merge(
+        syncLiveActivities(state),
+        detail
+      )
 
     case let .myScheduleFailed(festivalID, requestID, generation):
       guard state.selectedFestivalID == festivalID,
             state.myScheduleRequestID == requestID,
             state.accountGeneration == generation,
-            state.isLiveBoardVisible, state.hasSession else { return .none }
+            state.hasSession else { return .none }
       state.mySchedule = nil
       state.myScheduleUnavailable = true
       return .none
@@ -970,6 +1123,28 @@ extension FestivalFeature {
       state.liveActivityError = message
       return .none
 
+    case let .autoStartLiveActivity(
+      festivalID,
+      performanceStart
+    ):
+      guard state.isForeground, state.liveActivityReady, state.hasSession,
+            state.selectedFestivalID == festivalID,
+            state.mySchedule?.festivalID == festivalID,
+            state.liveActivities[festivalID] == nil,
+            state.liveActivityBusyFestivalID == nil,
+            state.autoActivityHandledStarts[festivalID] != performanceStart,
+            let setIDs = state.mySchedule?.setIDs,
+            let nextStart = FestivalLiveActivitySchedule.nextSavedPerformanceStart(
+              pack: state.pack(for: festivalID),
+              setIDs: setIDs,
+              now: date.now
+            ), nextStart == performanceStart,
+            date.now >= performanceStart.addingTimeInterval(-7_200) else { return .none }
+      state.autoActivityHandledStarts[festivalID] = performanceStart
+      state.liveActivityBusyFestivalID = festivalID
+      state.liveActivityRevision += 1
+      return .send(.async(.startLiveActivity(festivalID: festivalID)))
+
     case .liveActivityBoundary:
       state.liveActivityNow = date.now
       return syncLiveActivities(state)
@@ -990,36 +1165,57 @@ extension FestivalFeature {
   private func refreshCatalog() -> Effect<Action> {
     .run { send in
       do {
-        let page = try await catalogUseCase.festivalPage(after: nil, limit: 10)
+        let page = try await catalogUseCase.festivalPage(
+          after: nil,
+          limit: 10
+        )
         if page.nextCursor == nil {
           await send(.inner(.catalogRefreshed(page.items)))
         } else {
-          await send(.inner(.catalogPageLoaded(page, after: nil)))
+          await send(.inner(.catalogPageLoaded(
+            page,
+            after: nil
+          )))
         }
       }
       catch { await send(.inner(.catalogFailed)) }
     }
-    .cancellable(id: CancelID.catalog, cancelInFlight: true)
+    .cancellable(
+      id: CancelID.catalog,
+      cancelInFlight: true
+    )
   }
 
   private func loadCatalogPage(after: String) -> Effect<Action> {
-    .run { send in
+    return .run { send in
       do {
-        let page = try await catalogUseCase.festivalPage(after: after, limit: 10)
-        await send(.inner(.catalogPageLoaded(page, after: after)))
+        let page = try await catalogUseCase.festivalPage(
+          after: after,
+          limit: 10
+        )
+        await send(.inner(.catalogPageLoaded(
+          page,
+          after: after
+        )))
       } catch {
         await send(.inner(.catalogFailed))
       }
     }
-    .cancellable(id: CancelID.catalog, cancelInFlight: true)
+    .cancellable(
+      id: CancelID.catalog,
+      cancelInFlight: true
+    )
   }
 
   private func refreshFullCatalog() -> Effect<Action> {
-    .run { send in
+    return .run { send in
       do { await send(.inner(.catalogRefreshed(try await catalogUseCase.refreshFestivals()))) }
       catch { await send(.inner(.catalogFailed)) }
     }
-    .cancellable(id: CancelID.catalog, cancelInFlight: true)
+    .cancellable(
+      id: CancelID.catalog,
+      cancelInFlight: true
+    )
   }
 
   private func loadLiveActivities(revision: Int) -> Effect<Action> {
@@ -1053,20 +1249,55 @@ extension FestivalFeature {
         }
         .cancellable(id: LiveActivitySyncID(id: activity.id), cancelInFlight: true)
       }
-      guard schedule.phase != activity.phase || schedule.startDate != activity.startDate
-        || schedule.endDate != activity.endDate else { return nil }
+      let pack = state.pack(for: activity.festivalID)
+      let savedSetIDs = state.mySchedule?.festivalID == activity.festivalID
+        ? state.mySchedule?.setIDs ?? [] : []
+      let scheduleChanged = schedule.phase != activity.phase || schedule.startDate != activity.startDate
+        || schedule.endDate != activity.endDate
+      guard scheduleChanged || (activity.festivalID == state.selectedFestivalID && pack != nil) else { return nil }
       return .run { send in
         await liveActivityUseCase.update(
-          activityID: activity.id, phase: schedule.phase, startDate: schedule.startDate, endDate: schedule.endDate
+          activityID: activity.id,
+          phase: schedule.phase,
+          startDate: schedule.startDate,
+          endDate: schedule.endDate,
+          pack: pack,
+          savedSetIDs: savedSetIDs
         )
-        await send(.inner(.liveActivityUpdated(.init(
-          id: activity.id, festivalID: activity.festivalID, phase: schedule.phase,
-          startDate: schedule.startDate, endDate: schedule.endDate
-        ))))
+        if scheduleChanged {
+          await send(.inner(.liveActivityUpdated(.init(
+            id: activity.id,
+            festivalID: activity.festivalID,
+            phase: schedule.phase,
+            startDate: schedule.startDate,
+            endDate: schedule.endDate
+          ))))
+        }
       }
       .cancellable(id: LiveActivitySyncID(id: activity.id), cancelInFlight: true)
     }
-    return .merge(updates + [liveActivityBoundary(state)])
+    let automaticStart: Effect<Action>
+    if let id = state.selectedFestivalID,
+       state.hasSession,
+       state.mySchedule?.festivalID == id,
+       state.liveActivities[id] == nil,
+       state.liveActivityBusyFestivalID == nil,
+       let setIDs = state.mySchedule?.setIDs,
+       let start = FestivalLiveActivitySchedule.nextSavedPerformanceStart(
+         pack: state.pack(for: id),
+         setIDs: setIDs,
+         now: now
+       ),
+       now >= start.addingTimeInterval(-7_200),
+       state.autoActivityHandledStarts[id] != start {
+      automaticStart = .send(.inner(.autoStartLiveActivity(
+        festivalID: id,
+        performanceStart: start
+      )))
+    } else {
+      automaticStart = .none
+    }
+    return .merge(updates + [automaticStart, liveActivityBoundary(state)])
   }
 
   private func liveActivityBoundary(_ state: State) -> Effect<Action> {
@@ -1085,7 +1316,9 @@ extension FestivalFeature {
     let performanceBoundary = state.selectedFestivalID.flatMap { id in
       state.mySchedule.flatMap { schedule in
         FestivalLiveActivitySchedule.nextSavedPerformanceStart(
-          pack: state.pack(for: id), setIDs: schedule.setIDs, now: state.liveActivityNow
+          pack: state.pack(for: id),
+          setIDs: schedule.setIDs,
+          now: state.liveActivityNow
         )
       }
     }.map { start in
@@ -1152,9 +1385,9 @@ extension FestivalFeature {
     .cancellable(id: CancelID.liveBoard, cancelInFlight: true)
   }
 
-  /// 세션이 있고 라이브 보드가 보일 때 내 일정을 불러온다.
+  /// 세션이 있고 축제가 선택되어 있으면 내 일정을 불러와 자동 시작 시각을 계산한다.
   private func loadMySchedule(_ state: inout State) -> Effect<Action> {
-    guard state.hasSession, state.isLiveBoardVisible, let id = state.selectedFestivalID else {
+    guard state.hasSession, state.isForeground, let id = state.selectedFestivalID else {
       return .cancel(id: CancelID.mySchedule)
     }
     state.myScheduleRequestID += 1
@@ -1203,6 +1436,14 @@ extension FestivalFeature {
       state.connection = .unavailable
     }
   }
+
+  private func loadOnlineDetailIfNeeded(_ state: inout State) -> Effect<Action> {
+    guard state.isLiveBoardVisible, let id = state.selectedFestivalID,
+          state.onlineDetail?.id != id, !state.onlineDetailLoading else { return .none }
+    state.onlineDetailLoading = true
+    state.onlineDetailFailed = false
+    return .send(.async(.loadOnlineDetail(id)))
+  }
 }
 
 extension FestivalFeature.State {
@@ -1228,7 +1469,7 @@ extension FestivalFeature.State {
   /// 축제 썸네일과 선택 팩 이미지의 원본 값. 중복은 처음 값만 남긴다.
   var imageSourceValues: [String] {
     let festivalValues = festivals.compactMap { $0.thumbnailURL?.absoluteString }
-    let packValues = selectedPack.map { pack in
+    let packValues = displayDocument.map { pack in
       [pack.thumbUrl].compactMap { $0 }
         + (pack.artists ?? []).compactMap(\.imageUrl)
         + pack.performances.compactMap(\.imageUrl)
@@ -1239,7 +1480,7 @@ extension FestivalFeature.State {
 
   /// 미리 받을 이미지 URL. 선택 팩 이미지를 먼저 두고 100개까지만 받는다.
   var prefetchImageURLs: [URL] {
-    let packValues = selectedPack.map { pack in
+    let packValues = displayDocument.map { pack in
       [pack.thumbUrl].compactMap(imageURL(for:))
         + (pack.artists ?? []).compactMap { imageURL(for: $0.imageUrl) }
         + pack.performances.compactMap { imageURL(for: $0.imageUrl) }

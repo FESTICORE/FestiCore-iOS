@@ -35,25 +35,49 @@ struct PackCache: Sendable {
         do {
           current = try validated(record)
         } catch {
-          guard let backup = try loadFile(festivalID, at: url) else { throw error }
-          try saveToDatabase(backup, checkedAt: backup.checkedAt ?? Date(), database: database)
+          guard let backup = try loadFile(
+            festivalID,
+            at: url
+          ) else { throw error }
+          try saveToDatabase(
+            backup,
+            checkedAt: backup.checkedAt ?? Date(),
+            database: database
+          )
           return backup
         }
-        if let file = try? loadFile(festivalID, at: url),
+        if let file = try? loadFile(
+          festivalID,
+          at: url
+        ),
            file.packVersion > current.packVersion ||
              (file.packVersion == current.packVersion &&
               (file.checkedAt ?? .distantPast) > (current.checkedAt ?? .distantPast) &&
               (file.etag != current.etag || file.pack != current.pack)) {
-          try saveToDatabase(file, checkedAt: file.checkedAt ?? Date(), database: database)
+          try saveToDatabase(
+            file,
+            checkedAt: file.checkedAt ?? Date(),
+            database: database
+          )
           return file
         }
         return current
       }
-      guard let legacy = try loadFile(festivalID, at: url) else { return nil }
-      try saveToDatabase(legacy, checkedAt: legacy.checkedAt ?? Date(), database: database)
+      guard let legacy = try loadFile(
+        festivalID,
+        at: url
+      ) else { return nil }
+      try saveToDatabase(
+        legacy,
+        checkedAt: legacy.checkedAt ?? Date(),
+        database: database
+      )
       return legacy
     }
-    return try loadFile(festivalID, at: url)
+    return try loadFile(
+      festivalID,
+      at: url
+    )
   }
 
   private func loadFile(
@@ -88,13 +112,19 @@ struct PackCache: Sendable {
     }
     let quarantine = url.appendingPathExtension("deleting-\(UUID().uuidString)")
     let hasFile = FileManager.default.fileExists(atPath: url.path)
-    if hasFile { try FileManager.default.moveItem(at: url, to: quarantine) }
+    if hasFile { try FileManager.default.moveItem(
+      at: url,
+      to: quarantine
+    ) }
     do {
       try database.write { db in
         try CachedPackRecord.find(festivalID).delete().execute(db)
       }
     } catch {
-      if hasFile { try? FileManager.default.moveItem(at: quarantine, to: url) }
+      if hasFile { try? FileManager.default.moveItem(
+        at: quarantine,
+        to: url
+      ) }
       throw error
     }
     // DB 삭제에 성공했다면 격리 파일은 목록에 다시 나타나지 않는다.
@@ -108,8 +138,11 @@ struct PackCache: Sendable {
         try database.write { db in
           try CachedPackRecord.upsert {
             CachedPackRecord(
-              festivalID: record.festivalID, packVersion: record.packVersion,
-              etag: record.etag, pack: record.pack, sha256: record.sha256,
+              festivalID: record.festivalID,
+              packVersion: record.packVersion,
+              etag: record.etag,
+              pack: record.pack,
+              sha256: record.sha256,
               checkedAt: date.timeIntervalSince1970
             )
           }.execute(db)
@@ -117,13 +150,17 @@ struct PackCache: Sendable {
         let url = try fileURL(for: festivalID)
         if FileManager.default.fileExists(atPath: url.path) {
           try FileManager.default.setAttributes(
-            [.modificationDate: date], ofItemAtPath: url.path
+            [.modificationDate: date],
+            ofItemAtPath: url.path
           )
         }
         return
       }
       guard try load(festivalID) != nil else { return }
-      return try markChecked(festivalID, at: date)
+      return try markChecked(
+        festivalID,
+        at: date
+      )
     }
     let url = try fileURL(for: festivalID)
     guard FileManager.default.fileExists(atPath: url.path) else { return }
@@ -180,13 +217,20 @@ struct PackCache: Sendable {
     )
     try JSONEncoder().encode(stored).write(to: url, options: .atomic)
     if let database {
-      try saveToDatabase(value, checkedAt: Date(), database: database)
+      try saveToDatabase(
+        value,
+        checkedAt: Date(),
+        database: database
+      )
     }
     return value
   }
 
   static func digest(_ bytes: Data) -> String {
-    return SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+    return SHA256.hash(data: bytes).map { String(
+      format: "%02x",
+      $0
+    ) }.joined()
   }
 
   static func isValid(_ bytes: Data, festivalID: String, version: Int) -> Bool {
@@ -199,14 +243,20 @@ struct PackCache: Sendable {
 
   private func validated(_ record: CachedPackRecord) throws -> CachedFestivalPack {
     guard record.pack.count <= Self.maxBytes,
-          Self.isValid(record.pack, festivalID: record.festivalID, version: record.packVersion),
+          Self.isValid(
+            record.pack,
+            festivalID: record.festivalID,
+            version: record.packVersion
+          ),
           !record.etag.isEmpty, record.etag.utf8.count <= 128,
           Self.digest(record.pack) == record.sha256 else {
       throw PackSyncError.invalidPack
     }
     return CachedFestivalPack(
-      festivalID: record.festivalID, packVersion: record.packVersion,
-      etag: record.etag, pack: record.pack,
+      festivalID: record.festivalID,
+      packVersion: record.packVersion,
+      etag: record.etag,
+      pack: record.pack,
       checkedAt: Date(timeIntervalSince1970: record.checkedAt)
     )
   }
@@ -217,8 +267,11 @@ struct PackCache: Sendable {
     database: any DatabaseWriter
   ) throws {
     let record = CachedPackRecord(
-      festivalID: value.festivalID, packVersion: value.packVersion,
-      etag: value.etag, pack: value.pack, sha256: Self.digest(value.pack),
+      festivalID: value.festivalID,
+      packVersion: value.packVersion,
+      etag: value.etag,
+      pack: value.pack,
+      sha256: Self.digest(value.pack),
       checkedAt: checkedAt.timeIntervalSince1970
     )
     try database.write { db in

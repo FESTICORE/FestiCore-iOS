@@ -21,6 +21,7 @@
 6. 10분 동안 의미 있는 편집이 없으면 현재 진행 상황과 다음 접근을 사용자에게 알린다.
 7. API·Domain·Reducer·View·테스트의 값을 반환하는 Swift 일반 함수와 계산 속성에는 `return`을 명시한다. `Void`·초기화·결과 빌더는 Swift 문법을 따른다.
 8. Swift 함수와 이니셜라이저 선언의 파라미터가 2개 이상이면 여는 괄호 다음 줄부터 파라미터를 하나씩 각 줄에 쓴다. 파라미터가 0~1개면 한 줄 선언도 허용한다.
+9. 함수와 이니셜라이저 호출의 인자가 2개 이상이면 여는 괄호 다음 줄부터 각 인자를 별도 줄에 쓴다.
 
 ## TCA와 의존성 주입
 
@@ -31,6 +32,7 @@
 - Feature는 `@Dependency`로 필요한 인터페이스를 사용하고 테스트에서 결정적인 대역을 주입한다. 테스트나 별도 `DependencyValues` 범위에서는 필요한 `register(into:)`를 명시적으로 호출한다. WeaveDI는 사용하지 않는다.
 - 리듀서는 `view`·`async`·`inner`·`delegate` 액션과 `extension`의 `handle*Action` 함수로 나눠 쓴다. 한 화면에는 리듀서 하나를 두고, Feature는 Domain UseCase와 시스템 의존성만 주입한다. 자세한 규칙은 [TCA](docs/agent/tca-patterns.md).
 - `State` 저장 속성이 많아지면 같은 화면 책임으로 함께 변하는 값을 하위 상태나 표시 Model로 묶는다. 공개 업무 값은 Domain Entity에 두고, 상태 이동 후 전이·취소·재시도 테스트를 확인한다.
+- 유한한 단계와 상호 배타적인 선택은 문자열·불리언 조합 대신 enum으로 표현한다.
 
 ## SwiftUI View 구성
 
@@ -43,6 +45,7 @@
 ## 통신과 Domain 모듈
 
 - 새 Domain 모듈은 `Interface`와 `Sources`를 나눈다. `Interface/Sources/Entity`에는 공개 값·오류 타입, `Interface/Sources/<기능>`에는 `Sendable` Repository·UseCase의 `*Interface` 계약과 해당 `DependencyKey`·`DependencyValues` 접근자를 둔다. `Sources/<기능>`에는 `*Impl`, `Sources/Model`에는 DTO·Mapper, `Sources`에는 라이브 의존성 등록을 둔다. 테스트·프리뷰 기본값은 명시적인 Mock을 제공하고 미주입 호출은 테스트 이슈로 기록한다.
+- Domain Repository·UseCase 계약과 구현 타입 위에는 역할과 경계를 설명하는 한두 줄의 `///` 문서 주석을 단다.
 - 기능 단위로 Domain 모듈(예: `TimetableDomain`)을 두고, Feature가 쓰는 공개 값 타입은 Feature `Model`이 아니라 Domain `Interface/Sources/Entity`에 둔다. 자세한 규칙은 [Domain 모듈](docs/agent/domain-modules.md).
 - Feature는 Domain UseCase Interface를 주입받고, UseCase 구현은 Repository Interface를 사용한다. Repository 구현은 공용 Network·Auth Interface를 주입받는다. 새 클라이언트나 토큰 저장소를 Domain마다 만들지 않는다. 로그인 응답을 검증한 뒤 공용 인증 세션에 저장한다.
 - API 경로는 `API`, `FestiCoreDataRequest` 요청은 `APIEndpoint`에 둔다. 요청마다 path, HTTP method, authorization, `Encodable & Sendable` body, 재시도 정책을 명시한다. DTO에서 Entity로의 변환과 도메인 값에서 요청 body로의 변환은 Domain Mapper가 담당한다. APIEndpoint는 Domain이나 Auth Service에 의존하지 않는다.

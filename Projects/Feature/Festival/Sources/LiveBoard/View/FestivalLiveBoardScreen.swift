@@ -12,6 +12,7 @@ struct FestivalLiveBoardScreen: View {
   let liveBoardUnavailable: Bool
   let liveBoardUnpublished: Bool
   let isPackLoading: Bool
+  let onlineDetailFailed: Bool
   let liveBoardClockAnchorAt: Date?
   let liveBoardReceivedAt: Date?
   let hasSession: Bool
@@ -26,6 +27,7 @@ struct FestivalLiveBoardScreen: View {
   /// 기수 계정이면 상단 기수 버튼 동작. nil이면 로고만 보인다.
   let onBearerTap: (() -> Void)?
   let onRetryMySchedule: () -> Void
+  let onRetryOnlineDetail: () -> Void
   let onSwipeBack: () -> Void
 
   var body: some View {
@@ -159,6 +161,22 @@ private extension FestivalLiveBoardScreen {
         progress: card.progress
       )
       .label(card.label)
+    } else if pack == nil, onlineDetailFailed {
+      VStack(
+        alignment: .leading,
+        spacing: FestiCoreSpacing.paddingP8
+      ) {
+        FCEmptyCard(
+          icon: .music24,
+          title: "시간표를 불러오지 못했어요",
+          message: "네트워크를 확인하고 다시 시도해 주세요."
+        )
+        Button(
+          "다시 시도",
+          action: onRetryOnlineDetail
+        )
+          .festiCoreFont(.baseCaption1Bold)
+      }
     } else {
       FCEmptyCard(
         icon: .music24,

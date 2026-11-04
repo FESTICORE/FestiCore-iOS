@@ -29,7 +29,11 @@ struct MainTabCoordinator {
     var selectedTab: Tab
     var previousTab: Tab = .live
     var festivalState: FestivalCoordinator.State
-    var timetableState: TimetableFeature.State
+    var timetableCoordinatorState = TimetableCoordinator.State()
+    var timetableState: TimetableFeature.State {
+      get { timetableCoordinatorState.timetableState }
+      set { timetableCoordinatorState.timetableState = newValue }
+    }
     var flagState = FestivalFlagFeature.State()
     var profileState = ProfileFeature.State()
     var loginState = LoginFeature.State()
@@ -64,10 +68,6 @@ struct MainTabCoordinator {
     init(selectedTab: Tab = .live) {
       self.selectedTab = selectedTab
       festivalState = .init()
-      timetableState = .init(
-        days: [],
-        source: ""
-      )
     }
   }
 
@@ -78,10 +78,13 @@ struct MainTabCoordinator {
     case tabReselected(Tab)
     case festival(FestivalCoordinator.Action)
     case timetable(TimetableFeature.Action)
+    case timetableCoordinator(TimetableCoordinator.Action)
     case flag(FestivalFlagFeature.Action)
     case profile(ProfileFeature.Action)
+    case profileCoordinator(ProfileCoordinator.Action)
     case login(LoginFeature.Action)
-    case signUp(SignUpFeature.Action)
+    case signUp(SignUpFlowCoordinator.Action)
+    case authInputsChanged(previous: AuthInputs?, current: AuthInputs)
     case delegate(Delegate)
     case completePendingBookmark(id: String, userID: String, shouldBeBooked: Bool)
   }
@@ -92,14 +95,20 @@ struct MainTabCoordinator {
     case myLogoutRequested
     case myWithdrawRequested
     case myProfileRefreshRequested
+    case dismissAuthFlow
+    case retryProfile
+    case resolveMigration(Bool)
   }
 
   var body: some ReducerOf<Self> {
     Scope(state: \.festivalState, action: \.festival) {
       FestivalCoordinator()
     }
-    Scope(state: \.timetableState, action: \.timetable) {
-      TimetableFeature()
+    Scope(
+      state: \.timetableCoordinatorState,
+      action: \.timetableCoordinator
+    ) {
+      TimetableCoordinator()
     }
     Scope(state: \.flagState, action: \.flag) {
       FestivalFlagFeature()
@@ -107,11 +116,20 @@ struct MainTabCoordinator {
     Scope(state: \.profileState, action: \.profile) {
       ProfileFeature(legalBaseURL: legalBaseURL)
     }
+    Scope(
+      state: \.profileState,
+      action: \.profileCoordinator
+    ) {
+      ProfileCoordinator()
+    }
     Scope(state: \.loginState, action: \.login) {
       LoginFeature()
     }
-    Scope(state: \.authFlow.signUp, action: \.signUp) {
-      SignUpFeature()
+    Scope(
+      state: \.authFlow.signUpFlow,
+      action: \.signUp
+    ) {
+      SignUpFlowCoordinator()
     }
 
     Reduce { state, action in
@@ -149,10 +167,16 @@ struct MainTabCoordinator {
         case .live, .my: return .none
         }
 
-      case let .timetable(.delegate(.scheduleSaved(id, ids))):
+      case let .timetableCoordinator(.delegate(.scheduleSaved(
+        id,
+        ids
+      ))):
         return .send(.festival(.myScheduleSaved(festivalID: id, setIDs: ids)))
 
-      case .timetable:
+      case let .timetable(action):
+        return .send(.timetableCoordinator(.timetable(action)))
+
+      case .timetableCoordinator:
         return .none
 
       case .flag(.directory(.delegate(.loginRequested))):
@@ -163,6 +187,15 @@ struct MainTabCoordinator {
 
       case .flag, .delegate:
         return .none
+
+      case let .authInputsChanged(
+        previous,
+        current
+      ):
+        return synchronizeAuthInputs(
+          previous: previous,
+          current: current
+        )
 
       case .profile(.delegate(.loginRequested)):
         return .send(.delegate(.myLoginRequested))
@@ -180,6 +213,12 @@ struct MainTabCoordinator {
       case .profile:
         return .none
 
+      case let .profileCoordinator(.profile(action)):
+        return .send(.profile(action))
+
+      case .profileCoordinator:
+        return .none
+
       case .login, .signUp:
         return .none
 
@@ -188,10 +227,73 @@ struct MainTabCoordinator {
               (state.authFlow.profile?.isEligible == true
                 || (state.authFlow.profile == nil && bookedStore.offlineEligible(userID))) else { return .none }
         bookedStore.setBookmark(id, booked: shouldBeBooked, for: userID)
-        return .concatenate(
-          .send(.festival(.reloadBookmarks(userID: userID))),
-          .send(.festival(.bookmarkSaved(id: id, booked: shouldBeBooked)))
-        )
+        return .run { send in
+          await send(.festival(.reloadBookmarks(userID: userID)))
+          await send(.festival(.bookmarkSaved(
+            id: id,
+            booked: shouldBeBooked
+          )))
+        }
+      }
+    }
+  }
+
+  /// 계정 입력의 소유자인 홈에서 각 기능에 필요한 변경만 순서대로 전달한다.
+  private func synchronizeAuthInputs(
+    previous: AuthInputs?,
+    current: AuthInputs
+  ) -> Effect<Action> {
+    guard previous != current else { return .none }
+    return .run { send in
+      if previous?.login != current.login, let login = current.login {
+        await send(.login(.view(.contextChanged(
+          login.context,
+          flowMessage: login.message
+        ))))
+      }
+
+      if previous?.signUp != current.signUp {
+        if let signUp = current.signUp {
+          await send(.signUp(.view(.flowChanged(
+            isSubmitting: signUp.isSubmitting,
+            message: signUp.message,
+            termsUpdateExhausted: signUp.termsUpdateExhausted,
+            legalBaseURL: legalBaseURL
+          ))))
+        } else if previous?.signUp != nil {
+          await send(.signUp(.view(.sheetClosed)))
+        }
+      }
+
+      if previous?.account != current.account {
+        let account = current.account
+        await send(.profile(.view(.accountChanged(
+          profile: account.profile,
+          hasSession: account.hasSession,
+          isLoading: account.isLoading,
+          message: account.message
+        ))))
+      }
+
+      let oldSession = previous?.session ?? .init(
+        hasSession: false,
+        userID: nil
+      )
+      let session = current.session
+      if oldSession != session {
+        let accountChanged = oldSession.userID != nil && oldSession.userID != session.userID
+        let refreshAccountData = (!oldSession.hasSession && session.hasSession)
+          || accountChanged || (oldSession.hasSession && !session.hasSession)
+        if refreshAccountData {
+          await send(.flag(.accountChanged))
+        }
+        if accountChanged || (oldSession.hasSession && !session.hasSession) {
+          await send(.timetable(.view(.accountChanged)))
+        }
+        await send(.festival(.sessionChanged(
+          hasSession: session.hasSession,
+          userID: session.userID
+        )))
       }
     }
   }
@@ -206,10 +308,10 @@ struct MainTabCoordinator {
       switch screen {
       case let .festivalList(festival):
         selectedID = festival.selectedFestivalID
-        pack = festival.selectedPack
+        pack = festival.displayDocument
       case let .liveBoard(festival):
         selectedID = festival.selectedFestivalID
-        pack = festival.selectedPack
+        pack = festival.displayDocument
       case .bearerBoard, .notificationInbox:
         selectedID = nil
         pack = nil
@@ -234,13 +336,18 @@ struct MainTabCoordinator {
     state: inout State,
     appearing: Bool
   ) -> Effect<Action> {
-    var selected: (festivalID: String?, pack: FestivalPackDocument, imageURL: (String?) -> URL?)?
+    var selected: (festivalID: String?, pack: FestivalPackDocument, source: String, imageURL: (String?) -> URL?)?
     if let screen = state.festivalState.routes.last(where: {
       !$0.screen.is(\.bearerBoard) && !$0.screen.is(\.notificationInbox)
     })?.screen,
        case let .liveBoard(home) = screen,
-       let pack = home.selectedPack {
-      selected = (home.selectedFestivalID, pack, home.imageURL(for:))
+       let pack = home.displayDocument {
+      selected = (
+        home.selectedFestivalID,
+        pack,
+        home.onlineDetail == nil ? "저장된 축제 팩" : "온라인 축제 정보",
+        home.imageURL(for:)
+      )
     }
     let days = selected.map { FestivalPackTimetableMapper.days(from: $0.pack, imageURL: $0.imageURL) } ?? []
     let daysChanged = state.timetableState.days != days
@@ -248,20 +355,21 @@ struct MainTabCoordinator {
       let selectedID = state.timetableState.selectedDay?.id
       state.timetableState.days = days
       state.timetableState.selectedDayIndex = days.firstIndex { $0.id == selectedID } ?? 0
-      state.timetableState.source = selected == nil ? "" : "저장된 축제 팩"
+      state.timetableState.source = selected?.source ?? ""
     }
 
     let festivalID = selected?.festivalID
     if festivalID != state.timetableState.festivalID {
       return .send(.timetable(.view(.festivalChanged(festivalID))))
     }
-    var effects: [Effect<Action>] = []
-    if daysChanged {
-      effects.append(.send(.timetable(.view(.packUpdated))))
+    guard daysChanged || appearing else { return .none }
+    return .run { send in
+      if daysChanged {
+        await send(.timetable(.view(.packUpdated)))
+      }
+      if appearing {
+        await send(.timetable(.view(.timetableAppeared)))
+      }
     }
-    if appearing {
-      effects.append(.send(.timetable(.view(.timetableAppeared))))
-    }
-    return .concatenate(effects)
   }
 }

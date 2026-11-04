@@ -48,7 +48,6 @@ struct FestivalLiveBoardSessionTests {
     #expect(!store.state.liveBoardUnavailable)
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
-      $0.myScheduleRequestID = 1
     }
   }
 
@@ -89,8 +88,6 @@ struct FestivalLiveBoardSessionTests {
     #expect(fetched.value == ["fst"])
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
-      $0.mySchedule = nil
-      $0.myScheduleRequestID = 2
     }
   }
 
@@ -117,12 +114,11 @@ struct FestivalLiveBoardSessionTests {
     await store.receive(\.async.startLiveBoard)
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
-      $0.myScheduleRequestID = 1
     }
     #expect(fetched.value == 0)
   }
 
-  @Test("다른 축제·이전 요청·이전 세대·숨긴 뒤의 내 일정 응답은 버린다")
+  @Test("다른 축제·이전 요청·이전 세대의 내 일정 응답은 버리고 화면을 닫아도 일정을 유지한다")
   func staleMyScheduleResponsesAreIgnored() async {
     let store = TestStore(initialState: {
       var state = FestivalFeature.State(selectedFestivalID: "B")
@@ -143,11 +139,24 @@ struct FestivalLiveBoardSessionTests {
     }
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
-      $0.mySchedule = nil
-      $0.myScheduleRequestID = 3
     }
-    await store.send(.inner(.myScheduleLoaded(festivalID: "B", requestID: 2, generation: 1, ["y"])))
-    await store.send(.inner(.myScheduleLoaded(festivalID: "B", requestID: 3, generation: 1, ["y"])))
+    await store.send(.inner(.myScheduleLoaded(
+      festivalID: "B",
+      requestID: 2,
+      generation: 1,
+      ["y"]
+    ))) {
+      $0.mySchedule = .init(
+        festivalID: "B",
+        setIDs: ["y"]
+      )
+    }
+    await store.send(.inner(.myScheduleLoaded(
+      festivalID: "B",
+      requestID: 3,
+      generation: 1,
+      ["z"]
+    )))
   }
 
   @Test("계정 변경·익명에서 로그인 전환 뒤 이전 세대의 라이브 보드 응답은 버린다")
@@ -231,7 +240,6 @@ struct FestivalLiveBoardSessionTests {
     #expect(calls.value == 1)
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
-      $0.myScheduleRequestID = 1
     }
   }
 
@@ -276,7 +284,6 @@ struct FestivalLiveBoardSessionTests {
     #expect(calls.value == 1)
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
-      $0.myScheduleRequestID = 1
     }
   }
 
@@ -350,10 +357,17 @@ struct FestivalLiveBoardSessionTests {
     await store.send(.inner(.myScheduleLoaded(festivalID: "fst", requestID: 1, generation: 0, ["stale"])))
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
-      $0.mySchedule = nil
-      $0.myScheduleRequestID = 3
     }
-    await store.send(.view(.myScheduleSaved(festivalID: "fst", setIDs: ["hidden"])))
+    await store.send(.view(.myScheduleSaved(
+      festivalID: "fst",
+      setIDs: ["hidden"]
+    ))) {
+      $0.myScheduleRequestID = 3
+      $0.mySchedule = .init(
+        festivalID: "fst",
+        setIDs: ["hidden"]
+      )
+    }
   }
 
   @Test("304로 같은 서버 시각을 다시 받아도 시계 기준점은 유지한다")
@@ -433,8 +447,6 @@ struct FestivalLiveBoardSessionTests {
     #expect(attempts.value == 2)
     await store.send(.view(.liveBoardOnDisappear)) {
       $0.isLiveBoardVisible = false
-      $0.mySchedule = nil
-      $0.myScheduleRequestID = 3
     }
   }
 }

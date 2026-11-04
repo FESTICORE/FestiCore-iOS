@@ -56,8 +56,16 @@ struct FestivalUseCaseTests {
   @Test func catalogRepositoryForwardsServiceCalls() async throws {
     let repository = withDependencies {
       $0.festivalCatalogService = StubCatalogService(
-        cached: [.init(id: "cached", name: "캐시", packVersion: 1)],
-        refreshed: [.init(id: "fresh", name: "새 목록", packVersion: 1)]
+        cached: [.init(
+          id: "cached",
+          name: "캐시",
+          packVersion: 1
+        )],
+        refreshed: [.init(
+          id: "fresh",
+          name: "새 목록",
+          packVersion: 1
+        )]
       )
     } operation: {
       FestivalCatalogRepositoryImpl()
@@ -68,7 +76,12 @@ struct FestivalUseCaseTests {
   }
 
   @Test func packRepositoryForwardsCacheUpdatesAndDownload() async throws {
-    let pack = CachedFestivalPack(festivalID: "fst", packVersion: 2, etag: "e", pack: Data())
+    let pack = CachedFestivalPack(
+      festivalID: "fst",
+      packVersion: 2,
+      etag: "e",
+      pack: Data()
+    )
     let repository = withDependencies {
       $0.packSyncService = StubPackService(pack: pack)
     } operation: {
@@ -138,14 +151,20 @@ struct FestivalUseCaseTests {
     let useCase = withDependencies {
       $0.festivalLiveActivityClient = .init(
         activities: {
-          [.init(id: "a", festivalID: "fst", phase: .upcoming, startDate: start, endDate: end)]
+          [.init(
+            id: "a",
+            festivalID: "fst",
+            phase: .upcoming,
+            startDate: start,
+            endDate: end
+          )]
         },
         changes: { AsyncStream { $0.finish() } },
         start: { id, name, _, _, phase in
           calls.withValue { $0.append("start \(id) \(name) \(phase)") }
           return "activity"
         },
-        update: { id, phase, _, _ in calls.withValue { $0.append("update \(id) \(phase)") } },
+        update: { id, phase, _, _, _, _ in calls.withValue { $0.append("update \(id) \(phase)") } },
         finish: { id, _ in calls.withValue { $0.append("finish \(id)") } },
         end: { id in calls.withValue { $0.append("end \(id)") } }
       )
@@ -156,9 +175,20 @@ struct FestivalUseCaseTests {
     #expect(await useCase.activities().map(\.id) == ["a"])
     #expect(
       try await useCase.start(
-        festivalID: "fst", festivalName: "축제", startDate: start, endDate: end, phase: .upcoming
+        festivalID: "fst",
+        festivalName: "축제",
+        startDate: start,
+        endDate: end,
+        phase: .upcoming
       ) == "activity")
-    await useCase.update(activityID: "activity", phase: .ongoing, startDate: start, endDate: end)
+    await useCase.update(
+      activityID: "activity",
+      phase: .ongoing,
+      startDate: start,
+      endDate: end,
+      pack: nil,
+      savedSetIDs: []
+    )
     await useCase.finish(activityID: "activity", startDate: start)
     await useCase.end(activityID: "activity")
     #expect(

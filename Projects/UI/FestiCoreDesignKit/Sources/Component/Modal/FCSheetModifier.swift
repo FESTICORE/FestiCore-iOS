@@ -236,13 +236,13 @@ public extension FCSheetModifier where Accessory == EmptyView {
 
 public extension View {
   /// `item`이 있으면 바텀시트를 띄운다.
-  func presentFCSheet<Item: Identifiable & Equatable, SheetContent: View>(
+  func fcModal<Item: Identifiable & Equatable, SheetContent: View>(
     item: Binding<Item?>,
     height: FCSheetHeight = .auto,
     showsGrabber: Bool = true,
     @ViewBuilder content: @escaping (Item) -> SheetContent
   ) -> some View {
-    modifier(
+    return modifier(
       FCSheetModifier(
         item: item,
         height: height,
@@ -253,14 +253,14 @@ public extension View {
   }
 
   /// `item`이 있으면 바텀시트를 띄우고 시트 위에 `accessory`(토스트 등)를 붙인다.
-  func presentFCSheet<Item: Identifiable & Equatable, SheetContent: View, Accessory: View>(
+  func fcModal<Item: Identifiable & Equatable, SheetContent: View, Accessory: View>(
     item: Binding<Item?>,
     height: FCSheetHeight = .auto,
     showsGrabber: Bool = true,
     @ViewBuilder content: @escaping (Item) -> SheetContent,
     @ViewBuilder accessory: @escaping (Item) -> Accessory
   ) -> some View {
-    modifier(
+    return modifier(
       FCSheetModifier(
         item: item,
         height: height,

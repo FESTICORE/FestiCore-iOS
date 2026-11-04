@@ -9,28 +9,24 @@ import ComposableArchitecture
 import Foundation
 import AuthInterface
 import Testing
-import Web
 @testable import Auth
 
 struct SignUpFeatureTests {
-  @Test @MainActor func legalDetailOpensWebAndKeepsDraftAfterClose() async {
+  @Test @MainActor func legalDetailRequestsWebAndKeepsDraft() async {
     var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
     state.nickname = "테스터"
     state.acceptedServiceTerms = true
     state.pushOptIn = true
     let store = TestStore(initialState: state) { SignUpFeature() }
 
-    await store.send(.view(.legalDocumentTapped(.terms))) {
-      $0.destination = .legalDocument(WebFeature.State(
-        url: URL(string: "https://example.com/api/v1/legal/terms")!,
-        title: "서비스 이용약관"
-      ))
-    }
-    // Web을 닫으면 닉네임·약관 체크·알림 선택은 그대로다(TestStore가 나머지 상태 변화를 함께 확인한다).
-    await store.send(.destination(.presented(.legalDocument(.view(.closeTapped)))))
-    await store.receive(\.destination.presented.legalDocument.delegate.backToRoot) {
-      $0.destination = nil
-    }
+    await store.send(.view(.legalDocumentTapped(.terms)))
+    await store.receive(.delegate(.legalDocumentRequested(
+      url: URL(string: "https://example.com/api/v1/legal/terms")!,
+      title: "서비스 이용약관"
+    )))
+    #expect(store.state.nickname == "테스터")
+    #expect(store.state.acceptedServiceTerms)
+    #expect(store.state.pushOptIn)
   }
 
   @Test @MainActor func nicknameIsLimitedByTrimmedLength() async {
@@ -131,38 +127,27 @@ struct SignUpFeatureTests {
     }
   }
 
-  @Test @MainActor func sheetClosedClosesLegalDetail() async {
+  @Test @MainActor func sheetClosedKeepsFormState() async {
     let store = TestStore(initialState: SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))) {
       SignUpFeature()
     }
 
-    await store.send(.view(.legalDocumentTapped(.terms))) {
-      $0.destination = .legalDocument(WebFeature.State(
-        url: URL(string: "https://example.com/api/v1/legal/terms")!,
-        title: "서비스 이용약관"
-      ))
-    }
-    await store.send(.view(.sheetClosed)) {
-      $0.destination = nil
-    }
+    await store.send(.view(.sheetClosed))
   }
 
-  @Test @MainActor func legalDetailDismissKeepsDraft() async {
+  @Test @MainActor func legalDetailRequestKeepsDraft() async {
     var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
     state.nickname = "테스터"
     state.acceptedPrivacyTerms = true
     let store = TestStore(initialState: state) { SignUpFeature() }
 
-    await store.send(.view(.legalDocumentTapped(.privacy))) {
-      $0.destination = .legalDocument(WebFeature.State(
-        url: URL(string: "https://example.com/api/v1/legal/privacy")!,
-        title: "개인정보 수집 · 이용"
-      ))
-    }
-    // 끌어 내리는 등 표시 쪽에서 닫으면 `.dismiss`가 오고 초안은 그대로다.
-    await store.send(.destination(.dismiss)) {
-      $0.destination = nil
-    }
+    await store.send(.view(.legalDocumentTapped(.privacy)))
+    await store.receive(.delegate(.legalDocumentRequested(
+      url: URL(string: "https://example.com/api/v1/legal/privacy")!,
+      title: "개인정보 수집 · 이용"
+    )))
+    #expect(store.state.nickname == "테스터")
+    #expect(store.state.acceptedPrivacyTerms)
   }
 
   @Test @MainActor func closeTappedRequestsClose() async {

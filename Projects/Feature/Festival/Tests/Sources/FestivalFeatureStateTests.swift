@@ -5,6 +5,38 @@ import Testing
 @testable import Festival
 
 struct FestivalFeatureStateTests {
+  @Test func onlineDetailDisplaysWithoutSavingAnOfflinePack() throws {
+    var state = FestivalFeature.State(selectedFestivalID: "festival")
+    state.catalog = [.init(
+      id: "festival",
+      name: "축제",
+      packVersion: 1
+    )]
+    state.onlineDetailLoading = true
+    #expect(state.isPackLoading)
+    state.onlineDetail = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: Data(#"{"id":"festival","name":"온라인 축제","stages":[{"id":"main","name":"메인"}],"timetable":[{"id":"set_1","artist":"가수","stageId":"main","startsAt":"2026-11-05T10:00:00Z"}]}"#.utf8)
+    )
+    state.onlineDetailLoading = false
+
+    #expect(state.selectedPack == nil)
+    #expect(state.cachedPacks.isEmpty)
+    #expect(state.displayDocument?.performances.first?.id == "set_1")
+    #expect(!state.isPackLoading)
+
+    state.selectedPack = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: Data(#"{"id":"festival","name":"오프라인 축제"}"#.utf8)
+    )
+    #expect(state.displayDocument?.name == "온라인 축제")
+
+    state.onlineDetail = nil
+    state.onlineDetailFailed = true
+    #expect(state.displayDocument?.name == "오프라인 축제")
+    #expect(!state.isPackLoading)
+  }
+
   @Test func savedFestivalWinsOverCachedFallbackAndMissingSelectionDoesNot() {
     var state = FestivalFeature.State(selectedFestivalID: "missing")
     state.catalog = [

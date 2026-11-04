@@ -183,12 +183,20 @@ public enum FestiCoreFestivalLiveActivity {
     id: String,
     phase: FestiCoreFestivalActivityAttributes.ContentState.Phase,
     startDate: Date,
-    endDate: Date? = nil
+    endDate: Date? = nil,
+    nowStages: [FestiCoreFestivalActivityAttributes.ContentState.NowStage] = [],
+    nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil
   ) async {
     guard let activity = Activity<FestiCoreFestivalActivityAttributes>.activities.first(where: { $0.id == id }) else {
       return
     }
-    await activity.update(content(phase: phase, startDate: startDate, endDate: endDate))
+    await activity.update(content(
+      phase: phase,
+      startDate: startDate,
+      endDate: endDate,
+      nowStages: nowStages,
+      nextMine: nextMine
+    ))
   }
 
   public static func end(id: String) async {
@@ -208,7 +216,9 @@ public enum FestiCoreFestivalLiveActivity {
   private static func content(
     phase: FestiCoreFestivalActivityAttributes.ContentState.Phase,
     startDate: Date,
-    endDate: Date? = nil
+    endDate: Date? = nil,
+    nowStages: [FestiCoreFestivalActivityAttributes.ContentState.NowStage] = [],
+    nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil
   ) -> ActivityContent<FestiCoreFestivalActivityAttributes.ContentState> {
     let staleDate: Date? = switch phase {
     case .upcoming: startDate
@@ -216,7 +226,13 @@ public enum FestiCoreFestivalLiveActivity {
     case .finished: nil
     }
     return ActivityContent(
-      state: .init(phase: phase, startDate: startDate, endDate: endDate),
+      state: .init(
+        phase: phase,
+        startDate: startDate,
+        endDate: endDate,
+        nowStages: nowStages,
+        nextMine: nextMine
+      ),
       staleDate: staleDate
     )
   }

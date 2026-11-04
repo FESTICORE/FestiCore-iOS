@@ -354,7 +354,7 @@ private struct SheetTestHost: View {
           Text("Background")
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { box.backgroundFrame = $0 }
         }
-        .presentFCSheet(item: Binding(
+        .fcModal(item: Binding(
           get: { box.item },
           set: { box.item = $0 }
         )) { _ in

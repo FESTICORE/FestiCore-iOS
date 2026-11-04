@@ -553,6 +553,7 @@ struct AppCoordinatorTests {
     #expect(flagCleared.flagState.snapshot == nil)
     #expect(flagCleared.flagState.viewState == .idle)
     await store.receive(\.scope.home.timetable.view.accountChanged)
+    await store.receive(\.scope.home.timetableCoordinator.timetable)
     guard case let .home(scheduleCleared) = store.state else { return }
     #expect(scheduleCleared.timetableState.mySetIDs.isEmpty)
     for route in cleared.festivalState.routes {
@@ -1027,6 +1028,7 @@ struct AppCoordinatorTests {
       $0.previousTab = .live
     }
     await store.receive(\.timetable.view.timetableAppeared)
+    await store.receive(\.timetableCoordinator.timetable)
     await store.send(.tabTapped(.timetable))
     await store.receive(\.tabReselected)
   }
@@ -1342,7 +1344,14 @@ struct AppCoordinatorTests {
       guard case .scope(.home(.festival(.sessionChanged(hasSession: true, userID: "user-a")))) = $0 else { return false }
       return true
     }
-    #expect(store.state.festivalSession == .init(hasSession: true, userID: "user-a"))
+    guard case let .home(updatedHome) = store.state else {
+      Issue.record("세션 복원 후 홈 화면이 유지되어야 합니다")
+      return
+    }
+    #expect(updatedHome.authInputs.session == .init(
+      hasSession: true,
+      userID: "user-a"
+    ))
   }
 
   @Test func bookmarkReloadSynchronizesListAndLiveBoard() async {
@@ -1529,8 +1538,11 @@ struct AppCoordinatorTests {
     home.authFlow.hasSession = true
     let calls = LockIsolated<[String]>([])
     let activity = FestivalLiveActivityRecord(
-      id: "activity-a", festivalID: "festival-a", phase: .upcoming,
-      startDate: Date(timeIntervalSince1970: 0), endDate: nil
+      id: "activity-a",
+      festivalID: "festival-a",
+      phase: .upcoming,
+      startDate: Date(timeIntervalSince1970: 0),
+      endDate: nil
     )
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
@@ -1543,7 +1555,10 @@ struct AppCoordinatorTests {
         activities: { [activity] },
         end: { id in calls.withValue { $0.append("end:\(id)") } }
       )
-      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+      $0.festivalBookedStore = FestivalBookedStore(
+        load: { _ in [] },
+        save: { _, _ in }
+      )
     }
     store.exhaustivity = .off
 
@@ -1563,8 +1578,14 @@ struct AppCoordinatorTests {
       $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authUseCase = UnauthenticatedAuthUseCase(calls: calls)
-      $0.deviceRegistrationService = UnboundTestDevice(calls: calls, shouldFailUnbind: true)
-      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+      $0.deviceRegistrationService = UnboundTestDevice(
+        calls: calls,
+        shouldFailUnbind: true
+      )
+      $0.festivalBookedStore = FestivalBookedStore(
+        load: { _ in [] },
+        save: { _, _ in }
+      )
     }
     store.exhaustivity = .off
 
@@ -1574,6 +1595,75 @@ struct AppCoordinatorTests {
     #expect(calls.value == ["unbind", "signOut"])
     guard case let .home(signedOut) = store.state else { return }
     #expect(!signedOut.authFlow.hasSession)
+  }
+
+  @Test func withdrawalContinuesWhenDeviceUnbindFails() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.hasSession = true
+    let calls = LockIsolated<[String]>([])
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.analyticsUseCase = .recording()
+      $0.authUseCase = RecordingWithdrawalAuthUseCase(calls: calls)
+      $0.deviceRegistrationService = UnboundTestDevice(
+        calls: calls,
+        shouldFailUnbind: true
+      )
+      $0.festivalBookedStore = FestivalBookedStore(
+        load: { _ in [] },
+        save: { _, _ in }
+      )
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.delegate(.myWithdrawRequested))))
+    await store.receive(\.inner.myAccountFinished)
+
+    #expect(calls.value == ["unbind", "withdraw"])
+    guard case let .home(withdrawn) = store.state else { return }
+    #expect(!withdrawn.authFlow.hasSession)
+  }
+
+  @Test func sessionExpiryDuringUnbindDoesNotCallWithdrawalOrRebind() async {
+    let (
+      started,
+      signal
+    ) = AsyncStream<Void>.makeStream()
+    let gate = AccountUnbindGate(started: signal)
+    var iterator = started.makeAsyncIterator()
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.hasSession = true
+    let calls = LockIsolated<[String]>([])
+    let store = Store(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.analyticsUseCase = .recording()
+      $0.authUseCase = RecordingWithdrawalAuthUseCase(calls: calls)
+      $0.deviceRegistrationService = SuspendedUnbindDevice(
+        gate: gate,
+        calls: calls
+      )
+      $0.festivalBookedStore = FestivalBookedStore(
+        load: { _ in [] },
+        save: { _, _ in }
+      )
+    }
+
+    let operation = store.send(.scope(.home(.delegate(.myWithdrawRequested))))
+    guard await iterator.next() != nil else {
+      Issue.record("기기 바인딩 해제가 시작되지 않았어요")
+      return
+    }
+    store.send(.inner(.sessionExpired))
+    await gate.failWithCancellation()
+    await operation.finish()
+
+    #expect(calls.value.filter { $0 == "withdraw" || $0 == "bind" }.isEmpty)
+    guard case let .home(expired) = store.withState({ $0 }) else { return }
+    #expect(!expired.authFlow.hasSession)
   }
 
   @Test func completedAccountOperationClosesSheetAfterSwitchingTabs() async {
@@ -2003,6 +2093,7 @@ struct AppCoordinatorTests {
       guard case .scope(.home(.timetable(.view(.accountChanged)))) = $0 else { return false }
       return true
     }
+    await store.receive(\.scope.home.timetableCoordinator.timetable)
     guard case let .home(expired) = store.state else { return }
     #expect(!expired.authFlow.hasSession)
     #expect(expired.authFlow.profile == nil)
@@ -2057,8 +2148,11 @@ struct AppCoordinatorTests {
     home.authFlow.hasSession = true
     let calls = LockIsolated<[String]>([])
     let activity = FestivalLiveActivityRecord(
-      id: "activity-a", festivalID: "festival-a", phase: .upcoming,
-      startDate: Date(timeIntervalSince1970: 0), endDate: nil
+      id: "activity-a",
+      festivalID: "festival-a",
+      phase: .upcoming,
+      startDate: Date(timeIntervalSince1970: 0),
+      endDate: nil
     )
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
@@ -2068,7 +2162,10 @@ struct AppCoordinatorTests {
         activities: { [activity] },
         end: { id in calls.withValue { $0.append("end:\(id)") } }
       )
-      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+      $0.festivalBookedStore = FestivalBookedStore(
+        load: { _ in [] },
+        save: { _, _ in }
+      )
     }
     store.exhaustivity = .off
 
@@ -2300,6 +2397,7 @@ struct AppCoordinatorTests {
       guard case .scope(.home(.timetable(.view(.accountChanged)))) = $0 else { return false }
       return true
     }
+    await store.receive(\.scope.home.timetableCoordinator.timetable)
     await store.receive {
       guard case .scope(.home(.festival(.sessionChanged(hasSession: true, userID: "user-b")))) = $0 else { return false }
       return true
@@ -2407,6 +2505,7 @@ struct AppCoordinatorTests {
     await store.send(.inner(.sessionRestored(generation: 1, userID: nil, isLoggedIn: true)))
     await store.receive(\.scope.home.flag.accountChanged)
     await store.receive(\.scope.home.timetable.view.accountChanged)
+    await store.receive(\.scope.home.timetableCoordinator.timetable)
     guard case let .home(cleared) = store.state else { return }
     #expect(cleared.flagState.snapshot == nil)
     #expect(cleared.timetableState.mySetIDs.isEmpty)
@@ -2458,6 +2557,7 @@ struct AppCoordinatorTests {
     await store.send(.inner(.profileUpdated(generation: 1, .success(other))))
     await store.receive(\.scope.home.flag.accountChanged)
     await store.receive(\.scope.home.timetable.view.accountChanged)
+    await store.receive(\.scope.home.timetableCoordinator.timetable)
     guard case let .home(cleared) = store.state else { return }
     #expect(cleared.authFlow.lastVerifiedUserID == nil)
     #expect(cleared.flagState.snapshot == nil)
@@ -2774,24 +2874,41 @@ struct AppCoordinatorTests {
   }
 
   @Test func closingSignUpAlsoClosesLegalDocument() async {
+    guard let baseURL = AppCoordinatorView.legalBaseURL(host: "festicore-dev.up.railway.app") else {
+      Issue.record("Stage 약관 기준 주소를 만들지 못했어요")
+      return
+    }
     var home = MainTabCoordinator.State()
     home.authFlow.presentation = .onboarding
-    home.authFlow.signUp = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    home.authFlow.signUp = SignUpFeature.State(legalBaseURL: baseURL)
     home.authFlow.signUp.nickname = "테스터"
+    guard let privacyURL = home.authFlow.signUp.legalURL(for: .privacy) else {
+      Issue.record("개인정보 약관 주소를 만들지 못했어요")
+      return
+    }
+    home.authFlow.signUpFlow.routes.push(.legalDocument(.init(
+      url: privacyURL,
+      title: "개인정보 수집 · 이용"
+    )))
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.signUp(.view(.legalDocumentTapped(.privacy))))))
-    #expect(signUpState(store.state)?.destination?.legalDocument?.url == URL(string: "https://example.com/api/v1/legal/privacy"))
+    guard case let .home(opened) = store.state else { Issue.record("홈 상태가 아니다"); return }
+    #expect(opened.authFlow.signUpFlow.routes.count == 2)
 
     // 가입 화면을 닫으면 그 위의 약관 상세도 닫고 초안은 남긴다.
     await store.send(.view(.dismissFlow))
     await store.receive(\.scope.home.signUp.view.sheetClosed)
-    #expect(signUpState(store.state)?.destination == nil)
+    guard case let .home(closed) = store.state else { Issue.record("홈 상태가 아니다"); return }
+    #expect(closed.authFlow.signUpFlow.routes.count == 1)
     #expect(signUpState(store.state)?.nickname == "테스터")
   }
 
   @Test func switchingFromSignUpToRetryClosesLegalDocument() async {
+    guard let baseURL = AppCoordinatorView.legalBaseURL(host: "festicore-dev.up.railway.app") else {
+      Issue.record("Stage 약관 기준 주소를 만들지 못했어요")
+      return
+    }
     var home = MainTabCoordinator.State()
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.verifiedUserID = "user-a"
@@ -2799,7 +2916,15 @@ struct AppCoordinatorTests {
     home.authFlow.pendingFestivalID = "festival"
     home.authFlow.pendingOwnerID = "user-a"
     home.authFlow.presentation = .onboarding
-    home.authFlow.signUp = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    home.authFlow.signUp = SignUpFeature.State(legalBaseURL: baseURL)
+    guard let termsURL = home.authFlow.signUp.legalURL(for: .terms) else {
+      Issue.record("서비스 약관 주소를 만들지 못했어요")
+      return
+    }
+    home.authFlow.signUpFlow.routes.push(.legalDocument(.init(
+      url: termsURL,
+      title: "서비스 이용약관"
+    )))
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
@@ -2810,8 +2935,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.signUp(.view(.legalDocumentTapped(.terms))))))
-    #expect(signUpState(store.state)?.destination != nil)
+    guard case let .home(opened) = store.state else { Issue.record("홈 상태가 아니다"); return }
+    #expect(opened.authFlow.signUpFlow.routes.count == 2)
 
     // 약관이 열린 채 포그라운드 갱신이 실패해 재시도 시트로 바뀌면 약관 상세도 닫힌다.
     await store.send(.view(.foregrounded))
@@ -2819,7 +2944,7 @@ struct AppCoordinatorTests {
     await store.receive(\.inner.profileLoaded)
     guard case let .home(after) = store.state else { Issue.record("홈 상태가 아니다"); return }
     #expect(after.authFlow.presentation == .retry)
-    #expect(after.authFlow.signUp.destination == nil)
+    #expect(after.authFlow.signUpFlow.routes.count == 1)
   }
 
   @Test func revokedLoginRestoredByForegroundIsRereadAsSignedOut() async {
@@ -2940,6 +3065,23 @@ private struct UnauthenticatedAuthUseCase: AuthUseCaseInterface {
 
   func signOut() async throws { calls?.withValue { $0.append("signOut") } }
   func withdraw() async throws {}
+}
+
+private struct RecordingWithdrawalAuthUseCase: AuthUseCaseInterface {
+  let calls: LockIsolated<[String]>
+
+  func signIn(with credential: AuthCredential) async throws -> AuthLoginResult { throw AuthDomainError.notAuthenticated }
+  func fetchProfile() async throws -> AuthProfile { throw AuthDomainError.notAuthenticated }
+  func updateProfile(
+    nickname: String,
+    termsVersion: String,
+    pushOptIn: Bool
+  ) async throws -> AuthUser {
+    throw AuthDomainError.notAuthenticated
+  }
+  func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.notAuthenticated }
+  func signOut() async throws { calls.withValue { $0.append("signOut") } }
+  func withdraw() async throws { calls.withValue { $0.append("withdraw") } }
 }
 
 enum ProfileStubFailure: Sendable {
@@ -3206,7 +3348,10 @@ private struct UnboundTestDevice: DeviceRegistrationService {
 
   func installationDeviceID() async throws -> String { return "test-device" }
   func register(_: DeviceRegistrationMetadata) async throws -> DeviceAuthorization {
-    return DeviceAuthorization(deviceID: "test-device", bearerToken: "test-token")
+    return DeviceAuthorization(
+      deviceID: "test-device",
+      bearerToken: "test-token"
+    )
   }
   func authorization() async throws -> DeviceAuthorization? { return nil }
   func bindToCurrentUser() async throws {}
@@ -3215,6 +3360,45 @@ private struct UnboundTestDevice: DeviceRegistrationService {
     if shouldFailUnbind { throw DeviceUnbindTestError.unavailable }
   }
   func recoverBoundDevice() async throws { calls?.withValue { $0.append("recover") } }
+}
+
+private actor AccountUnbindGate {
+  private let started: AsyncStream<Void>.Continuation
+  private var continuation: CheckedContinuation<Void, Error>?
+
+  init(started: AsyncStream<Void>.Continuation) { self.started = started }
+
+  func wait() async throws {
+    try await withCheckedThrowingContinuation { continuation in
+      self.continuation = continuation
+      started.yield(())
+    }
+  }
+
+  func failWithCancellation() {
+    continuation?.resume(throwing: CancellationError())
+    continuation = nil
+  }
+}
+
+private struct SuspendedUnbindDevice: DeviceRegistrationService {
+  let gate: AccountUnbindGate
+  let calls: LockIsolated<[String]>
+
+  func installationDeviceID() async throws -> String { return "test-device" }
+  func register(_: DeviceRegistrationMetadata) async throws -> DeviceAuthorization {
+    return DeviceAuthorization(
+      deviceID: "test-device",
+      bearerToken: "test-token"
+    )
+  }
+  func authorization() async throws -> DeviceAuthorization? { return nil }
+  func bindToCurrentUser() async throws { calls.withValue { $0.append("bind") } }
+  func unbindCurrentUser() async throws {
+    calls.withValue { $0.append("unbind") }
+    try await gate.wait()
+  }
+  func recoverBoundDevice() async throws { calls.withValue { $0.append("recover") } }
 }
 
 private enum DeviceUnbindTestError: Error {

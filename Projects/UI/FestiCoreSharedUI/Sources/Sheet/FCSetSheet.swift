@@ -8,7 +8,7 @@
 import FestiCoreDesignKit
 import SwiftUI
 
-/// 셋 상세 바텀시트 내용. `presentFCSheet`로 띄운다.
+/// 셋 상세 바텀시트 내용. `fcModal`로 띄운다.
 ///
 /// 내 일정 여부는 `isScheduled`로 정하고, 겹침·변경·종료는 `state`로 정한다.
 public struct FCSetSheet: View {

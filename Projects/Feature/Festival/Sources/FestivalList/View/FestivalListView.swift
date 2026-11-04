@@ -49,7 +49,10 @@ struct FestivalListView: View {
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .animation(.easeOut(duration: Metric.duration), value: store.listInteraction.isSearching)
+    .animation(
+      .easeOut(duration: Metric.duration),
+      value: store.listInteraction.isSearching
+    )
   }
 
 }
@@ -118,7 +121,13 @@ private extension FestivalListView {
   }
 
   var artistResults: [FestivalListPresentation.ArtistSearchResult] {
-    return FestivalListPresentation.matchingArtists(FestivalListPresentation.sorted(festivals, now: .now), query: trimmedQuery)
+    return FestivalListPresentation.matchingArtists(
+      FestivalListPresentation.sorted(
+      festivals,
+      now: .now
+    ),
+      query: trimmedQuery
+    )
   }
 
   var supportsArtistSearch: Bool {
@@ -171,7 +180,10 @@ private extension FestivalListView {
           ? "연결을 확인하고 다시 시도해 주세요."
           : "새 페스티벌이 등록되면 여기에 표시해요."
       )
-      .action(hasCatalogFailure ? FCCardAction("다시 시도", action: { send(.refreshRequested) }) : nil)
+      .action(hasCatalogFailure ? FCCardAction(
+        "다시 시도",
+        action: { send(.refreshRequested) }
+      ) : nil)
     } else {
       FCEmptyCard(
         icon: .bookmark20,
@@ -230,12 +242,18 @@ private extension FestivalListView {
       VStack(alignment: .leading, spacing: .zero) {
         if !store.recentSearches.isEmpty {
           FCSectionHeader("최근 검색")
-            .action("전체 삭제", perform: { send(.recentSearchesCleared) })
+            .action(
+              "전체 삭제",
+              perform: { send(.recentSearchesCleared) }
+            )
             .padding(.top, FestiCoreSpacing.paddingP20)
             .padding(.bottom, FestiCoreSpacing.paddingP8)
             .padding(.horizontal, FestiCoreSpacing.paddingP16)
           FCFlowLayout {
-            ForEach(store.recentSearches, id: \.self) { keyword in
+            ForEach(
+              store.recentSearches,
+              id: \.self
+            ) { keyword in
               FCRecentKeyword(
                 keyword,
                 onSelect: { send(.searchQueryChanged(keyword)) },
@@ -255,7 +273,10 @@ private extension FestivalListView {
         title: "페스티벌을 불러오지 못했어요",
         message: "연결을 확인하고 다시 시도해 주세요."
       )
-      .action(FCCardAction("다시 시도", action: { send(.refreshRequested) }))
+      .action(FCCardAction(
+        "다시 시도",
+        action: { send(.refreshRequested) }
+      ))
       .padding(FestiCoreSpacing.paddingP16)
     } else if searchResults.isEmpty && artistResults.isEmpty {
       FCSearchEmpty(query: trimmedQuery)
@@ -283,7 +304,10 @@ private extension FestivalListView {
   }
 
   var searchSkeleton: some View {
-    return VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
+    return VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP16
+    ) {
       FCSkeletonView(.round())
         .frame(width: 120, height: 20)
       ForEach(0..<3, id: \.self) { _ in
@@ -361,7 +385,10 @@ private extension FestivalListView {
   }
 
   func status(for festival: FestivalOverview) -> FCFestivalCard<FestivalPosterView>.Status {
-    return switch FestivalListPresentation.cardStatus(for: festival, now: .now) {
+    return switch FestivalListPresentation.cardStatus(
+      for: festival,
+      now: .now
+    ) {
     case let .dDay(label): .dDay(label)
     case let .closing(label): .closing(label)
     case .upcoming: .upcoming()
@@ -381,13 +408,19 @@ private extension FestivalListView {
     let copy = FestivalListPresentation.packCopy(for: festival)
     return switch copy {
     case let .unavailable(text): .unavailable(text)
-    case let .ready(title): .ready(title: title, action: { send(.downloadPack(festival.id)) })
+    case let .ready(title): .ready(
+      title: title,
+      action: { send(.downloadPack(festival.id)) }
+    )
     case let .received(text): .received(text)
     }
   }
 
   func badgeStyle(for festival: FestivalOverview) -> FCSearchResultRow.BadgeStyle {
-    return switch FestivalListPresentation.cardStatus(for: festival, now: .now) {
+    return switch FestivalListPresentation.cardStatus(
+      for: festival,
+      now: .now
+    ) {
     case .closing: .closing
     case .upcoming: .upcoming
     case .dDay, .ended: .day

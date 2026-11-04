@@ -6,6 +6,7 @@ public protocol FestivalCatalogRepositoryInterface: Sendable {
   func cachedFestivals() async throws -> [FestivalCatalogItem]
   /// 서버에서 축제 목록을 다시 받아 저장한다.
   func refreshFestivals() async throws -> [FestivalCatalogItem]
+  func festivalDetail(for festivalID: String) async throws -> FestivalPackDocument
   func festivalPage(
     after: String?,
     limit: Int
@@ -13,11 +14,17 @@ public protocol FestivalCatalogRepositoryInterface: Sendable {
 }
 
 public extension FestivalCatalogRepositoryInterface {
+  func festivalDetail(for festivalID: String) async throws -> FestivalPackDocument {
+    throw FestivalPackError.notRegistered
+  }
   func festivalPage(
     after: String?,
     limit: Int
   ) async throws -> FestivalCatalogPage {
-    return FestivalCatalogPage(items: try await refreshFestivals(), nextCursor: nil)
+    return FestivalCatalogPage(
+      items: try await refreshFestivals(),
+      nextCursor: nil
+    )
   }
 }
 
@@ -35,6 +42,7 @@ extension DependencyValues {
   }
 }
 
+/// 테스트 의존성 미주입을 오류로 알리는 기본 저장소다.
 private struct UnregisteredFestivalCatalogRepository: FestivalCatalogRepositoryInterface {
   func cachedFestivals() async throws -> [FestivalCatalogItem] {
     reportIssue("festivalCatalogRepository.cachedFestivals 미등록")

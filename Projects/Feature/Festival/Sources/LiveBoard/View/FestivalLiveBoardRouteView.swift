@@ -16,11 +16,12 @@ public struct FestivalLiveBoardRouteView: View {
       if let festival = store.selectedFestival {
         FestivalLiveBoardScreen(
           festival: festival,
-          pack: store.selectedPack,
+          pack: store.displayDocument,
           liveBoard: store.liveBoard,
           liveBoardUnavailable: store.liveBoardUnavailable,
           liveBoardUnpublished: store.liveBoardUnpublished,
           isPackLoading: store.isPackLoading,
+          onlineDetailFailed: store.onlineDetailFailed,
           liveBoardClockAnchorAt: store.liveBoardClockAnchorAt,
           liveBoardReceivedAt: store.liveBoardReceivedAt,
           hasSession: store.hasSession,
@@ -34,6 +35,7 @@ public struct FestivalLiveBoardRouteView: View {
           onNotificationTap: { send(.notificationTapped) },
           onBearerTap: store.bearerFlagID == nil ? nil : { send(.bearerTapped) },
           onRetryMySchedule: { send(.retryMySchedule) },
+          onRetryOnlineDetail: { send(.onlineDetailOnAppear) },
           onSwipeBack: { send(.backToFestivalList) }
         )
       } else {
@@ -68,6 +70,7 @@ public struct FestivalLiveBoardRouteView: View {
       send(.onAppear)
       send(.liveActivityOnAppear)
       send(.liveBoardOnAppear)
+      send(.onlineDetailOnAppear)
     }
     .onDisappear { send(.liveBoardOnDisappear) }
     .onChange(of: scenePhase) { _, phase in

@@ -11,7 +11,10 @@ struct FestivalToastView: View {
     FCToast(item)
       .iconColor(toast == .bookmarked ? FestiCoreSemanticColor.staticLime.color : FestiCoreSemanticColor.staticWhite.color)
       .id(revision)
-      .padding(.top, 30)
+      .padding(
+        .top,
+        30
+      )
       .transition(.move(edge: .top).combined(with: .opacity))
   }
 }

@@ -1,17 +1,16 @@
 //
 //  SignUpView.swift
-//  Login
+//  Auth
 //
 //  Created by FestiCore on 11/2/26.
 //
 
 import AuthDomainInterface
+import AuthInterface
 import ComposableArchitecture
 import FestiCoreDesignKit
-import AuthInterface
 import SwiftUI
 import UIKit
-import Web
 
 /// Figma S14-2 가입 정보(닉네임·약관 동의)
 @ViewAction(for: SignUpFeature.self)
@@ -24,21 +23,17 @@ public struct SignUpView: View {
   }
 
   public var body: some View {
-    NavigationStack {
-      content
-        .toolbar(.hidden, for: .navigationBar)
-        .navigationDestination(
-          item: $store.scope(state: \.destination?.legalDocument, action: \.destination.legalDocument)
-        ) { webStore in
-          WebView(store: webStore)
-            .toolbar(.hidden, for: .navigationBar)
-        }
-    }
+    content()
+      .toolbar(
+        .hidden,
+        for: .navigationBar
+      )
   }
 }
 
 private extension SignUpView {
-  var content: some View {
+  @ViewBuilder
+  func content() -> some View {
     VStack(spacing: .zero) {
       FCTopBar(.back)
         .onBack { send(.closeTapped) }
@@ -58,7 +53,7 @@ private extension SignUpView {
           .label("닉네임")
           .counter(AuthNicknameRule.counterText(store.nickname))
           .helper("크루원과 깃발에 보이는 이름이에요. 나중에 마이에서 바꿀 수 있어요.")
-          consentBox
+          consentBox()
           if let message = store.message {
             Text(message)
               .festiCoreFont(.baseCaption1Regular)
@@ -85,7 +80,8 @@ private extension SignUpView {
     }
   }
 
-  var consentBox: some View {
+  @ViewBuilder
+  func consentBox() -> some View {
     VStack(spacing: .zero) {
       FCConsentAll(isChecked: store.isAllConsented) {
         send(.allConsentToggled)

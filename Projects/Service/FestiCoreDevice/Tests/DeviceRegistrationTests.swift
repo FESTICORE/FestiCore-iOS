@@ -154,9 +154,14 @@ struct DeviceRegistrationTests {
   func bindDeviceToCurrentUser() async throws {
     let storage = MemoryDeviceStorage()
     let client = StubDeviceClient()
-    let session = DeviceUserSession(id: UUID(), userID: "user-a")
+    let session = DeviceUserSession(
+      id: UUID(),
+      userID: "user-a"
+    )
     let service = NetworkDeviceRegistrationService(
-      client: client, storage: storage, userSession: { session }
+      client: client,
+      storage: storage,
+      userSession: { session }
     )
 
     let registered = try await service.register(metadata)
@@ -180,9 +185,14 @@ struct DeviceRegistrationTests {
   func unbindDevice() async throws {
     let storage = MemoryDeviceStorage()
     let client = StubDeviceClient()
-    let session = DeviceUserSession(id: UUID(), userID: "user-a")
+    let session = DeviceUserSession(
+      id: UUID(),
+      userID: "user-a"
+    )
     let service = NetworkDeviceRegistrationService(
-      client: client, storage: storage, userSession: { session }
+      client: client,
+      storage: storage,
+      userSession: { session }
     )
     _ = try await service.register(metadata)
     try await service.bindToCurrentUser()
@@ -205,9 +215,14 @@ struct DeviceRegistrationTests {
   func unbindRetryUsesSameKey() async throws {
     let storage = MemoryDeviceStorage()
     let client = StubDeviceClient(failsUnbindOnce: true)
-    let session = DeviceUserSession(id: UUID(), userID: "user-a")
+    let session = DeviceUserSession(
+      id: UUID(),
+      userID: "user-a"
+    )
     let service = NetworkDeviceRegistrationService(
-      client: client, storage: storage, userSession: { session }
+      client: client,
+      storage: storage,
+      userSession: { session }
     )
     _ = try await service.register(metadata)
     try await service.bindToCurrentUser()
@@ -225,11 +240,21 @@ struct DeviceRegistrationTests {
   @Test("다른 계정으로 전환되면 이전 계정 기기 인증을 반환하지 않는다")
   func changedUserCannotReuseBoundDevice() async throws {
     let storage = MemoryDeviceStorage()
-    storage.save(UUID().uuidString, for: .deviceID)
-    storage.save("user-a", for: .deviceBoundUserID)
+    storage.save(
+      UUID().uuidString,
+      for: .deviceID
+    )
+    storage.save(
+      "user-a",
+      for: .deviceBoundUserID
+    )
     let service = NetworkDeviceRegistrationService(
-      client: StubDeviceClient(), storage: storage,
-      userSession: { DeviceUserSession(id: UUID(), userID: "user-b") }
+      client: StubDeviceClient(),
+      storage: storage,
+      userSession: { DeviceUserSession(
+        id: UUID(),
+        userID: "user-b"
+      ) }
     )
 
     #expect(try await service.authorization()?.deviceID == nil)
@@ -242,10 +267,22 @@ struct DeviceRegistrationTests {
   func recoverAfterSessionExpiry() async throws {
     let storage = MemoryDeviceStorage()
     let client = StubDeviceClient()
-    storage.save(UUID().uuidString, for: .deviceID)
-    storage.save("user-a", for: .deviceBoundUserID)
-    storage.save("issued-token", for: .deviceAccessToken)
-    let service = NetworkDeviceRegistrationService(client: client, storage: storage)
+    storage.save(
+      UUID().uuidString,
+      for: .deviceID
+    )
+    storage.save(
+      "user-a",
+      for: .deviceBoundUserID
+    )
+    storage.save(
+      "issued-token",
+      for: .deviceAccessToken
+    )
+    let service = NetworkDeviceRegistrationService(
+      client: client,
+      storage: storage
+    )
 
     try await service.recoverBoundDevice()
 
@@ -263,10 +300,22 @@ struct DeviceRegistrationTests {
   func recoverRetryWithoutOldToken() async throws {
     let storage = MemoryDeviceStorage()
     let client = StubDeviceClient(rejectsRecoveryBearer: true)
-    storage.save(UUID().uuidString, for: .deviceID)
-    storage.save("user-a", for: .deviceBoundUserID)
-    storage.save("issued-token", for: .deviceAccessToken)
-    let service = NetworkDeviceRegistrationService(client: client, storage: storage)
+    storage.save(
+      UUID().uuidString,
+      for: .deviceID
+    )
+    storage.save(
+      "user-a",
+      for: .deviceBoundUserID
+    )
+    storage.save(
+      "issued-token",
+      for: .deviceAccessToken
+    )
+    let service = NetworkDeviceRegistrationService(
+      client: client,
+      storage: storage
+    )
 
     try await service.recoverBoundDevice()
 
@@ -329,8 +378,11 @@ private final class StubDeviceClient: FestiCoreRequestClient, @unchecked Sendabl
     let bearer = request.headers.value(for: "Authorization")?.replacingOccurrences(of: "Bearer ", with: "")
     let shouldFail = lock.withLock {
       requests.append(Captured(
-        path: request.path, method: request.method, authorization: request.authorization,
-        deviceID: deviceID, bearerToken: bearer,
+        path: request.path,
+        method: request.method,
+        authorization: request.authorization,
+        deviceID: deviceID,
+        bearerToken: bearer,
         deviceToken: request.headers.value(for: "X-Device-Access-Token"),
         unbindKey: request.headers.value(for: "X-Device-Unbind-Key"),
         parameters: request.parameters

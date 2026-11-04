@@ -12,7 +12,6 @@ import FestiCoreSharedUI
 import FestiCoreUtility
 import FestivalDomainInterface
 import SwiftUI
-import Web
 
 @ViewAction(for: ProfileFeature.self)
 public struct ProfileView: View {
@@ -23,43 +22,7 @@ public struct ProfileView: View {
   }
 
   public var body: some View {
-    NavigationStack {
-      main
-        .toolbar(.hidden, for: .navigationBar)
-        .navigationDestination(
-          item: $store.scope(state: \.destination?.packDetail, action: \.destination.packDetail)
-        ) { detailStore in
-          PackDetailView(store: detailStore)
-        }
-        .navigationDestination(
-          item: $store.scope(state: \.destination?.account, action: \.destination.account)
-        ) { accountStore in
-          AccountSettingsView(store: accountStore)
-        }
-        .navigationDestination(
-          item: $store.scope(state: \.destination?.legalDocument, action: \.destination.legalDocument)
-        ) { webStore in
-          WebView(store: webStore)
-            .toolbar(.hidden, for: .navigationBar)
-        }
-        .navigationDestination(
-          item: $store.scope(state: \.destination?.lockScreen, action: \.destination.lockScreen)
-        ) { lockScreenStore in
-          LockScreenSettingsView(store: lockScreenStore)
-            .toolbar(.hidden, for: .navigationBar)
-        }
-        .navigationDestination(
-          item: $store.scope(state: \.destination?.noticeList, action: \.destination.noticeList)
-        ) { noticeStore in
-          NoticeListView(store: noticeStore)
-            .toolbar(.hidden, for: .navigationBar)
-        }
-        .navigationDestination(
-          item: $store.scope(state: \.destination?.notifications, action: \.destination.notifications)
-        ) { notificationStore in
-          NotificationSettingsView(store: notificationStore)
-        }
-    }
+    main
   }
 }
 

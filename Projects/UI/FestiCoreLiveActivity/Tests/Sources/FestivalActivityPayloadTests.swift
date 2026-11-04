@@ -1,9 +1,36 @@
 import ActivityKit
+import FestivalDomainInterface
 import Foundation
 import Testing
 @testable import FestiCoreLiveActivity
 
 struct FestivalActivityPayloadTests {
+  @Test func localPackProducesCurrentStageAndNextSavedPerformance() throws {
+    let pack = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: Data(#"""
+      {
+        "id":"festival",
+        "sets":[
+          {"id":"now","artist":"지금 공연","stageId":"A","startsAt":"2026-11-07T08:30:00Z","endsAt":"2026-11-07T09:30:00Z"},
+          {"id":"later","artist":"다음 공연","stageId":"B","startsAt":"2026-11-07T11:00:00Z","endsAt":"2026-11-07T12:00:00Z"},
+          {"id":"next","artist":"내 공연","stageId":"C","startsAt":"2026-11-07T10:00:00Z","endsAt":"2026-11-07T11:00:00Z"}
+        ]
+      }
+      """#.utf8))
+    let now = try #require(ISO8601DateFormatter().date(from: "2026-11-07T09:00:00Z"))
+    let content = FestivalActivityPresentation.from(
+      pack: pack,
+      savedSetIDs: ["later", "next"],
+      now: now
+    )
+
+    #expect(content.nowStages.map(\.setId) == ["now"])
+    #expect(content.nowStages.first?.artist == "지금 공연")
+    #expect(content.nextMine?.setId == "next")
+    #expect(content.nextMine?.stageId == "C")
+  }
+
   @Test func pushToStartStateDecodesOwnSetAndStage() throws {
     let payload = Data(#"""
       {

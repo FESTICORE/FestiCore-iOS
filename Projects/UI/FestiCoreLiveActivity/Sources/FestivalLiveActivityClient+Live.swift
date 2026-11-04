@@ -26,12 +26,19 @@ extension FestivalLiveActivityClient: DependencyKey {
         remoteUpdates: true
       )
     },
-    update: { id, phase, startDate, endDate in
+    update: { id, phase, startDate, endDate, pack, savedSetIDs in
+      let presentation = FestivalActivityPresentation.from(
+        pack: pack,
+        savedSetIDs: savedSetIDs,
+        now: Date()
+      )
       await FestiCoreFestivalLiveActivity.update(
         id: id,
         phase: .init(rawValue: phase.rawValue) ?? .upcoming,
         startDate: startDate,
-        endDate: endDate
+        endDate: endDate,
+        nowStages: presentation.nowStages,
+        nextMine: presentation.nextMine
       )
     },
     finish: { id, startDate in
@@ -39,4 +46,59 @@ extension FestivalLiveActivityClient: DependencyKey {
     },
     end: { id in await FestiCoreFestivalLiveActivity.end(id: id) }
   )
+}
+
+struct FestivalActivityPresentation {
+  typealias State = FestiCoreFestivalActivityAttributes.ContentState
+
+  let nowStages: [State.NowStage]
+  let nextMine: State.NextMine?
+
+  static func from(
+    pack: FestivalPackDocument?,
+    savedSetIDs: Set<String>,
+    now: Date
+  ) -> Self {
+    let performances = pack?.performances ?? []
+    let nowStages = performances.compactMap { performance -> State.NowStage? in
+      guard let startsAt = performance.startsAt,
+            let endsAt = performance.endsAt,
+            let start = parse(startsAt), let end = parse(endsAt),
+            start <= now, now < end else { return nil }
+      return State.NowStage(
+        setId: performance.id,
+        stageId: performance.stageName ?? performance.stageId ?? "무대",
+        artist: performance.artist ?? "공연",
+        startsAt: startsAt,
+        endsAt: endsAt
+      )
+    }
+    let nextMine = performances
+      .filter { savedSetIDs.contains($0.id) }
+      .compactMap { performance -> (Date, State.NextMine)? in
+        guard let startsAt = performance.startsAt,
+              let start = parse(startsAt), start > now else { return nil }
+        return (
+          start,
+          State.NextMine(
+          setId: performance.id,
+          stageId: performance.stageName ?? performance.stageId ?? "무대",
+          artist: performance.artist ?? "공연",
+          startsAt: startsAt
+        ))
+      }
+      .min { $0.0 < $1.0 }?.1
+    return Self(
+      nowStages: nowStages,
+      nextMine: nextMine
+    )
+  }
+
+  private static func parse(_ value: String) -> Date? {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = formatter.date(from: value) { return date }
+    formatter.formatOptions = [.withInternetDateTime]
+    return formatter.date(from: value)
+  }
 }

@@ -50,6 +50,13 @@ struct MainTabView: View {
             )
         }
       }
+      .fcModal(
+        item: authSheet,
+        height: authSheet.wrappedValue == .onboarding ? .fraction(1) : .auto,
+        showsGrabber: authSheet.wrappedValue != .onboarding
+      ) { sheet in
+        authSheetContent(sheet)
+      }
   }
 }
 
@@ -79,14 +86,18 @@ private extension MainTabView {
     }
   }
 
-  var profileView: ProfileView {
-    ProfileView(store: store.scope(state: \.profileState, action: \.profile))
+  var profileView: some View {
+    ProfileCoordinatorView(store: store.scope(
+      state: \.profileState,
+      action: \.profileCoordinator
+    ))
   }
 
-  var timetableView: TimetableView {
-    TimetableView(
-      store: store.scope(state: \.timetableState, action: \.timetable)
-    )
+  var timetableView: some View {
+    TimetableCoordinatorView(store: store.scope(
+      state: \.timetableCoordinatorState,
+      action: \.timetableCoordinator
+    ))
   }
 }
 

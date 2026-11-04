@@ -23,6 +23,7 @@ PARAMETER_DECLARATION = re.compile(
     r"(?:func\s+([A-Za-z_][\w]*)|init[?!]?)\s*(?:<[^()\n]+>)?\s*\(",
     re.MULTILINE,
 )
+CALL = re.compile(r"\b[A-Za-z_][\w]*\s*\(")
 
 
 def masked(source: str) -> str:
@@ -30,6 +31,7 @@ def masked(source: str) -> str:
     chars = list(source)
     i = 0
     while i < len(chars):
+        is_string = False
         if source.startswith("//", i):
             end = source.find("\n", i)
             end = len(chars) if end < 0 else end
@@ -43,6 +45,7 @@ def masked(source: str) -> str:
                 else:
                     end += 1
         elif source[i] == '"':
+            is_string = True
             delimiter = '"""' if source.startswith('"""', i) else '"'
             end = i + len(delimiter)
             while end < len(chars):
@@ -59,6 +62,8 @@ def masked(source: str) -> str:
         for j in range(i, min(end, len(chars))):
             if chars[j] != "\n":
                 chars[j] = " "
+        if is_string:
+            chars[i] = "_"
         i = end
     return "".join(chars)
 
@@ -128,8 +133,10 @@ def parameter_positions(code: str, opening: int) -> tuple[list[int], int] | None
 def check(source: str, name: str, changed_lines: set[int] | None = None) -> list[str]:
     code = masked(source)
     issues = []
+    declaration_openings = set()
     for match in PARAMETER_DECLARATION.finditer(code):
         opening = match.end() - 1
+        declaration_openings.add(opening)
         parsed = parameter_positions(code, opening)
         if parsed is None:
             continue
@@ -144,6 +151,27 @@ def check(source: str, name: str, changed_lines: set[int] | None = None) -> list
         if parameter_lines[0] == source.count("\n", 0, opening) + 1 or len(set(parameter_lines)) != len(parameter_lines):
             identifier = match.group(1) or "init"
             issues.append(f"{name}:{first_line}: {identifier}: 파라미터가 2개 이상이면 각 파라미터를 새 줄에 작성하세요")
+    for match in CALL.finditer(code):
+        opening = match.end() - 1
+        if opening in declaration_openings:
+            continue
+        line_start = code.rfind("\n", 0, match.start()) + 1
+        prefix = code[line_start:match.start()]
+        if re.search(r"\b(?:case|func|protocol|struct|class|enum|actor|typealias)\s+\.?\s*$", prefix):
+            continue
+        parsed = parameter_positions(code, opening)
+        if parsed is None:
+            continue
+        starts, closing = parsed
+        if len(starts) < 2:
+            continue
+        first_line = source.count("\n", 0, match.start()) + 1
+        last_line = source.count("\n", 0, closing) + 1
+        if changed_lines is not None and not any(line in changed_lines for line in range(first_line, last_line + 1)):
+            continue
+        argument_lines = [source.count("\n", 0, start) + 1 for start in starts]
+        if argument_lines[0] == source.count("\n", 0, opening) + 1 or len(set(argument_lines)) != len(argument_lines):
+            issues.append(f"{name}:{first_line}: 인자가 2개 이상이면 호출의 각 인자를 새 줄에 작성하세요")
     for match in DECLARATION.finditer(code):
         signature = match.group("signature")
         kind, identifier = match.group("kind", "name")
@@ -156,6 +184,8 @@ def check(source: str, name: str, changed_lines: set[int] | None = None) -> list
         if kind == "func" and signature.count("(") > signature.count(")"):
             continue
         if kind == "func" and "->" not in signature:
+            continue
+        if kind == "func" and re.search(r"->\s*(?:Void|\(\))\s*$", signature):
             continue
         if kind == "var" and ":" not in signature:
             continue
@@ -179,6 +209,13 @@ def check(source: str, name: str, changed_lines: set[int] | None = None) -> list
                 issues.append(f"{name}:{line}: func {identifier}: 여러 View 섹션에 @ViewBuilder를 선언하세요")
             if is_stack or is_multiple_views:
                 continue
+            if kind == "var":
+                continue
+        line = source.count("\n", 0, match.start()) + 1
+        if kind == "func" and not re.search(r"\b(?:return|throw)\b", body):
+            if changed_lines is None or line in changed_lines:
+                issues.append(f"{name}:{line}: func {identifier}: 반환값이 있는 일반 함수에는 명시적 return을 쓰세요")
+            continue
         if len(statements) != 1:
             continue
         expression = statements[0]
@@ -194,11 +231,55 @@ def check(source: str, name: str, changed_lines: set[int] | None = None) -> list
     # Structural checks are intentionally restricted to screen/reducer declarations.
     for match in SCREEN.finditer(code):
         block = code[match.end():closing_brace(code, match.end() - 1)]
-        if "StoreOf<" in block and "@ViewAction" not in code[max(0, match.start() - 120):match.start()]:
+        # Attendance의 순수 CoordinatorView는 ViewAction 없이 라우터만 연결한다.
+        router_container = (
+            match.group(1).endswith("CoordinatorView")
+            and re.search(r"\bTCAFlowRouter\s*\(\s*store\.scope\s*\(", block)
+            and not re.search(r"\b(?:store\.)?send\s*\(", block)
+        )
+        if "StoreOf<" in block and not router_container and "@ViewAction" not in code[max(0, match.start() - 120):match.start()]:
             line = source.count("\n", 0, match.start()) + 1
             if changed_lines is not None and line not in changed_lines:
                 continue
             issues.append(f"{name}:{line}: {match.group(1)}: Store 화면에 @ViewAction을 선언하세요")
+        opening = match.end() - 1
+        closing = closing_brace(code, opening)
+        for helper in re.finditer(r"\b(?:func|var)\s+([A-Za-z_]\w*)\b", code[opening + 1:closing]):
+            location = opening + 1 + helper.start()
+            if code[opening + 1:location].count("{") != code[opening + 1:location].count("}"):
+                continue
+            helper_line = source.count("\n", 0, location) + 1
+            if changed_lines is not None and helper_line not in changed_lines:
+                continue
+            if helper.group(1) == "body":
+                continue
+            if helper.group().startswith("func "):
+                issues.append(f"{name}:{helper_line}: View UI 헬퍼는 private extension으로 옮기세요")
+            else:
+                line_end = code.find("\n", location)
+                signature = code[location:line_end if line_end >= 0 else len(code)]
+                if "{" in signature and "=" not in signature.split("{", 1)[0]:
+                    issues.append(f"{name}:{helper_line}: View 계산 속성은 private extension으로 옮기세요")
+    if name.endswith("View.swift") and "@ViewAction" in code:
+        for index, line in enumerate(code.splitlines(), 1):
+            if changed_lines is not None and index not in changed_lines:
+                continue
+            if re.search(r"\bstore\.send\s*\(", line):
+                issues.append(f"{name}:{index}: @ViewAction 화면에서는 send(.viewAction)을 사용하세요")
+            if re.search(r"(?<![\w.])send\s*\(\s*\.(?:inner|async)\s*\(", line):
+                issues.append(f"{name}:{index}: View에서 inner/async 액션을 직접 보내지 마세요")
+    if "/Domain/" in f"/{name}" and "/Tests/" not in f"/{name}":
+        lines = source.splitlines()
+        for index, line in enumerate(lines):
+            if changed_lines is not None and index + 1 not in changed_lines:
+                continue
+            if not re.search(r"\b(?:protocol|struct|class|actor)\s+\w*(?:Repository|UseCase)(?:Interface|Impl)?\b", masked(line)):
+                continue
+            previous = index - 1
+            while previous >= 0 and lines[previous].lstrip().startswith("@"):
+                previous -= 1
+            if previous < 0 or not lines[previous].lstrip().startswith("///"):
+                issues.append(f"{name}:{index + 1}: Repository/UseCase 타입 위에 /// 문서 주석을 쓰세요")
     for match in REDUCER.finditer(code):
         block = code[match.end():closing_brace(code, code.find("{", match.end()))]
         if "case view(View)" in block and "handleViewAction" not in block:
@@ -209,8 +290,8 @@ def check(source: str, name: str, changed_lines: set[int] | None = None) -> list
     return issues
 
 
-def diff_lines(path: str, staged: bool) -> set[int]:
-    command = ["git", "diff", "--cached" if staged else "HEAD", "--unified=0", "--", path]
+def diff_lines(path: str, staged: bool, base: str | None = None) -> set[int]:
+    command = ["git", "diff", "--cached" if staged else base or "HEAD", "--unified=0", "--", path]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode:
         return set()
@@ -225,10 +306,20 @@ def diff_lines(path: str, staged: bool) -> set[int]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("files", nargs="*")
-    parser.add_argument("--staged", action="store_true")
-    parser.add_argument("--stdin-filename")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--staged", action="store_true")
+    mode.add_argument("--stdin-filename")
+    mode.add_argument("--base", help="검사 기준 커밋부터 작업 트리까지 변경된 Swift 줄 검사")
     parser.add_argument("--hook", action="store_true")
     args = parser.parse_args()
+    if args.base:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", "--end-of-options", f"{args.base}^{{commit}}"],
+            capture_output=True, text=True,
+        )
+        if result.returncode:
+            parser.error("--base에 유효한 커밋을 지정하세요")
+        args.base = result.stdout.strip()
     if args.hook:
         event = json.load(sys.stdin)
         tool = event.get("tool_name", "")
@@ -263,7 +354,7 @@ def main() -> int:
                 (f"\n... 외 {len(issues) - 20}건" if len(issues) > 20 else "")}}, ensure_ascii=False))
         return 0
     if args.stdin_filename:
-        items = [(args.stdin_filename, sys.stdin.read())]
+        items = [(args.stdin_filename, sys.stdin.read(), None)]
     else:
         items = []
         if args.staged and not args.files:
@@ -272,6 +363,16 @@ def main() -> int:
                 capture_output=True, text=True,
             )
             args.files = result.stdout.splitlines()
+        if args.base and not args.files:
+            result = subprocess.run(
+                ["git", "diff", args.base, "--name-only", "--diff-filter=ACMR", "-z"],
+                capture_output=True, text=True, check=True,
+            )
+            untracked = subprocess.run(
+                ["git", "ls-files", "--others", "--exclude-standard", "-z"],
+                capture_output=True, text=True, check=True,
+            )
+            args.files = list(dict.fromkeys(filter(None, (result.stdout + untracked.stdout).split("\0"))))
         for file in args.files:
             path = pathlib.Path(file)
             if path.suffix != ".swift":
@@ -282,7 +383,15 @@ def main() -> int:
                     continue
                 items.append((file, result.stdout, diff_lines(file, staged=True)))
             elif path.is_file():
-                items.append((file, path.read_text(), None))
+                lines = None
+                if args.base:
+                    tracked = subprocess.run(
+                        ["git", "ls-files", "--error-unmatch", "--", file],
+                        capture_output=True,
+                    ).returncode == 0
+                    if tracked:
+                        lines = diff_lines(file, staged=False, base=args.base)
+                items.append((file, path.read_text(), lines))
     issues = [issue for name, source, lines in items for issue in check(source, name, lines)]
     if issues:
         print("\n".join(issues), file=sys.stderr)

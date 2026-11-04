@@ -39,7 +39,10 @@ struct FestivalRecentSearchFeatureTests {
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
       $0.festivalRecentSearchStore = FestivalRecentSearchStore(
-        load: { _ in [] }, add: { _, _ in [] }, remove: { _, _ in [] }, clear: { _ in }
+        load: { _ in [] },
+        add: { _, _ in [] },
+        remove: { _, _ in [] },
+        clear: { _ in }
       )
     }
 

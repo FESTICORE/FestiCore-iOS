@@ -12,11 +12,17 @@ struct SQLitePackCacheTests {
     let value = pack(version: 1)
     try PackCache(directory: directory).save(value)
     let database = try testDatabase()
-    let cache = PackCache(directory: directory, database: database)
+    let cache = PackCache(
+      directory: directory,
+      database: database
+    )
 
     #expect(try cache.load(value.festivalID)?.pack == value.pack)
     #expect(FileManager.default.fileExists(atPath: directory.appendingPathComponent("fst_example.json").path))
-    #expect(try PackCache(directory: directory, database: database).loadAll().map(\.festivalID) == [value.festivalID])
+    #expect(try PackCache(
+      directory: directory,
+      database: database
+    ).loadAll().map(\.festivalID) == [value.festivalID])
   }
 
   @Test("삭제한 팩은 이전 JSON에서 다시 나타나지 않는다")
@@ -25,7 +31,10 @@ struct SQLitePackCacheTests {
     let value = pack(version: 1)
     try PackCache(directory: directory).save(value)
     let database = try testDatabase()
-    let cache = PackCache(directory: directory, database: database)
+    let cache = PackCache(
+      directory: directory,
+      database: database
+    )
     try cache.delete(value.festivalID)
 
     #expect(try cache.load(value.festivalID) == nil)
@@ -37,13 +46,22 @@ struct SQLitePackCacheTests {
   func updatesAndMarksChecked() throws {
     let directory = temporaryDirectory()
     let database = try testDatabase()
-    let cache = PackCache(directory: directory, database: database)
+    let cache = PackCache(
+      directory: directory,
+      database: database
+    )
     try cache.save(pack(version: 1))
     try cache.save(pack(version: 2))
     let checkedAt = Date(timeIntervalSince1970: 1_800_000_000)
-    try cache.markChecked("fst_example", at: checkedAt)
+    try cache.markChecked(
+      "fst_example",
+      at: checkedAt
+    )
 
-    let reloaded = try PackCache(directory: directory, database: database).load("fst_example")
+    let reloaded = try PackCache(
+      directory: directory,
+      database: database
+    ).load("fst_example")
     #expect(reloaded?.packVersion == 2)
     #expect(reloaded?.checkedAt == checkedAt)
     #expect(try cache.save(pack(version: 1)).packVersion == 2)
@@ -54,19 +72,28 @@ struct SQLitePackCacheTests {
   func recoversNewerFileThanDatabase() throws {
     let directory = temporaryDirectory()
     let database = try testDatabase()
-    let cache = PackCache(directory: directory, database: database)
+    let cache = PackCache(
+      directory: directory,
+      database: database
+    )
     try cache.save(pack(version: 1))
     try PackCache(directory: directory).save(pack(version: 2))
 
     #expect(try cache.load("fst_example")?.packVersion == 2)
-    #expect(try PackCache(directory: directory, database: database).loadAll().first?.packVersion == 2)
+    #expect(try PackCache(
+      directory: directory,
+      database: database
+    ).loadAll().first?.packVersion == 2)
   }
 
   @Test("손상된 DB 행은 정상 JSON으로 복구하고 양쪽이 손상되면 오류를 드러낸다")
   func validatesChecksumAndSize() throws {
     let directory = temporaryDirectory()
     let database = try testDatabase()
-    let cache = PackCache(directory: directory, database: database)
+    let cache = PackCache(
+      directory: directory,
+      database: database
+    )
     let value = pack(version: 1)
     try cache.save(value)
     try database.write { db in
@@ -80,21 +107,49 @@ struct SQLitePackCacheTests {
     try database.write { db in
       try #sql("UPDATE cachedFestivalPacks SET sha256 = 'invalid' WHERE festivalID = 'fst_example'").execute(db)
     }
+    try Data("corrupted".utf8).write(
+      to: directory.appendingPathComponent("fst_example.json")
+    )
     #expect(throws: PackSyncError.invalidPack) { try cache.load(value.festivalID) }
     #expect(throws: PackSyncError.invalidPack) { try cache.loadAll() }
 
     let oversized = CachedFestivalPack(
-      festivalID: value.festivalID, packVersion: 2, etag: "\"two\"",
-      pack: Data(repeating: 0, count: 8 * 1024 * 1024 + 1)
+      festivalID: value.festivalID,
+      packVersion: 2,
+      etag: "\"two\"",
+      pack: Data(
+        repeating: 0,
+        count: 8 * 1024 * 1024 + 1
+      )
     )
     #expect(throws: PackSyncError.packTooLarge) { try cache.save(oversized) }
+  }
+
+  @Test("DB 행이 없는 손상 JSON은 전체 목록에서도 오류를 드러낸다")
+  func invalidFileWithoutDatabaseRowIsNotHidden() throws {
+    let directory = temporaryDirectory()
+    let database = try testDatabase()
+    let cache = PackCache(
+      directory: directory,
+      database: database
+    )
+    try PackCache(directory: directory).save(pack(version: 1))
+    try Data("corrupted".utf8).write(
+      to: directory.appendingPathComponent("fst_example.json")
+    )
+
+    #expect(throws: PackSyncError.invalidPack) { try cache.load("fst_example") }
+    #expect(throws: PackSyncError.invalidPack) { try cache.loadAll() }
   }
 
   @Test("DB 삭제 실패 시 파일을 되돌리고 재시도 후 두 저장소에서 제거한다")
   func failedDeleteKeepsPackUntilRetry() throws {
     let directory = temporaryDirectory()
     let database = try testDatabase()
-    let cache = PackCache(directory: directory, database: database)
+    let cache = PackCache(
+      directory: directory,
+      database: database
+    )
     let value = pack(version: 1)
     try cache.save(value)
     try database.write { db in
@@ -118,7 +173,9 @@ struct SQLitePackCacheTests {
 
   private func pack(version: Int) -> CachedFestivalPack {
     return CachedFestivalPack(
-      festivalID: "fst_example", packVersion: version, etag: "\"v\(version)\"",
+      festivalID: "fst_example",
+      packVersion: version,
+      etag: "\"v\(version)\"",
       pack: Data("{\"id\":\"fst_example\",\"packVersion\":\(version)}".utf8)
     )
   }
@@ -142,6 +199,9 @@ struct SQLitePackCacheTests {
 
   private func temporaryDirectory() -> URL {
     return FileManager.default.temporaryDirectory
-      .appendingPathComponent("festicore-sqlite-pack-\(UUID().uuidString)", isDirectory: true)
+      .appendingPathComponent(
+        "festicore-sqlite-pack-\(UUID().uuidString)",
+        isDirectory: true
+      )
   }
 }
