@@ -16,7 +16,9 @@ public struct LockScreenSettingsFeature {
   public struct State: Equatable {
     public var isLoading = true
     public var hasLoaded = false
-    public var activityCount = 0
+    public var activities: [FestivalLiveActivityRecord] = []
+    public var isStopping = false
+    public var activityCount: Int { activities.count }
 
     public init() {}
   }
@@ -34,16 +36,19 @@ public struct LockScreenSettingsFeature {
     case onAppear
     case backTapped
     case openSystemSettingsTapped
+    case stopAllTapped
   }
 
   @CasePathable
   public enum AsyncAction: Equatable {
     case loadActivities
+    case stopActivities([String])
   }
 
   @CasePathable
   public enum InnerAction: Equatable {
-    case activitiesLoaded(Int)
+    case activitiesLoaded([FestivalLiveActivityRecord])
+    case activitiesStopped
   }
 
   @CasePathable
@@ -58,6 +63,7 @@ public struct LockScreenSettingsFeature {
     Reduce { state, action in
       switch action {
       case .view(.onAppear):
+        guard !state.isStopping else { return .none }
         if !state.hasLoaded { state.isLoading = true }
         return .send(.async(.loadActivities))
 
@@ -68,18 +74,36 @@ public struct LockScreenSettingsFeature {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return .none }
         return .run { _ in await openURL(url) }
 
+      case .view(.stopAllTapped):
+        guard !state.isStopping, !state.activities.isEmpty else { return .none }
+        state.isStopping = true
+        return .merge(
+          .cancel(id: CancelID.load),
+          .send(.async(.stopActivities(state.activities.map(\.id))))
+        )
+
       case .async(.loadActivities):
         return .run { send in
           let activities = await liveActivityUseCase.activities()
-          await send(.inner(.activitiesLoaded(activities.count)))
+          await send(.inner(.activitiesLoaded(activities)))
         }
         .cancellable(id: CancelID.load, cancelInFlight: true)
 
-      case let .inner(.activitiesLoaded(count)):
-        state.activityCount = count
+      case let .async(.stopActivities(ids)):
+        return .run { send in
+          for id in ids { await liveActivityUseCase.end(activityID: id) }
+          await send(.inner(.activitiesStopped))
+        }
+
+      case let .inner(.activitiesLoaded(activities)):
+        state.activities = activities
         state.hasLoaded = true
         state.isLoading = false
+        state.isStopping = false
         return .none
+
+      case .inner(.activitiesStopped):
+        return .send(.async(.loadActivities))
 
       case .delegate:
         return .none

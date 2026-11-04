@@ -29,6 +29,7 @@ public struct FestivalLiveBoardRouteView: View {
           mySetIDs: store.mySchedule?.setIDs ?? [],
           myScheduleUnavailable: store.myScheduleUnavailable,
           liveActivityState: store.liveActivityState,
+          showsLiveActivityControl: store.showsLiveActivityControl,
           onLiveActivityTap: { send(.liveActivityTapped) },
           onLoginTap: { send(.loginTapped) },
           onNotificationTap: { send(.notificationTapped) },
