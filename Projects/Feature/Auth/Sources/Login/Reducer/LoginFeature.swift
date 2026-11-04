@@ -7,7 +7,7 @@
 
 import AuthDomainInterface
 import ComposableArchitecture
-import LoginInterface
+import AuthInterface
 
 @Reducer
 public struct LoginFeature {
@@ -72,7 +72,7 @@ public struct LoginFeature {
 
   // MARK: - DelegateAction
 
-  /// 이동 계약은 LoginInterface에 있다.
+  /// 이동 계약은 AuthInterface에 있다.
   public typealias DelegateAction = LoginDelegate
 
   @Dependency(\.oauthUseCase) private var oauthUseCase

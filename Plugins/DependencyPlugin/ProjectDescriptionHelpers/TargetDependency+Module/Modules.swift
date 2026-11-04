@@ -9,9 +9,9 @@ import ProjectDescription
 
 public enum FeatureModule: String, CaseIterable {
   case assembly = "FeatureAssembly"
+  case auth = "Auth"
   case bearer = "Bearer"
   case festival = "Festival"
-  case login = "Login"
   case onboarding = "Onboarding"
   case profile = "Profile"
   case timetable = "Timetable"

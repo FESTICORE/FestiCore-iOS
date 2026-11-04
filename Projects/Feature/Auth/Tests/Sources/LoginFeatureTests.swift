@@ -1,6 +1,6 @@
 //
 //  LoginFeatureTests.swift
-//  LoginTests
+//  AuthTests
 //
 //  Created by FestiCore on 10/29/26.
 //
@@ -8,7 +8,7 @@
 import AuthDomainInterface
 import ComposableArchitecture
 import Testing
-@testable import Login
+@testable import Auth
 
 struct LoginFeatureTests {
   @Test @MainActor func signInTapAsksParentWithoutStartingLogin() async {

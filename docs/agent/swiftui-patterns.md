@@ -2,7 +2,7 @@
 
 ## 화면 View
 
-`Projects/Feature/Login/Sources/Login/View/LoginView.swift`가 기준 예시다.
+`Projects/Feature/Auth/Sources/Login/View/LoginView.swift`가 기준 예시다.
 
 ```swift
 @ViewAction(for: LoginFeature.self)

@@ -8,7 +8,7 @@
 @_exported import Bearer
 @_exported import ComposableArchitecture
 @_exported import Festival
-@_exported import Login
+@_exported import Auth
 @_exported import Onboarding
 @_exported import Profile
 @_exported import ServiceAssembly

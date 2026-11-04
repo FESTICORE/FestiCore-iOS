@@ -8,7 +8,7 @@
 import AuthDomainInterface
 import ComposableArchitecture
 import FestiCoreDesignKit
-import LoginInterface
+import AuthInterface
 import SwiftUI
 import UIKit
 import Web
