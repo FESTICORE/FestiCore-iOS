@@ -1282,6 +1282,24 @@ struct AppCoordinatorTests {
     await store.send(.router(.routeAction(id: 1, action: .liveBoard(.view(.liveBoardOnDisappear)))))
   }
 
+  @Test func openingLiveBoardCarriesUncachedSelectedFestivalFromLaterPage() {
+    let items = (1...11).map { FestivalCatalogItem(id: "fst_\($0)", name: "축제 \($0)", packVersion: 0) }
+    for selected in [items[1], items[10]] {
+      var list = FestivalFeature.State()
+      list.catalog = .init(uniqueElements: items)
+      var state = FestivalCoordinator.State()
+      state.routes = [.root(.festivalList(list), embedInNavigationView: true)]
+      _ = FestivalCoordinator().handleRoute(
+        state: &state,
+        action: .router(.routeAction(id: 0, action: .festivalList(.view(.selectFestival(selected.id)))))
+      )
+      let board = state.routes.last?.screen.liveBoard
+      #expect(board?.selectedFestivalID == selected.id)
+      #expect(board?.selectedFestival?.name == selected.name)
+      #expect(board?.cachedPacks.isEmpty == true)
+    }
+  }
+
   @Test func openingLiveBoardCarriesVerifiedBookmarkAccount() {
     var list = FestivalFeature.State()
     list.bookedUserID = "user-a"

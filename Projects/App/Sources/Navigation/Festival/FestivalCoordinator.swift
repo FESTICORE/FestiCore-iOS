@@ -56,8 +56,15 @@ struct FestivalCoordinator {
   func handleRoute(state: inout State, action: Action) -> Effect<Action> {
     switch action {
     case let .router(.routeAction(id: _, action: .festivalList(.view(.selectFestival(festivalID))))):
-      var board = FestivalFeature.State(selectedFestivalID: festivalID)
-      if let list = state.routes.first?.screen.festivalList {
+      let list = state.routes.first?.screen.festivalList
+      var board = FestivalFeature.State(
+        selectedFestivalID: festivalID,
+        selectedCatalogItem: list?.catalog[id: festivalID]
+      )
+      if let list {
+        if let pack = list.cachedPacks[festivalID] {
+          board.cachedPacks[festivalID] = pack
+        }
         board.bookedUserID = list.bookedUserID
         board.hasSession = list.hasSession
         board.sessionUserID = list.sessionUserID

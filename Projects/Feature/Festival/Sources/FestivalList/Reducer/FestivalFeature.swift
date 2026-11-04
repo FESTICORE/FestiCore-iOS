@@ -38,6 +38,8 @@ public struct FestivalFeature {
     public var imageRetryPending = false
     public var packWatchFailed = false
     public var selectedFestivalID: String?
+    /// 목록에서 연 상세 화면의 선택 정보. 디스크 캐시나 첫 페이지에 없어도 유지한다.
+    var selectedCatalogItem: FestivalCatalogItem?
     public var bookedFestivalIDs: Set<String> = []
     public var bookedUserID: String?
     public var recentSearches: [String] = []
@@ -89,12 +91,18 @@ public struct FestivalFeature {
       catalogCacheReadFailed || packCacheReadFailed
     }
 
-    public init(selectedFestivalID: String? = nil) {
+    public init(selectedFestivalID: String? = nil, selectedCatalogItem: FestivalCatalogItem? = nil) {
       self.selectedFestivalID = selectedFestivalID
+      self.selectedCatalogItem = selectedCatalogItem
     }
 
     public var festivals: [FestivalOverview] {
-      var result = catalog.map {
+      var items = catalog
+      if let selectedCatalogItem, selectedCatalogItem.id == selectedFestivalID,
+         items[id: selectedCatalogItem.id] == nil {
+        items.append(selectedCatalogItem)
+      }
+      var result = items.map {
         FestivalOverview(
           item: $0, isCached: cachedPacks[$0.id] != nil, cachedPackVersion: cachedPacks[$0.id]?.packVersion
         )
@@ -524,6 +532,9 @@ extension FestivalFeature {
     case let .selectFestival(id):
       guard state.festivals.contains(where: { $0.id == id }) else { return .none }
       state.selectedFestivalID = id
+      if state.selectedCatalogItem != nil, let item = state.catalog[id: id] {
+        state.selectedCatalogItem = item
+      }
       state.isFollowedFlagGuideHidden = guideVisibilityUseCase.isHidden(for: id)
       state.alert = nil
       state.homeDetails = .idle
@@ -965,6 +976,10 @@ extension FestivalFeature {
       let restartFailedWatch = state.packWatchFailed
       state.packWatchFailed = false
       state.catalog = State.uniqueCatalog(catalog)
+      if state.selectedCatalogItem != nil, let id = state.selectedFestivalID,
+         let item = state.catalog[id: id] {
+        state.selectedCatalogItem = item
+      }
       retryImagesAfterRecovery(in: &state)
       state.catalogCacheReadFailed = false
       if state.selectedFestival == nil, (state.selectedFestivalID == nil || !hasMoreCatalogPages),
