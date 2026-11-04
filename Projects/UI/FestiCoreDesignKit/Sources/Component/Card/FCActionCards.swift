@@ -146,7 +146,10 @@ public struct FCHomeCard: View {
       HStack(spacing: FestiCoreSpacing.paddingP8) {
         Image(asset: .route16)
           .resizable()
-          .frame(width: 16, height: 16)
+          .frame(
+              width: 16,
+              height: 16
+            )
           .accessibilityHidden(true)
         Text(label)
           .festiCoreFont(.baseFootnoteBold)
@@ -282,9 +285,15 @@ public struct FCEmptyCard: View {
         Button(action: closeAction) {
           Image(asset: .xmark16)
             .resizable()
-            .frame(width: 16, height: 16)
+            .frame(
+              width: 16,
+              height: 16
+            )
             .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
-            .frame(width: 44, height: 44)
+            .frame(
+              width: 44,
+              height: 44
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel("안내 닫기")

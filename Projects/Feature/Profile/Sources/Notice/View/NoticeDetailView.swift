@@ -45,7 +45,7 @@ private extension NoticeDetailView {
             Text(detail.title)
               .festiCoreFont(.baseTitle3Bold)
               .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-            Text(detail.publishedAt.formatted(.dottedDay))
+            Text(detail.publishedAt.formatted(.noticeDay))
               .festiCoreFont(.baseCaption1Regular)
               .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
             FestiCoreSemanticColor.lineNormal.color.frame(height: 1)

@@ -26,12 +26,6 @@ public struct NoticeListView: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
     .toolbar(.hidden, for: .navigationBar)
-    .navigationDestination(
-      item: $store.scope(state: \.destination?.detail, action: \.destination.detail)
-    ) { detailStore in
-      NoticeDetailView(store: detailStore)
-        .toolbar(.hidden, for: .navigationBar)
-    }
     .onAppear { send(.onAppear) }
   }
 }
@@ -56,7 +50,7 @@ private extension NoticeListView {
                 .padding(.leading, FestiCoreSpacing.paddingP16)
             }
             FCListRow(notice.title) { send(.noticeTapped(notice.id)) }
-              .value(notice.publishedAt.formatted(.dottedDay))
+              .value(notice.publishedAt.formatted(.noticeDay))
           }
         }
         .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))

@@ -36,7 +36,7 @@ struct FestivalLiveBoardScreenModel {
 
   init(state: FestivalFeature.State) {
     connection = state.connection
-    pack = state.selectedPack
+    pack = state.displayDocument
     liveBoard = state.liveBoard
     liveBoardUnavailable = state.liveBoardUnavailable
     liveBoardUnpublished = state.liveBoardUnpublished
@@ -64,8 +64,14 @@ struct FestivalLiveBoardScreenModel {
           let directions = homeDetails.directions(for: festivalID) else { return nil }
     let shuttleAt = nonempty(directions.lastShuttleAt)
     let trainAt = nonempty(directions.lastTrainAt)
-    let trainDate = trainAt.flatMap { departureDate($0, now: now) }
-    let shuttleDate = shuttleAt.flatMap { departureDate($0, now: now) }
+    let trainDate = trainAt.flatMap { departureDate(
+      $0,
+      now: now
+    ) }
+    let shuttleDate = shuttleAt.flatMap { departureDate(
+      $0,
+      now: now
+    ) }
     let departure: (name: String, date: Date)
     if let trainDate, trainDate > now {
       departure = ("막차", trainDate)
@@ -100,7 +106,10 @@ struct FestivalLiveBoardScreenModel {
     let lastPerformanceDay = entries.last?.slot.startsAt ?? now
     let seenSetCount = entries.filter { entry in
       mySetIDs.contains(entry.slot.id) &&
-        calendar.isDate(entry.slot.startsAt, inSameDayAs: lastPerformanceDay) &&
+        calendar.isDate(
+          entry.slot.startsAt,
+          inSameDayAs: lastPerformanceDay
+        ) &&
         (entry.slot.endsAt ?? entry.slot.startsAt) <= now
     }.count
     return DoneSummary(
@@ -122,9 +131,21 @@ struct FestivalLiveBoardScreenModel {
           let seoulTimeZone = TimeZone(identifier: "Asia/Seoul") else { return nil }
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = seoulTimeZone
-    guard let sameDay = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: now) else { return nil }
-    if sameDay <= now, hour < 6, calendar.component(.hour, from: now) >= 18 {
-      return calendar.date(byAdding: .day, value: 1, to: sameDay)
+    guard let sameDay = calendar.date(
+      bySettingHour: hour,
+      minute: minute,
+      second: 0,
+      of: now
+    ) else { return nil }
+    if sameDay <= now, hour < 6, calendar.component(
+      .hour,
+      from: now
+    ) >= 18 {
+      return calendar.date(
+        byAdding: .day,
+        value: 1,
+        to: sameDay
+      )
     }
     return sameDay
   }

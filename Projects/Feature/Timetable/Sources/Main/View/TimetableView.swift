@@ -29,7 +29,10 @@ public struct TimetableView: View {
         FCSourceLine(store.source)
       }
     }
-    .frame(maxHeight: .infinity, alignment: .top)
+    .frame(
+      maxHeight: .infinity,
+      alignment: .top
+    )
     .background(FestiCoreSemanticColor.backgroundNormal.color)
     .task { await send(.clockStarted).finish() }
     .onDisappear { send(.clockStopped) }
@@ -64,7 +67,11 @@ private extension TimetableView {
       )
       .padding(FestiCoreSpacing.paddingP16)
     case .unpublished:
-      TimetableUnpublishedView(lineup: store.lineup) { send(.notifyTapped) }
+      TimetableUnpublishedView(
+        lineup: store.lineup,
+        notificationStatus: store.notificationStatus,
+        onNotify: { send(.notifyTapped) }
+      )
     case .published:
       if let day = store.selectedDay {
         filter

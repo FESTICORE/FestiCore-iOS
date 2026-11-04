@@ -17,7 +17,8 @@ struct FestivalNotificationInboxRoutingTests {
     }
 
     await store.send(.festival(.router(.routeAction(
-      id: 1, action: .liveBoard(.delegate(.flagTabRequested))
+      id: 1,
+      action: .liveBoard(.delegate(.flagTabRequested))
     ))))
     await store.receive(\.festival)
     await store.receive(\.selectTab) { $0.selectedTab = .flag }
@@ -196,16 +197,24 @@ struct FestivalNotificationInboxRoutingTests {
     #expect(state.shouldReserveTabBarSpace)
 
     let coordinator = FestivalCoordinator()
-    _ = coordinator.handleRoute(state: &state.festivalState, action: .router(.routeAction(
-      id: 1, action: .liveBoard(.delegate(.notificationInboxRequested))
-    )))
+    _ = coordinator.handleRoute(
+      state: &state.festivalState,
+      action: .router(.routeAction(
+        id: 1,
+        action: .liveBoard(.delegate(.notificationInboxRequested))
+      ))
+    )
     #expect(state.isNotificationInboxOnTop)
     #expect(state.shouldHideTabBar)
     #expect(!state.shouldReserveTabBarSpace)
 
-    _ = coordinator.handleRoute(state: &state.festivalState, action: .router(.routeAction(
-      id: 2, action: .notificationInbox(.delegate(.backRequested))
-    )))
+    _ = coordinator.handleRoute(
+      state: &state.festivalState,
+      action: .router(.routeAction(
+        id: 2,
+        action: .notificationInbox(.delegate(.backRequested))
+      ))
+    )
     #expect(!state.isNotificationInboxOnTop)
     #expect(state.festivalState.routes.last?.screen.liveBoard?.selectedFestivalID == "festival")
     #expect(!state.shouldHideTabBar)

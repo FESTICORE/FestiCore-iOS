@@ -1,11 +1,67 @@
 import ComposableArchitecture
 import Foundation
+import FestivalDomainInterface
 import Testing
 import TimetableDomainInterface
 @testable import Timetable
 
 @MainActor
 struct TimetableFeatureTests {
+  @Test func enablingPackNotificationsOnlyChangesPackUpdates() async {
+    let changes = LockIsolated<[[FestivalNotificationKind: Bool]]>([])
+    let store = TestStore(initialState: TimetableFeature.State(
+      days: [],
+      source: ""
+    )) {
+      TimetableFeature()
+    } withDependencies: {
+      $0.festivalNotificationSettingsUseCase = MockFestivalNotificationSettingsUseCase(
+        permission: { .allowed },
+        settings: { FestivalNotificationSettings(packUpdates: false) },
+        updateSettings: { value in
+          changes.withValue { $0.append(value) }
+          return FestivalNotificationSettings(packUpdates: true)
+        }
+      )
+    }
+    await store.send(.view(.enablePackNotifications)) { $0.notificationStatus = .saving }
+    await store.receive(\.async.enablePackNotifications)
+    await store.receive(\.inner.notificationUpdated) { $0.notificationStatus = .enabled }
+    #expect(changes.value == [[.packUpdates: true]])
+  }
+
+  @Test func enabledSubscriptionStillExplainsMissingDevicePermission() async {
+    let store = TestStore(initialState: TimetableFeature.State(
+      days: [],
+      source: ""
+    )) {
+      TimetableFeature()
+    } withDependencies: {
+      $0.festivalNotificationSettingsUseCase = MockFestivalNotificationSettingsUseCase(
+        permission: { .denied },
+        settings: { FestivalNotificationSettings(packUpdates: true) }
+      )
+    }
+    await store.send(.view(.enablePackNotifications)) { $0.notificationStatus = .saving }
+    await store.receive(\.async.enablePackNotifications)
+    await store.receive(\.inner.notificationUpdated) { $0.notificationStatus = .permissionRequired }
+  }
+
+  @Test func setListSearchAndChangesUseActualPerformances() {
+    let days = TimetableFeature.State.sample(variant: .changed).days
+    let search = TimetableSetListFeature.State(
+      mode: .search,
+      days: days,
+      query: "라임"
+    )
+    #expect(search.results.flatMap(\.sets).map(\.id) == ["lime"])
+    let changes = TimetableSetListFeature.State(
+      mode: .changes,
+      days: days
+    )
+    #expect(changes.results.flatMap(\.sets).count == 2)
+  }
+
   @Test func clockRefreshesOnEntryTickAndDayChangeThenCancels() async {
     let clock = TestClock()
     let initial = TimetableFeature.State.sample()
@@ -58,7 +114,10 @@ struct TimetableFeatureTests {
   }
 
   @Test func contentStatusDoesNotInferPublicationFromEmptyLineup() {
-    var state = TimetableFeature.State(days: [], source: "")
+    var state = TimetableFeature.State(
+      days: [],
+      source: ""
+    )
     for status in [TimetableFeature.ContentStatus.loading, .failed, .noFestival, .unpublished] {
       state.contentStatus = status
       #expect(!state.isPublished)
@@ -69,7 +128,10 @@ struct TimetableFeatureTests {
   }
 
   @Test func retryAsksParentToReloadPack() async {
-    let store = TestStore(initialState: TimetableFeature.State(days: [], source: "")) {
+    let store = TestStore(initialState: TimetableFeature.State(
+      days: [],
+      source: ""
+    )) {
       TimetableFeature()
     }
     await store.send(.view(.retryTapped))

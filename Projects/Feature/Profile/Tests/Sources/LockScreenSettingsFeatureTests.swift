@@ -104,7 +104,13 @@ struct LockScreenSettingsFeatureTests {
   @Test func stopAllEndsEachActivityAndRefreshesList() async {
     let now = Date(timeIntervalSince1970: 1_700_000_000)
     let activities = ["one", "two"].map {
-      FestivalLiveActivityRecord(id: $0, festivalID: $0, phase: .ongoing, startDate: now, endDate: nil)
+      FestivalLiveActivityRecord(
+        id: $0,
+        festivalID: $0,
+        phase: .ongoing,
+        startDate: now,
+        endDate: nil
+      )
     }
     let ended = LockIsolated<[String]>([])
     let store = TestStore(initialState: LockScreenSettingsFeature.State()) {

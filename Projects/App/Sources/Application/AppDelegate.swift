@@ -9,11 +9,13 @@ import UIKit
 import ComposableArchitecture
 import CoreAssembly
 import FestiCoreAnalyticsInterface
+import FestiCoreAuthInterface
 import ServiceAssembly
 
 @MainActor
 class AppDelegate: UIResponder, UIApplicationDelegate {
   var secureStorage = StorageAssembly.secureStorage()
+  @Dependency(\.authService) var authService
   @Dependency(\.deviceRegistrationService) var deviceRegistrationService
   @Dependency(\.liveActivityRegistrationService) var liveActivityRegistrationService
   @Dependency(\.analyticsUseCase) var analyticsUseCase
@@ -49,7 +51,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     configurationForConnecting connectingSceneSession: UISceneSession,
     options: UIScene.ConnectionOptions
   ) -> UISceneConfiguration {
-    return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
+    return UISceneConfiguration(
+      name: "Default Configuration",
+      sessionRole: connectingSceneSession.role
+    )
   }
 
   func application(

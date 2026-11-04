@@ -67,7 +67,10 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
     if let session, boundUserID == session.userID {
       lastRegisteredMetadata = metadata
       needsTokenRestoration = false
-      return DeviceAuthorization(deviceID: deviceID, sessionID: session.id)
+      return DeviceAuthorization(
+        deviceID: deviceID,
+        sessionID: session.id
+      )
     }
     guard let token = response.data.deviceAccessToken ?? currentToken, !token.isEmpty else {
       throw DeviceRegistrationError.invalidResponse
@@ -95,13 +98,16 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
     guard let deviceID = try storage.load(.deviceID) else { return nil }
     if let boundUserID = try storage.load(.deviceBoundUserID) {
       guard let session = await userSession(), session.userID == boundUserID else { return nil }
-      return DeviceAuthorization(deviceID: deviceID, sessionID: session.id)
+      return DeviceAuthorization(
+        deviceID: deviceID,
+        sessionID: session.id
+      )
     }
     guard let token = try storage.load(.deviceAccessToken), !token.isEmpty else { return nil }
     return DeviceAuthorization(deviceID: deviceID, bearerToken: token)
   }
 
-  public func bindToCurrentUser() async throws {
+  public func linkDeviceToCurrentUser() async throws {
     guard let session = await userSession() else { throw DeviceRegistrationError.notAuthenticated }
     let deviceID = try await installationDeviceID()
     if let boundUserID = try storage.load(.deviceBoundUserID) {
@@ -115,11 +121,16 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
       throw DeviceRegistrationError.deviceNotRegistered
     }
     let response = try await client.send(DeviceUserBindingRequest(
-      operation: .bind(token), deviceID: deviceID, sessionID: session.id
+      operation: .bind(token),
+      deviceID: deviceID,
+      sessionID: session.id
     ))
     guard response.code == "SUCCESS", response.data.deviceId == deviceID,
           response.data.userId == session.userID else { throw DeviceRegistrationError.invalidResponse }
-    try storage.save(session.userID, for: .deviceBoundUserID)
+    try storage.save(
+      session.userID,
+      for: .deviceBoundUserID
+    )
     try? storage.remove(.deviceUnbindKey)
     try await restorePushTokensIfNeeded()
   }
@@ -132,7 +143,9 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
     let deviceID = try await installationDeviceID()
     let unbindKey = try pendingUnbindKey()
     let response = try await client.send(DeviceUserBindingRequest(
-      operation: .unbind(unbindKey), deviceID: deviceID, sessionID: session.id
+      operation: .unbind(unbindKey),
+      deviceID: deviceID,
+      sessionID: session.id
     ))
     guard response.code == "SUCCESS", response.data.deviceId == deviceID,
           response.data.userId == nil,
@@ -140,7 +153,10 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
       throw DeviceRegistrationError.invalidResponse
     }
     needsTokenRestoration = true
-    try storage.save(token, for: .deviceAccessToken)
+    try storage.save(
+      token,
+      for: .deviceAccessToken
+    )
     try storage.remove(.deviceBoundUserID)
     try storage.remove(.deviceUnbindKey)
   }
@@ -153,7 +169,12 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
     }
     let unbindKey = try pendingUnbindKey()
     let request = DeviceUserBindingRequest(
-      operation: .recover(oldToken, unbindKey), deviceID: deviceID, sessionID: nil
+      operation: .recover(
+        oldToken,
+        unbindKey
+      ),
+      deviceID: deviceID,
+      sessionID: nil
     )
     let response: DeviceUserBindingRequest.Response
     do {
@@ -161,7 +182,12 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
     } catch {
       guard case let .response(failure) = error, failure.isUnauthorized else { throw error }
       response = try await client.send(DeviceUserBindingRequest(
-        operation: .recover(nil, unbindKey), deviceID: deviceID, sessionID: nil
+        operation: .recover(
+          nil,
+          unbindKey
+        ),
+        deviceID: deviceID,
+        sessionID: nil
       ))
     }
     guard response.code == "SUCCESS", response.data.deviceId == deviceID,
@@ -170,7 +196,10 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
       throw DeviceRegistrationError.invalidResponse
     }
     needsTokenRestoration = true
-    try storage.save(token, for: .deviceAccessToken)
+    try storage.save(
+      token,
+      for: .deviceAccessToken
+    )
     try storage.remove(.deviceBoundUserID)
     try storage.remove(.deviceUnbindKey)
   }
@@ -191,7 +220,10 @@ public actor NetworkDeviceRegistrationService: DeviceRegistrationService {
   private func pendingUnbindKey() throws -> String {
     if let pendingKey = try storage.load(.deviceUnbindKey) { return pendingKey }
     let key = UUID().uuidString.lowercased()
-    try storage.save(key, for: .deviceUnbindKey)
+    try storage.save(
+      key,
+      for: .deviceUnbindKey
+    )
     return key
   }
 }
@@ -227,7 +259,10 @@ struct DeviceRegistrationRequest: FestiCoreDataRequest {
 struct DeviceUserBindingRequest: FestiCoreDataRequest {
   typealias Response = BaseResponseDTO<DeviceUserBindingResult>
 
-  enum Operation { case bind(String), unbind(String), recover(String?, String) }
+  enum Operation { case bind(String), unbind(String), recover(
+    String?,
+    String
+  ) }
 
   let operation: Operation
   let deviceID: String
@@ -252,12 +287,27 @@ struct DeviceUserBindingRequest: FestiCoreDataRequest {
     var headers: HTTPHeaders = ["X-Device-Id": deviceID]
     switch operation {
     case let .bind(token):
-      headers.add(name: "X-Device-Access-Token", value: token)
+      headers.add(
+        name: "X-Device-Access-Token",
+        value: token
+      )
     case let .unbind(key):
-      headers.add(name: "X-Device-Unbind-Key", value: key)
-    case let .recover(token, key):
-      headers.add(name: "X-Device-Unbind-Key", value: key)
-      if let token { headers.add(name: "Authorization", value: "Bearer \(token)") }
+      headers.add(
+        name: "X-Device-Unbind-Key",
+        value: key
+      )
+    case let .recover(
+      token,
+      key
+    ):
+      headers.add(
+        name: "X-Device-Unbind-Key",
+        value: key
+      )
+      if let token { headers.add(
+        name: "Authorization",
+        value: "Bearer \(token)"
+      ) }
     }
     return headers
   }

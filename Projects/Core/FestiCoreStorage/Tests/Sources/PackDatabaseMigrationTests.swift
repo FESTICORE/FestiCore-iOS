@@ -20,9 +20,18 @@ struct PackDatabaseMigrationTests {
     try AppDatabaseMigrator.migrate(database)
 
     let counts = try database.read { db in
-      let shared = try #sql("SELECT COUNT(*) FROM sharedValues", as: Int.self).fetchOne(db)
-      let packs = try #sql("SELECT COUNT(*) FROM cachedFestivalPacks", as: Int.self).fetchOne(db)
-      return (shared, packs)
+      let shared = try #sql(
+        "SELECT COUNT(*) FROM sharedValues",
+        as: Int.self
+      ).fetchOne(db)
+      let packs = try #sql(
+        "SELECT COUNT(*) FROM cachedFestivalPacks",
+        as: Int.self
+      ).fetchOne(db)
+      return (
+        shared,
+        packs
+      )
     }
     #expect(counts.0 == 1)
     #expect(counts.1 == 1)

@@ -42,14 +42,21 @@ private struct RootView: View {
   @State private var showNotificationSettingsAlert = false
   @State private var notificationSettingsAlertGate = NotificationSettingsAlertGate()
   @State private var notificationPermissionRefreshGate = NotificationPermissionRefreshGate()
+  @State private var pendingWidgetRoute: WidgetDeepLink?
 
   var body: some View {
     AppCoordinatorView(store: store)
       .preferredColorScheme(.dark)
       .onOpenURL { url in
-        FeatureOAuthURLHandler.handle(url)
+        if let route = WidgetDeepLink(url: url) {
+          pendingWidgetRoute = route
+          openPendingWidgetRouteIfReady()
+        } else {
+          FeatureOAuthURLHandler.handle(url)
+        }
       }
       .onChange(of: store.state.animationID) { _, _ in
+        openPendingWidgetRouteIfReady()
         Task { await refreshNotificationPermission() }
       }
       .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
@@ -69,6 +76,12 @@ private struct RootView: View {
 }
 
 private extension RootView {
+  func openPendingWidgetRouteIfReady() {
+    guard store.state.animationID == "home", let route = pendingWidgetRoute else { return }
+    pendingWidgetRoute = nil
+    store.send(.view(.openWidgetRoute(route)))
+  }
+
   func refreshNotificationPermission() async {
     guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
           notificationPermissionRefreshGate.beginIfNeeded(

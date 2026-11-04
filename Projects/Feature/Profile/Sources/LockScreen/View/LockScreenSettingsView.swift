@@ -25,7 +25,7 @@ public struct LockScreenSettingsView: View {
         VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
           activityStatus
           if !store.activities.isEmpty {
-            activeActivities
+            activeActivities()
             FCButton("모두 끄기") { send(.stopAllTapped) }
               .style(.secondary)
               .size(.medium)
@@ -52,9 +52,16 @@ public struct LockScreenSettingsView: View {
 }
 
 private extension LockScreenSettingsView {
-  var activeActivities: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
-      ForEach(store.activities, id: \.id) { activity in
+  @ViewBuilder
+  func activeActivities() -> some View {
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP12
+    ) {
+      ForEach(
+        store.activities,
+        id: \.id
+      ) { activity in
         Text("축제 ID: \(activity.festivalID)")
           .festiCoreFont(.baseBodyRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)

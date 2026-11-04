@@ -187,8 +187,14 @@ extension ProfileFeature {
       state.destination = .packDetail(.init(festivalID: pack.id, title: pack.name))
       return .none
 
-    case let .openPackDirections(festivalID, title):
-      state.destination = .packDetail(.init(festivalID: festivalID, title: title))
+    case let .openPackDirections(
+      festivalID,
+      title
+    ):
+      state.destination = .packDetail(.init(
+        festivalID: festivalID,
+        title: title
+      ))
       return .none
 
     case .notificationsTapped:

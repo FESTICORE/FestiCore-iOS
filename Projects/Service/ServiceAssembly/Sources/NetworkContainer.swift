@@ -51,7 +51,10 @@ public enum NetworkContainer {
       userSession: {
         guard let id = await auth.authenticatedSessionID,
               let userID = await auth.currentUserID else { return nil }
-        return DeviceUserSession(id: id, userID: userID)
+        return DeviceUserSession(
+          id: id,
+          userID: userID
+        )
       }
     )
     return Assembly(

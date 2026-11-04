@@ -8,6 +8,7 @@ enum FestivalPackTimetableMapper {
   /// `imageURL`은 팩의 상대 사진 경로를 서버 주소로 바꾼다.
   static func days(
     from pack: FestivalPackDocument,
+    previousDays: [TimetableDay] = [],
     imageURL: (String?) -> URL? = { _ in nil }
   ) -> [TimetableDay] {
     let calendar = AppDateFormat.calendar
@@ -17,6 +18,21 @@ enum FestivalPackTimetableMapper {
             let endsAt = parseDate(performance.endsAt),
             endsAt > startsAt else { return nil }
       return (startsAt, endsAt, performance)
+    }
+
+    if pack.performances.isEmpty {
+      return (pack.days ?? []).compactMap { day in
+        guard let value = day.date ?? day.startsAt,
+              let date = value.date(as: .day) ?? parseDate(value) else { return nil }
+        let start = calendar.startOfDay(for: date)
+        return TimetableDay(
+          id: start.formatted(.day),
+          title: start.formatted(.festivalDay),
+          date: start,
+          stages: [],
+          sets: []
+        )
+      }
     }
 
     let grouped = Dictionary(grouping: performances) { item in
@@ -30,12 +46,15 @@ enum FestivalPackTimetableMapper {
         result.append(.init(id: stageID, name: entry.2.stageName ?? "무대 미정"))
       }
       let sets = entries.map { start, end, performance in
-        TimetableSet(
+        let previous = previousDays.first(where: { $0.date == dayStart })?.sets.first { $0.id == performance.id }
+        let minute = Int(start.timeIntervalSince(dayStart) / 60)
+        return TimetableSet(
           id: performance.id,
           artist: performance.artist ?? "출연진 미정",
           stageID: performance.stageId ?? performance.stageName ?? "stage-unassigned",
           start: Int(start.timeIntervalSince(dayStart) / 60),
           end: Int(end.timeIntervalSince(dayStart) / 60),
+          previousStart: previous.map { $0.start == minute ? $0.previousStart : $0.start } ?? nil,
           imageURL: imageURL(performance.imageUrl)
         )
       }
@@ -49,7 +68,23 @@ enum FestivalPackTimetableMapper {
     }
   }
 
+  static func lineup(from pack: FestivalPackDocument) -> [TimetableLineupDay] {
+    let names = (pack.artists ?? []).map(\.name).filter { !$0.isEmpty }
+    guard !names.isEmpty else { return [] }
+    return [TimetableLineupDay(
+      id: pack.id,
+      title: "공개된 라인업",
+      artists: names
+    )]
+  }
+
+  static func source(_ source: FestivalPackDocument.Source?) -> String {
+    guard let name = source?.name, !name.isEmpty else { return "" }
+    guard let verifiedAt = source?.verifiedAt?.isoDate else { return "출처: \(name)" }
+    return "출처: \(name) · 확인 \(verifiedAt.formatted(.monthDayTime))"
+  }
+
   private static func parseDate(_ value: String?) -> Date? {
-    value?.isoDate
+    return value?.isoDate
   }
 }

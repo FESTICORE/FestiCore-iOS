@@ -20,16 +20,25 @@ extension FestivalFeature {
     return .run { send in
       do {
         let count = try await userNotificationUseCase.unreadCount()
-        await send(.inner(.notificationUnreadCountLoaded(count, generation: generation)))
+        await send(.inner(.notificationUnreadCountLoaded(
+          count,
+          generation: generation
+        )))
         if count > 0 {
           let page = try await userNotificationUseCase.notifications(before: nil)
           let latest = page.items.filter { $0.readAt == nil }.max { $0.createdAt < $1.createdAt }
-          await send(.inner(.notificationBannerLoaded(latest, generation: generation)))
+          await send(.inner(.notificationBannerLoaded(
+            latest,
+            generation: generation
+          )))
         }
       } catch {
         // 연결 실패는 마지막으로 확인된 배지 상태를 유지한다.
       }
     }
-    .cancellable(id: CancelID.notificationUnreadCount, cancelInFlight: true)
+    .cancellable(
+      id: CancelID.notificationUnreadCount,
+      cancelInFlight: true
+    )
   }
 }

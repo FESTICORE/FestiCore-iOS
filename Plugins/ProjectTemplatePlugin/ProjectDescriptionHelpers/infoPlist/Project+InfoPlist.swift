@@ -19,14 +19,23 @@ public extension InfoPlist {
       .setFestiCoreAPIHost("$(FESTICORE_API_HOST)")
       .set("GIDClientID", .string("$(GOOGLE_IOS_CLIENT_ID)"))
       .set("GIDServerClientID", .string("$(GOOGLE_CLIENT_ID)"))
-      .set("CFBundleURLTypes", .array([
-        .dictionary([
-          "CFBundleURLName": .string("google-oauth"),
-          "CFBundleURLSchemes": .array([
-            .string("$(REVERSED_CLIENT_ID)")
+      .set(
+        "CFBundleURLTypes",
+        .array([
+          .dictionary([
+            "CFBundleURLName": .string("google-oauth"),
+            "CFBundleURLSchemes": .array([
+              .string("$(REVERSED_CLIENT_ID)")
+            ])
+          ]),
+          .dictionary([
+            "CFBundleURLName": .string("festicore-widget"),
+            "CFBundleURLSchemes": .array([
+              .string("festicore")
+            ])
           ])
         ])
-      ]))
+      )
       .setFestiCoreMixpanelToken("$(FESTICORE_MIXPANEL_TOKEN)")
       .setFestiCoreSentryDSN("$(FESTICORE_SENTRY_DSN)")
       .set("NSSupportsLiveActivities", .boolean(true))

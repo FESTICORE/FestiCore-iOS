@@ -147,7 +147,16 @@ extension AppDelegate {
         _ = try await deviceRegistrationService.register(metadata)
         deviceRegistration.lastMetadata = metadata
         // 앱 재시작 때 복원된 세션도 익명 기기를 소유 계정에 연결한다.
-        try? await deviceRegistrationService.bindToCurrentUser()
+        if await authService.isLoggedIn {
+          do {
+            try await deviceRegistrationService.linkDeviceToCurrentUser()
+          } catch {
+            FestiCoreLogger.error(
+              "기기 등록 후 계정 바인딩 실패",
+              category: .app
+            )
+          }
+        }
       } catch {
         FestiCoreLogger.error("기기 등록 실패: \(error.localizedDescription)", category: .app)
       }

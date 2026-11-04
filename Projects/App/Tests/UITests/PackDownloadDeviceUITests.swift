@@ -17,14 +17,26 @@ final class PackDownloadDeviceUITests: XCTestCase {
       notificationDeny.tap()
     }
 
-    let card = app.images.matching(
-      NSPredicate(format: "identifier BEGINSWITH %@", "festivalCard_")
+    let card = app.descendants(matching: .any).matching(
+      NSPredicate(
+        format: "identifier BEGINSWITH %@",
+        "festival.card."
+      )
     ).firstMatch
-    XCTAssertTrue(card.waitForExistence(timeout: 30), app.debugDescription)
+    XCTAssertTrue(
+      card.waitForExistence(timeout: 30),
+      app.debugDescription
+    )
     card.tap()
 
-    XCTAssertTrue(app.buttons["라이브"].waitForExistence(timeout: 10), app.debugDescription)
-    XCTAssertTrue(app.buttons["마이"].exists, app.debugDescription)
+    XCTAssertTrue(
+      app.buttons["라이브"].waitForExistence(timeout: 10),
+      app.debugDescription
+    )
+    XCTAssertTrue(
+      app.buttons["마이"].exists,
+      app.debugDescription
+    )
     attachScreenshot(name: "축제 상세 탭바")
   }
 
@@ -45,18 +57,28 @@ final class PackDownloadDeviceUITests: XCTestCase {
 
     XCTAssertTrue(app.staticTexts["페스티벌"].firstMatch.waitForExistence(timeout: 30))
     let download = app.buttons.matching(
-      NSPredicate(format: "label == %@ OR label == %@", "팩 받기", "팩 업데이트")
+      NSPredicate(
+        format: "label == %@ OR label == %@",
+        "팩 받기",
+        "팩 업데이트"
+      )
     ).firstMatch
     for _ in 0..<20 {
       if download.exists { break }
       app.swipeUp()
     }
-    XCTAssertTrue(download.waitForExistence(timeout: 10), app.debugDescription)
+    XCTAssertTrue(
+      download.waitForExistence(timeout: 10),
+      app.debugDescription
+    )
     attachScreenshot(name: "팩 받기 전")
 
     download.tap()
     let received = app.staticTexts["팩 받음 · 최신 버전"].firstMatch
-    XCTAssertTrue(received.waitForExistence(timeout: 90), app.debugDescription)
+    XCTAssertTrue(
+      received.waitForExistence(timeout: 90),
+      app.debugDescription
+    )
     attachScreenshot(name: "팩 받기 완료")
   }
 

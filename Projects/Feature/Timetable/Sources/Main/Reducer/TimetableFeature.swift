@@ -43,7 +43,12 @@ public struct TimetableFeature {
     case published
   }
 
+  public enum NotificationStatus: Equatable, Sendable {
+    case idle, saving, enabled, permissionRequired, failed
+  }
+
   enum CancelID {
+    case notification
     case clock
     case load
     case save
@@ -51,6 +56,7 @@ public struct TimetableFeature {
 
   @ObservableState
   public struct State: Equatable {
+    public var notificationStatus: NotificationStatus = .idle
     public var contentStatus: ContentStatus = .published
     public var days: [TimetableDay]
     /// 공개 전 상태에서 표시하는 날짜별 라인업.
@@ -221,6 +227,7 @@ public struct TimetableFeature {
     case zoomChanged(Double)
     case changeBannerTapped
     case searchTapped
+    case enablePackNotifications
     case notifyTapped
     case schedulePickTapped
     /// 부모가 선택한 축제를 알린다. 팩이 없으면 nil이다.
@@ -237,6 +244,7 @@ public struct TimetableFeature {
 
   @CasePathable
   public enum AsyncAction {
+    case enablePackNotifications
     case observeClock
     /// 서버 일정을 읽는다.
     case fetchSchedule(festivalID: String, requestID: Int)
@@ -248,6 +256,7 @@ public struct TimetableFeature {
 
   @CasePathable
   public enum InnerAction {
+    case notificationUpdated(NotificationStatus)
     case clockUpdated(Date)
     case scheduleLoaded(festivalID: String, requestID: Int, Result<FestivalSchedule, FestivalScheduleError>)
     case scheduleSaved(festivalID: String, ScheduleSave, Result<FestivalSchedule, FestivalScheduleError>)
@@ -261,6 +270,7 @@ public struct TimetableFeature {
   }
 
   @Dependency(\.festivalScheduleUseCase) var scheduleUseCase
+  @Dependency(\.festivalNotificationSettingsUseCase) var notificationSettingsUseCase
   @Dependency(\.date) var date
   @Dependency(\.continuousClock) var clock
 
@@ -363,6 +373,11 @@ extension TimetableFeature {
     case .searchTapped:
       return .send(.delegate(.search))
 
+    case .enablePackNotifications:
+      guard state.notificationStatus != .saving else { return .none }
+      state.notificationStatus = .saving
+      return .send(.async(.enablePackNotifications))
+
     case .notifyTapped:
       return .send(.delegate(.requestNotification))
 
@@ -411,7 +426,10 @@ extension TimetableFeature {
       return
     }
     let minute = Int(floor(date.timeIntervalSince(day.date) / 60))
-    let end = max(1440, day.sets.map(\.end).max() ?? 1440)
+    let end = max(
+      1440,
+      day.sets.map(\.end).max() ?? 1440
+    )
     state.nowMinute = (0..<end).contains(minute) ? minute : nil
   }
 
@@ -420,13 +438,34 @@ extension TimetableFeature {
     action: AsyncAction
   ) -> Effect<Action> {
     switch action {
+    case .enablePackNotifications:
+      return .run { [notificationSettingsUseCase] send in
+        do {
+          let settings = try await notificationSettingsUseCase.settings()
+          if !settings.packUpdates {
+            _ = try await notificationSettingsUseCase.updateSettings([.packUpdates: true])
+          }
+          let permission = await notificationSettingsUseCase.permission()
+          await send(.inner(.notificationUpdated(permission == .allowed ? .enabled : .permissionRequired)))
+        } catch {
+          await send(.inner(.notificationUpdated(.failed)))
+        }
+      }
+      .cancellable(
+        id: CancelID.notification,
+        cancelInFlight: true
+      )
+
     case .observeClock:
       return .run { [clock, date = self.date] send in
         for await _ in clock.timer(interval: .seconds(1)) {
           await send(.inner(.clockUpdated(date.now)))
         }
       }
-      .cancellable(id: CancelID.clock, cancelInFlight: true)
+      .cancellable(
+        id: CancelID.clock,
+        cancelInFlight: true
+      )
 
     case let .fetchSchedule(festivalID, requestID):
       return .run { [scheduleUseCase] send in
@@ -463,6 +502,10 @@ extension TimetableFeature {
     action: InnerAction
   ) -> Effect<Action> {
     switch action {
+    case let .notificationUpdated(status):
+      state.notificationStatus = status
+      return .none
+
     case let .clockUpdated(date):
       updateClock(
           state: &state,

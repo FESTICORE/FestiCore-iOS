@@ -35,6 +35,7 @@ public struct FCTopBar: View {
   private(set) var backAction: (() -> Void)?
   private(set) var trailing: TrailingAction?
   private(set) var showsBadge = false
+  private(set) var badgeCount: Int?
   private(set) var bearerTitle = "기수"
   private(set) var bearerAction: (() -> Void)?
   private(set) var cancelAction: (() -> Void)?
@@ -67,8 +68,14 @@ extension FCTopBar {
         Spacer(minLength: .zero)
         trailingButton
       }
-      .padding(.leading, FestiCoreSpacing.paddingP20)
-      .padding(.trailing, FestiCoreSpacing.paddingP8)
+      .padding(
+        .leading,
+        FestiCoreSpacing.paddingP20
+      )
+      .padding(
+        .trailing,
+        FestiCoreSpacing.paddingP8
+      )
 
     case .back, .backOnImage:
       HStack(spacing: FestiCoreSpacing.paddingP16) {
@@ -81,7 +88,10 @@ extension FCTopBar {
           .accessibilityAddTraits(.isHeader)
         trailingButton
       }
-      .padding(.horizontal, FestiCoreSpacing.paddingP8)
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP8
+      )
 
     case .large:
       HStack(spacing: FestiCoreSpacing.paddingP16) {
@@ -89,16 +99,28 @@ extension FCTopBar {
           .festiCoreFont(.baseTitle1Bold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .lineLimit(1)
-          .frame(maxWidth: .infinity, alignment: .leading)
+          .frame(
+            maxWidth: .infinity,
+            alignment: .leading
+          )
           .accessibilityAddTraits(.isHeader)
         trailingButton
       }
-      .padding(.leading, FestiCoreSpacing.paddingP20)
-      .padding(.trailing, FestiCoreSpacing.paddingP8)
+      .padding(
+        .leading,
+        FestiCoreSpacing.paddingP20
+      )
+      .padding(
+        .trailing,
+        FestiCoreSpacing.paddingP8
+      )
 
     case let .search(text):
       HStack(spacing: FestiCoreSpacing.paddingP12) {
-        SearchField(text: text, placeholder: searchPlaceholder)
+        SearchField(
+          text: text,
+          placeholder: searchPlaceholder
+        )
         if let cancelAction {
           Button(action: cancelAction) {
             Text("취소")
@@ -108,7 +130,10 @@ extension FCTopBar {
           .buttonStyle(.plain)
         }
       }
-      .padding(.horizontal, FestiCoreSpacing.paddingP16)
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP16
+      )
 
     case .logoBearer:
       HStack(spacing: .zero) {
@@ -119,8 +144,14 @@ extension FCTopBar {
           trailingButton
         }
       }
-      .padding(.leading, FestiCoreSpacing.paddingP20)
-      .padding(.trailing, FestiCoreSpacing.paddingP8)
+      .padding(
+        .leading,
+        FestiCoreSpacing.paddingP20
+      )
+      .padding(
+        .trailing,
+        FestiCoreSpacing.paddingP8
+      )
     }
   }
 
@@ -128,7 +159,10 @@ extension FCTopBar {
     Image(asset: .logo)
       .resizable()
       .scaledToFit()
-      .frame(width: Metric.logoWidth, height: Metric.logoHeight)
+      .frame(
+        width: Metric.logoWidth,
+        height: Metric.logoHeight
+      )
       .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       .accessibilityLabel("FESTICORE")
   }
@@ -136,30 +170,73 @@ extension FCTopBar {
   @ViewBuilder
   private var backButton: some View {
     if let backAction {
-      IconButton(icon: .chevronLeft, iconSize: Metric.backIconSize, color: foregroundColor, action: backAction)
+      IconButton(
+        icon: .chevronLeft,
+        iconSize: Metric.backIconSize,
+        color: foregroundColor,
+        action: backAction
+      )
         .accessibilityLabel("뒤로")
     } else if keepsTitleCentered {
-      Color.clear.frame(width: Metric.touchSize, height: Metric.touchSize)
+      Color.clear.frame(
+        width: Metric.touchSize,
+        height: Metric.touchSize
+      )
     }
   }
 
   @ViewBuilder
   private var trailingButton: some View {
     if showsTrailing, let trailing {
-      IconButton(icon: trailing.icon, iconSize: Metric.iconSize, color: foregroundColor, action: trailing.action)
+      IconButton(
+        icon: trailing.icon,
+        iconSize: Metric.iconSize,
+        color: foregroundColor,
+        action: trailing.action
+      )
         .overlay(alignment: .topTrailing) {
-          if showsBadge {
+          if let badgeCount, badgeCount > 0 {
+            Text(badgeCount > 99 ? "99+" : "\(badgeCount)")
+              .festiCoreFont(.baseCaption2Bold)
+              .foregroundStyle(FestiCoreSemanticColor.staticWhite.color)
+              .padding(
+                .horizontal,
+                3
+              )
+              .frame(
+                minWidth: 16,
+                minHeight: 16
+              )
+              .background(
+                FestiCoreSemanticColor.statusNegative.color,
+                in: Capsule()
+              )
+              .offset(
+                x: -4,
+                y: 4
+              )
+              .accessibilityHidden(true)
+          } else if badgeCount == nil, showsBadge {
             Circle()
               .fill(FestiCoreSemanticColor.statusNegative.color)
-              .frame(width: Metric.badgeSize, height: Metric.badgeSize)
-              .offset(x: -Metric.badgeInset, y: Metric.badgeInset)
+              .frame(
+                width: Metric.badgeSize,
+                height: Metric.badgeSize
+              )
+              .offset(
+                x: -Metric.badgeInset,
+                y: Metric.badgeInset
+              )
               .accessibilityHidden(true)
           }
         }
         .accessibilityLabel(trailing.accessibilityLabel)
-        .accessibilityValue(showsBadge ? "새 소식 있음" : "")
+        .accessibilityValue(badgeCount.map { $0 > 0 ? "읽지 않은 알림 \($0)개" : "" } ?? (showsBadge ? "새 소식 있음" : ""))
     } else if keepsTitleCentered {
-      Color.clear.frame(width: Metric.touchSize, height: Metric.touchSize)
+      Color.clear.frame(
+        width: Metric.touchSize,
+        height: Metric.touchSize
+      )
     }
   }
 
@@ -170,14 +247,23 @@ extension FCTopBar {
         HStack(spacing: FestiCoreSpacing.paddingP4) {
           Image(asset: .flag16)
             .resizable()
-            .frame(width: Metric.smallIconSize, height: Metric.smallIconSize)
+            .frame(
+              width: Metric.smallIconSize,
+              height: Metric.smallIconSize
+            )
           Text(bearerTitle)
             .festiCoreFont(.baseFootnoteBold)
         }
         .foregroundStyle(FestiCoreSemanticColor.accentForegroundPurple.color)
-        .padding(.horizontal, FestiCoreSpacing.paddingP12)
+        .padding(
+          .horizontal,
+          FestiCoreSpacing.paddingP12
+        )
         .frame(height: Metric.bearerHeight)
-        .background(FestiCoreSemanticColor.accentBackgroundPurple.color, in: Capsule())
+        .background(
+          FestiCoreSemanticColor.accentBackgroundPurple.color,
+          in: Capsule()
+        )
       }
       .buttonStyle(.plain)
     }
@@ -189,7 +275,10 @@ extension FCTopBar {
     case .backOnImage:
       Rectangle()
         .fill(.ultraThinMaterial)
-        .environment(\.colorScheme, .dark)
+        .environment(
+          \.colorScheme,
+          .dark
+        )
         .overlay(FestiCoreSemanticColor.staticalphaBlack20.color)
     case .large, .search:
       FestiCoreSemanticColor.backgroundNormal.color
@@ -222,8 +311,14 @@ extension FCTopBar {
 
   var defaultTrailingIcon: (asset: ImageAsset, label: String) {
     switch style {
-    case .logo, .logoBearer: return (.bell, "알림")
-    default: return (.magnifyingGlass, "검색")
+    case .logo, .logoBearer: return (
+      .bell,
+      "알림"
+    )
+    default: return (
+      .magnifyingGlass,
+      "검색"
+    )
     }
   }
 
@@ -248,7 +343,11 @@ public extension FCTopBar {
   /// 스타일 기본 아이콘(logo 계열은 알림, back 계열은 검색)으로 trailing 버튼을 지정한 사본을 돌려준다.
   func trailingAction(_ action: @escaping () -> Void) -> Self {
     let icon = defaultTrailingIcon
-    return trailingAction(icon: icon.asset, accessibilityLabel: icon.label, action: action)
+    return trailingAction(
+      icon: icon.asset,
+      accessibilityLabel: icon.label,
+      action: action
+    )
   }
 
   /// trailing 버튼의 아이콘과 action을 지정한 사본을 돌려준다.
@@ -258,7 +357,11 @@ public extension FCTopBar {
     action: @escaping () -> Void
   ) -> Self {
     var copy = self
-    copy.trailing = TrailingAction(icon: icon, accessibilityLabel: accessibilityLabel, action: action)
+    copy.trailing = TrailingAction(
+      icon: icon,
+      accessibilityLabel: accessibilityLabel,
+      action: action
+    )
     return copy
   }
 
@@ -266,6 +369,16 @@ public extension FCTopBar {
   func showsBadge(_ isShown: Bool) -> Self {
     var copy = self
     copy.showsBadge = isShown
+    return copy
+  }
+
+  /// 미읽음 개수를 표시한다. 0 이하는 숨기며 nil이면 기존 점 배지를 사용한다.
+  func badgeCount(_ count: Int?) -> Self {
+    var copy = self
+    copy.badgeCount = count.map { max(
+      0,
+      $0
+    ) }
     return copy
   }
 
@@ -321,9 +434,15 @@ private extension FCTopBar {
       Button(action: action) {
         Image(asset: icon)
           .resizable()
-          .frame(width: iconSize, height: iconSize)
+          .frame(
+            width: iconSize,
+            height: iconSize
+          )
           .foregroundStyle(color.color)
-          .frame(width: Metric.touchSize, height: Metric.touchSize)
+          .frame(
+            width: Metric.touchSize,
+            height: Metric.touchSize
+          )
           .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
@@ -338,10 +457,16 @@ private extension FCTopBar {
       HStack(spacing: FestiCoreSpacing.paddingP8) {
         Image(asset: .magnifyingGlass16)
           .resizable()
-          .frame(width: Metric.smallIconSize, height: Metric.smallIconSize)
+          .frame(
+            width: Metric.smallIconSize,
+            height: Metric.smallIconSize
+          )
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
           .accessibilityHidden(true)
-        TextField(placeholder, text: $text)
+        TextField(
+          placeholder,
+          text: $text
+        )
           .festiCoreFont(.baseCalloutRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .submitLabel(.search)
@@ -351,14 +476,20 @@ private extension FCTopBar {
           } label: {
             Image(asset: .circleXmark)
               .resizable()
-              .frame(width: Metric.smallIconSize, height: Metric.smallIconSize)
+              .frame(
+                width: Metric.smallIconSize,
+                height: Metric.smallIconSize
+              )
               .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
           }
           .buttonStyle(.plain)
           .accessibilityLabel("검색어 지우기")
         }
       }
-      .padding(.horizontal, FestiCoreSpacing.paddingP12)
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP12
+      )
       .frame(height: Metric.searchHeight)
       .background(
         FestiCoreSemanticColor.fillNormal.color,

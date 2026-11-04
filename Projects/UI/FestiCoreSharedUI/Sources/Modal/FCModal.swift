@@ -23,7 +23,7 @@ public extension View {
     showsGrabber: Bool = true,
     @ViewBuilder content: @escaping (Store<State, Action>) -> some View
   ) -> some View {
-    presentFCSheet(
+    fcModal(
       item: Binding(
         get: { store.wrappedValue.map(FCModalItem.init) },
         set: { if $0 == nil { store.wrappedValue = nil } }
@@ -46,7 +46,7 @@ public extension View {
     @ViewBuilder content: @escaping (Store<State, Action>) -> some View,
     @ViewBuilder accessory: @escaping (Store<State, Action>) -> some View
   ) -> some View {
-    presentFCSheet(
+    fcModal(
       item: Binding(
         get: { store.wrappedValue.map(FCModalItem.init) },
         set: { if $0 == nil { store.wrappedValue = nil } }

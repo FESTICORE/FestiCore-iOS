@@ -6,11 +6,13 @@
 //
 
 import ComposableArchitecture
+import Foundation
 
 @CasePathable
 public enum SignUpDelegate: Equatable, Sendable {
   case submitRequested(SignUpSubmission)
   case closeRequested
+  case legalDocumentRequested(url: URL, title: String)
 }
 
 /// 가입 시트에서 제출한 값. 닉네임은 앞뒤 공백을 지운 값이다.

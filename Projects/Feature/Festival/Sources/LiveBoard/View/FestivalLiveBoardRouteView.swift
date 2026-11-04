@@ -18,7 +18,10 @@ public struct FestivalLiveBoardRouteView: View {
         FestivalLiveBoardScreen(store: store)
       } else {
         VStack(spacing: .zero) {
-          FCTopBar(.back, title: "라이브 보드")
+          FCTopBar(
+            .back,
+            title: "라이브 보드"
+          )
             .onBack { send(.backToFestivalList) }
           Group {
             if store.viewState == .loading {
@@ -33,29 +36,55 @@ public struct FestivalLiveBoardRouteView: View {
           }
           .padding(FestiCoreSpacing.paddingP16)
         }
-          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+          .frame(
+            maxWidth: .infinity,
+            maxHeight: .infinity,
+            alignment: .top
+          )
           .background(FestiCoreSemanticColor.backgroundNormal.color)
       }
     }
-    .overlay(alignment: .bottom) {
+    .overlay(alignment: .top) {
       if let toast = store.toast {
-        FestivalToastView(toast: toast, revision: store.toastRevision)
+        FestivalToastView(
+          toast: toast,
+          revision: store.toastRevision
+        )
       }
     }
-    .animation(.easeOut(duration: 0.2), value: store.toastRevision)
-    .animation(.easeOut(duration: 0.2), value: store.toast)
-    .fcModal($store.scope(state: \.festivalSwitcher, action: \.festivalSwitcher)) { switcherStore in
+    .animation(
+      .easeOut(duration: 0.2),
+      value: store.toastRevision
+    )
+    .animation(
+      .easeOut(duration: 0.2),
+      value: store.toast
+    )
+    .fcModal($store.scope(
+      state: \.festivalSwitcher,
+      action: \.festivalSwitcher
+    )) { switcherStore in
       FestivalSwitcherView(store: switcherStore)
     }
-    .fcModal($store.scope(state: \.crewCreate, action: \.crewCreate)) { crewStore in
+    .fcModal($store.scope(
+      state: \.crewCreate,
+      action: \.crewCreate
+    )) { crewStore in
       FestivalCrewCreateView(store: crewStore)
     }
-    .fcAlert($store.scope(state: \.alert, action: \.alert))
-    .fcAlert($store.scope(state: \.followGuideAlert, action: \.followGuideAlert))
+    .fcAlert($store.scope(
+      state: \.alert,
+      action: \.alert
+    ))
+    .fcAlert($store.scope(
+      state: \.followGuideAlert,
+      action: \.followGuideAlert
+    ))
     .task {
       send(.onAppear)
       send(.liveActivityOnAppear)
       send(.liveBoardOnAppear)
+      send(.onlineDetailOnAppear)
     }
     .onDisappear { send(.liveBoardOnDisappear) }
     .onChange(of: scenePhase) { _, phase in

@@ -15,7 +15,10 @@ public struct FestivalView: View {
     return festivalList
     .overlay(alignment: .top) { toast }
     .background(FestiCoreSemanticColor.backgroundNormal.color)
-    .toolbar(.hidden, for: .navigationBar)
+    .toolbar(
+      .hidden,
+      for: .navigationBar
+    )
     .task {
       send(.onAppear)
       send(.liveActivityOnAppear)
@@ -36,11 +39,20 @@ private extension FestivalView {
   var toast: some View {
     return ZStack {
       if let toast = store.toast {
-        FestivalToastView(toast: toast, revision: store.toastRevision)
+        FestivalToastView(
+          toast: toast,
+          revision: store.toastRevision
+        )
       }
     }
-    .animation(.easeOut(duration: 0.2), value: store.toastRevision)
-    .animation(.easeOut(duration: 0.2), value: store.toast)
+    .animation(
+      .easeOut(duration: 0.2),
+      value: store.toastRevision
+    )
+    .animation(
+      .easeOut(duration: 0.2),
+      value: store.toast
+    )
   }
 
 }

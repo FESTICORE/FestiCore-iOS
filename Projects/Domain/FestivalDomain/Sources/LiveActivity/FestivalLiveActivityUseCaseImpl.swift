@@ -33,8 +33,22 @@ public struct FestivalLiveActivityUseCaseImpl: FestivalLiveActivityUseCaseInterf
   }
 
   /// 진행 단계와 시간을 기존 활동에 반영한다.
-  public func update(activityID: String, phase: FestivalLiveActivityPhase, startDate: Date, endDate: Date) async {
-    await client.update(activityID, phase, startDate, endDate)
+  public func update(
+    activityID: String,
+    phase: FestivalLiveActivityPhase,
+    startDate: Date,
+    endDate: Date,
+    pack: FestivalPackDocument?,
+    savedSetIDs: Set<String>
+  ) async {
+    await client.update(
+      activityID,
+      phase,
+      startDate,
+      endDate,
+      pack,
+      savedSetIDs
+    )
   }
 
   /// 끝난 축제를 종료 상태로 표시한다.

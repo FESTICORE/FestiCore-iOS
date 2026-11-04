@@ -13,7 +13,10 @@ public struct FestivalCrewCreateView: View {
   }
 
   public var body: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP24
+    ) {
       header()
       FCTextField(
         text: Binding(
@@ -27,24 +30,48 @@ public struct FestivalCrewCreateView: View {
       .helper("1~20자로 입력해 주세요")
       .disabled(store.isSubmitting)
 
-      FCPrimaryButton(store.isSubmitting ? "만드는 중" : "크루 만들기", isEnabled: store.canSubmit) {
+      FCPrimaryButton(
+        store.isSubmitting ? "만드는 중" : "크루 만들기",
+        isEnabled: store.canSubmit
+      ) {
         send(.submitTapped)
       }
     }
-    .padding(.horizontal, FestiCoreSpacing.paddingP20)
-    .padding(.top, FestiCoreSpacing.paddingP8)
-    .padding(.bottom, FestiCoreSpacing.paddingP24)
-    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP20
+    )
+    .padding(
+      .top,
+      FestiCoreSpacing.paddingP8
+    )
+    .padding(
+      .bottom,
+      FestiCoreSpacing.paddingP24
+    )
+    .frame(
+      maxWidth: .infinity,
+      alignment: .leading
+    )
     .background(FestiCoreSemanticColor.backgroundElevated.color)
-    .fcAlert($store.scope(state: \.alert, action: \.alert))
+    .fcAlert($store.scope(
+      state: \.alert,
+      action: \.alert
+    ))
   }
 }
 
 private extension FestivalCrewCreateView {
   @ViewBuilder
   func header() -> some View {
-    HStack(alignment: .top, spacing: FestiCoreSpacing.paddingP16) {
-      VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
+    HStack(
+      alignment: .top,
+      spacing: FestiCoreSpacing.paddingP16
+    ) {
+      VStack(
+        alignment: .leading,
+        spacing: FestiCoreSpacing.paddingP8
+      ) {
         Text("크루 만들기")
           .festiCoreFont(.baseTitle2Bold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
@@ -57,7 +84,10 @@ private extension FestivalCrewCreateView {
       Button { send(.closeTapped) } label: {
         Image(asset: .xmark16)
           .resizable()
-          .frame(width: 20, height: 20)
+          .frame(
+            width: 20,
+            height: 20
+          )
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
       }
       .buttonStyle(.plain)

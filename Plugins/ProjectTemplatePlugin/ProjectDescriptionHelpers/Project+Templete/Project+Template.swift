@@ -192,9 +192,10 @@ public extension Project {
     targetName: String,
     bundleId: String,
     infoPlist: InfoPlist,
-    dependencies: [TargetDependency] = []
+    dependencies: [TargetDependency] = [],
+    entitlements: Entitlements? = nil
   ) -> Project {
-    Project(
+    return Project(
       name: name,
       settings: .moduleSettings,
       targets: [
@@ -206,6 +207,7 @@ public extension Project {
           deploymentTargets: Environment.deploymentTarget,
           infoPlist: infoPlist,
           buildableFolders: ["Extension"],
+          entitlements: entitlements,
           dependencies: dependencies,
           settings: .settings(base: [
             "APPLICATION_EXTENSION_API_ONLY": "YES",

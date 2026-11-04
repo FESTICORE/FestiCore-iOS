@@ -20,7 +20,7 @@ Feature 상태에 `@Presents var alert: FCAlertState<FCAlertAction>?`를 두고 
 
 Attendance와 같이 범용 표현은 DesignKit에, FestiCore 화면 내용은 이 모듈에 둡니다.
 
-- DesignKit: 바텀시트 `presentFCSheet(item:)`(`Component/Modal`), 토스트 `FCToast`·`fcToast(item:)`(`Component/Toast`), 확인 팝업 `FCDialog`·완료 팝업 `FCCheckOverlay`(`Component/PopUp`)
+- DesignKit: 바텀시트 `fcModal(item:)`(`Component/Modal`), 토스트 `FCToast`·`fcToast(item:)`(`Component/Toast`), 확인 팝업 `FCDialog`·완료 팝업 `FCCheckOverlay`(`Component/PopUp`)
 - SharedUI: 로그인·셋 상세·신고·기수 선택 시트 내용(`Sources/Sheet`), 화면별 토스트 문구 `FCToast.Item.booked()` 등(`Sources/Toast`), TCA 확인 다이얼로그(`Sources/Alert`)
 
-시트 내용은 DesignKit `presentFCSheet(item:)`로 띄우고, 색상·서체·버튼은 DesignKit 토큰과 컴포넌트를 사용합니다.
+시트 내용은 DesignKit `fcModal(item:)`로 띄우고, 색상·서체·버튼은 DesignKit 토큰과 컴포넌트를 사용합니다.

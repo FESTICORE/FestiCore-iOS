@@ -21,7 +21,11 @@ public struct FestivalOverview: Equatable, Identifiable {
   /// nil이면 서버나 캐시가 아티스트 검색 필드를 아직 제공하지 않는다.
   public let artists: [FestivalCatalogArtist]?
 
-  init(item: FestivalCatalogItem, isCached: Bool, cachedPackVersion: Int? = nil) {
+  init(
+    item: FestivalCatalogItem,
+    isCached: Bool,
+    cachedPackVersion: Int? = nil
+  ) {
     id = item.id
     name = item.name
     venue = item.venue
@@ -37,7 +41,10 @@ public struct FestivalOverview: Equatable, Identifiable {
   }
 
   init?(pack: CachedFestivalPack) {
-    guard let document = try? JSONDecoder().decode(FestivalPackDocument.self, from: pack.pack) else {
+    guard let document = try? JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: pack.pack
+    ) else {
       return nil
     }
     id = pack.festivalID
@@ -54,7 +61,10 @@ public struct FestivalOverview: Equatable, Identifiable {
     catalogStatus = nil
     ticketURL = document.ticketLinks?.lazy.compactMap(\.httpsURL).first
     artists = document.artists?.map {
-      FestivalCatalogArtist(name: $0.name, performances: [])
+      FestivalCatalogArtist(
+        name: $0.name,
+        performances: []
+      )
     }
   }
 }
@@ -67,6 +77,9 @@ private extension FestivalOverview {
           let first = period.firstDate.date(as: .day),
           let last = period.lastDate.date(as: .day),
           first <= last else { return nil }
-    return (period.firstDate, period.lastDate)
+    return (
+      period.firstDate,
+      period.lastDate
+    )
   }
 }

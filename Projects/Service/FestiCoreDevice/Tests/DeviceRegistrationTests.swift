@@ -154,13 +154,18 @@ struct DeviceRegistrationTests {
   func bindDeviceToCurrentUser() async throws {
     let storage = MemoryDeviceStorage()
     let client = StubDeviceClient()
-    let session = DeviceUserSession(id: UUID(), userID: "user-a")
+    let session = DeviceUserSession(
+      id: UUID(),
+      userID: "user-a"
+    )
     let service = NetworkDeviceRegistrationService(
-      client: client, storage: storage, userSession: { session }
+      client: client,
+      storage: storage,
+      userSession: { session }
     )
 
     let registered = try await service.register(metadata)
-    try await service.bindToCurrentUser()
+    try await service.linkDeviceToCurrentUser()
     let bound = try #require(await service.authorization())
 
     #expect(bound.deviceID == registered.deviceID)
@@ -180,12 +185,17 @@ struct DeviceRegistrationTests {
   func unbindDevice() async throws {
     let storage = MemoryDeviceStorage()
     let client = StubDeviceClient()
-    let session = DeviceUserSession(id: UUID(), userID: "user-a")
+    let session = DeviceUserSession(
+      id: UUID(),
+      userID: "user-a"
+    )
     let service = NetworkDeviceRegistrationService(
-      client: client, storage: storage, userSession: { session }
+      client: client,
+      storage: storage,
+      userSession: { session }
     )
     _ = try await service.register(metadata)
-    try await service.bindToCurrentUser()
+    try await service.linkDeviceToCurrentUser()
 
     try await service.unbindCurrentUser()
 
@@ -201,29 +211,41 @@ struct DeviceRegistrationTests {
     #expect(storage.load(.deviceUnbindKey) == nil)
   }
 
-  @Test("같은 프로세스에서 재로그인하면 동일 APNs와 시작 토큰을 한 번 복원한다", arguments: [false, true])
+  @Test(
+    "같은 프로세스에서 재로그인하면 동일 APNs와 시작 토큰을 한 번 복원한다",
+    arguments: [false, true]
+  )
   func rebindRestoresUnchangedPushTokensOnce(recoverExpiredSession: Bool) async throws {
     let storage = MemoryDeviceStorage()
     let client = StubDeviceClient()
-    let session = DeviceUserSession(id: UUID(), userID: "user-a")
+    let session = DeviceUserSession(
+      id: UUID(),
+      userID: "user-a"
+    )
     let service = NetworkDeviceRegistrationService(
-      client: client, storage: storage, userSession: { session }
+      client: client,
+      storage: storage,
+      userSession: { session }
     )
     let tokens = DeviceRegistrationMetadata(
-      apnsEnvironment: .sandbox, apnsToken: "test-apns",
-      liveActivityPushToStartToken: "test-start", appVersion: "1.0.0",
-      osVersion: "18.0", locale: "ko-KR", timezone: "Asia/Seoul"
+      apnsEnvironment: .sandbox,
+      apnsToken: "test-apns",
+      liveActivityPushToStartToken: "test-start",
+      appVersion: "1.0.0",
+      osVersion: "18.0",
+      locale: "ko-KR",
+      timezone: "Asia/Seoul"
     )
     _ = try await service.register(tokens)
-    try await service.bindToCurrentUser()
+    try await service.linkDeviceToCurrentUser()
     #expect(client.captured.filter { $0.path == "api/v1/devices" }.count == 1)
     if recoverExpiredSession {
       try await service.recoverBoundDevice()
     } else {
       try await service.unbindCurrentUser()
     }
-    try await service.bindToCurrentUser()
-    try await service.bindToCurrentUser()
+    try await service.linkDeviceToCurrentUser()
+    try await service.linkDeviceToCurrentUser()
 
     let registrations = client.captured.filter { $0.path == "api/v1/devices" }
     #expect(registrations.count == 2)
@@ -244,22 +266,30 @@ struct DeviceRegistrationTests {
       started.continuation.yield(())
       for await _ in resume.stream { break }
     })
-    let session = DeviceUserSession(id: UUID(), userID: "user-a")
+    let session = DeviceUserSession(
+      id: UUID(),
+      userID: "user-a"
+    )
     let service = NetworkDeviceRegistrationService(
-      client: client, storage: MemoryDeviceStorage(), userSession: { session }
+      client: client,
+      storage: MemoryDeviceStorage(),
+      userSession: { session }
     )
     _ = try await service.register(metadata)
-    try await service.bindToCurrentUser()
+    try await service.linkDeviceToCurrentUser()
     try await service.unbindCurrentUser()
 
-    async let first: Void = service.bindToCurrentUser()
+    async let first: Void = service.linkDeviceToCurrentUser()
     var iterator = started.stream.makeAsyncIterator()
     await iterator.next()
-    async let second: Void = service.bindToCurrentUser()
+    async let second: Void = service.linkDeviceToCurrentUser()
     await Task.yield()
     resume.continuation.yield(())
     resume.continuation.finish()
-    _ = try await (first, second)
+    _ = try await (
+      first,
+      second
+    )
     #expect(client.captured.filter { $0.path == "api/v1/devices" }.count == 2)
   }
 
@@ -267,16 +297,21 @@ struct DeviceRegistrationTests {
   func rebindRetriesFailedPushTokenRestoration() async throws {
     let storage = MemoryDeviceStorage()
     let client = StubDeviceClient(failsRegistrationAfterUnbindOnce: true)
-    let session = DeviceUserSession(id: UUID(), userID: "user-a")
+    let session = DeviceUserSession(
+      id: UUID(),
+      userID: "user-a"
+    )
     let service = NetworkDeviceRegistrationService(
-      client: client, storage: storage, userSession: { session }
+      client: client,
+      storage: storage,
+      userSession: { session }
     )
     _ = try await service.register(metadata)
-    try await service.bindToCurrentUser()
+    try await service.linkDeviceToCurrentUser()
     try await service.unbindCurrentUser()
-    await #expect(throws: FestiCoreNetworkError.self) { try await service.bindToCurrentUser() }
-    try await service.bindToCurrentUser()
-    try await service.bindToCurrentUser()
+    await #expect(throws: FestiCoreNetworkError.self) { try await service.linkDeviceToCurrentUser() }
+    try await service.linkDeviceToCurrentUser()
+    try await service.linkDeviceToCurrentUser()
 
     #expect(client.captured.filter { $0.path == "api/v1/devices" }.count == 3)
     #expect(client.captured.filter { $0.path == "api/v1/devices/bind-user" && $0.method == .put }.count == 2)
@@ -286,12 +321,17 @@ struct DeviceRegistrationTests {
   func unbindRetryUsesSameKey() async throws {
     let storage = MemoryDeviceStorage()
     let client = StubDeviceClient(failsUnbindOnce: true)
-    let session = DeviceUserSession(id: UUID(), userID: "user-a")
+    let session = DeviceUserSession(
+      id: UUID(),
+      userID: "user-a"
+    )
     let service = NetworkDeviceRegistrationService(
-      client: client, storage: storage, userSession: { session }
+      client: client,
+      storage: storage,
+      userSession: { session }
     )
     _ = try await service.register(metadata)
-    try await service.bindToCurrentUser()
+    try await service.linkDeviceToCurrentUser()
 
     await #expect(throws: FestiCoreNetworkError.self) { try await service.unbindCurrentUser() }
     let pendingKey = try #require(storage.load(.deviceUnbindKey))
@@ -306,16 +346,26 @@ struct DeviceRegistrationTests {
   @Test("다른 계정으로 전환되면 이전 계정 기기 인증을 반환하지 않는다")
   func changedUserCannotReuseBoundDevice() async throws {
     let storage = MemoryDeviceStorage()
-    storage.save(UUID().uuidString, for: .deviceID)
-    storage.save("user-a", for: .deviceBoundUserID)
+    storage.save(
+      UUID().uuidString,
+      for: .deviceID
+    )
+    storage.save(
+      "user-a",
+      for: .deviceBoundUserID
+    )
     let service = NetworkDeviceRegistrationService(
-      client: StubDeviceClient(), storage: storage,
-      userSession: { DeviceUserSession(id: UUID(), userID: "user-b") }
+      client: StubDeviceClient(),
+      storage: storage,
+      userSession: { DeviceUserSession(
+        id: UUID(),
+        userID: "user-b"
+      ) }
     )
 
     #expect(try await service.authorization()?.deviceID == nil)
     await #expect(throws: DeviceRegistrationError.deviceNotRegistered) {
-      try await service.bindToCurrentUser()
+      try await service.linkDeviceToCurrentUser()
     }
   }
 
@@ -323,10 +373,22 @@ struct DeviceRegistrationTests {
   func recoverAfterSessionExpiry() async throws {
     let storage = MemoryDeviceStorage()
     let client = StubDeviceClient()
-    storage.save(UUID().uuidString, for: .deviceID)
-    storage.save("user-a", for: .deviceBoundUserID)
-    storage.save("issued-token", for: .deviceAccessToken)
-    let service = NetworkDeviceRegistrationService(client: client, storage: storage)
+    storage.save(
+      UUID().uuidString,
+      for: .deviceID
+    )
+    storage.save(
+      "user-a",
+      for: .deviceBoundUserID
+    )
+    storage.save(
+      "issued-token",
+      for: .deviceAccessToken
+    )
+    let service = NetworkDeviceRegistrationService(
+      client: client,
+      storage: storage
+    )
 
     try await service.recoverBoundDevice()
 
@@ -344,10 +406,22 @@ struct DeviceRegistrationTests {
   func recoverRetryWithoutOldToken() async throws {
     let storage = MemoryDeviceStorage()
     let client = StubDeviceClient(rejectsRecoveryBearer: true)
-    storage.save(UUID().uuidString, for: .deviceID)
-    storage.save("user-a", for: .deviceBoundUserID)
-    storage.save("issued-token", for: .deviceAccessToken)
-    let service = NetworkDeviceRegistrationService(client: client, storage: storage)
+    storage.save(
+      UUID().uuidString,
+      for: .deviceID
+    )
+    storage.save(
+      "user-a",
+      for: .deviceBoundUserID
+    )
+    storage.save(
+      "issued-token",
+      for: .deviceAccessToken
+    )
+    let service = NetworkDeviceRegistrationService(
+      client: client,
+      storage: storage
+    )
 
     try await service.recoverBoundDevice()
 
@@ -417,8 +491,11 @@ private final class StubDeviceClient: FestiCoreRequestClient, @unchecked Sendabl
     let bearer = request.headers.value(for: "Authorization")?.replacingOccurrences(of: "Bearer ", with: "")
     let shouldFail = lock.withLock {
       requests.append(Captured(
-        path: request.path, method: request.method, authorization: request.authorization,
-        deviceID: deviceID, bearerToken: bearer,
+        path: request.path,
+        method: request.method,
+        authorization: request.authorization,
+        deviceID: deviceID,
+        bearerToken: bearer,
         deviceToken: request.headers.value(for: "X-Device-Access-Token"),
         unbindKey: request.headers.value(for: "X-Device-Unbind-Key"),
         parameters: request.parameters

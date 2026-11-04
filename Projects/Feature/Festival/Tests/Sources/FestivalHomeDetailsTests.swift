@@ -9,7 +9,12 @@ import Testing
 struct FestivalHomeDetailsTests {
   @Test("선택한 팩의 귀가 정보를 기존 Domain UseCase에서 읽는다")
   func loadsCachedHomeDetails() async {
-    let pack = CachedFestivalPack(festivalID: "fst", packVersion: 1, etag: "v1", pack: Data())
+    let pack = CachedFestivalPack(
+      festivalID: "fst",
+      packVersion: 1,
+      etag: "v1",
+      pack: Data()
+    )
     var state = FestivalFeature.State(selectedFestivalID: "fst")
     state.cachedPacks["fst"] = pack
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
@@ -23,7 +28,10 @@ struct FestivalHomeDetailsTests {
       $0.homeDetails = .loading("fst")
     }
     await store.receive(\.inner.homeDetailsLoaded) {
-      $0.homeDetails = .loaded("fst", nil)
+      $0.homeDetails = .loaded(
+        "fst",
+        nil
+      )
     }
   }
 
@@ -32,7 +40,10 @@ struct FestivalHomeDetailsTests {
     let store = TestStore(initialState: FestivalFeature.State(selectedFestivalID: "new")) {
       FestivalFeature()
     }
-    await store.send(.inner(.homeDetailsLoaded("old", .init(lastTrainAt: "23:52"))))
+    await store.send(.inner(.homeDetailsLoaded(
+      "old",
+      .init(lastTrainAt: "23:52")
+    )))
     #expect(store.state.homeDetails == .idle)
   }
 }

@@ -13,7 +13,8 @@ Attendance(`Projects/Feature/Management/Sources/StaffMain/Reducer/StaffFeature.s
 - `body`는 액션 종류만 나눈다(`case .view(let action): return handleViewAction(state: &state, action: action)`). 처리는 같은 파일 `extension <Feature>`의 `private func handleViewAction`·`handleAsyncAction`·`handleInnerAction`·`handleDelegateAction`에 둔다. 자식·`destination` 액션 중 부모가 받을 것만 `body`에서 직접 매칭하고 나머지는 `default: return .none`으로 둔다. 자식은 `Scope(\.child, action: \.child)`로 연결한다.
 - `.run` 효과는 async 핸들러에서 시작한다. view 핸들러는 중복 입력 가드와 상태 변경 뒤 `.send(.async(...))`로 넘긴다.
 - 취소·중복 요청 정책은 `CancelID`로 명시한다.
-- `State`에 저장 속성이 많으면 같은 책임으로 함께 변하는 값을 하위 상태 타입으로 묶는다. 예를 들어 `LiveActivityRuntimeState`는 활동 목록·준비·진행·오류·시각·revision을 소유한다. 화면 전용 로딩과 표시 값은 Feature의 `State`/`Model`에, 공개 업무 값은 Domain Entity에 둔다. 상태를 이동한 뒤 `TestStore`로 전이·취소·재시도 경로를 확인한다.
+- `State`에 저장 속성이 많으면 같은 화면 책임으로 함께 변하는 값을 하위 상태 타입으로 묶는다. 화면 전용 로딩과 표시 값은 Feature의 State/Model에, 공개 업무 값은 Domain Entity에 둔다. 상태를 이동한 뒤 `TestStore`로 전이·취소·재시도를 확인한다.
+- 유한한 단계와 상호 배타적인 상태는 여러 불리언 대신 enum으로 표현한다. `view` 액션은 View의 `send`에서 시작해 Reducer의 `handleViewAction`에서 처리한다.
 
 ## 화면과 리듀서
 

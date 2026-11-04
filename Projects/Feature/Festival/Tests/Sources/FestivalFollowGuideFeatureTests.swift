@@ -37,7 +37,10 @@ struct FestivalFollowGuideFeatureTests {
 
   @Test func previouslyHiddenGuideRestoresOnAppearAndOtherFestivalRemainsVisible() async {
     let hidden = LockIsolated<Set<String>>(["festival-a"])
-    for (festivalID, expectedHidden) in [("festival-a", true), ("festival-b", false)] {
+    for (
+      festivalID,
+      expectedHidden
+    ) in [("festival-a", true), ("festival-b", false)] {
       var initialState = FestivalFeature.State(selectedFestivalID: festivalID)
       initialState.hasStarted = true
       let store = TestStore(initialState: initialState) { FestivalFeature() } withDependencies: {

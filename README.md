@@ -91,16 +91,16 @@ Projects/
 ~~~mermaid
 flowchart TD
     App --> FeatureAssembly
-    FeatureAssembly --> Features[Feature modules]
-    FeatureAssembly --> Domains[Domain implementations]
+    App --> ServiceAssembly
+    App --> CoreAssembly
+    FeatureAssembly --> Features["Feature modules"]
+    FeatureAssembly --> Domains["Domain implementations"]
     FeatureAssembly --> ServiceAssembly
-
     Features --> DomainInterface["*Domain / Interface"]
     Features --> UI[UI modules]
     Domains --> DomainInterface
-    Domains --> Repositories["S00 Repository Interface · implementation"]
+    Domains --> Repositories["S00 catalog · pack repositories"]
     Repositories --> Services["FestivalCatalog · Pack services"]
-
     ServiceAssembly --> Services
     ServiceAssembly --> CoreAssembly
     Services --> Network["FestiCoreNetwork / Interface"]
@@ -108,16 +108,10 @@ flowchart TD
     CoreAssembly --> Storage["FestiCoreStorage"]
 ~~~
 
-설계 원칙:
-
-- **FeatureAssembly**는 화면과 Domain 구현을 모아 앱에 제공합니다.
-- 화면은 **Domain Interface**의 UseCase를 주입받습니다. S00 축제 목록·팩 UseCase는 Repository Interface를 사용합니다.
-- S00 Repository 구현은 축제 목록·팩 서비스에 캐시와 통신을 위임합니다. 자세한 경로는 [화면과 데이터 흐름](docs/architecture/feature-data-flow.mmd)에 있습니다.
-- **ServiceAssembly**와 **CoreAssembly**가 공용 네트워크·인증·저장소 구현을 조립합니다.
-
-### 의존성 주입
-
-Point-Free Dependencies를 사용합니다. 각 모듈의 Interface에 계약과 DependencyKey를 두고, 구현·Assembly에서 라이브 의존성을 등록합니다. 화면 Reducer는 필요한 UseCase를 `@Dependency`로 받습니다. 세부 규칙은 [의존성 주입](docs/agent/dependency-injection.md)을 참고하세요.
+- `FeatureAssembly`는 Auth·Bearer·Festival·Onboarding·Profile·Timetable·Web과 도메인 구현(공지·내 알림함 포함), `ServiceAssembly`를 연결합니다.
+- 화면은 필요한 도메인·서비스의 Interface를 직접 의존하고, `ServiceAssembly`와 `CoreAssembly`가 라이브 구현을 조립합니다.
+- S00 축제 목록·팩 UseCase는 Repository Interface를 사용하고, 구현은 축제 목록·팩 서비스에 캐시와 통신을 위임합니다.
+- App은 Feature·Service·Core 조립 모듈과 앱에서 직접 사용하는 UI·설정 모듈을 참조합니다. 위젯과 알림 서비스는 앱에 포함되는 별도 타깃입니다.
 
 ### 모듈 그래프
 

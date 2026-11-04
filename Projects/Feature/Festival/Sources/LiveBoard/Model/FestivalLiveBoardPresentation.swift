@@ -107,7 +107,10 @@ extension FestivalLiveBoardPresentation {
     now: Date
   ) -> String? {
     guard let date else { return nil }
-    let minutes = max(0, Int(now.timeIntervalSince(date) / 60))
+    let minutes = max(
+      0,
+      Int(now.timeIntervalSince(date) / 60)
+    )
     if minutes < 1 { return "방금" }
     if minutes < 60 { return "\(minutes)분 전" }
     let hours = minutes / 60
@@ -119,7 +122,10 @@ extension FestivalLiveBoardPresentation {
     receivedAt: Date?,
     deviceNow: Date
   ) -> String {
-    return relativeTime(receivedAt, now: deviceNow).map { "\($0) 업데이트" } ?? "시간표 기준"
+    return relativeTime(
+      receivedAt,
+      now: deviceNow
+    ).map { "\($0) 업데이트" } ?? "시간표 기준"
   }
 
   /// 오프라인 배너 문구. 경과 시간은 기기 시각으로 잰다.
@@ -127,7 +133,10 @@ extension FestivalLiveBoardPresentation {
     receivedAt: Date?,
     deviceNow: Date
   ) -> String {
-    guard let age = relativeTime(receivedAt, now: deviceNow) else { return "오프라인" }
+    guard let age = relativeTime(
+      receivedAt,
+      now: deviceNow
+    ) else { return "오프라인" }
     return "오프라인 · \(age) 정보"
   }
 }
@@ -146,7 +155,11 @@ extension FestivalLiveBoardPresentation {
       guard let date = day.date,
             let start = day.startsAt.flatMap(FestivalLiveBoardSchedule.parse) else { return nil }
       let end = day.endsAt.flatMap(FestivalLiveBoardSchedule.parse)
-      return (date, start, end.flatMap { $0 > start ? $0 : nil })
+      return (
+        date,
+        start,
+        end.flatMap { $0 > start ? $0 : nil }
+      )
     }.sorted { $0.start < $1.start }
     guard !days.isEmpty else { return .unknown }
 
@@ -167,11 +180,23 @@ extension FestivalLiveBoardPresentation {
       }) {
         sub += " · 첫 공연 \(firstSet.slot.startsAt.formatted(.time)) \(firstSet.stageName)"
       }
-      return .beforeOpening(.init(time: duration(from: now, to: next.start), sub: sub))
+      return .beforeOpening(.init(
+        time: duration(
+        from: now,
+        to: next.start
+      ),
+        sub: sub
+      ))
     }
 
     if let finalEnd, now >= finalEnd.addingTimeInterval(-3_600) {
-      return .finalHour(.init(time: duration(from: now, to: finalEnd), sub: "\(finalEnd.formatted(.time)) 종료"))
+      return .finalHour(.init(
+        time: duration(
+        from: now,
+        to: finalEnd
+      ),
+        sub: "\(finalEnd.formatted(.time)) 종료"
+      ))
     }
     return .live
   }
@@ -181,13 +206,20 @@ extension FestivalLiveBoardPresentation {
     festival: FestivalOverview,
     now: Date
   ) -> String {
-    if let day = selectedDay(pack: pack, festival: festival, now: now),
+    if let day = selectedDay(
+      pack: pack,
+      festival: festival,
+      now: now
+    ),
        day.date.date(as: .day) == AppDateFormat.calendar.startOfDay(for: now),
        let start = day.startsAt, let end = day.endsAt {
       let status = now < start ? "시작 전" : (now < end ? "진행 중" : "종료")
       return "오늘 · DAY \(day.index + 1) \(status)"
     }
-    return [FestivalListPresentation.searchBadge(for: festival, now: now), festival.venue]
+    return [FestivalListPresentation.searchBadge(
+      for: festival,
+      now: now
+    ), festival.venue]
       .compactMap { $0 }.joined(separator: " · ")
   }
 
@@ -197,7 +229,11 @@ extension FestivalLiveBoardPresentation {
     festival: FestivalOverview,
     now: Date
   ) -> String? {
-    guard let day = selectedDay(pack: pack, festival: festival, now: now) else { return nil }
+    guard let day = selectedDay(
+      pack: pack,
+      festival: festival,
+      now: now
+    ) else { return nil }
     var parts = ["DAY \(day.index + 1)"]
     if let date = day.date.date(as: .day) { parts.append(date.formatted(.liveBoardDay)) }
     if let start = day.startsAt, let end = day.endsAt {
@@ -212,13 +248,23 @@ extension FestivalLiveBoardPresentation {
     festival: FestivalOverview,
     now: Date
   ) -> Countdown? {
-    guard let day = selectedDay(pack: pack, festival: festival, now: now),
+    guard let day = selectedDay(
+      pack: pack,
+      festival: festival,
+      now: now
+    ),
           let opensAt = day.startsAt, now < opensAt else { return nil }
     var sub = "\(opensAt.formatted(.time)) 개장"
     if let pack, let first = FestivalLiveBoardSchedule.entries(pack: pack).first(where: { $0.slot.startsAt >= opensAt }) {
       sub += " · 첫 공연 \(first.slot.startsAt.formatted(.time)) \(first.stageName)"
     }
-    return Countdown(time: duration(from: now, to: opensAt), sub: sub)
+    return Countdown(
+      time: duration(
+      from: now,
+      to: opensAt
+    ),
+      sub: sub
+    )
   }
 
   /// 내 다음 일정, 없으면 전체 다음 공연. 개장 전에는 첫 공연 시작 시각을 보인다.
@@ -245,17 +291,43 @@ extension FestivalLiveBoardPresentation {
     let range = slot.endsAt.map { "\(slot.startsAt.formatted(.time))–\($0.formatted(.time))" } ?? slot.startsAt.formatted(.time)
     let meta = "\(entry.stageName) · \(range)"
     if isBeforeOpening {
-      return SetCard(label: label, artist: slot.artist, meta: meta, remain: slot.startsAt.formatted(.time), progress: 0)
+      return SetCard(
+        label: label,
+        artist: slot.artist,
+        meta: meta,
+        remain: slot.startsAt.formatted(.time),
+        progress: 0
+      )
     }
     if slot.startsAt <= now, let end = slot.endsAt {
       let elapsed = now.timeIntervalSince(slot.startsAt) / end.timeIntervalSince(slot.startsAt)
-      return SetCard(label: label, artist: slot.artist, meta: meta, remain: "공연 중", progress: min(max(elapsed, 0), 1))
+      return SetCard(
+        label: label,
+        artist: slot.artist,
+        meta: meta,
+        remain: "공연 중",
+        progress: min(
+        max(
+        elapsed,
+        0
+      ),
+        1
+      )
+      )
     }
     let minutes = slot.startsAt.timeIntervalSince(now) / 60
     return SetCard(
-      label: label, artist: slot.artist, meta: meta,
+      label: label,
+      artist: slot.artist,
+      meta: meta,
       remain: remaining(minutes: Int(minutes)),
-      progress: min(max(1 - minutes / 60, 0), 1)
+      progress: min(
+        max(
+        1 - minutes / 60,
+        0
+      ),
+        1
+      )
     )
   }
 
@@ -267,8 +339,14 @@ extension FestivalLiveBoardPresentation {
       StageRow(
         id: stage.id,
         name: stage.name,
-        now: stage.current.map { .init(artist: $0.artist, time: $0.endsAt.map { "\($0.formatted(.time)) 종료" } ?? "공연 중") },
-        next: stage.next.map { .init(artist: $0.artist, time: "\($0.startsAt.formatted(.time)) 시작") },
+        now: stage.current.map { .init(
+          artist: $0.artist,
+          time: $0.endsAt.map { "\($0.formatted(.time)) 종료" } ?? "공연 중"
+        ) },
+        next: stage.next.map { .init(
+          artist: $0.artist,
+          time: "\($0.startsAt.formatted(.time)) 시작"
+        ) },
         isMine: [stage.current?.id, stage.next?.id].contains { $0.map(mySetIDs.contains) ?? false }
       )
     }
@@ -298,7 +376,10 @@ extension FestivalLiveBoardPresentation {
         isMe: sessionUserID != nil && member.id == sessionUserID,
         zone: zoneName(member.zoneID),
         status: member.state.flatMap(crewStateText),
-        time: relativeTime(member.updatedAt, now: now),
+        time: relativeTime(
+          member.updatedAt,
+          now: now
+        ),
         isLeaving: member.state == "leaving"
       )
     }
@@ -306,7 +387,11 @@ extension FestivalLiveBoardPresentation {
     for zone in members.compactMap(\.zone) { counts[zone, default: 0] += 1 }
     let busiest = counts.max { $0.value == $1.value ? $0.key > $1.key : $0.value < $1.value }
     let subtitle = busiest.map { "\(members.count)명 · \($0.value)명이 \($0.key) 근처" } ?? "\(members.count)명"
-    return Crew(title: "내 크루 · \(crew.name)", subtitle: subtitle, members: members)
+    return Crew(
+      title: "내 크루 · \(crew.name)",
+      subtitle: subtitle,
+      members: members
+    )
   }
 
   static func flag(
@@ -322,13 +407,16 @@ extension FestivalLiveBoardPresentation {
       zone: zone,
       tags: flag.tags.compactMap(tagText).joined(separator: " · "),
       meta: [zone, flag.activity.flatMap(tagText)].compactMap { $0 }.joined(separator: " · "),
-      time: relativeTime(flag.updatedAt, now: now),
+      time: relativeTime(
+        flag.updatedAt,
+        now: now
+      ),
       thumbnailURL: flag.thumbnailURL
     )
   }
 
   static func flagStatus(_ value: String) -> FlagStatus? {
-    switch value {
+    return switch value {
     case "active": .active
     case "resting": .resting
     case "ended": .ended
@@ -337,7 +425,7 @@ extension FestivalLiveBoardPresentation {
   }
 
   static func crewStateText(_ value: String) -> String? {
-    switch value {
+    return switch value {
     case "here": "나 여기"
     case "eating": "밥"
     case "toilet": "화장실"
@@ -348,7 +436,7 @@ extension FestivalLiveBoardPresentation {
 
   /// 깃발 성향 태그와 활동 문구. `resting` 같은 값은 표시하지 않는다.
   static func tagText(_ value: String) -> String? {
-    switch value {
+    return switch value {
     case "slam": "슬램"
     case "sing": "떼창"
     case "train": "기차놀이"
@@ -394,14 +482,20 @@ private extension FestivalLiveBoardPresentation {
     from now: Date,
     to date: Date
   ) -> String {
-    let minutes = max(0, Int(date.timeIntervalSince(now) / 60))
+    let minutes = max(
+      0,
+      Int(date.timeIntervalSince(now) / 60)
+    )
     let hours = minutes / 60
     if hours >= 24 { return "\(hours / 24)일 \(hours % 24)시간" }
     return hours > 0 ? "\(hours)시간 \(minutes % 60)분" : "\(minutes)분"
   }
 
   static func remaining(minutes: Int) -> String {
-    let minutes = max(0, minutes)
+    let minutes = max(
+      0,
+      minutes
+    )
     if minutes < 60 { return "\(minutes)분 후" }
     let hours = minutes / 60
     return hours < 24 ? "\(hours)시간 후" : "\(hours / 24)일 후"

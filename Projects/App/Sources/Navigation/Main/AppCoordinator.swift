@@ -24,12 +24,14 @@ struct AppCoordinator {
   @Dependency(\.authService) private var authService
   @Dependency(\.deviceRegistrationService) private var deviceRegistrationService
   @Dependency(\.festivalLiveActivityUseCase) private var festivalLiveActivityUseCase
+  @Dependency(\.festivalWidgetClient) private var festivalWidgetClient
+  @Dependency(\.date) private var date
   @Dependency(\.festivalBookedStore) private var bookedStore
   @Dependency(\.authSessionExpiryClient) private var authSessionExpiryClient
   @Dependency(\.analyticsUseCase) private var analyticsUseCase
   @Dependency(\.firstInstallOnboardingStore) private var firstInstallOnboardingStore
 
-  private enum CancelID { case sessionExpiry, accountOperation }
+  private enum CancelID { case sessionExpiry, accountOperation, widgetSnapshot }
 
   /// 약관 상세 기준 주소. 탭 코디네이터와 가입 화면이 같은 값을 쓴다.
   private let legalBaseURL: URL?
@@ -69,8 +71,12 @@ struct AppCoordinator {
     }
     var presentation: Presentation?
     var loginContextOverride: LoginFeature.State.Context?
-    /// 가입 정보 초안(닉네임·약관·알림)
-    var signUp = SignUpFeature.State()
+    /// 가입 정보 초안과 약관 상세 push 경로
+    var signUpFlow = SignUpFlowCoordinator.State()
+    var signUp: SignUpFeature.State {
+      get { signUpFlow.signUp }
+      set { signUpFlow.signUp = newValue }
+    }
     var isLoading = false
     var hasRetriedTermsUpdate = false
     var termsUpdateExhausted = false
@@ -117,74 +123,22 @@ struct AppCoordinator {
       }
     }
 
-    /// 로그인 시트가 떠 있을 때 따르는 부모 값. 바뀌면 `LoginFeature`에 `view(.contextChanged)`로 알린다.
-    var loginSheetInput: LoginSheetInput? {
-      guard case let .home(home) = self, home.authFlow.presentation == .login else { return nil }
-      let selectedTabContext: LoginFeature.State.Context = switch home.selectedTab {
-      case .my: .profile
-      case .flag: .flag
-      case .live, .timetable: .bookmark
+    /// 선택한 공개 팩은 로그인 없이 공유하고 개인 일정은 상위 세션이 확인된 동안만 포함한다.
+    var activeWidgetSnapshotContent: FestivalWidgetSnapshot? {
+      guard case let .home(home) = self,
+            let screen = home.festivalState.routes.last(where: {
+              $0.screen.is(\.festivalList) || $0.screen.is(\.liveBoard)
+            })?.screen else { return nil }
+      var festival: FestivalFeature.State
+      switch screen {
+      case let .festivalList(list): festival = list
+      case let .liveBoard(board): festival = board
+      case .bearerBoard, .notificationInbox: return nil
       }
-      return LoginSheetInput(context: home.authFlow.loginContextOverride ?? selectedTabContext, flowMessage: home.authFlow.message)
+      festival.hasSession = home.authFlow.hasSession && festival.hasSession
+      return festival.widgetSnapshotContent
     }
 
-    /// 가입 시트가 떠 있을 때 따르는 부모 값. 바뀌면 `SignUpFeature`에 `view(.flowChanged)`로, 닫히면 `view(.sheetClosed)`로 알린다.
-    var signUpSheetInput: SignUpSheetInput? {
-      guard case let .home(home) = self, home.authFlow.presentation == .onboarding else { return nil }
-      return SignUpSheetInput(
-        isSubmitting: home.authFlow.isLoading,
-        message: home.authFlow.message,
-        termsUpdateExhausted: home.authFlow.termsUpdateExhausted
-      )
-    }
-
-    /// 라이브 보드에 전달할 세션. 세션 여부와 확인된 사용자 ID가 바뀌면 `FestivalFeature`에 알린다.
-    var festivalSession: FestivalSession {
-      guard case let .home(home) = self, home.authFlow.hasSession else {
-        return FestivalSession(hasSession: false, userID: nil)
-      }
-      let flow = home.authFlow
-      return FestivalSession(
-        hasSession: true,
-        userID: flow.profile?.user.id ?? flow.verifiedUserID ?? flow.lastVerifiedUserID
-      )
-    }
-
-    /// 마이 화면에 알릴 계정 상태. 바뀌면 `ProfileFeature`에 입력 액션으로 보낸다.
-    var profileAccount: ProfileAccount? {
-      guard case let .home(home) = self else { return nil }
-      let flow = home.authFlow
-      return ProfileAccount(
-        profile: flow.profile,
-        hasSession: flow.hasSession,
-        isLoading: flow.isLoading,
-        message: flow.message
-      )
-    }
-  }
-
-  struct FestivalSession: Equatable {
-    let hasSession: Bool
-    let userID: String?
-  }
-
-  struct LoginSheetInput: Equatable {
-    let context: LoginFeature.State.Context
-    let flowMessage: String?
-  }
-
-  /// 마이 화면에 알릴 계정 상태
-  struct ProfileAccount: Equatable {
-    let profile: AuthProfile?
-    let hasSession: Bool
-    let isLoading: Bool
-    let message: String?
-  }
-
-  struct SignUpSheetInput: Equatable {
-    let isSubmitting: Bool
-    let message: String?
-    let termsUpdateExhausted: Bool
   }
 
   enum Action: ViewAction {
@@ -198,6 +152,7 @@ struct AppCoordinator {
     case presentHome
     case foregrounded
     case backgrounded
+    case openWidgetRoute(WidgetDeepLink)
     /// 로그인 시트의 로그인 요청(`LoginDelegate.signInRequested`)도 여기서 시트 상태를 확인한다.
     case startLogin(OAuthProvider)
     case dismissFlow
@@ -274,60 +229,29 @@ struct AppCoordinator {
     .ifCaseLet(\.splash, action: \.scope.splash) { SplashFeature() }
     .ifCaseLet(\.onboarding, action: \.scope.onboarding) { OnboardingFeature() }
     .ifCaseLet(\.home, action: \.scope.home) { MainTabCoordinator(legalBaseURL: legalBaseURL) }
-    .onChange(of: \.loginSheetInput) { _, input in
-      Reduce { _, _ in
-        guard let input else { return .none }
-        return .send(.scope(.home(.login(.view(.contextChanged(input.context, flowMessage: input.flowMessage))))))
+    .onChange(of: \.self) { previous, state in
+      guard case let .home(home) = state else { return .none }
+      let before: MainTabCoordinator.AuthInputs?
+      if case let .home(previousHome) = previous {
+        before = previousHome.authInputs
+      } else {
+        before = nil
       }
+      let after = home.authInputs
+      guard before != after else { return .none }
+      return .send(.scope(.home(.authInputsChanged(
+        previous: before,
+        current: after
+      ))))
     }
-    .onChange(of: \.signUpSheetInput) { _, input in
-      Reduce { _, _ in
-        // 가입 시트가 닫히는 모든 경로(닫기·포그라운드 갱신·로그인 상실)에서 그 위의 약관 상세도 닫는다.
-        guard let input else { return .send(.scope(.home(.signUp(.view(.sheetClosed))))) }
-        return .send(.scope(.home(.signUp(.view(.flowChanged(
-          isSubmitting: input.isSubmitting,
-          message: input.message,
-          termsUpdateExhausted: input.termsUpdateExhausted,
-          legalBaseURL: legalBaseURL
-        ))))))
-      }
-    }
-    .onChange(of: \.profileAccount) { _, state in
-      guard let account = state.profileAccount else { return .none }
-      return .send(.scope(.home(.profile(.view(.accountChanged(
-        profile: account.profile,
-        hasSession: account.hasSession,
-        isLoading: account.isLoading,
-        message: account.message
-      ))))))
-    }
-    .onChange(of: \.festivalSession) { previous, state in
-      let session = state.festivalSession
-      let changed: Effect<Action> = .send(.scope(.home(.festival(.sessionChanged(
-        hasSession: session.hasSession, userID: session.userID
-      )))))
-      // 로그인 중 확인된 계정 ID가 사라져도(A→nil) 다음에 올 계정이 같다고 보장할 수 없어 전환으로 본다.
-      let switchedAccounts = previous.userID != nil && previous.userID != session.userID
-      // 깃발 계정 데이터는 여기서만 비운다. `Effect.send`는 같은 send 호출 안에서 처리되어 이전 계정 깃발이 화면에 남지 않는다.
-      let flagChanged: Effect<Action> = .send(.scope(.home(.flag(.accountChanged))))
-      guard previous.hasSession else {
-        // 로그아웃 상태에서 받은 깃발에는 내 팔로우 정보가 없어 로그인한 계정으로 다시 불러온다.
-        guard session.hasSession else { return changed }
-        return .concatenate(flagChanged, changed)
-      }
-      if switchedAccounts {
-        return .concatenate(
-          flagChanged,
-          .send(.scope(.home(.timetable(.view(.accountChanged))))),
-          changed
+    .onChange(of: \.activeWidgetSnapshotContent) { _, state in
+      // 계정이 없어지면 공개 팩만 남기고 홈을 이탈하면 공유 파일을 비운다.
+      let snapshot = state.activeWidgetSnapshotContent?.withUpdatedAt(date.now)
+      return .run { _ in await festivalWidgetClient.save(snapshot) }
+        .cancellable(
+          id: CancelID.widgetSnapshot,
+          cancelInFlight: true
         )
-      }
-      guard !session.hasSession else { return changed }
-      return .concatenate(
-        flagChanged,
-        .send(.scope(.home(.timetable(.view(.accountChanged))))),
-        changed
-      )
     }
   }
 }
@@ -338,6 +262,8 @@ private extension AppCoordinator {
     case .presentHome:
       guard case .splash = state else { return .none }
       return .run { send in
+        // 이전 실행에서 남은 개인 Widget 파일은 세션 확인 전에 지운다.
+        await festivalWidgetClient.save(nil)
         do {
           await send(.inner(.firstInstallStatus(try firstInstallOnboardingStore.hasCompleted())))
         } catch {
@@ -347,9 +273,10 @@ private extension AppCoordinator {
       }
 
     case .foregrounded:
-      guard case var .home(home) = state,
-            home.authFlow.presentation != .login,
-            !home.authFlow.isLoading else { return .none }
+      guard case var .home(home) = state else { return .none }
+      let resumeFestival: Effect<Action> = .send(.scope(.home(.festival(.foregrounded))))
+      guard home.authFlow.presentation != .login,
+            !home.authFlow.isLoading else { return resumeFestival }
       home.authFlow.generation += 1
       home.authFlow.isLoading = true
       home.authFlow.profile = nil
@@ -358,6 +285,7 @@ private extension AppCoordinator {
       let generation = home.authFlow.generation
       state = .home(home)
       return .merge(
+        resumeFestival,
         fetchProfile(generation: generation),
         .send(.scope(.home(.festival(.reloadBookmarks(userID: nil)))))
       )
@@ -365,6 +293,10 @@ private extension AppCoordinator {
     case .backgrounded:
       guard case .home = state else { return .none }
       return .send(.scope(.home(.festival(.backgrounded))))
+
+    case let .openWidgetRoute(route):
+      guard case .home = state else { return .none }
+      return .send(.scope(.home(.openWidgetRoute(route))))
 
     case let .startLogin(provider):
       // 수락한 로그인을 확정하는 동안 새 로그인을 시작하면 두 결과가 서로의 임시 세션을 무효로 만든다.
@@ -389,6 +321,7 @@ private extension AppCoordinator {
       home.authFlow.loginAttemptGeneration = nil
       home.authFlow.presentation = nil
       home.authFlow.signUp.resetForDismissal()
+      home.authFlow.signUpFlow.resetNavigation()
       home.authFlow.resetSignUpRetryState()
       let pendingCommit = home.authFlow.pendingCommitSessionID
       home.authFlow.pendingCommitSessionID = nil
@@ -514,7 +447,7 @@ private extension AppCoordinator {
         clear,
         .run { _ in
           if isLoggedIn {
-            try? await deviceRegistrationService.bindToCurrentUser()
+            await linkDeviceForCurrentUser()
           } else {
             try? await deviceRegistrationService.recoverBoundDevice()
             await endLocalLiveActivities()
@@ -688,8 +621,11 @@ private extension AppCoordinator {
         state = .home(home)
         if committed {
           return .merge(
-            acceptLogin(result, state: &state),
-            .run { _ in try? await deviceRegistrationService.bindToCurrentUser() }
+            acceptLogin(
+              result,
+              state: &state
+            ),
+            .run { _ in await linkDeviceForCurrentUser() }
           )
         }
         // 저장에 실패한 로그인은 시트를 유지해 다시 시도할 수 있게 한다.
@@ -826,7 +762,10 @@ private extension AppCoordinator {
       return handleViewAction(state: &state, action: .dismissFlow)
 
     case .home(.login(.delegate(.closeRequested))):
-      return handleViewAction(state: &state, action: .dismissFlow)
+      return handleViewAction(
+        state: &state,
+        action: .dismissFlow
+      )
 
     case let .home(.login(.delegate(.signInRequested(provider)))):
       return handleViewAction(state: &state, action: .startLogin(provider))
@@ -874,6 +813,24 @@ private extension AppCoordinator {
     case .home(.delegate(.myProfileRefreshRequested)):
       return .send(.view(.retryProfile))
 
+    case .home(.delegate(.dismissAuthFlow)):
+      return handleViewAction(
+        state: &state,
+        action: .dismissFlow
+      )
+
+    case .home(.delegate(.retryProfile)):
+      return handleViewAction(
+        state: &state,
+        action: .retryProfile
+      )
+
+    case let .home(.delegate(.resolveMigration(shouldRestore))):
+      return handleViewAction(
+        state: &state,
+        action: .resolveMigration(shouldRestore)
+      )
+
     case .home(.delegate(.myLogoutRequested)):
       return myAccountOperation(state: &state, operation: .signOut)
 
@@ -910,24 +867,25 @@ private extension AppCoordinator {
     state = .home(home)
     return .run { send in
       do {
+        await unbindDeviceForAccountOperation()
+        try Task.checkCancellation()
+        await endLocalLiveActivities()
+        try Task.checkCancellation()
         switch operation {
         case .signOut:
-          await unbindDeviceForAccountOperation()
-          await endLocalLiveActivities()
           try await authUseCase.signOut()
         case .withdraw:
-          await unbindDeviceForAccountOperation()
-          await endLocalLiveActivities()
           try await authUseCase.withdraw()
         }
         await send(.inner(.myAccountFinished(generation: generation, operation: operation, result: .success(()))))
       } catch {
+        guard !Task.isCancelled else { return }
         if !(await authService.isLoggedIn) {
           await send(.inner(.sessionExpired))
           return
         }
         // 인증 요청은 실패했지만 계정이 유지되면 해제했던 기기 소유권을 복원한다.
-        try? await deviceRegistrationService.bindToCurrentUser()
+        await linkDeviceForCurrentUser()
         await send(.inner(.myAccountFinished(
           generation: generation, operation: operation, result: .failure(ProfileFailure(error))
         )))
@@ -941,8 +899,22 @@ private extension AppCoordinator {
       try await deviceRegistrationService.unbindCurrentUser()
     } catch {
       // 바인딩은 다음 실행에서 복구한다. 해제 실패로 계정 요청을 막지 않는다.
-      Logger(subsystem: "io.festiCore.co", category: "DeviceRegistration")
+      Logger(
+        subsystem: "io.festiCore.co",
+        category: "DeviceRegistration"
+      )
         .error("계정 작업 중 기기 바인딩 해제 실패; 다음 실행에서 복구")
+    }
+  }
+
+  func linkDeviceForCurrentUser() async {
+    do {
+      try await deviceRegistrationService.linkDeviceToCurrentUser()
+    } catch {
+      FestiCoreLogger.error(
+        "계정 기기 연결 실패",
+        category: .app
+      )
     }
   }
 

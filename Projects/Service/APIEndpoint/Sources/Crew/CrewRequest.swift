@@ -8,7 +8,11 @@ public struct CrewCreateBody: Encodable, Sendable, Equatable {
   public let name: String
   public let nickname: String?
 
-  public init(festivalId: String, name: String, nickname: String? = nil) {
+  public init(
+    festivalId: String,
+    name: String,
+    nickname: String? = nil
+  ) {
     self.festivalId = festivalId
     self.name = name
     self.nickname = nickname
@@ -24,13 +28,19 @@ public enum CrewRequest: FestiCoreDataRequest, Sendable {
 
   public var authorization: FestiCoreAuthorization {
     switch self {
-    case let .create(_, sessionID): return .sessionBound(sessionID)
+    case let .create(
+      _,
+      sessionID
+    ): return .sessionBound(sessionID)
     }
   }
 
   public var parameters: (any Encodable & Sendable)? {
     switch self {
-    case let .create(body, _): return body
+    case let .create(
+      body,
+      _
+    ): return body
     }
   }
 }
