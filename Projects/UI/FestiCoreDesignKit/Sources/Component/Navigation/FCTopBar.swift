@@ -191,7 +191,7 @@ extension FCTopBar {
         .fill(.ultraThinMaterial)
         .environment(\.colorScheme, .dark)
         .overlay(FestiCoreSemanticColor.staticalphaBlack20.color)
-    case .large:
+    case .large, .search:
       FestiCoreSemanticColor.backgroundNormal.color
     default:
       Rectangle()
