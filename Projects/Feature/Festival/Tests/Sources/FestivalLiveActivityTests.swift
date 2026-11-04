@@ -23,6 +23,7 @@ struct HomeLiveActivityTests {
     )
     state.liveActivity.isReady = true
     state.liveActivity.now = now
+    state.hasStarted = true
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
       $0.date.now = now
@@ -81,6 +82,7 @@ struct HomeLiveActivityTests {
     )
     state.liveActivity.isReady = true
     state.liveActivity.now = now
+    state.hasStarted = true
     state.autoActivityHandledStarts["festival"] = performanceStart
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
@@ -209,6 +211,7 @@ struct HomeLiveActivityTests {
     await store.send(.view(.liveActivityTapped)) {
       $0.liveActivity.busyFestivalID = "festival"
       $0.liveActivity.revision = 3
+      $0.autoActivityHandledStarts["festival"] = ISO8601DateFormatter().date(from: "2026-10-29T10:00:00Z")!
     }
     await store.receive(\.async.endLiveActivity)
     await store.receive(\.inner.liveActivityStopped) {
