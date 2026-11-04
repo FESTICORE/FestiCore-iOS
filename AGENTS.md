@@ -19,6 +19,8 @@
 4. 새 라이브러리나 앱 전용 자산을 추가하기 전에 현재 `Tuist/Package.swift`와 관련 모듈을 확인한다. 자격 증명과 로컬 설정을 추적 파일에 넣지 않는다.
 5. 변경 후 관련 테스트와 `git diff --check`를 실행하고, 실제로 확인한 범위만 보고한다. `./make test`와 CI의 iOS 시뮬레이터 테스트는 최신 사용 가능 iOS 런타임의 iPhone Duo에서 실행한다. 테스트·CI·실기기 검증은 구별한다.
 6. 10분 동안 의미 있는 편집이 없으면 현재 진행 상황과 다음 접근을 사용자에게 알린다.
+7. API·Domain·Reducer·View·테스트의 값을 반환하는 Swift 일반 함수와 계산 속성에는 `return`을 명시한다. `Void`·초기화·결과 빌더는 Swift 문법을 따른다.
+8. Swift 함수와 이니셜라이저 선언의 파라미터가 2개 이상이면 여는 괄호 다음 줄부터 파라미터를 하나씩 각 줄에 쓴다. 파라미터가 0~1개면 한 줄 선언도 허용한다.
 
 ## TCA와 의존성 주입
 
@@ -28,10 +30,12 @@
 - Point-Free Dependencies를 사용한다. 의존성 인터페이스는 해당 Core·Service·Domain 모듈의 Interface 타깃에, 라이브 구현의 `DependencyKey.liveValue`는 구현 또는 조립 모듈에 둔다. 앱 시작점에서 전역 등록하지 않으며 별도 런타임 DI 컨테이너는 만들지 않는다.
 - Feature는 `@Dependency`로 필요한 인터페이스를 사용하고 테스트에서 결정적인 대역을 주입한다. 테스트나 별도 `DependencyValues` 범위에서는 필요한 `register(into:)`를 명시적으로 호출한다. WeaveDI는 사용하지 않는다.
 - 리듀서는 `view`·`async`·`inner`·`delegate` 액션과 `extension`의 `handle*Action` 함수로 나눠 쓴다. 한 화면에는 리듀서 하나를 두고, Feature는 Domain UseCase와 시스템 의존성만 주입한다. 자세한 규칙은 [TCA](docs/agent/tca-patterns.md).
+- `State` 저장 속성이 많아지면 같은 화면 책임으로 함께 변하는 값을 하위 상태나 표시 Model로 묶는다. 공개 업무 값은 Domain Entity에 두고, 상태 이동 후 전이·취소·재시도 테스트를 확인한다.
 
 ## SwiftUI View 구성
 
 - 앱·Feature·Widget·DesignKit·SharedUI의 SwiftUI View에 같은 규칙을 적용한다. 타입 본문에는 저장 속성, 초기화, `body`를 두고, 화면 섹션·하위 뷰 빌더·UI 전용 헬퍼는 같은 파일의 `private extension <View이름>`으로 분리한다. 테스트에서 접근하는 내부 헬퍼가 함께 있으면 일반 `extension`에서 각 비공개 멤버에 `private`를 붙인다. 외부에서 호출하는 체이닝 설정은 기존 `public extension`에 둔다. 분리할 내용이 없는 작은 View에 빈 extension을 만들지 않는다.
+- 단일 View 조각은 계산 `var ...: some View`로 두고, 여러 View를 묶거나 분기하는 섹션은 `@ViewBuilder func ... -> some View`로 분리한다. 일반 계산 속성과 함수에는 명시적 `return`을 사용하되 결과 빌더는 Swift 문법을 따른다.
 - 화면 View는 `@ViewAction`을 붙이고 store 하나만 받는다. 확인 팝업은 SharedUI `Alert/`의 `fcAlert`, 바텀시트는 SharedUI `Modal/`의 `fcModal`로 띄운다. 자세한 규칙은 [SwiftUI](docs/agent/swiftui-patterns.md), [팝업·모달](docs/agent/popup-modal-system.md).
 - View 분리는 상태 전환, TCA 액션, 접근성, 다크 모드와 화면 동작을 바꾸지 않는 범위에서 한다. 여러 화면이 실제로 공유하는 컴포넌트만 공용 UI 모듈로 이동한다.
 - 비동기 데이터를 기다리는 화면은 로딩·실패·빈 상태를 구분하고 공용 Skeleton을 사용한다. 데이터가 비었다는 이유만으로 로딩을 계속 표시하지 않는다.

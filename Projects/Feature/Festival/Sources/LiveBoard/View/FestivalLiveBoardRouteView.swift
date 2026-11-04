@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import FestiCoreDesignKit
+import FestiCoreSharedUI
 import SwiftUI
 
 @ViewAction(for: FestivalFeature.self)
@@ -12,31 +13,9 @@ public struct FestivalLiveBoardRouteView: View {
   }
 
   public var body: some View {
-    Group {
-      if let festival = store.selectedFestival {
-        FestivalLiveBoardScreen(
-          festival: festival,
-          pack: store.selectedPack,
-          liveBoard: store.liveBoard,
-          liveBoardUnavailable: store.liveBoardUnavailable,
-          liveBoardUnpublished: store.liveBoardUnpublished,
-          isPackLoading: store.isPackLoading,
-          liveBoardClockAnchorAt: store.liveBoardClockAnchorAt,
-          liveBoardReceivedAt: store.liveBoardReceivedAt,
-          hasSession: store.hasSession,
-          hasUnreadNotifications: store.hasUnreadNotifications,
-          sessionUserID: store.sessionUserID,
-          mySetIDs: store.mySchedule?.setIDs ?? [],
-          myScheduleUnavailable: store.myScheduleUnavailable,
-          liveActivityState: store.liveActivityState,
-          showsLiveActivityControl: store.showsLiveActivityControl,
-          onLiveActivityTap: { send(.liveActivityTapped) },
-          onLoginTap: { send(.loginTapped) },
-          onNotificationTap: { send(.notificationTapped) },
-          onBearerTap: store.bearerFlagID == nil ? nil : { send(.bearerTapped) },
-          onRetryMySchedule: { send(.retryMySchedule) },
-          onSwipeBack: { send(.backToFestivalList) }
-        )
+    return Group {
+      if store.selectedFestival != nil {
+        FestivalLiveBoardScreen(store: store)
       } else {
         VStack(spacing: .zero) {
           FCTopBar(.back, title: "라이브 보드")
@@ -65,6 +44,14 @@ public struct FestivalLiveBoardRouteView: View {
     }
     .animation(.easeOut(duration: 0.2), value: store.toastRevision)
     .animation(.easeOut(duration: 0.2), value: store.toast)
+    .fcModal($store.scope(state: \.festivalSwitcher, action: \.festivalSwitcher)) { switcherStore in
+      FestivalSwitcherView(store: switcherStore)
+    }
+    .fcModal($store.scope(state: \.crewCreate, action: \.crewCreate)) { crewStore in
+      FestivalCrewCreateView(store: crewStore)
+    }
+    .fcAlert($store.scope(state: \.alert, action: \.alert))
+    .fcAlert($store.scope(state: \.followGuideAlert, action: \.followGuideAlert))
     .task {
       send(.onAppear)
       send(.liveActivityOnAppear)

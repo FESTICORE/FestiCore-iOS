@@ -5,12 +5,61 @@ const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_PREVIEW_BYTES = 8 * 1024 * 1024;
 const MAX_JSON_CHARS = 16 * 1024 * 1024;
 
-figma.showUI(__html__, { width: 380, height: 440, themeColors: true });
+figma.showUI(__html__, { width: 420, height: 620, themeColors: true });
 
 let exporting = false;
+let layoutPlan = null;
 
 figma.ui.onmessage = async (message) => {
-  if (!message || message.type !== 'export' || exporting) return;
+  if (!message || exporting) return;
+  if (message.type === 'layout-export') {
+    try {
+      await figma.currentPage.loadAsync();
+      const entries = collectLayout(figma.currentPage);
+      const json = JSON.stringify({
+        schema: 'festicore-page-layout-v1',
+        source: { fileKey: figma.fileKey || null, pageId: figma.currentPage.id, pageName: figma.currentPage.name },
+        entries
+      }, null, 2);
+      if (json.length > MAX_JSON_CHARS) throw new Error('페이지 위치 JSON이 1,600만 자를 초과합니다.');
+      figma.ui.postMessage({ type: 'layout-ready', json, count: entries.length, pageName: figma.currentPage.name });
+    } catch (error) { postError(error); }
+    return;
+  }
+  if (message.type === 'layout-preview') {
+    layoutPlan = null;
+    try {
+      await figma.currentPage.loadAsync();
+      const source = JSON.parse(message.json);
+      const report = planLayout(source, figma.currentPage);
+      if (report.issues.length === 0) layoutPlan = { source, items: report.plan };
+      figma.ui.postMessage({ type: 'layout-report', count: report.plan.length, issues: report.issues });
+    } catch (error) { postError(error); }
+    return;
+  }
+  if (message.type === 'layout-apply') {
+    if (!layoutPlan) return postError(new Error('먼저 위치 대조를 실행하고 모든 문제를 해결하세요.'));
+    try {
+      await figma.currentPage.loadAsync();
+      // Recheck the tree immediately before writing; a stale preview must not edit a changed page.
+      const report = planLayout(layoutPlan.source, figma.currentPage);
+      if (report.issues.length || report.plan.length !== layoutPlan.items.length ||
+          report.plan.some((item, i) => item.node !== layoutPlan.items[i].node ||
+            item.currentX !== layoutPlan.items[i].currentX || item.currentY !== layoutPlan.items[i].currentY)) {
+        layoutPlan = null;
+        throw new Error('미리보기 이후 레이어가 변경되었습니다. 위치 대조를 다시 실행하세요.');
+      }
+      const items = layoutPlan.items;
+      layoutPlan = null;
+      for (const item of items) {
+        item.node.x = item.x;
+        item.node.y = item.y;
+      }
+      figma.ui.postMessage({ type: 'layout-applied', count: items.length });
+    } catch (error) { postError(error); }
+    return;
+  }
+  if (message.type !== 'export') return;
   exporting = true;
   figma.ui.postMessage({ type: 'progress', text: '선택한 프레임 또는 섹션을 읽는 중…' });
 
@@ -86,14 +135,87 @@ figma.ui.onmessage = async (message) => {
       previewBase64: figma.base64Encode(preview)
     });
   } catch (error) {
-    figma.ui.postMessage({
-      type: 'error',
-      text: error instanceof Error ? error.message : String(error)
-    });
+    postError(error);
   } finally {
     exporting = false;
   }
 };
+
+function postError(error) {
+  figma.ui.postMessage({ type: 'error', text: error instanceof Error ? error.message : String(error) });
+}
+
+function collectLayout(page) {
+  const entries = [];
+  function visit(node, path) {
+    const nextPath = path.concat([{ type: node.type, name: node.name }]);
+    if (node.type === 'FRAME' || node.type === 'SECTION') {
+      if (entries.length >= MAX_NODES) throw new Error(`페이지 프레임·섹션이 ${MAX_NODES}개를 초과합니다.`);
+      entries.push({ path: nextPath, x: node.x, y: node.y });
+    }
+    if ('children' in node && node.type !== 'INSTANCE') node.children.forEach((child) => visit(child, nextPath));
+  }
+  page.children.forEach((child) => visit(child, []));
+  return entries;
+}
+
+function pathKey(path) { return JSON.stringify(path); }
+
+function planLayout(source, page) {
+  if (!source || source.schema !== 'festicore-page-layout-v1' || !Array.isArray(source.entries) || !source.source) {
+    throw new Error('지원하지 않는 페이지 위치 JSON입니다.');
+  }
+  if (typeof source.source.pageName !== 'string' || source.source.pageName !== page.name) {
+    throw new Error('원본과 복제본의 페이지 이름이 다릅니다. 같은 페이지를 열고 다시 대조하세요.');
+  }
+  if ((source.source.fileKey && source.source.fileKey === figma.fileKey) ||
+      (!source.source.fileKey && !figma.fileKey && source.source.pageId === page.id)) {
+    throw new Error('원본 페이지에는 위치를 적용할 수 없습니다. 편집 가능한 복제본을 여세요.');
+  }
+  if (source.entries.length > MAX_NODES) throw new Error('위치 항목이 허용 범위를 초과합니다.');
+  const targets = new Map();
+  let frameCount = 0;
+  function visit(node, path) {
+    const nextPath = path.concat([{ type: node.type, name: node.name }]);
+    if (node.type === 'FRAME' || node.type === 'SECTION') {
+      const key = pathKey(nextPath);
+      if (++frameCount > MAX_NODES) throw new Error(`대상 프레임·섹션이 ${MAX_NODES}개를 초과합니다.`);
+      targets.set(key, (targets.get(key) || []).concat(node));
+    }
+    if ('children' in node && node.type !== 'INSTANCE') node.children.forEach((child) => visit(child, nextPath));
+  }
+  page.children.forEach((child) => visit(child, []));
+  const sourceCounts = new Map();
+  for (const entry of source.entries) {
+    if (!Array.isArray(entry.path) || !entry.path.length ||
+        entry.path.some((part) => !part || typeof part.type !== 'string' || typeof part.name !== 'string') ||
+        !['FRAME', 'SECTION'].includes(entry.path[entry.path.length - 1].type) ||
+        !Number.isFinite(entry.x) || !Number.isFinite(entry.y)) {
+      throw new Error('위치 JSON의 경로 또는 좌표가 잘못되었습니다.');
+    }
+    const key = pathKey(entry.path);
+    sourceCounts.set(key, (sourceCounts.get(key) || 0) + 1);
+  }
+  const issues = [];
+  const plan = [];
+  for (const entry of source.entries) {
+    const key = pathKey(entry.path);
+    const label = entry.path.map((part) => `${part.type}:${part.name}`).join(' / ');
+    const matches = targets.get(key) || [];
+    if (sourceCounts.get(key) > 1 || matches.length > 1) issues.push(`중복 경로: ${label}`);
+    else if (!matches.length) issues.push(`대상 없음: ${label}`);
+    else if (matches[0].parent && 'layoutMode' in matches[0].parent &&
+             matches[0].parent.layoutMode !== 'NONE' && matches[0].layoutPositioning !== 'ABSOLUTE') {
+      issues.push(`자동 배치 위치 변경 불가: ${label}`);
+    } else plan.push({ node: matches[0], x: entry.x, y: entry.y, currentX: matches[0].x, currentY: matches[0].y });
+  }
+  // Do not silently leave clone-only frames at unrelated positions.
+  const sourceKeys = new Set(sourceCounts.keys());
+  for (const [key, matches] of targets) {
+    if (!sourceKeys.has(key)) issues.push(`원본 없음: ${matches[0].name}`);
+  }
+  return { plan, issues: [...new Set(issues)] };
+}
 
 function collectImageReferences(root) {
   const references = [];

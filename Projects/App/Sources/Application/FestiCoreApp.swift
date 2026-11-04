@@ -33,7 +33,6 @@ struct FestiCoreApp: App {
 
 private struct RootView: View {
   let appDelegate: AppDelegate
-  @Environment(\.openURL) private var openURL
   @State private var store = Store(initialState: AppCoordinator.State()) {
     AppCoordinator()
   } withDependencies: {
@@ -59,7 +58,7 @@ private struct RootView: View {
       .alert("알림이 꺼져 있어요", isPresented: $showNotificationSettingsAlert) {
         Button("설정 열기") {
           if let url = URL(string: UIApplication.openSettingsURLString) {
-            openURL(url)
+            UIApplication.shared.open(url)
           }
         }
         Button("나중에", role: .cancel) {}

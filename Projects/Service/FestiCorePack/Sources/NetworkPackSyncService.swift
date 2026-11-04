@@ -2,6 +2,7 @@ import Foundation
 import Darwin
 import FestiCorePackInterface
 import FestiCoreNetworkInterface
+import SQLiteData
 
 private enum PackUpdateWaitError: Error { case idleTimeout, packDeleted }
 
@@ -17,9 +18,14 @@ public actor NetworkPackSyncService: PackSyncService {
   /// 팩을 지운 횟수. 지우기 전에 시작한 업데이트 감시가 팩을 다시 받지 않게 한다.
   private var deletionCount: [String: Int] = [:]
 
-  public init(baseURL: URL?, cacheDirectory: URL, client: any FestiCoreWebSocketClient) {
+  public init(
+    baseURL: URL?,
+    cacheDirectory: URL,
+    database: (any DatabaseWriter)? = nil,
+    client: any FestiCoreWebSocketClient
+  ) {
     self.baseURL = baseURL
-    cache = PackCache(directory: cacheDirectory)
+    cache = PackCache(directory: cacheDirectory, database: database)
     self.client = client
     responseTimeoutNanoseconds = 15_000_000_000
     rejectedHandshakeRetryNanoseconds = 300_000_000_000
@@ -27,14 +33,16 @@ public actor NetworkPackSyncService: PackSyncService {
   }
 
   init(
-    baseURL: URL?, cacheDirectory: URL,
+    baseURL: URL?,
+    cacheDirectory: URL,
     responseTimeoutNanoseconds: UInt64 = 15_000_000_000,
     rejectedHandshakeRetryNanoseconds: UInt64 = 300_000_000_000,
     downloadRetryBudgetNanoseconds: UInt64 = 30_000_000_000,
+    database: (any DatabaseWriter)? = nil,
     client: any FestiCoreWebSocketClient
   ) {
     self.baseURL = baseURL
-    cache = PackCache(directory: cacheDirectory)
+    cache = PackCache(directory: cacheDirectory, database: database)
     self.client = client
     self.responseTimeoutNanoseconds = responseTimeoutNanoseconds
     self.rejectedHandshakeRetryNanoseconds = rejectedHandshakeRetryNanoseconds

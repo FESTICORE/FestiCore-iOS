@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-/// 하단 짧은 알림. 탭 바 위에 2초 동안 보인다.
+/// 화면 상단에 표시하는 짧은 알림.
 public struct FCToast: View {
   /// 토스트 한 건. 같은 문구도 새로 띄울 수 있게 `id`로 구분한다.
   public struct Item: Identifiable, Equatable, Sendable {
@@ -59,18 +59,17 @@ public extension FCToast {
 }
 
 public extension View {
-  /// `item`이 있으면 아래쪽에 토스트를 띄우고 `duration` 뒤 자동으로 비운다.
-  /// `bottomPadding`은 탭 바 높이만큼 띄울 때 쓴다.
+  /// `item`이 있으면 위쪽에 토스트를 띄우고 `duration` 뒤 자동으로 비운다.
   func fcToast(
     item: Binding<FCToast.Item?>,
     duration: Double = 2,
-    bottomPadding: CGFloat = FestiCoreSpacing.paddingP16
+    topPadding: CGFloat = 30
   ) -> some View {
-    overlay(alignment: .bottom) {
+    overlay(alignment: .top) {
       if let current = item.wrappedValue {
         FCToast(current)
-          .padding(.bottom, bottomPadding)
-          .transition(.move(edge: .bottom).combined(with: .opacity))
+          .padding(.top, topPadding)
+          .transition(.move(edge: .top).combined(with: .opacity))
           .task(id: current.id) {
             try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled, item.wrappedValue?.id == current.id else { return }

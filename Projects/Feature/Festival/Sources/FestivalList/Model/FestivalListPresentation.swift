@@ -98,9 +98,9 @@ extension FestivalListPresentation {
     case received(String)
   }
 
-  /// 티켓이 아직 열리지 않아 팩을 받을 수 없는 축제
+  /// 아직 팩이 발행되지 않은 축제의 상태 배지
   static func isOpeningSoon(_ festival: FestivalOverview) -> Bool {
-    festival.catalogStatus == "discovered" || festival.packVersion == 0
+    festival.packVersion == 0
   }
 
   /// 종료 > 오픈 예정 > 진행 중 > D-3~D-1(빨강) > D-4 이상 > 날짜 없음
@@ -124,26 +124,19 @@ extension FestivalListPresentation {
     }
   }
 
-  static func packCopy(
-    for festival: FestivalOverview,
-    isBooked: Bool,
-    onlyBooked: Bool,
-    now: Date
-  ) -> PackCopy {
+  static func packCopy(for festival: FestivalOverview, now: Date) -> PackCopy {
+    // 받은 최신 팩은 축제가 끝나도 계속 볼 수 있다.
+    if festival.packVersion > 0, let cachedVersion = festival.cachedPackVersion,
+       cachedVersion >= festival.packVersion {
+      return .received("팩 받음 · 최신 버전")
+    }
     if timing(for: festival, now: now) == .ended {
       return .unavailable("종료된 페스티벌이라 팩을 받을 수 없어요")
     }
-    // 백엔드의 discovered/packVersion=0은 팩 미발행이며 티켓 오픈 여부를 뜻하지 않는다.
-    if festival.packVersion == 0 {
-      return .unavailable("아직 받을 수 있는 팩이 없어요")
+    guard festival.packVersion > 0 else {
+      return .unavailable("팩 발행을 기다리고 있어요")
     }
-    if isOpeningSoon(festival) {
-      return .unavailable(onlyBooked ? "티켓이 열리면 팩을 받을 수 있어요" : "티켓 오픈 후 등록하고 팩을 받을 수 있어요")
-    }
-    guard isBooked else { return .unavailable("예매한 페스티벌로 등록하면 팩을 받을 수 있어요") }
-    guard let cachedVersion = festival.cachedPackVersion else { return .ready("팩 받기") }
-    // 카탈로그 캐시가 팩보다 오래됐을 수 있으므로 같거나 높으면 최신으로 본다.
-    return cachedVersion >= festival.packVersion ? .received("팩 받음 · 최신 버전") : .ready("팩 업데이트")
+    return festival.cachedPackVersion == nil ? .ready("팩 받기") : .ready("팩 업데이트")
   }
 
   /// 진행 중 → 가까운 D-day → 오픈 예정·날짜 없음 → 종료(최근 종료 먼저). 같은 순위는 이름순.

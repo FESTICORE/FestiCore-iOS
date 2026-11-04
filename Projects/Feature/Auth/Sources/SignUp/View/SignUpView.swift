@@ -17,13 +17,27 @@ import Web
 @ViewAction(for: SignUpFeature.self)
 public struct SignUpView: View {
   @Bindable public var store: StoreOf<SignUpFeature>
-  @State private var keyboardInset: CGFloat = 0
 
   public init(store: StoreOf<SignUpFeature>) {
     self.store = store
   }
 
   public var body: some View {
+    NavigationStack {
+      content
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(
+          item: $store.scope(state: \.destination?.legalDocument, action: \.destination.legalDocument)
+        ) { webStore in
+          WebView(store: webStore)
+            .toolbar(.hidden, for: .navigationBar)
+        }
+    }
+  }
+}
+
+private extension SignUpView {
+  var content: some View {
     VStack(spacing: .zero) {
       FCTopBar(.back)
         .onBack { send(.closeTapped) }
@@ -43,7 +57,7 @@ public struct SignUpView: View {
           .label("닉네임")
           .counter(AuthNicknameRule.counterText(store.nickname))
           .helper("크루원과 깃발에 보이는 이름이에요. 나중에 마이에서 바꿀 수 있어요.")
-          consentBox
+          consentBox()
           if let message = store.message {
             Text(message)
               .festiCoreFont(.baseCaption1Regular)
@@ -60,22 +74,18 @@ public struct SignUpView: View {
       .padding(.top, FestiCoreSpacing.paddingP12)
       .padding(.bottom, FestiCoreSpacing.paddingP8)
     }
-    .padding(.bottom, keyboardInset)
+    .padding(.bottom, store.keyboardInset)
     .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
       guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-      keyboardInset = max(0, UIScreen.main.bounds.height - frame.minY)
+      send(.keyboardFrameChanged(minY: frame.minY, screenHeight: UIScreen.main.bounds.height))
     }
     .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-      keyboardInset = 0
-    }
-    .fullScreenCover(item: $store.scope(state: \.destination?.legalDocument, action: \.destination.legalDocument)) { webStore in
-      WebView(store: webStore)
+      send(.keyboardHidden)
     }
   }
-}
 
-private extension SignUpView {
-  var consentBox: some View {
+  @ViewBuilder
+  func consentBox() -> some View {
     VStack(spacing: .zero) {
       FCConsentAll(isChecked: store.isAllConsented) {
         send(.allConsentToggled)

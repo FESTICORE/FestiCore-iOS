@@ -28,7 +28,7 @@ struct OnboardingFeatureTests {
   @Test func downloadedIllustrationsLoadFromFeatureAssets() {
     let bundle = Bundle(for: OnboardingBundleMarker.self)
     for page in OnboardingPage.all {
-      let image = UIImage(named: page.imageName, in: bundle, compatibleWith: nil)
+      let image = UIImage(named: page.imageAsset.rawValue, in: bundle, compatibleWith: nil)
       #expect(image?.size == CGSize(width: 345, height: 431))
       #expect(image?.scale == 3)
     }

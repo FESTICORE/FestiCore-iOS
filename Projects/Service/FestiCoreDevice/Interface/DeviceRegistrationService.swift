@@ -44,6 +44,15 @@ public protocol DeviceRegistrationService: Sendable {
   func installationDeviceID() async throws -> String
   func register(_ metadata: DeviceRegistrationMetadata) async throws -> DeviceAuthorization
   func authorization() async throws -> DeviceAuthorization?
+  func bindToCurrentUser() async throws
+  func unbindCurrentUser() async throws
+  func recoverBoundDevice() async throws
+}
+
+public extension DeviceRegistrationService {
+  func bindToCurrentUser() async throws { throw TestDeviceRegistrationUnavailable() }
+  func unbindCurrentUser() async throws { throw TestDeviceRegistrationUnavailable() }
+  func recoverBoundDevice() async throws { throw TestDeviceRegistrationUnavailable() }
 }
 
 public enum DeviceRegistrationServiceDependency: TestDependencyKey {

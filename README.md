@@ -18,17 +18,15 @@
 
 ## 프로젝트
 
-FestiCore는 축제를 위한 iOS 앱입니다. Festival 모듈에서 축제 목록을 조회하고, 축제를 선택하면 공개 팩을 받아 저장합니다. 저장된 목록과 팩은 앱 재시작 후 네트워크 없이 다시 볼 수 있습니다. Live Activity의 화면상 시작 동작은 구현됐으며, 잠금 화면 표시는 실제 기기에서 검증 중입니다.
+FestiCore는 축제 목록, 공연 시간표와 현장 정보를 한곳에서 확인하는 iOS 앱입니다.
 
-현재 구성:
+주요 기능:
 
-- Stage·Prod 앱, Splash에서 첫 설치 온보딩을 거쳐 탭과 축제 목록·라이브 보드로 이어지는 TCA 화면 전환
-- 네트워크·인증·저장소·로깅의 모듈 경계와 의존성 조립
-- APNs 토큰의 Keychain 보관과 앱 실행 시 기기 등록
-- 공개 축제 목록의 마지막 정상 응답 저장, 팩 WebSocket 동기화와 오프라인 복구
-- 코드 기반 색상, base·point Pretendard 타이포그래피, 공통 UI
-- ActivityKit 공유 모델과 독립 WidgetKit 확장
-- Swift Testing, Tuist 프로젝트 생성 및 PR CI
+- 첫 설치 온보딩과 축제 목록·검색
+- 축제 팩 다운로드·갱신과 오프라인 열람
+- 라이브 보드, 알림함, 공연 시간표
+- 마이페이지와 공지·법적 문서
+- ActivityKit 기반 Live Activity와 WidgetKit 확장
 
 ## 스크린샷
 
@@ -36,7 +34,7 @@ FestiCore는 축제를 위한 iOS 앱입니다. Festival 모듈에서 축제 목
 
 ## 아키텍처
 
-SwiftUI와 The Composable Architecture를 사용하는 Tuist 멀티모듈 프로젝트입니다. `Workspace.swift`가 `Projects/**`를 모으고, `AppCoordinator`는 Splash에서 `MainTabCoordinator`로 전환합니다. 축제 목록과 라이브 보드는 `FestivalCoordinator`가 TCAFlow 경로로 관리합니다.
+SwiftUI와 The Composable Architecture를 사용하는 Tuist 멀티모듈 프로젝트입니다. `AppCoordinator`가 Splash·온보딩·탭 전환을, `FestivalCoordinator`가 축제 화면 경로를 관리합니다.
 
 ### 폴더 구조
 
@@ -60,7 +58,7 @@ Projects/
 │   ├── UserNotificationDomain/    # 내 알림함 계약·구현
 │   └── TimetableDomain/           # 타임테이블 공개 값 타입
 ├── Service/
-│   ├── API/                      # API 요청 인터페이스
+│   ├── API/                      # API 경로 상수
 │   ├── APIEndpoint/              # API 경로·인증 정책
 │   ├── ServiceAssembly/           # 서비스 의존성 조립
 │   ├── FestiCoreAuth/             # 인증 세션과 토큰 갱신
@@ -86,76 +84,44 @@ Projects/
     └── FestiCoreWidget/           # 잠금 화면·Dynamic Island 확장
 ~~~
 
-각 폴더는 추적 중인 `Project.swift` 기준입니다. 생성물과 아직 프로젝트에 등록되지 않은 실험 폴더는 제외했습니다.
+각 폴더는 `Project.swift`에 등록된 모듈입니다.
 
-### Mermaid 의존성 흐름
+### 의존성 흐름
 
 ~~~mermaid
 flowchart TD
     App --> FeatureAssembly
-    App --> ServiceAssembly
-    App --> CoreAssembly
-    FeatureAssembly --> Festival
-    FeatureAssembly --> Profile
-    FeatureAssembly --> Onboarding
-    FeatureAssembly --> Web
-    FeatureAssembly --> Bearer
-    FeatureAssembly --> AuthFeature["Auth"]
-    FeatureAssembly --> Timetable
-    FeatureAssembly --> AuthDomain
-    FeatureAssembly --> NoticeDomain
-    FeatureAssembly --> UserNotificationDomain
+    FeatureAssembly --> Features[Feature modules]
+    FeatureAssembly --> Domains[Domain implementations]
     FeatureAssembly --> ServiceAssembly
-    Festival --> FestivalDomainInterface["FestivalDomain / Interface"]
-    Festival --> UserNotificationDomainInterface["UserNotificationDomain / Interface"]
-    Festival --> PackInterface["FestiCorePack / Interface"]
-    Festival --> Utility["FestiCoreUtility"]
-    Festival --> SharedUI["FestiCoreSharedUI"]
-    Profile --> FestivalDomainInterface
-    Profile --> NoticeDomainInterface["NoticeDomain / Interface"]
-    Profile --> Utility
-    Profile --> AuthDomainInterface["AuthDomain / Interface"]
-    Profile --> Web
-    Profile --> SharedUI
-    AuthFeature --> AuthDomainInterface
-    AuthFeature --> Web
-    Timetable --> TimetableDomainInterface["TimetableDomain / Interface"]
-    AuthDomain --> AuthDomainInterface
-    AuthDomain --> AuthInterface["FestiCoreAuth / Interface"]
-    AuthDomain --> APIEndpoint
-    AuthDomain --> NetworkInterface["FestiCoreNetwork / Interface"]
-    NoticeDomain --> NoticeDomainInterface
-    NoticeDomain --> APIEndpoint
-    NoticeDomain --> NetworkInterface
-    NoticeDomain --> Utility
-    UserNotificationDomain --> UserNotificationDomainInterface
-    UserNotificationDomain --> APIEndpoint
-    UserNotificationDomain --> NetworkInterface
-    UserNotificationDomain --> AuthInterface
-    UserNotificationDomain --> Utility
+
+    Features --> DomainInterface["*Domain / Interface"]
+    Features --> UI[UI modules]
+    Domains --> DomainInterface
+    Domains --> Repositories["S00 Repository Interface · implementation"]
+    Repositories --> Services["FestivalCatalog · Pack services"]
+
+    ServiceAssembly --> Services
     ServiceAssembly --> CoreAssembly
-    ServiceAssembly --> FestivalDomainInterface
-    ServiceAssembly --> Network["FestiCoreNetwork / Implementation"]
-    ServiceAssembly --> Services["Auth · Device · FestivalCatalog · Pack"]
-    CoreAssembly --> Core["Logger · Network · Storage"]
-    APIEndpoint --> NetworkInterface
-    App -. 포함 .-> Widget["FestiCoreWidget"]
-    App -. 포함 .-> Notification["FestiCoreNotificationService"]
+    Services --> Network["FestiCoreNetwork / Interface"]
+    CoreAssembly --> Network
+    CoreAssembly --> Storage["FestiCoreStorage"]
 ~~~
 
-- `FeatureAssembly`는 Auth·Bearer·Festival·Onboarding·Profile·Timetable·Web과 도메인 구현(공지·내 알림함 포함), `ServiceAssembly`를 연결합니다.
-- 화면은 필요한 도메인·서비스의 Interface를 직접 의존하고, `ServiceAssembly`와 `CoreAssembly`가 라이브 구현을 조립합니다.
-- App은 Feature·Service·Core 조립 모듈과 앱에서 직접 사용하는 UI·설정 모듈을 참조합니다. 위젯과 알림 서비스는 앱에 포함되는 별도 타깃입니다.
+설계 원칙:
+
+- **FeatureAssembly**는 화면과 Domain 구현을 모아 앱에 제공합니다.
+- 화면은 **Domain Interface**의 UseCase를 주입받습니다. S00 축제 목록·팩 UseCase는 Repository Interface를 사용합니다.
+- S00 Repository 구현은 축제 목록·팩 서비스에 캐시와 통신을 위임합니다. 자세한 경로는 [화면과 데이터 흐름](docs/architecture/feature-data-flow.mmd)에 있습니다.
+- **ServiceAssembly**와 **CoreAssembly**가 공용 네트워크·인증·저장소 구현을 조립합니다.
+
+### 의존성 주입
+
+Point-Free Dependencies를 사용합니다. 각 모듈의 Interface에 계약과 DependencyKey를 두고, 구현·Assembly에서 라이브 의존성을 등록합니다. 화면 Reducer는 필요한 UseCase를 `@Dependency`로 받습니다. 세부 규칙은 [의존성 주입](docs/agent/dependency-injection.md)을 참고하세요.
 
 ### 모듈 그래프
 
-현재 Auth 모듈 이름을 반영한 요약 도식은 [Mermaid](docs/architecture/module-graph.mmd)와 [SVG](docs/architecture/module-graph.svg)에서 확인할 수 있습니다. Tuist 전체·제품 그래프의 생성 방법은 [아키텍처 문서](docs/architecture/README.md)를 참고하세요.
-
-### TCA 화면 흐름과 데이터 경계
-
-앱은 Splash 이후 설치 기록에 따라 온보딩 또는 메인 탭으로 이동합니다. 화면은 `View → Reducer → UseCase Interface → Repository Interface → APIEndpoint` 경계를 따르며, 의존성은 Feature·Service·Core Assembly에서 조립합니다.
-
-화면 전환과 모듈 의존성은 [아키텍처 그림](docs/architecture/README.md), 요청·저장 흐름은 [화면과 데이터 흐름 도식](docs/architecture/feature-data-flow.mmd), 주입 규칙은 [의존성 주입 문서](docs/agent/dependency-injection.md)를 참고하세요.
+`./make graph`와 `./make graph:prod`는 현재 Tuist 모듈의 전체·제품 의존성 그래프를 생성합니다. 그림과 생성 방법은 [아키텍처 그림](docs/architecture/README.md)을 참고하세요.
 
 ### S00–S05 진행 상태
 
@@ -164,6 +130,8 @@ flowchart TD
 | S00 | 축제 목록·검색과 북마크 결과 토스트 코드가 있습니다. 디자인 대조와 실기기 검증은 진행 중입니다. |
 | S01 | 라이브 보드 알림함과 내 알림 API 연결 코드가 있습니다. 화면별 디자인 일치와 실기기 검증은 완료로 표시하지 않습니다. |
 | S02–S05 | 이 브랜치에서 화면별 디자인 일치와 실기기 검증 완료를 확인하지 않았습니다. |
+
+현재 Auth 모듈 도식은 [Mermaid](docs/architecture/module-graph.mmd)와 [SVG](docs/architecture/module-graph.svg)를 참고하세요.
 
 ## 기술 스택
 

@@ -13,6 +13,23 @@ import Web
 @testable import Auth
 
 struct SignUpFeatureTests {
+  @Test @MainActor func keyboardFrameChangesBottomInsetAndHideResetsIt() async {
+    let store = TestStore(initialState: SignUpFeature.State()) { SignUpFeature() }
+
+    await store.send(.view(.keyboardFrameChanged(minY: 600, screenHeight: 844))) {
+      $0.keyboardInset = 244
+    }
+    await store.send(.view(.keyboardFrameChanged(minY: 900, screenHeight: 844))) {
+      $0.keyboardInset = 0
+    }
+    await store.send(.view(.keyboardFrameChanged(minY: 500, screenHeight: 844))) {
+      $0.keyboardInset = 344
+    }
+    await store.send(.view(.keyboardHidden)) {
+      $0.keyboardInset = 0
+    }
+  }
+
   @Test @MainActor func legalDetailOpensWebAndKeepsDraftAfterClose() async {
     var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
     state.nickname = "테스터"

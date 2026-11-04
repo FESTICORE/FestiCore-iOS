@@ -54,13 +54,17 @@ struct LiveActivityRegistrationRequest: FestiCoreDataRequest {
   }
 
   var path: String { "api/v1/devices/live-activity" }
-  var authorization: FestiCoreAuthorization { .none }
+  var authorization: FestiCoreAuthorization {
+    if let sessionID = deviceAuthorization.sessionID { return .sessionBound(sessionID) }
+    return .none
+  }
   var maxRetryAttempts: Int { 0 }
   var headers: HTTPHeaders {
-    [
-      "X-Device-Id": deviceAuthorization.deviceID,
-      "Authorization": "Bearer \(deviceAuthorization.bearerToken)"
-    ]
+    var headers: HTTPHeaders = ["X-Device-Id": deviceAuthorization.deviceID]
+    if let token = deviceAuthorization.bearerToken {
+      headers.add(name: "Authorization", value: "Bearer \(token)")
+    }
+    return headers
   }
   var parameters: (any Encodable & Sendable)? {
     registration.map {

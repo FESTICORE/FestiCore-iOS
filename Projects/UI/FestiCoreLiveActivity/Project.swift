@@ -12,9 +12,11 @@ import DependencyPackagePlugin
 
 let project = Project.makeModule(
   name: "FestiCoreLiveActivity",
+  product: .framework,
   dependencies: [
     .domain(.festival, .interface),
     .SPM.dependencies
   ],
-  targetSettings: .settings(base: ["APPLICATION_EXTENSION_API_ONLY": "YES"])
+  targetSettings: .settings(base: ["APPLICATION_EXTENSION_API_ONLY": "YES"]),
+  hasTests: true
 )

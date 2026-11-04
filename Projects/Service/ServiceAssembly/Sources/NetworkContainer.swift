@@ -16,6 +16,7 @@ import FestiCoreNetworkInterface
 import FestiCoreNetwork
 import FestiCorePack
 import FestiCorePackInterface
+import FestiCoreStorage
 import Foundation
 
 public enum NetworkContainer {
@@ -44,7 +45,15 @@ public enum NetworkContainer {
       refreshClient: NetworkAssembly.plainClient(),
       storage: storage
     )
-    let deviceRegistrationService = NetworkDeviceRegistrationService(client: auth.authenticatedClient, storage: storage)
+    let deviceRegistrationService = NetworkDeviceRegistrationService(
+      client: auth.authenticatedClient,
+      storage: storage,
+      userSession: {
+        guard let id = await auth.authenticatedSessionID,
+              let userID = await auth.currentUserID else { return nil }
+        return DeviceUserSession(id: id, userID: userID)
+      }
+    )
     return Assembly(
       authenticatedClient: auth.authenticatedClient,
       authService: auth,
@@ -57,6 +66,7 @@ public enum NetworkContainer {
       packSyncService: NetworkPackSyncService(
         baseURL: NetworkClientFactory.bundleBaseURL,
         cacheDirectory: packCacheDirectory,
+        database: StorageFactory.persistentDatabaseWriter,
         client: NetworkAssembly.webSocketClient()
       ),
       festivalCatalogService: NetworkFestivalCatalogService(

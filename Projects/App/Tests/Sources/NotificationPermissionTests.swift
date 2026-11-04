@@ -59,24 +59,26 @@ struct NotificationPermissionTests {
     storage.save("old-token", for: .apnsToken)
     let state = NotificationPermissionState(status: .denied, requestResult: false)
     delegate.secureStorage = storage
-    delegate.notificationAuthorizationClient = state.client
+    delegate.notificationAuthorization.client = state.client
 
     delegate.configureDeviceRegistration()
-    await delegate.registrationTask?.value
-    delegate.liveActivityStartTokenTask?.cancel()
+    await delegate.deviceRegistration.task?.value
+    delegate.deviceRegistration.liveActivityStartTokenTask?.cancel()
 
     let registrations = await service.registrations
     #expect(registrations.first?.apnsToken == "old-token")
+    #expect(delegate.deviceRegistration.lastMetadata == registrations.last)
     #expect(state.registrationCount == 1)
+    #expect(delegate.notificationAuthorization.hasRequestedAPNsRegistration)
   }
 
   @Test("진행 중인 권한 요청 Task를 재사용한다")
   func reusesInFlightAuthorizationTask() async {
     let delegate = AppDelegate()
     let state = NotificationPermissionState(status: .notDetermined, requestResult: true)
-    delegate.notificationAuthorizationClient = state.client
+    delegate.notificationAuthorization.client = state.client
     let results = AsyncStream<NotificationPermissionResult>.makeStream()
-    delegate.notificationAuthorizationTask = Task {
+    delegate.notificationAuthorization.task = Task {
       var iterator = results.stream.makeAsyncIterator()
       return await iterator.next() ?? .unavailable
     }
@@ -91,19 +93,21 @@ struct NotificationPermissionTests {
     #expect(result == .denied)
     #expect(state.requestCount == 0)
     #expect(state.registrationCount == 0)
+    #expect(!delegate.notificationAuthorization.hasRequestedAPNsRegistration)
   }
 
   @Test("허용하면 한 번만 권한을 요청하고 APNs 등록을 시작한다")
   func authorizedFlowAndReentry() async {
     let delegate = AppDelegate()
     let state = NotificationPermissionState(status: .notDetermined, requestResult: true)
-    delegate.notificationAuthorizationClient = state.client
+    delegate.notificationAuthorization.client = state.client
     delegate.secureStorage = MemoryNotificationStorage()
 
     #expect(await delegate.requestNotificationPermission() == .authorized)
     #expect(await delegate.requestNotificationPermission() == .authorized)
     #expect(state.requestCount == 1)
     #expect(state.registrationCount == 1)
+    #expect(delegate.notificationAuthorization.hasRequestedAPNsRegistration)
   }
 
   @Test("알림 표시를 거부해도 APNs 등록과 기존 토큰은 유지한다")
@@ -112,7 +116,7 @@ struct NotificationPermissionTests {
     let state = NotificationPermissionState(status: .notDetermined, requestResult: false)
     let storage = MemoryNotificationStorage()
     storage.save("old-token", for: .apnsToken)
-    delegate.notificationAuthorizationClient = state.client
+    delegate.notificationAuthorization.client = state.client
     delegate.secureStorage = storage
 
     #expect(await delegate.requestNotificationPermission() == .denied)
@@ -120,13 +124,14 @@ struct NotificationPermissionTests {
     #expect(state.requestCount == 1)
     #expect(state.registrationCount == 1)
     #expect(storage.load(.apnsToken) == "old-token")
+    #expect(delegate.notificationAuthorization.hasRequestedAPNsRegistration)
   }
 
   @Test("이미 거부된 권한은 다시 묻지 않는다")
   func previouslyDenied() async {
     let delegate = AppDelegate()
     let state = NotificationPermissionState(status: .denied, requestResult: true)
-    delegate.notificationAuthorizationClient = state.client
+    delegate.notificationAuthorization.client = state.client
     delegate.secureStorage = MemoryNotificationStorage()
 
     #expect(await delegate.requestNotificationPermission() == .denied)
@@ -148,7 +153,7 @@ private final class NotificationPermissionState {
   }
 
   var client: NotificationAuthorizationClient {
-    NotificationAuthorizationClient(
+    return NotificationAuthorizationClient(
       authorizationStatus: { self.status },
       requestAuthorization: {
         self.requestCount += 1
@@ -165,14 +170,14 @@ private final class NotificationPermissionState {
 private actor RecordingDeviceRegistrationService: DeviceRegistrationService {
   private(set) var registrations: [DeviceRegistrationMetadata] = []
 
-  func installationDeviceID() async throws -> String { "test-device" }
+  func installationDeviceID() async throws -> String { return "test-device" }
 
   func register(_ metadata: DeviceRegistrationMetadata) async throws -> DeviceAuthorization {
     registrations.append(metadata)
     return DeviceAuthorization(deviceID: "test-device", bearerToken: "test-token")
   }
 
-  func authorization() async throws -> DeviceAuthorization? { nil }
+  func authorization() async throws -> DeviceAuthorization? { return nil }
 }
 
 private final class MemoryNotificationStorage: SecureStorage, @unchecked Sendable {
@@ -180,7 +185,7 @@ private final class MemoryNotificationStorage: SecureStorage, @unchecked Sendabl
   private var values: [SecureStorageKey: String] = [:]
 
   func save(_ value: String, for key: SecureStorageKey) { lock.withLock { values[key] = value } }
-  func load(_ key: SecureStorageKey) -> String? { lock.withLock { values[key] } }
+  func load(_ key: SecureStorageKey) -> String? { return lock.withLock { values[key] } }
   func remove(_ key: SecureStorageKey) { _ = lock.withLock { values.removeValue(forKey: key) } }
   func removeAll() { lock.withLock { values.removeAll() } }
 }

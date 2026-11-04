@@ -5,6 +5,7 @@
 
 import ComposableArchitecture
 import FestiCoreDesignKit
+import FestiCoreUtility
 import NoticeDomainInterface
 import SwiftUI
 
@@ -34,9 +35,9 @@ private extension NoticeDetailView {
   var content: some View {
     switch store.load {
     case .idle, .loading:
-      loadingContent
+      loadingContent()
     case .failed:
-      messageContent
+      messageContent()
     case .loaded:
       if let detail = store.detail {
         ScrollView {
@@ -44,7 +45,7 @@ private extension NoticeDetailView {
             Text(detail.title)
               .festiCoreFont(.baseTitle3Bold)
               .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-            Text(NoticeDisplayDate.format(detail.publishedAt))
+            Text(detail.publishedAt.formatted(.dottedDay))
               .festiCoreFont(.baseCaption1Regular)
               .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
             FestiCoreSemanticColor.lineNormal.color.frame(height: 1)
@@ -61,7 +62,8 @@ private extension NoticeDetailView {
     }
   }
 
-  var loadingContent: some View {
+  @ViewBuilder
+  func loadingContent() -> some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
       FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r4))
         .frame(height: 24)
@@ -74,7 +76,8 @@ private extension NoticeDetailView {
     .accessibilityLabel("공지사항을 불러오는 중")
   }
 
-  var messageContent: some View {
+  @ViewBuilder
+  func messageContent() -> some View {
     VStack(spacing: FestiCoreSpacing.paddingP12) {
       Text("공지사항을 불러오지 못했어요")
         .festiCoreFont(.baseBodyRegular)

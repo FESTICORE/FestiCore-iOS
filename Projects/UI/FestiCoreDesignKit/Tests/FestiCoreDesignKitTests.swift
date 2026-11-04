@@ -47,7 +47,7 @@ struct FestiCoreDesignKitTests {
     #expect(reopenedFrame.minY < harness.window.bounds.height)
   }
 
-  @Test @MainActor func pendingDismissalIsCancelledWhenModifierIsRemoved() async throws {
+  @Test @MainActor func pendingDismissalCannotCloseRapidConditionalReopen() async throws {
     let harness = SheetTestHarness(conditional: true)
     defer { harness.close() }
     try await harness.render()
@@ -61,6 +61,52 @@ struct FestiCoreDesignKitTests {
     try await harness.render()
     harness.box.item = .login
     try await harness.render()
+    #expect(requested.duration(to: clock.now) < SheetTestTiming.preDeadlineLimit)
+
+    try await Task.sleep(for: SheetTestTiming.resultWait)
+    #expect(harness.box.item == .login)
+    let reopenedFrame = try #require(harness.box.sheetFrame)
+    #expect(reopenedFrame.minY < harness.window.bounds.height)
+  }
+
+  @Test @MainActor func pendingDismissalIsCancelledWhenModifierIsRemoved() async throws {
+    let harness = SheetTestHarness(conditional: true)
+    defer { harness.close() }
+    try await harness.render()
+    let dismiss = try #require(harness.box.dismiss)
+    let clock = ContinuousClock()
+    let requested = clock.now
+
+    dismiss()
+    try await harness.render()
+    harness.box.item = nil
+    // 제거 애니메이션 도중 재열면 SwiftUI가 제거를 취소할 수 있으므로 실제 수명 종료를 확인한다.
+    let removalDeadline = requested.advanced(by: SheetTestTiming.preDeadlineLimit)
+    while harness.box.modifierDisappearCount == 0, clock.now < removalDeadline {
+      try await harness.render()
+    }
+    try #require(harness.box.modifierDisappearCount >= 1)
+    harness.box.item = .login
+    try await harness.render()
+    #expect(requested.duration(to: clock.now) < SheetTestTiming.preDeadlineLimit)
+
+    try await Task.sleep(for: SheetTestTiming.resultWait)
+    #expect(harness.box.item == .login)
+  }
+
+  @Test @MainActor func removingModifierCancelsDismissalWhileItemRemainsPresented() async throws {
+    let harness = SheetTestHarness(conditional: true)
+    defer { harness.close() }
+    try await harness.render()
+    let dismiss = try #require(harness.box.dismiss)
+    let clock = ContinuousClock()
+    let requested = clock.now
+
+    dismiss()
+    harness.box.isModifierMounted = false
+    try await harness.render()
+    #expect(harness.box.modifierDisappearCount == 1)
+    #expect(harness.box.item == .login)
     #expect(requested.duration(to: clock.now) < SheetTestTiming.preDeadlineLimit)
 
     try await Task.sleep(for: SheetTestTiming.resultWait)
@@ -310,6 +356,8 @@ private enum TestSheet: Identifiable {
 @Observable
 private final class TestSheetBox {
   var item: TestSheet? = .login
+  var isModifierMounted = true
+  @ObservationIgnored var modifierDisappearCount = 0
   var dismiss: (() -> Void)?
   @ObservationIgnored var backgroundFrame: CGRect?
   @ObservationIgnored var sheetFrame: CGRect?
@@ -346,7 +394,7 @@ private struct SheetTestHost: View {
 
   var body: some View {
     Group {
-      if conditional && box.item == nil {
+      if conditional && (!box.isModifierMounted || box.item == nil) {
         Color.clear
       } else {
         ZStack(alignment: .topLeading) {
@@ -360,6 +408,7 @@ private struct SheetTestHost: View {
         )) { _ in
           SheetTestContent(box: box)
         }
+        .onDisappear { box.modifierDisappearCount += 1 }
       }
     }
     .environment(\.fcSheetDismissalDelay, SheetTestTiming.dismissalDelay)

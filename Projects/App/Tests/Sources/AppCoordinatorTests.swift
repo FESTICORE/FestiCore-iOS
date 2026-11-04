@@ -15,6 +15,7 @@ import FeatureAssembly
 import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestiCoreAuthInterface
+import FestiCoreDeviceInterface
 import FestiCoreNetworkInterface
 import FestiCoreStorageInterface
 import FestiCoreSharedUI
@@ -1281,6 +1282,24 @@ struct AppCoordinatorTests {
     await store.send(.router(.routeAction(id: 1, action: .liveBoard(.view(.liveBoardOnDisappear)))))
   }
 
+  @Test func openingLiveBoardCarriesUncachedSelectedFestivalFromLaterPage() {
+    let items = (1...11).map { FestivalCatalogItem(id: "fst_\($0)", name: "축제 \($0)", packVersion: 0) }
+    for selected in [items[1], items[10]] {
+      var list = FestivalFeature.State()
+      list.catalog = .init(uniqueElements: items)
+      var state = FestivalCoordinator.State()
+      state.routes = [.root(.festivalList(list), embedInNavigationView: true)]
+      _ = FestivalCoordinator().handleRoute(
+        state: &state,
+        action: .router(.routeAction(id: 0, action: .festivalList(.view(.selectFestival(selected.id)))))
+      )
+      let board = state.routes.last?.screen.liveBoard
+      #expect(board?.selectedFestivalID == selected.id)
+      #expect(board?.selectedFestival?.name == selected.name)
+      #expect(board?.cachedPacks.isEmpty == true)
+    }
+  }
+
   @Test func openingLiveBoardCarriesVerifiedBookmarkAccount() {
     var list = FestivalFeature.State()
     list.bookedUserID = "user-a"
@@ -1497,6 +1516,7 @@ struct AppCoordinatorTests {
       $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording(analytics)
       $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.deviceRegistrationService = UnboundTestDevice()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
     store.exhaustivity = .off
@@ -1520,6 +1540,58 @@ struct AppCoordinatorTests {
     guard case let .home(signedOut) = store.state else { return }
     #expect(signedOut.authFlow.profile == nil)
     #expect(analytics.value == [.reset])
+  }
+
+  @Test func logoutUnbindsAndEndsLocalActivityBeforeSigningOut() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.hasSession = true
+    let calls = LockIsolated<[String]>([])
+    let activity = FestivalLiveActivityRecord(
+      id: "activity-a", festivalID: "festival-a", phase: .upcoming,
+      startDate: Date(timeIntervalSince1970: 0), endDate: nil
+    )
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.analyticsUseCase = .recording()
+      $0.authUseCase = UnauthenticatedAuthUseCase(calls: calls)
+      $0.deviceRegistrationService = UnboundTestDevice(calls: calls)
+      $0.festivalLiveActivityUseCase = MockFestivalLiveActivityUseCase(
+        activities: { [activity] },
+        end: { id in calls.withValue { $0.append("end:\(id)") } }
+      )
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.delegate(.myLogoutRequested))))
+    await store.receive(\.inner.myAccountFinished)
+
+    #expect(calls.value == ["unbind", "end:activity-a", "signOut"])
+  }
+
+  @Test func logoutContinuesWhenDeviceUnbindFails() async {
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.hasSession = true
+    let calls = LockIsolated<[String]>([])
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.analyticsUseCase = .recording()
+      $0.authUseCase = UnauthenticatedAuthUseCase(calls: calls)
+      $0.deviceRegistrationService = UnboundTestDevice(calls: calls, shouldFailUnbind: true)
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.delegate(.myLogoutRequested))))
+    await store.receive(\.inner.myAccountFinished)
+
+    #expect(calls.value == ["unbind", "signOut"])
+    guard case let .home(signedOut) = store.state else { return }
+    #expect(!signedOut.authFlow.hasSession)
   }
 
   @Test func completedAccountOperationClosesSheetAfterSwitchingTabs() async {
@@ -1567,6 +1639,7 @@ struct AppCoordinatorTests {
       $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authUseCase = FailingMyAuthUseCase()
+      $0.deviceRegistrationService = UnboundTestDevice()
       $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
     }
 
@@ -1616,6 +1689,7 @@ struct AppCoordinatorTests {
       $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authUseCase = FailingMyAuthUseCase(withdrawError: .transport(.notConnected))
+      $0.deviceRegistrationService = UnboundTestDevice()
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
@@ -1717,6 +1791,7 @@ struct AppCoordinatorTests {
       $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.deviceRegistrationService = UnboundTestDevice()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
     store.exhaustivity = .off
@@ -1749,6 +1824,7 @@ struct AppCoordinatorTests {
       $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.deviceRegistrationService = UnboundTestDevice()
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
     store.exhaustivity = .off
@@ -1994,6 +2070,32 @@ struct AppCoordinatorTests {
     #expect(!expired.authFlow.isLoading)
   }
 
+  @Test func sessionExpiryRecoversDeviceAndEndsLocalActivity() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.hasSession = true
+    let calls = LockIsolated<[String]>([])
+    let activity = FestivalLiveActivityRecord(
+      id: "activity-a", festivalID: "festival-a", phase: .upcoming,
+      startDate: Date(timeIntervalSince1970: 0), endDate: nil
+    )
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.analyticsUseCase = .recording()
+      $0.deviceRegistrationService = UnboundTestDevice(calls: calls)
+      $0.festivalLiveActivityUseCase = MockFestivalLiveActivityUseCase(
+        activities: { [activity] },
+        end: { id in calls.withValue { $0.append("end:\(id)") } }
+      )
+      $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.inner(.sessionExpired))
+    await store.finish()
+
+    #expect(calls.value == ["recover", "end:activity-a"])
+  }
+
   @Test func sessionExpiryDropsPendingBookmarkWithoutKnownOwner() async {
     var home = MainTabCoordinator.State()
     home.authFlow.hasSession = true
@@ -2103,6 +2205,7 @@ struct AppCoordinatorTests {
       $0.useServiceBackedFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authUseCase = SuspendedWithdrawalAuthUseCase(gate: gate)
+      $0.deviceRegistrationService = UnboundTestDevice()
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
@@ -2836,6 +2939,10 @@ private struct SuspendedWithdrawalAuthUseCase: AuthUseCaseInterface {
 }
 
 private struct UnauthenticatedAuthUseCase: AuthUseCaseInterface {
+  let calls: LockIsolated<[String]>?
+
+  init(calls: LockIsolated<[String]>? = nil) { self.calls = calls }
+
   func signIn(with credential: AuthCredential) async throws -> AuthLoginResult {
     throw AuthDomainError.notAuthenticated
   }
@@ -2849,7 +2956,7 @@ private struct UnauthenticatedAuthUseCase: AuthUseCaseInterface {
   }
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
 
-  func signOut() async throws {}
+  func signOut() async throws { calls?.withValue { $0.append("signOut") } }
   func withdraw() async throws {}
 }
 
@@ -3101,6 +3208,35 @@ private enum AnalyticsCall: Equatable {
   case identify(String, String?)
   case track(AnalyticsEvent)
   case reset
+}
+
+private struct UnboundTestDevice: DeviceRegistrationService {
+  let calls: LockIsolated<[String]>?
+  let shouldFailUnbind: Bool
+
+  init(
+    calls: LockIsolated<[String]>? = nil,
+    shouldFailUnbind: Bool = false
+  ) {
+    self.calls = calls
+    self.shouldFailUnbind = shouldFailUnbind
+  }
+
+  func installationDeviceID() async throws -> String { return "test-device" }
+  func register(_: DeviceRegistrationMetadata) async throws -> DeviceAuthorization {
+    return DeviceAuthorization(deviceID: "test-device", bearerToken: "test-token")
+  }
+  func authorization() async throws -> DeviceAuthorization? { return nil }
+  func bindToCurrentUser() async throws {}
+  func unbindCurrentUser() async throws {
+    calls?.withValue { $0.append("unbind") }
+    if shouldFailUnbind { throw DeviceUnbindTestError.unavailable }
+  }
+  func recoverBoundDevice() async throws { calls?.withValue { $0.append("recover") } }
+}
+
+private enum DeviceUnbindTestError: Error {
+  case unavailable
 }
 
 private extension AnalyticsUseCase {

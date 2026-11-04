@@ -36,4 +36,9 @@ if command -v swiftlint >/dev/null 2>&1 && { [ -f .swiftlint.yml ] || [ -f .swif
   fi
 fi
 
+if ! python3 .claude/hooks/check-swift-conventions.py --staged; then
+  printf '[Swift 규칙] staged Swift 파일의 필수 구조와 return을 확인하세요.\n' >&2
+  exit 2
+fi
+
 exit 0

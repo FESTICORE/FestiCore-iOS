@@ -32,7 +32,7 @@ public struct NetworkDeviceNotificationSettingsService: DeviceNotificationSettin
       throw DeviceNotificationSettingsError.deviceNotRegistered
     }
     let response = try await client.send(DeviceNotificationSettingsRequest(
-      operation: operation, deviceID: device.deviceID, bearerToken: device.bearerToken
+      operation: operation, deviceAuthorization: device
     ))
     guard response.code == "SUCCESS" else { throw DeviceNotificationSettingsError.invalidResponse }
     return response.data.settings
@@ -48,8 +48,7 @@ struct DeviceNotificationSettingsRequest: FestiCoreDataRequest {
   }
 
   let operation: Operation
-  let deviceID: String
-  let bearerToken: String
+  let deviceAuthorization: DeviceAuthorization
 
   var path: String { "api/v1/devices/notification-settings" }
   var method: HTTPMethod {
@@ -58,11 +57,17 @@ struct DeviceNotificationSettingsRequest: FestiCoreDataRequest {
     case .update: return .put
     }
   }
-  // 기기 토큰으로 인증하므로 사용자 세션 헤더를 붙이지 않는다.
-  var authorization: FestiCoreAuthorization { .none }
+  var authorization: FestiCoreAuthorization {
+    if let sessionID = deviceAuthorization.sessionID { return .sessionBound(sessionID) }
+    return .none
+  }
   var maxRetryAttempts: Int { 0 }
   var headers: HTTPHeaders {
-    ["X-Device-Id": deviceID, "Authorization": "Bearer \(bearerToken)"]
+    var headers: HTTPHeaders = ["X-Device-Id": deviceAuthorization.deviceID]
+    if let token = deviceAuthorization.bearerToken {
+      headers.add(name: "Authorization", value: "Bearer \(token)")
+    }
+    return headers
   }
   var parameters: (any Encodable & Sendable)? {
     switch operation {
