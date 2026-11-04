@@ -174,17 +174,16 @@ extension FestivalListPresentation {
 
   static func packCopy(
     for festival: FestivalOverview,
-    now: Date
+    now: Date = .now
   ) -> PackCopy {
-    // 받은 최신 팩은 축제가 끝나도 계속 볼 수 있다.
-    if festival.packVersion > 0, let cachedVersion = festival.cachedPackVersion,
-       cachedVersion >= festival.packVersion {
-      return .received("팩 받음 · 최신 버전")
-    }
     guard festival.packVersion > 0 else {
       return .unavailable("팩 발행을 기다리고 있어요")
     }
-    return festival.cachedPackVersion == nil ? .ready("팩 받기") : .ready("팩 업데이트")
+    // 카탈로그 캐시가 팩보다 오래됐을 수 있으므로 같거나 높으면 최신으로 본다.
+    if let cachedVersion = festival.cachedPackVersion, cachedVersion >= festival.packVersion {
+      return .received("팩 받음 · 최신 버전")
+    }
+    return .ready(festival.cachedPackVersion == nil ? "팩 받기" : "팩 업데이트")
   }
 
   /// 진행 중 → 가까운 일정 → 날짜 없음 → 종료 순서. 팩 발행 여부는 날짜 정렬에 영향을 주지 않는다.

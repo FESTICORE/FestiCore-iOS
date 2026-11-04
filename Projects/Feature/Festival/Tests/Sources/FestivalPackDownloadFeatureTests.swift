@@ -6,7 +6,7 @@ import Testing
 @testable import Festival
 
 struct FestivalPackDownloadFeatureTests {
-  @Test @MainActor func deletingUnbookedCachedPackRestoresBookmarkGuidanceWithoutRestartingWebSocket() async throws {
+  @Test @MainActor func deletingUnbookedCachedPackRestoresDownloadWithoutRestartingWebSocket() async throws {
     let watched = LockIsolated(0)
     let oldPack = CachedFestivalPack(
       festivalID: "festival",
@@ -55,7 +55,7 @@ struct FestivalPackDownloadFeatureTests {
       for: try #require(store.state.festivals.first),
       now: Date(timeIntervalSince1970: 1_793_505_600)
     )
-    #expect(copy == .unavailable("예매한 페스티벌로 등록하면 팩을 받을 수 있어요"))
+    #expect(copy == .ready("팩 받기"))
   }
 
   @Test @MainActor func refreshedCachedPackKeepsWebSocketUpdateWatch() async throws {
