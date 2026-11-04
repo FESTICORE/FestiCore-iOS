@@ -487,9 +487,7 @@ extension FestivalFeature {
             state.packDownloads[id] == nil,
             let festival = state.festivals.first(where: { $0.id == id }),
             festival.packVersion > 0,
-            (festival.cachedPackVersion ?? -1) < festival.packVersion,
-            FestivalListPresentation.timing(for: festival, now: date.now) != .ended,
-            !FestivalListPresentation.isOpeningSoon(festival) else { return .none }
+            (festival.cachedPackVersion ?? -1) < festival.packVersion else { return .none }
       state.packDownloads[id] = .downloading(nil)
       return .send(.async(.downloadPack(id, generation: state.accountGeneration)))
 

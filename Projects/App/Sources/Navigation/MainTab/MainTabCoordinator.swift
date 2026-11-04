@@ -41,7 +41,10 @@ struct MainTabCoordinator {
 
     /// 모달이 열려도 기존 탭바 공간은 유지해 뒤 화면이 이동하지 않게 한다.
     var shouldReserveTabBarSpace: Bool {
-      selectedTab != .live || (festivalState.routes.count != 1 && !isNotificationInboxOnTop)
+      if selectedTab == .timetable, timetableState.destination?.schedulePick != nil {
+        return false
+      }
+      return selectedTab != .live || (festivalState.routes.count != 1 && !isNotificationInboxOnTop)
     }
 
     var isNotificationInboxOnTop: Bool {
@@ -54,7 +57,7 @@ struct MainTabCoordinator {
       case .live:
         return festivalState.routes.count == 1 || isNotificationInboxOnTop
       case .timetable:
-        return timetableState.setDetail != nil
+        return timetableState.destination?.schedulePick != nil || timetableState.setDetail != nil
       case .my:
         // 계정·팩 상세는 탭바 위에 밀어 넣는 화면이라 탭바를 남기고, 팝업·바텀시트만 탭바까지 덮는다.
         return profileState.destination?.alert != nil
@@ -80,7 +83,6 @@ struct MainTabCoordinator {
     case timetable(TimetableFeature.Action)
     case timetableCoordinator(TimetableCoordinator.Action)
     case flag(FestivalFlagFeature.Action)
-    case profile(ProfileFeature.Action)
     case profileCoordinator(ProfileCoordinator.Action)
     case login(LoginFeature.Action)
     case signUp(SignUpFlowCoordinator.Action)
@@ -113,14 +115,11 @@ struct MainTabCoordinator {
     Scope(state: \.flagState, action: \.flag) {
       FestivalFlagFeature()
     }
-    Scope(state: \.profileState, action: \.profile) {
-      ProfileFeature(legalBaseURL: legalBaseURL)
-    }
     Scope(
       state: \.profileState,
       action: \.profileCoordinator
     ) {
-      ProfileCoordinator()
+      ProfileCoordinator(legalBaseURL: legalBaseURL)
     }
     Scope(state: \.loginState, action: \.login) {
       LoginFeature()
@@ -197,25 +196,19 @@ struct MainTabCoordinator {
           current: current
         )
 
-      case .profile(.delegate(.loginRequested)):
+      case .profileCoordinator(.profile(.delegate(.loginRequested))):
         return .send(.delegate(.myLoginRequested))
-      case .profile(.delegate(.profileRefreshRequested)):
+      case .profileCoordinator(.profile(.delegate(.profileRefreshRequested))):
         return .send(.delegate(.myProfileRefreshRequested))
-      case .profile(.delegate(.logoutRequested)):
+      case .profileCoordinator(.profile(.delegate(.logoutRequested))):
         return .send(.delegate(.myLogoutRequested))
-      case .profile(.delegate(.withdrawRequested)):
+      case .profileCoordinator(.profile(.delegate(.withdrawRequested))):
         return .send(.delegate(.myWithdrawRequested))
-      case let .profile(.delegate(.profileUpdated(user))):
+      case let .profileCoordinator(.profile(.delegate(.profileUpdated(user)))):
         return .send(.delegate(.myProfileUpdated(user)))
-      case .profile(.destination(.presented(.packDetail(.delegate(.packDeleted))))),
-           .profile(.destination(.presented(.packDetail(.delegate(.packChanged))))):
+      case .profileCoordinator(.profile(.destination(.presented(.packDetail(.delegate(.packDeleted)))))),
+           .profileCoordinator(.profile(.destination(.presented(.packDetail(.delegate(.packChanged)))))):
         return .send(.festival(.reloadCachedPacks))
-      case .profile:
-        return .none
-
-      case let .profileCoordinator(.profile(action)):
-        return .send(.profile(action))
-
       case .profileCoordinator:
         return .none
 
@@ -267,12 +260,12 @@ struct MainTabCoordinator {
 
       if previous?.account != current.account {
         let account = current.account
-        await send(.profile(.view(.accountChanged(
+        await send(.profileCoordinator(.profile(.view(.accountChanged(
           profile: account.profile,
           hasSession: account.hasSession,
           isLoading: account.isLoading,
           message: account.message
-        ))))
+        )))))
       }
 
       let oldSession = previous?.session ?? .init(

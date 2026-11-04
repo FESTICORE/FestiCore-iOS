@@ -337,8 +337,8 @@ struct FestivalLiveBoardSessionTests {
     }
   }
 
-  @Test("저장한 일정은 보이는 같은 축제의 라이브 보드에만 반영한다")
-  func savedScheduleUpdatesVisibleBoardOnly() async {
+  @Test("저장한 일정은 같은 축제에 반영하고 보드가 숨겨져도 유지한다")
+  func savedScheduleUpdatesSameFestivalEvenWhenBoardIsHidden() async {
     let store = TestStore(initialState: {
       var state = FestivalFeature.State(selectedFestivalID: "fst")
       state.hasSession = true

@@ -45,7 +45,10 @@ struct MainTabView: View {
         if store.selectedTab == .my {
           Color.clear
             .fcAlert(
-              $store.scope(state: \.profileState.destination?.alert, action: \.profile.destination.alert),
+              $store.scope(
+                state: \.profileState.destination?.alert,
+                action: \.profileCoordinator.profile.destination.alert
+              ),
               dismissesOnDimTap: true
             )
         }

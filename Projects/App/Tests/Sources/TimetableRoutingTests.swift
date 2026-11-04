@@ -7,6 +7,31 @@ import Testing
 
 @MainActor
 struct TimetableRoutingTests {
+  @Test("내 일정 고르기에서는 탭바와 여백을 숨기고 뒤로 가면 복원한다")
+  func schedulePickHidesTabBarUntilDismissed() {
+    var state = MainTabCoordinator.State(selectedTab: .timetable)
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+
+    state.timetableState.destination = .schedulePick(.init(
+      festivalID: "festival",
+      days: [],
+      selectedSetIDs: [],
+      previousClientAt: nil
+    ))
+    #expect(state.shouldHideTabBar)
+    #expect(!state.shouldReserveTabBarSpace)
+
+    state.selectedTab = .my
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+
+    state.selectedTab = .timetable
+    state.timetableState.destination = nil
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+  }
+
   @Test("내 일정 고르기는 팩 상태와 별개인 push 경로로 표시한다")
   func schedulePickIsPushRoute() {
     var state = TimetableCoordinator.State()

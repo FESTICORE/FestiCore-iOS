@@ -599,7 +599,7 @@ struct AppCoordinatorTests {
       home.authFlow.signUp.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
       $0 = .home(home)
     }
-    await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
+    await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged) { syncProfileAccount(&$0) }
     guard case let .home(current) = store.state else {
       Issue.record("홈 상태가 아니에요")
       return
@@ -1013,7 +1013,7 @@ struct AppCoordinatorTests {
       home.authFlow.signUp.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
       $0 = .home(home)
     }
-    await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
+    await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged) { syncProfileAccount(&$0) }
   }
 
   @Test func tappingTabSwitchesAndRemembersPreviousTab() async {
@@ -1067,7 +1067,7 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.profile(.destination(.presented(.packDetail(.delegate(.packDeleted)))))) {
+    await store.send(.profileCoordinator(.profile(.destination(.presented(.packDetail(.delegate(.packDeleted))))))) {
       $0.profileState.destination = nil
     }
     await store.receive(\.festival.reloadCachedPacks)
@@ -1102,18 +1102,21 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: state) { MainTabCoordinator() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
     }
-    await store.send(.profile(.view(.accountChanged(
-      profile: nil, hasSession: true, isLoading: false, message: nil
-    )))) {
+    await store.send(.profileCoordinator(.profile(.view(.accountChanged(
+      profile: nil,
+      hasSession: true,
+      isLoading: false,
+      message: nil
+    ))))) {
       $0.profileState.hasSession = true
     }
     // 계정 화면은 탭바 위로 밀어 넣어 탭바를 남긴다.
-    await store.send(.profile(.view(.accountTapped))) {
+    await store.send(.profileCoordinator(.profile(.view(.accountTapped)))) {
       $0.profileState.destination = .account(.init(profile: nil))
     }
     #expect(!store.state.shouldHideTabBar)
     #expect(store.state.shouldReserveTabBarSpace)
-    await store.send(.profile(.destination(.presented(.account(.view(.logoutTapped)))))) {
+    await store.send(.profileCoordinator(.profile(.destination(.presented(.account(.view(.logoutTapped))))))) {
       $0.profileState.destination = .account({
         var account = AccountSettingsFeature.State(profile: nil)
         account.destination = .alert(.logout())
@@ -1122,7 +1125,7 @@ struct AppCoordinatorTests {
       }())
     }
     #expect(store.state.shouldHideTabBar)
-    await store.send(.profile(.destination(.presented(.account(.destination(.presented(.alert(.cancelTapped)))))))) {
+    await store.send(.profileCoordinator(.profile(.destination(.presented(.account(.destination(.presented(.alert(.cancelTapped))))))))) {
       $0.profileState.destination = .account(.init(profile: nil))
     }
     #expect(!store.state.shouldHideTabBar)
@@ -1176,7 +1179,7 @@ struct AppCoordinatorTests {
     // 다른 계정의 결과는 받지 않는다.
     await store.send(.scope(.home(.delegate(.myProfileUpdated(other)))))
     await store.send(.scope(.home(.delegate(.myProfileUpdated(renamed)))))
-    await store.receive(\.scope.home.profile.view.accountChanged)
+    await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged)
     guard case let .home(updated) = store.state else {
       Issue.record("홈 상태가 아니다")
       return
@@ -1200,7 +1203,7 @@ struct AppCoordinatorTests {
 
     // 마이 화면 상태는 앱이 보낸 입력 액션으로만 바뀐다.
     await store.send(.inner(.sessionExpired))
-    await store.receive(\.scope.home.profile.view.accountChanged)
+    await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged)
     guard case let .home(updated) = store.state else {
       Issue.record("홈 상태가 아니다")
       return
@@ -1693,7 +1696,7 @@ struct AppCoordinatorTests {
       $0 = .home(home)
     }
     // 계정이 사라지면 앱이 입력 액션으로 알리고 마이 화면이 계정 화면을 닫는다.
-    await store.receive(\.scope.home.profile.view.accountChanged)
+    await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged)
     guard case let .home(signedOut) = store.state else { return }
     #expect(signedOut.selectedTab == .flag)
     #expect(signedOut.profileState.destination == nil)
@@ -1723,8 +1726,8 @@ struct AppCoordinatorTests {
       home.authFlow.isLoading = true
       $0 = .home(home)
     }
-    await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
-    await store.receive(\.scope.home.profile.destination.presented.account.view.accountChanged) {
+    await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged) { syncProfileAccount(&$0) }
+    await store.receive(\.scope.home.profileCoordinator.profile.destination.presented.account.view.accountChanged) {
       syncAccountScreen(&$0)
     }
     await store.receive(\.inner.myAccountFinished) {
@@ -1735,8 +1738,8 @@ struct AppCoordinatorTests {
       home.authFlow.message = "회원 탈퇴에 실패했습니다. 다시 시도해 주세요."
       $0 = .home(home)
     }
-    await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
-    await store.receive(\.scope.home.profile.destination.presented.account.view.accountChanged) {
+    await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged) { syncProfileAccount(&$0) }
+    await store.receive(\.scope.home.profileCoordinator.profile.destination.presented.account.view.accountChanged) {
       syncAccountScreen(&$0)
     }
     guard case let .home(unchanged) = store.state else { return }
@@ -1769,7 +1772,7 @@ struct AppCoordinatorTests {
 
     await store.send(.scope(.home(.delegate(.myWithdrawRequested))))
     await store.receive(\.inner.sessionExpired)
-    await store.receive(\.scope.home.profile.view.accountChanged)
+    await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged)
     guard case let .home(cleared) = store.state else { return }
     #expect(!cleared.authFlow.hasSession)
     #expect(cleared.authFlow.profile == nil)
@@ -1811,7 +1814,7 @@ struct AppCoordinatorTests {
       $0 = .home(home)
     }
     // 계정이 사라지면 앱이 입력 액션으로 알리고 마이 화면이 계정 화면을 닫는다.
-    await store.receive(\.scope.home.profile.view.accountChanged)
+    await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged)
     guard case let .home(signedOut) = store.state else { return }
     #expect(!signedOut.authFlow.hasSession)
     #expect(signedOut.authFlow.profile == nil)
@@ -2043,7 +2046,7 @@ struct AppCoordinatorTests {
       home.authFlow.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
       $0 = .home(home)
     }
-    await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
+    await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged) { syncProfileAccount(&$0) }
     guard case let .home(unchanged) = store.state else { return }
     #expect(unchanged.authFlow.profile?.user.id == "user-a")
   }
@@ -2843,7 +2846,7 @@ struct AppCoordinatorTests {
       home.loginState.flowMessage = "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."
       $0 = .home(home)
     }
-    await store.receive(\.scope.home.profile.view.accountChanged) { syncProfileAccount(&$0) }
+    await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged) { syncProfileAccount(&$0) }
   }
 
   @Test func signUpSheetReceivesFlowValuesAndInjectedLegalBaseURL() async {

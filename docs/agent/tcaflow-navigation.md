@@ -6,6 +6,8 @@
 
 타임테이블의 일정 선택 화면은 `TimetableCoordinator`가 `TimetableFeature.destination`을 경로로 투영해 `push`한다. 경로 상태를 따로 저장하지 않는다. 화면이 뒤로 이동하면 Router 액션을 기존 `destination.dismiss`로 전달해 자식 효과의 수명을 유지한다. `MainTabCoordinator`는 기존 `.timetable` 입력을 자식 Coordinator로 전달한다.
 
+마이 화면은 `ProfileCoordinator` 안에서 `ProfileFeature`를 한 번만 조립한다. `MainTabCoordinator`의 계정 입력, 팝업, Router 액션은 모두 `.profileCoordinator`를 거치며 로그인·로그아웃 요청 같은 delegate만 부모로 전달한다. 상세 경로는 기존 `ProfileFeature.destination`에서 계산하고 뒤로 가기는 `destination.dismiss`로 처리한다.
+
 가입 약관 웹은 `SignUpFlowCoordinator`가 가입 화면에서 `push`한다. URL은 앱의 API 호스트와 백엔드 공개 법적 문서 경로 `/api/v1/legal/terms`, `/api/v1/legal/privacy`를 조합한다. 예매 외부 링크와 앱 안의 법적 문서는 서로 다른 전환 정책을 따른다.
 
 새 화면 전환은 실제 경로 상태, 자식 액션 전달, 뒤로 가기, 탭바 표시, 계정 변경 시 경로 정리를 테스트한다.

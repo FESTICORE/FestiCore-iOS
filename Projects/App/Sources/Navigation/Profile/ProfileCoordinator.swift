@@ -1,11 +1,17 @@
 import ComposableArchitecture
 import FeatureAssembly
+import Foundation
 import TCAFlow
 
-/// ProfileFeature의 목적지를 경로로 보여 주고 라우터 액션을 원래 Feature로 전달한다.
+/// 마이 화면과 상세 목적지의 상태 변경을 소유하며 라우터 액션을 Feature에 전달한다.
 @Reducer
 struct ProfileCoordinator {
   typealias State = ProfileFeature.State
+  private let legalBaseURL: URL?
+
+  init(legalBaseURL: URL?) {
+    self.legalBaseURL = legalBaseURL
+  }
 
   @CasePathable
   enum Action {
@@ -14,6 +20,13 @@ struct ProfileCoordinator {
   }
 
   var body: some ReducerOf<Self> {
+    Scope(
+      state: \.self,
+      action: \.profile
+    ) {
+      ProfileFeature(legalBaseURL: legalBaseURL)
+    }
+
     Reduce { state, action in
       switch action {
       case let .router(.routeAction(
