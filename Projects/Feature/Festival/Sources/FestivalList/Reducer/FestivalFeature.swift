@@ -2,6 +2,7 @@ import ComposableArchitecture
 import FestivalDomainInterface
 import FestiCorePackInterface
 import FestivalInterface
+import FestiCoreSharedUI
 import Foundation
 import UserNotificationDomainInterface
 
@@ -39,6 +40,9 @@ public struct FestivalFeature {
     public var liveBoardClockAnchorAt: Date?
     /// 마지막으로 라이브 보드가 정상 확인된 기기 시각. 304 응답도 포함한다.
     public var liveBoardReceivedAt: Date?
+    /// 선택 축제의 빈 팔로우 깃발 안내를 숨겼는지.
+    public var isFollowedFlagGuideHidden = false
+    @Presents public var alert: FCAlertState<FCAlertAction>?
     public var isLiveBoardVisible = false
     /// 인증 세션이 있는지. 사용자 ID를 확인하지 못한 세션도 true다.
     public var hasSession = false
@@ -154,6 +158,7 @@ public struct FestivalFeature {
       liveBoardUnpublished = false
       liveBoardClockAnchorAt = nil
       liveBoardReceivedAt = nil
+      alert = nil
       mySchedule = nil
       myScheduleUnavailable = false
       bookedUserID = nil
@@ -200,6 +205,7 @@ public struct FestivalFeature {
     case async(AsyncAction)
     case inner(InnerAction)
     case delegate(FestivalDelegate)
+    case alert(PresentationAction<FCAlertAction>)
   }
 
   // MARK: - ViewAction
@@ -227,6 +233,8 @@ public struct FestivalFeature {
     case loginTapped
     case bearerTapped
     case notificationTapped
+    case findFlagsTapped
+    case closeFollowedFlagGuideTapped
     case notificationUnreadCountChanged(Int)
     case ticketLinkMissing
     /// 코디네이터가 계정·세션·내 일정 변경을 알린다.
@@ -304,6 +312,7 @@ public struct FestivalFeature {
   @Dependency(\.userNotificationUseCase) var userNotificationUseCase
   @Dependency(\.date) private var date
   @Dependency(\.continuousClock) private var clock
+  @Dependency(\.festivalGuideVisibilityUseCase) private var guideVisibilityUseCase
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -317,10 +326,23 @@ public struct FestivalFeature {
       case let .inner(innerAction):
         return handleInnerAction(state: &state, action: innerAction)
 
+      case .alert(.presented(.confirmTapped)):
+        if let festivalID = state.selectedFestivalID {
+          guideVisibilityUseCase.hide(for: festivalID)
+          state.isFollowedFlagGuideHidden = true
+        }
+        state.alert = nil
+        return .none
+
+      case .alert(.presented(.cancelTapped)), .alert(.dismiss):
+        state.alert = nil
+        return .none
+
       case .delegate:
         return .none
       }
     }
+    .ifLet(\.$alert, action: \.alert) { FCConfirmAlert() }
   }
 }
 
@@ -335,6 +357,7 @@ extension FestivalFeature {
     case .onAppear:
       state.bookedFestivalIDs = state.bookedUserID.map { libraryUseCase.bookedFestivalIDs(for: $0) } ?? []
       state.recentSearches = libraryUseCase.recentSearches(for: state.bookedUserID)
+      state.isFollowedFlagGuideHidden = state.selectedFestivalID.map { guideVisibilityUseCase.isHidden(for: $0) } ?? false
       guard !state.hasStarted else { return .none }
       state.hasStarted = true
       return .send(.async(.loadCachedFestivals))
@@ -375,6 +398,8 @@ extension FestivalFeature {
     case let .selectFestival(id):
       guard state.festivals.contains(where: { $0.id == id }) else { return .none }
       state.selectedFestivalID = id
+      state.isFollowedFlagGuideHidden = guideVisibilityUseCase.isHidden(for: id)
+      state.alert = nil
       state.liveBoard = nil
       state.liveBoardUnavailable = false
       state.liveBoardUnpublished = false
@@ -431,6 +456,7 @@ extension FestivalFeature {
 
     case .liveBoardOnAppear:
       state.isLiveBoardVisible = true
+      state.isFollowedFlagGuideHidden = state.selectedFestivalID.map { guideVisibilityUseCase.isHidden(for: $0) } ?? false
       return .merge(
         .send(.async(.startLiveBoard)),
         state.hasSession ? .send(.async(.loadNotificationUnreadCount)) : .none
@@ -473,6 +499,15 @@ extension FestivalFeature {
 
     case .notificationTapped:
       return .send(.delegate(state.hasSession ? .notificationInboxRequested : .loginRequested))
+
+    case .findFlagsTapped:
+      guard state.selectedFestivalID != nil else { return .none }
+      return .send(.delegate(.flagTabRequested))
+
+    case .closeFollowedFlagGuideTapped:
+      guard state.selectedFestivalID != nil, !state.isFollowedFlagGuideHidden else { return .none }
+      state.alert = .hideGuide()
+      return .none
 
     case let .notificationUnreadCountChanged(count):
       guard state.hasSession else { return .none }
@@ -691,6 +726,7 @@ extension FestivalFeature {
       state.catalogCacheReadFailed = catalogReadFailed
       state.packCacheReadFailed = packReadFailed
       state.selectedFestivalID = state.initialSelectedFestivalID(savedID: savedID)
+      state.isFollowedFlagGuideHidden = state.selectedFestivalID.map { guideVisibilityUseCase.isHidden(for: $0) } ?? false
       showCachedPack(in: &state)
       resolveImageURLs(in: &state)
       return .merge(refreshCatalog(), watchSelectedPack(state), prefetchImages(state), syncLiveActivities(state))
@@ -714,6 +750,7 @@ extension FestivalFeature {
       state.catalogCacheReadFailed = false
       if state.selectedFestival == nil, let first = state.festivals.first(where: { $0.isCached || $0.packVersion > 0 }) ?? state.festivals.first {
         state.selectedFestivalID = first.id
+        state.isFollowedFlagGuideHidden = guideVisibilityUseCase.isHidden(for: first.id)
         showCachedPack(in: &state)
         resolveImageURLs(in: &state)
         return .merge(watchSelectedPack(state), prefetchImages(state), syncLiveActivities(state))

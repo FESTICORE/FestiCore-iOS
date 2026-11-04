@@ -25,6 +25,7 @@ public struct FestivalLiveBoardRouteView: View {
           liveBoardReceivedAt: store.liveBoardReceivedAt,
           hasSession: store.hasSession,
           hasUnreadNotifications: store.hasUnreadNotifications,
+          isFollowedFlagGuideHidden: store.isFollowedFlagGuideHidden,
           sessionUserID: store.sessionUserID,
           mySetIDs: store.mySchedule?.setIDs ?? [],
           myScheduleUnavailable: store.myScheduleUnavailable,
@@ -32,6 +33,8 @@ public struct FestivalLiveBoardRouteView: View {
           onLiveActivityTap: { send(.liveActivityTapped) },
           onLoginTap: { send(.loginTapped) },
           onNotificationTap: { send(.notificationTapped) },
+          onFindFlagsTap: { send(.findFlagsTapped) },
+          onCloseFollowedFlagGuideTap: { send(.closeFollowedFlagGuideTapped) },
           onBearerTap: store.bearerFlagID == nil ? nil : { send(.bearerTapped) },
           onRetryMySchedule: { send(.retryMySchedule) },
           onSwipeBack: { send(.backToFestivalList) }
@@ -64,6 +67,7 @@ public struct FestivalLiveBoardRouteView: View {
     }
     .animation(.easeOut(duration: 0.2), value: store.toastRevision)
     .animation(.easeOut(duration: 0.2), value: store.toast)
+    .fcAlert($store.scope(state: \.alert, action: \.alert))
     .task {
       send(.onAppear)
       send(.liveActivityOnAppear)

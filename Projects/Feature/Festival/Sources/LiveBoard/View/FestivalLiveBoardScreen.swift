@@ -16,6 +16,7 @@ struct FestivalLiveBoardScreen: View {
   let liveBoardReceivedAt: Date?
   let hasSession: Bool
   let hasUnreadNotifications: Bool
+  let isFollowedFlagGuideHidden: Bool
   let sessionUserID: String?
   let mySetIDs: Set<String>
   let myScheduleUnavailable: Bool
@@ -23,6 +24,8 @@ struct FestivalLiveBoardScreen: View {
   let onLiveActivityTap: () -> Void
   let onLoginTap: () -> Void
   let onNotificationTap: () -> Void
+  let onFindFlagsTap: () -> Void
+  let onCloseFollowedFlagGuideTap: () -> Void
   /// 기수 계정이면 상단 기수 버튼 동작. nil이면 로고만 보인다.
   let onBearerTap: (() -> Void)?
   let onRetryMySchedule: () -> Void
@@ -183,26 +186,31 @@ private extension FestivalLiveBoardScreen {
     }
   }
 
+  @ViewBuilder
   func followedSection(now: Date) -> some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
-      FCSectionHeader("팔로우한 깃발")
-      if !hasSession {
-        FestivalLiveBoardLoginCard(title: "깃발을 팔로우하려면 로그인", action: onLoginTap)
-      } else if let followed = liveBoard?.followedFlags, !followed.isEmpty {
-        ScrollView(.horizontal) {
-          HStack(alignment: .top, spacing: FestiCoreSpacing.paddingP12) {
-            ForEach(followed) { flag in
-              FestivalLiveBoardFlagTile(flag: presentation(flag, now: now))
+    if !(hasSession && liveBoard != nil && (liveBoard?.followedFlags.isEmpty ?? true) && isFollowedFlagGuideHidden) {
+      VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
+        FCSectionHeader("팔로우한 깃발")
+        if !hasSession {
+          FestivalLiveBoardLoginCard(title: "깃발을 팔로우하려면 로그인", action: onLoginTap)
+        } else if let followed = liveBoard?.followedFlags, !followed.isEmpty {
+          ScrollView(.horizontal) {
+            HStack(alignment: .top, spacing: FestiCoreSpacing.paddingP12) {
+              ForEach(followed) { flag in
+                FestivalLiveBoardFlagTile(flag: presentation(flag, now: now))
+              }
             }
+            .padding(.trailing, FestiCoreSpacing.paddingP16)
           }
-          .padding(.trailing, FestiCoreSpacing.paddingP16)
+          .scrollIndicators(.hidden)
+          .scrollClipDisabled()
+        } else if liveBoard == nil {
+          FCEmptyCard(icon: .flag20, title: "팔로우한 깃발", message: loadingMessage)
+        } else {
+          FCEmptyCard(icon: .flag20, title: "만나보고 싶은 깃발이 있나요?", message: "팔로우하면 깃발이 움직일 때 조용히 알려 드려요.")
+            .action(FCCardAction("깃발 찾기", style: .accent, action: onFindFlagsTap))
+            .onClose(onCloseFollowedFlagGuideTap)
         }
-        .scrollIndicators(.hidden)
-        .scrollClipDisabled()
-      } else if liveBoard == nil {
-        FCEmptyCard(icon: .flag20, title: "팔로우한 깃발", message: loadingMessage)
-      } else {
-        FCEmptyCard(icon: .flag20, title: "만나보고 싶은 깃발이 있나요?", message: "팔로우하면 깃발이 움직일 때 조용히 알려 드려요.")
       }
     }
   }
