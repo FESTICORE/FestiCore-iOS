@@ -29,7 +29,9 @@ enum SentryConfiguration {
       environment == "stage" || environment == "production" else {
       return nil
     }
-    return Options(dsn: dsn, environment: environment)
+    return Options(
+      dsn: dsn,
+      environment: environment)
   }
 
   /// 가장 먼저 호출해 초기 크래시까지 포착한다.
@@ -37,9 +39,11 @@ enum SentryConfiguration {
     guard let configuration = options(infoDictionary: infoDictionary) else {
       let dsn = (infoDictionary["FestiCoreSentryDSN"] as? String)?
         .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-      if !dsn.isEmpty {
-        FestiCoreLogger.error("Sentry 시작 건너뜀: FestiCoreEnvironment 설정이 유효하지 않음", category: .app)
-      }
+      let reason = dsn.isEmpty ? "FESTICORE_SENTRY_DSN이 비어 있음" : "Sentry DSN 또는 환경 설정이 유효하지 않음"
+      FestiCoreLogger.error(
+        "Sentry 시작 건너뜀: \(reason)",
+        category: .app
+      )
       return
     }
     let environment = configuration.environment
@@ -82,7 +86,6 @@ enum SentryConfiguration {
       // 안정성 모니터링 활성화.
       // 앱 행(ANR): 완전 차단뿐 아니라 부분 차단(비블로킹)까지 리포트, 임계 2초.
       options.appHangTimeoutInterval = 2.0
-      options.enableReportNonFullyBlockingAppHangs = true
       // 워치독 강제종료(OOM 등) 추적.
       options.enableWatchdogTerminationTracking = true
       // 세션(안정성/Crash-Free) 지표 자동 추적.
@@ -128,9 +131,15 @@ enum SentryConfiguration {
     let memoryMB = Double(process.physicalMemory) / 1_048_576.0
 
     // 카운트: 앱 실행 횟수(리텐션/DAU 보조 지표).
-    SentrySDK.metrics.count(key: "app.launch.count", value: 1, attributes: attributes)
+    SentrySDK.metrics.count(
+      key: "app.launch.count",
+      value: 1,
+      attributes: attributes)
     // 게이지: 실행 시점 기기 리소스 스냅샷.
-    SentrySDK.metrics.gauge(key: "app.device.memory_total_mb", value: memoryMB, attributes: attributes)
+    SentrySDK.metrics.gauge(
+      key: "app.device.memory_total_mb",
+      value: memoryMB,
+      attributes: attributes)
     SentrySDK.metrics.gauge(
       key: "app.device.processor_count",
       value: Double(process.activeProcessorCount),

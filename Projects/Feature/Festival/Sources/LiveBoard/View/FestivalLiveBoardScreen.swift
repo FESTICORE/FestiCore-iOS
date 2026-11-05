@@ -146,7 +146,6 @@ private extension FestivalLiveBoardScreen {
                   )
                 }
               }
-              if model.showsLiveActivityControl { liveActivityControl() }
               crewSection(now: now)
               if model.pack?.flagsEnabled != false {
                 followedSection(now: now)
@@ -521,28 +520,4 @@ private extension FestivalLiveBoardScreen {
     return model.liveBoardUnavailable ? "실시간 정보를 불러올 수 없습니다. 잠시 후 다시 시도합니다." : "실시간 정보를 불러오는 중입니다."
   }
 
-  @ViewBuilder
-  func liveActivityControl() -> some View {
-    VStack(
-      alignment: .leading,
-      spacing: FestiCoreSpacing.paddingP8
-    ) {
-      Button(model.liveActivityState.title) { send(.liveActivityTapped) }
-        .festiCoreFont(.baseBodyBold)
-        .frame(maxWidth: .infinity)
-        .padding(FestiCoreSpacing.paddingP16)
-        .foregroundStyle(FestiCoreSemanticColor.primaryOnPrimary.color)
-        .background(
-          FestiCoreSemanticColor.primaryNormal.color,
-                    in: RoundedRectangle(cornerRadius: FestiCoreRadius.r12)
-        )
-        .disabled(!model.liveActivityState.isEnabled)
-        .opacity(model.liveActivityState.isEnabled ? 1 : 0.5)
-      if let message = model.liveActivityState.message {
-        Text(message)
-          .festiCoreFont(.baseCaption1Regular)
-          .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-      }
-    }
-  }
 }

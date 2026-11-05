@@ -26,7 +26,7 @@ struct WidgetSnapshotCoordinatorTests {
     store.exhaustivity = .off
 
     #expect(store.state.activeWidgetSnapshotContent?.festivalID == "board")
-    await store.send(.scope(.home(.festival(.showFestivalList))))
+    await store.send(.scope(.home(.scopeAction(.festival(.showFestivalList)))))
     await store.finish()
 
     #expect(store.state.activeWidgetSnapshotContent?.festivalID == "list")
@@ -109,8 +109,8 @@ struct WidgetSnapshotCoordinatorTests {
       festivalID: "board",
       setIDs: ["set_1"]
     )
-    home.festivalState.routes[0].screen = .festivalList(list)
-    home.festivalState.routes.push(.liveBoard(board))
+    home.tabs.festival.routes[0].screen = .festivalList(list)
+    home.tabs.festival.routes.push(.liveBoard(board))
     return home
   }
 }

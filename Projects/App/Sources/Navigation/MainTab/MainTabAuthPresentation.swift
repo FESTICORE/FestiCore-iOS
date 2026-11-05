@@ -36,13 +36,13 @@ extension MainTabView {
     switch sheet {
     case .login:
       LoginView(store: store.scope(
-        state: \.loginState,
-        action: \.login
+        \.loginState,
+        action: \.scopeAction.login
       ))
     case .onboarding:
       SignUpFlowCoordinatorView(store: store.scope(
-        state: \.authFlow.signUpFlow,
-        action: \.signUp
+        \.authFlow.signUpFlow,
+        action: \.scopeAction.signUp
       ))
     case .migration:
       migrationSheet
@@ -56,31 +56,47 @@ private extension MainTabView {
   var migrationSheet: some View {
     VStack(
       alignment: .leading,
-      spacing: 16
+      spacing: FestiCoreSpacing.paddingP16
     ) {
       Text("기존 축제 저장 목록")
-        .font(.title2.bold())
+        .festiCoreFont(.baseHeadlineBold)
+        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+        .accessibilityAddTraits(.isHeader)
       Text("이 기기에 저장된 축제 목록을 현재 계정으로 가져올까요? 가져오지 않으면 기존 목록은 삭제돼요.")
-      Button("가져오기") { store.send(.delegate(.resolveMigration(true))) }
-        .buttonStyle(.borderedProminent)
-      Button("가져오지 않고 삭제") { store.send(.delegate(.resolveMigration(false))) }
-        .buttonStyle(.plain)
+        .festiCoreFont(.baseBodyRegular)
+        .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+      FCPrimaryButton("가져오기") {
+        store.send(.delegate(.resolveMigration(true)))
+      }
+      FCButton("가져오지 않고 삭제") {
+        store.send(.delegate(.resolveMigration(false)))
+      }
+      .style(.ghost)
+      .isFullWidth(true)
     }
-    .padding(24)
+    .padding(FestiCoreSpacing.paddingP24)
   }
 
   var retrySheet: some View {
     VStack(
       alignment: .leading,
-      spacing: 16
+      spacing: FestiCoreSpacing.paddingP16
     ) {
       Text(store.authFlow.message ?? "회원 정보를 확인할 수 없어요.")
-      Button("다시 시도") { store.send(.delegate(.retryProfile)) }
-        .buttonStyle(.borderedProminent)
-        .disabled(store.authFlow.isLoading)
-      Button("취소") { store.send(.delegate(.dismissAuthFlow)) }
-        .buttonStyle(.plain)
+        .festiCoreFont(.baseBodyRegular)
+        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+      FCPrimaryButton(
+        "다시 시도",
+        isEnabled: !store.authFlow.isLoading
+      ) {
+        store.send(.delegate(.retryProfile))
+      }
+      FCButton("취소") {
+        store.send(.delegate(.dismissAuthFlow))
+      }
+      .style(.ghost)
+      .isFullWidth(true)
     }
-    .padding(24)
+    .padding(FestiCoreSpacing.paddingP24)
   }
 }

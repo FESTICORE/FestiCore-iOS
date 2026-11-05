@@ -60,7 +60,12 @@ public struct FestivalFlagFeature {
   private enum CancelID { case refresh }
 
   public var body: some ReducerOf<Self> {
-    Scope(state: \.directory, action: \.directory) { FestivalFlagDirectory() }
+    Scope(
+      \.directory,
+      action: \.directory
+    ) {
+      FestivalFlagDirectory()
+    }
     Reduce { state, action in
       switch action {
       case .appeared:
@@ -90,13 +95,19 @@ public struct FestivalFlagFeature {
         state.generation += 1
         return state.isVisible ? load(&state) : .cancel(id: CancelID.refresh)
 
-      case let .loaded(id, generation, snapshot):
+      case let .loaded(
+        id,
+        generation,
+        snapshot):
         guard state.festivalID == id, state.generation == generation, state.isVisible else { return .none }
         state.snapshot = snapshot
         state.viewState = .loaded
         return .none
 
-      case let .failed(id, generation, failure):
+      case let .failed(
+        id,
+        generation,
+        failure):
         guard state.festivalID == id, state.generation == generation, state.isVisible else { return .none }
         switch failure {
         case .deviceNotRegistered: state.viewState = .deviceNotRegistered
@@ -119,21 +130,38 @@ public struct FestivalFlagFeature {
     let generation = state.generation
     return .run { send in
       do {
-        await send(.loaded(id, generation: generation, try await liveBoardService.refresh(for: id)))
+        await send(.loaded(
+          id,
+          generation: generation,
+          try await liveBoardService.refresh(for: id)))
       } catch FestivalLiveBoardError.deviceNotRegistered {
-        await send(.failed(id, generation: generation, .deviceNotRegistered))
+        await send(.failed(
+          id,
+          generation: generation,
+          .deviceNotRegistered))
       } catch FestivalLiveBoardError.invalidFestivalID {
-        await send(.failed(id, generation: generation, .invalidFestivalID))
+        await send(.failed(
+          id,
+          generation: generation,
+          .invalidFestivalID))
       } catch FestivalLiveBoardError.invalidResponse {
-        await send(.failed(id, generation: generation, .invalidResponse))
+        await send(.failed(
+          id,
+          generation: generation,
+          .invalidResponse))
       } catch let FestivalLiveBoardError.rateLimited(retryAfter) {
         // 라이브 보드와 같이 이전 목록을 유지한 채 기다렸다가 다시 불러온다.
         try await clock.sleep(for: .seconds(retryAfter))
         await send(.refresh)
       } catch {
-        await send(.failed(id, generation: generation, .unavailable))
+        await send(.failed(
+          id,
+          generation: generation,
+          .unavailable))
       }
     }
-    .cancellable(id: CancelID.refresh, cancelInFlight: true)
+    .cancellable(
+      id: CancelID.refresh,
+      cancelInFlight: true)
   }
 }

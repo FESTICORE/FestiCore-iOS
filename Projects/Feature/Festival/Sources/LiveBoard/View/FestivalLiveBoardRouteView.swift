@@ -73,9 +73,8 @@ public struct FestivalLiveBoardRouteView: View {
       FestivalCrewCreateView(store: crewStore)
     }
     .fcAlert($store.scope(
-      state: \.alert,
-      action: \.alert
-    ))
+      \.alert,
+      action: \.scope.alert))
     .fcAlert($store.scope(
       state: \.followGuideAlert,
       action: \.followGuideAlert

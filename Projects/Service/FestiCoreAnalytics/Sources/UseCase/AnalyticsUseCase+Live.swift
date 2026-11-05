@@ -57,9 +57,15 @@ extension AnalyticsUseCase: DependencyKey {
     track: { event in
       let name = eventName(event)
       let properties = eventProperties(event)
-      FestiCoreLogger.debug("Mixpanel track — event: \(name), properties: \(String(describing: properties))", category: .app)
-      Mixpanel.safeMainInstance()?.track(event: name, properties: properties)
-      monitorInSentry(name: name, properties: properties)
+      FestiCoreLogger.debug(
+        "Mixpanel track — event: \(name), properties: \(String(describing: properties))",
+        category: .app)
+      Mixpanel.safeMainInstance()?.track(
+        event: name,
+        properties: properties)
+      monitorInSentry(
+        name: name,
+        properties: properties)
     },
     reset: {
       if let mixpanel = Mixpanel.safeMainInstance() {
@@ -73,16 +79,30 @@ extension AnalyticsUseCase: DependencyKey {
   /// 추적한 사용자 동작을 Sentry에도 남긴다. breadcrumb는 이슈 맥락, 카운트는 추이용이다.
   /// 앱 로그를 Sentry Logs로 보내는 일은 `SentryLogSink`가 따로 맡는다.
   private static func monitorInSentry(name: String, properties: Properties) {
-    let breadcrumb = Breadcrumb(level: .info, category: "user.action")
+    let breadcrumb = Breadcrumb(
+      level: .info,
+      category: "user.action")
     breadcrumb.message = name
-    breadcrumb.data = properties.mapValues { $0 as Any }
+    for (
+      key,
+      value) in properties {
+      breadcrumb.setData(
+        value: value,
+        key: key
+      )
+    }
     SentrySDK.addBreadcrumb(breadcrumb)
 
     var metricAttributes: [String: any SentryAttributeValue] = ["event": name]
-    for (key, value) in properties.compactMapValues({ $0 as? String }) {
+    for (
+      key,
+      value) in properties.compactMapValues({ $0 as? String }) {
       metricAttributes[key] = value
     }
-    SentrySDK.metrics.count(key: "user.action.count", value: 1, attributes: metricAttributes)
+    SentrySDK.metrics.count(
+      key: "user.action.count",
+      value: 1,
+      attributes: metricAttributes)
   }
 
   static func eventName(_ event: AnalyticsEvent) -> String {
@@ -101,14 +121,18 @@ extension AnalyticsUseCase: DependencyKey {
     case let .signUp(method):
       return ["method": method.rawValue]
 
-    case let .screenView(screen, referrer):
+    case let .screenView(
+      screen,
+      referrer):
       var properties: Properties = ["screen": screen.rawValue]
       if let referrer {
         properties["referrer"] = referrer.rawValue
       }
       return properties
 
-    case let .uiAction(action, screen):
+    case let .uiAction(
+      action,
+      screen):
       return ["action": action.rawValue, "screen": screen.rawValue]
 
     case let .flagFollow(data):

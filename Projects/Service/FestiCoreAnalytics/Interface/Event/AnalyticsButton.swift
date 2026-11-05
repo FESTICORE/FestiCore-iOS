@@ -11,8 +11,6 @@ public enum AnalyticsButton: String, Sendable, CaseIterable {
   // 로그인
   case loginGoogle = "login_google"
   case loginApple = "login_apple"
-  // 페스티벌 목록
-  case festivalLiveActivity = "festival_live_activity"
   // 깃발
   case flagSort = "flag_sort"
   // 타임테이블

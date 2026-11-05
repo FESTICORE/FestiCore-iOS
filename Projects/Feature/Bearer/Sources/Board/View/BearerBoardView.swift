@@ -21,14 +21,21 @@ public struct BearerBoardView: View {
   }
 
   public var body: some View {
-    TimelineView(.periodic(from: .now, by: 30)) { timeline in
-      VStack(alignment: .leading, spacing: .zero) {
+    TimelineView(.periodic(
+      from: .now,
+      by: 30)) { timeline in
+      VStack(
+        alignment: .leading,
+        spacing: .zero) {
         topRow
         if store.isOffline {
           FCOfflineBadge("오프라인 · \(relativeText(store.lastSyncedAt, now: timeline.date)) 정보")
         }
         if let current = store.current, let board = store.board {
-          content(current: current, board: board, now: timeline.date)
+          content(
+            current: current,
+            board: board,
+            now: timeline.date)
         } else if store.loadFailed {
           failedContent
         } else {
@@ -39,24 +46,44 @@ public struct BearerBoardView: View {
     .background(FestiCoreSemanticColor.backgroundNormal.color.ignoresSafeArea())
     .overlay {
       if let check = store.check {
-        FCCheckOverlay(FCCheckOverlay.Item(title: check.title, message: check.message))
+        FCCheckOverlay(FCCheckOverlay.Item(
+          title: check.title,
+          message: check.message))
           .ignoresSafeArea()
           .transition(.opacity)
       }
     }
-    .animation(.easeOut(duration: 0.2), value: store.check)
-    .sensoryFeedback(.success, trigger: store.check?.id) { _, new in new != nil }
-    .fcModal($store.scope(state: \.destination?.zonePicker, action: \.destination.zonePicker)) { store in
+    .animation(
+      .easeOut(duration: 0.2),
+      value: store.check)
+    .sensoryFeedback(
+      .success,
+      trigger: store.check?.id) { _, new in new != nil }
+    .fcModal($store.scope(
+      \.destination?.zonePicker,
+      action: \.destination.zonePicker)) { store in
       BearerZonePickerView(store: store)
-        .environment(\.colorScheme, .dark)
+        .environment(
+          \.colorScheme,
+          .dark)
     }
-    .fcModal($store.scope(state: \.destination?.activityPicker, action: \.destination.activityPicker)) { store in
+    .fcModal($store.scope(
+      \.destination?.activityPicker,
+      action: \.destination.activityPicker)) { store in
       BearerActivityPickerView(store: store)
-        .environment(\.colorScheme, .dark)
+        .environment(
+          \.colorScheme,
+          .dark)
     }
-    .fcAlert($store.scope(state: \.destination?.alert, action: \.destination.alert))
-    .fcAlert($store.scope(state: \.destination?.closeConfirm, action: \.destination.closeConfirm))
-    .environment(\.colorScheme, .dark)
+    .fcAlert($store.scope(
+      \.destination?.alert,
+      action: \.destination.alert))
+    .fcAlert($store.scope(
+      \.destination?.closeConfirm,
+      action: \.destination.closeConfirm))
+    .environment(
+      \.colorScheme,
+      .dark)
     .onAppear { send(.onAppear) }
     .onDisappear { send(.onDisappear) }
   }
@@ -71,13 +98,22 @@ extension BearerBoardView {
         .festiCoreFont(.baseFootnoteMedium)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
-    .padding(.horizontal, FestiCoreSpacing.paddingP16)
-    .padding(.vertical, FestiCoreSpacing.paddingP12)
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP16)
+    .padding(
+      .vertical,
+      FestiCoreSpacing.paddingP12)
   }
 
   private func content(current: BearerBoardFeature.Current, board: BearerBoard, now: Date) -> some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
-      header(current: current, board: board, now: now)
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP16) {
+      header(
+        current: current,
+        board: board,
+        now: now)
       Group {
         switch current.lifecycle {
         case .scheduled:
@@ -95,7 +131,9 @@ extension BearerBoardView {
           Text(message)
             .festiCoreFont(.baseFootnoteRegular)
             .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(
+              maxWidth: .infinity,
+              alignment: .leading)
           if store.isSendPaused {
             FCButton("다시 보내기") { send(.retrySendTapped) }
               .style(.secondary)
@@ -104,21 +142,31 @@ extension BearerBoardView {
         }
       }
       FCBearerFooter(queuedCount: store.pending.count)
-        .padding(.horizontal, -FestiCoreSpacing.paddingP16)
+        .padding(
+          .horizontal,
+          -FestiCoreSpacing.paddingP16)
     }
-    .padding(.horizontal, FestiCoreSpacing.paddingP16)
-    .padding(.top, FestiCoreSpacing.paddingP8)
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP16)
+    .padding(
+      .top,
+      FestiCoreSpacing.paddingP8)
   }
 
   private func header(current: BearerBoardFeature.Current, board: BearerBoard, now: Date) -> some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM8) {
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.marginM8) {
       Text(board.profile.name)
         .festiCoreFont(.baseTitle1Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelStrong.color)
         .lineLimit(1)
       HStack(spacing: FestiCoreSpacing.marginM8) {
         FCStatusChip(statusChip(current.lifecycle))
-        Text(summary(current, now: now))
+        Text(summary(
+          current,
+          now: now))
           .festiCoreFont(.baseSubheadlineRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .lineLimit(1)
@@ -128,8 +176,12 @@ extension BearerBoardView {
           Text(String(other.nickname.prefix(1)))
             .festiCoreFont(.baseCaption2Bold)
             .foregroundStyle(FestiCoreSemanticColor.accentForegroundPurple.color)
-            .frame(width: 20, height: 20)
-            .background(FestiCoreSemanticColor.accentBackgroundPurple.color, in: Circle())
+            .frame(
+              width: 20,
+              height: 20)
+            .background(
+              FestiCoreSemanticColor.accentBackgroundPurple.color,
+              in: Circle())
             .accessibilityHidden(true)
           Text("\(other.nickname.isEmpty ? "공동 기수" : other.nickname)".withIga + " \(changedTimeText(current.updatedAt, now: now)) 바꿨어요")
             .festiCoreFont(.baseFootnoteRegular)
@@ -144,24 +196,41 @@ extension BearerBoardView {
 
   private func tiles(_ current: BearerBoardFeature.Current) -> some View {
     let isResting = current.lifecycle == .resting
-    return Grid(horizontalSpacing: FestiCoreSpacing.marginM12, verticalSpacing: FestiCoreSpacing.marginM12) {
+    return Grid(
+      horizontalSpacing: FestiCoreSpacing.marginM12,
+      verticalSpacing: FestiCoreSpacing.marginM12) {
       GridRow {
-        FCBigButton("존", sub: store.state.zoneName(for: current.zoneID) ?? "존 고르기", icon: .locationDot20) {
+        FCBigButton(
+          "존",
+          sub: store.state.zoneName(for: current.zoneID) ?? "존 고르기",
+          icon: .locationDot20) {
           send(.zoneTapped)
         }
-        FCBigButton("활동", sub: (current.activity ?? store.lastActivity)?.title ?? "활동 고르기", icon: .music24) {
+        FCBigButton(
+          "활동",
+          sub: (current.activity ?? store.lastActivity)?.title ?? "활동 고르기",
+          icon: .music24) {
           send(.activityTapped)
         }
         .isSelected(!isResting)
       }
       GridRow {
         if isResting {
-          FCBigButton("다시 시작", sub: "활동 중으로 돌아가요", icon: .clock20) { send(.resumeTapped) }
+          FCBigButton(
+            "다시 시작",
+            sub: "활동 중으로 돌아가요",
+            icon: .clock20) { send(.resumeTapped) }
             .isSelected(true)
         } else {
-          FCBigButton("쉬는 중", sub: "탭 한 번", icon: .clock20) { send(.restTapped) }
+          FCBigButton(
+            "쉬는 중",
+            sub: "탭 한 번",
+            icon: .clock20) { send(.restTapped) }
         }
-        FCBigButton("종료", sub: "오늘 깃발 내리기", icon: .circleXmark) { send(.endTapped) }
+        FCBigButton(
+          "종료",
+          sub: "오늘 깃발 내리기",
+          icon: .circleXmark) { send(.endTapped) }
       }
     }
     .frame(maxHeight: .infinity)
@@ -185,9 +254,15 @@ extension BearerBoardView {
   }
 
   private var loadingContent: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
-      FCSkeletonView(.round()).frame(width: 160, height: 32)
-      FCSkeletonView(.round()).frame(width: 240, height: 20)
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP16) {
+      FCSkeletonView(.round()).frame(
+        width: 160,
+        height: 32)
+      FCSkeletonView(.round()).frame(
+        width: 240,
+        height: 20)
       FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r24)).frame(maxHeight: .infinity)
     }
     .padding(FestiCoreSpacing.paddingP16)
@@ -203,7 +278,9 @@ extension BearerBoardView {
         .style(.secondary)
         .size(.medium)
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .frame(
+      maxWidth: .infinity,
+      maxHeight: .infinity)
     .padding(FestiCoreSpacing.paddingP16)
   }
 
@@ -217,7 +294,9 @@ extension BearerBoardView {
   }
 
   private func summary(_ current: BearerBoardFeature.Current, now: Date) -> String {
-    let time = relativeText(current.updatedAt, now: now)
+    let time = relativeText(
+      current.updatedAt,
+      now: now)
     switch current.lifecycle {
     case .scheduled:
       return "아직 깃발을 올리지 않았어요"
@@ -232,21 +311,28 @@ extension BearerBoardView {
 
   private func relativeText(_ date: Date?, now: Date) -> String {
     guard let date else { return "방금" }
-    let seconds = max(0, now.timeIntervalSince(date))
+    let seconds = max(
+      0,
+      now.timeIntervalSince(date))
     if seconds < 60 { return "방금" }
     if seconds < 3600 { return "\(Int(seconds / 60))분 전" }
     return "\(Int(seconds / 3600))시간 전"
   }
 
   private func changedTimeText(_ date: Date, now: Date) -> String {
-    let text = relativeText(date, now: now)
+    let text = relativeText(
+      date,
+      now: now)
     return text == "방금" ? "방금" : "\(text)에"
   }
 }
 
 #Preview {
   BearerBoardView(store: .init(
-    initialState: BearerBoardFeature.State(festivalID: "fst_preview", flagID: "flg_preview", viewerUserID: nil)
+    initialState: BearerBoardFeature.State(
+      festivalID: "fst_preview",
+      flagID: "flg_preview",
+      viewerUserID: nil)
   ) {
     BearerBoardFeature()
   })

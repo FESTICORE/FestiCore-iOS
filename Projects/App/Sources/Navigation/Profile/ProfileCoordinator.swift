@@ -7,12 +7,6 @@ import TCAFlow
 @Reducer
 struct ProfileCoordinator {
   typealias State = ProfileFeature.State
-  private let legalBaseURL: URL?
-
-  init(legalBaseURL: URL?) {
-    self.legalBaseURL = legalBaseURL
-  }
-
   @CasePathable
   enum Action {
     case router(IndexedRouterActionOf<ProfileScreen>)
@@ -21,10 +15,10 @@ struct ProfileCoordinator {
 
   var body: some ReducerOf<Self> {
     Scope(
-      state: \.self,
+      \.self,
       action: \.profile
     ) {
-      ProfileFeature(legalBaseURL: legalBaseURL)
+      ProfileFeature()
     }
 
     Reduce { state, action in

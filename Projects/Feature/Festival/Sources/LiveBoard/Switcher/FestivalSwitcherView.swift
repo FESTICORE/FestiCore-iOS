@@ -59,7 +59,7 @@ private extension FestivalSwitcherView {
         .festiCoreFont(.baseHeadlineBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .accessibilityAddTraits(.isHeader)
-      Text("내가 예매한 페스티벌")
+      Text("다운로드한 페스티벌 팩")
         .festiCoreFont(.baseCaption1Regular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }

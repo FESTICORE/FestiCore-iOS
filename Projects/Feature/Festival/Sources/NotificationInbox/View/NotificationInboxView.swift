@@ -16,20 +16,35 @@ public struct NotificationInboxView: View {
   public var body: some View {
     VStack(spacing: .zero) {
       topBar
-      TimelineView(.periodic(from: .now, by: 60)) { _ in
+      TimelineView(.periodic(
+        from: .now,
+        by: 60)) { _ in
         content(now: date.now)
       }
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    .frame(
+      maxWidth: .infinity,
+      maxHeight: .infinity,
+      alignment: .top)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
-    .toolbar(.hidden, for: .navigationBar)
-    .safeAreaInset(edge: .bottom, spacing: .zero) {
+    .toolbar(
+      .hidden,
+      for: .navigationBar)
+    .safeAreaInset(
+      edge: .bottom,
+      spacing: .zero) {
       if store.isEditing { selectionBar }
     }
-    .fcAlert($store.scope(state: \.alert, action: \.alert))
+    .fcAlert($store.scope(
+      \.alert,
+      action: \.scope.alert))
     .onAppear { send(.onAppear) }
-    .animation(.easeInOut(duration: 0.2), value: store.isEditing)
-    .animation(.easeInOut(duration: 0.2), value: store.selectedIDs)
+    .animation(
+      .easeInOut(duration: 0.2),
+      value: store.isEditing)
+    .animation(
+      .easeInOut(duration: 0.2),
+      value: store.selectedIDs)
   }
 }
 
@@ -45,25 +60,39 @@ private extension NotificationInboxView {
         Button { send(.cancelSelectionTapped) } label: {
           Image(asset: .xmark16)
             .resizable()
-            .frame(width: 20, height: 20)
-            .frame(width: 44, height: 44)
+            .frame(
+              width: 20,
+              height: 20)
+            .frame(
+              width: 44,
+              height: 44)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("선택 취소")
       }
-      .padding(.leading, FestiCoreSpacing.paddingP16)
-      .padding(.trailing, FestiCoreSpacing.paddingP8)
+      .padding(
+        .leading,
+        FestiCoreSpacing.paddingP16)
+      .padding(
+        .trailing,
+        FestiCoreSpacing.paddingP8)
       .frame(height: 52)
       .background(FestiCoreSemanticColor.backgroundElevated.color)
     } else {
       if store.load == .loaded, !store.items.isEmpty {
-        FCTopBar(.back, title: "알림")
+        FCTopBar(
+          .back,
+          title: "알림")
           .onBack { send(.backTapped) }
-          .trailingAction(icon: .trashCan20, accessibilityLabel: "알림 선택 삭제") {
+          .trailingAction(
+            icon: .trashCan20,
+            accessibilityLabel: "알림 선택 삭제") {
             send(.editTapped)
           }
       } else {
-        FCTopBar(.back, title: "알림")
+        FCTopBar(
+          .back,
+          title: "알림")
           .onBack { send(.backTapped) }
       }
     }
@@ -75,9 +104,13 @@ private extension NotificationInboxView {
     case .idle, .loading:
       loadingContent
     case .failed:
-      messageContent("알림을 불러오지 못했어요", retry: true)
+      messageContent(
+        "알림을 불러오지 못했어요",
+        retry: true)
     case .loaded where store.items.isEmpty:
-      messageContent("새로운 알림이 없어요", retry: false)
+      messageContent(
+        "새로운 알림이 없어요",
+        retry: false)
     case .loaded:
       notificationList(now: now)
     }
@@ -86,26 +119,42 @@ private extension NotificationInboxView {
   func notificationList(now: Date) -> some View {
     ScrollView {
       LazyVStack(spacing: .zero) {
-        ForEach(NotificationInboxPresentation.sections(store.items, now: now)) { section in
+        ForEach(NotificationInboxPresentation.sections(
+          store.items,
+          now: now)) { section in
           Text(section.title)
             .festiCoreFont(.baseCaption1Bold)
             .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, FestiCoreSpacing.paddingP16)
-            .padding(.top, FestiCoreSpacing.paddingP20)
-            .padding(.bottom, FestiCoreSpacing.paddingP8)
+            .frame(
+              maxWidth: .infinity,
+              alignment: .leading)
+            .padding(
+              .horizontal,
+              FestiCoreSpacing.paddingP16)
+            .padding(
+              .top,
+              FestiCoreSpacing.paddingP20)
+            .padding(
+              .bottom,
+              FestiCoreSpacing.paddingP8)
             .accessibilityAddTraits(.isHeader)
-          ForEach(section.items, id: \.id) { item in
+          ForEach(
+            section.items,
+            id: \.id) { item in
             let isRead = item.readAt != nil || store.locallyReadIDs.contains(item.id)
             Button { send(.rowTapped(item.id)) } label: {
               FCNotificationRow(
                 title: item.title,
                 message: item.body,
-                time: NotificationInboxPresentation.time(for: item, now: now),
+                time: NotificationInboxPresentation.time(
+                  for: item,
+                  now: now),
                 isRead: isRead
               )
               .icon(NotificationInboxPresentation.icon(for: item.type))
-              .editing(store.isEditing, isSelected: store.selectedIDs.contains(item.id))
+              .editing(
+                store.isEditing,
+                isSelected: store.selectedIDs.contains(item.id))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(
@@ -139,10 +188,16 @@ private extension NotificationInboxView {
     VStack(spacing: .zero) {
       ForEach(0..<5) { _ in
         HStack(spacing: FestiCoreSpacing.paddingP12) {
-          FCSkeletonView(.circle).frame(width: 40, height: 40)
-          VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
+          FCSkeletonView(.circle).frame(
+            width: 40,
+            height: 40)
+          VStack(
+            alignment: .leading,
+            spacing: FestiCoreSpacing.paddingP8) {
             FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r4)).frame(height: 18)
-            FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r4)).frame(width: 180, height: 14)
+            FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r4)).frame(
+              width: 180,
+              height: 14)
           }
         }
         .padding(FestiCoreSpacing.paddingP16)
@@ -167,7 +222,9 @@ private extension NotificationInboxView {
       }
     }
     .padding(FestiCoreSpacing.paddingP16)
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .frame(
+      maxWidth: .infinity,
+      maxHeight: .infinity)
   }
 
   var selectionBar: some View {
@@ -180,8 +237,12 @@ private extension NotificationInboxView {
         .isFullWidth(true)
         .isEnabled(!store.selectedIDs.isEmpty && !store.isDeleting)
     }
-    .padding(.horizontal, FestiCoreSpacing.paddingP16)
-    .padding(.vertical, FestiCoreSpacing.paddingP12)
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP16)
+    .padding(
+      .vertical,
+      FestiCoreSpacing.paddingP12)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
   }
 }

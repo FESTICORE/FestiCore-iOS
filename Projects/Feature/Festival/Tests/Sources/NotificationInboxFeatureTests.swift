@@ -11,21 +11,46 @@ struct NotificationInboxFeatureTests {
   @Test("서울 자정 기준으로 오늘과 어제를 나눈다")
   func sectionsUseSeoulCalendar() throws {
     let now = try #require(AppDateFormat.calendar.date(from:
-      .init(year: 2026, month: 11, day: 4, hour: 0, minute: 10)
+      .init(
+        year: 2026,
+        month: 11,
+        day: 4,
+        hour: 0,
+        minute: 10)
     ))
     let today = try #require(AppDateFormat.calendar.date(from:
-      .init(year: 2026, month: 11, day: 4, hour: 0, minute: 5)
+      .init(
+        year: 2026,
+        month: 11,
+        day: 4,
+        hour: 0,
+        minute: 5)
     ))
     let yesterday = try #require(AppDateFormat.calendar.date(from:
-      .init(year: 2026, month: 11, day: 3, hour: 23, minute: 50)
+      .init(
+        year: 2026,
+        month: 11,
+        day: 3,
+        hour: 23,
+        minute: 50)
     ))
-    let sections = NotificationInboxPresentation.sections([
-      item(id: "today", createdAt: today), item(id: "yesterday", createdAt: yesterday)
-    ], now: now)
+    let sections = NotificationInboxPresentation.sections(
+      [
+      item(
+        id: "today",
+        createdAt: today), item(
+        id: "yesterday",
+        createdAt: yesterday)
+    ],
+      now: now)
 
     #expect(sections.map(\.title) == ["오늘", "어제"])
-    #expect(NotificationInboxPresentation.time(for: sections[0].items[0], now: now) == "5분 전")
-    #expect(NotificationInboxPresentation.time(for: sections[1].items[0], now: now) == "어제 23:50")
+    #expect(NotificationInboxPresentation.time(
+      for: sections[0].items[0],
+      now: now) == "5분 전")
+    #expect(NotificationInboxPresentation.time(
+      for: sections[1].items[0],
+      now: now) == "어제 23:50")
   }
 
   @Test("읽은 알림은 다시 읽음 요청하지 않고 일치하는 라이브 경로만 연다")
@@ -33,13 +58,18 @@ struct NotificationInboxFeatureTests {
     let calls = LockIsolated(0)
     var state = NotificationInboxFeature.State()
     state.load = .loaded
-    state.items = [item(id: "read", readAt: .distantPast, route: "/festivals/fst/live")]
+    state.items = [item(
+      id: "read",
+      readAt: .distantPast,
+      route: "/festivals/fst/live")]
     let store = TestStore(initialState: state) { NotificationInboxFeature() } withDependencies: {
       $0.userNotificationUseCase = MockUserNotificationUseCase(markRead: { _ in calls.withValue { $0 += 1 } })
     }
 
     await store.send(.view(.rowTapped("read")))
-    await store.receive(.delegate(.rowOpened(festivalID: "fst", markReadID: nil)))
+    await store.receive(.delegate(.rowOpened(
+      festivalID: "fst",
+      markReadID: nil)))
     #expect(calls.value == 0)
   }
 
@@ -47,7 +77,10 @@ struct NotificationInboxFeatureTests {
   func unsupportedRouteStaysInInbox() async {
     var state = NotificationInboxFeature.State()
     state.load = .loaded
-    state.items = [item(id: "other", readAt: .distantPast, route: "/festivals/other/live")]
+    state.items = [item(
+      id: "other",
+      readAt: .distantPast,
+      route: "/festivals/other/live")]
     let store = TestStore(initialState: state) { NotificationInboxFeature() }
 
     await store.send(.view(.rowTapped("other"))) {
@@ -57,23 +90,29 @@ struct NotificationInboxFeatureTests {
         cancelTitle: "닫기"
       )
     }
-    await store.send(.alert(.presented(.confirmTapped))) { $0.alert = nil }
+    await store.send(.scope(.alert(.presented(.confirmTapped)))) { $0.alert = nil }
   }
 
   @Test("읽지 않은 알림은 즉시 목적지를 열고 읽음 요청은 보드에 위임한다")
   func unreadItemOpensImmediately() async {
     var state = NotificationInboxFeature.State()
     state.load = .loaded
-    state.items = [item(id: "new", route: "/festivals/fst/live")]
+    state.items = [item(
+      id: "new",
+      route: "/festivals/fst/live")]
     let store = TestStore(initialState: state) { NotificationInboxFeature() }
 
     await store.send(.view(.rowTapped("new"))) {
       $0.locallyReadIDs = ["new"]
       $0.attemptedReadIDs = ["new"]
     }
-    await store.receive(.delegate(.rowOpened(festivalID: "fst", markReadID: "new")))
+    await store.receive(.delegate(.rowOpened(
+      festivalID: "fst",
+      markReadID: "new")))
     await store.send(.view(.rowTapped("new")))
-    await store.receive(.delegate(.rowOpened(festivalID: "fst", markReadID: nil)))
+    await store.receive(.delegate(.rowOpened(
+      festivalID: "fst",
+      markReadID: nil)))
   }
 
   @Test("불러온 알림을 모두 지워도 다음 페이지가 있으면 이어서 불러온다")
@@ -89,12 +128,16 @@ struct NotificationInboxFeatureTests {
       $0.userNotificationUseCase = MockUserNotificationUseCase(
         notifications: { cursor in
           #expect(cursor == nil)
-          return UserNotificationPage(items: [item(id: "remaining")], nextCursor: nil)
+          return UserNotificationPage(
+            items: [item(id: "remaining")],
+            nextCursor: nil)
         },
         unreadCount: { 1 }
       )
     }
-    await store.send(.inner(.deleteSucceeded(state.instanceID, ["first"]))) {
+    await store.send(.inner(.deleteSucceeded(
+      state.instanceID,
+      ["first"]))) {
       $0.items = []
       $0.nextCursor = nil
       $0.isEditing = false
@@ -124,7 +167,9 @@ struct NotificationInboxFeatureTests {
     let store = TestStore(initialState: state) { NotificationInboxFeature() } withDependencies: {
       $0.userNotificationUseCase = MockUserNotificationUseCase(notifications: { cursor in
         #expect(cursor == "next")
-        return UserNotificationPage(items: [item(id: "first"), item(id: "second")], nextCursor: nil)
+        return UserNotificationPage(
+          items: [item(id: "first"), item(id: "second")],
+          nextCursor: nil)
       })
     }
     await store.send(.view(.loadMoreTapped)) { $0.isLoadingMore = true }
@@ -164,7 +209,9 @@ struct NotificationInboxFeatureTests {
 
     await store.send(.inner(.pageLoaded(
       state.instanceID,
-      UserNotificationPage(items: [item(id: "new")], nextCursor: nil),
+      UserNotificationPage(
+        items: [item(id: "new")],
+        nextCursor: nil),
       requestedCursor: nil
     ))) {
       $0.items = [item(id: "new")]
@@ -180,11 +227,15 @@ struct NotificationInboxFeatureTests {
     let store = TestStore(initialState: state) { NotificationInboxFeature() }
     let oldInstanceID = UUID()
 
-    await store.send(.inner(.unreadCountLoaded(oldInstanceID, 99)))
+    await store.send(.inner(.unreadCountLoaded(
+      oldInstanceID,
+      99)))
     await store.send(.inner(.deleteFailed(oldInstanceID)))
     await store.send(.inner(.pageLoaded(
       oldInstanceID,
-      UserNotificationPage(items: [item(id: "other-account")], nextCursor: nil),
+      UserNotificationPage(
+        items: [item(id: "other-account")],
+        nextCursor: nil),
       requestedCursor: nil
     )))
   }
@@ -205,21 +256,31 @@ struct NotificationInboxFeatureTests {
   func fullReloadDoesNotDuplicateReadRequest() async {
     var state = NotificationInboxFeature.State()
     state.load = .loaded
-    state.items = [item(id: "new", route: "/festivals/fst/live")]
+    state.items = [item(
+      id: "new",
+      route: "/festivals/fst/live")]
     let store = TestStore(initialState: state) { NotificationInboxFeature() }
 
     await store.send(.view(.rowTapped("new"))) {
       $0.locallyReadIDs = ["new"]
       $0.attemptedReadIDs = ["new"]
     }
-    await store.receive(.delegate(.rowOpened(festivalID: "fst", markReadID: "new")))
+    await store.receive(.delegate(.rowOpened(
+      festivalID: "fst",
+      markReadID: "new")))
     await store.send(.inner(.pageLoaded(
       state.instanceID,
-      UserNotificationPage(items: [item(id: "new", route: "/festivals/fst/live")], nextCursor: nil),
+      UserNotificationPage(
+        items: [item(
+        id: "new",
+        route: "/festivals/fst/live")],
+        nextCursor: nil),
       requestedCursor: nil
     ))) { $0.locallyReadIDs = [] }
     await store.send(.view(.rowTapped("new")))
-    await store.receive(.delegate(.rowOpened(festivalID: "fst", markReadID: nil)))
+    await store.receive(.delegate(.rowOpened(
+      festivalID: "fst",
+      markReadID: nil)))
   }
 }
 

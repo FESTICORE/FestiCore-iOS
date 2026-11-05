@@ -39,7 +39,7 @@ struct SignUpFeatureTests {
   }
 
   @Test @MainActor func legalDetailRequestsWebAndKeepsDraft() async {
-    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    var state = signUpState(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
     state.nickname = "테스터"
     state.acceptedServiceTerms = true
     state.pushOptIn = true
@@ -73,7 +73,7 @@ struct SignUpFeatureTests {
   }
 
   @Test func submitNeedsCurrentConsentNicknameAndIdleFlow() {
-    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    var state = signUpState(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
     state.currentTermsVersion = "2026-10"
     state.nickname = "테스터"
     state.acceptedServiceTerms = true
@@ -109,12 +109,16 @@ struct SignUpFeatureTests {
 
     await store.send(.view(.submitTapped))
     await store.receive(.delegate(.submitRequested(SignUpSubmission(
-      nickname: "테스터", pushOptIn: true, isNicknameValid: true
+      nickname: "테스터",
+      pushOptIn: true,
+      isNicknameValid: true
     ))))
   }
 
   @Test @MainActor func nicknameOverTwelveCharactersIsInvalid() async {
-    let nickname = String(repeating: "가", count: 13)
+    let nickname = String(
+      repeating: "가",
+      count: 13)
     let store = TestStore(initialState: submittableState(nickname: nickname)) { SignUpFeature() }
 
     await store.send(.view(.submitTapped))
@@ -143,18 +147,22 @@ struct SignUpFeatureTests {
     await store.send(.view(.flowChanged(
       isSubmitting: true,
       message: "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요.",
-      termsUpdateExhausted: true,
-      legalBaseURL: base
+      termsUpdateExhausted: true
     ))) {
       $0.isSubmitting = true
       $0.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
       $0.termsUpdateExhausted = true
-      $0.legalBaseURL = base
     }
   }
 
+  private func signUpState(legalBaseURL: URL?) -> SignUpFeature.State {
+    var state = SignUpFeature.State()
+    state.legalBaseURL = legalBaseURL
+    return state
+  }
+
   @Test @MainActor func sheetClosedKeepsFormState() async {
-    let store = TestStore(initialState: SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))) {
+    let store = TestStore(initialState: signUpState(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))) {
       SignUpFeature()
     }
 
@@ -162,7 +170,7 @@ struct SignUpFeatureTests {
   }
 
   @Test @MainActor func legalDetailRequestKeepsDraft() async {
-    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    var state = signUpState(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
     state.nickname = "테스터"
     state.acceptedPrivacyTerms = true
     let store = TestStore(initialState: state) { SignUpFeature() }
@@ -214,13 +222,19 @@ struct SignUpFeatureTests {
 
   @Test func applyFillsServerNicknameOnlyWhenNotEdited() {
     var fresh = SignUpFeature.State()
-    fresh.apply(profileUserID: "user-a", serverNickname: "서버 닉네임", termsVersion: "2026-10")
+    fresh.apply(
+      profileUserID: "user-a",
+      serverNickname: "서버 닉네임",
+      termsVersion: "2026-10")
     #expect(fresh.nickname == "서버 닉네임")
     #expect(fresh.draftOwnerID == "user-a")
 
     var edited = SignUpFeature.State()
     edited.nicknameEdited = true
-    edited.apply(profileUserID: "user-a", serverNickname: "서버 닉네임", termsVersion: "2026-10")
+    edited.apply(
+      profileUserID: "user-a",
+      serverNickname: "서버 닉네임",
+      termsVersion: "2026-10")
     #expect(edited.nickname.isEmpty)
   }
 
@@ -231,7 +245,10 @@ struct SignUpFeatureTests {
     state.acceptedPrivacyTerms = true
     state.termsDraftVersion = "2026-10"
 
-    state.apply(profileUserID: "user-a", serverNickname: nil, termsVersion: "2026-11")
+    state.apply(
+      profileUserID: "user-a",
+      serverNickname: nil,
+      termsVersion: "2026-11")
     #expect(!state.acceptedServiceTerms && !state.acceptedPrivacyTerms)
     #expect(state.termsDraftVersion == nil)
     #expect(state.nickname == "작성 중")
@@ -268,7 +285,7 @@ struct SignUpFeatureTests {
   }
 
   private func submittableState(nickname: String) -> SignUpFeature.State {
-    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    var state = signUpState(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
     state.currentTermsVersion = "2026-10"
     state.nickname = nickname
     state.acceptedServiceTerms = true

@@ -13,9 +13,14 @@ import ProjectTemplatePlugin
 let project = Project.makeModule(
   name: "Auth",
   dependencies: [
-    .domain(.auth, .interface),
+    .domain(
+      .auth,
+      .interface),
+    .service(.api),
     .feature(.web),
-    .feature(.web, .interface),
+    .feature(
+      .web,
+      .interface),
     .ui(.designSystem),
     .SPM.composableArchitecture,
     .SPM.dependencies
@@ -23,7 +28,9 @@ let project = Project.makeModule(
   hasTests: true,
   hasInterface: true,
   interfaceDependencies: [
-    .domain(.auth, .interface),
+    .domain(
+      .auth,
+      .interface),
     .SPM.composableArchitecture
   ]
 )

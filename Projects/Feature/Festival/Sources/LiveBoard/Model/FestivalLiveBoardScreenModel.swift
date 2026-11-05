@@ -29,8 +29,6 @@ struct FestivalLiveBoardScreenModel {
   let hasMySchedule: Bool
   let myScheduleUnavailable: Bool
   let homeDetails: FestivalFeature.HomeDetailsState
-  let liveActivityState: FestivalFeature.LiveActivityControlState
-  let showsLiveActivityControl: Bool
   let showsFollowGuide: Bool
 
   init(state: FestivalFeature.State) {
@@ -48,8 +46,6 @@ struct FestivalLiveBoardScreenModel {
     hasMySchedule = state.mySchedule != nil
     myScheduleUnavailable = state.myScheduleUnavailable
     homeDetails = state.homeDetails
-    liveActivityState = state.liveActivityState
-    showsLiveActivityControl = state.showsLiveActivityControl
     showsFollowGuide = state.showsFollowGuide
   }
 

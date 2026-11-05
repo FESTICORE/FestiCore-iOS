@@ -42,8 +42,12 @@ struct WebDemoFeature {
   var body: some ReducerOf<Self> {
     Reduce { state, action in
       switch action {
-      case let .open(title, url):
-        state.web = WebFeature.State(url: url, title: title)
+      case let .open(
+        title,
+        url):
+        state.web = WebFeature.State(
+          url: url,
+          title: title)
         return .none
       case .web(.presented(.delegate(.backToRoot))):
         state.web = nil
@@ -52,7 +56,9 @@ struct WebDemoFeature {
         return .none
       }
     }
-    .ifLet(\.$web, action: \.web) { WebFeature() }
+    .ifLet(
+      \.$web,
+      action: \.web) { WebFeature() }
   }
 }
 
@@ -66,12 +72,18 @@ struct WebDemoView: View {
 
   var body: some View {
     NavigationStack {
-      List(samples, id: \.url) { sample in
-        Button(sample.title) { store.send(.open(title: sample.title, url: sample.url)) }
+      List(
+        samples,
+        id: \.url) { sample in
+        Button(sample.title) { store.send(.open(
+          title: sample.title,
+          url: sample.url)) }
       }
       .navigationTitle("Web 데모")
     }
-    .fullScreenCover(item: $store.scope(state: \.web, action: \.web)) { webStore in
+    .fullScreenCover(item: $store.scope(
+      \.web,
+      action: \.web)) { webStore in
       WebView(store: webStore)
     }
   }

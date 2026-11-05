@@ -41,7 +41,9 @@ private struct ProfileDemoRoot: View {
     let view = ProfileView(store: store)
     view.overlay {
       Color.clear.fcAlert(
-        $store.scope(state: \.destination?.alert, action: \.destination.alert),
+        $store.scope(
+          \.destination?.alert,
+          action: \.destination.alert),
         dismissesOnDimTap: true
       )
     }

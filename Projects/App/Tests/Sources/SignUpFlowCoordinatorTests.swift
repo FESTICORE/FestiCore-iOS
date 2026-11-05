@@ -1,3 +1,4 @@
+import API
 import ComposableArchitecture
 import FeatureAssembly
 import Foundation
@@ -7,11 +8,12 @@ import Testing
 
 struct SignUpFlowCoordinatorTests {
   @Test @MainActor func legalWebPushAndBackKeepSignUpDraft() async {
-    guard let baseURL = AppCoordinatorView.legalBaseURL(host: "festicore-dev.up.railway.app") else {
+    guard let baseURL = LegalAPI.baseURL(host: "festicore-dev.up.railway.app") else {
       Issue.record("Stage 약관 기준 주소를 만들지 못했어요")
       return
     }
-    var signUp = SignUpFeature.State(legalBaseURL: baseURL)
+    var signUp = SignUpFeature.State()
+    signUp.legalBaseURL = baseURL
     signUp.nickname = "테스터"
     signUp.acceptedPrivacyTerms = true
     let store = TestStore(initialState: SignUpFlowCoordinator.State(signUp: signUp)) {
@@ -61,11 +63,13 @@ struct SignUpFlowCoordinatorTests {
   }
 
   @Test @MainActor func sheetCloseResetsWebRouteButKeepsDraft() async {
-    guard let baseURL = AppCoordinatorView.legalBaseURL(host: "festicore-dev.up.railway.app") else {
+    guard let baseURL = LegalAPI.baseURL(host: "festicore-dev.up.railway.app") else {
       Issue.record("Stage 약관 기준 주소를 만들지 못했어요")
       return
     }
-    var state = SignUpFlowCoordinator.State(signUp: .init(legalBaseURL: baseURL))
+    var signUp = SignUpFeature.State()
+    signUp.legalBaseURL = baseURL
+    var state = SignUpFlowCoordinator.State(signUp: signUp)
     state.signUp.nickname = "작성 중"
     guard let url = state.signUp.legalURL(for: .terms) else {
       Issue.record("서비스 약관 주소를 만들지 못했어요")

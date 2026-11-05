@@ -6,6 +6,7 @@
 //
 
 import AuthDomainInterface
+import API
 import ComposableArchitecture
 import CoreGraphics
 import Foundation
@@ -18,6 +19,8 @@ public struct SignUpFeature {
 
   @ObservableState
   public struct State: Equatable {
+    public init() {}
+
     /// 현재 확인된 계정. 부모가 프로필을 받거나 잃을 때 갱신한다.
     public var currentUserID: String?
     /// 현재 서버 약관 버전. 부모가 프로필을 받거나 잃을 때 갱신한다.
@@ -41,11 +44,7 @@ public struct SignUpFeature {
     /// 약관이 다시 바뀌어 더 제출할 수 없는지. 부모가 `view(.flowChanged)`로 알린다.
     public var termsUpdateExhausted = false
     /// 약관 상세 기준 주소. 없으면 상세 링크를 숨기고 제출을 막는다. 부모가 `view(.flowChanged)`로 알린다.
-    public var legalBaseURL: URL?
-
-    public init(legalBaseURL: URL? = nil) {
-      self.legalBaseURL = legalBaseURL
-    }
+    public var legalBaseURL: URL? = LegalAPI.baseURL
 
     /// 두 필수 약관(서비스 이용약관·개인정보 수집 이용)이 모두 체크됐을 때만 true다.
     public var acceptedTerms: Bool {
@@ -159,7 +158,7 @@ public struct SignUpFeature {
     case submitTapped
     case closeTapped
     /// 부모 흐름 값(제출 중·문구·약관 소진·약관 기준 주소)을 부모가 알린다.
-    case flowChanged(isSubmitting: Bool, message: String?, termsUpdateExhausted: Bool, legalBaseURL: URL?)
+    case flowChanged(isSubmitting: Bool, message: String?, termsUpdateExhausted: Bool)
     /// 부모가 가입 시트를 닫았다.
     case sheetClosed
   }
@@ -261,13 +260,11 @@ extension SignUpFeature {
     case let .flowChanged(
       isSubmitting,
       message,
-      termsUpdateExhausted,
-      legalBaseURL
+      termsUpdateExhausted
     ):
       state.isSubmitting = isSubmitting
       state.message = message
       state.termsUpdateExhausted = termsUpdateExhausted
-      state.legalBaseURL = legalBaseURL
       return .none
 
     case .sheetClosed:

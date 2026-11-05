@@ -32,7 +32,10 @@ public struct BearerProfileView: View {
       }
     }
     .background(FestiCoreSemanticColor.backgroundNormal.color)
-    .photosPicker(isPresented: $isPhotoPickerPresented, selection: $pickedItem, matching: .images)
+    .photosPicker(
+      isPresented: $isPhotoPickerPresented,
+      selection: $pickedItem,
+      matching: .images)
     .onChange(of: pickedItem) { _, item in
       guard let item else { return }
       pickedItem = nil
@@ -41,7 +44,9 @@ public struct BearerProfileView: View {
         send(.photoPicked(data))
       }
     }
-    .fcAlert($store.scope(state: \.destination?.alert, action: \.destination.alert))
+    .fcAlert($store.scope(
+      \.destination?.alert,
+      action: \.destination.alert))
     .onAppear { send(.onAppear) }
   }
 }
@@ -49,21 +54,33 @@ public struct BearerProfileView: View {
 extension BearerProfileView {
   private var formContent: some View {
     VStack(spacing: .zero) {
-      FCTopBar(.back, title: "깃발 프로필")
+      FCTopBar(
+        .back,
+        title: "깃발 프로필")
         .onBack { send(.backTapped) }
       if store.isLoading {
         loadingContent
       } else {
         ScrollView {
-          VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
+          VStack(
+            alignment: .leading,
+            spacing: FestiCoreSpacing.paddingP24) {
             header
             photoSection
-            FCTextField(text: Binding(get: { store.name }, set: { send(.nameChanged($0)) }), placeholder: "예) 호락호락")
+            FCTextField(
+              text: Binding(
+              get: { store.name },
+              set: { send(.nameChanged($0)) }),
+              placeholder: "예) 호락호락")
               .label("깃발 이름")
               .maxLength(BearerProfileFeature.nameRange.upperBound)
               .helper("2~20자 · 이 페스티벌에서 하나뿐인 이름이어야 해요")
               .error(store.nameError)
-            FCTextField(text: Binding(get: { store.bio }, set: { send(.bioChanged($0)) }), placeholder: "어떤 깃발인지 한 줄로 알려 주세요")
+            FCTextField(
+              text: Binding(
+              get: { store.bio },
+              set: { send(.bioChanged($0)) }),
+              placeholder: "어떤 깃발인지 한 줄로 알려 주세요")
               .label("한 줄 소개 (선택)")
               .maxLength(BearerProfileFeature.bioLimit)
             tagSection
@@ -80,12 +97,20 @@ extension BearerProfileView {
           .padding(FestiCoreSpacing.paddingP16)
         }
         .scrollDismissesKeyboard(.interactively)
-        FCPrimaryButton(saveTitle, isEnabled: store.canSave) {
+        FCPrimaryButton(
+          saveTitle,
+          isEnabled: store.canSave) {
           send(.saveTapped)
         }
-        .padding(.horizontal, FestiCoreSpacing.paddingP16)
-        .padding(.top, FestiCoreSpacing.paddingP12)
-        .padding(.bottom, FestiCoreSpacing.paddingP8)
+        .padding(
+          .horizontal,
+          FestiCoreSpacing.paddingP16)
+        .padding(
+          .top,
+          FestiCoreSpacing.paddingP12)
+        .padding(
+          .bottom,
+          FestiCoreSpacing.paddingP8)
       }
     }
   }
@@ -101,11 +126,17 @@ extension BearerProfileView {
           .style(.secondary)
           .size(.medium)
       }
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .frame(
+        maxWidth: .infinity,
+        maxHeight: .infinity)
     } else {
-      VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
+      VStack(
+        alignment: .leading,
+        spacing: FestiCoreSpacing.paddingP24) {
         FCSkeletonView(.round()).frame(height: 64)
-        FCSkeletonView(.round()).frame(width: 88, height: 88)
+        FCSkeletonView(.round()).frame(
+          width: 88,
+          height: 88)
         FCSkeletonView(.round()).frame(height: 52)
         FCSkeletonView(.round()).frame(height: 52)
         Spacer()
@@ -115,7 +146,9 @@ extension BearerProfileView {
   }
 
   private var header: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM8) {
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.marginM8) {
       Text(headerTitle)
         .festiCoreFont(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
@@ -126,7 +159,9 @@ extension BearerProfileView {
   }
 
   private var photoSection: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM8) {
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.marginM8) {
       FCPhotoPicker(photoState) {
         if store.isUploadingPhoto {
           send(.photoCancelTapped)
@@ -144,11 +179,19 @@ extension BearerProfileView {
   }
 
   private var tagSection: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM8) {
-      sectionLabel("성향 태그", count: "\(store.tags.count) / \(BearerProfileFeature.tagLimit)")
-      ScrollView(.horizontal, showsIndicators: false) {
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.marginM8) {
+      sectionLabel(
+        "성향 태그",
+        count: "\(store.tags.count) / \(BearerProfileFeature.tagLimit)")
+      ScrollView(
+        .horizontal,
+        showsIndicators: false) {
         HStack(spacing: FestiCoreSpacing.marginM6) {
-          ForEach(BearerFlagTag.allCases, id: \.self) { tag in
+          ForEach(
+            BearerFlagTag.allCases,
+            id: \.self) { tag in
             FCChip(tag.title) { send(.tagTapped(tag)) }
               .isSelected(store.tags.contains(tag))
           }
@@ -159,11 +202,19 @@ extension BearerProfileView {
   }
 
   private var zoneSection: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM8) {
-      sectionLabel("주로 있는 존", count: nil)
-      LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: FestiCoreSpacing.marginM8) {
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.marginM8) {
+      sectionLabel(
+        "주로 있는 존",
+        count: nil)
+      LazyVGrid(
+        columns: [GridItem(.flexible()), GridItem(.flexible())],
+        spacing: FestiCoreSpacing.marginM8) {
         ForEach(store.zones) { zone in
-          BearerZoneButton(name: zone.name, isSelected: store.homeZoneID == zone.id) {
+          BearerZoneButton(
+            name: zone.name,
+            isSelected: store.homeZoneID == zone.id) {
             send(.zoneTapped(zone.id))
           }
         }
@@ -173,10 +224,16 @@ extension BearerProfileView {
   }
 
   private var settingSection: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM8) {
-      sectionLabel("오늘 계획 · 함께하는 기수", count: nil)
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.marginM8) {
+      sectionLabel(
+        "오늘 계획 · 함께하는 기수",
+        count: nil)
       VStack(spacing: .zero) {
-        FCListRow("팔로워에게 오늘 계획 보여주기", isOn: Binding(
+        FCListRow(
+          "팔로워에게 오늘 계획 보여주기",
+          isOn: Binding(
           get: { store.planVisible },
           set: { send(.planVisibleChanged($0)) }
         ))
@@ -185,7 +242,9 @@ extension BearerProfileView {
       }
       .overlay {
         RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
-          .strokeBorder(FestiCoreSemanticColor.lineNormal.color, lineWidth: 1)
+          .strokeBorder(
+            FestiCoreSemanticColor.lineNormal.color,
+            lineWidth: 1)
       }
     }
   }
@@ -193,11 +252,19 @@ extension BearerProfileView {
   private func doneContent(_ profile: BearerFlagProfile) -> some View {
     VStack(spacing: .zero) {
       ScrollView {
-        VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
-          FCDoneHero(title: "깃발이 준비됐어요", message: "공연 당일 기수 보드에서 깃발을 올리면\n팔로워에게 알림이 가요.")
+        VStack(
+          alignment: .leading,
+          spacing: FestiCoreSpacing.paddingP24) {
+          FCDoneHero(
+            title: "깃발이 준비됐어요",
+            message: "공연 당일 기수 보드에서 깃발을 올리면\n팔로워에게 알림이 가요.")
             .frame(maxWidth: .infinity)
-            .padding(.top, 72)
-          VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM12) {
+            .padding(
+              .top,
+              72)
+          VStack(
+            alignment: .leading,
+            spacing: FestiCoreSpacing.marginM12) {
             Text("깃발 목록에서 이렇게 보여요")
               .festiCoreFont(.baseFootnoteBold)
               .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
@@ -212,17 +279,27 @@ extension BearerProfileView {
           .style(.ghost)
           .isEnabled(!store.isInviting)
       }
-      .padding(.horizontal, FestiCoreSpacing.paddingP16)
-      .padding(.bottom, FestiCoreSpacing.paddingP8)
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP16)
+      .padding(
+        .bottom,
+        FestiCoreSpacing.paddingP8)
     }
   }
 
   private func previewCard(_ profile: BearerFlagProfile) -> some View {
-    HStack(alignment: .top, spacing: FestiCoreSpacing.paddingP16) {
+    HStack(
+      alignment: .top,
+      spacing: FestiCoreSpacing.paddingP16) {
       previewThumbnail
-        .frame(width: 56, height: 56)
+        .frame(
+          width: 56,
+          height: 56)
         .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
-      VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM8) {
+      VStack(
+        alignment: .leading,
+        spacing: FestiCoreSpacing.marginM8) {
         HStack(spacing: FestiCoreSpacing.marginM8) {
           Text(profile.name)
             .festiCoreFont(.baseBodyBold)
@@ -234,19 +311,25 @@ extension BearerProfileView {
           .festiCoreFont(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
         HStack(spacing: FestiCoreSpacing.paddingP4) {
-          ForEach(profile.tags, id: \.self) { FCTag($0.title) }
+          ForEach(
+            profile.tags,
+            id: \.self) { FCTag($0.title) }
         }
         if let zone = store.zones.first(where: { $0.id == profile.homeZoneID }) {
           FCZoneChip(zone.name) {}
             .allowsHitTesting(false)
         }
       }
-      .frame(maxWidth: .infinity, alignment: .leading)
+      .frame(
+        maxWidth: .infinity,
+        alignment: .leading)
     }
     .padding(FestiCoreSpacing.paddingP16)
     .overlay {
       RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
-        .strokeBorder(FestiCoreSemanticColor.lineNormal.color, lineWidth: 1)
+        .strokeBorder(
+          FestiCoreSemanticColor.lineNormal.color,
+          lineWidth: 1)
     }
   }
 
@@ -283,8 +366,12 @@ extension BearerProfileView {
   }
 
   private var photoState: FCPhotoPicker.State {
-    if case let .uploading(data, progress) = store.photoUpload, let image = image(from: data) {
-      return .uploading(image: image, progress: progress)
+    if case let .uploading(
+      data,
+      progress) = store.photoUpload, let image = image(from: data) {
+      return .uploading(
+        image: image,
+        progress: progress)
     }
     if let image = image(from: store.uploadedPhotoData) {
       return .filled(image)
@@ -319,7 +406,9 @@ extension BearerProfileView {
     initialState: BearerProfileFeature.State(
       festivalID: "fst_preview",
       flagID: "flg_preview",
-      profile: BearerFlagProfile(id: "flg_preview", name: "새 깃발 preview"),
+      profile: BearerFlagProfile(
+        id: "flg_preview",
+        name: "새 깃발 preview"),
       isNewBearer: true
     )
   ) {

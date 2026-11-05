@@ -8,7 +8,7 @@ struct TimetableCoordinatorView: View {
 
   var body: some View {
     TCAFlowRouter(store.scope(
-      state: \.routes,
+      \.routes,
       action: \.router
     )) { screen in
       switch screen.case {

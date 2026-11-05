@@ -53,13 +53,6 @@ struct AppCoordinatorView: View {
   }
 }
 
-extension AppCoordinatorView {
-  nonisolated static func legalBaseURL(host: String?) -> URL? {
-    guard let host, !host.isEmpty else { return nil }
-    return URL(string: "https://\(host)/api/v1/legal/")
-  }
-}
-
 #Preview {
   AppCoordinatorView(
     store: Store(initialState: AppCoordinator.State()) {

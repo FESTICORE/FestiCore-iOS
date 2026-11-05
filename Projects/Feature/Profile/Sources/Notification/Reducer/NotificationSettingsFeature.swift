@@ -103,13 +103,19 @@ public struct NotificationSettingsFeature {
     Reduce { state, action in
       switch action {
       case .view(let viewAction):
-        return handleViewAction(state: &state, action: viewAction)
+        return handleViewAction(
+          state: &state,
+          action: viewAction)
 
       case .async(let asyncAction):
-        return handleAsyncAction(state: &state, action: asyncAction)
+        return handleAsyncAction(
+          state: &state,
+          action: asyncAction)
 
       case .inner(let innerAction):
-        return handleInnerAction(state: &state, action: innerAction)
+        return handleInnerAction(
+          state: &state,
+          action: innerAction)
 
       case .delegate:
         return .none
@@ -142,7 +148,9 @@ extension NotificationSettingsFeature {
         await UIApplication.shared.open(url)
       }
 
-    case let .toggled(kind, isOn):
+    case let .toggled(
+      kind,
+      isOn):
       guard !state.isDeviceNotificationOff, let previous = state.settings, previous[kind] != isOn else {
         return .none
       }
@@ -164,9 +172,13 @@ extension NotificationSettingsFeature {
       return .run { send in
         let permission = await notificationSettingsUseCase.permission()
         let settings = try? await notificationSettingsUseCase.settings()
-        await send(.inner(.loaded(permission, settings)))
+        await send(.inner(.loaded(
+          permission,
+          settings)))
       }
-      .cancellable(id: CancelID.load, cancelInFlight: true)
+      .cancellable(
+        id: CancelID.load,
+        cancelInFlight: true)
 
     case .save(let changes):
       return .run { send in
@@ -185,7 +197,9 @@ extension NotificationSettingsFeature {
     action: InnerAction
   ) -> Effect<Action> {
     switch action {
-    case let .loaded(permission, settings):
+    case let .loaded(
+      permission,
+      settings):
       state.permission = permission
       // 저장 중이거나 보낼 변경이 남아 있으면 화면의 토글을 서버 값으로 덮지 않는다.
       guard !state.isSaving, state.pendingChanges.isEmpty else { return .none }
@@ -204,7 +218,9 @@ extension NotificationSettingsFeature {
       state.lastConfirmed = settings
       // 아직 보내지 않은 변경은 화면에 남겨 두고 이어서 보낸다.
       var merged = settings
-      for (kind, isOn) in state.pendingChanges { merged[kind] = isOn }
+      for (
+        kind,
+        isOn) in state.pendingChanges { merged[kind] = isOn }
       state.settings = merged
       return saveNextIfIdle(&state)
 
@@ -227,6 +243,8 @@ extension NotificationSettingsFeature {
     state.savingChanges = changes
     state.isSaving = true
     // 저장보다 늦게 끝난 조회가 방금 바꾼 토글을 되돌리지 않게 진행 중인 조회를 멈춘다.
-    return .concatenate(.cancel(id: CancelID.load), .send(.async(.save(changes))))
+    return .merge(
+      .cancel(id: CancelID.load),
+      .send(.async(.save(changes))))
   }
 }

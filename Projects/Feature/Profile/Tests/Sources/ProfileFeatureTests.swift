@@ -16,8 +16,16 @@ import Testing
 @MainActor
 struct ProfileFeatureTests {
   @Test func appearLoadsLocalPacksThenRefreshesUpdates() async {
-    let local = [FestivalReceivedPack(id: "fst_a", name: "원더리벳 2026", packVersion: 12, latestPackVersion: 12)]
-    let refreshed = [FestivalReceivedPack(id: "fst_a", name: "원더리벳 2026", packVersion: 12, latestPackVersion: 13)]
+    let local = [FestivalReceivedPack(
+      id: "fst_a",
+      name: "원더리벳 2026",
+      packVersion: 12,
+      latestPackVersion: 12)]
+    let refreshed = [FestivalReceivedPack(
+      id: "fst_a",
+      name: "원더리벳 2026",
+      packVersion: 12,
+      latestPackVersion: 13)]
     let store = TestStore(initialState: ProfileFeature.State()) {
       ProfileFeature()
     } withDependencies: {
@@ -38,7 +46,10 @@ struct ProfileFeatureTests {
   }
 
   @Test func refreshFailureKeepsLocalPacks() async {
-    let local = [FestivalReceivedPack(id: "fst_a", name: "A", packVersion: 1)]
+    let local = [FestivalReceivedPack(
+      id: "fst_a",
+      name: "A",
+      packVersion: 1)]
     let store = TestStore(initialState: ProfileFeature.State()) {
       ProfileFeature()
     } withDependencies: {
@@ -82,7 +93,10 @@ struct ProfileFeatureTests {
 
   @Test func reappearKeepsShownPacksWhileReloading() async {
     var state = ProfileFeature.State()
-    state.packs = [FestivalReceivedPack(id: "fst_a", name: "A", packVersion: 1)]
+    state.packs = [FestivalReceivedPack(
+      id: "fst_a",
+      name: "A",
+      packVersion: 1)]
     state.packLoad = .loaded
     let store = TestStore(initialState: state) {
       ProfileFeature()
@@ -107,7 +121,10 @@ struct ProfileFeatureTests {
 
   @Test func packTapOpensPackDetailAndDeletionReloadsPacks() async {
     var state = ProfileFeature.State()
-    state.packs = [FestivalReceivedPack(id: "fst_a", name: "원더리벳 2026", packVersion: 12)]
+    state.packs = [FestivalReceivedPack(
+      id: "fst_a",
+      name: "원더리벳 2026",
+      packVersion: 12)]
     state.packLoad = .loaded
     let store = TestStore(initialState: state) {
       ProfileFeature()
@@ -120,7 +137,9 @@ struct ProfileFeatureTests {
 
     await store.send(.view(.packTapped("fst_unknown")))
     await store.send(.view(.packTapped("fst_a"))) {
-      $0.destination = .packDetail(.init(festivalID: "fst_a", title: "원더리벳 2026"))
+      $0.destination = .packDetail(.init(
+        festivalID: "fst_a",
+        title: "원더리벳 2026"))
     }
     await store.send(.destination(.presented(.packDetail(.delegate(.packDeleted))))) {
       $0.destination = nil
@@ -136,11 +155,17 @@ struct ProfileFeatureTests {
     await store.send(.view(.accountTapped)) {
       $0.destination = .account(.init(profile: nil))
     }
-    await store.send(.view(.accountChanged(profile: nil, hasSession: true, isLoading: true, message: nil))) {
+    await store.send(.view(.accountChanged(
+      profile: nil,
+      hasSession: true,
+      isLoading: true,
+      message: nil))) {
       $0.isLoading = true
     }
     await store.receive(\.destination.presented.account.view.accountChanged) {
-      $0.destination = .account(.init(profile: nil, isLoading: true))
+      $0.destination = .account(.init(
+        profile: nil,
+        isLoading: true))
     }
   }
 
@@ -149,7 +174,11 @@ struct ProfileFeatureTests {
     state.destination = .account(.init(profile: nil))
     let store = TestStore(initialState: state) { ProfileFeature() }
 
-    await store.send(.view(.accountChanged(profile: nil, hasSession: false, isLoading: false, message: nil))) {
+    await store.send(.view(.accountChanged(
+      profile: nil,
+      hasSession: false,
+      isLoading: false,
+      message: nil))) {
       $0.hasSession = false
       $0.destination = nil
     }
@@ -157,8 +186,15 @@ struct ProfileFeatureTests {
 
   @Test func accountScreenRequestsAreForwardedToApp() async {
     let user = AuthUser(
-      id: "user-a", provider: "apple", email: nil, nickname: "새이름", nicknameConfirmed: true,
-      termsAcceptedAt: "2026-10-01", termsVersion: "2026-10", pushOptIn: false, profileImageURL: nil
+      id: "user-a",
+      provider: "apple",
+      email: nil,
+      nickname: "새이름",
+      nicknameConfirmed: true,
+      termsAcceptedAt: "2026-10-01",
+      termsVersion: "2026-10",
+      pushOptIn: false,
+      profileImageURL: nil
     )
     var state = signedInState()
     state.destination = .account(.init(profile: nil))
@@ -190,7 +226,9 @@ struct ProfileFeatureTests {
   func closingNotificationSettingsStillSendsUnsavedChanges(viaBackButton: Bool) async {
     let sent = LockIsolated<[[NotificationSettingsFeature.Kind: Bool]]>([])
     var notifications = NotificationSettingsFeature.State()
-    notifications.settings = FestivalNotificationSettings(flagStatus: false, crewStatus: false)
+    notifications.settings = FestivalNotificationSettings(
+      flagStatus: false,
+      crewStatus: false)
     notifications.isSaving = true
     notifications.savingChanges = [.flagStatus: false]
     notifications.pendingChanges = [.crewStatus: false]
@@ -202,7 +240,9 @@ struct ProfileFeatureTests {
       $0.festivalNotificationSettingsUseCase = MockFestivalNotificationSettingsUseCase(
         updateSettings: { changes in
           sent.withValue { $0.append(changes) }
-          return FestivalNotificationSettings(flagStatus: false, crewStatus: false)
+          return FestivalNotificationSettings(
+            flagStatus: false,
+            crewStatus: false)
         }
       )
     }
@@ -220,9 +260,9 @@ struct ProfileFeatureTests {
   }
 
   @Test func missingLegalConfigurationShowsDismissibleError() async {
-    let store = TestStore(initialState: ProfileFeature.State()) {
-      ProfileFeature(legalBaseURL: nil)
-    }
+    var state = ProfileFeature.State()
+    state.legalBaseURL = nil
+    let store = TestStore(initialState: state) { ProfileFeature() }
 
     await store.send(.view(.termsTapped)) {
       $0.destination = .alert(.legalLinkUnavailable())
@@ -236,18 +276,22 @@ struct ProfileFeatureTests {
 
   @Test func legalRowsOpenInAppAndBackReturnsToProfile() async {
     let base = URL(string: "https://example.com/api/v1/legal/")!
-    let store = TestStore(initialState: ProfileFeature.State()) {
-      ProfileFeature(legalBaseURL: base)
-    }
+    var state = ProfileFeature.State()
+    state.legalBaseURL = base
+    let store = TestStore(initialState: state) { ProfileFeature() }
 
     await store.send(.view(.termsTapped)) {
-      $0.destination = .legalDocument(.init(url: base.appending(path: "terms"), title: "이용약관"))
+      $0.destination = .legalDocument(.init(
+        url: base.appending(path: "terms"),
+        title: "이용약관"))
     }
     await store.send(.destination(.presented(.legalDocument(.delegate(.backToRoot))))) {
       $0.destination = nil
     }
     await store.send(.view(.privacyTapped)) {
-      $0.destination = .legalDocument(.init(url: base.appending(path: "privacy"), title: "개인정보 처리방침"))
+      $0.destination = .legalDocument(.init(
+        url: base.appending(path: "privacy"),
+        title: "개인정보 처리방침"))
     }
     await store.send(.destination(.presented(.legalDocument(.delegate(.backToRoot))))) {
       $0.destination = nil

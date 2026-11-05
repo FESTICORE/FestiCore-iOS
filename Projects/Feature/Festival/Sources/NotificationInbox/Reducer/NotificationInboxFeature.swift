@@ -37,8 +37,13 @@ public struct NotificationInboxFeature {
     case view(View)
     case async(AsyncAction)
     case inner(InnerAction)
-    case alert(PresentationAction<FCAlertAction>)
+    case scope(ScopeAction)
     case delegate(Delegate)
+  }
+
+  @CasePathable
+  public enum ScopeAction: Equatable {
+    case alert(PresentationAction<FCAlertAction>)
   }
 
   @CasePathable
@@ -133,7 +138,9 @@ public struct NotificationInboxFeature {
           state.alert = .notificationDestinationUnavailable()
         }
         guard shouldRead || festivalID != nil else { return .none }
-        return .send(.delegate(.rowOpened(festivalID: festivalID, markReadID: shouldRead ? id : nil)))
+        return .send(.delegate(.rowOpened(
+          festivalID: festivalID,
+          markReadID: shouldRead ? id : nil)))
 
       case .view(.loadMoreTapped):
         guard state.load == .loaded, !state.isEditing,
@@ -150,19 +157,28 @@ public struct NotificationInboxFeature {
         return .run { send in
           do {
             let page = try await notifications.notifications(before: before)
-            await send(.inner(.pageLoaded(instanceID, page, requestedCursor: before)))
+            await send(.inner(.pageLoaded(
+              instanceID,
+              page,
+              requestedCursor: before)))
           } catch {
-            await send(.inner(.pageFailed(instanceID, requestedCursor: before)))
+            await send(.inner(.pageFailed(
+              instanceID,
+              requestedCursor: before)))
           }
         }
-        .cancellable(id: CancelID.page, cancelInFlight: true)
+        .cancellable(
+          id: CancelID.page,
+          cancelInFlight: true)
 
       case let .async(.delete(ids)):
         let instanceID = state.instanceID
         return .run { send in
           do {
             try await notifications.delete(ids: ids)
-            await send(.inner(.deleteSucceeded(instanceID, ids)))
+            await send(.inner(.deleteSucceeded(
+              instanceID,
+              ids)))
           } catch {
             await send(.inner(.deleteFailed(instanceID)))
           }
@@ -172,11 +188,18 @@ public struct NotificationInboxFeature {
         let instanceID = state.instanceID
         return .run { send in
           guard let count = try? await notifications.unreadCount() else { return }
-          await send(.inner(.unreadCountLoaded(instanceID, count)))
+          await send(.inner(.unreadCountLoaded(
+            instanceID,
+            count)))
         }
-        .cancellable(id: CancelID.unreadCount, cancelInFlight: true)
+        .cancellable(
+          id: CancelID.unreadCount,
+          cancelInFlight: true)
 
-      case let .inner(.pageLoaded(instanceID, page, requestedCursor)):
+      case let .inner(.pageLoaded(
+        instanceID,
+        page,
+        requestedCursor)):
         guard instanceID == state.instanceID else { return .none }
         if requestedCursor == nil {
           state.items = page.items
@@ -192,13 +215,17 @@ public struct NotificationInboxFeature {
         state.isLoadingMore = false
         return .none
 
-      case let .inner(.pageFailed(instanceID, requestedCursor)):
+      case let .inner(.pageFailed(
+        instanceID,
+        requestedCursor)):
         guard instanceID == state.instanceID else { return .none }
         state.isLoadingMore = false
         if requestedCursor == nil { state.load = .failed } else { state.alert = .notificationLoadFailed() }
         return .none
 
-      case let .inner(.deleteSucceeded(instanceID, ids)):
+      case let .inner(.deleteSucceeded(
+        instanceID,
+        ids)):
         guard instanceID == state.instanceID else { return .none }
         let removed = Set(ids)
         state.items.removeAll { removed.contains($0.id) }
@@ -210,7 +237,9 @@ public struct NotificationInboxFeature {
         if state.items.isEmpty, state.nextCursor != nil {
           state.load = .loading
           state.nextCursor = nil
-          return .merge(.send(.async(.fetchPage(before: nil))), .send(.async(.refreshUnreadCount)))
+          return .merge(
+            .send(.async(.fetchPage(before: nil))),
+            .send(.async(.refreshUnreadCount)))
         }
         return .send(.async(.refreshUnreadCount))
 
@@ -222,30 +251,54 @@ public struct NotificationInboxFeature {
         state.load = .loading
         state.nextCursor = nil
         state.alert = .notificationDeleteFailed()
-        return .merge(.send(.async(.fetchPage(before: nil))), .send(.async(.refreshUnreadCount)))
+        return .merge(
+          .send(.async(.fetchPage(before: nil))),
+          .send(.async(.refreshUnreadCount)))
 
-      case let .inner(.unreadCountLoaded(instanceID, count)):
+      case let .inner(.unreadCountLoaded(
+        instanceID,
+        count)):
         guard instanceID == state.instanceID else { return .none }
-        return .send(.delegate(.unreadCountChanged(max(0, count))))
+        return .send(.delegate(.unreadCountChanged(max(
+          0,
+          count))))
 
-      case .alert(.presented(.confirmTapped)), .alert(.presented(.cancelTapped)):
-        state.alert = nil
-        return .none
+      case let .scope(scopeAction):
+        return handleScopeAction(
+          state: &state,
+          action: scopeAction)
 
-      case .alert, .delegate:
+      case .delegate:
         return .none
       }
     }
-    .ifLet(\.$alert, action: \.alert) { FCConfirmAlert() }
+    .ifLet(
+      \.$alert,
+      action: \.scope.alert) { FCConfirmAlert() }
   }
 }
 
 private extension NotificationInboxFeature {
+  func handleScopeAction(
+    state: inout State,
+    action: ScopeAction
+  ) -> Effect<Action> {
+    switch action {
+    case .alert(.presented(.confirmTapped)),
+         .alert(.presented(.cancelTapped)),
+         .alert(.dismiss):
+      state.alert = nil
+      return .none
+    }
+  }
+
   enum CancelID { case page, unreadCount }
 
   static func liveFestivalID(for item: UserNotificationItem) -> String? {
     guard let route = item.route else { return nil }
-    let parts = route.split(separator: "/", omittingEmptySubsequences: true)
+    let parts = route.split(
+      separator: "/",
+      omittingEmptySubsequences: true)
     guard parts.count == 3, parts[0] == "festivals", parts[2] == "live",
           let festivalID = item.festivalID, parts[1] == festivalID else { return nil }
     return festivalID
@@ -254,14 +307,23 @@ private extension NotificationInboxFeature {
 
 private extension FCAlertState where Action == FCAlertAction {
   static func notificationDestinationUnavailable() -> Self {
-    .alert(title: "아직 열 수 없는 알림이에요", message: "해당 화면을 준비 중입니다.", cancelTitle: "닫기")
+    .alert(
+      title: "아직 열 수 없는 알림이에요",
+      message: "해당 화면을 준비 중입니다.",
+      cancelTitle: "닫기")
   }
 
   static func notificationLoadFailed() -> Self {
-    .alert(title: "알림을 더 불러오지 못했어요", message: "잠시 후 다시 시도해 주세요.", cancelTitle: "닫기")
+    .alert(
+      title: "알림을 더 불러오지 못했어요",
+      message: "잠시 후 다시 시도해 주세요.",
+      cancelTitle: "닫기")
   }
 
   static func notificationDeleteFailed() -> Self {
-    .alert(title: "알림을 삭제하지 못했어요", message: "연결을 확인하고 다시 시도해 주세요.", cancelTitle: "닫기")
+    .alert(
+      title: "알림을 삭제하지 못했어요",
+      message: "연결을 확인하고 다시 시도해 주세요.",
+      cancelTitle: "닫기")
   }
 }

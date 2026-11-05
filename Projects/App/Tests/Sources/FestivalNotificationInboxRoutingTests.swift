@@ -11,20 +11,20 @@ struct FestivalNotificationInboxRoutingTests {
   @Test("라이브 보드의 깃발 찾기는 선택 축제를 유지하며 깃발 탭으로 이동한다")
   func followedFlagGuideOpensFlagTab() async {
     var state = MainTabCoordinator.State()
-    state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival-a")))
+    state.tabs.festival.routes.push(.liveBoard(.init(selectedFestivalID: "festival-a")))
     let store = TestStore(initialState: state) { MainTabCoordinator() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
     }
 
-    await store.send(.festival(.router(.routeAction(
+    await store.send(.scopeAction(.festival(.router(.routeAction(
       id: 1,
       action: .liveBoard(.delegate(.flagTabRequested))
-    ))))
-    await store.receive(\.festival)
+    )))))
+    await store.receive(\.scopeAction.festival)
     await store.receive(\.selectTab) { $0.selectedTab = .flag }
-    await store.receive(\.flag.festivalChanged) {
-      $0.flagState.festivalID = "festival-a"
-      $0.flagState.generation = 1
+    await store.receive(\.scopeAction.flag.festivalChanged) {
+      $0.tabs.flag.festivalID = "festival-a"
+      $0.tabs.flag.generation = 1
     }
   }
 
@@ -33,7 +33,7 @@ struct FestivalNotificationInboxRoutingTests {
     var state = MainTabCoordinator.State()
     var board = FestivalFeature.State(selectedFestivalID: "festival-a")
     board.alert = .hideGuide()
-    state.festivalState.routes.push(.liveBoard(board))
+    state.tabs.festival.routes.push(.liveBoard(board))
 
     #expect(state.shouldHideTabBar)
     #expect(state.shouldReserveTabBarSpace)
@@ -43,8 +43,10 @@ struct FestivalNotificationInboxRoutingTests {
   func appBackgroundCancelsPackOnHiddenFestivalTab() async {
     var home = MainTabCoordinator.State(selectedTab: .my)
     var list = FestivalFeature.State()
-    list.packDownloads["fst"] = .downloading(.init(receivedBytes: 40, totalBytes: 100))
-    home.festivalState.routes[0].screen = .festivalList(list)
+    list.packDownloads["fst"] = .downloading(.init(
+      receivedBytes: 40,
+      totalBytes: 100))
+    home.tabs.festival.routes[0].screen = .festivalList(list)
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
     }
@@ -52,17 +54,18 @@ struct FestivalNotificationInboxRoutingTests {
 
     await store.send(.view(.backgrounded))
     await store.receive {
-      guard case .scope(.home(.festival(.backgrounded))) = $0 else { return false }
+      guard case .scope(.home(.scopeAction(.festival(.backgrounded)))) = $0 else { return false }
       return true
     }
     await store.receive {
-      guard case .scope(.home(.festival(.router(.routeAction(
-        id: 0, action: .festivalList(.view(.backgrounded))
-      ))))) = $0 else { return false }
+      guard case .scope(.home(.scopeAction(.festival(.router(.routeAction(
+        id: 0,
+        action: .festivalList(.view(.backgrounded))
+      )))))) = $0 else { return false }
       return true
     }
     guard case let .home(updated) = store.state else { return }
-    #expect(updated.festivalState.routes[0].screen.festivalList?.packDownloads.isEmpty == true)
+    #expect(updated.tabs.festival.routes[0].screen.festivalList?.packDownloads.isEmpty == true)
   }
 
   @Test("북마크 결과 토스트는 현재 보이는 축제 화면에만 보인다")
@@ -76,10 +79,15 @@ struct FestivalNotificationInboxRoutingTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.bookmarkSaved(id: "fst", booked: true))
+    await store.send(.bookmarkSaved(
+      id: "fst",
+      booked: true))
     await store.receive {
       guard case .router(.routeAction(
-        id: 1, action: .liveBoard(.view(.bookmarkSaved(id: "fst", booked: true)))
+        id: 1,
+        action: .liveBoard(.view(.bookmarkSaved(
+          id: "fst",
+          booked: true)))
       )) = $0 else { return false }
       return true
     }
@@ -96,9 +104,13 @@ struct FestivalNotificationInboxRoutingTests {
     let store = TestStore(initialState: state) { FestivalCoordinator() }
     store.exhaustivity = .off
 
-    await store.send(.router(.routeAction(id: 1, action: .liveBoard(.delegate(.notificationInboxRequested)))))
+    await store.send(.router(.routeAction(
+      id: 1,
+      action: .liveBoard(.delegate(.notificationInboxRequested)))))
     #expect(store.state.routes.last?.screen.is(\.notificationInbox) == true)
-    await store.send(.router(.routeAction(id: 2, action: .notificationInbox(.delegate(.backRequested)))))
+    await store.send(.router(.routeAction(
+      id: 2,
+      action: .notificationInbox(.delegate(.backRequested)))))
     #expect(store.state.routes.count == 2)
   }
 
@@ -128,7 +140,10 @@ struct FestivalNotificationInboxRoutingTests {
     state.routes.push(.notificationInbox(.init()))
 
     _ = FestivalCoordinator().handleRoute(
-      state: &state, action: .sessionChanged(hasSession: true, userID: "user-b")
+      state: &state,
+      action: .sessionChanged(
+        hasSession: true,
+        userID: "user-b")
     )
 
     #expect(state.routes.count == 2)
@@ -145,7 +160,10 @@ struct FestivalNotificationInboxRoutingTests {
     state.routes.push(.notificationInbox(.init()))
 
     _ = FestivalCoordinator().handleRoute(
-      state: &state, action: .sessionChanged(hasSession: true, userID: "user-b")
+      state: &state,
+      action: .sessionChanged(
+        hasSession: true,
+        userID: "user-b")
     )
 
     #expect(state.routes.count == 2)
@@ -156,12 +174,20 @@ struct FestivalNotificationInboxRoutingTests {
   func catalogFestivalClosesInbox() {
     var state = FestivalCoordinator.State()
     var board = FestivalFeature.State(selectedFestivalID: "fst")
-    board.catalog = [FestivalCatalogItem(id: "fst", name: "축제", packVersion: 0)]
+    board.catalog = [FestivalCatalogItem(
+      id: "fst",
+      name: "축제",
+      packVersion: 0)]
     state.routes.push(.liveBoard(board))
     state.routes.push(.notificationInbox(.init()))
 
-    _ = FestivalCoordinator().handleRoute(state: &state, action: .router(.routeAction(
-      id: 2, action: .notificationInbox(.delegate(.rowOpened(festivalID: "fst", markReadID: nil)))
+    _ = FestivalCoordinator().handleRoute(
+      state: &state,
+      action: .router(.routeAction(
+      id: 2,
+      action: .notificationInbox(.delegate(.rowOpened(
+        festivalID: "fst",
+        markReadID: nil)))
     )))
 
     #expect(state.routes.count == 2)
@@ -172,12 +198,20 @@ struct FestivalNotificationInboxRoutingTests {
   func unknownFestivalKeepsInbox() {
     var state = FestivalCoordinator.State()
     var board = FestivalFeature.State(selectedFestivalID: "fst")
-    board.catalog = [FestivalCatalogItem(id: "fst", name: "축제", packVersion: 0)]
+    board.catalog = [FestivalCatalogItem(
+      id: "fst",
+      name: "축제",
+      packVersion: 0)]
     state.routes.push(.liveBoard(board))
     state.routes.push(.notificationInbox(.init()))
 
-    _ = FestivalCoordinator().handleRoute(state: &state, action: .router(.routeAction(
-      id: 2, action: .notificationInbox(.delegate(.rowOpened(festivalID: "missing", markReadID: nil)))
+    _ = FestivalCoordinator().handleRoute(
+      state: &state,
+      action: .router(.routeAction(
+      id: 2,
+      action: .notificationInbox(.delegate(.rowOpened(
+        festivalID: "missing",
+        markReadID: nil)))
     )))
 
     #expect(state.routes.count == 3)
@@ -192,13 +226,13 @@ struct FestivalNotificationInboxRoutingTests {
 
     var board = FestivalFeature.State(selectedFestivalID: "festival")
     board.hasSession = true
-    state.festivalState.routes.push(.liveBoard(board))
+    state.tabs.festival.routes.push(.liveBoard(board))
     #expect(!state.shouldHideTabBar)
     #expect(state.shouldReserveTabBarSpace)
 
     let coordinator = FestivalCoordinator()
     _ = coordinator.handleRoute(
-      state: &state.festivalState,
+      state: &state.tabs.festival,
       action: .router(.routeAction(
         id: 1,
         action: .liveBoard(.delegate(.notificationInboxRequested))
@@ -209,14 +243,14 @@ struct FestivalNotificationInboxRoutingTests {
     #expect(!state.shouldReserveTabBarSpace)
 
     _ = coordinator.handleRoute(
-      state: &state.festivalState,
+      state: &state.tabs.festival,
       action: .router(.routeAction(
         id: 2,
         action: .notificationInbox(.delegate(.backRequested))
       ))
     )
     #expect(!state.isNotificationInboxOnTop)
-    #expect(state.festivalState.routes.last?.screen.liveBoard?.selectedFestivalID == "festival")
+    #expect(state.tabs.festival.routes.last?.screen.liveBoard?.selectedFestivalID == "festival")
     #expect(!state.shouldHideTabBar)
     #expect(state.shouldReserveTabBarSpace)
   }

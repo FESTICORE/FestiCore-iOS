@@ -1,3 +1,4 @@
+import ComposableArchitecture
 import FestiCorePackInterface
 import FestivalDomainInterface
 import Foundation
@@ -5,6 +6,46 @@ import Testing
 @testable import Festival
 
 struct FestivalFeatureStateTests {
+  @Test @MainActor func festivalSwitcherListsDownloadedPacksInsteadOfBookedFestivals() async {
+    var state = FestivalFeature.State(selectedFestivalID: "downloaded")
+    state.catalog = [
+      .init(
+        id: "downloaded",
+        name: "다운로드 팩",
+        packVersion: 1
+      ),
+      .init(
+        id: "booked",
+        name: "예매만 한 축제",
+        packVersion: 1
+      )
+    ]
+    state.cachedPacks["downloaded"] = CachedFestivalPack(
+      festivalID: "downloaded",
+      packVersion: 1,
+      etag: "etag",
+      pack: Data(#"{"id":"downloaded","name":"다운로드 팩"}"#.utf8)
+    )
+    state.bookedFestivalIDs = ["booked"]
+    let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.date.now = Date(timeIntervalSince1970: 0)
+    }
+
+    await store.send(.view(.festivalSwitchTapped)) {
+      $0.festivalSwitcher = .init(
+        festivals: [
+          .init(
+            id: "downloaded",
+            name: "다운로드 팩",
+            subtitle: "일정 확인",
+            thumbnailURL: nil
+          )
+        ],
+        selectedFestivalID: "downloaded"
+      )
+    }
+  }
+
   @Test func onlineDetailDisplaysWithoutSavingAnOfflinePack() throws {
     var state = FestivalFeature.State(selectedFestivalID: "festival")
     state.catalog = [.init(

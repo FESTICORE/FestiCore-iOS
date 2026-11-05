@@ -17,6 +17,9 @@ enum MixpanelConfiguration {
 
   static func configure(infoDictionary: [String: Any]) {
     guard let token = token(infoDictionary: infoDictionary) else { return }
-    Mixpanel.initialize(token: token, trackAutomaticEvents: false)
+    Mixpanel.initialize(
+      token: token,
+      trackAutomaticEvents: true
+    )
   }
 }

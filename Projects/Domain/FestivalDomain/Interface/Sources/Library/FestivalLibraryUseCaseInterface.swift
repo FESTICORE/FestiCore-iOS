@@ -11,6 +11,26 @@ import Dependencies
 public protocol FestivalLibraryUseCaseInterface: Sendable {
   /// 사용자가 예매한 축제 ID를 기기에서 읽는다.
   func bookedFestivalIDs(for userID: String) -> Set<String>
+  /// 축제 예매 상태를 기기에 저장하고 변경된 ID 목록을 돌려준다.
+  func setBooked(
+    _ booked: Bool,
+    festivalID: String,
+    for userID: String
+  ) -> Set<String>
+  /// 계정별 오프라인 예매 자격을 확인한다.
+  func isOfflineBookingEligible(userID: String) -> Bool
+  /// 계정별 오프라인 예매 자격을 저장한다.
+  func setOfflineBookingEligibility(
+    _ isEligible: Bool,
+    for userID: String
+  )
+  /// 이전 버전에서 저장한 계정 미지정 예매 목록을 읽는다.
+  func legacyBookmarks() -> Set<String>
+  /// 이전 버전 예매 목록의 계정 이전 여부를 저장한다.
+  func resolveLegacyBookmarkMigration(
+    accepted: Bool,
+    userID: String
+  )
   /// 사용자별 최근 검색어를 기기에서 읽는다.
   func recentSearches(for userID: String?) -> [String]
   /// 검색어를 맨 앞에 넣고 바뀐 목록을 돌려준다.

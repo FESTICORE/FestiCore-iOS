@@ -43,7 +43,9 @@ struct AlertDemoFeature {
         return .none
       }
     }
-    .ifLet(\.$customAlert, action: \.scope.customAlert) {
+    .ifLet(
+      \.$customAlert,
+      action: \.scope.customAlert) {
       FCConfirmAlert()
     }
   }
@@ -55,6 +57,8 @@ struct AlertDemoPresenter: ViewModifier {
 
   func body(content: Content) -> some View {
     content
-      .fcAlert($store.scope(state: \.customAlert, action: \.scope.customAlert))
+      .fcAlert($store.scope(
+        \.customAlert,
+        action: \.scope.customAlert))
   }
 }

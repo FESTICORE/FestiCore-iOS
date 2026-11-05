@@ -20,7 +20,7 @@ struct FestivalFollowGuideFeatureTests {
     await store.send(.view(.closeFollowedFlagGuideTapped)) {
       $0.alert = .hideGuide()
     }
-    await store.send(.alert(.presented(.cancelTapped))) {
+    await store.send(.scope(.alert(.presented(.cancelTapped)))) {
       $0.alert = nil
     }
     #expect(hidden.value.isEmpty)
@@ -28,7 +28,7 @@ struct FestivalFollowGuideFeatureTests {
     await store.send(.view(.closeFollowedFlagGuideTapped)) {
       $0.alert = .hideGuide()
     }
-    await store.send(.alert(.presented(.confirmTapped))) {
+    await store.send(.scope(.alert(.presented(.confirmTapped)))) {
       $0.isFollowedFlagGuideHidden = true
       $0.alert = nil
     }

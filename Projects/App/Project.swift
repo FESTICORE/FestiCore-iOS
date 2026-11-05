@@ -17,12 +17,24 @@ let project = Project.makeAppModule(
   settings: .appMainSettings,
   dependencies: [
     .feature(.assembly),
-    .domain(.auth, .interface),
-    .domain(.festival, .interface),
-    .domain(.timetable, .interface),
-    .service(.auth, .interface),
-    .core(.network, .interface),
-    .core(.storage, .interface),
+    .domain(
+      .auth,
+      .interface),
+    .domain(
+      .festival,
+      .interface),
+    .domain(
+      .timetable,
+      .interface),
+    .service(
+      .auth,
+      .interface),
+    .core(
+      .network,
+      .interface),
+    .core(
+      .storage,
+      .interface),
     .ui(.designSystem),
     .ui(.sharedUI),
     .ui(.animation),
@@ -31,10 +43,15 @@ let project = Project.makeAppModule(
     .core(.utility),
     .core(.assembly),
     .service(.analytics),
-    .service(.analytics, .interface),
+    .service(
+      .analytics,
+      .interface),
+    .service(.api),
     .service(.assembly),
     .service(.config),
-    .service(.device, .interface),
+    .service(
+      .device,
+      .interface),
     .widget(.liveActivity),
     .appExtension(.notificationService),
     .SPM.composableArchitecture,

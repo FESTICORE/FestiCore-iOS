@@ -22,19 +22,19 @@ struct WidgetDeepLinkRoutingTests {
   @Test("팩이 없는 위젯은 현재 탭에서 축제 목록으로 돌아간다")
   func noPackOpensFestivalListTab() async {
     var state = MainTabCoordinator.State(selectedTab: .my)
-    state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "fst_a")))
+    state.tabs.festival.routes.push(.liveBoard(.init(selectedFestivalID: "fst_a")))
     let store = TestStore(initialState: state) {
-      MainTabCoordinator(legalBaseURL: nil)
+      MainTabCoordinator()
     }
 
     await store.send(.openWidgetRoute(.festivalList)) {
       $0.previousTab = .my
       $0.selectedTab = .live
     }
-    await store.receive(\.festival.showFestivalList) {
-      $0.festivalState.routes.removeAll { !$0.screen.is(\.festivalList) }
+    await store.receive(\.scopeAction.festival.showFestivalList) {
+      $0.tabs.festival.routes.removeAll { !$0.screen.is(\.festivalList) }
     }
-    #expect(store.state.festivalState.routes.count == 1)
+    #expect(store.state.tabs.festival.routes.count == 1)
     await store.finish()
   }
 

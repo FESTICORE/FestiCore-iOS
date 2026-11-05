@@ -6,6 +6,7 @@
 //
 
 import AuthDomainInterface
+import API
 import ComposableArchitecture
 import FestiCoreSharedUI
 import FestivalDomainInterface
@@ -16,11 +17,7 @@ import WebInterface
 
 @Reducer
 public struct ProfileFeature {
-  private let legalBaseURL: URL?
-
-  public init(legalBaseURL: URL? = nil) {
-    self.legalBaseURL = legalBaseURL
-  }
+  public init() {}
 
   @ObservableState
   public struct State: Equatable {
@@ -35,6 +32,7 @@ public struct ProfileFeature {
     /// 아직 연결되지 않은 이동은 누를 수 없게 둔다.
     public var isBearerNavigationAvailable = false
     public var isSearchAvailable = false
+    public var legalBaseURL: URL? = LegalAPI.baseURL
 
     /// 팝업과 마이 화면의 하위 목적지
     @Presents public var destination: Destination.State?
@@ -121,22 +119,34 @@ public struct ProfileFeature {
     Reduce { state, action in
       switch action {
       case .destination(let destinationAction):
-        return handleDestinationAction(state: &state, action: destinationAction)
+        return handleDestinationAction(
+          state: &state,
+          action: destinationAction)
 
       case .view(let viewAction):
-        return handleViewAction(state: &state, action: viewAction)
+        return handleViewAction(
+          state: &state,
+          action: viewAction)
 
       case .async(let asyncAction):
-        return handleAsyncAction(state: &state, action: asyncAction)
+        return handleAsyncAction(
+          state: &state,
+          action: asyncAction)
 
       case .inner(let innerAction):
-        return handleInnerAction(state: &state, action: innerAction)
+        return handleInnerAction(
+          state: &state,
+          action: innerAction)
 
       case .delegate(let delegateAction):
-        return handleDelegateAction(state: &state, action: delegateAction)
+        return handleDelegateAction(
+          state: &state,
+          action: delegateAction)
       }
     }
-    .ifLet(\.$destination, action: \.destination)
+    .ifLet(
+      \.$destination,
+      action: \.destination)
   }
 }
 
@@ -149,7 +159,11 @@ extension ProfileFeature {
     action: View
   ) -> Effect<Action> {
     switch action {
-    case let .accountChanged(profile, hasSession, isLoading, message):
+    case let .accountChanged(
+      profile,
+      hasSession,
+      isLoading,
+      message):
       let lostSession = state.hasSession && !hasSession
       state.profile = profile
       state.hasSession = hasSession
@@ -162,7 +176,9 @@ extension ProfileFeature {
         return .none
       }
       return .send(.destination(.presented(.account(.view(.accountChanged(
-        profile: profile, isLoading: isLoading, message: message
+        profile: profile,
+        isLoading: isLoading,
+        message: message
       ))))))
 
     case .onAppear:
@@ -184,7 +200,9 @@ extension ProfileFeature {
 
     case .packTapped(let id):
       guard let pack = state.packs.first(where: { $0.id == id }) else { return .none }
-      state.destination = .packDetail(.init(festivalID: pack.id, title: pack.name))
+      state.destination = .packDetail(.init(
+        festivalID: pack.id,
+        title: pack.name))
       return .none
 
     case let .openPackDirections(
@@ -209,7 +227,10 @@ extension ProfileFeature {
       guard state.profile != nil || state.hasSession else {
         return .send(.delegate(.loginRequested))
       }
-      state.destination = .account(.init(profile: state.profile, isLoading: state.isLoading, message: state.message))
+      state.destination = .account(.init(
+        profile: state.profile,
+        isLoading: state.isLoading,
+        message: state.message))
       return .none
 
     case .noticeTapped:
@@ -217,10 +238,16 @@ extension ProfileFeature {
       return .none
 
     case .termsTapped:
-      return showLegalDocument(path: "terms", title: "이용약관", state: &state)
+      return showLegalDocument(
+        path: "terms",
+        title: "이용약관",
+        state: &state)
 
     case .privacyTapped:
-      return showLegalDocument(path: "privacy", title: "개인정보 처리방침", state: &state)
+      return showLegalDocument(
+        path: "privacy",
+        title: "개인정보 처리방침",
+        state: &state)
     }
   }
 
@@ -242,7 +269,9 @@ extension ProfileFeature {
           await send(.inner(.packsRefreshed(refreshed)))
         }
       }
-      .cancellable(id: CancelID.packs, cancelInFlight: true)
+      .cancellable(
+        id: CancelID.packs,
+        cancelInFlight: true)
     }
   }
 
@@ -355,12 +384,14 @@ extension ProfileFeature {
   }
 
   private func showLegalDocument(path: String, title: String, state: inout State) -> Effect<Action> {
-    guard let legalBaseURL else {
+    guard let legalBaseURL = state.legalBaseURL else {
       // 이미 떠 있으면 다시 띄우지 않는다.
       if state.destination?.alert == nil { state.destination = .alert(.legalLinkUnavailable()) }
       return .none
     }
-    state.destination = .legalDocument(.init(url: legalBaseURL.appending(path: path), title: title))
+    state.destination = .legalDocument(.init(
+      url: legalBaseURL.appending(path: path),
+      title: title))
     return .none
   }
 }

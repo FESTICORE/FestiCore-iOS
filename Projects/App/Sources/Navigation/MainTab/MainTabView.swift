@@ -17,8 +17,12 @@ struct MainTabView: View {
 
   var body: some View {
     tabContent
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .safeAreaInset(edge: .bottom, spacing: .zero) {
+      .frame(
+        maxWidth: .infinity,
+        maxHeight: .infinity)
+      .safeAreaInset(
+        edge: .bottom,
+        spacing: .zero) {
         if store.shouldReserveTabBarSpace {
           FCTabBar(
             selection: Binding(
@@ -30,11 +34,22 @@ struct MainTabView: View {
           .allowsHitTesting(!store.shouldHideTabBar)
         }
       }
+      .animation(
+        .easeInOut(duration: 0.25),
+        value: store.shouldReserveTabBarSpace
+      )
+      .animation(
+        .easeInOut(duration: 0.25),
+        value: store.shouldHideTabBar
+      )
       .background(FestiCoreSemanticColor.backgroundNormal.color)
       .overlay {
-        if store.selectedTab == .timetable, store.timetableState.setDetail != nil {
+        if store.selectedTab == .timetable, store.tabs.timetableFeature.setDetail != nil {
           // 공연 상세 시트는 탭바까지 덮도록 탭을 그리는 이 화면에서 띄운다.
-          Color.clear.fcModal($store.scope(state: \.timetableState.setDetail, action: \.timetable.scope.setDetail)) { detailStore in
+          Color.clear.fcModal($store.scope(
+            \.tabs.timetableFeature.setDetail,
+            action: \.scopeAction.timetableCoordinator.timetable.scope.setDetail
+          )) { detailStore in
             TimetableSetDetailView(store: detailStore)
           } accessory: { detailStore in
             TimetableScheduleToast(isVisible: detailStore.isScheduleToastVisible)
@@ -46,8 +61,8 @@ struct MainTabView: View {
           Color.clear
             .fcAlert(
               $store.scope(
-                state: \.profileState.destination?.alert,
-                action: \.profileCoordinator.profile.destination.alert
+                \.tabs.profile.destination?.alert,
+                action: \.scopeAction.profileCoordinator.profile.destination.alert
               ),
               dismissesOnDimTap: true
             )
@@ -71,8 +86,8 @@ private extension MainTabView {
     case .live:
       FestivalCoordinatorView(
         store: store.scope(
-          state: \.festivalState,
-          action: \.festival
+          \.tabs.festival,
+          action: \.scopeAction.festival
         )
       )
 
@@ -81,7 +96,10 @@ private extension MainTabView {
 
     case .flag:
       FestivalFlagView(
-        store: store.scope(state: \.flagState, action: \.flag)
+        store: store.scope(
+          \.tabs.flag,
+          action: \.scopeAction.flag
+        )
       )
 
     case .my:
@@ -91,15 +109,15 @@ private extension MainTabView {
 
   var profileView: some View {
     ProfileCoordinatorView(store: store.scope(
-      state: \.profileState,
-      action: \.profileCoordinator
+      \.tabs.profile,
+      action: \.scopeAction.profileCoordinator
     ))
   }
 
   var timetableView: some View {
     TimetableCoordinatorView(store: store.scope(
-      state: \.timetableCoordinatorState,
-      action: \.timetableCoordinator
+      \.tabs.timetable,
+      action: \.scopeAction.timetableCoordinator
     ))
   }
 }

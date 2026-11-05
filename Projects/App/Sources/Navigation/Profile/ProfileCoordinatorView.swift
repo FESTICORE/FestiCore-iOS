@@ -8,7 +8,7 @@ struct ProfileCoordinatorView: View {
 
   var body: some View {
     TCAFlowRouter(store.scope(
-      state: \.profileRoutes,
+      \.profileRoutes,
       action: \.router
     )) { screen in
       switch screen.case {

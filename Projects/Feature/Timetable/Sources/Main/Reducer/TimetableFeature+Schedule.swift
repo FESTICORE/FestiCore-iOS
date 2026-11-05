@@ -21,7 +21,7 @@ extension TimetableFeature {
     state.festivalID = festivalID
     state.setDetail = nil
     state.destination = nil
-    return .concatenate(
+    return .merge(
       .cancel(id: CancelID.load),
       .cancel(id: CancelID.save),
       resetSchedule(state: &state),
@@ -33,7 +33,7 @@ extension TimetableFeature {
     state.accountGeneration += 1
     state.loadRequestID += 1
     state.destination = nil
-    return .concatenate(
+    return .merge(
       .cancel(id: CancelID.load),
       .cancel(id: CancelID.save),
       resetSchedule(state: &state),
@@ -59,7 +59,9 @@ extension TimetableFeature {
       state.isScheduleLimitReached = false
       toast = .none
     } else {
-      guard state.setDetailContent(id: id, now: now)?.detail.status != .ended else { return .none }
+      guard state.setDetailContent(
+        id: id,
+        now: now)?.detail.status != .ended else { return .none }
       guard state.mySetIDs.count < Self.scheduleLimit else {
         state.isScheduleLimitReached = true
         return .none
@@ -68,7 +70,9 @@ extension TimetableFeature {
       toast = .send(.scope(.setDetail(.presented(.async(.showScheduleToast)))))
     }
     guard state.scheduleSync == .ready else { return toast }
-    return .merge(toast, saveSchedule(state: &state))
+    return .merge(
+      toast,
+      saveSchedule(state: &state))
   }
 
   /// 팩에서 사라진 공연을 내 일정에서 뺀다. 없는 공연 ID는 서버가 거부한다.
@@ -87,7 +91,9 @@ extension TimetableFeature {
   /// 일정·시간표가 바뀌면 열린 상세 시트에 새 내용을 보낸다. 부모는 시트 상태를 직접 바꾸지 않는다.
   func refreshSetDetail(state: State) -> Effect<Action> {
     guard let setDetail = state.setDetail,
-          let content = state.setDetailContent(id: setDetail.setID, now: now),
+          let content = state.setDetailContent(
+            id: setDetail.setID,
+            now: now),
           content != setDetail.content else { return .none }
     return .send(.scope(.setDetail(.presented(.inner(.contentChanged(content))))))
   }
@@ -96,7 +102,9 @@ extension TimetableFeature {
     guard let festivalID = state.festivalID, state.scheduleSync != .loading else { return .none }
     state.scheduleSync = .loading
     state.loadRequestID += 1
-    return .send(.async(.fetchSchedule(festivalID: festivalID, requestID: state.loadRequestID)))
+    return .send(.async(.fetchSchedule(
+      festivalID: festivalID,
+      requestID: state.loadRequestID)))
   }
 
   func saveSchedule(state: inout State) -> Effect<Action> {
@@ -109,12 +117,21 @@ extension TimetableFeature {
       // 결과를 모르는 요청과 목록이 같으면 같은 요청을 다시 보내 서버가 중복으로 처리하게 한다.
       // 다르면 그사이 다른 기기가 저장했을 수 있어 서버 일정을 먼저 읽는다.
       guard Set(uncertain.setIDs) == state.mySetIDs else { return loadSchedule(state: &state) }
-      return startSave(uncertain, state: &state)
+      return startSave(
+        uncertain,
+        state: &state)
     }
     // 서버는 같은 시각의 다른 목록을 충돌로 보므로 이전 요청보다 1ms 이상 늦춘다.
-    let clientAt = max(now, (state.lastClientAt ?? .distantPast).addingTimeInterval(0.001))
+    let clientAt = max(
+      now,
+      (state.lastClientAt ?? .distantPast).addingTimeInterval(0.001))
     state.lastClientAt = clientAt
-    return startSave(ScheduleSave(setIDs: state.mySetIDs.sorted(), clientAt: clientAt, generation: state.accountGeneration), state: &state)
+    return startSave(
+      ScheduleSave(
+      setIDs: state.mySetIDs.sorted(),
+      clientAt: clientAt,
+      generation: state.accountGeneration),
+      state: &state)
   }
 
   func applyLoadedSchedule(
@@ -151,11 +168,28 @@ extension TimetableFeature {
     state.needsSave = false
     switch result {
     case .success:
-      let delegate = Effect<Action>.send(.delegate(.scheduleSaved(festivalID: festivalID, setIDs: Set(save.setIDs))))
-      return needsSave ? .concatenate(delegate, saveSchedule(state: &state)) : delegate
+      guard needsSave else {
+        return .send(.delegate(.scheduleSaved(
+          festivalID: festivalID,
+          setIDs: Set(save.setIDs))))
+      }
+      let queuedSave = prepareQueuedSave(
+        state: &state,
+        after: save.clientAt
+      )
+      return .run { send in
+        await send(.delegate(.scheduleSaved(
+          festivalID: festivalID,
+          setIDs: Set(save.setIDs))))
+        await send(.async(.replaceSchedule(
+          festivalID: festivalID,
+          queuedSave)))
+      }
     case let .failure(.stale(server)):
       state.mySetIDs = Set(server.setIDs).intersection(state.allSetIDs)
-      return .send(.delegate(.scheduleSaved(festivalID: festivalID, setIDs: state.mySetIDs)))
+      return .send(.delegate(.scheduleSaved(
+        festivalID: festivalID,
+        setIDs: state.mySetIDs)))
     case .failure(.unauthorized):
       state.scheduleSync = .localOnly
       return .none
@@ -169,12 +203,35 @@ extension TimetableFeature {
 }
 
 private extension TimetableFeature {
+  func prepareQueuedSave(
+    state: inout State,
+    after previousClientAt: Date
+  ) -> ScheduleSave {
+    let previousClientAt = max(
+      state.lastClientAt ?? previousClientAt,
+      previousClientAt)
+    let clientAt = max(
+      now,
+      previousClientAt.addingTimeInterval(0.001))
+    state.lastClientAt = clientAt
+    state.isSaving = true
+    return ScheduleSave(
+      setIDs: state.mySetIDs.sorted(),
+      clientAt: clientAt,
+      generation: state.accountGeneration
+    )
+  }
+}
+
+private extension TimetableFeature {
   func startSave(
     _ save: ScheduleSave,
     state: inout State
   ) -> Effect<Action> {
     guard let festivalID = state.festivalID else { return .none }
     state.isSaving = true
-    return .send(.async(.replaceSchedule(festivalID: festivalID, save)))
+    return .send(.async(.replaceSchedule(
+      festivalID: festivalID,
+      save)))
   }
 }

@@ -42,7 +42,7 @@ struct TimetableCoordinator {
 
   var body: some ReducerOf<Self> {
     Scope(
-      state: \.timetableState,
+      \.timetableState,
       action: \.timetable
     ) {
       TimetableFeature()
@@ -84,13 +84,3 @@ struct TimetableCoordinator {
     }
   }
 }
-
-extension TimetableCoordinator {
-  @Reducer
-  enum TimetableScreen {
-    case timetable(TimetableFeature)
-    case schedulePick(SchedulePickFeature)
-  }
-}
-
-extension TimetableCoordinator.TimetableScreen.State: Equatable {}

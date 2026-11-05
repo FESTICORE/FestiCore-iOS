@@ -13,7 +13,7 @@ struct TimetableRoutingTests {
     #expect(!state.shouldHideTabBar)
     #expect(state.shouldReserveTabBarSpace)
 
-    state.timetableState.destination = .schedulePick(.init(
+    state.tabs.timetableFeature.destination = .schedulePick(.init(
       festivalID: "festival",
       days: [],
       selectedSetIDs: [],
@@ -27,7 +27,7 @@ struct TimetableRoutingTests {
     #expect(state.shouldReserveTabBarSpace)
 
     state.selectedTab = .timetable
-    state.timetableState.destination = nil
+    state.tabs.timetableFeature.destination = nil
     #expect(!state.shouldHideTabBar)
     #expect(state.shouldReserveTabBarSpace)
   }
@@ -43,7 +43,8 @@ struct TimetableRoutingTests {
         days: [],
         selectedSetIDs: [],
         previousClientAt: nil
-      ))
+      )
+    )
 
     #expect(state.routes.count == 2)
     #expect(state.routes[1].isPush)
@@ -59,7 +60,8 @@ struct TimetableRoutingTests {
         days: [],
         selectedSetIDs: [],
         previousClientAt: nil
-      ))
+      )
+    )
     let root = state.routes[0]
     let store = TestStore(initialState: state) { TimetableCoordinator() }
     store.exhaustivity = .off
@@ -88,7 +90,8 @@ struct TimetableRoutingTests {
       .timetable(.delegate(.scheduleSaved(
         festivalID: "festival",
         setIDs: ["set-a"]
-      ))))
+      )))
+    )
     await store.receive(\.delegate.scheduleSaved)
   }
 }
