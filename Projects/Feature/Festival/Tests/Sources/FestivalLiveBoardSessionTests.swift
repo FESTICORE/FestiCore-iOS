@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCorePackInterface
 import FestivalDomainInterface
 import Foundation
 import Testing
@@ -6,6 +7,107 @@ import Testing
 
 @MainActor
 struct FestivalLiveBoardSessionTests {
+  @Test("백그라운드 푸시 갱신도 열린 라이브 보드를 다시 조회한다")
+  func remoteContentRefreshReloadsVisibleBoardInBackground() async {
+    let calls = LockIsolated<[String]>([])
+    let refreshedAt = Date(timeIntervalSince1970: 2_500)
+    var state = FestivalFeature.State(selectedFestivalID: "fst")
+    state.isLiveBoardVisible = true
+    state.isForeground = false
+    let store = TestStore(initialState: state) {
+      FestivalFeature()
+    } withDependencies: {
+      $0.festivalCatalogUseCase = MockFestivalCatalogUseCase(
+        refreshFestivals: {
+          [FestivalCatalogItem(
+            id: "fst",
+            name: "축제",
+            packVersion: 0
+          )]
+        }
+      )
+      $0.festivalLiveBoardUseCase = MockFestivalLiveBoardUseCase { festivalID in
+        calls.withValue { $0.append(festivalID) }
+        return emptyBoard
+      }
+      $0.festivalImageUseCase = MockFestivalImageUseCase(
+        imageURL: { _ in nil },
+        startPrefetch: { _ in },
+        stopPrefetch: {}
+      )
+      $0.date = .constant(refreshedAt)
+    }
+    store.exhaustivity = .off
+
+    await store.send(.view(.remoteContentChanged))
+    await store.receive(\.inner.liveBoardLoaded) {
+      $0.liveBoard = emptyBoard
+      $0.liveBoardClockAnchorAt = refreshedAt
+      $0.liveBoardReceivedAt = refreshedAt
+    }
+    #expect(calls.value == ["fst"])
+    await store.finish()
+  }
+
+  @Test("팩 WebSocket에서 새 팩을 받으면 라이브 보드를 즉시 다시 조회한다")
+  func updatedPackRefreshesLiveBoardImmediately() async throws {
+    let calls = LockIsolated(0)
+    let receivedAt = Date(timeIntervalSince1970: 2_000)
+    let oldPack = CachedFestivalPack(
+      festivalID: "fst",
+      packVersion: 1,
+      etag: "v1",
+      pack: Data(#"{"id":"fst","name":"축제","packVersion":1}"#.utf8)
+    )
+    let newPack = CachedFestivalPack(
+      festivalID: "fst",
+      packVersion: 2,
+      etag: "v2",
+      pack: Data(#"{"id":"fst","name":"축제","packVersion":2}"#.utf8)
+    )
+    var initial = FestivalFeature.State(selectedFestivalID: "fst")
+    initial.cachedPacks["fst"] = oldPack
+    initial.selectedPack = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: oldPack.pack
+    )
+    initial.isLiveBoardVisible = true
+    let store = TestStore(initialState: initial) {
+      FestivalFeature()
+    } withDependencies: {
+      $0.date = .constant(receivedAt)
+      $0.festivalImageUseCase = MockFestivalImageUseCase(
+        imageURL: { _ in nil },
+        startPrefetch: { _ in },
+        stopPrefetch: {}
+      )
+      $0.festivalPackDetailUseCase = MockFestivalPackDetailUseCase(
+        packDetail: { _ in nil }
+      )
+      $0.festivalLiveBoardUseCase = MockFestivalLiveBoardUseCase { _ in
+        calls.withValue { $0 += 1 }
+        return emptyBoard
+      }
+    }
+    store.exhaustivity = .off
+
+    await store.send(
+      .inner(
+        .packReceived(
+          "fst",
+          .updated(newPack)
+        )
+      )
+    )
+    await store.receive(\.inner.liveBoardLoaded) {
+      $0.liveBoard = emptyBoard
+      $0.liveBoardClockAnchorAt = receivedAt
+      $0.liveBoardReceivedAt = receivedAt
+    }
+    #expect(calls.value == 1)
+    await store.finish()
+  }
+
   @Test("미발행 축제는 공개 전 상태를 표시하고 발행 후 자동으로 보드를 보여준다")
   func unpublishedFestivalBecomesAvailableOnNextPoll() async {
     let clock = TestClock()

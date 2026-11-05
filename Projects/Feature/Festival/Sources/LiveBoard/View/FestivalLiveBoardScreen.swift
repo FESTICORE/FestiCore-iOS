@@ -111,7 +111,10 @@ private extension FestivalLiveBoardScreen {
               homeCard(now: now)
               crewSection(now: now)
               if model.pack?.flagsEnabled != false {
-                followedSection(now: now)
+                followedSection(
+                  now: now,
+                  festivalEnded: phase == .ended
+                )
               }
             } else {
               if case .finalHour = phase {
@@ -165,7 +168,10 @@ private extension FestivalLiveBoardScreen {
               }
               crewSection(now: now)
               if model.pack?.flagsEnabled != false {
-                followedSection(now: now)
+                followedSection(
+                  now: now,
+                  festivalEnded: phase == .ended
+                )
                 activeSection(now: now)
               }
             }
@@ -192,11 +198,13 @@ private extension FestivalLiveBoardScreen {
   func topBar() -> some View {
     if store.bearerFlagID != nil {
       FCTopBar(.logoBearer)
+        .backgroundColor(.backgroundNormal)
         .onBearer { send(.bearerTapped) }
         .trailingAction { send(.notificationTapped) }
         .badgeCount(store.notificationUnreadCount)
     } else {
       FCTopBar(.logo)
+        .backgroundColor(.backgroundNormal)
         .trailingAction { send(.notificationTapped) }
         .badgeCount(store.notificationUnreadCount)
     }
@@ -369,9 +377,12 @@ private extension FestivalLiveBoardScreen {
         actions: [
           FCCardAction(
             "가는 길",
-            style: .accent
+            style: .ink
           ) { send(.homeDirectionsTapped) },
-          FCCardAction("같이 귀가") { send(.homeTogetherTapped) },
+          FCCardAction(
+            "같이 귀가",
+            style: .inkOutline
+          ) { send(.homeTogetherTapped) },
         ]
       )
     } else if model.isHomeRideLoading {
@@ -389,12 +400,11 @@ private extension FestivalLiveBoardScreen {
     if let summary = model.doneSummary(now: now) {
       FCDoneCard(
         title: "오늘 재미있게 즐겼나요?",
-        sub: [festival.name, FestivalLiveBoardPresentation.dayLine(
+        sub: FestivalLiveBoardPresentation.doneSubtitle(
           pack: model.pack,
           festival: festival,
           now: now
-        )]
-        .compactMap { $0 }.joined(separator: " · "),
+        ),
         stats: [
           .init(
             value: "\(summary.seenSetCount)",
@@ -476,7 +486,10 @@ private extension FestivalLiveBoardScreen {
   }
 
   @ViewBuilder
-  func followedSection(now: Date) -> some View {
+  func followedSection(
+    now: Date,
+    festivalEnded: Bool
+  ) -> some View {
     if !(model.hasSession && model.liveBoard != nil &&
       (model.liveBoard?.followedFlags.isEmpty ?? true) && !model.showsFollowGuide) {
       VStack(
@@ -493,9 +506,11 @@ private extension FestivalLiveBoardScreen {
               spacing: FestiCoreSpacing.paddingP12
             ) {
               ForEach(followed) { flag in
-                FestivalLiveBoardFlagTile(flag: presentation(
+                FestivalLiveBoardFlagTile(flag: FestivalLiveBoardPresentation.flag(
                   flag,
-                  now: now
+                  zoneName: { model.pack?.zoneName(for: $0) },
+                  now: now,
+                  festivalEnded: festivalEnded
                 ))
               }
             }

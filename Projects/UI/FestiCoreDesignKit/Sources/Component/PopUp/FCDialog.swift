@@ -42,6 +42,7 @@ public struct FCDialogItem: Identifiable, Equatable {
 public struct FCDialog: View {
   private var item: FCDialogItem
   private var onDismiss: () -> Void
+  private var textAlignment: TextAlignment = .leading
 
   public init(
     _ item: FCDialogItem,
@@ -57,10 +58,20 @@ public struct FCDialog: View {
         Text(item.title)
           .festiCoreFont(.baseBodyBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+          .multilineTextAlignment(textAlignment)
+          .frame(
+            maxWidth: .infinity,
+            alignment: textAlignment == .center ? .center : .leading
+          )
           .accessibilityAddTraits(.isHeader)
         Text(item.message)
           .festiCoreFont(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+          .multilineTextAlignment(textAlignment)
+          .frame(
+            maxWidth: .infinity,
+            alignment: textAlignment == .center ? .center : .leading
+          )
       }
       .frame(maxWidth: .infinity, alignment: .leading)
       HStack(spacing: FestiCoreSpacing.paddingP8) {
@@ -84,6 +95,15 @@ public struct FCDialog: View {
     .frame(width: Metric.width)
     .background(FestiCoreSemanticColor.backgroundElevated.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r20))
     .accessibilityAddTraits(.isModal)
+  }
+}
+
+public extension FCDialog {
+  /// 화면별 확인 팝업의 제목과 설명 정렬을 지정한다.
+  func textAlignment(_ alignment: TextAlignment) -> Self {
+    var copy = self
+    copy.textAlignment = alignment
+    return copy
   }
 }
 

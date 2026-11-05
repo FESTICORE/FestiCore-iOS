@@ -21,7 +21,7 @@ public struct NotificationInboxView: View {
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .background(FestiCoreSemanticColor.backgroundNormal.color)
+    .background(FestiCoreSemanticColor.backgroundElevated.color)
     .toolbar(.hidden, for: .navigationBar)
     .safeAreaInset(edge: .bottom, spacing: .zero) {
       if store.isEditing { selectionBar }
@@ -41,6 +41,7 @@ private extension NotificationInboxView {
         .back,
         title: "\(store.selectedIDs.count)개 선택"
       )
+        .backgroundColor(.backgroundNormal)
         .onBack { send(.backTapped) }
         .trailingAction(
           icon: .xmark16,
@@ -48,13 +49,21 @@ private extension NotificationInboxView {
         ) { send(.cancelSelectionTapped) }
     } else {
       if store.load == .loaded, !store.items.isEmpty {
-        FCTopBar(.back, title: "알림")
+        FCTopBar(
+          .back,
+          title: "알림"
+        )
+          .backgroundColor(.backgroundNormal)
           .onBack { send(.backTapped) }
           .trailingAction(icon: .trashCan20, accessibilityLabel: "알림 선택 삭제") {
             send(.editTapped)
           }
       } else {
-        FCTopBar(.back, title: "알림")
+        FCTopBar(
+          .back,
+          title: "알림"
+        )
+          .backgroundColor(.backgroundNormal)
           .onBack { send(.backTapped) }
       }
     }
@@ -172,7 +181,13 @@ private extension NotificationInboxView {
         .isEnabled(!store.selectedIDs.isEmpty && !store.isDeleting)
     }
     .padding(.horizontal, FestiCoreSpacing.paddingP16)
-    .padding(.vertical, FestiCoreSpacing.paddingP12)
-    .background(FestiCoreSemanticColor.backgroundNormal.color)
+    .padding(
+      .vertical,
+      FestiCoreSpacing.paddingP16
+    )
+    .overlay(alignment: .top) {
+      FestiCoreSemanticColor.lineNormal.color.frame(height: 1)
+    }
+    .background(FestiCoreSemanticColor.backgroundElevated.color)
   }
 }

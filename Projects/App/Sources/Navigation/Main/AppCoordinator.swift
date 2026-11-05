@@ -152,6 +152,7 @@ struct AppCoordinator {
     case presentHome
     case foregrounded
     case backgrounded
+    case remoteContentChanged
     case openWidgetRoute(WidgetDeepLink)
     /// 로그인 시트의 로그인 요청(`LoginDelegate.signInRequested`)도 여기서 시트 상태를 확인한다.
     case startLogin(OAuthProvider)
@@ -165,11 +166,32 @@ struct AppCoordinator {
     case firstInstallStatus(Bool)
     case completeHomeTransition
     case sessionExpired
-    case sessionRestored(generation: Int, userID: String?, isLoggedIn: Bool)
-    case profileLoaded(generation: Int, Result<AuthProfile, ProfileFailure>)
-    case profileUpdated(generation: Int, Result<AuthUser, ProfileFailure>)
-    case myAccountFinished(generation: Int, operation: MyAccountOperation, result: Result<Void, ProfileFailure>)
-    case loginCommitted(AuthLoginResult, generation: Int, committed: Bool)
+
+    // MARK: 세션·프로필 결과
+
+    case sessionRestored(
+      generation: Int,
+      userID: String?,
+      isLoggedIn: Bool
+    )
+    case profileLoaded(
+      generation: Int,
+      Result<AuthProfile, ProfileFailure>
+    )
+    case profileUpdated(
+      generation: Int,
+      Result<AuthUser, ProfileFailure>
+    )
+    case myAccountFinished(
+      generation: Int,
+      operation: MyAccountOperation,
+      result: Result<Void, ProfileFailure>
+    )
+    case loginCommitted(
+      AuthLoginResult,
+      generation: Int,
+      committed: Bool
+    )
     case staleLoginDiscarded
   }
 
@@ -189,14 +211,22 @@ struct AppCoordinator {
     init(_ error: Error) {
       if let domain = error as? AuthDomainError, domain == .notAuthenticated {
         self = .unauthenticated
-      } else if let network = error as? FestiCoreNetworkError,
-                case let .transport(transport) = network {
+        return
+      }
+      guard let network = error as? FestiCoreNetworkError else {
+        self = .unavailable
+        return
+      }
+
+      switch network {
+      case let .transport(transport):
         switch transport {
-        case .notConnected, .timedOut: self = .offline
-        case .cancelled, .unknown: self = .unavailable
+        case .notConnected, .timedOut:
+          self = .offline
+        case .cancelled, .unknown:
+          self = .unavailable
         }
-      } else if let network = error as? FestiCoreNetworkError,
-                case let .response(response) = network {
+      case let .response(response):
         if response.httpStatus == 401 {
           self = .unauthenticated
         } else if response.httpStatus == 422 && response.code == "TERMS_VERSION_OUTDATED" {
@@ -204,7 +234,7 @@ struct AppCoordinator {
         } else {
           self = .unavailable
         }
-      } else {
+      case .request, .decoding:
         self = .unavailable
       }
     }
@@ -217,12 +247,7 @@ struct AppCoordinator {
 
   var body: some ReducerOf<Self> {
     Reduce { state, action in
-      let previousSession: MainTabCoordinator.AuthInputs.Session?
-      if case let .home(home) = state {
-        previousSession = home.authInputs.session
-      } else {
-        previousSession = nil
-      }
+      let previousSession = session(in: state)
       let effect: Effect<Action>
       switch action {
       case let .view(viewAction):
@@ -241,49 +266,82 @@ struct AppCoordinator {
           action: scopeAction
         )
       }
-      if let previousSession, case var .home(home) = state {
-        let currentSession = home.authInputs.session
-        if previousSession.userID != nil && previousSession.userID != currentSession.userID {
-          clearAccountDisplayData(&home)
-        } else if !previousSession.hasSession && currentSession.hasSession {
-          home.flagState.clearAccountData()
-        }
-        state = .home(home)
-      }
+      reconcileAccountDisplayData(
+        previousSession: previousSession,
+        state: &state
+      )
       return effect
     }
     .ifCaseLet(\.splash, action: \.scope.splash) { SplashFeature() }
     .ifCaseLet(\.onboarding, action: \.scope.onboarding) { OnboardingFeature() }
     .ifCaseLet(\.home, action: \.scope.home) { MainTabCoordinator(legalBaseURL: legalBaseURL) }
     .onChange(of: \.self) { previous, state in
-      guard case let .home(home) = state else { return .none }
-      let before: MainTabCoordinator.AuthInputs?
-      if case let .home(previousHome) = previous {
-        before = previousHome.authInputs
-      } else {
-        before = nil
-      }
-      let after = home.authInputs
-      guard before != after else { return .none }
-      return .send(.scope(.home(.authInputsChanged(
-        previous: before,
-        current: after
-      ))))
+      return authInputsChanged(
+        previous: previous,
+        current: state
+      )
     }
     .onChange(of: \.activeWidgetSnapshotContent) { _, state in
       // 계정이 없어지면 공개 팩만 남기고 홈을 이탈하면 공유 파일을 비운다.
-      let snapshot = state.activeWidgetSnapshotContent?.withUpdatedAt(date.now)
-      return .run { _ in await festivalWidgetClient.save(snapshot) }
-        .cancellable(
-          id: CancelID.widgetSnapshot,
-          cancelInFlight: true
-        )
+      return persistWidgetSnapshot(
+        from: state
+      )
     }
   }
 }
 
 private extension AppCoordinator {
-  func handleViewAction(state: inout State, action: View) -> Effect<Action> {
+  func session(in state: State) -> MainTabCoordinator.AuthInputs.Session? {
+    guard case let .home(home) = state else { return nil }
+    return home.authInputs.session
+  }
+
+  func reconcileAccountDisplayData(
+    previousSession: MainTabCoordinator.AuthInputs.Session?,
+    state: inout State
+  ) {
+    guard let previousSession, case var .home(home) = state else { return }
+    let currentSession = home.authInputs.session
+    if previousSession.userID != nil && previousSession.userID != currentSession.userID {
+      clearAccountDisplayData(&home)
+    } else if !previousSession.hasSession && currentSession.hasSession {
+      home.flagState.clearAccountData()
+    }
+    state = .home(home)
+  }
+
+  func authInputsChanged(
+    previous: State,
+    current: State
+  ) -> Effect<Action> {
+    guard case let .home(home) = current else { return .none }
+    let previousInputs: MainTabCoordinator.AuthInputs?
+    if case let .home(previousHome) = previous {
+      previousInputs = previousHome.authInputs
+    } else {
+      previousInputs = nil
+    }
+    let currentInputs = home.authInputs
+    guard previousInputs != currentInputs else { return .none }
+    return .send(.scope(.home(.authInputsChanged(
+      previous: previousInputs,
+      current: currentInputs
+    ))))
+  }
+
+  func persistWidgetSnapshot(from state: State) -> Effect<Action> {
+    let snapshot = state.activeWidgetSnapshotContent?.withUpdatedAt(date.now)
+    return .run { _ in await festivalWidgetClient.save(snapshot) }
+      .cancellable(
+        id: CancelID.widgetSnapshot,
+        cancelInFlight: true
+      )
+  }
+
+  func handleViewAction(
+    state: inout State,
+    action: View
+  ) -> Effect<Action> {
     switch action {
     case .presentHome:
       guard case .splash = state else { return .none }
@@ -319,6 +377,10 @@ private extension AppCoordinator {
     case .backgrounded:
       guard case .home = state else { return .none }
       return .send(.scope(.home(.festival(.backgrounded))))
+
+    case .remoteContentChanged:
+      guard case .home = state else { return .none }
+      return .send(.scope(.home(.festival(.remoteContentChanged))))
 
     case let .openWidgetRoute(route):
       guard case .home = state else { return .none }
@@ -388,7 +450,10 @@ private extension AppCoordinator {
     }
   }
 
-  func handleInnerAction(state: inout State, action: InnerAction) -> Effect<Action> {
+  func handleInnerAction(
+    state: inout State,
+    action: InnerAction
+  ) -> Effect<Action> {
     switch action {
     case let .firstInstallStatus(hasCompleted):
       guard case .splash = state else { return .none }
@@ -718,7 +783,10 @@ private extension AppCoordinator {
     }
   }
 
-  func handleScopeAction(state: inout State, action: ScopeAction) -> Effect<Action> {
+  func handleScopeAction(
+    state: inout State,
+    action: ScopeAction
+  ) -> Effect<Action> {
     switch action {
     case .splash(.delegate(.presentHome)):
       return .send(.view(.presentHome))
@@ -973,7 +1041,10 @@ private extension AppCoordinator {
     return flow.presentation == .login && flow.loginAttemptGeneration == flow.generation
   }
 
-  func acceptLogin(_ result: AuthLoginResult, state: inout State) -> Effect<Action> {
+  func acceptLogin(
+    _ result: AuthLoginResult,
+    state: inout State
+  ) -> Effect<Action> {
     guard case var .home(home) = state else { return .none }
       if let oldID = home.authFlow.verifiedUserID, oldID != result.user.id {
         home.authFlow.pendingFestivalID = nil
@@ -1004,7 +1075,10 @@ private extension AppCoordinator {
       return fetchProfile(generation: generation)
   }
 
-  func finishEligible(state: inout State, home: inout MainTabCoordinator.State) -> Effect<Action> {
+  func finishEligible(
+    state: inout State,
+    home: inout MainTabCoordinator.State
+  ) -> Effect<Action> {
     guard let profile = home.authFlow.profile, profile.isEligible else { return .none }
     let userID = profile.user.id
     bookedStore.setOfflineEligible(userID, true)
@@ -1046,7 +1120,10 @@ private extension AppCoordinator {
     home.profileState.destination = nil
   }
 
-  func isBooked(_ id: String, in festival: FestivalCoordinator.State) -> Bool {
+  func isBooked(
+    _ id: String,
+    in festival: FestivalCoordinator.State
+  ) -> Bool {
     guard let screen = festival.routes.last(where: {
       !$0.screen.is(\.bearerBoard) && !$0.screen.is(\.notificationInbox)
     })?.screen else { return false }

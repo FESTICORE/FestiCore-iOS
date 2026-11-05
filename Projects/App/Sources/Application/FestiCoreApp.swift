@@ -66,6 +66,14 @@ private struct RootView: View {
       .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
         Task { await refreshNotificationPermission() }
       }
+      .onReceive(NotificationCenter.default.publisher(for: .festiCoreRemoteContentDidChange)) { notification in
+        let request = notification.object as? RemoteContentRefreshRequest
+        let task = store.send(.view(.remoteContentChanged))
+        Task { @MainActor in
+          await task.finish()
+          request?.finish(.newData)
+        }
+      }
       .alert("알림이 꺼져 있어요", isPresented: $showNotificationSettingsAlert) {
         Button("설정 열기") {
           if let url = URL(string: UIApplication.openSettingsURLString) {

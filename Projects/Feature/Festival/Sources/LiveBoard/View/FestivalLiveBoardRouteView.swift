@@ -82,10 +82,13 @@ public struct FestivalLiveBoardRouteView: View {
       state: \.alert,
       action: \.alert
     ))
-    .fcAlert($store.scope(
-      state: \.followGuideAlert,
-      action: \.followGuideAlert
-    ))
+    .fcAlert(
+      $store.scope(
+        state: \.followGuideAlert,
+        action: \.followGuideAlert
+      ),
+      textAlignment: .center
+    )
     .task {
       send(.onAppear)
       send(.liveActivityOnAppear)

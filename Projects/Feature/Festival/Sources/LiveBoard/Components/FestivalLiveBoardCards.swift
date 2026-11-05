@@ -35,7 +35,7 @@ struct FestivalLiveBoardCrewCard: View {
             "모여!",
             action: onGather
           )
-            .style(.primary)
+            .style(.inverse)
             .size(.medium)
             .isEnabled(canGather)
             .padding(FestiCoreSpacing.paddingP16)
@@ -114,6 +114,10 @@ struct FestivalLiveBoardFlagTile: View {
           .frame(maxWidth: .infinity, alignment: .leading)
         if let status = flag.status {
           FCStatusChip(status.chip)
+            .fixedSize(
+              horizontal: true,
+              vertical: false
+            )
         }
       }
       if let zone = flag.zone {

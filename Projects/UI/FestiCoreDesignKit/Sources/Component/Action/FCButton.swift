@@ -15,6 +15,10 @@ public struct FCButton: View {
     case ghost
     case accent
     case inverse
+    /// 흰 카드 위의 검정 채움 버튼.
+    case ink
+    /// 흰 카드 위의 검정 테두리 버튼.
+    case inkOutline
   }
 
   public enum Size: Sendable {
@@ -50,8 +54,11 @@ public struct FCButton: View {
         .frame(height: size == .large ? Metric.largeHeight : Metric.mediumHeight)
         .background(backgroundColor, in: shape)
         .overlay {
-          if style == .secondary {
-            shape.stroke(FestiCoreSemanticColor.lineStrong.color, lineWidth: Metric.borderWidth)
+          if style == .secondary || style == .inkOutline {
+            shape.stroke(
+              style == .inkOutline ? FestiCoreSemanticColor.staticInk.color : FestiCoreSemanticColor.lineStrong.color,
+              lineWidth: Metric.borderWidth
+            )
           }
         }
         .contentShape(shape)
@@ -66,7 +73,7 @@ public struct FCButton: View {
 
 private extension FCButton {
   var shape: RoundedRectangle {
-    RoundedRectangle(cornerRadius: size == .large ? FestiCoreRadius.r12 : FestiCoreRadius.r8)
+    return RoundedRectangle(cornerRadius: size == .large ? FestiCoreRadius.r12 : FestiCoreRadius.r8)
   }
 
   private var backgroundColor: Color {
@@ -76,6 +83,8 @@ private extension FCButton {
     case .ghost: return .clear
     case .accent: return FestiCoreSemanticColor.accentPointLime.color
     case .inverse: return FestiCoreSemanticColor.inverseBackground.color
+    case .ink: return FestiCoreSemanticColor.staticInk.color
+    case .inkOutline: return FestiCoreSemanticColor.staticWhite.color
     }
   }
 
@@ -85,6 +94,8 @@ private extension FCButton {
     case .secondary, .ghost: return .labelNormal
     case .accent: return .staticInk
     case .inverse: return .inverseLabel
+    case .ink: return .staticWhite
+    case .inkOutline: return .staticInk
     }
   }
 }

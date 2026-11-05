@@ -15,6 +15,7 @@ public struct FCDialogOverlay: View {
   /// 첫 입력을 처리했는지. 닫히는 동안 늦게 들어온 탭이 동작을 다시 실행하지 않게 한다.
   @State private var isHandled = false
   private let item: FCDialogItem
+  private let textAlignment: TextAlignment
   private let dismissesOnDimTap: Bool
   private let onDimTap: (() -> Void)?
   private let onDismiss: () -> Void
@@ -24,11 +25,13 @@ public struct FCDialogOverlay: View {
   ///   - onDimTap: 버튼과 다른 닫기 동작이 필요할 때 딤 탭에서 부른다. `dismissesOnDimTap`보다 우선한다.
   public init(
     item: FCDialogItem,
+    textAlignment: TextAlignment = .leading,
     dismissesOnDimTap: Bool = false,
     onDimTap: (() -> Void)? = nil,
     onDismiss: @escaping () -> Void
   ) {
     self.item = item
+    self.textAlignment = textAlignment
     self.dismissesOnDimTap = dismissesOnDimTap
     self.onDimTap = onDimTap
     self.onDismiss = onDismiss
@@ -53,6 +56,7 @@ public struct FCDialogOverlay: View {
         handledOnce(item),
         onDismiss: onDismiss
       )
+      .textAlignment(textAlignment)
       .offset(y: isContentVisible ? 0 : Metric.appearOffset)
       .opacity(isContentVisible ? 1 : 0)
     }

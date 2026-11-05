@@ -12,7 +12,40 @@ import CoreAssembly
 import FestiCoreLiveActivity
 import ServiceAssembly
 
+extension Notification.Name {
+  static let festiCoreRemoteContentDidChange = Notification.Name("FestiCoreRemoteContentDidChange")
+}
+
+@MainActor
+final class RemoteContentRefreshRequest: NSObject {
+  private var completion: ((UIBackgroundFetchResult) -> Void)?
+
+  init(completion: @escaping (UIBackgroundFetchResult) -> Void) {
+    self.completion = completion
+  }
+
+  func finish(_ result: UIBackgroundFetchResult) {
+    guard let completion else { return }
+    self.completion = nil
+    completion(result)
+  }
+}
+
 extension AppDelegate {
+  func application(
+    _ application: UIApplication,
+    didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    let request = RemoteContentRefreshRequest(completion: completionHandler)
+    NotificationCenter.default.post(
+      name: .festiCoreRemoteContentDidChange,
+      object: request,
+      userInfo: userInfo
+    )
+    return
+  }
+
   func configureDeviceRegistration() {
     deviceRegistration.liveActivityStartToken = FestiCoreFestivalLiveActivity.pushToStartToken
     registerDeviceWithStoredAPNsToken()

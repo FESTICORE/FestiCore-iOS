@@ -18,6 +18,7 @@ public extension Project {
     infoPlist: InfoPlist = .default,
     entitlements: Entitlements? = nil,
     hasTests: Bool = false,
+    testDependencies: [TargetDependency] = [],
     hasUITests: Bool = false
   ) -> Project {
     let appTarget: Target = .target(
@@ -66,7 +67,7 @@ public extension Project {
             basedOnDependencyAnalysis: false
           )
         ],
-        dependencies: [.target(name: name)]
+        dependencies: [.target(name: name)] + testDependencies
       ))
     }
     if hasUITests {
@@ -107,6 +108,7 @@ public extension Project {
     resources: ResourceFileElements? = nil,
     testResources _: ResourceFileElements? = nil,
     hasTests: Bool = false,
+    testDependencies: [TargetDependency] = [],
     hasInterface: Bool = false,
     interfaceDependencies: [TargetDependency] = [],
     hasDemo: Bool = false,
@@ -165,7 +167,7 @@ public extension Project {
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .default,
         buildableFolders: ["Tests"],
-        dependencies: [.target(name: name)] + (hasInterface ? [.target(name: "\(name)Interface")] : [])
+        dependencies: [.target(name: name)] + (hasInterface ? [.target(name: "\(name)Interface")] : []) + testDependencies
       ))
     }
 

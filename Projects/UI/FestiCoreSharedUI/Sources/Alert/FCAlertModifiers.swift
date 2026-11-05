@@ -15,9 +15,14 @@ public extension View {
   /// - Parameter dismissesOnDimTap: 참이면 딤을 탭할 때 바인딩을 비워 `PresentationAction.dismiss`를 보낸다.
   func fcAlert(
     _ store: Binding<Store<FCAlertState<FCAlertAction>, FCAlertAction>?>,
-    dismissesOnDimTap: Bool = false
+    dismissesOnDimTap: Bool = false,
+    textAlignment: TextAlignment = .leading
   ) -> some View {
-    modifier(FCAlertStoreModifier(store: store, dismissesOnDimTap: dismissesOnDimTap))
+    return modifier(FCAlertStoreModifier(
+      store: store,
+      dismissesOnDimTap: dismissesOnDimTap,
+      textAlignment: textAlignment
+    ))
   }
 
   /// 클로저로 동작을 넘기는 다이얼로그를 띄운다. 버튼을 누르면 `item`을 비운다.
@@ -29,6 +34,7 @@ public extension View {
 struct FCAlertStoreModifier: ViewModifier {
   @Binding var store: Store<FCAlertState<FCAlertAction>, FCAlertAction>?
   var dismissesOnDimTap = false
+  var textAlignment: TextAlignment = .leading
 
   func body(content: Content) -> some View {
     content
@@ -44,6 +50,7 @@ struct FCAlertStoreModifier: ViewModifier {
               onConfirm: { alertStore.send(.confirmTapped) },
               onCancel: { alertStore.send(.cancelTapped) }
             ),
+            textAlignment: textAlignment,
             onDimTap: dismissesOnDimTap ? { store = nil } : nil,
             onDismiss: {}
           )
@@ -51,7 +58,6 @@ struct FCAlertStoreModifier: ViewModifier {
           .id(state.presentationID)
         }
       }
-      .animation(.fcModal, value: store?.withState(\.presentationID))
   }
 }
 
@@ -69,6 +75,5 @@ struct FCDialogItemModifier: ViewModifier {
           .id(current.id)
         }
       }
-      .animation(.fcModal, value: item)
   }
 }

@@ -23,6 +23,9 @@ let project = Project.makeModule(
     .SPM.dependencies
   ],
   hasTests: true,
+  testDependencies: [
+    .domain(.festival)
+  ],
   hasInterface: true,
   interfaceDependencies: [
     .SPM.composableArchitecture

@@ -8,6 +8,7 @@
 import Foundation
 import Synchronization
 import Testing
+import UIKit
 
 import ComposableArchitecture
 import AuthDomainInterface
@@ -41,6 +42,16 @@ struct AppCoordinatorTests {
     #expect(base?.appending(path: "privacy").absoluteString
       == "https://festicore-dev.up.railway.app/api/v1/legal/privacy")
     #expect(AppCoordinatorView.legalBaseURL(host: nil) == nil)
+  }
+
+  @Test func remoteContentRefreshCompletesBackgroundFetchOnlyOnce() {
+    var results: [UIBackgroundFetchResult] = []
+    let request = RemoteContentRefreshRequest { results.append($0) }
+
+    request.finish(.newData)
+    request.finish(.failed)
+
+    #expect(results == [.newData])
   }
 
   @Test func splashCompletionShowsHome() async {
@@ -1039,6 +1050,7 @@ struct AppCoordinatorTests {
     await store.receive(\.selectTab) {
       $0.selectedTab = .timetable
       $0.previousTab = .live
+      $0.timetableState.contentStatus = .noFestival
     }
     await store.receive(\.timetable.view.timetableAppeared)
     await store.receive(\.timetableCoordinator.timetable)
@@ -1087,6 +1099,24 @@ struct AppCoordinatorTests {
     await store.finish()
   }
 
+  @Test func packDetailConfirmationKeepsBottomTabsVisible() {
+    var state = MainTabCoordinator.State(selectedTab: .my)
+    var packDetail = PackDetailFeature.State(
+      festivalID: "festival",
+      title: "축제"
+    )
+
+    for confirmation in [
+      FCAlertState<FCAlertAction>.alert(title: "새 팩을 받을까요?"),
+      .deletePack(name: "축제")
+    ] {
+      packDetail.destination = .alert(confirmation)
+      state.profileState.destination = .packDetail(packDetail)
+      #expect(!state.shouldHideTabBar)
+      #expect(state.shouldReserveTabBarSpace)
+    }
+  }
+
   @Test func homeCoordinatorStartsWithFestivalFeatureRoute() {
     let coordinator = FestivalCoordinator.State()
     #expect(coordinator.routes.count == 1)
@@ -1105,6 +1135,55 @@ struct AppCoordinatorTests {
     state.festivalState.routes.goBack()
     #expect(state.shouldHideTabBar)
     #expect(!state.shouldReserveTabBarSpace)
+  }
+
+  @Test func festivalSwitcherHidesBottomTabsAndRestoresThemAfterDismissal() async {
+    var state = MainTabCoordinator.State()
+    state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "festival")))
+    let store = TestStore(initialState: state) {
+      MainTabCoordinator()
+    } withDependencies: {
+      $0.useAppCoordinatorFestivalUseCases()
+    }
+
+    #expect(!store.state.shouldHideTabBar)
+    #expect(store.state.shouldReserveTabBarSpace)
+    await store.send(.festival(.router(.routeAction(
+      id: 1,
+      action: .liveBoard(.view(.festivalSwitchTapped))
+    )))) {
+      var board = FestivalFeature.State(selectedFestivalID: "festival")
+      board.festivalSwitcher = .init(
+        festivals: [],
+        selectedFestivalID: "festival"
+      )
+      $0.festivalState.routes[1].screen = .liveBoard(board)
+    }
+    #expect(store.state.shouldHideTabBar)
+    // 시트 전후에 배경 화면 높이가 변하지 않도록 탭바 공간은 보존한다.
+    #expect(store.state.shouldReserveTabBarSpace)
+
+    await store.send(.festival(.router(.routeAction(
+      id: 1,
+      action: .liveBoard(.festivalSwitcher(.dismiss))
+    )))) {
+      $0.festivalState.routes[1].screen = .liveBoard(.init(selectedFestivalID: "festival"))
+    }
+    #expect(!store.state.shouldHideTabBar)
+    #expect(store.state.shouldReserveTabBarSpace)
+  }
+
+  @Test func festivalSwitcherDoesNotHideOtherTabs() {
+    var state = MainTabCoordinator.State(selectedTab: .my)
+    var board = FestivalFeature.State(selectedFestivalID: "festival")
+    board.festivalSwitcher = .init(
+      festivals: [],
+      selectedFestivalID: "festival"
+    )
+    state.festivalState.routes.push(.liveBoard(board))
+
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
   }
 
   @Test func myModalHidesBottomTabsUntilDismissed() async {

@@ -32,6 +32,7 @@ public struct FCTopBar: View {
 
   private var style: Style
   private var title: String
+  private var customBackgroundColor: FestiCoreSemanticColor?
   private(set) var backAction: (() -> Void)?
   private(set) var trailing: TrailingAction?
   private(set) var showsBadge = false
@@ -271,21 +272,25 @@ extension FCTopBar {
 
   @ViewBuilder
   private var background: some View {
-    switch style {
-    case .backOnImage:
-      Rectangle()
-        .fill(.ultraThinMaterial)
-        .environment(
-          \.colorScheme,
-          .dark
-        )
-        .overlay(FestiCoreSemanticColor.staticalphaBlack20.color)
-    case .large, .search:
-      FestiCoreSemanticColor.backgroundNormal.color
-    default:
-      Rectangle()
-        .fill(.ultraThinMaterial)
-        .overlay(FestiCoreSemanticColor.materialGlass.color)
+    if let customBackgroundColor {
+      customBackgroundColor.color
+    } else {
+      switch style {
+      case .backOnImage:
+        Rectangle()
+          .fill(.ultraThinMaterial)
+          .environment(
+            \.colorScheme,
+            .dark
+          )
+          .overlay(FestiCoreSemanticColor.staticalphaBlack20.color)
+      case .large, .search:
+        FestiCoreSemanticColor.backgroundNormal.color
+      default:
+        Rectangle()
+          .fill(.ultraThinMaterial)
+          .overlay(FestiCoreSemanticColor.materialGlass.color)
+      }
     }
   }
 
@@ -333,6 +338,13 @@ extension FCTopBar {
 //
 // 값 타입 사본을 돌려주므로 호출 순서에 영향받지 않는다.
 public extension FCTopBar {
+  /// 지정한 화면에서만 상단바 배경을 바꾸며 기본 Material 표현은 유지한다.
+  func backgroundColor(_ color: FestiCoreSemanticColor) -> Self {
+    var copy = self
+    copy.customBackgroundColor = color
+    return copy
+  }
+
   /// 뒤로 버튼 action을 지정한 사본을 돌려준다. 지정하지 않으면 뒤로 버튼을 그리지 않는다.
   func onBack(_ action: @escaping () -> Void) -> Self {
     var copy = self

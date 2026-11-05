@@ -53,13 +53,29 @@ public struct FestivalFeature {
     public var onlineDetailLoading = false
     public var onlineDetailFailed = false
     public var displayDocument: FestivalPackDocument? { onlineDetail ?? selectedPack }
-    public var liveBoard: FestivalLiveBoardSnapshot?
-    public var liveBoardUnavailable = false
-    public var liveBoardUnpublished = false
+    var liveBoardState = FestivalLiveBoardState()
+    public var liveBoard: FestivalLiveBoardSnapshot? {
+      get { liveBoardState.snapshot }
+      set { liveBoardState.snapshot = newValue }
+    }
+    public var liveBoardUnavailable: Bool {
+      get { liveBoardState.isUnavailable }
+      set { liveBoardState.isUnavailable = newValue }
+    }
+    public var liveBoardUnpublished: Bool {
+      get { liveBoardState.isUnpublished }
+      set { liveBoardState.isUnpublished = newValue }
+    }
     /// 현재 serverAt을 처음 받은 기기 시각. 304 응답에서도 서버 시각 보정 기준을 유지한다.
-    public var liveBoardClockAnchorAt: Date?
+    public var liveBoardClockAnchorAt: Date? {
+      get { liveBoardState.clockAnchorAt }
+      set { liveBoardState.clockAnchorAt = newValue }
+    }
     /// 마지막으로 라이브 보드가 정상 확인된 기기 시각. 304 응답도 포함한다.
-    public var liveBoardReceivedAt: Date?
+    public var liveBoardReceivedAt: Date? {
+      get { liveBoardState.receivedAt }
+      set { liveBoardState.receivedAt = newValue }
+    }
     /// 선택 축제의 빈 팔로우 깃발 안내를 숨겼는지.
     public var isFollowedFlagGuideHidden = false
     @Presents public var alert: FCAlertState<FCAlertAction>?
@@ -351,6 +367,7 @@ public struct FestivalFeature {
   public enum View: Equatable {
     case onAppear
     case foregroundChanged(Bool)
+    case remoteContentChanged
     case backgrounded
     case refreshRequested
     case reloadCachedPacks
@@ -611,6 +628,26 @@ extension FestivalFeature {
         .cancel(id: CancelID.liveBoard),
         .cancel(id: CancelID.liveActivityBoundary),
         .send(.async(.prefetchImages))
+      )
+
+    case .remoteContentChanged:
+      state.packWatchFailed = false
+      state.viewState = .loading
+      state.catalogNextCursor = nil
+      let refreshBoard = refreshLiveBoard(
+        state,
+        allowsBackground: true
+      )
+      let refreshHome: Effect<Action>
+      if state.isLiveBoardVisible, let id = state.selectedFestivalID {
+        refreshHome = .send(.async(.loadHomeDetails(id)))
+      } else {
+        refreshHome = .none
+      }
+      return .merge(
+        refreshCatalog(),
+        refreshBoard,
+        refreshHome
       )
 
     case .backgrounded:
@@ -1357,15 +1394,21 @@ extension FestivalFeature {
           let retryPending = state.imageRetryPending
           retryImagesAfterRecovery(in: &state)
           resolveImageURLs(in: &state)
-          let refreshHome = state.isLiveBoardVisible && previousPackData != pack.pack
+          let packChanged = previousPackData != pack.pack
+          let refreshBoard = packChanged ? refreshLiveBoard(state) : .none
+          let refreshHome = state.isLiveBoardVisible && packChanged
             ? Effect<Action>.send(.async(.loadHomeDetails(id))) : .none
           return previousPack != document || retryPending
             ? .merge(
               prefetchImages(state),
               syncLiveActivities(state),
-              refreshHome
+              refreshHome,
+              refreshBoard
             )
-            : refreshHome
+            : .merge(
+              refreshHome,
+              refreshBoard
+            )
         } else {
           state.connection = state.selectedPack == nil ? .unavailable : .cached
         }
@@ -1936,6 +1979,35 @@ extension FestivalFeature {
       id: CancelID.liveBoard,
       cancelInFlight: true
     )
+  }
+
+  /// 팩 WebSocket이 새 시간표를 알리면 보드 데이터도 즉시 다시 조회한다.
+  private func refreshLiveBoard(
+    _ state: State,
+    allowsBackground: Bool = false
+  ) -> Effect<Action> {
+    guard (state.isForeground || allowsBackground), state.isLiveBoardVisible,
+          let id = state.selectedFestivalID else { return .none }
+    let generation = state.accountGeneration
+    return .run { send in
+      do {
+        await send(.inner(.liveBoardLoaded(
+          id,
+          generation: generation,
+          try await liveBoardUseCase.liveBoard(for: id)
+        )))
+      } catch FestivalLiveBoardError.festivalNotFound {
+        await send(.inner(.liveBoardUnpublished(
+          id,
+          generation: generation
+        )))
+      } catch {
+        await send(.inner(.liveBoardFailed(
+          id,
+          generation: generation
+        )))
+      }
+    }
   }
 
   /// 세션이 있고 축제가 선택되어 있으면 내 일정을 불러와 자동 시작 시각을 계산한다.

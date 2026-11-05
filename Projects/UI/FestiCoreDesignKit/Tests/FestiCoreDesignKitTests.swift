@@ -196,6 +196,25 @@ struct FestiCoreDesignKitTests {
     }
   }
 
+  @Test @MainActor func pointStylesRegisterBagelForRenderingAndMetrics() throws {
+    let styles: [FestiCoreTextStyle] = [.pointDisplay, .pointHeading, .pointLabel, .pointTitle]
+    for style in styles {
+      let resolved = style.resolvedFont
+      let registered = try #require(UIFont(
+        name: "BagelFatOne-Regular",
+        size: style.size
+      ))
+      #expect(resolved.fontName == registered.fontName)
+      #expect(resolved.pointSize == style.size)
+      #expect(resolved.lineHeight == registered.lineHeight)
+      #expect(style.resolvedFont == resolved)
+
+      let renderer = ImageRenderer(content: Text("오늘도 즐거웠나요?").festiCoreFont(style))
+      #expect(renderer.uiImage != nil)
+    }
+    #expect(FestiCoreTextStyle.baseBodyRegular.resolvedFont.fontName == "PretendardVariable-Regular")
+  }
+
   @Test @MainActor func primaryColorTracksSystemAppearance() {
     let light = FestiCoreSemanticColor.primaryNormal.uiColor.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
     let dark = FestiCoreSemanticColor.primaryNormal.uiColor.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
@@ -270,7 +289,7 @@ struct FestiCoreDesignKitTests {
     #expect(abs(body.resolvedFont.lineHeight + body.resolvedLineSpacing - body.size * body.lineHeight) < 0.01)
     let point = FestiCoreTextStyle.pointDisplay
     #expect(point.fontFamily == .Regular)
-    #expect(point.resolvedFont.fontName == "PretendardVariable-Regular")
+    #expect(point.resolvedFont.fontName == "BagelFatOne-Regular")
     #expect(point.size == 40)
   }
 

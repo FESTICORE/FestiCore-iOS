@@ -242,6 +242,24 @@ extension FestivalLiveBoardPresentation {
     return parts.joined(separator: " · ")
   }
 
+  /// 종료 요약은 축제 이름과 회차·운영 시간만 표시한다.
+  static func doneSubtitle(
+    pack: FestivalPackDocument?,
+    festival: FestivalOverview,
+    now: Date
+  ) -> String {
+    guard let day = selectedDay(
+      pack: pack,
+      festival: festival,
+      now: now
+    ) else { return festival.name }
+    var text = "\(festival.name) DAY \(day.index + 1)"
+    if let start = day.startsAt, let end = day.endsAt {
+      text += " · \(start.formatted(.time))–\(end.formatted(.time))"
+    }
+    return text
+  }
+
   /// 오늘 개장 전이면 카운트다운을 돌려준다.
   static func countdown(
     pack: FestivalPackDocument?,
@@ -367,7 +385,8 @@ extension FestivalLiveBoardPresentation {
     _ crew: FestivalLiveBoardSnapshot.Crew,
     sessionUserID: String?,
     zoneName: (String?) -> String?,
-    now: Date
+    now: Date,
+    festivalEnded: Bool = false
   ) -> Crew {
     let members = crew.members.map { member in
       CrewMember(
@@ -397,13 +416,14 @@ extension FestivalLiveBoardPresentation {
   static func flag(
     _ flag: FestivalLiveBoardSnapshot.Flag,
     zoneName: (String?) -> String?,
-    now: Date
+    now: Date,
+    festivalEnded: Bool = false
   ) -> Flag {
     let zone = zoneName(flag.zoneID)
     return Flag(
       id: flag.id,
       name: flag.name,
-      status: flagStatus(flag.status),
+      status: festivalEnded ? .ended : flagStatus(flag.status),
       zone: zone,
       tags: flag.tags.compactMap(tagText).joined(separator: " · "),
       meta: [zone, flag.activity.flatMap(tagText)].compactMap { $0 }.joined(separator: " · "),

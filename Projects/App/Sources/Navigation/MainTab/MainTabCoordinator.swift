@@ -62,6 +62,7 @@ struct MainTabCoordinator {
       case .live:
         return festivalState.routes.count == 1 || isNotificationInboxOnTop
           || festivalState.routes.last?.screen.liveBoard?.alert != nil
+          || festivalState.routes.last?.screen.liveBoard?.festivalSwitcher != nil
       case .timetable:
         return timetableState.destination?.schedulePick != nil || timetableState.setDetail != nil || timetableCoordinatorState.setList != nil
       case .my:
@@ -69,7 +70,6 @@ struct MainTabCoordinator {
         return profileState.destination?.alert != nil
           || profileState.hidesTabBarForProfileRoute
           || profileState.destination?.account?.destination != nil
-          || profileState.destination?.packDetail?.destination != nil
       case .flag:
         return false
       }

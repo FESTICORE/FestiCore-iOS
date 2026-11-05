@@ -1,3 +1,5 @@
+import Dependencies
+import FestivalDomain
 import FestivalDomainInterface
 import Foundation
 import Testing
@@ -99,243 +101,267 @@ struct FestivalLiveBoardPresentationTests {
 
   @Test("무대 행은 지금·다음 중 있는 쪽만 보이고 내 일정이면 표시한다")
   func stageRowsShowAvailableSlots() throws {
-    let pack = try document(packJSON)
-    let rows = FestivalLiveBoardPresentation.stageRows(
-      FestivalLiveBoardSchedule.resolve(
-        pack: pack,
-        now: date("2026-10-20T15:30:00+09:00")
-      ),
-      mySetIDs: ["set_next"]
-    )
-    let main = try #require(rows.first { $0.id == "stg_main" })
-    #expect(main.now == .init(
-      artist: "스모킹구스",
-      time: "15:35 종료"
-    ))
-    #expect(main.next == .init(
-      artist: "노이즈캔디",
-      time: "15:40 시작"
-    ))
-    #expect(main.isMine)
-    let side = try #require(rows.first { $0.id == "stg_side" })
-    #expect(side.now == nil)
-    #expect(side.next == .init(
-      artist: "블루퓨즈",
-      time: "16:00 시작"
-    ))
-    #expect(!side.isMine)
+    try withDependencies {
+      $0.festivalLiveBoardUseCase = FestivalLiveBoardUseCaseImpl()
+    } operation: {
+      let pack = try document(packJSON)
+      let rows = FestivalLiveBoardPresentation.stageRows(
+        Festival.FestivalLiveBoardSchedule.resolve(
+          pack: pack,
+          now: date("2026-10-20T15:30:00+09:00")
+        ),
+        mySetIDs: ["set_next"]
+      )
+      let main = try #require(rows.first { $0.id == "stg_main" })
+      #expect(main.now == .init(
+        artist: "스모킹구스",
+        time: "15:35 종료"
+      ))
+      #expect(main.next == .init(
+        artist: "노이즈캔디",
+        time: "15:40 시작"
+      ))
+      #expect(main.isMine)
+      let side = try #require(rows.first { $0.id == "stg_side" })
+      #expect(side.now == nil)
+      #expect(side.next == .init(
+        artist: "블루퓨즈",
+        time: "16:00 시작"
+      ))
+      #expect(!side.isMine)
 
-    let late = FestivalLiveBoardPresentation.stageRows(
-      FestivalLiveBoardSchedule.resolve(
-        pack: pack,
-        now: date("2026-10-20T16:10:00+09:00")
-      ),
-      mySetIDs: []
-    )
-    #expect(late.first { $0.id == "stg_main" }?.next == nil)
-    #expect(late.first { $0.id == "stg_main" }?.now?.artist == "노이즈캔디")
+      let late = FestivalLiveBoardPresentation.stageRows(
+        Festival.FestivalLiveBoardSchedule.resolve(
+          pack: pack,
+          now: date("2026-10-20T16:10:00+09:00")
+        ),
+        mySetIDs: []
+      )
+      #expect(late.first { $0.id == "stg_main" }?.next == nil)
+      #expect(late.first { $0.id == "stg_main" }?.now?.artist == "노이즈캔디")
+    }
   }
 
   @Test("내 다음 일정이 있으면 먼저, 없으면 전체 다음 공연")
   func setCardPrefersMySchedule() throws {
-    let pack = try document(packJSON)
-    let now = date("2026-10-20T15:30:00+09:00")
-    let mine = try #require(FestivalLiveBoardPresentation.setCard(
-      pack: pack,
-      mySetIDs: ["set_side"],
-      isBeforeOpening: false,
-      now: now
-    ))
-    #expect(mine.label == "내 다음 일정")
-    #expect(mine.artist == "블루퓨즈")
-    #expect(mine.meta == "사이드 · 16:00–16:40")
-    #expect(mine.remain == "30분 후")
-    #expect(abs(mine.progress - 0.5) < 0.001)
+    try withDependencies {
+      $0.festivalLiveBoardUseCase = FestivalLiveBoardUseCaseImpl()
+    } operation: {
+      let pack = try document(packJSON)
+      let now = date("2026-10-20T15:30:00+09:00")
+      let mine = try #require(FestivalLiveBoardPresentation.setCard(
+        pack: pack,
+        mySetIDs: ["set_side"],
+        isBeforeOpening: false,
+        now: now
+      ))
+      #expect(mine.label == "내 다음 일정")
+      #expect(mine.artist == "블루퓨즈")
+      #expect(mine.meta == "사이드 · 16:00–16:40")
+      #expect(mine.remain == "30분 후")
+      #expect(abs(mine.progress - 0.5) < 0.001)
 
-    let next = try #require(FestivalLiveBoardPresentation.setCard(
-      pack: pack,
-      mySetIDs: [],
-      isBeforeOpening: false,
-      now: now
-    ))
-    #expect(next.label == "다음 공연")
-    #expect(next.artist == "노이즈캔디")
+      let next = try #require(FestivalLiveBoardPresentation.setCard(
+        pack: pack,
+        mySetIDs: [],
+        isBeforeOpening: false,
+        now: now
+      ))
+      #expect(next.label == "다음 공연")
+      #expect(next.artist == "노이즈캔디")
 
-    let playing = try #require(FestivalLiveBoardPresentation.setCard(
-      pack: pack,
-      mySetIDs: ["set_now"],
-      isBeforeOpening: false,
-      now: now
-    ))
-    #expect(playing.remain == "공연 중")
-    #expect(playing.progress > 0 && playing.progress < 1)
+      let playing = try #require(FestivalLiveBoardPresentation.setCard(
+        pack: pack,
+        mySetIDs: ["set_now"],
+        isBeforeOpening: false,
+        now: now
+      ))
+      #expect(playing.remain == "공연 중")
+      #expect(playing.progress > 0 && playing.progress < 1)
+    }
   }
 
   @Test("개장 전에는 카운트다운과 첫 공연 시작 시각을 보인다")
   func beforeOpeningShowsCountdownAndFirstSet() throws {
-    let pack = try document(packJSON)
-    let now = date("2026-10-20T10:46:00+09:00")
-    let countdown = try #require(FestivalLiveBoardPresentation.countdown(
-      pack: pack,
-      festival: festival,
-      now: now
-    ))
-    #expect(countdown.time == "2시간 14분")
-    let daysAhead = try #require(FestivalLiveBoardPresentation.countdown(
-      pack: pack,
-      festival: festival,
-      now: date("2026-10-02T10:46:00+09:00")
-    ))
-    #expect(daysAhead.time == "18일 2시간")
-    #expect(countdown.sub == "13:00 개장 · 첫 공연 15:00 메인")
-    let mine = try #require(FestivalLiveBoardPresentation.setCard(
-      pack: pack,
-      mySetIDs: ["set_next"],
-      isBeforeOpening: true,
-      now: now
-    ))
-    #expect(mine.label == "내 첫 공연")
-    #expect(mine.remain == "15:40")
-    let first = try #require(FestivalLiveBoardPresentation.setCard(
-      pack: pack,
-      mySetIDs: [],
-      isBeforeOpening: true,
-      now: now
-    ))
-    #expect(first.label == "첫 공연")
-    #expect(first.remain == "15:00")
-    #expect(FestivalLiveBoardPresentation.countdown(
-      pack: pack,
-      festival: festival,
-      now: date("2026-10-20T13:00:00+09:00")
-    ) == nil)
-    #expect(FestivalLiveBoardPresentation.dayLine(
-      pack: pack,
-      festival: festival,
-      now: now
-    )
-      == "DAY 1 · 10.20 (화) · 13:00–23:00")
+    try withDependencies {
+      $0.festivalLiveBoardUseCase = FestivalLiveBoardUseCaseImpl()
+    } operation: {
+      let pack = try document(packJSON)
+      let now = date("2026-10-20T10:46:00+09:00")
+      let countdown = try #require(FestivalLiveBoardPresentation.countdown(
+        pack: pack,
+        festival: festival,
+        now: now
+      ))
+      #expect(countdown.time == "2시간 14분")
+      let daysAhead = try #require(FestivalLiveBoardPresentation.countdown(
+        pack: pack,
+        festival: festival,
+        now: date("2026-10-02T10:46:00+09:00")
+      ))
+      #expect(daysAhead.time == "18일 2시간")
+      #expect(countdown.sub == "13:00 개장 · 첫 공연 15:00 메인")
+      let mine = try #require(FestivalLiveBoardPresentation.setCard(
+        pack: pack,
+        mySetIDs: ["set_next"],
+        isBeforeOpening: true,
+        now: now
+      ))
+      #expect(mine.label == "내 첫 공연")
+      #expect(mine.remain == "15:40")
+      let first = try #require(FestivalLiveBoardPresentation.setCard(
+        pack: pack,
+        mySetIDs: [],
+        isBeforeOpening: true,
+        now: now
+      ))
+      #expect(first.label == "첫 공연")
+      #expect(first.remain == "15:00")
+      #expect(FestivalLiveBoardPresentation.countdown(
+        pack: pack,
+        festival: festival,
+        now: date("2026-10-20T13:00:00+09:00")
+      ) == nil)
+      #expect(FestivalLiveBoardPresentation.dayLine(
+        pack: pack,
+        festival: festival,
+        now: now
+      )
+        == "DAY 1 · 10.20 (화) · 13:00–23:00")
+    }
   }
 
   @Test("개장 시각과 마지막 1시간 및 종료 시각의 경계를 팩 시간으로 판정한다")
   func phaseUsesPublishedDayBoundaries() throws {
-    let pack = try document(packJSON)
-    let opening = date("2026-10-20T13:00:00+09:00")
-    let finalHour = date("2026-10-20T22:00:00+09:00")
-    let end = date("2026-10-20T23:00:00+09:00")
+    try withDependencies {
+      $0.festivalLiveBoardUseCase = FestivalLiveBoardUseCaseImpl()
+    } operation: {
+      let pack = try document(packJSON)
+      let opening = date("2026-10-20T13:00:00+09:00")
+      let finalHour = date("2026-10-20T22:00:00+09:00")
+      let end = date("2026-10-20T23:00:00+09:00")
 
-    #expect(FestivalLiveBoardPresentation.phase(
-      pack: pack,
-      festival: festival,
-      now: opening.addingTimeInterval(-1)
-    ) == .beforeOpening(.init(
-      time: "0분",
-      sub: "13:00 개장 · 첫 공연 15:00 메인"
-    )))
-    #expect(FestivalLiveBoardPresentation.phase(
-      pack: pack,
-      festival: festival,
-      now: opening
-    ) == .live)
-    #expect(FestivalLiveBoardPresentation.phase(
-      pack: pack,
-      festival: festival,
-      now: finalHour.addingTimeInterval(-1)
-    ) == .live)
-    #expect(FestivalLiveBoardPresentation.phase(
-      pack: pack,
-      festival: festival,
-      now: finalHour
-    ) == .finalHour(.init(
-      time: "1시간 0분",
-      sub: "23:00 종료"
-    )))
-    #expect(FestivalLiveBoardPresentation.phase(
-      pack: pack,
-      festival: festival,
-      now: end.addingTimeInterval(-1)
-    ) == .finalHour(.init(
-      time: "0분",
-      sub: "23:00 종료"
-    )))
-    #expect(FestivalLiveBoardPresentation.phase(
-      pack: pack,
-      festival: festival,
-      now: end
-    ) == .ended)
+      #expect(FestivalLiveBoardPresentation.phase(
+        pack: pack,
+        festival: festival,
+        now: opening.addingTimeInterval(-1)
+      ) == .beforeOpening(.init(
+        time: "0분",
+        sub: "13:00 개장 · 첫 공연 15:00 메인"
+      )))
+      #expect(FestivalLiveBoardPresentation.phase(
+        pack: pack,
+        festival: festival,
+        now: opening
+      ) == .live)
+      #expect(FestivalLiveBoardPresentation.phase(
+        pack: pack,
+        festival: festival,
+        now: finalHour.addingTimeInterval(-1)
+      ) == .live)
+      #expect(FestivalLiveBoardPresentation.phase(
+        pack: pack,
+        festival: festival,
+        now: finalHour
+      ) == .finalHour(.init(
+        time: "1시간 0분",
+        sub: "23:00 종료"
+      )))
+      #expect(FestivalLiveBoardPresentation.phase(
+        pack: pack,
+        festival: festival,
+        now: end.addingTimeInterval(-1)
+      ) == .finalHour(.init(
+        time: "0분",
+        sub: "23:00 종료"
+      )))
+      #expect(FestivalLiveBoardPresentation.phase(
+        pack: pack,
+        festival: festival,
+        now: end
+      ) == .ended)
+    }
   }
 
   @Test("여러 날 축제의 중간날 종료는 축제 종료로 간주하지 않는다")
   func phaseUsesFinalDayOnly() throws {
-    let pack = try document(#"""
-      {"id":"fst","days":[
-        {"date":"2026-10-20","startsAt":"2026-10-20T13:00:00+09:00","endsAt":"2026-10-20T23:00:00+09:00"},
-        {"date":"2026-10-21","startsAt":"2026-10-21T12:00:00+09:00","endsAt":"2026-10-21T22:00:00+09:00"}
-      ]}
-      """#)
-    let festival = FestivalOverview(
-      item: .init(
-      id: "fst",
-      name: "이틀 축제",
-      firstDate: "2026-10-20",
-      lastDate: "2026-10-21",
-      packVersion: 1
-    ),
-      isCached: true
-    )
-    #expect(FestivalLiveBoardPresentation.phase(
-      pack: pack,
-      festival: festival,
-      now: date("2026-10-20T22:30:00+09:00")
-    ) == .live)
-    #expect(FestivalLiveBoardPresentation.phase(
-      pack: pack,
-      festival: festival,
-      now: date("2026-10-21T10:00:00+09:00")
-    ) == .beforeOpening(.init(
-      time: "2시간 0분",
-      sub: "12:00 개장"
-    )))
-    #expect(FestivalLiveBoardPresentation.phase(
-      pack: pack,
-      festival: festival,
-      now: date("2026-10-21T22:00:00+09:00")
-    ) == .ended)
+    try withDependencies {
+      $0.festivalLiveBoardUseCase = FestivalLiveBoardUseCaseImpl()
+    } operation: {
+      let pack = try document(#"""
+        {"id":"fst","days":[
+          {"date":"2026-10-20","startsAt":"2026-10-20T13:00:00+09:00","endsAt":"2026-10-20T23:00:00+09:00"},
+          {"date":"2026-10-21","startsAt":"2026-10-21T12:00:00+09:00","endsAt":"2026-10-21T22:00:00+09:00"}
+        ]}
+        """#)
+      let festival = FestivalOverview(
+        item: .init(
+        id: "fst",
+        name: "이틀 축제",
+        firstDate: "2026-10-20",
+        lastDate: "2026-10-21",
+        packVersion: 1
+      ),
+        isCached: true
+      )
+      #expect(FestivalLiveBoardPresentation.phase(
+        pack: pack,
+        festival: festival,
+        now: date("2026-10-20T22:30:00+09:00")
+      ) == .live)
+      #expect(FestivalLiveBoardPresentation.phase(
+        pack: pack,
+        festival: festival,
+        now: date("2026-10-21T10:00:00+09:00")
+      ) == .beforeOpening(.init(
+        time: "2시간 0분",
+        sub: "12:00 개장"
+      )))
+      #expect(FestivalLiveBoardPresentation.phase(
+        pack: pack,
+        festival: festival,
+        now: date("2026-10-21T22:00:00+09:00")
+      ) == .ended)
+    }
   }
 
   @Test("게시된 마지막 날짜나 종료 시각이 없으면 종료 상태를 추정하지 않는다")
   func phaseRequiresVerifiedEnd() throws {
-    let noEnd = try document(#"""
-      {"id":"fst","days":[{"date":"2026-10-20","startsAt":"2026-10-20T13:00:00+09:00"}]}
-      """#)
-    let now = date("2026-10-20T23:30:00+09:00")
-    #expect(FestivalLiveBoardPresentation.phase(
-      pack: nil,
-      festival: festival,
-      now: now
-    ) == .unknown)
-    #expect(FestivalLiveBoardPresentation.phase(
-      pack: noEnd,
-      festival: festival,
-      now: now
-    ) == .live)
+    try withDependencies {
+      $0.festivalLiveBoardUseCase = FestivalLiveBoardUseCaseImpl()
+    } operation: {
+      let noEnd = try document(#"""
+        {"id":"fst","days":[{"date":"2026-10-20","startsAt":"2026-10-20T13:00:00+09:00"}]}
+        """#)
+      let now = date("2026-10-20T23:30:00+09:00")
+      #expect(FestivalLiveBoardPresentation.phase(
+        pack: nil,
+        festival: festival,
+        now: now
+      ) == .unknown)
+      #expect(FestivalLiveBoardPresentation.phase(
+        pack: noEnd,
+        festival: festival,
+        now: now
+      ) == .live)
 
-    let missingFinalDay = FestivalOverview(
-      item: .init(
-      id: "fst",
-      name: "이틀 축제",
-      firstDate: "2026-10-20",
-      lastDate: "2026-10-21",
-      packVersion: 1
-    ),
-      isCached: true
-    )
-    let firstDayOnly = try document(packJSON)
-    #expect(FestivalLiveBoardPresentation.phase(
-      pack: firstDayOnly,
-      festival: missingFinalDay,
-      now: now
-    ) == .live)
+      let missingFinalDay = FestivalOverview(
+        item: .init(
+        id: "fst",
+        name: "이틀 축제",
+        firstDate: "2026-10-20",
+        lastDate: "2026-10-21",
+        packVersion: 1
+      ),
+        isCached: true
+      )
+      let firstDayOnly = try document(packJSON)
+      #expect(FestivalLiveBoardPresentation.phase(
+        pack: firstDayOnly,
+        festival: missingFinalDay,
+        now: now
+      ) == .live)
+    }
   }
 
   @Test("크루 부제는 가장 많은 구역을 고르고 본인·귀가 중을 표시한다")
@@ -447,16 +473,86 @@ struct FestivalLiveBoardPresentationTests {
   )
 
   @Test func switcherShowsTodayDayAndCurrentStatus() throws {
-    let pack = try document(packJSON)
-    for (
-      time,
-      status
-    ) in [("12:00:00", "시작 전"), ("15:00:00", "진행 중"), ("23:00:00", "종료")] {
-      #expect(FestivalLiveBoardPresentation.switcherSubtitle(
+    try withDependencies {
+      $0.festivalLiveBoardUseCase = FestivalLiveBoardUseCaseImpl()
+    } operation: {
+      let pack = try document(packJSON)
+      for (
+        time,
+        status
+      ) in [("12:00:00", "시작 전"), ("15:00:00", "진행 중"), ("23:00:00", "종료")] {
+        #expect(FestivalLiveBoardPresentation.switcherSubtitle(
+          pack: pack,
+          festival: festival,
+          now: date("2026-10-20T\(time)+09:00")
+        ) == "오늘 · DAY 1 \(status)")
+      }
+    }
+  }
+
+  @Test("종료 요약은 날짜 없이 축제 이름과 회차 및 운영 시간을 표시한다")
+  func doneSubtitleUsesOperatingHours() throws {
+    try withDependencies {
+      $0.festivalLiveBoardUseCase = FestivalLiveBoardUseCaseImpl()
+    } operation: {
+      let pack = try document(packJSON)
+      #expect(FestivalLiveBoardPresentation.doneSubtitle(
         pack: pack,
         festival: festival,
-        now: date("2026-10-20T\(time)+09:00")
-      ) == "오늘 · DAY 1 \(status)")
+        now: date("2026-10-20T23:00:00+09:00")
+      ) == "\(festival.name) DAY 1 · 13:00–23:00")
+    }
+  }
+
+  @Test("팔로우 깃발은 검증된 축제 최종 종료 경계에서만 오늘 종료로 표시한다")
+  func followedFlagEndsAtVerifiedFinalBoundary() throws {
+    try withDependencies {
+      $0.festivalLiveBoardUseCase = FestivalLiveBoardUseCaseImpl()
+    } operation: {
+      let pack = try document(packJSON)
+      let flag = FestivalLiveBoardSnapshot.Flag(
+        id: "flg",
+        name: "호락호락",
+        status: "active",
+        zoneID: nil,
+        activity: nil,
+        thumbnailURL: nil,
+        tags: [],
+        updatedAt: nil
+      )
+      let multiDayFestival = FestivalOverview(
+        item: .init(
+          id: "fst",
+          name: "이틀 축제",
+          firstDate: "2026-10-20",
+          lastDate: "2026-10-21",
+          packVersion: 1
+        ),
+        isCached: true
+      )
+      for (
+        overview,
+        time,
+        expected
+      ) in [
+        (festival, "2026-10-20T22:59:59+09:00", FestivalLiveBoardPresentation.FlagStatus.active),
+        (festival, "2026-10-20T23:00:00+09:00", .ended),
+        (multiDayFestival, "2026-10-20T23:00:00+09:00", .active),
+      ] {
+        let now = date(time)
+        let ended = FestivalLiveBoardPresentation.phase(
+          pack: pack,
+          festival: overview,
+          now: now
+        ) == .ended
+        #expect(FestivalLiveBoardPresentation.flag(
+          flag,
+          zoneName: { _ in return nil },
+          now: now,
+          festivalEnded: ended
+        ).status == expected)
+      }
+      #expect(flag.status == "active")
     }
   }
 

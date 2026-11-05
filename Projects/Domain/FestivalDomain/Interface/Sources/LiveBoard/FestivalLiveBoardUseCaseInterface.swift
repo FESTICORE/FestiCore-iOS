@@ -6,7 +6,6 @@
 //
 
 import Dependencies
-
 /// 라이브 보드 화면이 쓰는 라이브 보드 조회. 내 일정은 `FestivalScheduleUseCaseInterface`를 쓴다.
 ///
 /// 깃발 화면의 `FestivalFlagUseCaseInterface.liveBoard`와 같은 서비스를 부르지만, UseCase는 화면이 하는 일
@@ -17,13 +16,13 @@ public protocol FestivalLiveBoardUseCaseInterface: Sendable {
 }
 
 public enum FestivalLiveBoardUseCaseDependency: TestDependencyKey {
-  public static var testValue: any FestivalLiveBoardUseCaseInterface { MockFestivalLiveBoardUseCase() }
-  public static var previewValue: any FestivalLiveBoardUseCaseInterface { testValue }
+  public static var testValue: any FestivalLiveBoardUseCaseInterface { return MockFestivalLiveBoardUseCase() }
+  public static var previewValue: any FestivalLiveBoardUseCaseInterface { return testValue }
 }
 
 public extension DependencyValues {
   var festivalLiveBoardUseCase: any FestivalLiveBoardUseCaseInterface {
-    get { self[FestivalLiveBoardUseCaseDependency.self] }
+    get { return self[FestivalLiveBoardUseCaseDependency.self] }
     set { self[FestivalLiveBoardUseCaseDependency.self] = newValue }
   }
 }
