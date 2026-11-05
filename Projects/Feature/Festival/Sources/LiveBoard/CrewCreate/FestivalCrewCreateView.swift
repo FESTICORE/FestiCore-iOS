@@ -54,10 +54,12 @@ public struct FestivalCrewCreateView: View {
       alignment: .leading
     )
     .background(FestiCoreSemanticColor.backgroundElevated.color)
-    .fcAlert($store.scope(
-      state: \.alert,
-      action: \.alert
-    ))
+    .fcAlert(
+      $store.scope(
+        \.alert,
+        action: \.scope.alert
+      )
+    )
   }
 }
 

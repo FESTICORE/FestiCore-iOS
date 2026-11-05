@@ -77,7 +77,7 @@ struct FestivalCrewCreateFeatureTests {
         cancelTitle: "닫기"
       )
     }
-    await store.send(.alert(.presented(.confirmTapped))) { $0.alert = nil }
+    await store.send(.scope(.alert(.presented(.confirmTapped)))) { $0.alert = nil }
     await store.receive(.view(.submitTapped)) { $0.isSubmitting = true }
     await store.receive(.async(.create(
       festivalID: "festival-1",
@@ -106,7 +106,7 @@ struct FestivalCrewCreateFeatureTests {
     )
     let store = TestStore(initialState: state) { FestivalCrewCreateFeature() }
 
-    await store.send(.alert(.presented(.cancelTapped))) { $0.alert = nil }
+    await store.send(.scope(.alert(.presented(.cancelTapped)))) { $0.alert = nil }
     #expect(store.state.name == "우리 크루")
     #expect(store.state.canSubmit)
     await store.finish()

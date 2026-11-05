@@ -18,6 +18,12 @@ public struct PackDetailFeature {
 
   @ObservableState
   public struct State: Equatable {
+    public enum Operation: Equatable {
+      case idle
+      case updating
+      case deleting
+    }
+
     public let festivalID: String
     public var title: String
     public var tab = Tab.directions
@@ -28,16 +34,23 @@ public struct PackDetailFeature {
     public var newItemText = ""
     /// 새 버전이 있을 때 서버가 알려 준 변경 요약
     public var changes: FestivalPackChanges?
-    public var isUpdating = false
-    public var isDeleting = false
+    public var operation: Operation = .idle
+    @Presents public var alert: FCAlertState<FCAlertAction>?
     /// 팩 관리 탭 아래에 잠깐 보이는 결과 문구
     public var manageMessage: String?
     public var autoDownloadOnWiFi = true
-    @Presents public var destination: Destination.State?
 
     public init(festivalID: String, title: String) {
       self.festivalID = festivalID
       self.title = title
+    }
+
+    public var isUpdating: Bool {
+      return operation == .updating
+    }
+
+    public var isDeleting: Bool {
+      return operation == .deleting
     }
   }
 
@@ -63,21 +76,21 @@ public struct PackDetailFeature {
     public let isChecked: Bool
   }
 
-  @Reducer
-  public enum Destination {
-    case alert(FCConfirmAlert)
-  }
-
   private enum CancelID { case load, update, changes }
 
   @CasePathable
   public enum Action: ViewAction, BindableAction, Equatable {
     case binding(BindingAction<State>)
-    case destination(PresentationAction<Destination.Action>)
+    case scope(ScopeAction)
     case view(View)
     case async(AsyncAction)
     case inner(InnerAction)
     case delegate(DelegateAction)
+  }
+
+  @CasePathable
+  public enum ScopeAction: Equatable {
+    case alert(PresentationAction<FCAlertAction>)
   }
 
   // MARK: - ViewAction
@@ -146,8 +159,11 @@ public struct PackDetailFeature {
       case .binding:
         return .none
 
-      case .destination(let destinationAction):
-        return handleDestinationAction(state: &state, action: destinationAction)
+      case let .scope(scopeAction):
+        return handleScopeAction(
+          state: &state,
+          action: scopeAction
+        )
 
       case .view(let viewAction):
         return handleViewAction(state: &state, action: viewAction)
@@ -162,12 +178,12 @@ public struct PackDetailFeature {
         return .none
       }
     }
-    .ifLet(\.$destination, action: \.destination)
+    .ifLet(
+      \.$alert,
+      action: \.scope.alert
+    ) { FCConfirmAlert() }
   }
 }
-
-extension PackDetailFeature.Destination.State: Equatable {}
-extension PackDetailFeature.Destination.Action: Equatable {}
 
 // MARK: - 화면 값
 
@@ -197,6 +213,29 @@ public extension PackDetailFeature.State {
 }
 
 extension PackDetailFeature {
+  private func handleScopeAction(
+    state: inout State,
+    action: ScopeAction
+  ) -> Effect<Action> {
+    switch action {
+    case .alert(.presented(.confirmTapped)):
+      state.alert = nil
+      guard state.operation != .deleting else { return .none }
+      state.operation = .deleting
+      return .run { send in
+        Task.cancel(id: CancelID.update)
+        await send(.async(.delete))
+      }
+
+    case .alert(.presented(.cancelTapped)), .alert(.dismiss):
+      state.alert = nil
+      return .none
+
+    case .alert:
+      return .none
+    }
+  }
+
   private func handleViewAction(
     state: inout State,
     action: View
@@ -259,8 +298,8 @@ extension PackDetailFeature {
       return saveChecklist(state)
 
     case .updateTapped, .checkUpdateTapped:
-      guard !state.isUpdating, !state.isDeleting, state.detail != nil else { return .none }
-      state.isUpdating = true
+      guard state.operation == .idle, state.detail != nil else { return .none }
+      state.operation = .updating
       state.manageMessage = nil
       return .send(.async(.update))
 
@@ -269,8 +308,8 @@ extension PackDetailFeature {
       return .run { _ in packDetailUseCase.setAutoDownloadOnWiFi(isOn) }
 
     case .deleteTapped:
-      guard !state.isDeleting, !state.isUpdating else { return .none }
-      state.destination = .alert(.deletePack(name: state.title))
+      guard state.operation == .idle else { return .none }
+      state.alert = .deletePack(name: state.title)
       return .none
     }
   }
@@ -358,7 +397,7 @@ extension PackDetailFeature {
       return .none
 
     case .updateFinished(let detail):
-      state.isUpdating = false
+      state.operation = .idle
       guard let detail else {
         state.load = .missing
         return .send(.delegate(.packChanged))
@@ -370,7 +409,7 @@ extension PackDetailFeature {
       return .merge(.send(.delegate(.packChanged)), fetchChangesIfNeeded(state))
 
     case .updateFailed(let failure):
-      state.isUpdating = false
+      state.operation = .idle
       switch failure {
       case .retryLater:
         state.manageMessage = "지금은 받는 사람이 많아요. 잠시 후 다시 시도해 주세요."
@@ -382,37 +421,12 @@ extension PackDetailFeature {
       return .none
 
     case .deleteFinished:
-      state.isDeleting = false
+      state.operation = .idle
       return .send(.delegate(.packDeleted))
 
     case .deleteFailed:
-      state.isDeleting = false
+      state.operation = .idle
       state.manageMessage = "팩을 삭제하지 못했어요. 다시 시도해 주세요."
-      return .none
-    }
-  }
-
-  private func handleDestinationAction(
-    state: inout State,
-    action: PresentationAction<Destination.Action>
-  ) -> Effect<Action> {
-    switch action {
-    case .presented(.alert(.confirmTapped)):
-      state.destination = nil
-      guard !state.isDeleting else { return .none }
-      state.isDeleting = true
-      // 확인 팝업이 떠 있는 동안 시작한 업데이트가 지운 팩을 다시 받지 않게 멈춘다.
-      state.isUpdating = false
-      return .run { send in
-        Task.cancel(id: CancelID.update)
-        await send(.async(.delete))
-      }
-
-    case .presented(.alert(.cancelTapped)):
-      state.destination = nil
-      return .none
-
-    case .dismiss:
       return .none
     }
   }

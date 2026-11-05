@@ -30,6 +30,11 @@ public struct FestivalCrewCreateFeature {
     case async(AsyncAction)
     case inner(InnerAction)
     case delegate(Delegate)
+    case scope(ScopeAction)
+  }
+
+  @CasePathable
+  public enum ScopeAction: Equatable {
     case alert(PresentationAction<FCAlertAction>)
   }
 
@@ -86,22 +91,36 @@ public struct FestivalCrewCreateFeature {
         )
       case let .delegate(delegateAction):
         return handleDelegateAction(delegateAction)
-      case .alert(.presented(.confirmTapped)):
-        state.alert = nil
-        return .send(.view(.submitTapped))
-      case .alert:
-        state.alert = nil
-        return .none
+      case let .scope(scopeAction):
+        return handleScopeAction(
+          state: &state,
+          action: scopeAction
+        )
       }
     }
     .ifLet(
       \.$alert,
-      action: \.alert
+      action: \.scope.alert
     ) { FCConfirmAlert() }
   }
 }
 
 private extension FestivalCrewCreateFeature {
+  func handleScopeAction(
+    state: inout State,
+    action: ScopeAction
+  ) -> Effect<Action> {
+    switch action {
+    case .alert(.presented(.confirmTapped)):
+      state.alert = nil
+      return .send(.view(.submitTapped))
+
+    case .alert(.presented(.cancelTapped)), .alert(.dismiss):
+      state.alert = nil
+      return .none
+    }
+  }
+
   func handleViewAction(
     state: inout State,
     action: View

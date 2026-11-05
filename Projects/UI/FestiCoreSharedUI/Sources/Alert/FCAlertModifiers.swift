@@ -34,7 +34,7 @@ struct FCAlertStoreModifier: ViewModifier {
     content
       .overlay {
         if let alertStore = store {
-          let state = alertStore.withState { $0 }
+          let state = alertStore.state
           FCDialogOverlay(
             item: FCDialogItem(
               title: state.title,
@@ -51,7 +51,6 @@ struct FCAlertStoreModifier: ViewModifier {
           .id(state.presentationID)
         }
       }
-      .animation(.fcModal, value: store?.withState(\.presentationID))
   }
 }
 
@@ -69,6 +68,5 @@ struct FCDialogItemModifier: ViewModifier {
           .id(current.id)
         }
       }
-      .animation(.fcModal, value: item)
   }
 }

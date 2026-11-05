@@ -25,14 +25,23 @@ public struct PackDetailView: View {
     VStack(spacing: .zero) {
       FCTopBar(.back, title: store.title)
         .onBack { send(.backTapped) }
-      FCTab(selection: tabSelection, items: ["가는 길", "준비물", "팩 관리"])
+      FCTab(
+        selection: tabSelection,
+        items: ["가는 길", "준비물", "팩 관리"]
+      )
       content
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
     .toolbar(.hidden, for: .navigationBar)
     .onAppear { send(.onAppear) }
-    .fcAlert($store.scope(state: \.destination?.alert, action: \.destination.alert), dismissesOnDimTap: true)
+    .fcAlert(
+      $store.scope(
+        \.alert,
+        action: \.scope.alert
+      ),
+      dismissesOnDimTap: true
+    )
   }
 }
 

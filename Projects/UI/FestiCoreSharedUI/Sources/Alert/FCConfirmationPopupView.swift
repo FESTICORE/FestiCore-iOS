@@ -68,7 +68,7 @@ public struct FCDialogOverlay: View {
 
 private extension FCDialogOverlay {
   enum Metric {
-    /// 다이얼로그가 올라오기 시작하는 아래쪽 거리.
+    /// 다이얼로그 자체의 등장 모션 거리. 바깥 화면에는 애니메이션을 적용하지 않는다.
     static let appearOffset: CGFloat = 120
   }
 
