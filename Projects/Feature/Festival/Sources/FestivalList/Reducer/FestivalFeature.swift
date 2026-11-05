@@ -333,10 +333,15 @@ public struct FestivalFeature {
     case view(View)
     case async(AsyncAction)
     case inner(InnerAction)
+    case scope(ScopeAction)
     case festivalSwitcher(PresentationAction<FestivalSwitcherFeature.Action>)
     case crewCreate(PresentationAction<FestivalCrewCreateFeature.Action>)
     case followGuideAlert(PresentationAction<FCAlertAction>)
     case delegate(FestivalDelegate)
+  }
+
+  @CasePathable
+  public enum ScopeAction: Equatable {
     case alert(PresentationAction<FCAlertAction>)
   }
 
@@ -409,7 +414,7 @@ public struct FestivalFeature {
     case loadHomeDetails(String)
     case loadNotificationUnreadCount
     case markNotificationRead(String)
-    case startLiveActivity(festivalID: String)
+    case startLiveActivity(festivalID: String, scheduledStart: Date? = nil)
     case endLiveActivity(festivalID: String, activityID: String)
     case expireToast
   }
@@ -436,7 +441,7 @@ public struct FestivalFeature {
     case liveActivityUpdated(FestivalLiveActivityRecord)
     case liveActivityStopped(String, String)
     case liveActivityFailed(String)
-    case autoStartLiveActivity(festivalID: String, performanceStart: Date)
+    case autoStartLiveActivity(festivalID: String, performanceStart: Date, scheduledStart: Date?)
     case liveActivityBoundary
     case liveActivityChanged
     case liveBoardLoaded(String, generation: Int, FestivalLiveBoardSnapshot)
@@ -491,17 +496,11 @@ public struct FestivalFeature {
           action: innerAction
         )
 
-      case .alert(.presented(.confirmTapped)):
-        if let festivalID = state.selectedFestivalID {
-          guideVisibilityUseCase.hide(for: festivalID)
-          state.isFollowedFlagGuideHidden = true
-        }
-        state.alert = nil
-        return .none
-
-      case .alert(.presented(.cancelTapped)), .alert(.dismiss):
-        state.alert = nil
-        return .none
+      case let .scope(scopeAction):
+        return handleScopeAction(
+          state: &state,
+          action: scopeAction
+        )
 
       case let .festivalSwitcher(.presented(.delegate(delegate))):
         state.festivalSwitcher = nil
@@ -542,7 +541,7 @@ public struct FestivalFeature {
     }
     .ifLet(
       \.$alert,
-      action: \.alert
+      action: \.scope.alert
     ) { FCConfirmAlert() }
     .ifLet(
       \.$festivalSwitcher,
@@ -562,6 +561,28 @@ public struct FestivalFeature {
 // MARK: - 액션 처리
 
 extension FestivalFeature {
+  private func handleScopeAction(
+    state: inout State,
+    action: ScopeAction
+  ) -> Effect<Action> {
+    switch action {
+    case .alert(.presented(.confirmTapped)):
+      if let festivalID = state.selectedFestivalID {
+        guideVisibilityUseCase.hide(for: festivalID)
+        state.isFollowedFlagGuideHidden = true
+      }
+      state.alert = nil
+      return .none
+
+    case .alert(.presented(.cancelTapped)), .alert(.dismiss):
+      state.alert = nil
+      return .none
+
+    case .alert:
+      return .none
+    }
+  }
+
   private func handleViewAction(
     state: inout State,
     action: View
@@ -776,12 +797,12 @@ extension FestivalFeature {
       return .send(.delegate(.loginRequested))
 
     case .festivalSwitchTapped:
-      let booked = FestivalListPresentation.sorted(
-        state.festivals.filter { state.bookedFestivalIDs.contains($0.id) },
+      let downloaded = FestivalListPresentation.sorted(
+        state.festivals.filter(\.isCached),
         now: date.now
       )
       state.festivalSwitcher = FestivalSwitcherFeature.State(
-        festivals: booked.map { festival in
+        festivals: downloaded.map { festival in
           let status = FestivalListPresentation.searchBadge(
             for: festival,
             now: date.now
@@ -1101,7 +1122,10 @@ extension FestivalFeature {
         state: state
       )
 
-    case let .startLiveActivity(festivalID):
+    case let .startLiveActivity(
+      festivalID,
+      scheduledStart
+    ):
       guard let festival = state.festivals.first(where: { $0.id == festivalID }),
             state.hasSession,
             state.mySchedule?.festivalID == festivalID,
@@ -1111,7 +1135,8 @@ extension FestivalFeature {
               setIDs: setIDs,
               now: date.now
             ),
-            date.now >= performanceStart.addingTimeInterval(-7_200),
+            scheduledStart.map({ $0 == performanceStart.addingTimeInterval(-7_200) && $0 > date.now })
+              ?? (date.now >= performanceStart.addingTimeInterval(-7_200)),
             let schedule = FestivalLiveActivitySchedule.resolve(
               festival: festival,
               pack: state.pack(for: festivalID),
@@ -1129,7 +1154,8 @@ extension FestivalFeature {
             festivalName: festival.name,
             startDate: schedule.startDate,
             endDate: schedule.endDate,
-            phase: schedule.phase
+            phase: schedule.phase,
+            scheduledStart: scheduledStart
           )
           await liveActivityUseCase.update(
             activityID: id,
@@ -1574,7 +1600,8 @@ extension FestivalFeature {
 
     case let .autoStartLiveActivity(
       festivalID,
-      performanceStart
+      performanceStart,
+      scheduledStart
     ):
       guard state.isForeground, state.liveActivity.isReady, state.hasSession,
             state.selectedFestivalID == festivalID,
@@ -1588,11 +1615,15 @@ extension FestivalFeature {
               setIDs: setIDs,
               now: date.now
             ), nextStart == performanceStart,
-            date.now >= performanceStart.addingTimeInterval(-7_200) else { return .none }
+            scheduledStart.map({ $0 == performanceStart.addingTimeInterval(-7_200) && $0 > date.now })
+              ?? (date.now >= performanceStart.addingTimeInterval(-7_200)) else { return .none }
       state.autoActivityHandledStarts[festivalID] = performanceStart
       state.liveActivity.busyFestivalID = festivalID
       state.liveActivity.revision += 1
-      return .send(.async(.startLiveActivity(festivalID: festivalID)))
+      return .send(.async(.startLiveActivity(
+        festivalID: festivalID,
+        scheduledStart: scheduledStart
+      )))
 
     case .liveActivityBoundary:
       state.liveActivity.now = date.now
@@ -1760,11 +1791,26 @@ extension FestivalFeature {
          setIDs: setIDs,
          now: now
        ),
-       now >= start.addingTimeInterval(-7_200),
        state.autoActivityHandledStarts[id] != start {
+      let eligibility = start.addingTimeInterval(-7_200)
+      let scheduledStart: Date?
+      if now >= eligibility {
+        scheduledStart = nil
+      } else if #available(
+        iOS 26.0,
+        *
+      ) {
+        scheduledStart = eligibility
+      } else {
+        scheduledStart = nil
+      }
+      guard scheduledStart != nil || now >= eligibility else {
+        return .merge(updates + [liveActivityBoundary(state)])
+      }
       automaticStart = .send(.inner(.autoStartLiveActivity(
         festivalID: id,
-        performanceStart: start
+        performanceStart: start,
+        scheduledStart: scheduledStart
       )))
     } else {
       automaticStart = .none
@@ -1802,8 +1848,8 @@ extension FestivalFeature {
     let next = [festivalBoundary, performanceBoundary].compactMap { $0 }.min()
     guard let next else { return .cancel(id: CancelID.liveActivityBoundary) }
     let delay = max(
-      1,
-      Int64(next.timeIntervalSince(state.liveActivity.now) * 1000)
+      1_000,
+      Int64(ceil(next.timeIntervalSince(state.liveActivity.now) * 1_000)) + 1_000
     )
     return .run { send in
       try await clock.sleep(for: .milliseconds(delay))

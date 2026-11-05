@@ -133,7 +133,8 @@ public enum FestiCoreFestivalLiveActivity {
     startDate: Date,
     phase: FestiCoreFestivalActivityAttributes.ContentState.Phase = .upcoming,
     endDate: Date? = nil,
-    remoteUpdates: Bool = false
+    remoteUpdates: Bool = false,
+    scheduledStart: Date? = nil
   ) throws -> String {
     guard ActivityAuthorizationInfo().areActivitiesEnabled else {
       throw Error.disabled
@@ -143,14 +144,44 @@ public enum FestiCoreFestivalLiveActivity {
       return existing.id
     }
 
-    let activity = try Activity.request(
-      attributes: FestiCoreFestivalActivityAttributes(
-        festivalID: festivalID,
-        festivalName: festivalName
-      ),
-      content: content(phase: phase, startDate: startDate, endDate: endDate),
-      pushType: remoteUpdates ? .token : nil
+    let attributes = FestiCoreFestivalActivityAttributes(
+      festivalID: festivalID,
+      festivalName: festivalName
     )
+    let activity: Activity<FestiCoreFestivalActivityAttributes>
+    if #available(
+       iOS 26.0,
+       *
+    ),
+       let scheduledStart,
+       scheduledStart > .now {
+      activity = try Activity.request(
+        attributes: attributes,
+        content: content(
+          phase: phase,
+          startDate: startDate,
+          endDate: endDate
+        ),
+        pushType: remoteUpdates ? .token : nil,
+        style: .standard,
+        alertConfiguration: AlertConfiguration(
+          title: "페스티벌 라이브 보드",
+          body: "저장한 공연의 라이브 액티비티가 시작돼요.",
+          sound: .default
+        ),
+        start: scheduledStart
+      )
+    } else {
+      activity = try Activity.request(
+        attributes: attributes,
+        content: content(
+          phase: phase,
+          startDate: startDate,
+          endDate: endDate
+        ),
+        pushType: remoteUpdates ? .token : nil
+      )
+    }
     return activity.id
   }
 

@@ -16,14 +16,15 @@ extension FestivalLiveActivityClient: @retroactive DependencyKey {
       }
     },
     changes: { FestiCoreFestivalLiveActivity.activityChanges() },
-    start: { id, name, startDate, endDate, phase in
+    start: { id, name, startDate, endDate, phase, scheduledStart in
       try FestiCoreFestivalLiveActivity.start(
         festivalID: id,
         festivalName: name,
         startDate: startDate,
         phase: .init(rawValue: phase.rawValue) ?? .upcoming,
         endDate: endDate,
-        remoteUpdates: true
+        remoteUpdates: true,
+        scheduledStart: scheduledStart
       )
     },
     update: { id, phase, startDate, endDate, pack, savedSetIDs in

@@ -109,8 +109,21 @@ struct FestivalUseCaseTests {
 
   @Test func libraryUseCaseUsesAccountScopedStores() {
     let cleared = LockIsolated<[String?]>([])
+    let migration = LockIsolated<(Bool, String)?>(nil)
+    let eligibility = LockIsolated<[String: Bool]>([:])
     let useCase = withDependencies {
-      $0.festivalBookedStore = .init(load: { ["booked_\($0)"] }, save: { _, _ in })
+      $0.festivalBookedStore = .init(
+        load: { ["booked_\($0)"] },
+        save: { _, _ in },
+        legacyBookmarks: { ["legacy"] },
+        resolveLegacyMigration: { accepted, userID in
+          migration.setValue((accepted, userID))
+        },
+        offlineEligible: { eligibility.value[$0] ?? false },
+        setOfflineEligible: { userID, isEligible in
+          eligibility.withValue { $0[userID] = isEligible }
+        }
+      )
       $0.festivalRecentSearchStore = .init(
         load: { [$0 ?? "anonymous"] },
         add: { query, userID in [query, userID ?? "anonymous"] },
@@ -122,6 +135,24 @@ struct FestivalUseCaseTests {
     }
 
     #expect(useCase.bookedFestivalIDs(for: "user") == ["booked_user"])
+    #expect(useCase.setBooked(
+      true,
+      festivalID: "new",
+      for: "user"
+    ) == ["booked_user", "new"])
+    #expect(useCase.legacyBookmarks() == ["legacy"])
+    useCase.resolveLegacyBookmarkMigration(
+      accepted: true,
+      userID: "user"
+    )
+    #expect(migration.value?.0 == true)
+    #expect(migration.value?.1 == "user")
+    #expect(!useCase.isOfflineBookingEligible(userID: "user"))
+    useCase.setOfflineBookingEligibility(
+      true,
+      for: "user"
+    )
+    #expect(useCase.isOfflineBookingEligible(userID: "user"))
     #expect(useCase.recentSearches(for: nil) == ["anonymous"])
     #expect(useCase.addRecentSearch("펜타", for: "user") == ["펜타", "user"])
     #expect(useCase.removeRecentSearch("펜타", for: "user") == ["user"])
@@ -160,8 +191,10 @@ struct FestivalUseCaseTests {
           )]
         },
         changes: { AsyncStream { $0.finish() } },
-        start: { id, name, _, _, phase in
-          calls.withValue { $0.append("start \(id) \(name) \(phase)") }
+        start: { id, name, _, _, phase, scheduledStart in
+          calls.withValue {
+            $0.append("start \(id) \(name) \(phase) scheduled=\(scheduledStart != nil)")
+          }
           return "activity"
         },
         update: { id, phase, _, _, _, _ in calls.withValue { $0.append("update \(id) \(phase)") } },
@@ -179,7 +212,8 @@ struct FestivalUseCaseTests {
         festivalName: "축제",
         startDate: start,
         endDate: end,
-        phase: .upcoming
+        phase: .upcoming,
+        scheduledStart: start.addingTimeInterval(-7_200)
       ) == "activity")
     await useCase.update(
       activityID: "activity",
@@ -193,7 +227,10 @@ struct FestivalUseCaseTests {
     await useCase.end(activityID: "activity")
     #expect(
       calls.value == [
-        "start fst 축제 upcoming", "update activity ongoing", "finish activity", "end activity",
+        "start fst 축제 upcoming scheduled=true",
+        "update activity ongoing",
+        "finish activity",
+        "end activity",
       ])
   }
 

@@ -13,7 +13,14 @@ public struct MockFestivalLiveActivityUseCase: FestivalLiveActivityUseCaseInterf
   private let activitiesHandler: @Sendable () async -> [FestivalLiveActivityRecord]
   private let activityChangesHandler: @Sendable () -> AsyncStream<Void>
   private let startHandler:
-    @Sendable (String, String, Date, Date, FestivalLiveActivityPhase) async throws -> String
+    @Sendable (
+      String,
+      String,
+      Date,
+      Date,
+      FestivalLiveActivityPhase,
+      Date?
+    ) async throws -> String
   private let updateHandler: @Sendable (
     String,
     FestivalLiveActivityPhase,
@@ -35,9 +42,13 @@ public struct MockFestivalLiveActivityUseCase: FestivalLiveActivityUseCaseInterf
       return AsyncStream { $0.finish() }
     },
     start: @escaping @Sendable (
-      _ festivalID: String, _ festivalName: String, _ startDate: Date, _ endDate: Date,
-      _ phase: FestivalLiveActivityPhase
-    ) async throws -> String = { _, _, _, _, _ in
+      _ festivalID: String,
+      _ festivalName: String,
+      _ startDate: Date,
+      _ endDate: Date,
+      _ phase: FestivalLiveActivityPhase,
+      _ scheduledStart: Date?
+    ) async throws -> String = { _, _, _, _, _, _ in
       reportIssue("festivalLiveActivityUseCase.start 미등록")
       throw FestivalUseCaseNotRegistered()
     },
@@ -75,9 +86,21 @@ public struct MockFestivalLiveActivityUseCase: FestivalLiveActivityUseCaseInterf
   }
 
   public func start(
-    festivalID: String, festivalName: String, startDate: Date, endDate: Date, phase: FestivalLiveActivityPhase
+    festivalID: String,
+    festivalName: String,
+    startDate: Date,
+    endDate: Date,
+    phase: FestivalLiveActivityPhase,
+    scheduledStart: Date?
   ) async throws -> String {
-    try await startHandler(festivalID, festivalName, startDate, endDate, phase)
+    try await startHandler(
+      festivalID,
+      festivalName,
+      startDate,
+      endDate,
+      phase,
+      scheduledStart
+    )
   }
 
   public func update(

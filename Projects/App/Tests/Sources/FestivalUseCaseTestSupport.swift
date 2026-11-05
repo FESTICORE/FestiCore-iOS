@@ -22,9 +22,56 @@ private struct ServiceBackedLibraryUseCase: FestivalLibraryUseCaseInterface {
   @Dependency(\.festivalBookedStore) var bookedStore
   @Dependency(\.festivalRecentSearchStore) var recentSearchStore
 
-  func bookedFestivalIDs(for userID: String) -> Set<String> { bookedStore.load(for: userID) }
-  func recentSearches(for userID: String?) -> [String] { recentSearchStore.load(for: userID) }
-  func addRecentSearch(_ query: String, for userID: String?) -> [String] { recentSearchStore.add(query, for: userID) }
+  func bookedFestivalIDs(for userID: String) -> Set<String> {
+    return bookedStore.load(for: userID)
+  }
+  func setBooked(
+    _ booked: Bool,
+    festivalID: String,
+    for userID: String
+  ) -> Set<String> {
+    return bookedStore.setBookmark(
+      festivalID,
+      booked: booked,
+      for: userID
+    )
+  }
+  func isOfflineBookingEligible(userID: String) -> Bool {
+    return bookedStore.offlineEligible(userID)
+  }
+  func setOfflineBookingEligibility(
+    _ isEligible: Bool,
+    for userID: String
+  ) {
+    bookedStore.setOfflineEligible(
+      userID,
+      isEligible
+    )
+  }
+  func legacyBookmarks() -> Set<String> {
+    return bookedStore.legacyBookmarks()
+  }
+  func resolveLegacyBookmarkMigration(
+    accepted: Bool,
+    userID: String
+  ) {
+    bookedStore.resolveLegacyMigration(
+      accepted: accepted,
+      for: userID
+    )
+  }
+  func recentSearches(for userID: String?) -> [String] {
+    return recentSearchStore.load(for: userID)
+  }
+  func addRecentSearch(
+    _ query: String,
+    for userID: String?
+  ) -> [String] {
+    return recentSearchStore.add(
+      query,
+      for: userID
+    )
+  }
   func removeRecentSearch(_ query: String, for userID: String?) -> [String] {
     recentSearchStore.remove(query, for: userID)
   }

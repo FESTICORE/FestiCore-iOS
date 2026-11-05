@@ -5,7 +5,14 @@ public struct FestivalLiveActivityClient: Sendable {
   public var activities: @Sendable () async -> [FestivalLiveActivityRecord]
   public var changes: @Sendable () -> AsyncStream<Void>
   public var start:
-    @Sendable (String, String, Date, Date, FestivalLiveActivityPhase) async throws -> String
+    @Sendable (
+      String,
+      String,
+      Date,
+      Date,
+      FestivalLiveActivityPhase,
+      Date?
+    ) async throws -> String
   public var update: @Sendable (
     String,
     FestivalLiveActivityPhase,
@@ -21,8 +28,14 @@ public struct FestivalLiveActivityClient: Sendable {
     activities: @escaping @Sendable () async -> [FestivalLiveActivityRecord],
     changes: @escaping @Sendable () -> AsyncStream<Void>,
     start:
-      @escaping @Sendable (String, String, Date, Date, FestivalLiveActivityPhase) async throws ->
-      String,
+      @escaping @Sendable (
+        String,
+        String,
+        Date,
+        Date,
+        FestivalLiveActivityPhase,
+        Date?
+      ) async throws -> String,
     update: @escaping @Sendable (
       String,
       FestivalLiveActivityPhase,
@@ -47,7 +60,7 @@ extension FestivalLiveActivityClient: TestDependencyKey {
   public static let testValue = Self(
     activities: { [] },
     changes: { AsyncStream { $0.finish() } },
-    start: { _, _, _, _, _ in "test-activity" },
+    start: { _, _, _, _, _, _ in "test-activity" },
     update: { _, _, _, _, _, _ in },
     finish: { _, _ in },
     end: { _ in }

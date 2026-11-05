@@ -27,9 +27,21 @@ public struct FestivalLiveActivityUseCaseImpl: FestivalLiveActivityUseCaseInterf
 
   /// 축제 Live Activity를 시작하고 생성된 ID를 돌려준다.
   public func start(
-    festivalID: String, festivalName: String, startDate: Date, endDate: Date, phase: FestivalLiveActivityPhase
+    festivalID: String,
+    festivalName: String,
+    startDate: Date,
+    endDate: Date,
+    phase: FestivalLiveActivityPhase,
+    scheduledStart: Date?
   ) async throws -> String {
-    try await client.start(festivalID, festivalName, startDate, endDate, phase)
+    try await client.start(
+      festivalID,
+      festivalName,
+      startDate,
+      endDate,
+      phase,
+      scheduledStart
+    )
   }
 
   /// 진행 단계와 시간을 기존 활동에 반영한다.
