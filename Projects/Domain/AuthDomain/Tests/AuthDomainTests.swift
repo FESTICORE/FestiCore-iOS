@@ -69,7 +69,7 @@ struct AuthDomainTests {
       $0.networkClient = client
       $0.authService = auth
     } operation: { AuthRepositoryImpl() }
-    await #expect(throws: FestiCoreNetworkError.self) { try await repository.fetchProfile() }
+    await #expect(throws: AuthDomainError.invalidResponse) { try await repository.fetchProfile() }
   }
 
   @Test("인증된 프로필을 GET me에서 조회한다")
@@ -135,7 +135,10 @@ struct AuthDomainTests {
     #expect(await client.calls == 0)
   }
 
-  @Test("프로필 조회 실패는 전파하고 401에서만 세션을 지운다", arguments: [0, 401, 500])
+  @Test(
+    "프로필 조회 오류를 인증 도메인 오류로 바꾸고 401에서 세션을 지운다",
+    arguments: [0, 401, 500]
+  )
   func profileFailure(status: Int) async {
     let auth = StubAuthService(loggedIn: true)
     let error: FestiCoreNetworkError = status == 0
@@ -146,7 +149,17 @@ struct AuthDomainTests {
       $0.networkClient = client
       $0.authService = auth
     } operation: { AuthRepositoryImpl() }
-    await #expect(throws: FestiCoreNetworkError.self) { try await repository.fetchProfile() }
+    do {
+      try await repository.fetchProfile()
+      Issue.record("프로필 요청은 실패해야 한다")
+    } catch {
+      let expected: AuthDomainError = switch status {
+      case 0: .offline
+      case 401: .notAuthenticated
+      default: .invalidResponse
+      }
+      #expect(error as? AuthDomainError == expected)
+    }
     #expect(await auth.signOutCalls == (status == 401 ? 1 : 0))
   }
 
@@ -164,13 +177,20 @@ struct AuthDomainTests {
   @Test("프로필 수정의 약관 만료 오류는 세션을 유지하고 전파한다")
   func updateProfileOutdatedTerms() async {
     let auth = StubAuthService(loggedIn: true)
-    let client = StubClient(result: .failure(.response(ResponseError(httpStatus: 422))))
+    let client = StubClient(result: .failure(.response(ResponseError(
+      httpStatus: 422,
+      code: "TERMS_VERSION_OUTDATED"
+    ))))
     let repository = withDependencies {
       $0.networkClient = client
       $0.authService = auth
     } operation: { AuthRepositoryImpl() }
-    await #expect(throws: FestiCoreNetworkError.self) {
-      try await repository.updateProfile(nickname: "축제관객", termsVersion: "2026-09", pushOptIn: false)
+    await #expect(throws: AuthDomainError.termsOutdated) {
+      try await repository.updateProfile(
+        nickname: "축제관객",
+        termsVersion: "2026-09",
+        pushOptIn: false
+      )
     }
     #expect(await client.calls == 1)
     #expect(await auth.isLoggedIn)

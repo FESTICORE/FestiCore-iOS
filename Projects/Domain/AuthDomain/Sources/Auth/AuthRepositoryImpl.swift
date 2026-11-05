@@ -57,7 +57,7 @@ public struct AuthRepositoryImpl: AuthInterface {
       return response.data.toDomain()
     } catch {
       try await clearUnauthorizedSession(error, sessionID: sessionID)
-      throw error
+      throw AuthDomainError(networkError: error as? FestiCoreNetworkError) ?? error
     }
   }
 
@@ -78,7 +78,7 @@ public struct AuthRepositoryImpl: AuthInterface {
       return response.data.toDomain()
     } catch {
       try await clearUnauthorizedSession(error, sessionID: sessionID)
-      throw error
+      throw AuthDomainError(networkError: error as? FestiCoreNetworkError) ?? error
     }
   }
 
@@ -97,7 +97,7 @@ public struct AuthRepositoryImpl: AuthInterface {
       return response.data.toDomain()
     } catch {
       try await clearUnauthorizedSession(error, sessionID: sessionID)
-      throw error
+      throw AuthDomainError(networkError: error as? FestiCoreNetworkError) ?? error
     }
   }
 
