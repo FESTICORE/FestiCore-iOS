@@ -48,21 +48,19 @@ extension AnalyticsUseCase: DependencyKey {
       }
 
       // Sentry 이슈에도 같은 사용자를 붙여 Mixpanel과 같은 ID로 대조한다.
-      let user = User(userId: userID)
-      if let method, !method.isEmpty {
-        user.data = ["login_provider": method]
-      }
-      SentrySDK.setUser(user)
+      SentrySDK.setUser(User(userId: userID))
     },
     track: { event in
       let name = eventName(event)
       let properties = eventProperties(event)
       FestiCoreLogger.debug(
-        "Mixpanel track — event: \(name), properties: \(String(describing: properties))",
-        category: .app)
+        "Mixpanel track — event: \(name)",
+        category: .app
+      )
       Mixpanel.safeMainInstance()?.track(
         event: name,
-        properties: properties)
+        properties: properties
+      )
       monitorInSentry(
         name: name,
         properties: properties)

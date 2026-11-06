@@ -16,34 +16,37 @@ extension FestivalLiveActivityClient: @retroactive DependencyKey {
       }
     },
     changes: { FestiCoreFestivalLiveActivity.activityChanges() },
-    start: { id, name, startDate, endDate, phase, scheduledStart in
+    start: { request in
       try FestiCoreFestivalLiveActivity.start(
-        festivalID: id,
-        festivalName: name,
-        startDate: startDate,
-        phase: .init(rawValue: phase.rawValue) ?? .upcoming,
-        endDate: endDate,
+        festivalID: request.festivalID,
+        festivalName: request.festivalName,
+        startDate: request.startDate,
+        phase: .init(rawValue: request.phase.rawValue) ?? .upcoming,
+        endDate: request.endDate,
         remoteUpdates: true,
-        scheduledStart: scheduledStart
+        scheduledStart: request.scheduledStart
       )
     },
-    update: { id, phase, startDate, endDate, pack, savedSetIDs in
+    update: { request in
       let presentation = FestivalActivityPresentation.from(
-        pack: pack,
-        savedSetIDs: savedSetIDs,
+        pack: request.pack,
+        savedSetIDs: request.savedSetIDs,
         now: Date()
       )
       await FestiCoreFestivalLiveActivity.update(
-        id: id,
-        phase: .init(rawValue: phase.rawValue) ?? .upcoming,
-        startDate: startDate,
-        endDate: endDate,
-        nowStages: pack == nil ? nil : presentation.nowStages,
+        id: request.activityID,
+        phase: .init(rawValue: request.phase.rawValue) ?? .upcoming,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        nowStages: request.pack == nil ? nil : presentation.nowStages,
         nextMine: presentation.nextMine
       )
     },
-    finish: { id, startDate in
-      await FestiCoreFestivalLiveActivity.endFinished(id: id, startDate: startDate)
+    finish: { request in
+      await FestiCoreFestivalLiveActivity.endFinished(
+        id: request.activityID,
+        startDate: request.startDate
+      )
     },
     end: { id in await FestiCoreFestivalLiveActivity.end(id: id) }
   )
@@ -78,8 +81,7 @@ struct FestivalActivityPresentation {
         endsAt: endsAt
       )
     }
-    let nextMine = performances
-      .filter { savedSetIDs.contains($0.id) }
+    let nextPerformances = performances
       .compactMap { performance -> (Date, State.NextMine)? in
         guard let startsAt = performance.startsAt,
               let start = parse(startsAt), start > now else { return nil }
@@ -93,11 +95,14 @@ struct FestivalActivityPresentation {
               in: pack
             ),
             artist: performance.artist ?? "공연",
-            startsAt: startsAt
+            startsAt: startsAt,
+            isSaved: savedSetIDs.contains(performance.id)
           )
         )
       }
-      .min { $0.0 < $1.0 }?.1
+      .sorted { $0.0 < $1.0 }
+    let nextMine = nextPerformances.first(where: { $0.1.isSaved == true })?.1
+      ?? nextPerformances.first?.1
     return Self(
       nowStages: nowStages,
       nextMine: nextMine

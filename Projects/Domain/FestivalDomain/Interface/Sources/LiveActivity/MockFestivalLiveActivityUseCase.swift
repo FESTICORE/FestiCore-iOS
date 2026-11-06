@@ -12,24 +12,9 @@ import Foundation
 public struct MockFestivalLiveActivityUseCase: FestivalLiveActivityUseCaseInterface {
   private let activitiesHandler: @Sendable () async -> [FestivalLiveActivityRecord]
   private let activityChangesHandler: @Sendable () -> AsyncStream<Void>
-  private let startHandler:
-    @Sendable (
-      String,
-      String,
-      Date,
-      Date,
-      FestivalLiveActivityPhase,
-      Date?
-    ) async throws -> String
-  private let updateHandler: @Sendable (
-    String,
-    FestivalLiveActivityPhase,
-    Date,
-    Date,
-    FestivalPackDocument?,
-    Set<String>
-  ) async -> Void
-  private let finishHandler: @Sendable (String, Date) async -> Void
+  private let startHandler: @Sendable (FestivalLiveActivityStartRequest) async throws -> String
+  private let updateHandler: @Sendable (FestivalLiveActivityUpdateRequest) async -> Void
+  private let finishHandler: @Sendable (FestivalLiveActivityFinishRequest) async -> Void
   private let endHandler: @Sendable (String) async -> Void
 
   public init(
@@ -41,28 +26,14 @@ public struct MockFestivalLiveActivityUseCase: FestivalLiveActivityUseCaseInterf
       reportIssue("festivalLiveActivityUseCase.activityChanges 미등록")
       return AsyncStream { $0.finish() }
     },
-    start: @escaping @Sendable (
-      _ festivalID: String,
-      _ festivalName: String,
-      _ startDate: Date,
-      _ endDate: Date,
-      _ phase: FestivalLiveActivityPhase,
-      _ scheduledStart: Date?
-    ) async throws -> String = { _, _, _, _, _, _ in
+    start: @escaping @Sendable (FestivalLiveActivityStartRequest) async throws -> String = { _ in
       reportIssue("festivalLiveActivityUseCase.start 미등록")
       throw FestivalUseCaseNotRegistered()
     },
-    update: @escaping @Sendable (
-      _ activityID: String,
-      _ phase: FestivalLiveActivityPhase,
-      _ startDate: Date,
-      _ endDate: Date,
-      _ pack: FestivalPackDocument?,
-      _ savedSetIDs: Set<String>
-    ) async -> Void = { _, _, _, _, _, _ in
+    update: @escaping @Sendable (FestivalLiveActivityUpdateRequest) async -> Void = { _ in
       reportIssue("festivalLiveActivityUseCase.update 미등록")
     },
-    finish: @escaping @Sendable (_ activityID: String, _ startDate: Date) async -> Void = { _, _ in
+    finish: @escaping @Sendable (FestivalLiveActivityFinishRequest) async -> Void = { _ in
       reportIssue("festivalLiveActivityUseCase.finish 미등록")
     },
     end: @escaping @Sendable (_ activityID: String) async -> Void = { _ in
@@ -85,44 +56,16 @@ public struct MockFestivalLiveActivityUseCase: FestivalLiveActivityUseCaseInterf
     activityChangesHandler()
   }
 
-  public func start(
-    festivalID: String,
-    festivalName: String,
-    startDate: Date,
-    endDate: Date,
-    phase: FestivalLiveActivityPhase,
-    scheduledStart: Date?
-  ) async throws -> String {
-    try await startHandler(
-      festivalID,
-      festivalName,
-      startDate,
-      endDate,
-      phase,
-      scheduledStart
-    )
+  public func start(_ request: FestivalLiveActivityStartRequest) async throws -> String {
+    return try await startHandler(request)
   }
 
-  public func update(
-    activityID: String,
-    phase: FestivalLiveActivityPhase,
-    startDate: Date,
-    endDate: Date,
-    pack: FestivalPackDocument?,
-    savedSetIDs: Set<String>
-  ) async {
-    await updateHandler(
-      activityID,
-      phase,
-      startDate,
-      endDate,
-      pack,
-      savedSetIDs
-    )
+  public func update(_ request: FestivalLiveActivityUpdateRequest) async {
+    await updateHandler(request)
   }
 
-  public func finish(activityID: String, startDate: Date) async {
-    await finishHandler(activityID, startDate)
+  public func finish(_ request: FestivalLiveActivityFinishRequest) async {
+    await finishHandler(request)
   }
 
   public func end(activityID: String) async {

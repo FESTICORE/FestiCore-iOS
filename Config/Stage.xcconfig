@@ -4,7 +4,8 @@ FESTICORE_API_HOST = festicore-dev.up.railway.app
 FESTICORE_VERSION = 1.0.0
 FESTICORE_BUILD_NUMBER = 1
 FESTICORE_MIXPANEL_TOKEN =4e85d26975d1a8476fd4103c8888bcdb
-FESTICORE_SENTRY_DSN =
+// Sentry DSN은 xcconfig에서 `//`가 주석이 되므로 https:// 없이 key@host/project 형식으로 입력한다.
+FESTICORE_SENTRY_DSN = 061d4071a9c8b7238b7c5c720a609208@o4512339721977856.ingest.de.sentry.io/4512339775193168
 #include? "Stage.local.xcconfig"
 GOOGLE_CLIENT_ID = 802633980437-tkcl06hanidef9hjut830hklfs7getkf.apps.googleusercontent.com
 GOOGLE_IOS_CLIENT_ID = 802633980437-8plk9his0tcmhskm8i5s2qrun03pfbf4.apps.googleusercontent.com

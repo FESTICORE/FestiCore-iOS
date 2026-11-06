@@ -21,7 +21,7 @@ public struct FestiCoreFestivalActivityAttributes: ActivityAttributes {
     public var endDate: Date?
     /// 서버가 현재 공연 중이라고 확인한 무대. 시작/종료 시각은 타임존이 포함된 ISO 8601 문자열이다.
     public var nowStages: [NowStage]
-    /// 로그인 사용자가 저장한 공연 중 아직 시작하지 않은 가장 빠른 공연.
+    /// 저장한 다음 공연, 또는 다음 공연 팩 정보. `isSaved`가 nil이면 구버전 콘텐츠다.
     public var nextMine: NextMine?
     public var pinnedFlag: PinnedFlag?
     public var crewSummary: CrewSummary?
@@ -78,19 +78,23 @@ public struct FestiCoreFestivalActivityAttributes: ActivityAttributes {
       public let stageName: String?
       public let artist: String
       public let startsAt: String
+      /// `nil`은 `isSaved` 필드를 추가하기 전 버전에서 인코딩된 콘텐츠다.
+      public let isSaved: Bool?
 
       public init(
         setId: String,
         stageId: String,
         stageName: String? = nil,
         artist: String,
-        startsAt: String
+        startsAt: String,
+        isSaved: Bool? = nil
       ) {
         self.setId = setId
         self.stageId = stageId
         self.stageName = stageName
         self.artist = artist
         self.startsAt = startsAt
+        self.isSaved = isSaved
       }
     }
 

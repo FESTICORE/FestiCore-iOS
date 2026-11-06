@@ -15,25 +15,11 @@ public protocol FestivalLiveActivityUseCaseInterface: Sendable {
   /// Live Activity 목록이 바뀔 때마다 신호를 보낸다.
   func activityChanges() -> AsyncStream<Void>
   /// 새 Live Activity를 켜고 ID를 돌려준다.
-  func start(
-    festivalID: String,
-    festivalName: String,
-    startDate: Date,
-    endDate: Date,
-    phase: FestivalLiveActivityPhase,
-    scheduledStart: Date?
-  ) async throws -> String
+  func start(_ request: FestivalLiveActivityStartRequest) async throws -> String
   /// 진행 단계와 축제 시간을 기존 Live Activity에 반영한다.
-  func update(
-    activityID: String,
-    phase: FestivalLiveActivityPhase,
-    startDate: Date,
-    endDate: Date,
-    pack: FestivalPackDocument?,
-    savedSetIDs: Set<String>
-  ) async
+  func update(_ request: FestivalLiveActivityUpdateRequest) async
   /// 끝난 축제의 Live Activity를 종료 상태로 닫는다.
-  func finish(activityID: String, startDate: Date) async
+  func finish(_ request: FestivalLiveActivityFinishRequest) async
   /// 지정한 Live Activity를 종료한다.
   func end(activityID: String) async
 }

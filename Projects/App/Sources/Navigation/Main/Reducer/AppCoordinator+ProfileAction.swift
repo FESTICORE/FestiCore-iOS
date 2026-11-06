@@ -18,43 +18,70 @@ extension AppCoordinator {
     home.authFlow.isLoading = false
     switch result {
     case let .success(profile):
-      festivalLibraryUseCase.setOfflineBookingEligibility(
-        profile.isEligible,
-        for: profile.user.id
+      return handleLoadedProfile(
+        profile,
+        state: &state,
+        home: &home
       )
-      if let oldID = home.authFlow.verifiedUserID, oldID != profile.user.id {
-        clearPendingAccountData(&home.authFlow)
-      }
-      if let oldID = home.authFlow.lastVerifiedUserID, oldID != profile.user.id {
-        clearPendingAccountData(&home.authFlow)
-      }
-      home.authFlow.reconcileSignUpDraft(userID: profile.user.id)
-      if let ownerID = home.authFlow.pendingOwnerID, ownerID != profile.user.id {
-        clearPendingBookmark(&home.authFlow)
-      }
-      home.authFlow.profile = profile
-      home.authFlow.verifiedUserID = profile.user.id
-      home.authFlow.lastVerifiedUserID = profile.user.id
-      home.authFlow.hasSession = true
-      if profile.isEligible {
-        return finishEligible(
-          state: &state,
-          home: &home
-        )
-      }
-      home.authFlow.presentation = .onboarding
-      home.authFlow.signUp.apply(
-        profileUserID: profile.user.id,
-        serverNickname: profile.user.nickname,
-        termsVersion: profile.currentTermsVersion
-      )
-      home.authFlow.message = home.authFlow.hasRetriedTermsUpdate
-        ? "변경된 약관을 확인하고 다시 동의해 주세요."
-        : nil
-      state = .home(home)
-      return .send(.scope(.home(.scopeAction(.festival(.reloadBookmarks(userID: nil))))))
 
-    case .failure(.unauthenticated):
+    case let .failure(failure):
+      return handleProfileLoadFailure(
+        failure,
+        state: &state,
+        home: &home
+      )
+    }
+  }
+
+  private func handleLoadedProfile(
+    _ profile: AuthProfile,
+    state: inout State,
+    home: inout MainTabCoordinator.State
+  ) -> Effect<Action> {
+    festivalLibraryUseCase.setOfflineBookingEligibility(
+      profile.isEligible,
+      for: profile.user.id
+    )
+    if home.authFlow.verifiedUserID != nil, home.authFlow.verifiedUserID != profile.user.id {
+      clearPendingAccountData(&home.authFlow)
+    }
+    if home.authFlow.lastVerifiedUserID != nil, home.authFlow.lastVerifiedUserID != profile.user.id {
+      clearPendingAccountData(&home.authFlow)
+    }
+    home.authFlow.reconcileSignUpDraft(userID: profile.user.id)
+    if let ownerID = home.authFlow.pendingOwnerID, ownerID != profile.user.id {
+      clearPendingBookmark(&home.authFlow)
+    }
+    home.authFlow.profile = profile
+    home.authFlow.verifiedUserID = profile.user.id
+    home.authFlow.lastVerifiedUserID = profile.user.id
+    home.authFlow.hasSession = true
+    guard !profile.isEligible else {
+      return finishEligible(
+        state: &state,
+        home: &home
+      )
+    }
+    home.authFlow.presentation = .onboarding
+    home.authFlow.signUp.apply(
+      profileUserID: profile.user.id,
+      serverNickname: profile.user.nickname,
+      termsVersion: profile.currentTermsVersion
+    )
+    home.authFlow.message = home.authFlow.hasRetriedTermsUpdate
+      ? "변경된 약관을 확인하고 다시 동의해 주세요."
+      : nil
+    state = .home(home)
+    return .send(.scope(.home(.scopeAction(.festival(.reloadBookmarks(userID: nil))))))
+  }
+
+  private func handleProfileLoadFailure(
+    _ failure: ProfileFailure,
+    state: inout State,
+    home: inout MainTabCoordinator.State
+  ) -> Effect<Action> {
+    switch failure {
+    case .unauthenticated:
       let hadSession = home.authFlow.hasSession
       home.authFlow.verifiedUserID = nil
       home.authFlow.lastVerifiedUserID = nil
@@ -69,7 +96,7 @@ extension AppCoordinator {
       state = .home(home)
       return clear
 
-    case .failure(.offline):
+    case .offline:
       home.authFlow.profile = nil
       if let userID = home.authFlow.verifiedUserID,
          festivalLibraryUseCase.isOfflineBookingEligible(userID: userID),
@@ -91,7 +118,7 @@ extension AppCoordinator {
       state = .home(home)
       return .none
 
-    case .failure:
+    case .termsOutdated, .unavailable:
       home.authFlow.profile = nil
       home.authFlow.verifiedUserID = nil
       home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .retry
@@ -137,7 +164,22 @@ extension AppCoordinator {
       state = .home(home)
       return .none
 
-    case .failure(.termsOutdated):
+    case let .failure(failure):
+      return handleProfileUpdateFailure(
+        failure,
+        state: &state,
+        home: &home
+      )
+    }
+  }
+
+  private func handleProfileUpdateFailure(
+    _ failure: ProfileFailure,
+    state: inout State,
+    home: inout MainTabCoordinator.State
+  ) -> Effect<Action> {
+    switch failure {
+    case .termsOutdated:
       guard !home.authFlow.hasRetriedTermsUpdate else {
         home.authFlow.termsUpdateExhausted = true
         home.authFlow.signUp.clearRequiredTerms()
@@ -154,7 +196,7 @@ extension AppCoordinator {
       state = .home(home)
       return fetchProfile(generation: nextGeneration)
 
-    case .failure(.unauthenticated):
+    case .unauthenticated:
       home.authFlow.verifiedUserID = nil
       home.authFlow.lastVerifiedUserID = nil
       home.authFlow.hasSession = false
@@ -166,12 +208,12 @@ extension AppCoordinator {
       state = .home(home)
       return clear
 
-    case .failure(.offline):
+    case .offline:
       home.authFlow.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
       state = .home(home)
       return .none
 
-    case .failure(.unavailable):
+    case .unavailable:
       home.authFlow.message = "저장하지 못했어요. 다시 시도해 주세요."
       state = .home(home)
       return .none

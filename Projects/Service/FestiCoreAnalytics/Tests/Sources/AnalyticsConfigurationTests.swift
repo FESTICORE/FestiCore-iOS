@@ -30,8 +30,11 @@ struct AnalyticsConfigurationTests {
     ]) == nil)
     #expect(SentryConfiguration.options(infoDictionary: [
       "FestiCoreEnvironment": "stage",
-      "FestiCoreSentryDSN": "https://key@example.invalid/1"
-    ]) == .init(dsn: "https://key@example.invalid/1", environment: "stage"))
+      "FestiCoreSentryDSN": "key@example.invalid/1"
+    ]) == .init(
+      dsn: "https://key@example.invalid/1",
+      environment: "stage"
+    ))
     for invalidDSN in ["not-a-url", "http://key@example.invalid/1", "https://example.invalid/1", "https://key@example.invalid/no-project"] {
       #expect(SentryConfiguration.options(infoDictionary: [
         "FestiCoreEnvironment": "stage",
@@ -41,6 +44,16 @@ struct AnalyticsConfigurationTests {
     #expect(SentryConfiguration.options(infoDictionary: [
       "FestiCoreEnvironment": "production",
       "FestiCoreSentryDSN": "  https://key@example.invalid/1  "
-    ]) == .init(dsn: "https://key@example.invalid/1", environment: "production"))
+    ]) == .init(
+      dsn: "https://key@example.invalid/1",
+      environment: "production"
+    ))
+    #expect(SentryConfiguration.options(infoDictionary: [
+      "FestiCoreEnvironment": "production",
+      "FestiCoreSentryDSN": " key@example.invalid/1 "
+    ]) == .init(
+      dsn: "https://key@example.invalid/1",
+      environment: "production"
+    ))
   }
 }

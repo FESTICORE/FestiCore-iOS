@@ -7,25 +7,19 @@ import Testing
 
 struct HomeLiveActivityTests {
   @Test @MainActor
-  func upcomingPerformanceSchedulesActivityBeforeForegroundStartWindow() async {
+  func activePerformanceWithoutPersonalScheduleStartsImmediately() async {
     guard #available(
       iOS 26.0,
       *
     ) else { return }
-    let now = ISO8601DateFormatter().date(from: "2026-10-29T07:00:00Z")!
+    let now = ISO8601DateFormatter().date(from: "2026-10-29T10:30:00Z")!
     let start = ISO8601DateFormatter().date(from: "2026-10-29T09:00:00Z")!
     let end = ISO8601DateFormatter().date(from: "2026-10-30T09:00:00Z")!
     let performanceStart = ISO8601DateFormatter().date(from: "2026-10-29T10:00:00Z")!
-    let scheduledStart = ISO8601DateFormatter().date(from: "2026-10-29T08:00:00Z")!
     let scheduledStarts = LockIsolated<[Date?]>([])
     var state = FestivalFeature.State(selectedFestivalID: "festival")
     state.catalog = [festival(id: "festival")]
     state.selectedPack = savedPerformancePack()
-    state.hasSession = true
-    state.mySchedule = .init(
-      festivalID: "festival",
-      setIDs: ["saved-set"]
-    )
     state.liveActivity.isReady = true
     state.liveActivity.now = now
     state.hasStarted = true
@@ -36,12 +30,14 @@ struct HomeLiveActivityTests {
       $0.festivalLiveActivityClient = .init(
         activities: { [] },
         changes: { AsyncStream { $0.finish() } },
-        start: { _, _, _, _, _, date in
-          scheduledStarts.withValue { $0.append(date) }
+        start: { request in
+          scheduledStarts.withValue { $0.append(request.scheduledStart) }
           return "scheduled-activity"
         },
-        update: { _, _, _, _, _, _ in },
-        finish: { _, _ in },
+        update: { request in
+          #expect(request.savedSetIDs.isEmpty)
+        },
+        finish: { _ in },
         end: { _ in }
       )
     }
@@ -59,12 +55,12 @@ struct HomeLiveActivityTests {
       $0.liveActivity.activities["festival"] = .init(
         id: "scheduled-activity",
         festivalID: "festival",
-        phase: .upcoming,
+        phase: .ongoing,
         startDate: start,
         endDate: end
       )
     }
-    #expect(scheduledStarts.value == [scheduledStart])
+    #expect(scheduledStarts.value == [nil])
     await store.send(.view(.foregroundChanged(false))) {
       $0.isForeground = false
     }
@@ -97,13 +93,13 @@ struct HomeLiveActivityTests {
       $0.festivalLiveActivityClient = .init(
         activities: { [] },
         changes: { AsyncStream { $0.finish() } },
-        start: { _, _, _, _, _, scheduledStart in
-          #expect(scheduledStart == nil)
+        start: { request in
+          #expect(request.scheduledStart == nil)
           starts.withValue { $0 += 1 }
           return "automatic-activity"
         },
-        update: { _, _, _, _, _, _ in },
-        finish: { _, _ in },
+        update: { _ in },
+        finish: { _ in },
         end: { _ in }
       )
     }
@@ -251,9 +247,9 @@ struct HomeLiveActivityTests {
       $0.festivalLiveActivityClient = .init(
         activities: { [] },
         changes: { AsyncStream { $0.finish() } },
-        start: { _, _, _, _, _, _ in "activity" },
-        update: { _, _, _, _, _, _ in },
-        finish: { _, _ in },
+        start: { _ in "activity" },
+        update: { _ in },
+        finish: { _ in },
         end: { _ in }
       )
     }
@@ -354,14 +350,14 @@ struct HomeLiveActivityTests {
       $0.festivalLiveActivityClient = .init(
         activities: { [] },
         changes: { AsyncStream { $0.finish() } },
-        start: { _, _, _, _, _, _ in "unused" },
-        update: { id, phase, start, end, _, _ in
-          #expect(id == "activity-other")
-          #expect(phase == .ongoing)
-          #expect(start == startDate)
-          #expect(end == endDate)
+        start: { _ in "unused" },
+        update: { request in
+          #expect(request.activityID == "activity-other")
+          #expect(request.phase == .ongoing)
+          #expect(request.startDate == startDate)
+          #expect(request.endDate == endDate)
         },
-        finish: { _, _ in },
+        finish: { _ in },
         end: { _ in }
       )
     }
@@ -401,9 +397,9 @@ struct HomeLiveActivityTests {
       $0.festivalLiveActivityClient = .init(
         activities: { [] },
         changes: { AsyncStream { $0.finish() } },
-        start: { _, _, _, _, _, _ in "unused" },
-        update: { _, _, _, _, _, _ in },
-        finish: { _, _ in },
+        start: { _ in "unused" },
+        update: { _ in },
+        finish: { _ in },
         end: { _ in }
       )
     }
@@ -461,9 +457,9 @@ struct HomeLiveActivityTests {
       $0.festivalLiveActivityClient = .init(
         activities: { [] },
         changes: { AsyncStream { $0.finish() } },
-        start: { _, _, _, _, _, _ in "unused" },
-        update: { _, _, _, _, _, _ in },
-        finish: { id, _ in #expect(id == "ended-activity") },
+        start: { _ in "unused" },
+        update: { _ in },
+        finish: { request in #expect(request.activityID == "ended-activity") },
         end: { _ in }
       )
     }

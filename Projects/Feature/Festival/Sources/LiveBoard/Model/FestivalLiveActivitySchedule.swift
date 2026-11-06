@@ -24,6 +24,45 @@ struct FestivalLiveActivitySchedule: Equatable, Sendable {
       .min()
   }
 
+  /// 계정의 저장 여부와 관계없이 팩에 있는 다음 공연 시작 시각을 반환한다.
+  static func nextPerformanceStart(
+    pack: FestivalPackDocument?,
+    now: Date
+  ) -> Date? {
+    guard let pack else { return nil }
+    return pack.performances
+      .compactMap { $0.startsAt.flatMap(FestivalLiveBoardSchedule.parse) }
+      .filter { $0 > now }
+      .min()
+  }
+
+  /// 축제가 진행 중이면 현재 공연, 공연을 찾지 못하면 축제 시작 시각을 쓴다.
+  static func automaticStart(
+    festivalSchedule: Self,
+    pack: FestivalPackDocument?,
+    now: Date
+  ) -> Date {
+    guard festivalSchedule.phase == .ongoing else {
+      return nextPerformanceStart(
+        pack: pack,
+        now: now
+      ) ?? festivalSchedule.startDate
+    }
+    let currentPerformanceStart = pack?.performances
+      .compactMap { performance -> (start: Date, end: Date)? in
+        guard let start = performance.startsAt.flatMap(FestivalLiveBoardSchedule.parse),
+              let end = performance.endsAt.flatMap(FestivalLiveBoardSchedule.parse),
+              start <= now,
+              now < end else { return nil }
+        return (
+          start,
+          end
+        )
+      }
+      .min { $0.start < $1.start }?.start
+    return currentPerformanceStart ?? festivalSchedule.startDate
+  }
+
   static func resolve(
     festival: FestivalOverview,
     pack: FestivalPackDocument?,

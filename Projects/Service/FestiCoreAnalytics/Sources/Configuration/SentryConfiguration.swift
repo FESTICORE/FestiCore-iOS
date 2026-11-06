@@ -19,9 +19,9 @@ enum SentryConfiguration {
 
   /// DSN·환경은 xcconfig → Info.plist로 주입된 값을 읽는다. 둘 중 하나라도 유효하지 않으면 시작하지 않는다.
   static func options(infoDictionary: [String: Any]) -> Options? {
-    guard let dsn = (infoDictionary["FestiCoreSentryDSN"] as? String)?
-      .trimmingCharacters(in: .whitespacesAndNewlines), !dsn.isEmpty,
-      let components = URLComponents(string: dsn),
+    guard let configuredDSN = (infoDictionary["FestiCoreSentryDSN"] as? String)?
+      .trimmingCharacters(in: .whitespacesAndNewlines), !configuredDSN.isEmpty,
+      let components = URLComponents(string: normalizedDSN(configuredDSN)),
       components.scheme == "https", components.host != nil,
       components.user != nil,
       Int(components.path.dropFirst()) != nil,
@@ -30,8 +30,13 @@ enum SentryConfiguration {
       return nil
     }
     return Options(
-      dsn: dsn,
+      dsn: normalizedDSN(configuredDSN),
       environment: environment)
+  }
+
+  /// xcconfig에서는 `//`가 주석이 되므로 값은 `public-key@host/project-id` 형식으로 둔다.
+  private static func normalizedDSN(_ value: String) -> String {
+    return value.contains("://") ? value : "https://\(value)"
   }
 
   /// 가장 먼저 호출해 초기 크래시까지 포착한다.
@@ -65,6 +70,7 @@ enum SentryConfiguration {
 
       // 구조화 로그.
       options.enableLogs = true
+      options.enableMetrics = true
 
       // 성능 트레이싱 + 프로파일링(트레이싱에 종속).
       options.tracesSampleRate = 0.2

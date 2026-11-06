@@ -191,14 +191,14 @@ struct FestivalUseCaseTests {
           )]
         },
         changes: { AsyncStream { $0.finish() } },
-        start: { id, name, _, _, phase, scheduledStart in
+        start: { request in
           calls.withValue {
-            $0.append("start \(id) \(name) \(phase) scheduled=\(scheduledStart != nil)")
+            $0.append("start \(request.festivalID) \(request.festivalName) \(request.phase) scheduled=\(request.scheduledStart != nil)")
           }
           return "activity"
         },
-        update: { id, phase, _, _, _, _ in calls.withValue { $0.append("update \(id) \(phase)") } },
-        finish: { id, _ in calls.withValue { $0.append("finish \(id)") } },
+        update: { request in calls.withValue { $0.append("update \(request.activityID) \(request.phase)") } },
+        finish: { request in calls.withValue { $0.append("finish \(request.activityID)") } },
         end: { id in calls.withValue { $0.append("end \(id)") } }
       )
     } operation: {
@@ -207,23 +207,26 @@ struct FestivalUseCaseTests {
 
     #expect(await useCase.activities().map(\.id) == ["a"])
     #expect(
-      try await useCase.start(
+      try await useCase.start(FestivalLiveActivityStartRequest(
         festivalID: "fst",
         festivalName: "축제",
         startDate: start,
         endDate: end,
         phase: .upcoming,
         scheduledStart: start.addingTimeInterval(-7_200)
-      ) == "activity")
-    await useCase.update(
+      )) == "activity")
+    await useCase.update(FestivalLiveActivityUpdateRequest(
       activityID: "activity",
       phase: .ongoing,
       startDate: start,
       endDate: end,
       pack: nil,
       savedSetIDs: []
-    )
-    await useCase.finish(activityID: "activity", startDate: start)
+    ))
+    await useCase.finish(FestivalLiveActivityFinishRequest(
+      activityID: "activity",
+      startDate: start
+    ))
     await useCase.end(activityID: "activity")
     #expect(
       calls.value == [

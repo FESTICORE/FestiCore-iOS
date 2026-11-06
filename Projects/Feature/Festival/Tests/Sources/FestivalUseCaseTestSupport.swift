@@ -150,46 +150,16 @@ private struct ServiceBackedLiveActivityUseCase: FestivalLiveActivityUseCaseInte
 
   func activities() async -> [FestivalLiveActivityRecord] { await client.activities() }
   func activityChanges() -> AsyncStream<Void> { return client.changes() }
-  func start(
-    festivalID: String,
-    festivalName: String,
-    startDate: Date,
-    endDate: Date,
-    phase: FestivalLiveActivityPhase,
-    scheduledStart: Date?
-  ) async throws -> String {
-    return try await client.start(
-      festivalID,
-      festivalName,
-      startDate,
-      endDate,
-      phase,
-      scheduledStart
-    )
+  func start(_ request: FestivalLiveActivityStartRequest) async throws -> String {
+    return try await client.start(request)
   }
-  func update(
-    activityID: String,
-    phase: FestivalLiveActivityPhase,
-    startDate: Date,
-    endDate: Date,
-    pack: FestivalPackDocument?,
-    savedSetIDs: Set<String>
-  ) async {
-    await client.update(
-      activityID,
-      phase,
-      startDate,
-      endDate,
-      pack,
-      savedSetIDs
-    )
+  func update(_ request: FestivalLiveActivityUpdateRequest) async {
+    await client.update(request)
   }
   func finish(
-    activityID: String,
-    startDate: Date
-  ) async { await client.finish(
-    activityID,
-    startDate
-  ) }
+    _ request: FestivalLiveActivityFinishRequest
+  ) async {
+    await client.finish(request)
+  }
   func end(activityID: String) async { await client.end(activityID) }
 }

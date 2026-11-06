@@ -414,7 +414,7 @@ public struct FestivalFeature {
     case loadHomeDetails(String)
     case loadNotificationUnreadCount
     case markNotificationRead(String)
-    case startLiveActivity(festivalID: String, scheduledStart: Date? = nil)
+    case startLiveActivity(festivalID: String, scheduledStart: Date? = nil, performanceStart: Date? = nil)
     case endLiveActivity(festivalID: String, activityID: String)
     case expireToast
   }
@@ -1124,17 +1124,19 @@ extension FestivalFeature {
 
     case let .startLiveActivity(
       festivalID,
-      scheduledStart
+      scheduledStart,
+      requestedPerformanceStart
     ):
       guard let festival = state.festivals.first(where: { $0.id == festivalID }),
-            state.hasSession,
-            state.mySchedule?.festivalID == festivalID,
-            let setIDs = state.mySchedule?.setIDs,
-            let performanceStart = FestivalLiveActivitySchedule.nextSavedPerformanceStart(
-              pack: state.pack(for: festivalID),
-              setIDs: setIDs,
-              now: date.now
-            ),
+            let performanceStart = requestedPerformanceStart
+              ?? state.mySchedule.flatMap { schedule in
+                guard schedule.festivalID == festivalID else { return nil }
+                return FestivalLiveActivitySchedule.nextSavedPerformanceStart(
+                  pack: state.pack(for: festivalID),
+                  setIDs: schedule.setIDs,
+                  now: date.now
+                )
+              },
             scheduledStart.map({ $0 == performanceStart.addingTimeInterval(-7_200) && $0 > date.now })
               ?? (date.now >= performanceStart.addingTimeInterval(-7_200)),
             let schedule = FestivalLiveActivitySchedule.resolve(
@@ -1147,24 +1149,27 @@ extension FestivalFeature {
         return .none
       }
       let pack = state.pack(for: festivalID)
+      let setIDs = state.mySchedule?.festivalID == festivalID
+        ? state.mySchedule?.setIDs ?? []
+        : []
       return .run { send in
         do {
-          let id = try await liveActivityUseCase.start(
+          let id = try await liveActivityUseCase.start(FestivalLiveActivityStartRequest(
             festivalID: festival.id,
             festivalName: festival.name,
             startDate: schedule.startDate,
             endDate: schedule.endDate,
             phase: schedule.phase,
             scheduledStart: scheduledStart
-          )
-          await liveActivityUseCase.update(
+          ))
+          await liveActivityUseCase.update(FestivalLiveActivityUpdateRequest(
             activityID: id,
             phase: schedule.phase,
             startDate: schedule.startDate,
             endDate: schedule.endDate,
             pack: pack,
             savedSetIDs: setIDs
-          )
+          ))
           await send(.inner(.liveActivityStarted(.init(
             id: id,
             festivalID: festival.id,
@@ -1603,18 +1608,22 @@ extension FestivalFeature {
       performanceStart,
       scheduledStart
     ):
-      guard state.isForeground, state.liveActivity.isReady, state.hasSession,
+      guard state.isForeground, state.liveActivity.isReady,
             state.selectedFestivalID == festivalID,
-            state.mySchedule?.festivalID == festivalID,
             state.liveActivity.activities[festivalID] == nil,
             state.liveActivity.busyFestivalID == nil,
             state.autoActivityHandledStarts[festivalID] != performanceStart,
-            let setIDs = state.mySchedule?.setIDs,
-            let nextStart = FestivalLiveActivitySchedule.nextSavedPerformanceStart(
+            let festival = state.festivals.first(where: { $0.id == festivalID }),
+            let festivalSchedule = FestivalLiveActivitySchedule.resolve(
+              festival: festival,
               pack: state.pack(for: festivalID),
-              setIDs: setIDs,
               now: date.now
-            ), nextStart == performanceStart,
+            ),
+            FestivalLiveActivitySchedule.automaticStart(
+              festivalSchedule: festivalSchedule,
+              pack: state.pack(for: festivalID),
+              now: date.now
+            ) == performanceStart,
             scheduledStart.map({ $0 == performanceStart.addingTimeInterval(-7_200) && $0 > date.now })
               ?? (date.now >= performanceStart.addingTimeInterval(-7_200)) else { return .none }
       state.autoActivityHandledStarts[festivalID] = performanceStart
@@ -1622,7 +1631,8 @@ extension FestivalFeature {
       state.liveActivity.revision += 1
       return .send(.async(.startLiveActivity(
         festivalID: festivalID,
-        scheduledStart: scheduledStart
+        scheduledStart: scheduledStart,
+        performanceStart: performanceStart
       )))
 
     case .liveActivityBoundary:
@@ -1735,10 +1745,10 @@ extension FestivalFeature {
             ) else { return nil }
       if schedule.phase == .finished {
         return .run { send in
-          await liveActivityUseCase.finish(
+          await liveActivityUseCase.finish(FestivalLiveActivityFinishRequest(
             activityID: activity.id,
             startDate: schedule.startDate
-          )
+          ))
           await send(.inner(.liveActivityStopped(
             activity.festivalID,
             activity.id
@@ -1756,14 +1766,14 @@ extension FestivalFeature {
         || schedule.endDate != activity.endDate
       guard scheduleChanged || (activity.festivalID == state.selectedFestivalID && pack != nil) else { return nil }
       return .run { send in
-        await liveActivityUseCase.update(
+        await liveActivityUseCase.update(FestivalLiveActivityUpdateRequest(
           activityID: activity.id,
           phase: schedule.phase,
           startDate: schedule.startDate,
           endDate: schedule.endDate,
           pack: pack,
           savedSetIDs: savedSetIDs
-        )
+        ))
         if scheduleChanged {
           await send(.inner(.liveActivityUpdated(.init(
             id: activity.id,
@@ -1779,18 +1789,28 @@ extension FestivalFeature {
         cancelInFlight: true
       )
     }
+    let automaticStartDate: Date?
+    if let id = state.selectedFestivalID,
+       let festival = state.festivals.first(where: { $0.id == id }),
+       let festivalSchedule = FestivalLiveActivitySchedule.resolve(
+         festival: festival,
+         pack: state.pack(for: id),
+         now: now
+       ), festivalSchedule.canStart {
+      automaticStartDate = FestivalLiveActivitySchedule.automaticStart(
+        festivalSchedule: festivalSchedule,
+        pack: state.pack(for: id),
+        now: now
+      )
+    } else {
+      automaticStartDate = nil
+    }
+
     let automaticStart: Effect<Action>
     if let id = state.selectedFestivalID,
-       state.hasSession,
-       state.mySchedule?.festivalID == id,
+       let start = automaticStartDate,
        state.liveActivity.activities[id] == nil,
        state.liveActivity.busyFestivalID == nil,
-       let setIDs = state.mySchedule?.setIDs,
-       let start = FestivalLiveActivitySchedule.nextSavedPerformanceStart(
-         pack: state.pack(for: id),
-         setIDs: setIDs,
-         now: now
-       ),
        state.autoActivityHandledStarts[id] != start {
       let eligibility = start.addingTimeInterval(-7_200)
       let scheduledStart: Date?
@@ -1834,13 +1854,10 @@ extension FestivalFeature {
       }
       .min()
     let performanceBoundary = state.selectedFestivalID.flatMap { id in
-      state.mySchedule.flatMap { schedule in
-        FestivalLiveActivitySchedule.nextSavedPerformanceStart(
-          pack: state.pack(for: id),
-          setIDs: schedule.setIDs,
-          now: state.liveActivity.now
-        )
-      }
+      FestivalLiveActivitySchedule.nextPerformanceStart(
+        pack: state.pack(for: id),
+        now: state.liveActivity.now
+      )
     }.map { start in
       let eligibility = start.addingTimeInterval(-7_200)
       return eligibility > state.liveActivity.now ? eligibility : start

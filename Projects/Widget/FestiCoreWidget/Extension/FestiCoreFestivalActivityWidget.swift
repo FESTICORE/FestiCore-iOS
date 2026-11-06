@@ -182,7 +182,7 @@ private extension FestiCoreFestivalActivityWidget {
         alignment: .leading,
         spacing: FestiCoreSpacing.marginM2
       ) {
-        Text("다음 내 일정")
+        Text(nextPanelTitle(for: state))
           .font(.pretendardFontFamily(
             family: .Medium,
             size: 10
@@ -231,7 +231,7 @@ private extension FestiCoreFestivalActivityWidget {
         .foregroundStyle(FestiCoreSemanticColor.staticWhite.color)
         .lineLimit(1)
     } else {
-      Text(state.phase == .finished ? "축제가 종료됐어요" : "저장한 공연이 없어요")
+      Text(currentPerformanceDescription(for: state) ?? (state.phase == .finished ? "축제가 종료됐어요" : "예정된 공연이 없어요"))
         .font(.pretendardFontFamily(
           family: .Bold,
           size: 13
@@ -239,6 +239,24 @@ private extension FestiCoreFestivalActivityWidget {
         .foregroundStyle(FestiCoreSemanticColor.staticWhite.color)
         .lineLimit(1)
     }
+  }
+
+  func nextPanelTitle(
+    for state: FestiCoreFestivalActivityAttributes.ContentState
+  ) -> String {
+    guard let next = state.nextMine else {
+      return state.nowStages.isEmpty ? "다음 공연" : "현재 공연"
+    }
+    return next.isSaved == false ? "다음 공연" : "다음 내 일정"
+  }
+
+  func currentPerformanceDescription(
+    for state: FestiCoreFestivalActivityAttributes.ContentState
+  ) -> String? {
+    guard let current = state.nowStages.first else { return nil }
+    return [current.artist, current.stageName, performanceDate(current.startsAt)?.formatted(.time)]
+      .compactMap { $0 }
+      .joined(separator: " · ")
   }
 
   func headline(

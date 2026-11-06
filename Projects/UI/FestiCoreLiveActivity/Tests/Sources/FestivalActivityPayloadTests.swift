@@ -46,6 +46,33 @@ struct FestivalActivityPayloadTests {
     #expect(content.nextMine?.setId == "next")
     #expect(content.nextMine?.stageId == "C")
     #expect(content.nextMine?.stageName == "셋째 무대")
+    #expect(content.nextMine?.isSaved == true)
+  }
+
+  @Test func localPackShowsNextFestivalPerformanceWhenNothingIsSaved() throws {
+    let pack = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: Data(#"""
+      {
+        "id":"festival",
+        "sets":[
+          {"id":"current","artist":"현재 공연","startsAt":"2026-11-07T08:00:00Z","endsAt":"2026-11-07T10:00:00Z"},
+          {"id":"next","artist":"다음 공연","startsAt":"2026-11-07T11:00:00Z","endsAt":"2026-11-07T12:00:00Z"}
+        ]
+      }
+      """#.utf8)
+    )
+    let now = try #require(ISO8601DateFormatter().date(from: "2026-11-07T09:00:00Z"))
+
+    let content = FestivalActivityPresentation.from(
+      pack: pack,
+      savedSetIDs: [],
+      now: now
+    )
+
+    #expect(content.nextMine?.setId == "next")
+    #expect(content.nextMine?.artist == "다음 공연")
+    #expect(content.nextMine?.isSaved == false)
   }
 
   @Test func pushToStartStateDecodesOwnSetAndStage() throws {
