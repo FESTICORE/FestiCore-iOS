@@ -7,6 +7,7 @@
 
 import Foundation
 import FestiCoreAnalytics
+import FestiCoreAnalyticsInterface
 import FestiCoreConfig
 import FestiCoreDesignKit
 
@@ -16,6 +17,12 @@ extension AppDelegate {
     FirebaseConfiguration.configure()
     FestiCoreAnalyticsConfiguration.configure()
     analyticsUseCase.registerBaseProperties()
+    analyticsUseCase.track(
+      .screenView(
+        screen: .splash,
+        referrer: nil
+      )
+    )
     configureDeviceRegistration()
   }
 
