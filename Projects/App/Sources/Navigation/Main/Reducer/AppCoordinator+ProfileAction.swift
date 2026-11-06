@@ -5,6 +5,7 @@
 
 import AuthDomainInterface
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 
 extension AppCoordinator {
@@ -63,6 +64,12 @@ extension AppCoordinator {
       )
     }
     home.authFlow.presentation = .onboarding
+    analyticsUseCase.track(
+      .screenView(
+        screen: .signUp,
+        referrer: .login
+      )
+    )
     home.authFlow.signUp.apply(
       profileUserID: profile.user.id,
       serverNickname: profile.user.nickname,
@@ -155,6 +162,12 @@ extension AppCoordinator {
       )
       home.authFlow.profile = profile
       if profile.isEligible {
+        analyticsUseCase.track(
+          .uiAction(
+            action: .signUpCompleted,
+            screen: .signUp
+          )
+        )
         return finishEligible(
           state: &state,
           home: &home

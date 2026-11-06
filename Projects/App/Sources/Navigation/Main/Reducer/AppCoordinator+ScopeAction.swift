@@ -62,6 +62,12 @@ extension AppCoordinator {
       return fetchProfile(generation: generation)
 
     case let .home(.scopeAction(.signUp(.delegate(.submitRequested(submission))))):
+      analyticsUseCase.track(
+        .uiAction(
+          action: .signUpSubmit,
+          screen: .signUp
+        )
+      )
       guard case var .home(home) = state,
             home.authFlow.presentation == .onboarding,
             let profile = home.authFlow.profile,
@@ -141,6 +147,30 @@ extension AppCoordinator {
         )
       )
       return .none
+
+    case let .home(.scopeAction(.profileCoordinator(.router(.routeAction(
+      id: 1,
+      action: .packDetail(.view(action))
+    ))))):
+      return trackPackDetailAction(action)
+
+    case .home(.scopeAction(.profileCoordinator(.router(.routeAction(
+      id: 1,
+      action: .account(.view(.nicknameTapped))
+    ))))):
+      return trackUIAction(
+        .profileNicknameEdit,
+        screen: .profile
+      )
+
+    case .home(.scopeAction(.profileCoordinator(.router(.routeAction(
+      id: 1,
+      action: .account(.destination(.presented(.nickname(.view(.saveTapped)))))
+    ))))):
+      return trackUIAction(
+        .profileNicknameSave,
+        screen: .profile
+      )
 
     case .home(.scopeAction(.signUp(.delegate(.closeRequested)))):
       return handleViewAction(
@@ -260,6 +290,101 @@ extension AppCoordinator {
     default:
       return .none
     }
+  }
+
+  private func trackPackDetailAction(
+    _ action: PackDetailFeature.View
+  ) -> Effect<Action> {
+    switch action {
+    case .onAppear:
+      analyticsUseCase.track(
+        .screenView(
+          screen: .packDetail,
+          referrer: .profile
+        )
+      )
+    case .tabSelected(.directions):
+      return trackUIAction(
+        .packDirectionsTab,
+        screen: .packDetail
+      )
+    case .tabSelected(.checklist):
+      return trackUIAction(
+        .packChecklistTab,
+        screen: .packDetail
+      )
+    case .tabSelected(.manage):
+      return trackUIAction(
+        .packManageTab,
+        screen: .packDetail
+      )
+    case .linkTapped:
+      return trackUIAction(
+        .packLinkOpen,
+        screen: .packDetail
+      )
+    case .retryTapped:
+      return trackUIAction(
+        .packRetry,
+        screen: .packDetail
+      )
+    case .itemToggled:
+      return trackUIAction(
+        .packChecklistToggle,
+        screen: .packDetail
+      )
+    case .editTapped:
+      return trackUIAction(
+        .packChecklistEdit,
+        screen: .packDetail
+      )
+    case .editDoneTapped:
+      return trackUIAction(
+        .packChecklistEditDone,
+        screen: .packDetail
+      )
+    case .itemRemoved:
+      return trackUIAction(
+        .packChecklistItemRemove,
+        screen: .packDetail
+      )
+    case .addItemTapped:
+      return trackUIAction(
+        .packChecklistItemAdd,
+        screen: .packDetail
+      )
+    case .updateTapped, .checkUpdateTapped:
+      return trackUIAction(
+        .packUpdate,
+        screen: .packDetail
+      )
+    case .autoDownloadToggled:
+      return trackUIAction(
+        .packAutoDownloadToggle,
+        screen: .packDetail
+      )
+    case .deleteTapped:
+      return trackUIAction(
+        .packDelete,
+        screen: .packDetail
+      )
+    case .backTapped:
+      return .none
+    }
+    return .none
+  }
+
+  private func trackUIAction(
+    _ action: AnalyticsButton,
+    screen: AnalyticsScreen
+  ) -> Effect<Action> {
+    analyticsUseCase.track(
+      .uiAction(
+        action: action,
+        screen: screen
+      )
+    )
+    return .none
   }
 
   func myAccountOperation(

@@ -16,5 +16,6 @@ public enum AnalyticsScreen: String, Sendable, CaseIterable {
   case liveBoard = "live_board"
   case timetable
   case profile
+  case packDetail = "pack_detail"
   case web
 }
