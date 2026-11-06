@@ -126,6 +126,13 @@ struct FestivalCrewCreateFeatureTests {
 }
 
 private struct CrewCreateStub: FestivalCrewUseCaseInterface {
+  func gather(
+    crewID: String,
+    zoneID: String
+  ) async throws {
+    throw FestivalCrewError.unavailable
+  }
+
   let result: Result<FestivalCrew, FestivalCrewError>
   let recorder: CrewCreateCallRecorder?
 

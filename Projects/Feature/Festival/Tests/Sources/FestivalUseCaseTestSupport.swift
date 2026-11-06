@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import FestiCorePackInterface
+import FestivalDomain
 import FestivalDomainInterface
 import Foundation
 import UserNotificationDomainInterface

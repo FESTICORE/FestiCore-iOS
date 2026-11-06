@@ -265,7 +265,6 @@ struct FestivalListPresentationTests {
         now: utc("2026-11-01T03:00:00Z")
       )
     }
-    let endedCopy = FestivalListPresentation.PackCopy.ready("팩 받기")
     #expect(copy(festival(
       id: "end",
       firstDate: "2026-10-01"

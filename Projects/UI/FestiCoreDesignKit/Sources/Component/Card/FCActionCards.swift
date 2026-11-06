@@ -161,12 +161,30 @@ public struct FCHomeCard: View {
         Text(train)
       }
       .festiCoreFont(.baseCalloutMedium)
-      FCCardActionRow(actions: actions)
+      FCCardActionRow(actions: cardActions)
     }
-    .foregroundStyle(FestiCoreSemanticColor.staticWhite.color)
+    .foregroundStyle(FestiCoreSemanticColor.staticInk.color)
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(FestiCoreSpacing.paddingP20)
-    .background(FestiCoreSemanticColor.staticInk.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
+    .background(
+      FestiCoreSemanticColor.staticWhite.color,
+      in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
+    )
+  }
+}
+
+private extension FCHomeCard {
+  var cardActions: [FCCardAction] {
+    return actions.map { item in
+      var action = item
+      switch item.style {
+      case .secondary, .ghost, .inkOutline:
+        action.style = .inkOutline
+      case .primary, .accent, .inverse, .ink:
+        action.style = .ink
+      }
+      return action
+    }
   }
 }
 

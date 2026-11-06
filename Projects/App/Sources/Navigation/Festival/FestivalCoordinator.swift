@@ -50,6 +50,7 @@ struct FestivalCoordinator {
     case widgetPackLookupToastExpired(Int)
     case foregrounded
     case backgrounded
+    case remoteContentChanged
     case accountChanged
     case sessionChanged(hasSession: Bool, userID: String?)
     case myScheduleSaved(festivalID: String, setIDs: Set<String>)
@@ -315,6 +316,21 @@ struct FestivalCoordinator {
           )))
         }
       }
+
+    case .remoteContentChanged:
+      guard let target = state.routes.lastIndex(where: {
+        $0.screen.is(\.festivalList) || $0.screen.is(\.liveBoard)
+      }) else { return .none }
+      let action: FestivalScreen.Action
+      if state.routes[target].screen.is(\.festivalList) {
+        action = .festivalList(.view(.remoteContentChanged))
+      } else {
+        action = .liveBoard(.view(.remoteContentChanged))
+      }
+      return .send(.router(.routeAction(
+        id: target,
+        action: action
+      )))
 
     case .backgrounded:
       return broadcast(state, .view(.backgrounded))

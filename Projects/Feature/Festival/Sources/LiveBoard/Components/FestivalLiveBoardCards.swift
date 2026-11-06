@@ -5,6 +5,9 @@ import SwiftUI
 /// 내 크루 카드. 멤버 행은 `FCCrewRow`와 같은 구성이며 구역이 없으면 칩을 그리지 않는다.
 struct FestivalLiveBoardCrewCard: View {
   let crew: FestivalLiveBoardPresentation.Crew
+  let showsGather: Bool
+  let canGather: Bool
+  let onGather: () -> Void
 
   var body: some View {
     VStack(spacing: .zero) {
@@ -18,10 +21,26 @@ struct FestivalLiveBoardCrewCard: View {
       }
       .lineLimit(1)
       .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(
+        .trailing,
+        showsGather ? 76 : 0
+      )
       .padding(EdgeInsets(
         top: FestiCoreSpacing.paddingP16, leading: FestiCoreSpacing.paddingP16,
         bottom: FestiCoreSpacing.paddingP8, trailing: FestiCoreSpacing.paddingP16
       ))
+      .overlay(alignment: .topTrailing) {
+        if showsGather {
+          FCButton(
+            "모여!",
+            action: onGather
+          )
+            .style(.inverse)
+            .size(.medium)
+            .isEnabled(canGather)
+            .padding(FestiCoreSpacing.paddingP16)
+        }
+      }
       ForEach(Array(crew.members.enumerated()), id: \.element.id) { index, member in
         memberRow(member, tint: Self.tints[index % Self.tints.count])
       }
@@ -95,6 +114,10 @@ struct FestivalLiveBoardFlagTile: View {
           .frame(maxWidth: .infinity, alignment: .leading)
         if let status = flag.status {
           FCStatusChip(status.chip)
+            .fixedSize(
+              horizontal: true,
+              vertical: false
+            )
         }
       }
       if let zone = flag.zone {

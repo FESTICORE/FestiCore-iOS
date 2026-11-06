@@ -15,13 +15,13 @@ public struct NotificationInboxView: View {
 
   public var body: some View {
     VStack(spacing: .zero) {
-      topBar
+      topBar()
       TimelineView(.periodic(from: .now, by: 60)) { _ in
         content(now: date.now)
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .background(FestiCoreSemanticColor.backgroundNormal.color)
+    .background(FestiCoreSemanticColor.backgroundElevated.color)
     .toolbar(.hidden, for: .navigationBar)
     .safeAreaInset(edge: .bottom, spacing: .zero) {
       if store.isEditing { selectionBar }
@@ -35,35 +35,35 @@ public struct NotificationInboxView: View {
 
 private extension NotificationInboxView {
   @ViewBuilder
-  var topBar: some View {
+  func topBar() -> some View {
     if store.isEditing {
-      HStack {
-        Text("\(store.selectedIDs.count)개 선택")
-          .festiCoreFont(.baseBodyBold)
-          .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-        Spacer()
-        Button { send(.cancelSelectionTapped) } label: {
-          Image(asset: .xmark16)
-            .resizable()
-            .frame(width: 20, height: 20)
-            .frame(width: 44, height: 44)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("선택 취소")
-      }
-      .padding(.leading, FestiCoreSpacing.paddingP16)
-      .padding(.trailing, FestiCoreSpacing.paddingP8)
-      .frame(height: 52)
-      .background(FestiCoreSemanticColor.backgroundElevated.color)
+      FCTopBar(
+        .back,
+        title: "\(store.selectedIDs.count)개 선택"
+      )
+        .backgroundColor(.backgroundNormal)
+        .onBack { send(.backTapped) }
+        .trailingAction(
+          icon: .xmark16,
+          accessibilityLabel: "선택 취소"
+        ) { send(.cancelSelectionTapped) }
     } else {
       if store.load == .loaded, !store.items.isEmpty {
-        FCTopBar(.back, title: "알림")
+        FCTopBar(
+          .back,
+          title: "알림"
+        )
+          .backgroundColor(.backgroundNormal)
           .onBack { send(.backTapped) }
           .trailingAction(icon: .trashCan20, accessibilityLabel: "알림 선택 삭제") {
             send(.editTapped)
           }
       } else {
-        FCTopBar(.back, title: "알림")
+        FCTopBar(
+          .back,
+          title: "알림"
+        )
+          .backgroundColor(.backgroundNormal)
           .onBack { send(.backTapped) }
       }
     }
@@ -181,7 +181,13 @@ private extension NotificationInboxView {
         .isEnabled(!store.selectedIDs.isEmpty && !store.isDeleting)
     }
     .padding(.horizontal, FestiCoreSpacing.paddingP16)
-    .padding(.vertical, FestiCoreSpacing.paddingP12)
-    .background(FestiCoreSemanticColor.backgroundNormal.color)
+    .padding(
+      .vertical,
+      FestiCoreSpacing.paddingP16
+    )
+    .overlay(alignment: .top) {
+      FestiCoreSemanticColor.lineNormal.color.frame(height: 1)
+    }
+    .background(FestiCoreSemanticColor.backgroundElevated.color)
   }
 }

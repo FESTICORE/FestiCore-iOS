@@ -63,6 +63,33 @@ struct WidgetSnapshotCoordinatorTests {
     #expect(saved.performances.first?.isSaved == false)
   }
 
+  @Test("내 일정 변경은 공유 위젯 스냅샷을 즉시 다시 저장한다")
+  func savedScheduleRefreshesWidgetSnapshot() async throws {
+    let saves = LockIsolated<[FestivalWidgetSnapshot?]>([])
+    let home = try homeWithTwoFestivals()
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.date = .constant(Date(timeIntervalSince1970: 3_000))
+      $0.festivalWidgetClient = FestivalWidgetClient(save: { snapshot in
+        saves.withValue { $0.append(snapshot) }
+      })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.festival(.myScheduleSaved(
+      festivalID: "board",
+      setIDs: []
+    )))))
+    await store.finish()
+
+    let snapshot = try #require(saves.value.last ?? nil)
+    #expect(snapshot.festivalID == "board")
+    #expect(snapshot.updatedAt == Date(timeIntervalSince1970: 3_000))
+    #expect(snapshot.performances.first?.isSaved == false)
+  }
+
   @Test("상위 세션이 없으면 자식에 이전 일정이 남아 있어도 공개 팩만 공유한다")
   func anonymousWidgetKeepsPackWithoutSavedSchedule() throws {
     var home = try homeWithTwoFestivals()

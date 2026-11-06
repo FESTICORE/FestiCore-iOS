@@ -11,11 +11,13 @@ import FeatureAssembly
 import FestivalDomainInterface
 import FestiCoreDesignKit
 import Foundation
+import FestiCoreUtility
 
 @Reducer
 struct MainTabCoordinator {
   typealias Tab = FCTabBar.Tab
   @Dependency(\.festivalBookedStore) private var bookedStore
+  @Dependency(\.date.now) private var now
   private let legalBaseURL: URL?
 
   init(legalBaseURL: URL? = AppCoordinatorView.legalBaseURL(
@@ -41,7 +43,7 @@ struct MainTabCoordinator {
 
     /// 모달이 열려도 기존 탭바 공간은 유지해 뒤 화면이 이동하지 않게 한다.
     var shouldReserveTabBarSpace: Bool {
-      if selectedTab == .timetable, timetableState.destination?.schedulePick != nil {
+      if selectedTab == .timetable, timetableState.destination?.schedulePick != nil || timetableCoordinatorState.setList != nil {
         return false
       }
       if selectedTab == .my, profileState.hidesTabBarForProfileRoute {
@@ -60,14 +62,14 @@ struct MainTabCoordinator {
       case .live:
         return festivalState.routes.count == 1 || isNotificationInboxOnTop
           || festivalState.routes.last?.screen.liveBoard?.alert != nil
+          || festivalState.routes.last?.screen.liveBoard?.festivalSwitcher != nil
       case .timetable:
-        return timetableState.destination?.schedulePick != nil || timetableState.setDetail != nil
+        return timetableState.destination?.schedulePick != nil || timetableState.setDetail != nil || timetableCoordinatorState.setList != nil
       case .my:
         // 마이의 설정·정보 화면은 탭바 없이 표시한다.
         return profileState.destination?.alert != nil
           || profileState.hidesTabBarForProfileRoute
           || profileState.destination?.account?.destination != nil
-          || profileState.destination?.packDetail?.destination != nil
       case .flag:
         return false
       }
@@ -216,6 +218,13 @@ struct MainTabCoordinator {
 
       case let .timetable(action):
         return .send(.timetableCoordinator(.timetable(action)))
+
+      case .timetableCoordinator(.delegate(.retry)):
+        guard let index = state.festivalState.routes.lastIndex(where: { $0.screen.is(\.liveBoard) }) else { return .none }
+        return .send(.festival(.router(.routeAction(
+          id: index,
+          action: .liveBoard(.view(.onlineDetailOnAppear))
+        ))))
 
       case .timetableCoordinator:
         return .none
@@ -371,30 +380,55 @@ struct MainTabCoordinator {
     state: inout State,
     appearing: Bool
   ) -> Effect<Action> {
-    var selected: (festivalID: String?, pack: FestivalPackDocument, source: String, imageURL: (String?) -> URL?)?
-    if let screen = state.festivalState.routes.last(where: {
-      !$0.screen.is(\.bearerBoard) && !$0.screen.is(\.notificationInbox)
-    })?.screen,
-       case let .liveBoard(home) = screen,
-       let pack = home.displayDocument {
-      selected = (
-        home.selectedFestivalID,
-        pack,
-        home.onlineDetail == nil ? "저장된 축제 팩" : "온라인 축제 정보",
-        home.imageURL(for:)
+    let home = state.festivalState.routes.last(where: { $0.screen.is(\.liveBoard) })?.screen.liveBoard
+    let festivalID = home?.selectedFestivalID
+    let pack = home?.displayDocument.flatMap { $0.id == festivalID ? $0 : nil }
+    let sameFestival = festivalID == state.timetableState.festivalID
+    let previousDays = sameFestival ? state.timetableState.days : []
+    let days = pack.map {
+      FestivalPackTimetableMapper.days(
+        from: $0,
+        previousDays: previousDays,
+        imageURL: { home?.imageURL(for: $0) }
       )
-    }
-    let days = selected.map { FestivalPackTimetableMapper.days(from: $0.pack, imageURL: $0.imageURL) } ?? []
+    } ?? []
     let daysChanged = state.timetableState.days != days
-    if daysChanged {
-      let selectedID = state.timetableState.selectedDay?.id
-      state.timetableState.days = days
-      state.timetableState.selectedDayIndex = days.firstIndex { $0.id == selectedID } ?? 0
-      state.timetableState.source = selected?.source ?? ""
+    let selectedDayID = state.timetableState.selectedDay?.id
+    state.timetableState.days = days
+    state.timetableState.selectedDayIndex = days.firstIndex { $0.id == selectedDayID } ?? 0
+    state.timetableState.lineup = pack.map(FestivalPackTimetableMapper.lineup) ?? []
+    state.timetableState.source = FestivalPackTimetableMapper.source(pack?.source)
+    if festivalID == nil {
+      state.timetableState.contentStatus = .noFestival
+    } else if let pack {
+      state.timetableState.contentStatus = pack.performances.isEmpty ? .unpublished : .published
+    } else if home?.onlineDetailLoading == true || (home?.connection == .loading && home?.onlineDetailFailed != true && home?.packWatchFailed != true) {
+      state.timetableState.contentStatus = .loading
+    } else {
+      state.timetableState.contentStatus = .failed
     }
-
-    let festivalID = selected?.festivalID
-    if festivalID != state.timetableState.festivalID {
+    state.timetableState.offlineMessage = nil
+    if home?.connection == .offline, pack != nil {
+      if let id = festivalID, let checkedAt = home?.cachedPacks[id]?.checkedAt {
+        let minutes = max(
+          0,
+          Int(now.timeIntervalSince(checkedAt) / 60)
+        )
+        state.timetableState.offlineMessage = minutes == 0 ? "오프라인 · 방금 확인한 정보" : "오프라인 · \(minutes)분 전 정보"
+      } else {
+        state.timetableState.offlineMessage = "오프라인 · 저장된 정보"
+      }
+    }
+    if let list = state.timetableCoordinatorState.setList {
+      state.timetableCoordinatorState.setList = sameFestival
+        ? TimetableSetListFeature.State(
+          mode: list.mode,
+          days: days,
+          query: list.query
+        )
+        : nil
+    }
+    if !sameFestival {
       return .send(.timetable(.view(.festivalChanged(festivalID))))
     }
     guard daysChanged || appearing else { return .none }

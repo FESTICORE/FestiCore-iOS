@@ -76,6 +76,49 @@ struct FestivalCrewRepositoryTests {
     }
   }
 
+  @Test func gatherUsesSessionAndOfficialZone() async throws {
+    let client = CrewRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"zoneId":"zone_a"}}"#)
+    let repository = makeRepository(
+      client: client,
+      sessionID: sessionID
+    )
+    try await repository.gather(
+      crewID: "crew_a",
+      zoneID: "zone_a"
+    )
+    let sent = try #require(await client.sent)
+    #expect(sent.path == "api/v1/crews/crew_a/gather")
+    #expect(sent.method == "POST")
+    #expect(sent.authorization == .sessionBound(sessionID))
+    let body = try #require(sent.body)
+    #expect(try JSONSerialization.jsonObject(with: body) as? [String: String] == ["zoneId": "zone_a"])
+  }
+
+  @Test(arguments: [
+    (403, FestivalCrewError.forbidden),
+    (410, FestivalCrewError.festivalEnded),
+    (429, FestivalCrewError.cooldown)
+  ])
+  func gatherMapsRejection(
+    status: Int,
+    expected: FestivalCrewError
+  ) async {
+    let client = CrewRecordingClient(error: .response(.init(
+      httpStatus: status,
+      code: "REJECTED"
+    )))
+    let repository = makeRepository(
+      client: client,
+      sessionID: sessionID
+    )
+    await #expect(throws: expected) {
+      try await repository.gather(
+        crewID: "crew_a",
+        zoneID: "zone_a"
+      )
+    }
+  }
+
   private func makeRepository(
     client: CrewRecordingClient,
     sessionID: UUID?

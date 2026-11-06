@@ -18,6 +18,9 @@ struct TimetableCoordinatorView: View {
             .hidden,
             for: .navigationBar
           )
+      case .setList(let listStore):
+        TimetableSetListView(store: listStore)
+          .swipeBackButtonHidden()
       case .schedulePick(let pickStore):
         SchedulePickView(store: pickStore)
           .swipeBackButtonHidden()

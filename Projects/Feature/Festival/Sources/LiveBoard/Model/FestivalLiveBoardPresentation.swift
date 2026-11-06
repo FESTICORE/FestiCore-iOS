@@ -201,6 +201,28 @@ extension FestivalLiveBoardPresentation {
     return .live
   }
 
+  static func switcherSubtitle(
+    pack: FestivalPackDocument?,
+    festival: FestivalOverview,
+    now: Date
+  ) -> String {
+    if let day = selectedDay(
+      pack: pack,
+      festival: festival,
+      now: now
+    ),
+       day.date.date(as: .day) == AppDateFormat.calendar.startOfDay(for: now),
+       let start = day.startsAt, let end = day.endsAt {
+      let status = now < start ? "시작 전" : (now < end ? "진행 중" : "종료")
+      return "오늘 · DAY \(day.index + 1) \(status)"
+    }
+    return [FestivalListPresentation.searchBadge(
+      for: festival,
+      now: now
+    ), festival.venue]
+      .compactMap { $0 }.joined(separator: " · ")
+  }
+
   /// `DAY n · M/d(E) · HH:mm–HH:mm`. 오늘 날짜가 없으면 첫날을 쓴다.
   static func dayLine(
     pack: FestivalPackDocument?,
@@ -218,6 +240,24 @@ extension FestivalLiveBoardPresentation {
       parts.append("\(start.formatted(.time))–\(end.formatted(.time))")
     }
     return parts.joined(separator: " · ")
+  }
+
+  /// 종료 요약은 축제 이름과 회차·운영 시간만 표시한다.
+  static func doneSubtitle(
+    pack: FestivalPackDocument?,
+    festival: FestivalOverview,
+    now: Date
+  ) -> String {
+    guard let day = selectedDay(
+      pack: pack,
+      festival: festival,
+      now: now
+    ) else { return festival.name }
+    var text = "\(festival.name) DAY \(day.index + 1)"
+    if let start = day.startsAt, let end = day.endsAt {
+      text += " · \(start.formatted(.time))–\(end.formatted(.time))"
+    }
+    return text
   }
 
   /// 오늘 개장 전이면 카운트다운을 돌려준다.
@@ -345,7 +385,8 @@ extension FestivalLiveBoardPresentation {
     _ crew: FestivalLiveBoardSnapshot.Crew,
     sessionUserID: String?,
     zoneName: (String?) -> String?,
-    now: Date
+    now: Date,
+    festivalEnded: Bool = false
   ) -> Crew {
     let members = crew.members.map { member in
       CrewMember(
@@ -375,13 +416,14 @@ extension FestivalLiveBoardPresentation {
   static func flag(
     _ flag: FestivalLiveBoardSnapshot.Flag,
     zoneName: (String?) -> String?,
-    now: Date
+    now: Date,
+    festivalEnded: Bool = false
   ) -> Flag {
     let zone = zoneName(flag.zoneID)
     return Flag(
       id: flag.id,
       name: flag.name,
-      status: flagStatus(flag.status),
+      status: festivalEnded ? .ended : flagStatus(flag.status),
       zone: zone,
       tags: flag.tags.compactMap(tagText).joined(separator: " · "),
       meta: [zone, flag.activity.flatMap(tagText)].compactMap { $0 }.joined(separator: " · "),

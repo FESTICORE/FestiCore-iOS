@@ -17,6 +17,7 @@ struct FestivalLiveBoardScreenModel {
 
   let pack: FestivalPackDocument?
   let liveBoard: FestivalLiveBoardSnapshot?
+  let connection: FestivalFeature.Connection
   let liveBoardUnavailable: Bool
   let liveBoardUnpublished: Bool
   let isPackLoading: Bool
@@ -29,11 +30,10 @@ struct FestivalLiveBoardScreenModel {
   let hasMySchedule: Bool
   let myScheduleUnavailable: Bool
   let homeDetails: FestivalFeature.HomeDetailsState
-  let liveActivityState: FestivalFeature.LiveActivityControlState
-  let showsLiveActivityControl: Bool
   let showsFollowGuide: Bool
 
   init(state: FestivalFeature.State) {
+    connection = state.connection
     pack = state.displayDocument
     liveBoard = state.liveBoard
     liveBoardUnavailable = state.liveBoardUnavailable
@@ -48,9 +48,11 @@ struct FestivalLiveBoardScreenModel {
     hasMySchedule = state.mySchedule != nil
     myScheduleUnavailable = state.myScheduleUnavailable
     homeDetails = state.homeDetails
-    liveActivityState = state.liveActivityState
-    showsLiveActivityControl = state.showsLiveActivityControl
     showsFollowGuide = state.showsFollowGuide
+  }
+
+  var showsOfflineStatus: Bool {
+    return (liveBoardUnavailable && !liveBoardUnpublished) || connection == .offline || connection == .reconnecting
   }
 
   func homeRide(now: Date) -> HomeRide? {

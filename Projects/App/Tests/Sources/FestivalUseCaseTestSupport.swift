@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestivalDomain
 import FestivalDomainInterface
 import Foundation
 

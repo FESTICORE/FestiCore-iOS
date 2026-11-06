@@ -67,6 +67,12 @@ public struct FestivalLiveBoardRouteView: View {
       FestivalSwitcherView(store: switcherStore)
     }
     .fcModal($store.scope(
+      state: \.crewGather,
+      action: \.crewGather
+    )) { gatherStore in
+      FestivalCrewGatherView(store: gatherStore)
+    }
+    .fcModal($store.scope(
       state: \.crewCreate,
       action: \.crewCreate
     )) { crewStore in
@@ -76,10 +82,13 @@ public struct FestivalLiveBoardRouteView: View {
       state: \.alert,
       action: \.alert
     ))
-    .fcAlert($store.scope(
-      state: \.followGuideAlert,
-      action: \.followGuideAlert
-    ))
+    .fcAlert(
+      $store.scope(
+        state: \.followGuideAlert,
+        action: \.followGuideAlert
+      ),
+      textAlignment: .center
+    )
     .task {
       send(.onAppear)
       send(.liveActivityOnAppear)

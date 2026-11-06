@@ -23,6 +23,7 @@ let project = Project.makeModule(
   hasInterface: true,
   interfaceDependencies: [
     .service(.pack, .interface),
+    .core(.utility),
     .SPM.dependencies
   ]
 )

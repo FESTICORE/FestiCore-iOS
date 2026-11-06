@@ -53,13 +53,29 @@ public struct FestivalFeature {
     public var onlineDetailLoading = false
     public var onlineDetailFailed = false
     public var displayDocument: FestivalPackDocument? { onlineDetail ?? selectedPack }
-    public var liveBoard: FestivalLiveBoardSnapshot?
-    public var liveBoardUnavailable = false
-    public var liveBoardUnpublished = false
+    var liveBoardState = FestivalLiveBoardState()
+    public var liveBoard: FestivalLiveBoardSnapshot? {
+      get { liveBoardState.snapshot }
+      set { liveBoardState.snapshot = newValue }
+    }
+    public var liveBoardUnavailable: Bool {
+      get { liveBoardState.isUnavailable }
+      set { liveBoardState.isUnavailable = newValue }
+    }
+    public var liveBoardUnpublished: Bool {
+      get { liveBoardState.isUnpublished }
+      set { liveBoardState.isUnpublished = newValue }
+    }
     /// 현재 serverAt을 처음 받은 기기 시각. 304 응답에서도 서버 시각 보정 기준을 유지한다.
-    public var liveBoardClockAnchorAt: Date?
+    public var liveBoardClockAnchorAt: Date? {
+      get { liveBoardState.clockAnchorAt }
+      set { liveBoardState.clockAnchorAt = newValue }
+    }
     /// 마지막으로 라이브 보드가 정상 확인된 기기 시각. 304 응답도 포함한다.
-    public var liveBoardReceivedAt: Date?
+    public var liveBoardReceivedAt: Date? {
+      get { liveBoardState.receivedAt }
+      set { liveBoardState.receivedAt = newValue }
+    }
     /// 선택 축제의 빈 팔로우 깃발 안내를 숨겼는지.
     public var isFollowedFlagGuideHidden = false
     @Presents public var alert: FCAlertState<FCAlertAction>?
@@ -68,6 +84,7 @@ public struct FestivalFeature {
     public var hasSession = false
     /// 알림함의 읽지 않은 전체 알림 수. 계정이 바뀌면 즉시 비운다.
     public var notificationUnreadCount = 0
+    public var notificationBanner: UserNotificationItem?
     public var hasUnreadNotifications: Bool { notificationUnreadCount > 0 }
     /// 확인된 사용자 ID. 크루의 `나` 표시에만 쓴다.
     public var sessionUserID: String?
@@ -76,6 +93,7 @@ public struct FestivalFeature {
     public var mySchedule: MySchedule?
     public var myScheduleUnavailable = false
     @Presents public var festivalSwitcher: FestivalSwitcherFeature.State?
+    @Presents public var crewGather: FestivalCrewGatherFeature.State?
     @Presents public var crewCreate: FestivalCrewCreateFeature.State?
     @Presents public var followGuideAlert: FCAlertState<FCAlertAction>?
     public var hiddenFollowGuideFestivalIDs: Set<String> = []
@@ -278,6 +296,8 @@ public struct FestivalFeature {
       bookedUserID = nil
       bookedFestivalIDs = []
       notificationUnreadCount = 0
+      notificationBanner = nil
+      crewGather = nil
     }
   }
 
@@ -334,6 +354,7 @@ public struct FestivalFeature {
     case async(AsyncAction)
     case inner(InnerAction)
     case festivalSwitcher(PresentationAction<FestivalSwitcherFeature.Action>)
+    case crewGather(PresentationAction<FestivalCrewGatherFeature.Action>)
     case crewCreate(PresentationAction<FestivalCrewCreateFeature.Action>)
     case followGuideAlert(PresentationAction<FCAlertAction>)
     case delegate(FestivalDelegate)
@@ -346,6 +367,7 @@ public struct FestivalFeature {
   public enum View: Equatable {
     case onAppear
     case foregroundChanged(Bool)
+    case remoteContentChanged
     case backgrounded
     case refreshRequested
     case reloadCachedPacks
@@ -373,6 +395,7 @@ public struct FestivalFeature {
     case festivalSwitchTapped
     case crewLoginTapped
     case followLoginTapped
+    case gatherCrewTapped
     case createCrewTapped
     case findFlagTapped
     case hideFollowGuideTapped
@@ -447,6 +470,7 @@ public struct FestivalFeature {
     case homeDetailsLoaded(String, FestivalPackDetail.Directions?)
     case homeDetailsFailed(String)
     case notificationUnreadCountLoaded(Int, generation: Int)
+    case notificationBannerLoaded(UserNotificationItem?, generation: Int)
     case toastExpired
   }
 
@@ -513,6 +537,13 @@ public struct FestivalFeature {
       case .festivalSwitcher:
         return .none
 
+      case .crewGather(.presented(.delegate(.gathered))):
+        state.crewGather = nil
+        return .send(.async(.startLiveBoard))
+
+      case .crewGather:
+        return .none
+
       case .crewCreate(.presented(.delegate(.created(_)))):
         state.crewCreate = nil
         return .send(.async(.startLiveBoard))
@@ -548,6 +579,10 @@ public struct FestivalFeature {
       \.$festivalSwitcher,
       action: \.festivalSwitcher
     ) { FestivalSwitcherFeature() }
+    .ifLet(
+      \.$crewGather,
+      action: \.crewGather
+    ) { FestivalCrewGatherFeature() }
     .ifLet(
       \.$crewCreate,
       action: \.crewCreate
@@ -593,6 +628,26 @@ extension FestivalFeature {
         .cancel(id: CancelID.liveBoard),
         .cancel(id: CancelID.liveActivityBoundary),
         .send(.async(.prefetchImages))
+      )
+
+    case .remoteContentChanged:
+      state.packWatchFailed = false
+      state.viewState = .loading
+      state.catalogNextCursor = nil
+      let refreshBoard = refreshLiveBoard(
+        state,
+        allowsBackground: true
+      )
+      let refreshHome: Effect<Action>
+      if state.isLiveBoardVisible, let id = state.selectedFestivalID {
+        refreshHome = .send(.async(.loadHomeDetails(id)))
+      } else {
+        refreshHome = .none
+      }
+      return .merge(
+        refreshCatalog(),
+        refreshBoard,
+        refreshHome
       )
 
     case .backgrounded:
@@ -782,11 +837,11 @@ extension FestivalFeature {
       )
       state.festivalSwitcher = FestivalSwitcherFeature.State(
         festivals: booked.map { festival in
-          let status = FestivalListPresentation.searchBadge(
-            for: festival,
+          let subtitle = FestivalLiveBoardPresentation.switcherSubtitle(
+            pack: state.pack(for: festival.id),
+            festival: festival,
             now: date.now
           )
-          let subtitle = [status, festival.venue].compactMap { $0 }.joined(separator: " · ")
           return FestivalSwitcherFeature.State.Item(
             id: festival.id,
             name: festival.name,
@@ -803,6 +858,23 @@ extension FestivalFeature {
 
     case .followLoginTapped:
       return .send(.delegate(.followLoginRequested))
+
+    case .gatherCrewTapped:
+      guard state.hasSession, !state.liveBoardUnavailable,
+            state.connection != .offline, state.connection != .reconnecting,
+            let crew = state.liveBoard?.crew,
+            let festival = state.selectedFestival,
+            FestivalLiveBoardPresentation.phase(
+              pack: state.displayDocument,
+              festival: festival,
+              now: date.now
+            ) != .ended else { return .none }
+      state.crewGather = FestivalCrewGatherFeature.State(
+        crewID: crew.id,
+        zones: state.displayDocument?.zones ?? [],
+        availableAt: crew.gatherAvailableAt
+      )
+      return .none
 
     case .createCrewTapped:
       guard state.hasSession else { return .send(.delegate(.crewLoginRequested)) }
@@ -857,6 +929,7 @@ extension FestivalFeature {
         0,
         count
       )
+      if count <= 0 { state.notificationBanner = nil }
       return .none
 
     case .ticketLinkMissing:
@@ -886,6 +959,7 @@ extension FestivalFeature {
       state.recentSearches = libraryUseCase.recentSearches(for: nil)
       state.hasSession = false
       state.sessionUserID = nil
+      state.crewGather = nil
       state.accountGeneration += 1
       return .merge(downloadIDs.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) } + [
         state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
@@ -910,6 +984,8 @@ extension FestivalFeature {
       state.packDownloads = [:]
       state.sessionUserID = userID
       state.notificationUnreadCount = 0
+      state.notificationBanner = nil
+      state.crewGather = nil
       state.accountGeneration += 1
       state.liveBoard = nil
       state.liveBoardUnavailable = false
@@ -1318,15 +1394,21 @@ extension FestivalFeature {
           let retryPending = state.imageRetryPending
           retryImagesAfterRecovery(in: &state)
           resolveImageURLs(in: &state)
-          let refreshHome = state.isLiveBoardVisible && previousPackData != pack.pack
+          let packChanged = previousPackData != pack.pack
+          let refreshBoard = packChanged ? refreshLiveBoard(state) : .none
+          let refreshHome = state.isLiveBoardVisible && packChanged
             ? Effect<Action>.send(.async(.loadHomeDetails(id))) : .none
           return previousPack != document || retryPending
             ? .merge(
               prefetchImages(state),
               syncLiveActivities(state),
-              refreshHome
+              refreshHome,
+              refreshBoard
             )
-            : refreshHome
+            : .merge(
+              refreshHome,
+              refreshBoard
+            )
         } else {
           state.connection = state.selectedPack == nil ? .unavailable : .cached
         }
@@ -1512,6 +1594,14 @@ extension FestivalFeature {
       state.homeDetails = .failed(id)
       return .none
 
+    case let .notificationBannerLoaded(
+      item,
+      generation
+    ):
+      guard state.hasSession, state.accountGeneration == generation, state.notificationUnreadCount > 0 else { return .none }
+      state.notificationBanner = item
+      return .none
+
     case let .notificationUnreadCountLoaded(
       count,
       generation
@@ -1521,6 +1611,7 @@ extension FestivalFeature {
         0,
         count
       )
+      if count <= 0 { state.notificationBanner = nil }
       return .none
 
     case let .liveActivitiesLoaded(
@@ -1888,6 +1979,35 @@ extension FestivalFeature {
       id: CancelID.liveBoard,
       cancelInFlight: true
     )
+  }
+
+  /// 팩 WebSocket이 새 시간표를 알리면 보드 데이터도 즉시 다시 조회한다.
+  private func refreshLiveBoard(
+    _ state: State,
+    allowsBackground: Bool = false
+  ) -> Effect<Action> {
+    guard (state.isForeground || allowsBackground), state.isLiveBoardVisible,
+          let id = state.selectedFestivalID else { return .none }
+    let generation = state.accountGeneration
+    return .run { send in
+      do {
+        await send(.inner(.liveBoardLoaded(
+          id,
+          generation: generation,
+          try await liveBoardUseCase.liveBoard(for: id)
+        )))
+      } catch FestivalLiveBoardError.festivalNotFound {
+        await send(.inner(.liveBoardUnpublished(
+          id,
+          generation: generation
+        )))
+      } catch {
+        await send(.inner(.liveBoardFailed(
+          id,
+          generation: generation
+        )))
+      }
+    }
   }
 
   /// 세션이 있고 축제가 선택되어 있으면 내 일정을 불러와 자동 시작 시각을 계산한다.

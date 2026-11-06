@@ -51,5 +51,7 @@ public enum FestivalCrewError: Error, Equatable, Sendable {
   case alreadyInCrew
   case festivalEnded
   case invalidResponse
+  case forbidden
+  case cooldown
   case unavailable
 }

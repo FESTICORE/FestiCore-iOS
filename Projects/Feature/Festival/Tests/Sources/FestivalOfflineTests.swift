@@ -6,9 +6,25 @@ import Testing
 @testable import Festival
 
 struct HomeOfflineTests {
+  @Test func offlineIndicatorDoesNotRequireLiveBoardSnapshot() {
+    var state = FestivalFeature.State()
+    state.connection = .offline
+    #expect(FestivalLiveBoardScreenModel(state: state).showsOfflineStatus)
+    state.connection = .live
+    state.liveBoardUnpublished = true
+    state.liveBoardUnavailable = true
+    #expect(!FestivalLiveBoardScreenModel(state: state).showsOfflineStatus)
+    state.liveBoardUnpublished = false
+    #expect(FestivalLiveBoardScreenModel(state: state).showsOfflineStatus)
+  }
+
   @Test @MainActor func refreshingCachedListShowsSkeletonUntilRequestFails() async {
     var state = FestivalFeature.State()
-    state.catalog = [FestivalCatalogItem(id: "fst_a", name: "저장된 축제", packVersion: 1)]
+    state.catalog = [FestivalCatalogItem(
+      id: "fst_a",
+      name: "저장된 축제",
+      packVersion: 1
+    )]
     state.viewState = .loaded
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
       $0.festivalCatalogUseCase = MockFestivalCatalogUseCase(
@@ -38,14 +54,28 @@ struct HomeOfflineTests {
   @Test func packLoadingShowsOnlyWhileFirstConnecting() throws {
     var state = FestivalFeature.State(selectedFestivalID: "fst_a")
     state.catalog = [
-      FestivalCatalogItem(id: "fst_a", name: "팩 있는 축제", packVersion: 1),
-      FestivalCatalogItem(id: "fst_b", name: "팩 없는 축제", packVersion: 0),
+      FestivalCatalogItem(
+        id: "fst_a",
+        name: "팩 있는 축제",
+        packVersion: 1
+      ),
+      FestivalCatalogItem(
+        id: "fst_b",
+        name: "팩 없는 축제",
+        packVersion: 0
+      ),
     ]
     state.cachedPacks["fst_a"] = CachedFestivalPack(
-      festivalID: "fst_a", packVersion: 1, etag: "v1", pack: Data()
+      festivalID: "fst_a",
+      packVersion: 1,
+      etag: "v1",
+      pack: Data()
     )
     state.connection = .connecting
-    #expect(state.isPackLoading, "팩을 기다리는 동안 스켈레톤을 보여 준다")
+    #expect(
+      state.isPackLoading,
+      "팩을 기다리는 동안 스켈레톤을 보여 준다"
+    )
 
     // 오프라인·재연결 중에는 팩 서비스가 재시도만 하므로 스켈레톤을 남기지 않는다.
     state.connection = .offline
@@ -55,30 +85,47 @@ struct HomeOfflineTests {
     state.connection = .connecting
 
     state.packWatchFailed = true
-    #expect(!state.isPackLoading, "팩 감시가 실패하면 빈 상태를 보여 준다")
+    #expect(
+      !state.isPackLoading,
+      "팩 감시가 실패하면 빈 상태를 보여 준다"
+    )
 
     state.packWatchFailed = false
     state.connection = .unavailable
-    #expect(!state.isPackLoading, "받은 팩을 읽지 못하면 빈 상태를 보여 준다")
+    #expect(
+      !state.isPackLoading,
+      "받은 팩을 읽지 못하면 빈 상태를 보여 준다"
+    )
 
     state.connection = .connecting
     state.selectedPack = try JSONDecoder().decode(
       FestivalPackDocument.self,
       from: Data(#"{"id":"fst_a","name":"팩 있는 축제","packVersion":1}"#.utf8)
     )
-    #expect(!state.isPackLoading, "받은 팩이 있으면 재연결 중에도 내용을 보여 준다")
+    #expect(
+      !state.isPackLoading,
+      "받은 팩이 있으면 재연결 중에도 내용을 보여 준다"
+    )
 
     state.selectedPack = nil
     state.selectedFestivalID = "fst_b"
-    #expect(!state.isPackLoading, "팩이 공개되지 않은 축제는 기다리지 않는다")
+    #expect(
+      !state.isPackLoading,
+      "팩이 공개되지 않은 축제는 기다리지 않는다"
+    )
     state.selectedFestivalID = "fst_a"
     state.cachedPacks = [:]
-    #expect(!state.isPackLoading, "삭제한 팩은 다시 받기 전까지 스켈레톤을 보여 주지 않는다")
+    #expect(
+      !state.isPackLoading,
+      "삭제한 팩은 다시 받기 전까지 스켈레톤을 보여 주지 않는다"
+    )
   }
 
   @Test @MainActor func cachedPackAppearsBeforeFailedRefresh() async {
     let pack = CachedFestivalPack(
-      festivalID: "fst_cached", packVersion: 1, etag: "\"v1\"",
+      festivalID: "fst_cached",
+      packVersion: 1,
+      etag: "\"v1\"",
       pack: Data(#"{"id":"fst_cached","name":"오프라인 축제","packVersion":1}"#.utf8)
     )
     let store = TestStore(initialState: FestivalFeature.State()) {
@@ -87,7 +134,10 @@ struct HomeOfflineTests {
       $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = OfflineCatalog()
       $0.packSyncService = CachedPackService(pack: pack)
-      $0.festivalSelectionStore = .init(load: { "fst_cached" }, save: { _ in })
+      $0.festivalSelectionStore = .init(
+        load: { "fst_cached" },
+        save: { _ in }
+      )
     }
 
     await store.send(.view(.onAppear)) { $0.hasStarted = true }
@@ -96,7 +146,10 @@ struct HomeOfflineTests {
       $0.viewState = .loaded
       $0.cachedPacks = [pack.festivalID: pack]
       $0.selectedFestivalID = pack.festivalID
-      $0.selectedPack = try? JSONDecoder().decode(FestivalPackDocument.self, from: pack.pack)
+      $0.selectedPack = try? JSONDecoder().decode(
+        FestivalPackDocument.self,
+        from: pack.pack
+      )
       $0.connection = .cached
     }
     await store.receive(\.inner.catalogFailed) {
@@ -115,7 +168,10 @@ struct HomeOfflineTests {
       $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = BrokenCatalog()
       $0.packSyncService = BrokenPackService()
-      $0.festivalSelectionStore = .init(load: { nil }, save: { _ in })
+      $0.festivalSelectionStore = .init(
+        load: { nil },
+        save: { _ in }
+      )
     }
 
     await store.send(.view(.onAppear)) { $0.hasStarted = true }
@@ -137,7 +193,9 @@ struct HomeOfflineTests {
 
   @Test @MainActor func backgroundCacheLoadDoesNotOpenSocket() async {
     let pack = CachedFestivalPack(
-      festivalID: "fst_cached", packVersion: 1, etag: "\"v1\"",
+      festivalID: "fst_cached",
+      packVersion: 1,
+      etag: "\"v1\"",
       pack: Data(#"{"id":"fst_cached","name":"오프라인 축제","packVersion":1}"#.utf8)
     )
     let store = TestStore(initialState: FestivalFeature.State()) {
@@ -146,16 +204,28 @@ struct HomeOfflineTests {
       $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = OfflineCatalog()
       $0.packSyncService = NoSocketPackService()
-      $0.festivalSelectionStore = .init(load: { "fst_cached" }, save: { _ in })
+      $0.festivalSelectionStore = .init(
+        load: { "fst_cached" },
+        save: { _ in }
+      )
     }
 
     await store.send(.view(.foregroundChanged(false))) { $0.isForeground = false }
     await store.receive(\.async.prefetchImages)
-    await store.send(.inner(.cachedLoaded([], [pack], "fst_cached", false, false))) {
+    await store.send(.inner(.cachedLoaded(
+      [],
+      [pack],
+      "fst_cached",
+      false,
+      false
+    ))) {
       $0.viewState = .loaded
       $0.cachedPacks = [pack.festivalID: pack]
       $0.selectedFestivalID = pack.festivalID
-      $0.selectedPack = try? JSONDecoder().decode(FestivalPackDocument.self, from: pack.pack)
+      $0.selectedPack = try? JSONDecoder().decode(
+        FestivalPackDocument.self,
+        from: pack.pack
+      )
       $0.connection = .cached
     }
     await store.receive(\.inner.catalogFailed) {
@@ -170,7 +240,10 @@ struct HomeOfflineTests {
     initialState.catalogCacheReadFailed = true
     initialState.connection = .offline
     let item = FestivalCatalogItem(
-      id: "fst_discovered", name: "온라인 축제", packVersion: 0, status: "discovered"
+      id: "fst_discovered",
+      name: "온라인 축제",
+      packVersion: 0,
+      status: "discovered"
     )
     let store = TestStore(initialState: initialState) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
@@ -188,7 +261,9 @@ struct HomeOfflineTests {
 
   @Test @MainActor func successfulCatalogRefreshRestartsFailedPackWatch() async {
     let pack = CachedFestivalPack(
-      festivalID: "fst_cached", packVersion: 1, etag: "\"v1\"",
+      festivalID: "fst_cached",
+      packVersion: 1,
+      etag: "\"v1\"",
       pack: Data(#"{"id":"fst_cached","name":"저장된 축제","packVersion":1}"#.utf8)
     )
     let counter = PackWatchCounter()
@@ -207,7 +282,10 @@ struct HomeOfflineTests {
       $0.packWatchFailed = true
       $0.connection = .offline
     }
-    #expect(!store.state.catalogRefreshFailed, "팩 연결 실패는 목록 오류가 아니다")
+    #expect(
+      !store.state.catalogRefreshFailed,
+      "팩 연결 실패는 목록 오류가 아니다"
+    )
     await store.send(.inner(.catalogRefreshed([]))) {
       $0.viewState = .loaded
       $0.packWatchFailed = false
@@ -223,7 +301,10 @@ struct HomeOfflineTests {
     initialState.packCacheReadFailed = true
     initialState.connection = .offline
     let item = FestivalCatalogItem(
-      id: "fst_discovered", name: "온라인 축제", packVersion: 0, status: "discovered"
+      id: "fst_discovered",
+      name: "온라인 축제",
+      packVersion: 0,
+      status: "discovered"
     )
     let store = TestStore(initialState: initialState) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
@@ -251,12 +332,18 @@ struct HomeOfflineTests {
 
     #expect(state.festivals.map(\.name) == ["저장된 축제"])
     #expect(state.festivals.first?.isCached == true)
-    #expect(try JSONDecoder().decode(FestivalPackDocument.self, from: pack.pack).performances.count == 1)
+    #expect(try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: pack.pack
+    ).performances.count == 1)
   }
 
   @Test func setsAndStagesProvideTimetableWithoutDerivedField() throws {
     let data = Data(#"{"id":"fst_one","stages":[{"id":"main","name":"메인"}],"sets":[{"id":"set_one","stageId":"main","artist":"가수","startsAt":"2026-10-29T12:00:00+09:00","imageUrl":"/api/v1/festivals/images/00000000-0000-0000-0000-000000000000.webp"}]}"#.utf8)
-    let document = try JSONDecoder().decode(FestivalPackDocument.self, from: data)
+    let document = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: data
+    )
 
     #expect(document.performances.count == 1)
     #expect(document.performances.first?.stageName == "메인")
@@ -270,21 +357,33 @@ struct HomeOfflineTests {
     let key = "selectedFestivalID"
     let first = FestivalSelectionStore(
       load: { UserDefaults(suiteName: suite)?.string(forKey: key) },
-      save: { UserDefaults(suiteName: suite)?.set($0, forKey: key) }
+      save: { UserDefaults(suiteName: suite)?.set(
+        $0,
+        forKey: key
+      ) }
     )
     first.save("fst_selected")
     let restored = FestivalSelectionStore(
       load: { UserDefaults(suiteName: suite)?.string(forKey: key) },
-      save: { UserDefaults(suiteName: suite)?.set($0, forKey: key) }
+      save: { UserDefaults(suiteName: suite)?.set(
+        $0,
+        forKey: key
+      ) }
     )
 
     #expect(restored.load() == "fst_selected")
   }
 
   @Test func catalogAndCachedPackUseOneFestivalRow() {
-    let item = FestivalCatalogItem(id: "fst_one", name: "최신 이름", packVersion: 3)
+    let item = FestivalCatalogItem(
+      id: "fst_one",
+      name: "최신 이름",
+      packVersion: 3
+    )
     let pack = CachedFestivalPack(
-      festivalID: "fst_one", packVersion: 2, etag: "\"v2\"",
+      festivalID: "fst_one",
+      packVersion: 2,
+      etag: "\"v2\"",
       pack: Data(#"{"id":"fst_one","name":"이전 이름","packVersion":2}"#.utf8)
     )
     var state = FestivalFeature.State()
@@ -297,9 +396,21 @@ struct HomeOfflineTests {
   }
 
   @Test @MainActor func duplicateCatalogIDsKeepFirstItem() async {
-    let first = FestivalCatalogItem(id: "fst_one", name: "첫 번째", packVersion: 0)
-    let duplicate = FestivalCatalogItem(id: "fst_one", name: "두 번째", packVersion: 0)
-    let other = FestivalCatalogItem(id: "fst_two", name: "다른 축제", packVersion: 0)
+    let first = FestivalCatalogItem(
+      id: "fst_one",
+      name: "첫 번째",
+      packVersion: 0
+    )
+    let duplicate = FestivalCatalogItem(
+      id: "fst_one",
+      name: "두 번째",
+      packVersion: 0
+    )
+    let other = FestivalCatalogItem(
+      id: "fst_two",
+      name: "다른 축제",
+      packVersion: 0
+    )
     let store = TestStore(initialState: FestivalFeature.State()) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
     }
@@ -318,7 +429,8 @@ struct HomeOfflineTests {
   @Test @MainActor func catalogRefreshPrefetchesThumbnailWithoutRecreatingImage() async {
     let recorder = PrefetchRecorder()
     let item = FestivalCatalogItem(
-      id: "fst_discovered", name: "발견된 축제",
+      id: "fst_discovered",
+      name: "발견된 축제",
       thumbnailURL: URL(string: "https://example.com/poster.webp"),
       packVersion: 0
     )
@@ -329,7 +441,8 @@ struct HomeOfflineTests {
       $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = ImageCatalog()
       $0.festivalImagePrefetchClient = FestivalImagePrefetchClient(
-        start: { urls in await recorder.start(urls) }, stop: { await recorder.stop() }
+        start: { urls in await recorder.start(urls) },
+        stop: { await recorder.stop() }
       )
     }
 
@@ -357,12 +470,16 @@ struct HomeOfflineTests {
     var initialState = FestivalFeature.State()
     initialState.cachedPacks = [selected.festivalID: selected, unselected.festivalID: unselected]
     initialState.selectedFestivalID = selected.festivalID
-    initialState.selectedPack = try JSONDecoder().decode(FestivalPackDocument.self, from: selected.pack)
+    initialState.selectedPack = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: selected.pack
+    )
     let store = TestStore(initialState: initialState) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = ImageCatalog()
       $0.festivalImagePrefetchClient = FestivalImagePrefetchClient(
-        start: { urls in await recorder.start(urls) }, stop: { await recorder.stop() }
+        start: { urls in await recorder.start(urls) },
+        stop: { await recorder.stop() }
       )
     }
 
@@ -383,8 +500,10 @@ struct HomeOfflineTests {
 
   @Test @MainActor func failedRefreshRetriesImagesOnceAfterRecovery() async {
     let item = FestivalCatalogItem(
-      id: "fst_discovered", name: "발견된 축제",
-      thumbnailURL: URL(string: "https://example.com/poster.webp"), packVersion: 0
+      id: "fst_discovered",
+      name: "발견된 축제",
+      thumbnailURL: URL(string: "https://example.com/poster.webp"),
+      packVersion: 0
     )
     var initialState = FestivalFeature.State()
     initialState.catalog = [item]
@@ -429,13 +548,19 @@ struct HomeOfflineTests {
       )
     }
 
-    await store.send(.inner(.packReceived(pack.festivalID, .updated(pack)))) {
+    await store.send(.inner(.packReceived(
+      pack.festivalID,
+      .updated(pack)
+    ))) {
       $0.cachedPacks[pack.festivalID] = pack
       $0.imageURLs = [
         "https://example.com/poster.webp": URL(string: "https://example.com/poster.webp")!,
         "https://example.com/artist.webp": URL(string: "https://example.com/artist.webp")!
       ]
-      $0.selectedPack = try? JSONDecoder().decode(FestivalPackDocument.self, from: pack.pack)
+      $0.selectedPack = try? JSONDecoder().decode(
+        FestivalPackDocument.self,
+        from: pack.pack
+      )
       $0.connection = .live
     }
     await store.finish()
@@ -444,7 +569,10 @@ struct HomeOfflineTests {
       URL(string: "https://example.com/artist.webp")!
     ])
 
-    await store.send(.inner(.packReceived(pack.festivalID, .notModified(pack))))
+    await store.send(.inner(.packReceived(
+      pack.festivalID,
+      .notModified(pack)
+    )))
     await store.finish()
     #expect(store.state.imageRevision == 0)
     #expect(await recorder.startCount() == 1)
@@ -453,17 +581,26 @@ struct HomeOfflineTests {
       $0.viewState = .loaded
       $0.catalogRefreshFailed = true
     }
-    await store.send(.inner(.packReceived(pack.festivalID, .notModified(pack))))
+    await store.send(.inner(.packReceived(
+      pack.festivalID,
+      .notModified(pack)
+    )))
     await store.finish()
     #expect(store.state.imageRevision == 0)
     #expect(await recorder.startCount() == 1)
 
-    await store.send(.inner(.packReceived(pack.festivalID, .reconnecting))) {
+    await store.send(.inner(.packReceived(
+      pack.festivalID,
+      .reconnecting
+    ))) {
       $0.connection = .reconnecting
       $0.imageRetryPending = true
     }
     #expect(store.state.selectedPack?.id == pack.festivalID)
-    await store.send(.inner(.packReceived(pack.festivalID, .notModified(pack)))) {
+    await store.send(.inner(.packReceived(
+      pack.festivalID,
+      .notModified(pack)
+    ))) {
       $0.connection = .live
       $0.imageRetryPending = false
       $0.imageRevision = 1
@@ -485,8 +622,10 @@ struct HomeOfflineTests {
     )
     let items = (0..<120).map { index in
       FestivalCatalogItem(
-        id: "fst_\(index)", name: "축제 \(index)",
-        thumbnailURL: URL(string: "https://example.com/\(index).webp"), packVersion: 0
+        id: "fst_\(index)",
+        name: "축제 \(index)",
+        thumbnailURL: URL(string: "https://example.com/\(index).webp"),
+        packVersion: 0
       )
     }
     var initialState = FestivalFeature.State()
@@ -495,13 +634,20 @@ struct HomeOfflineTests {
       $0.useServiceBackedFestivalUseCases()
       $0.festivalCatalogService = ImageCatalog()
       $0.festivalImagePrefetchClient = FestivalImagePrefetchClient(
-        start: { urls in await recorder.start(urls) }, stop: { await recorder.stop() }
+        start: { urls in await recorder.start(urls) },
+        stop: { await recorder.stop() }
       )
     }
 
-    await store.send(.inner(.packReceived(pack.festivalID, .updated(pack)))) {
+    await store.send(.inner(.packReceived(
+      pack.festivalID,
+      .updated(pack)
+    ))) {
       $0.cachedPacks[pack.festivalID] = pack
-      $0.selectedPack = try? JSONDecoder().decode(FestivalPackDocument.self, from: pack.pack)
+      $0.selectedPack = try? JSONDecoder().decode(
+        FestivalPackDocument.self,
+        from: pack.pack
+      )
       $0.imageURLs = [
         "https://example.com/pack.webp": URL(string: "https://example.com/pack.webp")!,
         "https://example.com/artist.webp": URL(string: "https://example.com/artist.webp")!
@@ -529,42 +675,42 @@ struct HomeOfflineTests {
 private struct OfflineCatalog: FestivalCatalogService {
   struct NetworkUnavailable: Error {}
 
-  func cachedFestivals() async throws -> [FestivalCatalogItem] { [] }
+  func cachedFestivals() async throws -> [FestivalCatalogItem] { return [] }
   func refresh() async throws -> [FestivalCatalogItem] { throw NetworkUnavailable() }
-  func imageURL(for _: String?) -> URL? { nil }
+  func imageURL(for _: String?) -> URL? { return nil }
 }
 
 private struct CachedPackService: PackSyncService {
   let pack: CachedFestivalPack
 
-  func cachedPack(for _: String) async throws -> CachedFestivalPack? { pack }
-  func cachedPacks() async throws -> [CachedFestivalPack] { [pack] }
-  func sync(for _: String) async throws -> PackSyncResult { .notModified(pack) }
+  func cachedPack(for _: String) async throws -> CachedFestivalPack? { return pack }
+  func cachedPacks() async throws -> [CachedFestivalPack] { return [pack] }
+  func sync(for _: String) async throws -> PackSyncResult { return .notModified(pack) }
   func deletePack(for _: String) async throws {}
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
-    AsyncThrowingStream { $0.finish() }
+    return AsyncThrowingStream { $0.finish() }
   }
 }
 
 private struct BrokenCatalog: FestivalCatalogService {
   func cachedFestivals() async throws -> [FestivalCatalogItem] { throw OfflineCatalog.NetworkUnavailable() }
   func refresh() async throws -> [FestivalCatalogItem] { throw OfflineCatalog.NetworkUnavailable() }
-  func imageURL(for _: String?) -> URL? { nil }
+  func imageURL(for _: String?) -> URL? { return nil }
 }
 
 private struct BrokenPackService: PackSyncService {
-  func cachedPack(for _: String) async throws -> CachedFestivalPack? { nil }
+  func cachedPack(for _: String) async throws -> CachedFestivalPack? { return nil }
   func cachedPacks() async throws -> [CachedFestivalPack] { throw OfflineCatalog.NetworkUnavailable() }
   func sync(for _: String) async throws -> PackSyncResult { throw OfflineCatalog.NetworkUnavailable() }
   func deletePack(for _: String) async throws {}
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
-    AsyncThrowingStream { $0.finish() }
+    return AsyncThrowingStream { $0.finish() }
   }
 }
 
 private struct NoSocketPackService: PackSyncService {
-  func cachedPack(for _: String) async throws -> CachedFestivalPack? { nil }
-  func cachedPacks() async throws -> [CachedFestivalPack] { [] }
+  func cachedPack(for _: String) async throws -> CachedFestivalPack? { return nil }
+  func cachedPacks() async throws -> [CachedFestivalPack] { return [] }
   func sync(for _: String) async throws -> PackSyncResult { throw OfflineCatalog.NetworkUnavailable() }
   func deletePack(for _: String) async throws {}
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
@@ -584,8 +730,8 @@ private final class PackWatchCounter: @unchecked Sendable {
 private struct RecordingPackWatchService: PackSyncService {
   let counter: PackWatchCounter
 
-  func cachedPack(for _: String) async throws -> CachedFestivalPack? { nil }
-  func cachedPacks() async throws -> [CachedFestivalPack] { [] }
+  func cachedPack(for _: String) async throws -> CachedFestivalPack? { return nil }
+  func cachedPacks() async throws -> [CachedFestivalPack] { return [] }
   func sync(for _: String) async throws -> PackSyncResult { throw OfflineCatalog.NetworkUnavailable() }
   func deletePack(for _: String) async throws {}
   func updates(for _: String) -> AsyncThrowingStream<PackSyncResult, Error> {
@@ -595,9 +741,9 @@ private struct RecordingPackWatchService: PackSyncService {
 }
 
 private struct ImageCatalog: FestivalCatalogService {
-  func cachedFestivals() async throws -> [FestivalCatalogItem] { [] }
-  func refresh() async throws -> [FestivalCatalogItem] { [] }
-  func imageURL(for value: String?) -> URL? { value.flatMap(URL.init(string:)) }
+  func cachedFestivals() async throws -> [FestivalCatalogItem] { return [] }
+  func refresh() async throws -> [FestivalCatalogItem] { return [] }
+  func imageURL(for value: String?) -> URL? { return value.flatMap(URL.init(string:)) }
 }
 
 private actor PrefetchRecorder {
@@ -610,7 +756,7 @@ private actor PrefetchRecorder {
     starts += 1
   }
   func stop() { stops += 1 }
-  func startedURLs() -> [URL] { urls }
-  func startCount() -> Int { starts }
-  func stopCount() -> Int { stops }
+  func startedURLs() -> [URL] { return urls }
+  func startCount() -> Int { return starts }
+  func stopCount() -> Int { return stops }
 }

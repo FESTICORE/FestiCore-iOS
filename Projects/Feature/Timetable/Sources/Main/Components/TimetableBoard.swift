@@ -113,6 +113,10 @@ private extension TimetableBoard {
     .padding(.leading, Metric.leadingInset)
     .padding(.trailing, FestiCoreSpacing.paddingP16)
     .background(FestiCoreSemanticColor.backgroundNormal.color)
+    .overlay(alignment: .bottom) {
+      FestiCoreSemanticColor.lineNormal.color
+        .frame(height: Metric.lineWidth)
+    }
   }
 
   private var grid: some View {

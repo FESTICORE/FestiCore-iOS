@@ -24,7 +24,56 @@ public struct TimetableView: View {
       if let offlineMessage = store.offlineMessage {
         FCOfflineBadge(offlineMessage)
       }
-      if store.isPublished, let day = store.selectedDay {
+      content()
+      if !store.source.isEmpty {
+        FCSourceLine(store.source)
+      }
+    }
+    .frame(
+      maxHeight: .infinity,
+      alignment: .top
+    )
+    .background(FestiCoreSemanticColor.backgroundNormal.color)
+    .task { await send(.clockStarted).finish() }
+    .onDisappear { send(.clockStopped) }
+  }
+}
+
+private extension TimetableView {
+  @ViewBuilder
+  func content() -> some View {
+    switch store.contentStatus {
+    case .loading:
+      skeleton
+    case .failed:
+      FCEmptyCard(
+        icon: .bell,
+        title: "시간표를 불러오지 못했어요",
+        message: "연결 상태를 확인하고 다시 시도해 주세요."
+      )
+      .action(
+        FCCardAction(
+          "다시 시도",
+          style: .primary,
+          action: { send(.retryTapped) }
+        )
+      )
+      .padding(FestiCoreSpacing.paddingP16)
+    case .noFestival:
+      FCEmptyCard(
+        icon: .magnifyingGlass,
+        title: "축제를 선택해 주세요",
+        message: "참여할 축제를 선택하면 시간표를 볼 수 있어요."
+      )
+      .padding(FestiCoreSpacing.paddingP16)
+    case .unpublished:
+      TimetableUnpublishedView(
+        lineup: store.lineup,
+        notificationStatus: store.notificationStatus,
+        onNotify: { send(.notifyTapped) }
+      )
+    case .published:
+      if let day = store.selectedDay {
         filter
         if day.changedCount > 0 {
           FCBanner("시간표가 바뀌었어요 · \(day.changedCount)개 변경") {
@@ -41,22 +90,28 @@ public struct TimetableView: View {
           onDaySwipe: { send(.daySelected(store.selectedDayIndex + $0)) }
         )
       } else {
-        TimetableUnpublishedView(lineup: store.lineup) {
-          send(.notifyTapped)
-        }
-      }
-      if !store.source.isEmpty {
-        FCSourceLine(store.source)
+        FCEmptyCard(
+          icon: .bell,
+          title: "등록된 공연이 없어요",
+          message: "공연 정보가 등록되면 시간표에서 확인할 수 있어요."
+        )
+        .padding(FestiCoreSpacing.paddingP16)
       }
     }
-    .frame(maxHeight: .infinity, alignment: .top)
-    .background(FestiCoreSemanticColor.backgroundNormal.color)
   }
-}
 
-private extension TimetableView {
+  var skeleton: some View {
+    return VStack(spacing: FestiCoreSpacing.paddingP16) {
+      ForEach(0..<3, id: \.self) { _ in
+        FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r16))
+          .frame(height: 120)
+      }
+    }
+    .padding(FestiCoreSpacing.paddingP16)
+  }
+
   var header: some View {
-    VStack(spacing: .zero) {
+    return VStack(spacing: .zero) {
       FCTopBar(
         .large,
         title: "타임테이블"
@@ -66,13 +121,13 @@ private extension TimetableView {
         accessibilityLabel: "검색",
         action: { send(.searchTapped) }
       )
-      daySelector
+      if !store.days.isEmpty { daySelector() }
     }
   }
 
   /// 세그먼트는 칸을 균등 분할해 날짜가 많으면 "1…"로 잘리므로, 넘치면 가로로 넘기는 칩 줄로 보여 준다.
   @ViewBuilder
-  var daySelector: some View {
+  func daySelector() -> some View {
     if store.days.count <= Metric.segmentedDayLimit {
       FCSegmented(
         selection: Binding(
@@ -106,21 +161,26 @@ private extension TimetableView {
   }
 
   var filter: some View {
-    HStack {
+    return HStack {
       FCChip("내 일정만") {
         send(.mineOnlyToggled)
       }
       .isSelected(store.showsMineOnly)
       Spacer()
-      Text("내 일정 \(store.mySetCount)개")
-        .festiCoreFont(.baseFootnoteRegular)
-        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
-      FCButton("내 일정 고르기") {
+      Button {
         send(.schedulePickTapped)
+      } label: {
+        Text(store.overlaps.isEmpty ? "내 일정 \(store.mySetCount)개" : "겹치는 일정 \(store.overlaps.count)개")
+          .festiCoreFont(.baseFootnoteRegular)
+          .foregroundStyle(
+            store.overlaps.isEmpty
+              ? FestiCoreSemanticColor.labelAssistive.color
+              : FestiCoreSemanticColor.accentPointOrange.color
+          )
       }
-      .style(.secondary)
-      .size(.medium)
-      .isEnabled(store.canPickSchedule)
+      .buttonStyle(.plain)
+      .disabled(!store.canPickSchedule)
+      .accessibilityLabel("내 일정 고르기")
     }
     .padding(FestiCoreSpacing.paddingP16)
   }

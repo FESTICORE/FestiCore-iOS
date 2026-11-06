@@ -6,6 +6,7 @@
 //
 
 import Dependencies
+import Foundation
 
 /// 테스트에서 필요한 동작만 넘긴다. 넘기지 않은 호출은 테스트 이슈로 기록한다.
 public struct MockFestivalLiveBoardUseCase: FestivalLiveBoardUseCaseInterface {
@@ -21,6 +22,6 @@ public struct MockFestivalLiveBoardUseCase: FestivalLiveBoardUseCaseInterface {
   }
 
   public func liveBoard(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
-    try await liveBoardHandler(festivalID)
+    return try await liveBoardHandler(festivalID)
   }
 }

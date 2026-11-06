@@ -35,23 +35,40 @@ public struct TimetableFeature {
     let generation: Int
   }
 
+  public enum ContentStatus: Equatable, Sendable {
+    case loading
+    case failed
+    case noFestival
+    case unpublished
+    case published
+  }
+
+  public enum NotificationStatus: Equatable, Sendable {
+    case idle, saving, enabled, permissionRequired, failed
+  }
+
   enum CancelID {
+    case notification
+    case clock
     case load
     case save
   }
 
   @ObservableState
   public struct State: Equatable {
+    public var notificationStatus: NotificationStatus = .idle
+    public var contentStatus: ContentStatus = .published
     public var days: [TimetableDay]
-    /// 시간표 공개 전 라인업. 비어 있지 않으면 시간표 대신 보여 준다.
+    /// 공개 전 상태에서 표시하는 날짜별 라인업.
     public var lineup: [TimetableLineupDay] = []
     public var selectedDayIndex = 0
     public var mySetIDs: Set<String> = []
     public var showsMineOnly = false
     /// 핀치로 확정한 시간축 배율. 날짜를 바꾸거나 화면을 다시 그려도 유지한다.
     public var zoom: Double = 1
-    /// 현재 시각(분). 오늘이 아니면 nil이다.
+    /// 선택한 날짜 기준 현재 시각(분). 자정을 넘는 공연까지 끝나면 nil이다.
     public var nowMinute: Int?
+    var clockDate: Date?
     /// 오프라인일 때 보여 줄 안내. 온라인이면 nil이다.
     public var offlineMessage: String?
     public var source: String
@@ -80,25 +97,25 @@ public struct TimetableFeature {
     }
 
     public var isPublished: Bool {
-      lineup.isEmpty
+      return contentStatus == .published
     }
 
     public var selectedDay: TimetableDay? {
-      days.indices.contains(selectedDayIndex) ? days[selectedDayIndex] : nil
+      return days.indices.contains(selectedDayIndex) ? days[selectedDayIndex] : nil
     }
 
     /// 내 일정 고르기를 열 수 있는지. 서버 일정과 맞춰져 있고 저장 중이 아닐 때만 연다.
     /// 로그인 전이거나 서버 일정을 읽지 못했으면 다른 기기 일정을 덮어쓰지 않도록 열지 않는다.
     public var canPickSchedule: Bool {
-      festivalID != nil && isPublished && scheduleSync == .ready && !isSaving
+      return festivalID != nil && isPublished && scheduleSync == .ready && !isSaving
     }
 
     public var mySetCount: Int {
-      selectedDay?.sets.count { mySetIDs.contains($0.id) } ?? 0
+      return selectedDay?.sets.count { mySetIDs.contains($0.id) } ?? 0
     }
 
     var allSetIDs: Set<String> {
-      Set(days.flatMap { $0.sets.map(\.id) })
+      return Set(days.flatMap { $0.sets.map(\.id) })
     }
 
     /// 선택한 날 공연이 낀 내 일정 겹침. 자정을 넘겨 다음 날 공연과 겹치는 구간도 포함한다.
@@ -153,7 +170,7 @@ public struct TimetableFeature {
     }
 
     private var myIntervals: [(set: TimetableSet, dayID: String, interval: DateInterval)] {
-      days
+      return days
         .flatMap { day in
           day.sets.filter { mySetIDs.contains($0.id) }.map { (set: $0, dayID: day.id, interval: day.interval(of: $0)) }
         }
@@ -161,7 +178,10 @@ public struct TimetableFeature {
     }
 
     /// 시간이 겹치는 다른 내 일정 공연. 시작 시각순이다.
-    private func overlaps(of set: TimetableSet, in day: TimetableDay) -> [TimetableSetOverlap] {
+    private func overlaps(
+      of set: TimetableSet,
+      in day: TimetableDay
+    ) -> [TimetableSetOverlap] {
       let interval = day.interval(of: set)
       return myIntervals.compactMap { mine in
         guard mine.set.id != set.id,
@@ -198,12 +218,16 @@ public struct TimetableFeature {
 
   @CasePathable
   public enum View {
+    case clockStarted
+    case clockStopped
+    case retryTapped
     case daySelected(Int)
     case mineOnlyToggled
     case setTapped(String)
     case zoomChanged(Double)
     case changeBannerTapped
     case searchTapped
+    case enablePackNotifications
     case notifyTapped
     case schedulePickTapped
     /// 부모가 선택한 축제를 알린다. 팩이 없으면 nil이다.
@@ -220,6 +244,8 @@ public struct TimetableFeature {
 
   @CasePathable
   public enum AsyncAction {
+    case enablePackNotifications
+    case observeClock
     /// 서버 일정을 읽는다.
     case fetchSchedule(festivalID: String, requestID: Int)
     /// 내 일정 목록을 서버에 저장한다.
@@ -230,6 +256,8 @@ public struct TimetableFeature {
 
   @CasePathable
   public enum InnerAction {
+    case notificationUpdated(NotificationStatus)
+    case clockUpdated(Date)
     case scheduleLoaded(festivalID: String, requestID: Int, Result<FestivalSchedule, FestivalScheduleError>)
     case scheduleSaved(festivalID: String, ScheduleSave, Result<FestivalSchedule, FestivalScheduleError>)
   }
@@ -242,7 +270,11 @@ public struct TimetableFeature {
   }
 
   @Dependency(\.festivalScheduleUseCase) var scheduleUseCase
-  @Dependency(\.date.now) var now
+  @Dependency(\.festivalNotificationSettingsUseCase) var notificationSettingsUseCase
+  @Dependency(\.date) var date
+  @Dependency(\.continuousClock) var clock
+
+  var now: Date { return date.now }
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -297,9 +329,28 @@ extension TimetableFeature {
     action: View
   ) -> Effect<Action> {
     switch action {
+    case .clockStarted:
+      updateClock(
+        state: &state,
+        date: now
+      )
+      return .send(.async(.observeClock))
+
+    case .clockStopped:
+      return .cancel(id: CancelID.clock)
+
+    case .retryTapped:
+      return .send(.delegate(.retry))
+
     case let .daySelected(index):
       guard state.days.indices.contains(index) else { return .none }
       state.selectedDayIndex = index
+      if let date = state.clockDate {
+        updateClock(
+          state: &state,
+          date: date
+        )
+      }
       return .none
 
     case .mineOnlyToggled:
@@ -322,6 +373,11 @@ extension TimetableFeature {
     case .searchTapped:
       return .send(.delegate(.search))
 
+    case .enablePackNotifications:
+      guard state.notificationStatus != .saving else { return .none }
+      state.notificationStatus = .saving
+      return .send(.async(.enablePackNotifications))
+
     case .notifyTapped:
       return .send(.delegate(.requestNotification))
 
@@ -342,6 +398,12 @@ extension TimetableFeature {
       return changeAccount(state: &state)
 
     case .packUpdated:
+      if let date = state.clockDate {
+        updateClock(
+          state: &state,
+          date: date
+        )
+      }
       // 열린 내 일정 고르기는 이전 공연 목록을 들고 있으므로 닫고 새 목록으로 정리한다.
       state.destination = nil
       return trimSchedule(state: &state)
@@ -353,11 +415,58 @@ extension TimetableFeature {
     }
   }
 
+  /// 날짜는 팩에서 서울 자정으로 정규화한다. 자정을 넘는 공연은 1440분 이상으로 계속 표시한다.
+  private func updateClock(
+    state: inout State,
+    date: Date
+  ) {
+    state.clockDate = date
+    guard let day = state.selectedDay else {
+      state.nowMinute = nil
+      return
+    }
+    let minute = Int(floor(date.timeIntervalSince(day.date) / 60))
+    let end = max(
+      1440,
+      day.sets.map(\.end).max() ?? 1440
+    )
+    state.nowMinute = (0..<end).contains(minute) ? minute : nil
+  }
+
   private func handleAsyncAction(
     state _: inout State,
     action: AsyncAction
   ) -> Effect<Action> {
     switch action {
+    case .enablePackNotifications:
+      return .run { [notificationSettingsUseCase] send in
+        do {
+          let settings = try await notificationSettingsUseCase.settings()
+          if !settings.packUpdates {
+            _ = try await notificationSettingsUseCase.updateSettings([.packUpdates: true])
+          }
+          let permission = await notificationSettingsUseCase.permission()
+          await send(.inner(.notificationUpdated(permission == .allowed ? .enabled : .permissionRequired)))
+        } catch {
+          await send(.inner(.notificationUpdated(.failed)))
+        }
+      }
+      .cancellable(
+        id: CancelID.notification,
+        cancelInFlight: true
+      )
+
+    case .observeClock:
+      return .run { [clock, date = self.date] send in
+        for await _ in clock.timer(interval: .seconds(1)) {
+          await send(.inner(.clockUpdated(date.now)))
+        }
+      }
+      .cancellable(
+        id: CancelID.clock,
+        cancelInFlight: true
+      )
+
     case let .fetchSchedule(festivalID, requestID):
       return .run { [scheduleUseCase] send in
         let result: Result<FestivalSchedule, FestivalScheduleError>
@@ -393,6 +502,17 @@ extension TimetableFeature {
     action: InnerAction
   ) -> Effect<Action> {
     switch action {
+    case let .notificationUpdated(status):
+      state.notificationStatus = status
+      return .none
+
+    case let .clockUpdated(date):
+      updateClock(
+          state: &state,
+          date: date
+        )
+      return .none
+
     case let .scheduleLoaded(festivalID, requestID, result):
       return applyLoadedSchedule(state: &state, festivalID: festivalID, requestID: requestID, result: result)
 
