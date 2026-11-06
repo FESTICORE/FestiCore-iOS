@@ -76,7 +76,7 @@ extension AnalyticsUseCase: DependencyKey {
     }
   )
 
-  /// 추적한 사용자 동작을 Sentry에도 남긴다. breadcrumb는 이슈 맥락, 카운트는 추이용이다.
+  /// 추적한 사용자 동작을 Sentry breadcrumb로 남겨 오류 맥락을 제공한다.
   /// 앱 로그를 Sentry Logs로 보내는 일은 `SentryLogSink`가 따로 맡는다.
   private static func monitorInSentry(name: String, properties: Properties) {
     let breadcrumb = Breadcrumb(
@@ -92,17 +92,6 @@ extension AnalyticsUseCase: DependencyKey {
       )
     }
     SentrySDK.addBreadcrumb(breadcrumb)
-
-    var metricAttributes: [String: any SentryAttributeValue] = ["event": name]
-    for (
-      key,
-      value) in properties.compactMapValues({ $0 as? String }) {
-      metricAttributes[key] = value
-    }
-    SentrySDK.metrics.count(
-      key: "user.action.count",
-      value: 1,
-      attributes: metricAttributes)
   }
 
   static func eventName(_ event: AnalyticsEvent) -> String {
