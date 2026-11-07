@@ -244,6 +244,7 @@ public enum FestiCoreFestivalLiveActivity {
         endDate: endDate,
         nowStages: nowStages ?? previousState?.nowStages ?? [],
         nextMine: keepsNextMine ? (nextMine ?? previousState?.nextMine) : nextMine,
+        isNextMineConfirmed: keepsNextMine ? previousState?.isNextMineConfirmed : isNextMineKnown,
         pinnedFlag: previousState?.pinnedFlag,
         crewSummary: previousState?.crewSummary,
         leaveAt: previousState?.leaveAt

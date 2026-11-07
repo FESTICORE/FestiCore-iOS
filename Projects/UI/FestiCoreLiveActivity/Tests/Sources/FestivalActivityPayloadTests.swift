@@ -97,6 +97,49 @@ struct FestivalActivityPayloadTests {
     #expect(next?.startsAt.isoDate == now.addingTimeInterval(3_600))
   }
 
+  @Test func confirmedEmptyScheduleIsNotFilledFromSharedSnapshot() throws {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let snapshot = FestivalWidgetSnapshot(
+      festivalID: "festival",
+      festivalName: "축제",
+      firstDay: nil,
+      lastDay: nil,
+      updatedAt: now,
+      hasPack: true,
+      performances: [
+        .init(
+          id: "stale",
+          artist: "저장 취소한 공연",
+          stageName: "메인 무대",
+          startsAt: now.addingTimeInterval(3_600),
+          endsAt: now.addingTimeInterval(7_200),
+          isSaved: true
+        ),
+      ]
+    )
+    var state = FestiCoreFestivalActivityAttributes.ContentState(
+      phase: .ongoing,
+      startDate: now
+    )
+
+    // 서버 payload처럼 확인 여부가 없으면 공유 저장 일정으로 채운다.
+    #expect(FestivalActivityWidgetContent.resolvedNextMine(
+      state: state,
+      snapshot: snapshot,
+      festivalID: "festival",
+      now: now
+    )?.setId == "stale")
+
+    // 앱이 내 일정이 비었다고 확인했으면 오래된 스냅샷을 쓰지 않는다.
+    state.isNextMineConfirmed = true
+    #expect(FestivalActivityWidgetContent.resolvedNextMine(
+      state: state,
+      snapshot: snapshot,
+      festivalID: "festival",
+      now: now
+    ) == nil)
+  }
+
   @Test func activityStartDoesNotReadAnotherFestival() throws {
     let now = Date(timeIntervalSince1970: 1_800_000_000)
     let snapshot = FestivalWidgetSnapshot(
@@ -303,6 +346,7 @@ struct FestivalActivityPayloadTests {
       )
       expected.nowStages = remote.nowStages
       expected.nextMine = nil
+      expected.isNextMineConfirmed = true
       #expect(emptySchedule.state == expected)
     }
   }

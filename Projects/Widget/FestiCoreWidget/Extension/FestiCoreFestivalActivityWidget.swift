@@ -425,12 +425,13 @@ private extension FestiCoreFestivalActivityWidget {
     }
   }
 
-  /// 서버 payload에 다음 내 일정이 없으면 앱과 공유한 저장 일정으로 채운다.
+  /// 서버 payload에 다음 내 일정이 없으면 앱과 공유한 저장 일정으로 채운다(앱이 빈 일정을 확인했으면 채우지 않는다).
   func resolvedNextMine(
     for state: FestiCoreFestivalActivityAttributes.ContentState,
     festivalID: String
   ) -> FestiCoreFestivalActivityAttributes.ContentState.NextMine? {
-    return state.nextMine ?? FestivalActivityWidgetContent.nextMine(
+    return FestivalActivityWidgetContent.resolvedNextMine(
+      state: state,
       snapshot: FestivalWidgetStore.load(),
       festivalID: festivalID,
       now: .now
