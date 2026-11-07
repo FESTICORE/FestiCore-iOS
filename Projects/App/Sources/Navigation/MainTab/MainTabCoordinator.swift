@@ -36,7 +36,12 @@ struct MainTabCoordinator {
       get { timetableCoordinatorState.timetableState }
       set { timetableCoordinatorState.timetableState = newValue }
     }
-    var flagState = FestivalFlagFeature.State()
+    var flagCoordinatorState = FlagCoordinator.State()
+    /// 깃발 탭 루트의 디렉토리. 축제·계정 동기화가 읽고 쓴다.
+    var flagState: FestivalFlagFeature.State {
+      get { return flagCoordinatorState.directory }
+      set { flagCoordinatorState.directory = newValue }
+    }
     var profileState = ProfileFeature.State()
     var loginState = LoginFeature.State()
     var authFlow = AppCoordinator.AuthFlow()
@@ -47,6 +52,10 @@ struct MainTabCoordinator {
         return false
       }
       if selectedTab == .my, profileState.hidesTabBarForProfileRoute {
+        return false
+      }
+      // 깃발 상세는 탭바 자리까지 화면을 쓴다.
+      if selectedTab == .flag, flagCoordinatorState.isDetailOpen {
         return false
       }
       return selectedTab != .live || (festivalState.routes.count != 1 && !isNotificationInboxOnTop)
@@ -71,7 +80,7 @@ struct MainTabCoordinator {
           || profileState.hidesTabBarForProfileRoute
           || profileState.destination?.account?.destination != nil
       case .flag:
-        return false
+        return flagCoordinatorState.isDetailOpen
       }
     }
 
@@ -90,7 +99,7 @@ struct MainTabCoordinator {
     case festival(FestivalCoordinator.Action)
     case timetable(TimetableFeature.Action)
     case timetableCoordinator(TimetableCoordinator.Action)
-    case flag(FestivalFlagFeature.Action)
+    case flagCoordinator(FlagCoordinator.Action)
     case profileCoordinator(ProfileCoordinator.Action)
     case login(LoginFeature.Action)
     case signUp(SignUpFlowCoordinator.Action)
@@ -122,8 +131,11 @@ struct MainTabCoordinator {
     ) {
       TimetableCoordinator()
     }
-    Scope(state: \.flagState, action: \.flag) {
-      FestivalFlagFeature()
+    Scope(
+      state: \.flagCoordinatorState,
+      action: \.flagCoordinator
+    ) {
+      FlagCoordinator()
     }
     Scope(
       state: \.profileState,
@@ -167,14 +179,10 @@ struct MainTabCoordinator {
         return .none
 
       case let .openWidgetRoute(route):
-        if state.selectedTab != .live { state.previousTab = state.selectedTab }
-        state.selectedTab = .live
-        switch route {
-        case .festivalList:
-          return .send(.festival(.showFestivalList))
-        case let .festival(id):
-          return .send(.festival(.openWidgetFestival(id)))
-        }
+        return openWidgetRoute(
+          route,
+          state: &state
+        )
 
       case .festival(.delegate(.loginRequested)):
         return .send(.delegate(.myLoginRequested))
@@ -229,13 +237,22 @@ struct MainTabCoordinator {
       case .timetableCoordinator:
         return .none
 
-      case .flag(.directory(.delegate(.loginRequested))):
+      case let .flagCoordinator(.delegate(.detailRequested(flagID))):
+        return .send(.flagCoordinator(.navigation(.showDetail(
+          flagID: flagID,
+          context: flagDetailContext(state)
+        ))))
+
+      case .flagCoordinator(.delegate(.loginRequested)):
         return .send(.delegate(.myLoginRequested))
 
-      case .flag(.directory(.delegate(.termsAcceptanceRequested))):
+      case .flagCoordinator(.delegate(.followLoginRequested)):
+        return .send(.delegate(.myFollowLoginRequested))
+
+      case .flagCoordinator(.delegate(.termsAcceptanceRequested)):
         return .send(.delegate(.myProfileRefreshRequested))
 
-      case .flag, .delegate:
+      case .flagCoordinator, .delegate:
         return .none
 
       case let .authInputsChanged(
@@ -329,7 +346,7 @@ struct MainTabCoordinator {
         let refreshAccountData = (!oldSession.hasSession && session.hasSession)
           || accountChanged || (oldSession.hasSession && !session.hasSession)
         if refreshAccountData {
-          await send(.flag(.accountChanged))
+          await send(.flagDirectory(.accountChanged))
         }
         if accountChanged || (oldSession.hasSession && !session.hasSession) {
           await send(.timetable(.view(.accountChanged)))
@@ -343,35 +360,81 @@ struct MainTabCoordinator {
   }
 
   private func syncFlag(state: inout State) -> Effect<Action> {
-    let selectedID: String?
-    let pack: FestivalPackDocument?
-    // 기수 보드는 라이브 보드 위에 덮이는 화면이라 그 아래 축제를 기준으로 삼는다.
-    if let screen = state.festivalState.routes.last(where: {
-      !$0.screen.is(\.bearerBoard) && !$0.screen.is(\.notificationInbox)
-    })?.screen {
-      switch screen {
-      case let .festivalList(festival):
-        selectedID = festival.selectedFestivalID
-        pack = festival.displayDocument
-      case let .liveBoard(festival):
-        selectedID = festival.selectedFestivalID
-        pack = festival.displayDocument
-      case .bearerBoard, .notificationInbox:
-        selectedID = nil
-        pack = nil
-      }
-    } else {
-      selectedID = nil
-      pack = nil
-    }
+    let board = flagBoard(state)
+    let selectedID = board?.selectedFestivalID
+    let pack = board?.displayDocument
     // 깃발 카드의 구역 칩은 선택 축제 팩의 구역 이름을 쓴다. 다른 축제의 팩이면 비운다.
     let zones = pack?.id == selectedID ? pack?.zones ?? [] : []
     let zoneNames = Dictionary(zones.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
     if state.flagState.directory.zoneNames != zoneNames {
       state.flagState.directory.zoneNames = zoneNames
     }
-    return selectedID == state.flagState.festivalID
-      ? .none : .send(.flag(.festivalChanged(selectedID)))
+    let festivalEffect: Effect<Action> = selectedID == state.flagState.festivalID
+      ? .none : .send(.flagDirectory(.festivalChanged(selectedID)))
+    // 열린 깃발 상세에 팩·내 일정·계정 변경을 알린다.
+    guard state.flagCoordinatorState.isDetailOpen else { return festivalEffect }
+    return .merge(
+      festivalEffect,
+      .send(.flagCoordinator(.navigation(.updateDetailContext(flagDetailContext(state)))))
+    )
+  }
+
+  /// 깃발 탭이 따르는 축제 보드. 기수 보드·알림함은 라이브 보드 위에 덮이는 화면이라 그 아래 축제를 기준으로 삼는다.
+  private func flagBoard(_ state: State) -> FestivalFeature.State? {
+    guard let screen = state.festivalState.routes.last(where: {
+      !$0.screen.is(\.bearerBoard) && !$0.screen.is(\.notificationInbox)
+    })?.screen else { return nil }
+    switch screen {
+    case let .festivalList(festival), let .liveBoard(festival):
+      return festival
+    case .bearerBoard, .notificationInbox:
+      return nil
+    }
+  }
+
+  private func flagDetailContext(_ state: State) -> FestivalFlagDetailContext {
+    return FestivalFlagDetailContext(
+      board: flagBoard(state),
+      snapshot: state.flagState.snapshot
+    )
+  }
+
+  /// 위젯·공유 링크로 연 화면. 축제 경로는 라이브 탭, 깃발 경로는 깃발 탭에서 연다.
+  private func openWidgetRoute(
+    _ route: WidgetDeepLink,
+    state: inout State
+  ) -> Effect<Action> {
+    switch route {
+    case .festivalList:
+      select(
+        .live,
+        state: &state
+      )
+      return .send(.festival(.showFestivalList))
+    case let .festival(id):
+      select(
+        .live,
+        state: &state
+      )
+      return .send(.festival(.openWidgetFestival(id)))
+    case let .flag(id):
+      let context = flagDetailContext(state)
+      return .concatenate(
+        .send(.selectTab(.flag)),
+        .send(.flagCoordinator(.navigation(.showDetail(
+          flagID: id,
+          context: context
+        ))))
+      )
+    }
+  }
+
+  private func select(
+    _ tab: Tab,
+    state: inout State
+  ) {
+    if state.selectedTab != tab { state.previousTab = state.selectedTab }
+    state.selectedTab = tab
   }
 
   /// 라이브 보드에서 고른 축제의 팩을 타임테이블에 옮긴다.
@@ -440,5 +503,15 @@ struct MainTabCoordinator {
         await send(.timetable(.view(.timetableAppeared)))
       }
     }
+  }
+}
+
+extension MainTabCoordinator.Action {
+  /// 깃발 탭 루트 디렉토리로 보내는 액션
+  static func flagDirectory(_ action: FestivalFlagFeature.Action) -> Self {
+    return .flagCoordinator(.router(.routeAction(
+      id: 0,
+      action: .directory(action)
+    )))
   }
 }

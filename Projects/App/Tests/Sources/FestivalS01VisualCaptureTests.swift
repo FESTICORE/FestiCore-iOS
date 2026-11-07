@@ -243,12 +243,14 @@ final class FestivalS01VisualCaptureTests: XCTestCase {
 private extension FestivalS01VisualCaptureTests {
   enum FlagDetailScenario: String, CaseIterable {
     case basic = "S05-A-basic"
+    case followedToast = "S05-AB-followed-toast"
     case following = "S05-B-following"
     case stale = "S05-C-stale"
     case planPrivate = "S05-D-plan-private"
     case resting = "S05-F-resting"
     case ended = "S05-G-ended"
     case offline = "S05-H-offline"
+    case report = "S05-E-report"
   }
 
   func flagDetailState(
@@ -324,8 +326,10 @@ private extension FestivalS01VisualCaptureTests {
       zoneID: "zone_rivet",
       activity: scenario == .resting ? .resting : .slam,
       statusUpdatedAt: now.addingTimeInterval(-updatedMinutesAgo * 60),
-      isFollowing: scenario == .following,
+      isFollowing: scenario == .following || scenario == .followedToast,
       isBearer: false,
+      // 시안 B는 잠금화면 표시가 켜져 있다.
+      isPinned: scenario == .following,
       isHidden: false
     )
     var state = FestivalFlagDetailFeature.State(
@@ -341,6 +345,12 @@ private extension FestivalS01VisualCaptureTests {
     state.content = .loaded(detail)
     state.lastLoadedAt = now.addingTimeInterval(-180)
     state.isOffline = scenario == .offline
+    if scenario == .followedToast {
+      state.toast = .followed(name: "호락호락")
+    }
+    if scenario == .report {
+      state.destination = .report(FestivalFlagReportFeature.State())
+    }
     return state
   }
 
