@@ -66,7 +66,10 @@ public struct FCNextSetCard: View {
   }
 
   public var body: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP20
+    ) {
       HStack {
         Text(label)
           .festiCoreFont(.baseFootnoteBold)

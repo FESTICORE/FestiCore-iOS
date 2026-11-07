@@ -64,6 +64,8 @@ public struct TimetableFeature {
     public var selectedDayIndex = 0
     public var mySetIDs: Set<String> = []
     public var showsMineOnly = false
+    /// 저장된 일정은 그대로 표시하고, 사용자가 일정을 바꿔 충돌을 만든 경우에만 보드 경고를 띄운다.
+    public var shouldShowOverlapWarning = false
     /// 핀치로 확정한 시간축 배율. 날짜를 바꾸거나 화면을 다시 그려도 유지한다.
     public var zoom: Double = 1
     /// 선택한 날짜 기준 현재 시각(분). 자정을 넘는 공연까지 끝나면 nil이다.
@@ -136,8 +138,12 @@ public struct TimetableFeature {
       }
     }
 
+    public var visibleOverlaps: [TimetableOverlap] {
+      return shouldShowOverlapWarning ? overlaps : []
+    }
+
     func isOverlapping(_ set: TimetableSet) -> Bool {
-      guard mySetIDs.contains(set.id), let day = selectedDay else { return false }
+      guard shouldShowOverlapWarning, mySetIDs.contains(set.id), let day = selectedDay else { return false }
       return !overlaps(of: set, in: day).isEmpty
     }
 
@@ -344,6 +350,9 @@ extension TimetableFeature {
 
     case let .daySelected(index):
       guard state.days.indices.contains(index) else { return .none }
+      if index != state.selectedDayIndex {
+        state.shouldShowOverlapWarning = false
+      }
       state.selectedDayIndex = index
       if let date = state.clockDate {
         updateClock(
@@ -547,7 +556,11 @@ extension TimetableFeature {
     switch action {
     case let .saved(festivalID, setIDs):
       guard festivalID == state.festivalID else { return .none }
+      let previousSetIDs = state.mySetIDs
       state.mySetIDs = setIDs.intersection(state.allSetIDs)
+      if previousSetIDs != state.mySetIDs {
+        state.shouldShowOverlapWarning = !state.overlaps.isEmpty
+      }
       state.scheduleSync = .ready
       state.isScheduleLimitReached = false
       state.uncertainSave = nil

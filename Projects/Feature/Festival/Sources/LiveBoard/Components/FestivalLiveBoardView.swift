@@ -84,7 +84,14 @@ private extension FestivalLiveBoardView {
         }
       }
     }
-    .padding(FestiCoreSpacing.paddingP16)
+    .padding(
+      .vertical,
+      FestiCoreSpacing.paddingP20
+    )
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP16
+    )
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(row.isMine ? FestiCoreSemanticColor.accentBackgroundLime.color : .clear)
     .accessibilityElement(children: .combine)

@@ -26,17 +26,30 @@ struct TimetableBoard: View {
   @GestureState private var gestureMagnification: CGFloat = 1
 
   var body: some View {
-    ScrollView(isWide ? [.horizontal, .vertical] : .vertical) {
-      LazyVStack(spacing: .zero, pinnedViews: .sectionHeaders) {
-        Section {
-          grid
-        } header: {
-          stageHeaders
+    ScrollViewReader { proxy in
+      ScrollView(isWide ? [.horizontal, .vertical] : .vertical) {
+        LazyVStack(
+          spacing: .zero,
+          pinnedViews: .sectionHeaders
+        ) {
+          Section {
+            grid
+          } header: {
+            stageHeaders
+          }
         }
+        .frame(width: isWide ? wideWidth : nil)
       }
-      .frame(width: isWide ? wideWidth : nil)
+      .scrollIndicators(.hidden)
+      .task(id: day.id) {
+        guard let now = store.nowMinute else { return }
+        await Task.yield()
+        proxy.scrollTo(
+          now / 60,
+          anchor: .top
+        )
+      }
     }
-    .scrollIndicators(.hidden)
     .simultaneousGesture(
       MagnifyGesture()
         .updating($gestureMagnification) { value, magnification, _ in
@@ -122,7 +135,10 @@ private extension TimetableBoard {
   private var grid: some View {
     ZStack(alignment: .topLeading) {
       hourLines
-      ForEach(Array(store.overlaps.enumerated()), id: \.offset) { _, overlap in
+      ForEach(
+        Array(store.visibleOverlaps.enumerated()),
+        id: \.offset
+      ) { _, overlap in
         overlapBand(overlap)
       }
       columns
@@ -150,6 +166,7 @@ private extension TimetableBoard {
           .padding(.leading, FestiCoreSpacing.paddingP12)
           .offset(y: -Metric.hourLabelHalfHeight)
       }
+      .id(hour)
       .offset(y: y(hour * 60))
     }
   }

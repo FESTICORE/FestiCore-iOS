@@ -43,6 +43,7 @@ extension TimetableFeature {
 
   func resetSchedule(state: inout State) -> Effect<Action> {
     state.mySetIDs = []
+    state.shouldShowOverlapWarning = false
     state.scheduleSync = .idle
     state.isScheduleLimitReached = false
     state.isSaving = false
@@ -67,6 +68,7 @@ extension TimetableFeature {
       state.mySetIDs.insert(id)
       toast = .send(.scope(.setDetail(.presented(.async(.showScheduleToast)))))
     }
+    state.shouldShowOverlapWarning = !state.overlaps.isEmpty
     guard state.scheduleSync == .ready else { return toast }
     return .merge(toast, saveSchedule(state: &state))
   }
@@ -80,6 +82,7 @@ extension TimetableFeature {
     let trimmed = state.mySetIDs.intersection(validIDs)
     guard trimmed != state.mySetIDs else { return .none }
     state.mySetIDs = trimmed
+    state.shouldShowOverlapWarning = false
     guard state.scheduleSync == .ready else { return .none }
     return saveSchedule(state: &state)
   }
@@ -129,6 +132,7 @@ extension TimetableFeature {
     switch result {
     case let .success(schedule):
       state.mySetIDs = Set(schedule.setIDs).intersection(state.allSetIDs)
+      state.shouldShowOverlapWarning = false
       state.scheduleSync = .ready
       return .none
     case .failure:
@@ -155,6 +159,7 @@ extension TimetableFeature {
       return needsSave ? .concatenate(delegate, saveSchedule(state: &state)) : delegate
     case let .failure(.stale(server)):
       state.mySetIDs = Set(server.setIDs).intersection(state.allSetIDs)
+      state.shouldShowOverlapWarning = false
       return .send(.delegate(.scheduleSaved(festivalID: festivalID, setIDs: state.mySetIDs)))
     case .failure(.unauthorized):
       state.scheduleSync = .localOnly

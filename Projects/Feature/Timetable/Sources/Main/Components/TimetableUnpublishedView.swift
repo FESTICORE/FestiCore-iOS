@@ -17,18 +17,29 @@ struct TimetableUnpublishedView: View {
 
   var body: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
+      VStack(
+        alignment: .leading,
+        spacing: FestiCoreSpacing.paddingP24 + FestiCoreSpacing.marginM2
+      ) {
         FCEmptyCard(
           icon: .bell,
-          title: "축제 팩 업데이트 알림을 받아보세요",
+          title: "시간표가 공개되면 알려 드릴게요",
           message: notificationMessage
         )
         .action(
           FCCardAction(
-            notificationStatus == .saving ? "설정 중" : "팩 업데이트 알림 받기",
+            notificationStatus == .saving ? "설정 중" : "알림 받기",
             style: .primary,
             action: { if notificationStatus != .saving { onNotify() } }
           )
+        )
+        .padding(
+          .bottom,
+          FestiCoreSpacing.marginM6
+        )
+        .background(
+          FestiCoreSemanticColor.backgroundElevated.color,
+          in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
         )
         ForEach(lineup) { day in
           section(day)
@@ -42,7 +53,7 @@ struct TimetableUnpublishedView: View {
 private extension TimetableUnpublishedView {
   var notificationMessage: String {
     switch notificationStatus {
-    case .idle: return "공개된 라인업을 먼저 확인할 수 있어요.\n시간표 등 축제 팩 정보가 업데이트되면 알림을 받아보세요."
+    case .idle: return "대략적인 라인업은 먼저 확인할 수 있어요.\n시간표 공개 후 원하는 무대를 선택해 내 일정에 넣어 보세요."
     case .saving: return "알림 설정을 저장하고 있어요."
     case .enabled: return "팩 업데이트 알림을 켰어요."
     case .permissionRequired: return "팩 업데이트 알림을 켰어요. 기기 설정에서도 알림을 허용해 주세요."
@@ -61,7 +72,8 @@ private extension TimetableUnpublishedView {
         ForEach(Array(day.artists.enumerated()), id: \.offset) { index, artist in
           FCLineupRow(
             number: String(format: "%02d", index + 1),
-            artist: artist
+            artist: artist,
+            showsSeparator: index < day.artists.count - 1
           )
         }
       }

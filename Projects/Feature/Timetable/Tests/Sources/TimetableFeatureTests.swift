@@ -254,6 +254,57 @@ struct TimetableFeatureTests {
     #expect(state.mySetCount == 4)
     #expect(state.overlaps == [TimetableOverlap(start: 955, end: 990)])
     #expect(state.overlaps.first?.minutes == 35)
+    #expect(state.visibleOverlaps.isEmpty)
+
+    var changed = state
+    changed.shouldShowOverlapWarning = true
+    #expect(changed.visibleOverlaps == state.overlaps)
+  }
+
+  @Test func addingAnOverlappingSetShowsTheBoardWarning() throws {
+    let feature = TimetableFeature()
+    var state = TimetableFeature.State.sample()
+    state.mySetIDs = ["noise-returns"]
+    let now = try #require(state.selectedDay?.date.addingTimeInterval(928 * 60))
+    let content = try #require(state.setDetailContent(
+      id: "cryingbird",
+      now: now
+    ))
+    state.setDetail = TimetableSetDetailFeature.State(
+      setID: "cryingbird",
+      content: content
+    )
+
+    withDependencies {
+      $0.date.now = now
+    } operation: {
+      _ = feature.toggleSchedule(state: &state)
+    }
+
+    #expect(state.mySetIDs.contains("cryingbird"))
+    #expect(state.shouldShowOverlapWarning)
+    #expect(state.visibleOverlaps.first?.minutes == 35)
+  }
+
+  @Test func changingDayHidesTheOverlapWarning() async {
+    var state = TimetableFeature.State.sample()
+    state.shouldShowOverlapWarning = true
+    let store = TestStore(initialState: state) {
+      TimetableFeature()
+    }
+
+    await store.send(.view(.daySelected(0)))
+    #expect(store.state.visibleOverlaps.count == 1)
+
+    await store.send(.view(.daySelected(1))) {
+      $0.selectedDayIndex = 1
+      $0.shouldShowOverlapWarning = false
+    }
+    await store.send(.view(.daySelected(0))) {
+      $0.selectedDayIndex = 0
+    }
+    #expect(store.state.overlaps.count == 1)
+    #expect(store.state.visibleOverlaps.isEmpty)
   }
 
   @Test func changedSetsAreCounted() {

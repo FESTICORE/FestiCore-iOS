@@ -47,11 +47,13 @@ public struct FCTabBar: View {
       }
     }
     .padding(.top, FestiCoreSpacing.paddingP8)
-    .padding(.bottom, FestiCoreSpacing.paddingP8)
+    .padding(
+      .bottom,
+      FestiCoreSpacing.marginM2
+    )
     .background {
       Rectangle()
-        .fill(.ultraThinMaterial)
-        .overlay(FestiCoreSemanticColor.materialGlass.color)
+        .fill(FestiCoreSemanticColor.backgroundNormal.color)
         .ignoresSafeArea(edges: .bottom)
     }
     .overlay(alignment: .top) {

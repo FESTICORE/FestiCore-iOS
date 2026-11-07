@@ -89,7 +89,10 @@ private extension FestivalLiveBoardCrewCard {
             : FestiCoreSemanticColor.labelAssistive.color)
       }
     }
-    .padding(.vertical, FestiCoreSpacing.paddingP12)
+    .padding(
+      .vertical,
+      FestiCoreSpacing.paddingP16
+    )
     .padding(.horizontal, FestiCoreSpacing.paddingP16)
     .opacity(member.isLeaving ? 0.6 : 1)
     .accessibilityElement(children: .combine)
@@ -177,7 +180,10 @@ struct FestivalLiveBoardActiveFlagRow: View {
         }
       }
     }
-    .padding(.vertical, FestiCoreSpacing.paddingP12)
+    .padding(
+      .vertical,
+      FestiCoreSpacing.paddingP16
+    )
     .padding(.horizontal, FestiCoreSpacing.paddingP16)
     .accessibilityElement(children: .combine)
   }
