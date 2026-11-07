@@ -53,6 +53,10 @@ public struct FCFlagCard<Thumbnail: View>: View {
             FCStatusChip(status)
           }
         }
+        .figmaLineBox(
+          .baseBodyBold,
+          isEnabled: isDirectory
+        )
         switch context {
         case let .board(activity, time):
           HStack(spacing: FestiCoreSpacing.paddingP8) {
@@ -73,6 +77,10 @@ public struct FCFlagCard<Thumbnail: View>: View {
           Text(followers)
             .festiCoreFont(.baseFootnoteRegular)
             .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+            .figmaLineBox(
+              .baseFootnoteRegular,
+              isEnabled: true
+            )
           HStack(spacing: FestiCoreSpacing.paddingP4) {
             ForEach(tags, id: \.self) { tag in
               FCTag(tag)
@@ -98,6 +106,26 @@ public struct FCFlagCard<Thumbnail: View>: View {
     .padding(FestiCoreSpacing.paddingP16)
     .background(FestiCoreSemanticColor.backgroundElevated.color, in: shape)
     .overlay { shape.strokeBorder(FestiCoreSemanticColor.lineNormal.color, lineWidth: 1) }
+  }
+}
+
+private extension FCFlagCard {
+  var isDirectory: Bool {
+    if case .directory = context { return true }
+    return false
+  }
+}
+
+private extension View {
+  /// 깃발 디렉토리(S04) 텍스트에만 Figma 줄 높이 박스처럼 위아래 절반 여백을 둔다.
+  func figmaLineBox(
+    _ style: FestiCoreTextStyle,
+    isEnabled: Bool
+  ) -> some View {
+    return padding(
+      .vertical,
+      isEnabled ? style.resolvedLineSpacing / 2 : .zero
+    )
   }
 }
 
