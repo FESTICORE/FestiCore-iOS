@@ -54,12 +54,21 @@ struct FestivalFlagDetailRepositoryTests {
     #expect(detail.activity == nil)
   }
 
-  @Test("모르는 상태, 다른 깃발 ID, 실패 코드는 응답 오류로 막는다")
+  @Test("모르는 상태, 다른 깃발 ID, 실패 코드, 필수 값 누락은 응답 오류로 막는다")
   func rejectsUnexpectedResponses() async {
     let cases = [
       Self.json(status: "dancing"),
       Self.json(id: "flg_other"),
       Self.json(code: "FAIL"),
+      Self.json(statusFlagID: "flg_other"),
+      Self.json().replacingOccurrences(
+        of: #","hidden":false"#,
+        with: ""
+      ),
+      Self.json().replacingOccurrences(
+        of: #""planVisible":true,"#,
+        with: ""
+      ),
       #"{"code":"SUCCESS","message":"OK","data":{"id":"flg_1"}}"#,
     ]
     for json in cases {
@@ -134,9 +143,10 @@ struct FestivalFlagDetailRepositoryTests {
   private static func json(
     code: String = "SUCCESS",
     id: String = "flg_1",
-    status: String = "active"
+    status: String = "active",
+    statusFlagID: String = "flg_1"
   ) -> String {
-    return #"{"code":"\#(code)","message":"OK","data":{"id":"\#(id)","name":"호락호락","thumbUrl":"https://cdn.festicore.test/thumb.webp","photoUrl":"/api/v1/flags/flg_1/photo","tags":["slam","sing"],"bio":"처음 와도 괜찮아요","followerCount":1284,"planVisible":true,"plan":["set_a","set_b"],"homeZoneId":"zone_home","status":{"flagId":"flg_1","status":"\#(status)","zoneId":"zone_a","activity":"slam","updatedAt":"2026-11-07T10:00:00Z"},"isFollowing":true,"isBearer":false,"hidden":false}}"#
+    return #"{"code":"\#(code)","message":"OK","data":{"id":"\#(id)","name":"호락호락","thumbUrl":"https://cdn.festicore.test/thumb.webp","photoUrl":"/api/v1/flags/flg_1/photo","tags":["slam","sing"],"bio":"처음 와도 괜찮아요","followerCount":1284,"planVisible":true,"plan":["set_a","set_b"],"homeZoneId":"zone_home","status":{"flagId":"\#(statusFlagID)","status":"\#(status)","zoneId":"zone_a","activity":"slam","updatedAt":"2026-11-07T10:00:00Z"},"isFollowing":true,"isBearer":false,"hidden":false}}"#
   }
 }
 

@@ -13,6 +13,7 @@ typealias FestivalFlagDetailResponseDTO = BaseResponseDTO<FestivalFlagDetailData
 /// `GET flags/:flagId` 응답 data. 익명 조회면 isFollowing·isBearer가 null이다.
 struct FestivalFlagDetailDataDTO: Decodable, Sendable {
   struct StatusDTO: Decodable, Sendable {
+    let flagId: String
     let status: String
     let zoneId: String?
     let activity: String?
@@ -65,14 +66,14 @@ struct FestivalFlagDetailDataDTO: Decodable, Sendable {
       String.self,
       forKey: .bio
     )
-    followerCount = try container.decodeIfPresent(
+    followerCount = try container.decode(
       Int.self,
       forKey: .followerCount
-    ) ?? 0
-    planVisible = try container.decodeIfPresent(
+    )
+    planVisible = try container.decode(
       Bool.self,
       forKey: .planVisible
-    ) ?? false
+    )
     plan = Self.strings(
       in: container,
       forKey: .plan
@@ -93,10 +94,10 @@ struct FestivalFlagDetailDataDTO: Decodable, Sendable {
       Bool.self,
       forKey: .isBearer
     )
-    hidden = try container.decodeIfPresent(
+    hidden = try container.decode(
       Bool.self,
       forKey: .hidden
-    ) ?? false
+    )
   }
 }
 
