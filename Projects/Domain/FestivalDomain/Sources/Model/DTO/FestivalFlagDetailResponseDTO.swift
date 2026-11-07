@@ -58,7 +58,7 @@ struct FestivalFlagDetailDataDTO: Decodable, Sendable {
       String.self,
       forKey: .photoUrl
     )
-    tags = Self.strings(
+    tags = try Self.strings(
       in: container,
       forKey: .tags
     )
@@ -74,7 +74,7 @@ struct FestivalFlagDetailDataDTO: Decodable, Sendable {
       Bool.self,
       forKey: .planVisible
     )
-    plan = Self.strings(
+    plan = try Self.strings(
       in: container,
       forKey: .plan
     )
@@ -102,17 +102,15 @@ struct FestivalFlagDetailDataDTO: Decodable, Sendable {
 }
 
 private extension FestivalFlagDetailDataDTO {
-  /// 문자열이 아닌 원소는 버린다. 배열이 없거나 형식이 다르면 빈 배열이다.
+  /// 배열은 필수다. 배열 안에서 문자열이 아닌 원소만 버린다.
   static func strings(
     in container: KeyedDecodingContainer<CodingKeys>,
     forKey key: CodingKeys
-  ) -> [String] {
-    guard let values = try? container.decode(
+  ) throws -> [String] {
+    let values = try container.decode(
       [StringValue].self,
       forKey: key
-    ) else {
-      return []
-    }
+    )
     return values.compactMap(\.value)
   }
 

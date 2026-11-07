@@ -69,6 +69,14 @@ struct FestivalFlagDetailRepositoryTests {
         of: #""planVisible":true,"#,
         with: ""
       ),
+      Self.json().replacingOccurrences(
+        of: #""plan":["set_a","set_b"]"#,
+        with: #""plan":{"id":"set_a"}"#
+      ),
+      Self.json().replacingOccurrences(
+        of: #""tags":["slam","sing"],"#,
+        with: ""
+      ),
       #"{"code":"SUCCESS","message":"OK","data":{"id":"flg_1"}}"#,
     ]
     for json in cases {
