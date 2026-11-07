@@ -217,7 +217,12 @@ private extension FestiCoreFestivalActivityWidget {
     for state: FestiCoreFestivalActivityAttributes.ContentState,
     festivalID: String
   ) -> some View {
-    if let next = state.nextMine {
+    let nextMine = state.nextMine ?? FestivalActivityWidgetContent.nextMine(
+      snapshot: FestivalWidgetStore.load(),
+      festivalID: festivalID,
+      now: .now
+    )
+    if let next = nextMine {
       Text([next.artist, next.stageName ?? stageName(
         for: next.setId,
         festivalID: festivalID

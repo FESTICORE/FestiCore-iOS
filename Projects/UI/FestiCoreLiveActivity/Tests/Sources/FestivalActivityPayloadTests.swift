@@ -48,6 +48,111 @@ struct FestivalActivityPayloadTests {
     #expect(content.nextMine?.stageName == "셋째 무대")
   }
 
+  @Test func activityStartUsesMatchingSharedSnapshotForNextSavedPerformance() throws {
+    let now = try #require(ISO8601DateFormatter().date(from: "2026-11-07T09:00:00Z"))
+    let snapshot = FestivalWidgetSnapshot(
+      festivalID: "festival",
+      festivalName: "축제",
+      firstDay: nil,
+      lastDay: nil,
+      updatedAt: now,
+      hasPack: true,
+      performances: [
+        .init(
+          id: "past",
+          artist: "지난 공연",
+          stageName: "지난 무대",
+          startsAt: now.addingTimeInterval(-3_600),
+          endsAt: now.addingTimeInterval(-1_800),
+          isSaved: true
+        ),
+        .init(
+          id: "next",
+          artist: "저장한 다음 공연",
+          stageName: "메인 무대",
+          startsAt: now.addingTimeInterval(3_600),
+          endsAt: now.addingTimeInterval(7_200),
+          isSaved: true
+        ),
+        .init(
+          id: "unsaved",
+          artist: "저장 안 한 공연",
+          stageName: "서브 무대",
+          startsAt: now.addingTimeInterval(1_800),
+          endsAt: now.addingTimeInterval(5_400),
+          isSaved: false
+        ),
+      ]
+    )
+
+    let next = FestivalActivityWidgetContent.nextMine(
+      snapshot: snapshot,
+      festivalID: "festival",
+      now: now
+    )
+
+    #expect(next?.setId == "next")
+    #expect(next?.artist == "저장한 다음 공연")
+    #expect(next?.stageName == "메인 무대")
+    #expect(next?.startsAt.isoDate == now.addingTimeInterval(3_600))
+  }
+
+  @Test func activityStartDoesNotReadAnotherFestival() throws {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let snapshot = FestivalWidgetSnapshot(
+      festivalID: "other-festival",
+      festivalName: "다른 축제",
+      firstDay: nil,
+      lastDay: nil,
+      updatedAt: now,
+      hasPack: true,
+      performances: [
+        .init(
+          id: "next",
+          artist: "저장한 공연",
+          stageName: "메인 무대",
+          startsAt: now.addingTimeInterval(3_600),
+          endsAt: now.addingTimeInterval(7_200),
+          isSaved: true
+        ),
+      ]
+    )
+
+    #expect(FestivalActivityWidgetContent.nextMine(
+      snapshot: snapshot,
+      festivalID: "festival",
+      now: now
+    ) == nil)
+  }
+
+  @Test func activityStartDoesNotReadSavedPerformancesWithoutPack() throws {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let snapshot = FestivalWidgetSnapshot(
+      festivalID: "festival",
+      festivalName: "축제",
+      firstDay: nil,
+      lastDay: nil,
+      updatedAt: now,
+      hasPack: false,
+      performances: [
+        .init(
+          id: "next",
+          artist: "저장한 공연",
+          stageName: "메인 무대",
+          startsAt: now.addingTimeInterval(3_600),
+          endsAt: now.addingTimeInterval(7_200),
+          isSaved: true
+        ),
+      ]
+    )
+
+    #expect(FestivalActivityWidgetContent.nextMine(
+      snapshot: snapshot,
+      festivalID: "festival",
+      now: now
+    ) == nil)
+  }
+
   @Test func pushToStartStateDecodesOwnSetAndStage() throws {
     let payload = Data(#"""
       {
