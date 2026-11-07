@@ -23,4 +23,10 @@ struct FlagAPITests {
     #expect(FlagAPI.coBearer(flagID: "flg_1", userID: "usr_2").path == "api/v1/flags/flg_1/co-bearers/usr_2")
     #expect(FlagAPI.claim.path == "api/v1/bearer/claim")
   }
+
+  @Test("팔로워의 신고·대표 깃발 경로를 선언한다")
+  func followerPaths() {
+    #expect(FlagAPI.report(flagID: "flg_1").path == "api/v1/flags/flg_1/report")
+    #expect(FlagAPI.pinnedFlag.path == "api/v1/me/pinned-flag")
+  }
 }

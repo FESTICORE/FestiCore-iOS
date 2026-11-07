@@ -10,7 +10,7 @@ import Foundation
 
 typealias FestivalFlagDetailResponseDTO = BaseResponseDTO<FestivalFlagDetailDataDTO>
 
-/// `GET flags/:flagId` 응답 data. 익명 조회면 isFollowing·isBearer가 null이다.
+/// `GET flags/:flagId` 응답 data. 익명 조회면 isFollowing·isBearer·isPinned가 null이다.
 struct FestivalFlagDetailDataDTO: Decodable, Sendable {
   struct StatusDTO: Decodable, Sendable {
     let flagId: String
@@ -33,11 +33,13 @@ struct FestivalFlagDetailDataDTO: Decodable, Sendable {
   let status: StatusDTO
   let isFollowing: Bool?
   let isBearer: Bool?
+  /// 대표 깃발 여부. 이 필드를 내려 주기 전 서버면 없다.
+  let isPinned: Bool?
   let hidden: Bool
 
   fileprivate enum CodingKeys: String, CodingKey {
     case id, name, thumbUrl, photoUrl, tags, bio, followerCount, planVisible, plan, homeZoneId, status
-    case isFollowing, isBearer, hidden
+    case isFollowing, isBearer, isPinned, hidden
   }
 
   init(from decoder: Decoder) throws {
@@ -93,6 +95,10 @@ struct FestivalFlagDetailDataDTO: Decodable, Sendable {
     isBearer = try container.decodeIfPresent(
       Bool.self,
       forKey: .isBearer
+    )
+    isPinned = try container.decodeIfPresent(
+      Bool.self,
+      forKey: .isPinned
     )
     hidden = try container.decode(
       Bool.self,
