@@ -20,7 +20,7 @@
 - UseCase는 화면이 하는 일 단위로 묶는다. Feature는 UseCase Interface만, `<X>UseCaseImpl`은 Repository Interface만 `@Dependency`로 주입받는다. Attendance UseCaseImpl 10개는 모두 Repository만 받는다(`MyPageUseCaseImpl`은 이니셜라이저로). 서버 통신·로컬 저장·시스템 클라이언트는 `<X>RepositoryImpl`이나 `Sources/Repository/Local/<X>LocalDataSource` 뒤에 둔다.
 - `@Shared`는 `@Dependency`와 구분한다. Domain `Interface/Sources/Entity`에 `PersistentSharedKey`로 선언한 단순 공유 값은 Attendance `AuthUseCaseImpl`·`ProfileUseCaseImpl`·`ProfileRepositoryImpl`의 `@Shared(.userSession)`·`@Shared(.staffRole)`처럼 `@Shared`로 읽고 쓴다. 레코드 저장은 `@Shared`가 아니라 Repository와 LocalDataSource를 거친다.
 - 의도한 예외(여기에 이름을 적은 것만 허용한다):
-  - `FestivalDomain`의 알림 설정 UseCase는 Repository 없이 `FestiCoreDeviceInterface`의 `DeviceNotificationSettingsService`를 직접 주입받는다(`.service(.device, .interface)` 의존). 기기 인증이 Device 서비스 안에 있기 때문이다. Device 요청 타입은 `DeviceRegistrationRequest`처럼 API·APIEndpoint가 아니라 `Service/FestiCoreDevice/Sources`에 둔다.
+  - `FestivalDomain`의 알림 설정 UseCase는 Repository 없이 `FestiCoreDeviceInterface`의 `DeviceNotificationSettingsService`를 직접 주입받는다(`.service(.device, .interface)` 의존). 기기 인증이 Device 서비스 안에 있기 때문이다. 같은 UseCase의 `festivalNotificationPermission` 권한 클라이언트는 예외가 아니며 Repository 뒤로 옮길 아래 이전 대상이다. Device 요청 타입은 `DeviceRegistrationRequest`처럼 API·APIEndpoint가 아니라 `Service/FestiCoreDevice/Sources`에 둔다.
   - 같은 일을 다른 UseCase에 맡길 때는 그 UseCase Interface를 주입받는다. Attendance `SignUpUseCaseImpl`과 FestiCore `AuthDomain/Sources/OAuth/OAuthUseCaseImpl`의 `authUseCase`가 이에 해당한다.
   - Point-Free 기본 시스템 값 `date`·`uuid`는 결정적인 테스트를 위해 직접 주입받는다.
 - 이전 대상(UseCaseImpl이 Service·Store·Client를 직접 주입받는 곳, Repository나 `Repository/Local/<X>LocalDataSource` 뒤로 옮긴다):
