@@ -1202,12 +1202,12 @@ struct AppCoordinatorTests {
     ))))) {
       $0.profileState.hasSession = true
     }
-    // 계정 화면은 탭바 위로 밀어 넣어 탭바를 남긴다.
+    // 계정 화면은 다른 마이 설정 화면처럼 탭바 없이 표시한다.
     await store.send(.profileCoordinator(.profile(.view(.accountTapped)))) {
       $0.profileState.destination = .account(.init(profile: nil))
     }
-    #expect(!store.state.shouldHideTabBar)
-    #expect(store.state.shouldReserveTabBarSpace)
+    #expect(store.state.shouldHideTabBar)
+    #expect(!store.state.shouldReserveTabBarSpace)
     await store.send(.profileCoordinator(.profile(.destination(.presented(.account(.view(.logoutTapped))))))) {
       $0.profileState.destination = .account({
         var account = AccountSettingsFeature.State(profile: nil)
@@ -1220,7 +1220,8 @@ struct AppCoordinatorTests {
     await store.send(.profileCoordinator(.profile(.destination(.presented(.account(.destination(.presented(.alert(.cancelTapped))))))))) {
       $0.profileState.destination = .account(.init(profile: nil))
     }
-    #expect(!store.state.shouldHideTabBar)
+    // 팝업을 닫아도 계정 화면에 머무는 동안은 탭바를 숨긴다.
+    #expect(store.state.shouldHideTabBar)
 
     state.authFlow.presentation = .login
     #expect(state.shouldHideTabBar)
