@@ -147,8 +147,8 @@ private extension FestivalFlagDetailView {
     ) {
       heroBackground(detail)
     }
-    // 오프라인이거나 요청 중이면 팔로우를 바꾸지 않는다.
-    .disabled(store.isOffline || store.isFollowPending)
+    // 오프라인이거나 요청 중이면 팔로우 버튼만 끈다.
+    .followEnabled(!store.isOffline && !store.isFollowPending)
   }
 
   /// 깃발 사진. 없으면 카드 배경색으로 채운다.
@@ -205,10 +205,16 @@ private extension FestivalFlagDetailView {
 
       if !detail.isPlanVisible {
         FCPlanPrivate()
-      } else if store.planRows.isEmpty {
+      } else if detail.planSetIDs.isEmpty {
         FCPlanPrivate(
           title: "오늘 계획이 아직 없어요",
           message: "기수가 계획을 올리면 여기에서 볼 수 있어요"
+        )
+      } else if store.planRows.isEmpty {
+        // 공개한 계획이 있지만 받은 팩에서 공연을 찾지 못했다.
+        FCPlanPrivate(
+          title: "공연 정보를 아직 받지 못했어요",
+          message: "축제 팩을 받으면 계획을 볼 수 있어요"
         )
       } else {
         planList

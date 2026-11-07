@@ -406,13 +406,15 @@ extension FestivalFlagDetailFeature.State {
 
   private func activityText(_ detail: FestivalFlagDetail) -> String {
     if detail.status == .resting { return "쉬는 중" }
+    // 시작 전 깃발은 활동 값이 남아 있어도 예정으로 보인다.
+    if detail.status == .scheduled { return "예정" }
     switch detail.activity {
     case .slam: return "슬램"
     case .sing: return "떼창"
     case .train: return "기차놀이"
     case .calm: return "차분"
     case .resting: return "쉬는 중"
-    case nil: return detail.status == .scheduled ? "예정" : "활동 중"
+    case nil: return "활동 중"
     }
   }
 

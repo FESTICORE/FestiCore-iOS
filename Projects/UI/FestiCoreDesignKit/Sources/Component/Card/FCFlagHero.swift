@@ -17,6 +17,7 @@ public struct FCFlagHero<Background: View>: View {
   private var isFollowing: Bool
   private var onFollow: () -> Void
   private var background: Background
+  private(set) var isFollowEnabled = true
 
   public init(
     name: String,
@@ -67,6 +68,8 @@ public struct FCFlagHero<Background: View>: View {
           isFollowing: isFollowing,
           action: onFollow
         )
+        .disabled(!isFollowEnabled)
+        .opacity(isFollowEnabled ? 1 : Metric.disabledOpacity)
       }
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
         FestiCoreSemanticColor.staticalphaWhite40.color
@@ -115,11 +118,23 @@ public struct FCFlagHero<Background: View>: View {
   }
 }
 
+// MARK: - 체이닝 설정
+
+public extension FCFlagHero {
+  /// 팔로우 버튼만 끈 사본을 돌려준다. 오프라인·요청 중에 쓴다.
+  func followEnabled(_ isEnabled: Bool) -> Self {
+    var copy = self
+    copy.isFollowEnabled = isEnabled
+    return copy
+  }
+}
+
 private enum Metric {
   static let height: CGFloat = 360
   static let dividerHeight: CGFloat = 1
   /// Figma S05 실측: 이름 줄과 태그 줄 사이.
   static let nameTagSpacing: CGFloat = 10
+  static let disabledOpacity: Double = 0.5
 }
 
 #Preview {
