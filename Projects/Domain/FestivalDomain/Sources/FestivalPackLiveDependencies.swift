@@ -25,3 +25,11 @@ extension FestivalNotificationSettingsUseCaseDependency: DependencyKey {
     FestivalNotificationSettingsUseCaseImpl()
   }
 }
+
+extension FestivalFlagDetailRepositoryDependency: DependencyKey {
+  public static var liveValue: any FestivalFlagDetailRepositoryInterface { return FestivalFlagDetailRepositoryImpl() }
+}
+
+extension FestivalFlagDetailUseCaseDependency: DependencyKey {
+  public static var liveValue: any FestivalFlagDetailUseCaseInterface { return FestivalFlagDetailUseCaseImpl() }
+}

@@ -29,6 +29,19 @@ struct FlagRequestTests {
     #expect(endpoint.maxRetryAttempts == 0)
   }
 
+  @Test("공개 깃발 상세는 로그인 상태면 토큰을 붙이는 GET이며 재시도하지 않는다")
+  func publicDetail() throws {
+    let endpoint = PublicFlagRequest.detail(flagID: "flg_1")
+    let request = try endpoint.asURLRequest(baseURL: baseURL)
+
+    #expect(request.url?.absoluteString == "https://festicore-dev.up.railway.app/api/v1/flags/flg_1")
+    #expect(request.httpMethod == "GET")
+    #expect(request.httpBody == nil)
+    #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
+    #expect(endpoint.authorization == .automatic)
+    #expect(endpoint.maxRetryAttempts == 0)
+  }
+
   @Test("상태 변경은 멱등키 헤더와 값이 있는 키만 보낸다")
   func status() throws {
     let endpoint = FlagRequest.status(
