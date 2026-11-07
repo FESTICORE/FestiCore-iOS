@@ -20,7 +20,7 @@ public struct MockFestivalLiveActivityUseCase: FestivalLiveActivityUseCaseInterf
     Date,
     Date,
     FestivalPackDocument?,
-    Set<String>
+    Set<String>?
   ) async -> Void
   private let finishHandler: @Sendable (String, Date) async -> Void
   private let endHandler: @Sendable (String) async -> Void
@@ -47,7 +47,7 @@ public struct MockFestivalLiveActivityUseCase: FestivalLiveActivityUseCaseInterf
       _ startDate: Date,
       _ endDate: Date,
       _ pack: FestivalPackDocument?,
-      _ savedSetIDs: Set<String>
+      _ savedSetIDs: Set<String>?
     ) async -> Void = { _, _, _, _, _, _ in
       reportIssue("festivalLiveActivityUseCase.update 미등록")
     },
@@ -86,7 +86,7 @@ public struct MockFestivalLiveActivityUseCase: FestivalLiveActivityUseCaseInterf
     startDate: Date,
     endDate: Date,
     pack: FestivalPackDocument?,
-    savedSetIDs: Set<String>
+    savedSetIDs: Set<String>?
   ) async {
     await updateHandler(
       activityID,

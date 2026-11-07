@@ -16,48 +16,59 @@ struct FestiCoreFestivalActivityWidget: Widget {
       .activityBackgroundTint(WidgetPalette.black)
       .activitySystemActionForegroundColor(FestiCoreSemanticColor.staticLime.color)
     } dynamicIsland: { context in
+      // 잠금 화면 카드와 같은 규칙: 라임 강조, Bagel 헤드라인, 다음 내 일정과 남은 시간.
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
-          Image(systemName: "sparkle")
-            .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
+          islandPhase(
+            festivalID: context.attributes.festivalID,
+            state: context.state,
+            isStale: context.isStale
+          )
         }
-        DynamicIslandExpandedRegion(.center) {
-          Text(context.attributes.festivalName)
-            .font(.pretendardFontFamily(
-              family: .Bold,
-              size: 13
-            ))
-            .lineLimit(1)
+        DynamicIslandExpandedRegion(.trailing) {
+          islandCrew(for: context.state)
         }
         DynamicIslandExpandedRegion(.bottom) {
-          VStack(
-            alignment: .leading,
-            spacing: FestiCoreSpacing.marginM4
-          ) {
-            Text(headline(
-              for: context.state,
-              isStale: context.isStale
-            ))
-              .font(.pretendardFontFamily(
-                family: .Bold,
-                size: 13
-              ))
-            nextSchedule(
-              for: context.state,
-              festivalID: context.attributes.festivalID
-            )
-          }
+          islandBottom(
+            festivalID: context.attributes.festivalID,
+            state: context.state,
+            isStale: context.isStale
+          )
         }
       } compactLeading: {
-        Image(systemName: "sparkle")
+        Text(headline(
+          for: context.state,
+          isStale: context.isStale
+        ))
+          .font(WidgetFont.bagel(13))
           .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
+          .lineLimit(1)
+          .frame(
+            maxWidth: Metric.compactLeadingWidth,
+            alignment: .leading
+          )
       } compactTrailing: {
-        Text(shortStatusText(for: context.state))
-          .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
+        islandCompactTrailing(
+          festivalID: context.attributes.festivalID,
+          state: context.state
+        )
       } minimal: {
-        Image(systemName: "sparkle")
-          .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
+        Image(systemName: "music.note")
+          .font(.pretendardFontFamily(
+            family: .Bold,
+            size: 11
+          ))
+          .foregroundStyle(WidgetPalette.black)
+          .frame(
+            width: Metric.minimalSize,
+            height: Metric.minimalSize
+          )
+          .background(
+            FestiCoreSemanticColor.staticLime.color,
+            in: Circle()
+          )
       }
+      .keylineTint(FestiCoreSemanticColor.staticLime.color)
     }
   }
 }
@@ -115,7 +126,10 @@ private extension FestiCoreFestivalActivityWidget {
       spacing: FestiCoreSpacing.marginM4
     ) {
       HStack(alignment: .firstTextBaseline) {
-        Text(isStale ? "오래된 정보" : state.phase == .upcoming ? "UP NEXT" : state.phase == .finished ? "SEE YOU" : "NOW PLAYING")
+        Text(phaseLabel(
+          for: state,
+          isStale: isStale
+        ))
           .font(.pretendardFontFamily(
             family: .Bold,
             size: 9
@@ -136,10 +150,10 @@ private extension FestiCoreFestivalActivityWidget {
             .lineLimit(1)
         }
       }
-      if let stage = state.nowStages.first.flatMap({ $0.stageName ?? stageName(
-        for: $0.setId,
+      if let stage = currentStageName(
+        for: state,
         festivalID: festivalID
-      ) }) {
+      ) {
         Text(stage)
           .font(.pretendardFontFamily(
             family: .Medium,
@@ -194,17 +208,11 @@ private extension FestiCoreFestivalActivityWidget {
         )
       }
       Spacer(minLength: FestiCoreSpacing.marginM4)
-      if let next = state.nextMine,
-         let start = performanceDate(next.startsAt) {
-        Text(
-          start,
-          style: .relative
-        )
-          .font(WidgetFont.bagel(24))
-          .minimumScaleFactor(0.65)
-          .lineLimit(1)
-          .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
-      }
+      nextCountdown(
+        for: state,
+        festivalID: festivalID,
+        size: 24
+      )
     }
     .padding(
       .horizontal,
@@ -217,7 +225,10 @@ private extension FestiCoreFestivalActivityWidget {
     for state: FestiCoreFestivalActivityAttributes.ContentState,
     festivalID: String
   ) -> some View {
-    if let next = state.nextMine {
+    if let next = resolvedNextMine(
+      for: state,
+      festivalID: festivalID
+    ) {
       Text([next.artist, next.stageName ?? stageName(
         for: next.setId,
         festivalID: festivalID
@@ -238,6 +249,216 @@ private extension FestiCoreFestivalActivityWidget {
         ))
         .foregroundStyle(FestiCoreSemanticColor.staticWhite.color)
         .lineLimit(1)
+    }
+  }
+
+  @ViewBuilder
+  func islandPhase(
+    festivalID: String,
+    state: FestiCoreFestivalActivityAttributes.ContentState,
+    isStale: Bool
+  ) -> some View {
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.marginM2
+    ) {
+      Text(phaseLabel(
+        for: state,
+        isStale: isStale
+      ))
+        .font(.pretendardFontFamily(
+          family: .Bold,
+          size: 9
+        ))
+        .tracking(0.9)
+        .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
+      if let stage = currentStageName(
+        for: state,
+        festivalID: festivalID
+      ) {
+        Text(stage)
+          .font(.pretendardFontFamily(
+            family: .Medium,
+            size: 11
+          ))
+          .foregroundStyle(FestiCoreSemanticColor.staticWhite.color.opacity(0.7))
+          .lineLimit(1)
+      }
+    }
+    .padding(
+      .leading,
+      FestiCoreSpacing.marginM4
+    )
+  }
+
+  @ViewBuilder
+  func islandCrew(for state: FestiCoreFestivalActivityAttributes.ContentState) -> some View {
+    if state.pinnedFlag != nil || state.crewSummary != nil {
+      HStack(spacing: FestiCoreSpacing.marginM2) {
+        Image(systemName: "star.fill")
+          .font(.pretendardFontFamily(
+            family: .Bold,
+            size: 10
+          ))
+        Text(state.crewSummary?.name ?? "내 깃발")
+          .font(.pretendardFontFamily(
+            family: .Medium,
+            size: 10
+          ))
+          .lineLimit(1)
+      }
+      .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
+      .padding(
+        .trailing,
+        FestiCoreSpacing.marginM4
+      )
+    }
+  }
+
+  @ViewBuilder
+  func islandBottom(
+    festivalID: String,
+    state: FestiCoreFestivalActivityAttributes.ContentState,
+    isStale: Bool
+  ) -> some View {
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.marginM8
+    ) {
+      Text(headline(
+        for: state,
+        isStale: false
+      ))
+        .font(WidgetFont.bagel(28))
+        .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
+        .rotationEffect(.degrees(-3))
+        .opacity(isStale ? 0.4 : 1)
+        .minimumScaleFactor(0.7)
+        .lineLimit(1)
+      HStack(
+        alignment: .center,
+        spacing: FestiCoreSpacing.marginM8
+      ) {
+        VStack(
+          alignment: .leading,
+          spacing: FestiCoreSpacing.marginM2
+        ) {
+          Text("다음 내 일정")
+            .font(.pretendardFontFamily(
+              family: .Medium,
+              size: 10
+            ))
+            .foregroundStyle(FestiCoreSemanticColor.staticWhite.color.opacity(0.7))
+          nextSchedule(
+            for: state,
+            festivalID: festivalID
+          )
+        }
+        Spacer(minLength: FestiCoreSpacing.marginM4)
+        nextCountdown(
+          for: state,
+          festivalID: festivalID,
+          size: 20
+        )
+      }
+    }
+    .frame(
+      maxWidth: .infinity,
+      alignment: .leading
+    )
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.marginM4
+    )
+  }
+
+  @ViewBuilder
+  func islandCompactTrailing(
+    festivalID: String,
+    state: FestiCoreFestivalActivityAttributes.ContentState
+  ) -> some View {
+    if let next = resolvedNextMine(
+      for: state,
+      festivalID: festivalID
+    ), let start = performanceDate(next.startsAt), start > .now {
+      // 좁은 영역이라 다음 내 일정까지 남은 시간을 타이머로 줄여 보인다.
+      Text(
+        start,
+        style: .timer
+      )
+        .font(WidgetFont.bagel(13))
+        .monospacedDigit()
+        .multilineTextAlignment(.trailing)
+        .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
+        .frame(
+          maxWidth: Metric.compactTrailingWidth,
+          alignment: .trailing
+        )
+    } else {
+      Text(shortStatusText(for: state))
+        .font(.pretendardFontFamily(
+          family: .Bold,
+          size: 12
+        ))
+        .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
+    }
+  }
+
+  @ViewBuilder
+  func nextCountdown(
+    for state: FestiCoreFestivalActivityAttributes.ContentState,
+    festivalID: String,
+    size: CGFloat
+  ) -> some View {
+    if let next = resolvedNextMine(
+      for: state,
+      festivalID: festivalID
+    ), let start = performanceDate(next.startsAt) {
+      Text(
+        start,
+        style: .relative
+      )
+        .font(WidgetFont.bagel(size))
+        .minimumScaleFactor(0.65)
+        .lineLimit(1)
+        .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
+    }
+  }
+
+  /// 서버 payload에 다음 내 일정이 없으면 앱과 공유한 저장 일정으로 채운다(앱이 빈 일정을 확인했으면 채우지 않는다).
+  func resolvedNextMine(
+    for state: FestiCoreFestivalActivityAttributes.ContentState,
+    festivalID: String
+  ) -> FestiCoreFestivalActivityAttributes.ContentState.NextMine? {
+    return FestivalActivityWidgetContent.resolvedNextMine(
+      state: state,
+      snapshot: FestivalWidgetStore.load(),
+      festivalID: festivalID,
+      now: .now
+    )
+  }
+
+  func phaseLabel(
+    for state: FestiCoreFestivalActivityAttributes.ContentState,
+    isStale: Bool
+  ) -> String {
+    if isStale { return "오래된 정보" }
+    switch state.phase {
+    case .upcoming: return "UP NEXT"
+    case .ongoing: return "NOW PLAYING"
+    case .finished: return "SEE YOU"
+    }
+  }
+
+  func currentStageName(
+    for state: FestiCoreFestivalActivityAttributes.ContentState,
+    festivalID: String
+  ) -> String? {
+    return state.nowStages.first.flatMap { stage in
+      return stage.stageName ?? stageName(
+        for: stage.setId,
+        festivalID: festivalID
+      )
     }
   }
 
@@ -274,5 +495,13 @@ private extension FestiCoreFestivalActivityWidget {
 
   func performanceDate(_ value: String) -> Date? {
     return value.isoDate
+  }
+}
+
+private extension FestiCoreFestivalActivityWidget {
+  enum Metric {
+    static let compactLeadingWidth: CGFloat = 72
+    static let compactTrailingWidth: CGFloat = 56
+    static let minimalSize: CGFloat = 22
   }
 }

@@ -23,6 +23,9 @@ public struct FestiCoreFestivalActivityAttributes: ActivityAttributes {
     public var nowStages: [NowStage]
     /// 로그인 사용자가 저장한 공연 중 아직 시작하지 않은 가장 빠른 공연.
     public var nextMine: NextMine?
+    /// 앱이 내 일정을 확인하고 nextMine을 정했으면 true. 서버 payload에는 없어 nil이다.
+    /// true면 위젯이 공유 저장 일정으로 대신 채우지 않는다.
+    public var isNextMineConfirmed: Bool?
     public var pinnedFlag: PinnedFlag?
     public var crewSummary: CrewSummary?
     public var leaveAt: Date?
@@ -33,6 +36,7 @@ public struct FestiCoreFestivalActivityAttributes: ActivityAttributes {
       endDate: Date? = nil,
       nowStages: [NowStage] = [],
       nextMine: NextMine? = nil,
+      isNextMineConfirmed: Bool? = nil,
       pinnedFlag: PinnedFlag? = nil,
       crewSummary: CrewSummary? = nil,
       leaveAt: Date? = nil
@@ -42,6 +46,7 @@ public struct FestiCoreFestivalActivityAttributes: ActivityAttributes {
       self.endDate = endDate
       self.nowStages = nowStages
       self.nextMine = nextMine
+      self.isNextMineConfirmed = isNextMineConfirmed
       self.pinnedFlag = pinnedFlag
       self.crewSummary = crewSummary
       self.leaveAt = leaveAt

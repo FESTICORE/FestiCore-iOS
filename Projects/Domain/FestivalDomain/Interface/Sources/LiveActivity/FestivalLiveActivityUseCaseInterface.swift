@@ -19,13 +19,14 @@ public protocol FestivalLiveActivityUseCaseInterface: Sendable {
     festivalID: String, festivalName: String, startDate: Date, endDate: Date, phase: FestivalLiveActivityPhase
   ) async throws -> String
   /// 진행 단계와 축제 시간을 기존 Live Activity에 반영한다.
+  /// `savedSetIDs`가 nil이면 내 일정을 아직 모르는 것으로 보고 표시 중인 다음 내 일정을 유지한다.
   func update(
     activityID: String,
     phase: FestivalLiveActivityPhase,
     startDate: Date,
     endDate: Date,
     pack: FestivalPackDocument?,
-    savedSetIDs: Set<String>
+    savedSetIDs: Set<String>?
   ) async
   /// 끝난 축제의 Live Activity를 종료 상태로 닫는다.
   func finish(activityID: String, startDate: Date) async

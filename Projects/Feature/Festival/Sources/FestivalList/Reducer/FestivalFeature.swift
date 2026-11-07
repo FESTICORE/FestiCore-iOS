@@ -1810,8 +1810,9 @@ extension FestivalFeature {
         )
       }
       let pack = state.pack(for: activity.festivalID)
+      // 내 일정을 다시 불러오는 중이거나 다른 축제 것이면 nil로 넘겨 다음 내 일정을 지우지 않는다.
       let savedSetIDs = state.mySchedule?.festivalID == activity.festivalID
-        ? state.mySchedule?.setIDs ?? [] : []
+        ? state.mySchedule?.setIDs : nil
       let scheduleChanged = schedule.phase != activity.phase || schedule.startDate != activity.startDate
         || schedule.endDate != activity.endDate
       guard scheduleChanged || (activity.festivalID == state.selectedFestivalID && pack != nil) else { return nil }

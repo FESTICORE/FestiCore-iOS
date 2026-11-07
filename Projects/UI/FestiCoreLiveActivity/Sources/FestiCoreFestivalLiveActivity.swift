@@ -185,7 +185,8 @@ public enum FestiCoreFestivalLiveActivity {
     startDate: Date,
     endDate: Date? = nil,
     nowStages: [FestiCoreFestivalActivityAttributes.ContentState.NowStage]? = nil,
-    nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil
+    nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil,
+    isNextMineKnown: Bool? = nil
   ) async {
     guard let activity = Activity<FestiCoreFestivalActivityAttributes>.activities.first(where: { $0.id == id }) else {
       return
@@ -196,6 +197,7 @@ public enum FestiCoreFestivalLiveActivity {
       endDate: endDate,
       nowStages: nowStages,
       nextMine: nextMine,
+      isNextMineKnown: isNextMineKnown,
       previousState: activity.content.state
     ))
   }
@@ -228,16 +230,21 @@ public enum FestiCoreFestivalLiveActivity {
     endDate: Date? = nil,
     nowStages: [FestiCoreFestivalActivityAttributes.ContentState.NowStage]? = nil,
     nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil,
+    isNextMineKnown: Bool? = nil,
     previousState: FestiCoreFestivalActivityAttributes.ContentState? = nil,
     updatedAt: Date = .now
   ) -> ActivityContent<FestiCoreFestivalActivityAttributes.ContentState> {
+    // true면 받은 값을 그대로 쓰고, false면 표시 중인 값을 유지한다.
+    // nil이면 공연 목록(nowStages)을 새로 받은 갱신일 때만 바꾼다.
+    let keepsNextMine = isNextMineKnown.map { !$0 } ?? (nowStages == nil)
     return ActivityContent(
       state: .init(
         phase: phase,
         startDate: startDate,
         endDate: endDate,
         nowStages: nowStages ?? previousState?.nowStages ?? [],
-        nextMine: nowStages == nil ? (nextMine ?? previousState?.nextMine) : nextMine,
+        nextMine: keepsNextMine ? (nextMine ?? previousState?.nextMine) : nextMine,
+        isNextMineConfirmed: keepsNextMine ? previousState?.isNextMineConfirmed : isNextMineKnown,
         pinnedFlag: previousState?.pinnedFlag,
         crewSummary: previousState?.crewSummary,
         leaveAt: previousState?.leaveAt
