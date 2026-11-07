@@ -355,6 +355,13 @@ extension FestivalFlagDetailFeature.State {
     return followOverride?.followerCount ?? detail?.followerCount ?? 0
   }
 
+  /// 히어로 태그. 서버 태그 코드를 디렉토리와 같은 이름으로 바꾼다.
+  public var tagTitles: [String] {
+    return (detail?.tags ?? []).map { tag in
+      return FestivalFlagDirectory.Tag(rawValue: tag)?.title ?? tag
+    }
+  }
+
   /// 상단 오프라인 안내. 받은 상세가 있는데 다시 불러오지 못했을 때만 보인다.
   public var offlineText: String? {
     guard isOffline else { return nil }

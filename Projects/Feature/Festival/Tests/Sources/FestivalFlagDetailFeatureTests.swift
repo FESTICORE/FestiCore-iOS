@@ -192,6 +192,15 @@ struct FestivalFlagDetailFeatureTests {
     await store.send(.inner(.followFinished(.failure(.loginRequired))))
   }
 
+  @Test("히어로 태그는 디렉토리와 같은 이름으로 보인다")
+  func tagTitlesUseDirectoryNames() {
+    var state = Self.state()
+    #expect(state.tagTitles.isEmpty)
+
+    state.content = .loaded(Self.detail())
+    #expect(state.tagTitles == ["슬램", "떼창", "초보 환영"])
+  }
+
   @Test("지금 카드는 상태와 경과 시간에 따라 문구를 바꾼다")
   func nowCardFollowsStatusAndAge() {
     var state = Self.state()

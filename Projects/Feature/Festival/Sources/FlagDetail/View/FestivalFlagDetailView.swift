@@ -139,7 +139,7 @@ private extension FestivalFlagDetailView {
     return FCFlagHero(
       name: detail.name,
       followers: "팔로워 \(store.followerCount.formatted())",
-      tags: detail.tags.map(tagTitle),
+      tags: store.tagTitles,
       status: chipStatus(detail.status),
       intro: detail.bio.map { "“\($0)”" } ?? "",
       isFollowing: store.isFollowing,
@@ -290,11 +290,6 @@ private extension FestivalFlagDetailView {
     case .now: return .now
     case .past: return .past
     }
-  }
-
-  /// 서버 태그 코드를 디렉토리와 같은 이름으로 보인다.
-  func tagTitle(_ tag: String) -> String {
-    return FestivalFlagDirectory.Tag(rawValue: tag)?.title ?? tag
   }
 }
 
