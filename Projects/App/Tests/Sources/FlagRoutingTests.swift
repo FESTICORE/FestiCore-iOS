@@ -168,6 +168,55 @@ struct FlagRoutingTests {
     await store.skipReceivedActions()
   }
 
+  @Test("상세를 연 채 계정이 바뀌면 세션 변경만으로 새 계정 문맥을 보내 다시 불러온다")
+  func accountSwitchWhileDetailOpenReloadsDetail() async throws {
+    var state = try Self.flagTabState()
+    // 이전 계정이 팔로우를 바꾼 값이 남아 있는 상세에서 시작한다.
+    var detailState = Self.detailState()
+    detailState.followOverride = .init(
+      isFollowing: true,
+      followerCount: 11
+    )
+    state.flagCoordinatorState.routes.push(.detail(detailState))
+    let reloadGeneration = detailState.loadGeneration + 1
+    let store = TestStore(initialState: state) {
+      MainTabCoordinator(legalBaseURL: nil)
+    } withDependencies: {
+      $0.date = .constant(Date(timeIntervalSince1970: 0))
+      // 축제 보드는 계정이 바뀌면 최근 검색을 새 계정 기준으로 다시 읽는다.
+      $0.festivalLibraryUseCase = MockFestivalLibraryUseCase(recentSearches: { _ in return [] })
+      $0.festivalFlagDetailUseCase = MockFestivalFlagDetailUseCase(detail: { _ throws(FestivalFlagDetailError) in
+        throw .unavailable
+      })
+    }
+    store.exhaustivity = .off
+
+    // 홈이 계정 입력 변경을 축제 보드에 알리는 경로와 같다.
+    await store.send(.festival(.sessionChanged(
+      hasSession: true,
+      userID: "user-b"
+    )))
+    await store.receive { action in
+      guard case let .flagCoordinator(.router(.routeAction(
+        id: _,
+        action: .detail(.view(.contextChanged(context)))
+      ))) = action else { return false }
+      return context.accountID == "user-b"
+    }
+    // 새 계정 문맥으로 상세를 한 번 더 불러온다.
+    await store.receive { action in
+      guard case let .flagCoordinator(.router(.routeAction(
+        id: _,
+        action: .detail(.async(.load(generation: generation)))
+      ))) = action else { return false }
+      return generation == reloadGeneration
+    }
+    let detail = try #require(store.state.flagCoordinatorState.routes.last?.screen.detail)
+    #expect(detail.context.accountID == "user-b")
+    #expect(detail.followOverride == nil)
+    await store.skipReceivedActions()
+  }
+
   @Test("깃발 링크는 깃발 탭을 고르고 상세를 연다")
   func flagDeeplinkOpensDetail() async throws {
     var state = try Self.flagTabState()
