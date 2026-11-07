@@ -3,7 +3,6 @@ import FestivalDomainInterface
 import FestiCorePackInterface
 import FestiCoreSharedUI
 import FestivalInterface
-import FestiCoreSharedUI
 import Foundation
 import UserNotificationDomainInterface
 
@@ -831,12 +830,13 @@ extension FestivalFeature {
       return .send(.delegate(.loginRequested))
 
     case .festivalSwitchTapped:
-      let booked = FestivalListPresentation.sorted(
-        state.festivals.filter { state.bookedFestivalIDs.contains($0.id) },
+      // 전환 목록은 이 기기에 받은 팩 기준이다. 북마크만 하고 팩이 없는 축제는 라이브 보드를 열 수 없다.
+      let downloaded = FestivalListPresentation.sorted(
+        state.festivals.filter(\.isCached),
         now: date.now
       )
       state.festivalSwitcher = FestivalSwitcherFeature.State(
-        festivals: booked.map { festival in
+        festivals: downloaded.map { festival in
           let subtitle = FestivalLiveBoardPresentation.switcherSubtitle(
             pack: state.pack(for: festival.id),
             festival: festival,
