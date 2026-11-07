@@ -19,6 +19,18 @@ public extension EnvironmentValues {
   }
 }
 
+/// 화면 어딘가에 fcModal 시트가 떠 있으면 true. 탭바처럼 시트 밖 영역을 가진 상위 화면이 읽어 숨긴다.
+public struct FCModalPresentedKey: PreferenceKey {
+  public static let defaultValue = false
+
+  public static func reduce(
+    value: inout Bool,
+    nextValue: () -> Bool
+  ) -> Void {
+    value = value || nextValue()
+  }
+}
+
 /// 시트 안 콘텐츠가 딤 탭·아래로 끌기로 닫히지 않게 막을 때 올리는 값
 public struct FCSheetDismissDisabledKey: PreferenceKey {
   public static let defaultValue = false
@@ -119,6 +131,10 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
       }
       // 루트 제거는 즉시 끝내고 시트·딤의 전환은 내부 overlay에서만 처리한다.
       .transition(.identity)
+      // 안쪽 시트가 올린 값과 합쳐 하나라도 떠 있으면 상위에 알린다.
+      .transformPreference(FCModalPresentedKey.self) { isPresented in
+        isPresented = isPresented || item != nil
+      }
   }
 
 }

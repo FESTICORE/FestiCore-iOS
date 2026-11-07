@@ -14,6 +14,8 @@ import SwiftUI
 /// Figma 커스텀 탭바(`FCTabBar`)로 탭을 바꾸는 메인 화면
 struct MainTabView: View {
   @Bindable var store: StoreOf<MainTabCoordinator>
+  /// 어느 탭에서든 fcModal 시트가 뜨면 탭바를 먼저 숨긴 채 시트를 올린다.
+  @State private var isModalPresented = false
 
   var body: some View {
     tabContent
@@ -26,8 +28,13 @@ struct MainTabView: View {
               set: { store.send(.tabTapped($0)) }
             )
           )
-          .opacity(store.shouldHideTabBar ? 0 : 1)
-          .allowsHitTesting(!store.shouldHideTabBar)
+          .opacity(isTabBarHidden ? 0 : 1)
+          .allowsHitTesting(!isTabBarHidden)
+          // 시트 이동 애니메이션과 별개로 탭바는 즉시 사라지고 나타난다.
+          .animation(
+            nil,
+            value: isTabBarHidden
+          )
         }
       }
       .background(FestiCoreSemanticColor.backgroundNormal.color)
@@ -60,10 +67,15 @@ struct MainTabView: View {
       ) { sheet in
         authSheetContent(sheet)
       }
+      .onPreferenceChange(FCModalPresentedKey.self) { isModalPresented = $0 }
   }
 }
 
 private extension MainTabView {
+  var isTabBarHidden: Bool {
+    return store.shouldHideTabBar || isModalPresented
+  }
+
   /// 선택한 탭의 화면만 만든다. 탭 상태는 스토어에 남아 있어 다시 돌아와도 유지된다.
   @ViewBuilder
   var tabContent: some View {
