@@ -11,13 +11,16 @@ import SwiftUI
 public struct FCLineupRow: View {
   private var number: String
   private var artist: String
+  private var showsSeparator: Bool
 
   public init(
     number: String,
-    artist: String
+    artist: String,
+    showsSeparator: Bool = true
   ) {
     self.number = number
     self.artist = artist
+    self.showsSeparator = showsSeparator
   }
 
   public var body: some View {
@@ -33,8 +36,21 @@ public struct FCLineupRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
     .lineLimit(1)
-    .padding(FestiCoreSpacing.paddingP16)
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP16
+    )
+    .padding(
+      .vertical,
+      FestiCoreSpacing.paddingP20 - 1
+    )
     .background(FestiCoreSemanticColor.backgroundElevated.color)
+    .overlay(alignment: .bottom) {
+      if showsSeparator {
+        FestiCoreSemanticColor.lineNormal.color
+          .frame(height: 1)
+      }
+    }
     .accessibilityElement(children: .combine)
   }
 }

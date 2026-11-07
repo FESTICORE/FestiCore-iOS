@@ -29,7 +29,7 @@ public struct FCSourceLine: View {
     }
     .padding(.vertical, FestiCoreSpacing.paddingP12)
     .padding(.horizontal, FestiCoreSpacing.paddingP16)
-    .background(FestiCoreSemanticColor.fillNormal.color)
+    .background(FestiCoreSemanticColor.backgroundNormal.color)
   }
 }
 
