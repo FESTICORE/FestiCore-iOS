@@ -15,7 +15,7 @@
 
 1. 기존 파일과 모듈 의존성을 먼저 확인한 뒤 수정한다. 다른 작업자의 미커밋 변경은 보존한다.
 2. 변경 범위를 좁게 유지하고 기능별 커밋으로 분리한다. 커밋 제목과 본문은 한국어로 작성하고, 제목 끝에 해당 작업 이슈 번호를 `#27`처럼 붙인다.
-3. `feature/<작업명>` 브랜치에서 작업하고 PR은 `develop`으로 보낸다. 브랜치 이름과 커밋의 이슈 번호는 구별한다. PR 변경 규모는 2,000줄 이내로 유지한다. PR 생성 시 작성자 `Roy-wonji`를 담당자로 지정하고 생성 후 할당을 확인한다. 스쿼시 머지할 때 최종 커밋 제목과 본문을 직접 지정한다. 본문에는 필요한 변경 요약만 남기고 GitHub가 자동으로 채운 개별 커밋 내역은 삭제한다. 머지 후 실제 커밋 메시지를 확인한다.
+3. `feature/<작업명>` 브랜치에서 작업하고 PR은 `develop`으로 보낸다. 브랜치 이름과 커밋의 이슈 번호는 구별한다. PR 줄 수 제한은 두지 않는다. 함께 검증할 큰 묶음은 2,000줄을 넘어도 한 PR로 올리고 억지로 쪼개지 않는다. PR 생성 시 작성자 `Roy-wonji`를 담당자로 지정하고 생성 후 할당을 확인한다. 스쿼시 머지할 때 최종 커밋 제목과 본문을 직접 지정한다. 본문에는 필요한 변경 요약만 남기고 GitHub가 자동으로 채운 개별 커밋 내역은 삭제한다. 머지 후 실제 커밋 메시지를 확인한다.
 4. 새 라이브러리나 앱 전용 자산을 추가하기 전에 현재 `Tuist/Package.swift`와 관련 모듈을 확인한다. 자격 증명과 로컬 설정을 추적 파일에 넣지 않는다.
 5. 변경 후 관련 테스트와 `git diff --check`를 실행하고, 실제로 확인한 범위만 보고한다. `./make test`와 CI의 iOS 시뮬레이터 테스트는 최신 사용 가능 iOS 런타임의 iPhone Duo에서 실행한다. 테스트·CI·실기기 검증은 구별한다.
 6. 10분 동안 의미 있는 편집이 없으면 현재 진행 상황과 다음 접근을 사용자에게 알린다.
@@ -44,13 +44,19 @@
 
 ## 통신과 Domain 모듈
 
-- 새 Domain 모듈은 `Interface`와 `Sources`를 나눈다. `Interface/Sources/Entity`에는 공개 값·오류 타입, `Interface/Sources/<기능>`에는 `Sendable` Repository·UseCase의 `*Interface` 계약과 해당 `DependencyKey`·`DependencyValues` 접근자를 둔다. `Sources/<기능>`에는 `*Impl`, `Sources/Model`에는 DTO·Mapper, `Sources`에는 라이브 의존성 등록을 둔다. 테스트·프리뷰 기본값은 명시적인 Mock을 제공하고 미주입 호출은 테스트 이슈로 기록한다.
+- 디자인(DesignExports·Figma 시안)과 API 연동은 보류하지 않는다. 필요한 API가 없으면 개발 환경 백엔드에 만들고 iOS Domain·Feature까지 연동한다. 운영 DB 변경·운영 배포·라이선스 승인만 사람의 승인을 기다린다.
+- 모든 구조(모듈·폴더·파일 이름·코디네이터·테스트 배치)와 API·DI·UseCase·Repository의 배치와 주입은 Attendance_iOS(`DDD-Community/Attendance_iOS`, 로컬 `~/Desktop/SideProject/Attendance/Attendance_iOS`, 읽기 전용)를 따른다. 파일을 만들기 전에 Attendance `Projects/Domain/AttendanceDomain`, `Projects/Service/{API,APIEndpoint}`의 같은 역할 파일을 열어 대조한다.
+- 새 Domain 모듈은 `Interface`와 `Sources`를 나눈다. `Interface/Sources/Entity`에는 공개 값·오류 타입, `Interface/Sources/<기능>`에는 `Sendable` Repository·UseCase의 `*Interface` 계약, Mock, `TestDependencyKey`·`DependencyValues` 접근자, `Interface/Sources/Exported`에는 재공개 import를 둔다. `Sources/<기능>`에는 `<X>UseCaseImpl`, `Sources/Repository`에는 `<X>RepositoryImpl`, `Sources/Model/DTO`·`Sources/Model/Mapper`에는 DTO·Mapper, `Sources/<X>LiveDependencies.swift`에는 `liveValue` 등록, `Sources/Exported`에는 재공개 import를 둔다. 테스트·프리뷰 기본값은 명시적인 Mock을 제공하고 미주입 호출은 테스트 이슈로 기록한다.
 - Domain Repository·UseCase 계약과 구현 타입 위에는 역할과 경계를 설명하는 한두 줄의 `///` 문서 주석을 단다.
 - 기능 단위로 Domain 모듈(예: `TimetableDomain`)을 두고, Feature가 쓰는 공개 값 타입은 Feature `Model`이 아니라 Domain `Interface/Sources/Entity`에 둔다. 자세한 규칙은 [Domain 모듈](docs/agent/domain-modules.md).
 - Feature는 Domain UseCase Interface를 주입받고, UseCase 구현은 Repository Interface를 사용한다. Repository 구현은 공용 Network·Auth Interface를 주입받는다. 새 클라이언트나 토큰 저장소를 Domain마다 만들지 않는다. 로그인 응답을 검증한 뒤 공용 인증 세션에 저장한다.
 - API 경로는 `API`, `FestiCoreDataRequest` 요청은 `APIEndpoint`에 둔다. 요청마다 path, HTTP method, authorization, `Encodable & Sendable` body, 재시도 정책을 명시한다. DTO에서 Entity로의 변환과 도메인 값에서 요청 body로의 변환은 Domain Mapper가 담당한다. APIEndpoint는 Domain이나 Auth Service에 의존하지 않는다.
 - 공개 로그인·토큰 갱신은 `.none`, 로그아웃은 `.automatic`을 사용한다. 인증 요청은 응답 DTO를 명시해 `send(_:as:)`로 전송한다. 최종 URL이 `/api/v1/auth/` 로그 본문 보호 규칙과 일치해야 한다. 토큰·인가 코드·비밀 값은 로그와 테스트 실패 메시지에 넣지 않는다.
 - 요청의 실제 URL·method·인증·body와 nullable DTO 매핑, 오류 전파, 로그인·로그아웃·갱신의 세션 변경을 테스트한다. `FestiCore.xctestplan`에 새 테스트 타깃을 추가해 CI에서 실행되는지 확인한다. 오래된 WeaveDI 문서나 다른 앱 전용 API 계약은 복사하지 않는다.
+- HTTP와 WebSocket은 `Projects/Core/FestiCoreNetwork`의 Alamofire 구조(`SessionFactory`의 Session, `NetworkClient`, `AuthorizingInterceptor`·`FestiCoreAuthenticator`, `FestiCoreEventMonitor`·`NetworkLogRedactor`, `FestiCoreEndpoint` 재시도 정책) 안에 둔다. WebSocket도 같은 Session·인터셉터·EventMonitor·로그 보호·재시도 정책 체계를 공유하고, 호출부는 HTTP 요청과 같은 체이닝·async 방식으로 쓴다. 재시도에서 연결 재접속과 메시지 재전송을 구분하고 멱등하지 않은 메시지는 자동 재전송하지 않는다. `NetworkClientFactory.webSocket()`의 URLSession 기반 `URLSessionWebSocketClient`는 이 구조로 옮길 대상이며, 이 구조 밖에 새 통신 코드를 만들지 않는다.
+- 앱 내부 DB(로컬 캐시·저장)는 SQLiteData로 쓰고 `Projects/Core/FestiCoreStorage`의 `AppDatabaseDependency`·`AppDatabaseMigrator`·`StorageFactory`를 거친다. Domain의 로컬 저장은 Attendance `ScheduleDomain/Sources/Repository/Local/ScheduleLocalDataSource`처럼 `Sources/Repository/Local/<X>LocalDataSource`에 둔다.
+- Sentry·Mixpanel 코드(초기화·이벤트·화면 추적·성능 추적·오류 보고)는 `Projects/Service/FestiCoreAnalytics`에 두고, Picke-iOS(`SWYP-Find/Picke-iOS`) `Projects/Service/PickeAnalytics/Sources`의 `Configuration/SentryConfiguration`·`MixpanelConfiguration`, `UseCase/AnalyticsUseCase+Live`, `Trace/PickeTracedView`와 같은 구조·호출 방식으로 쓴다.
+- 표시되는 푸시는 `mutable-content`로 `Projects/Extension/FestiCoreNotificationService`를 거쳐 내용 보강과 App Group 데이터 갱신을 한다. 앱을 깨워 동기화할 때는 `content-available` 무음 푸시를 쓰고 앱의 원격 알림 처리 경로(`AppDelegate`)에서 처리한다. 딥링크는 Picke-iOS의 `Core/PickeCoreUtility/Sources/Deeplink/PickeDeeplink`, `App/Sources/Deeplink/PendingDeeplinkStore`·`AppDeeplinkBridge`, `App/Sources/Application/AppDelegate+Push`, `AppReducer` 딥링크 처리와 같은 구조로 쓴다. 경로는 enum 하나로 정의하고 파싱·대기·라우팅 책임을 나누며 경로별로 테스트한다.
 
 ## Claudex Loop
 

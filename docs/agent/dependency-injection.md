@@ -8,6 +8,8 @@ Core 모듈의 Interface와 구현 타깃은 경계를 나눈다. `FestiCoreStor
 
 `AuthDomain`은 Network/Auth Interface와 `APIEndpoint`에 의존한다. Repository는 `@Dependency`로 공용 클라이언트와 인증 서비스를 사용하고, 도메인 모듈이 자신의 live use case를 등록한다. APIEndpoint는 Domain/Auth에 의존하지 않는다. 실제 네트워크·Keychain 세션은 계속 `ServiceAssembly`에서 조립한다.
 
+주입 사슬은 Attendance_iOS와 같다. Feature는 UseCase Interface만, `<X>UseCaseImpl`은 Repository Interface만(`AttendanceUseCaseImpl`의 `@Dependency(\.attendanceRepository)`), `<X>RepositoryImpl`은 공용 Network·Auth Interface만(`AttendanceRepositoryImpl`의 `@Dependency(\.networkClient)`) 주입받는다. Interface의 키는 `TestDependencyKey`로 두고 `liveValue`는 구현 모듈 `<X>LiveDependencies.swift`의 `DependencyKey` 확장에서 등록한다. 앱 내부 DB는 `FestiCoreStorage`의 `AppDatabaseDependency`, 분석은 Picke `AnalyticsUseCase+Live`와 같은 방식으로 등록한 `FestiCoreAnalytics`의 `AnalyticsUseCase`를 주입받는다.
+
 AuthDomain의 공개 계약은 `Interface/Sources`에 두고 `AuthInterface`, `AuthUseCaseInterface`, `OAuthUseCaseInterface`처럼 역할을 이름에 표시한다. 각 계약 파일에 DI 키와 접근자를 함께 두며, 구현 타깃의 `AuthLiveDependencies.swift`에서 `*Impl`을 등록한다. 테스트·프리뷰 기본 Mock은 누락된 주입을 이슈로 기록하고 오류를 반환한다. 성공 경로 테스트는 필요한 대역을 명시적으로 주입한다.
 
 앱 타깃을 테스트 호스트로 사용하는 동안 `FestiCoreApp`은 장면만 만들고 루트 Store를 시작하지 않는다. 스플래시가 자동으로 전환하면서 테스트 기본 Auth 의존성을 호출해 전역 이슈를 남기는 것을 막기 위해서다. `AppDelegate`는 이때도 실행된다. `FestivalCatalogService`의 캐시·새로고침은 빈 목록, `PackSyncService`의 캐시 목록은 빈 목록을 반환한다. `DeviceRegistrationService.register`는 외부 등록 없이 오류를 던진다. 이 네 메서드는 테스트 호스트가 다른 테스트의 미연결 이슈나 프로세스 종료를 만들지 않도록 이슈를 기록하지 않는다. `AppDelegate`가 시작할 때 부르는 `AnalyticsUseCase.registerBaseProperties`도 같은 이유로 이슈를 기록하지 않고, `identify`·`track`·`reset`의 미주입 호출은 이슈로 기록한다. 나머지 미구현 메서드와 AuthDomain의 누락 주입 정책은 유지하며, 개별 동작 테스트에서는 대역을 명시적으로 주입한다.
