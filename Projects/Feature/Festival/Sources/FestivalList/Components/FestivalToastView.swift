@@ -2,7 +2,7 @@ import FestiCoreDesignKit
 import FestiCoreSharedUI
 import SwiftUI
 
-/// 축제 목록과 라이브 보드에서 같은 북마크 결과를 표시한다.
+/// 축제 목록의 북마크·예매처·팩 결과를 화면 아래쪽에 표시한다(Figma S00 전체_북마크: 하단 안전 영역 위 16pt).
 struct FestivalToastView: View {
   let toast: FestivalFeature.Toast
   let revision: Int
@@ -12,10 +12,10 @@ struct FestivalToastView: View {
       .iconColor(toast == .bookmarked ? FestiCoreSemanticColor.staticLime.color : FestiCoreSemanticColor.staticWhite.color)
       .id(revision)
       .padding(
-        .top,
-        30
+        .bottom,
+        FestiCoreSpacing.paddingP16
       )
-      .transition(.move(edge: .top).combined(with: .opacity))
+      .transition(.move(edge: .bottom).combined(with: .opacity))
   }
 }
 
