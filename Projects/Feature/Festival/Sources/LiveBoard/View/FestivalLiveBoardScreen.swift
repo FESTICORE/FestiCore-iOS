@@ -342,6 +342,10 @@ private extension FestivalLiveBoardScreen {
         progress: card.progress
       )
       .label(card.label)
+      .padding(
+        .top,
+        FestiCoreSpacing.paddingP4
+      )
     } else if model.pack == nil, store.onlineDetailFailed {
       VStack(
         alignment: .leading,
