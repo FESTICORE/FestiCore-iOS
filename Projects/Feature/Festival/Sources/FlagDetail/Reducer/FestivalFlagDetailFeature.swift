@@ -169,10 +169,13 @@ extension FestivalFlagDetailFeature {
       )
 
     case .onDisappear:
+      // 닫은 화면에 늦은 조회·팔로우 결과나 로그인 요청이 오지 않게 모두 멈춘다.
       state.loadGeneration += 1
+      state.isFollowPending = false
       return .merge(
         .cancel(id: CancelID.load),
-        .cancel(id: CancelID.clock)
+        .cancel(id: CancelID.clock),
+        .cancel(id: CancelID.follow)
       )
 
     case .retryTapped:
@@ -302,6 +305,8 @@ extension FestivalFlagDetailFeature {
       return .none
 
     case let .followFinished(result):
+      // 화면을 떠나며 취소한 요청의 늦은 응답은 버린다.
+      guard state.isFollowPending else { return .none }
       state.isFollowPending = false
       switch result {
       case let .success(response):
