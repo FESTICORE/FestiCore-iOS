@@ -10,6 +10,7 @@ enum FestivalAccessibilityID {
   static let listSkeleton = "festivalListSkeleton"
   static let searchSkeleton = "festivalSearchSkeleton"
   static let liveBoardSkeleton = "festivalLiveBoardSkeleton"
+  static let flagDetailSkeleton = "festivalFlagDetailSkeleton"
 
   static func card(_ festivalID: String) -> String {
     "festivalCard_\(festivalID)"

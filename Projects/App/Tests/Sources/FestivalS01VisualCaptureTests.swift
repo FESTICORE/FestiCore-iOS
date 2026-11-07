@@ -216,9 +216,134 @@ final class FestivalS01VisualCaptureTests: XCTestCase {
       )
     )
   }
+
+  func testCaptureFlagDetailStates() async throws {
+    let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-11-07T09:50:00Z"))
+    for scenario in FlagDetailScenario.allCases {
+      try await capture(
+        FestivalFlagDetailView(store: Store(initialState: flagDetailState(
+          scenario,
+          now: now
+        )) {
+          EmptyReducer<FestivalFlagDetailFeature.State, FestivalFlagDetailFeature.Action>()
+        })
+        .safeAreaInset(edge: .bottom) {
+          FCTabBar(selection: .constant(.flag))
+        },
+        name: scenario.rawValue,
+        size: CGSize(
+          width: 393,
+          height: 1_092
+        )
+      )
+    }
+  }
 }
 
 private extension FestivalS01VisualCaptureTests {
+  enum FlagDetailScenario: String, CaseIterable {
+    case basic = "S05-A-basic"
+    case following = "S05-B-following"
+    case stale = "S05-C-stale"
+    case planPrivate = "S05-D-plan-private"
+    case resting = "S05-F-resting"
+    case ended = "S05-G-ended"
+    case offline = "S05-H-offline"
+  }
+
+  func flagDetailState(
+    _ scenario: FlagDetailScenario,
+    now: Date
+  ) -> FestivalFlagDetailFeature.State {
+    let calendar = Calendar(identifier: .gregorian)
+    // 서울 시각 하루 중 분(예: 17시 = 1_020)을 같은 날 Date로 바꾼다.
+    func at(_ minuteOfDay: Int) -> Date {
+      var components = calendar.dateComponents(
+        in: TimeZone(identifier: "Asia/Seoul")!,
+        from: now
+      )
+      components.hour = minuteOfDay / 60
+      components.minute = minuteOfDay % 60
+      return components.date!
+    }
+    let performances: [String: FestivalFlagDetailContext.Performance] = [
+      "set_sunset": .init(
+        artist: "Sunset Riot",
+        stageName: "MAIN 스테이지",
+        startsAt: at(1020),
+        endsAt: at(1070)
+      ),
+      "set_lime": .init(
+        artist: "The Lime Flags",
+        stageName: "SUB 스테이지",
+        startsAt: at(1120),
+        endsAt: at(1170)
+      ),
+      "set_night": .init(
+        artist: "NIGHT CORE",
+        stageName: "MAIN 스테이지",
+        startsAt: at(1290),
+        endsAt: at(1340)
+      ),
+      "set_mosh": .init(
+        artist: "모쉬핏",
+        stageName: "TENT 스테이지",
+        startsAt: at(1380),
+        endsAt: at(1430)
+      ),
+    ]
+    let status: FestivalFlagDetail.Status
+    let updatedMinutesAgo: Double
+    switch scenario {
+    case .resting:
+      status = .resting
+      updatedMinutesAgo = 12
+    case .ended:
+      status = .ended
+      updatedMinutesAgo = 4
+    case .stale:
+      status = .active
+      updatedMinutesAgo = 32
+    default:
+      status = .active
+      updatedMinutesAgo = 4
+    }
+    let detail = FestivalFlagDetail(
+      id: "flg_horak",
+      name: "호락호락",
+      thumbnailURL: nil,
+      // 시안 사진에는 이름·버튼 글자가 함께 찍혀 있어 위치 대조가 흐려진다. 단색 배경으로 그린다.
+      photoURL: nil,
+      tags: ["slam", "sing", "newbie"],
+      bio: "처음 와도 괜찮아요. 슬램은 앞쪽, 쉬고 싶으면 뒤쪽 깃발 근처로.",
+      followerCount: 1_284,
+      isPlanVisible: scenario != .planPrivate,
+      planSetIDs: scenario == .planPrivate ? [] : ["set_sunset", "set_lime", "set_night", "set_mosh"],
+      homeZoneID: "zone_rivet",
+      status: status,
+      zoneID: "zone_rivet",
+      activity: scenario == .resting ? .resting : .slam,
+      statusUpdatedAt: now.addingTimeInterval(-updatedMinutesAgo * 60),
+      isFollowing: scenario == .following,
+      isBearer: false,
+      isHidden: false
+    )
+    var state = FestivalFlagDetailFeature.State(
+      flagID: detail.id,
+      context: FestivalFlagDetailContext(
+        zoneNames: ["zone_rivet": scenario == .resting ? "리벳 스테이지 뒤" : "리벳 스테이지 앞 왼쪽"],
+        performances: performances,
+        mySetIDs: ["set_lime"],
+        hasSession: true
+      ),
+      now: now
+    )
+    state.content = .loaded(detail)
+    state.lastLoadedAt = now.addingTimeInterval(-180)
+    state.isOffline = scenario == .offline
+    return state
+  }
+
   enum TimetableScenario: String, CaseIterable {
     case basic = "S02-A-basic"
     case mineOnly = "S02-B-mine-only"
