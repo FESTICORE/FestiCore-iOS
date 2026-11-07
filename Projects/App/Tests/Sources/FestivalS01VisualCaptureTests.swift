@@ -106,6 +106,116 @@ final class FestivalS01VisualCaptureTests: XCTestCase {
       )
     }
   }
+
+  func testCaptureSetSheetStates() async throws {
+    // Figma S03-C 프레임에서 아티스트 사진 영역(20, 162, 353×180)만 잘라 실제 시안 사진으로 렌더한다.
+    let frameURL = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .appendingPathComponent("../../../../DesignExports/S00-S05-20261104/S03/S03 - C. 일정 겹침 (Dark).png")
+      .standardizedFileURL
+    let artist = try XCTUnwrap(UIImage(contentsOfFile: frameURL.path)?.cgImage?.cropping(to: CGRect(
+      x: 20,
+      y: 162,
+      width: 353,
+      height: 180
+    )))
+    let imageURL = FileManager.default.temporaryDirectory.appendingPathComponent("S03-artist.png")
+    try XCTUnwrap(UIImage(cgImage: artist).pngData()).write(to: imageURL)
+    let cases: [String: (state: FCSetSheet.State, isScheduled: Bool)] = [
+      "S03-A-default": (
+        .default,
+        false
+      ),
+      "S03-C-overlap": (
+        .overlap(warning: "달담(원더 스테이지 15:55–16:45)과 35분 겹쳐요"),
+        true
+      ),
+      "S03-D-changed": (
+        .changed(
+          oldTime: "16:40",
+          change: "20분 미뤄짐"
+        ),
+        true
+      ),
+      "S03-F-ended": (
+        .ended,
+        false
+      )
+    ]
+    for entry in cases {
+      let name = entry.key
+      let sheetState = entry.value.state
+      let isScheduled = entry.value.isScheduled
+      let sheet = FCSetSheet(
+        artist: "윤마치",
+        stage: "리벳 스테이지",
+        time: "17:00–17:50 · 50분",
+        relativeTime: "1시간 32분 후",
+        isScheduled: .constant(isScheduled)
+      )
+      .state(sheetState)
+      .scheduleTexts(
+        title: "내 일정에 넣기",
+        helper: "내 일정에 저장돼요"
+      )
+      .stageAction {}
+      .artistImage(imageURL)
+      .source("출처: 주최측 공지 · 확인 10/16 14:00")
+      try await capture(
+        VStack(spacing: .zero) {
+          Spacer(minLength: .zero)
+          sheet
+            .padding(
+              .bottom,
+              34
+            )
+            .background(
+              FestiCoreSemanticColor.backgroundElevated.color,
+              in: UnevenRoundedRectangle(
+                topLeadingRadius: 24,
+                topTrailingRadius: 24
+              )
+            )
+        }
+        .background(Color.black),
+        name: name,
+        size: CGSize(
+          width: 393,
+          height: 852
+        )
+      )
+    }
+  }
+
+  func testCaptureFlagDirectory() async throws {
+    var state = FestivalFlagFeature.State(festivalID: "festival")
+    let board = try XCTUnwrap(fixture(.basic).liveBoard)
+    state.snapshot = FestivalLiveBoardSnapshot(
+      festivalID: board.festivalID,
+      activeFlags: board.activeFlags,
+      followedFlags: board.followedFlags,
+      crew: board.crew,
+      serverAt: board.serverAt,
+      directoryFlags: board.followedFlags + board.activeFlags.filter { flag in
+        !board.followedFlags.contains { $0.id == flag.id }
+      }
+    )
+    state.viewState = .loaded
+    let store = Store(initialState: state) {
+      EmptyReducer<FestivalFlagFeature.State, FestivalFlagFeature.Action>()
+    }
+    try await capture(
+      FestivalFlagView(store: store)
+        .safeAreaInset(edge: .bottom) {
+          FCTabBar(selection: .constant(.flag))
+        },
+      name: "S04-A-basic",
+      size: CGSize(
+        width: 393,
+        height: 852
+      )
+    )
+  }
 }
 
 private extension FestivalS01VisualCaptureTests {

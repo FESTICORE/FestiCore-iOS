@@ -40,6 +40,14 @@ public extension View {
       .tracking(style.letterSpacing)
       .lineSpacing(style.resolvedLineSpacing)
   }
+
+  /// Figma 줄 높이 박스처럼 남는 줄 높이의 절반을 텍스트 위아래에 둔다. 실측으로 확인한 화면에만 쓴다.
+  func festiCoreLineBox(_ style: FestiCoreTextStyle) -> some View {
+    return padding(
+      .vertical,
+      style.resolvedLineSpacing / 2
+    )
+  }
 }
 
 public extension UIFont {

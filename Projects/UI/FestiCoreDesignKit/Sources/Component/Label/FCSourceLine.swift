@@ -10,6 +10,7 @@ import SwiftUI
 /// 정보 출처와 확인 시각 한 줄.
 public struct FCSourceLine: View {
   private var source: String
+  private var isInset = true
 
   public init(_ source: String) {
     self.source = source
@@ -27,9 +28,24 @@ public struct FCSourceLine: View {
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
-    .padding(.vertical, FestiCoreSpacing.paddingP12)
-    .padding(.horizontal, FestiCoreSpacing.paddingP16)
-    .background(FestiCoreSemanticColor.backgroundNormal.color)
+    .padding(
+      .vertical,
+      FestiCoreSpacing.paddingP12
+    )
+    .padding(
+      .horizontal,
+      isInset ? FestiCoreSpacing.paddingP16 : .zero
+    )
+    .background(isInset ? FestiCoreSemanticColor.backgroundNormal.color : .clear)
+  }
+}
+
+public extension FCSourceLine {
+  /// 시트처럼 부모가 여백과 배경을 가진 곳에서는 false로 두어 본문 여백에 맞춘다.
+  func inset(_ isInset: Bool) -> Self {
+    var copy = self
+    copy.isInset = isInset
+    return copy
   }
 }
 

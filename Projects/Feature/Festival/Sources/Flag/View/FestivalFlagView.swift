@@ -54,8 +54,12 @@ public struct FestivalFlagView: View {
 }
 
 private extension FestivalFlagView {
+  /// Figma 줄 높이 여백만큼 제목 위와 제목·부제 사이를 보정한다(실측 기준).
   var head: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP8
+    ) {
       Text("만나보고 싶은 깃발이 있나요?")
         .festiCoreFont(.baseTitle3Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
@@ -63,6 +67,10 @@ private extension FestivalFlagView {
         .festiCoreFont(.baseFootnoteRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
+    .padding(
+      .top,
+      FestiCoreSpacing.marginM2
+    )
   }
 
   /// 칩 줄은 화면 오른쪽 끝까지 스크롤된다(Figma Filter Chips).

@@ -54,6 +54,10 @@ public struct FCSetSheet: View {
 
   public var body: some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
+      // 사진이 없는 셋은 시안대로 이름부터 보인다.
+      if let artistImageURL {
+        artistImageView(artistImageURL)
+      }
       if !tags.isEmpty {
         HStack(spacing: FestiCoreSpacing.paddingP4) {
           ForEach(tags, id: \.self) { tag in
@@ -76,6 +80,7 @@ public struct FCSetSheet: View {
       scheduleRow
       if let source {
         FCSourceLine(source)
+          .inset(false)
       }
     }
     .padding(.top, FestiCoreSpacing.paddingP16)
@@ -105,17 +110,11 @@ private extension FCSetSheet {
 
   private var titleRow: some View {
     HStack(spacing: FestiCoreSpacing.paddingP12) {
-      // 사진이 없는 셋은 시안대로 이름만 보인다.
-      if let artistImageURL {
-        FCRemoteImage(url: artistImageURL)
-          .frame(width: Metric.artistImageSize, height: Metric.artistImageSize)
-          .clipShape(Circle())
-          .accessibilityHidden(true)
-      }
       Text(artist)
         .festiCoreFont(.baseTitle1Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .lineLimit(2)
+        .festiCoreLineBox(.baseTitle1Bold)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityAddTraits(.isHeader)
       Text(isEnded ? endedTitle : relativeTime)
@@ -161,6 +160,7 @@ private extension FCSetSheet {
       Text(stage)
         .festiCoreFont(.baseBodyRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+        .festiCoreLineBox(.baseBodyRegular)
     }
   }
 
@@ -177,10 +177,12 @@ private extension FCSetSheet {
         Text(time)
           .festiCoreFont(.baseHeadlineBold)
           .foregroundStyle(FestiCoreSemanticColor.accentForegroundOrange.color)
+          .festiCoreLineBox(.baseHeadlineBold)
       } else {
         Text(time)
           .festiCoreFont(.baseBodyRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+          .festiCoreLineBox(.baseBodyRegular)
       }
     }
   }
@@ -195,6 +197,7 @@ private extension FCSetSheet {
       Text(warning)
         .festiCoreFont(.baseFootnoteMedium)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+        .festiCoreLineBox(.baseFootnoteMedium)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
     .padding(.vertical, FestiCoreSpacing.paddingP12)
@@ -203,6 +206,20 @@ private extension FCSetSheet {
       FestiCoreSemanticColor.accentBackgroundOrange.color,
       in: RoundedRectangle(cornerRadius: FestiCoreRadius.r12)
     )
+  }
+
+  @ViewBuilder
+  private func artistImageView(_ url: URL) -> some View {
+    // 사진 비율과 상관없이 시트 폭을 넘지 않도록 고정 틀 위에 채운다.
+    Color.clear
+      .frame(maxWidth: .infinity)
+      .frame(height: Metric.artistImageHeight)
+      .overlay {
+        FCRemoteImage(url: url)
+          .content(.fill)
+      }
+      .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
+      .accessibilityHidden(true)
   }
 
   private func memoBox(_ memo: String) -> some View {
@@ -228,9 +245,11 @@ private extension FCSetSheet {
         Text(scheduleTitle)
           .festiCoreFont(.baseCalloutBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+          .festiCoreLineBox(.baseCalloutBold)
         Text(isEnded ? endedHelper : scheduleHelper)
           .festiCoreFont(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+          .festiCoreLineBox(.baseFootnoteRegular)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
       FCToggle(
@@ -312,7 +331,7 @@ private extension FCSetSheet {
   enum Metric {
     static let iconSize: CGFloat = 20
     static let smallIconSize: CGFloat = 16
-    static let artistImageSize: CGFloat = 48
+    static let artistImageHeight: CGFloat = 180
     static let disabledOpacity = 0.3
   }
 }
