@@ -32,11 +32,15 @@ private extension LoginView {
 - 단일 View 조각은 계산 `var ...: some View`로 두고, 여러 View를 묶거나 분기하는 섹션은 `@ViewBuilder func ... -> some View`로 분리한다. 일반 계산 속성과 함수에는 명시적 `return`을 사용하되 결과 빌더는 Swift 문법을 따른다.
 - 단일 View 조각의 계산 속성은 하나의 View를 반환한다. 형제 View 둘 이상은 `VStack` 등 컨테이너로 묶거나 `@ViewBuilder` 함수를 사용한다. View의 사용자 입력은 `send(.<View 액션>)`으로 보내고 `store.send` 또는 `inner`·`async`를 직접 보내지 않는다.
 
-## DesignKit 컴포넌트 설정
+## DesignKit·SharedUI 컴포넌트 설정
 
-- 컴포넌트 생성자에는 콘텐츠와 필수 액션만 둔다. 선택적 스타일·상태·동작은 `public extension`의 `func 설정(_ 값: 값타입) -> Self` 체이닝으로 제공한다.
+- DesignKit·SharedUI 컴포넌트 생성자에는 콘텐츠와 필수 액션 같은 필수 내용만 둔다. 선택적 스타일·상태·옵션·동작은 `public extension`의 `func 설정(_ 값: 값타입) -> Self` 체이닝으로 제공한다.
 - 체이닝 함수는 `var copy = self`로 사본을 만들고 해당 속성만 바꾼 뒤 반환한다. 화면에서는 `FCTab(selection: $selection, items: items).indicatorColor(color)`처럼 조합한다.
 - 공용 컴포넌트의 기본값은 기존 화면을 유지하고, Figma 화면별 차이는 호출 화면에서 체이닝으로 지정한다. `FCTab`의 S00 라임색 밑줄과 `FCSearchResultRow`의 검색어 강조·임박 배지가 그 예다.
+- 이전 대상(기본값을 둔 스타일·상태·옵션·선택 동작이 이니셜라이저에 남은 기존 타입, 본보기로 삼지 않고 괄호 안 체이닝 설정으로 옮긴다):
+  - DesignKit `Component/Button/FCPrimaryButton`의 `isEnabled`(`.enabled(_:)`), `Card/FCActionCards`의 `FCCardAction` `style`(`.style(_:)`), `List/FCLineupRow`의 `showsSeparator`(`.showsSeparator(_:)`), `Divider/FCDivider`의 `thickness`(`.thickness(_:)`), `PopUp/FCDialog`의 `FCDialogItem` `onCancel`(`.onCancel(_:)`)
+  - SharedUI `Alert/FCConfirmationPopupView`의 `FCDialogOverlay` `textAlignment`·`dismissesOnDimTap`·`onDimTap`(`.textAlignment(_:)`·`.dismissesOnDimTap(_:)`·`.onDimTap(_:)`), `Alert/FCAlertState`의 `style`(`.style(_:)`)
+- 이전 대상이 아닌 것: 콘텐츠의 기본 문구·값(`FCSearchField`의 `placeholder`, `FCDialogItem`의 `confirmTitle`·`cancelTitle`, `FCPagination`의 `count`)은 콘텐츠라 이니셜라이저에 둔다. `fcModal(item:height:showsGrabber:content:)`처럼 View에 붙이는 수정자 함수는 SwiftUI `.sheet(item:onDismiss:content:)`와 같이 인자로 받는다.
 
 ## 폴더
 
