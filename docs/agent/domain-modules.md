@@ -9,13 +9,13 @@
   - `Sources/<기능>/<X>UseCaseImpl.swift`
   - `Sources/Repository/<X>RepositoryImpl.swift`, 로컬 저장은 `Sources/Repository/Local/<X>LocalDataSource.swift`
   - `Sources/Model/DTO`·`Sources/Model/Mapper`: DTO·Mapper
-  - `Sources/<X>LiveDependencies.swift`: 모듈의 `extension <X>Dependency: DependencyKey` `liveValue` 등록을 한 파일에 모은다(Attendance `AttendanceLiveDependencies.swift`)
+  - `Sources/<X>LiveDependencies.swift`: 모듈의 `extension <X>Dependency: DependencyKey` `liveValue` 등록을 한 파일에 모은다. `<X>`는 모듈 이름에서 `Domain`을 뺀 이름이다(Attendance `AttendanceDomain`→`AttendanceLiveDependencies.swift`, FestiCore `AuthDomain`→`AuthLiveDependencies.swift`). `FestivalDomain`의 등록 파일은 `Sources/FestivalLiveDependencies.swift`다.
   - `Sources/Exported`: 구현 모듈의 `@_exported import`
 - 이전 배치(`Sources/Repository`·`Exported`로 옮길 대상): 현재 FestiCore Domain 6개는 위 구성과 다르다. 새 코드는 위 구성을 따르고 기존 모듈의 배치를 본보기로 삼지 않는다.
   - `<X>RepositoryImpl`이 `Sources/<기능>`에 있다: `AuthDomain/Sources/Auth/AuthRepositoryImpl`, `NoticeDomain/Sources/Notice/NoticeRepositoryImpl`, `BearerDomain/Sources/Bearer/BearerRepositoryImpl`, `UserNotificationDomain/Sources/UserNotification/UserNotificationRepositoryImpl`, `FestivalDomain/Sources`의 `Catalog/FestivalCatalogRepositoryImpl`·`Crew/FestivalCrewRepositoryImpl`·`FlagDetail/FestivalFlagDetailRepositoryImpl`·`Pack/FestivalPackSyncRepositoryImpl`·`PackDetail/FestivalPackRepositoryImpl`. 모두 `Sources/Repository`로 옮긴다.
   - OAuth 제공자 Repository는 Attendance `AuthDomain`(`Sources/Google`, `Sources/OAuth/Apple`)처럼 제공자 폴더에 둔다. `AuthDomain/Sources/Google/GoogleOAuthRepositoryImpl`은 이미 같고, `Sources/Apple/AppleOAuthRepositoryImpl`은 `Sources/OAuth/Apple`로 옮길 대상이다.
   - 6개 모듈 모두 `Interface/Sources/Exported`와 `Sources/Exported`가 없다. `TimetableDomain/Sources/TimetableDomainExported.swift`는 `Sources/Exported`로 옮길 대상이다.
-  - `FestivalDomain`의 계약별 `<계약 이름>+Live.swift`는 이전 배치다. 새 등록은 `<X>LiveDependencies.swift`에 둔다.
+  - `FestivalDomain`의 등록은 `Sources/FestivalLiveDependencies.swift` 한 파일로 모은다. 지금의 `Sources/FestivalPackLiveDependencies.swift`는 이 이름으로 바꾸고, 계약별 `<계약 이름>+Live.swift`(예: `Catalog/FestivalCatalogUseCase+Live.swift`)의 `liveValue` 등록을 이 파일로 합친다. 새 등록도 이 파일에 둔다.
 - Feature가 쓰는 공개 값 타입은 해당 Domain `Interface/Sources/Entity`에 둔다. Feature 모듈 `Model`에 공개 엔티티를 두지 않는다. 팩 문서처럼 디코딩하는 모델은 Domain `Sources/Model`의 DTO·Mapper로 둔다.
 - UseCase는 화면이 하는 일 단위로 묶는다. Feature는 UseCase Interface만, `<X>UseCaseImpl`은 Repository Interface만 `@Dependency`로 주입받는다. Attendance UseCaseImpl 10개는 모두 Repository만 받는다(`MyPageUseCaseImpl`은 이니셜라이저로). 서버 통신·로컬 저장·시스템 클라이언트는 `<X>RepositoryImpl`이나 `Sources/Repository/Local/<X>LocalDataSource` 뒤에 둔다.
 - RepositoryImpl 주입 범위(이 항목이 유일한 정의다. [의존성 주입](dependency-injection.md)과 AGENTS.md는 이 항목을 따른다). `<X>RepositoryImpl`은 Attendance `Sources/Repository`·`Sources/OAuth`의 RepositoryImpl과 같이 아래 네 가지만 `@Dependency`로 주입받는다.
