@@ -171,6 +171,20 @@ struct FestivalActivityPayloadTests {
       expected.nowStages = []
       expected.nextMine = nil
       #expect(cleared.state == expected)
+
+      // 내 일정을 아직 모르면 공연 목록만 바꾸고 다음 내 일정은 지우지 않는다.
+      let unknownSchedule = FestiCoreFestivalLiveActivity.content(
+        phase: phase,
+        startDate: start,
+        endDate: end,
+        nowStages: [],
+        nextMine: nil,
+        isNextMineKnown: false,
+        previousState: remote,
+        updatedAt: start
+      )
+      expected.nextMine = remote.nextMine
+      #expect(unknownSchedule.state == expected)
     }
   }
 

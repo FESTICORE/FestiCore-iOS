@@ -12,7 +12,7 @@ public struct FestivalLiveActivityClient: Sendable {
     Date,
     Date,
     FestivalPackDocument?,
-    Set<String>
+    Set<String>?
   ) async -> Void
   public var finish: @Sendable (String, Date) async -> Void
   public var end: @Sendable (String) async -> Void
@@ -29,7 +29,7 @@ public struct FestivalLiveActivityClient: Sendable {
       Date,
       Date,
       FestivalPackDocument?,
-      Set<String>
+      Set<String>?
     ) async -> Void,
     finish: @escaping @Sendable (String, Date) async -> Void,
     end: @escaping @Sendable (String) async -> Void

@@ -133,7 +133,7 @@ private struct ServiceBackedLiveActivityUseCase: FestivalLiveActivityUseCaseInte
     startDate: Date,
     endDate: Date,
     pack: FestivalPackDocument?,
-    savedSetIDs: Set<String>
+    savedSetIDs: Set<String>?
   ) async {
     await client.update(
       activityID,

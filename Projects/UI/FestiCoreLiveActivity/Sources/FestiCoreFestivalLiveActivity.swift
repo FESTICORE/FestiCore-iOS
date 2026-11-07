@@ -185,7 +185,8 @@ public enum FestiCoreFestivalLiveActivity {
     startDate: Date,
     endDate: Date? = nil,
     nowStages: [FestiCoreFestivalActivityAttributes.ContentState.NowStage]? = nil,
-    nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil
+    nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil,
+    isNextMineKnown: Bool = true
   ) async {
     guard let activity = Activity<FestiCoreFestivalActivityAttributes>.activities.first(where: { $0.id == id }) else {
       return
@@ -196,6 +197,7 @@ public enum FestiCoreFestivalLiveActivity {
       endDate: endDate,
       nowStages: nowStages,
       nextMine: nextMine,
+      isNextMineKnown: isNextMineKnown,
       previousState: activity.content.state
     ))
   }
@@ -228,6 +230,7 @@ public enum FestiCoreFestivalLiveActivity {
     endDate: Date? = nil,
     nowStages: [FestiCoreFestivalActivityAttributes.ContentState.NowStage]? = nil,
     nextMine: FestiCoreFestivalActivityAttributes.ContentState.NextMine? = nil,
+    isNextMineKnown: Bool = true,
     previousState: FestiCoreFestivalActivityAttributes.ContentState? = nil,
     updatedAt: Date = .now
   ) -> ActivityContent<FestiCoreFestivalActivityAttributes.ContentState> {
@@ -237,7 +240,8 @@ public enum FestiCoreFestivalLiveActivity {
         startDate: startDate,
         endDate: endDate,
         nowStages: nowStages ?? previousState?.nowStages ?? [],
-        nextMine: nowStages == nil ? (nextMine ?? previousState?.nextMine) : nextMine,
+        // 팩이나 내 일정을 아직 모르면 빈 값으로 덮지 않고 표시 중인 다음 내 일정을 유지한다.
+        nextMine: nowStages == nil || !isNextMineKnown ? (nextMine ?? previousState?.nextMine) : nextMine,
         pinnedFlag: previousState?.pinnedFlag,
         crewSummary: previousState?.crewSummary,
         leaveAt: previousState?.leaveAt

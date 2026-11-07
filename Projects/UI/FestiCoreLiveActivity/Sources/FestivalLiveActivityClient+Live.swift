@@ -29,7 +29,7 @@ extension FestivalLiveActivityClient: @retroactive DependencyKey {
     update: { id, phase, startDate, endDate, pack, savedSetIDs in
       let presentation = FestivalActivityPresentation.from(
         pack: pack,
-        savedSetIDs: savedSetIDs,
+        savedSetIDs: savedSetIDs ?? [],
         now: Date()
       )
       await FestiCoreFestivalLiveActivity.update(
@@ -38,7 +38,8 @@ extension FestivalLiveActivityClient: @retroactive DependencyKey {
         startDate: startDate,
         endDate: endDate,
         nowStages: pack == nil ? nil : presentation.nowStages,
-        nextMine: presentation.nextMine
+        nextMine: presentation.nextMine,
+        isNextMineKnown: savedSetIDs != nil
       )
     },
     finish: { id, startDate in

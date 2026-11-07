@@ -288,8 +288,10 @@ struct HomeLiveActivityTests {
         activities: { [] },
         changes: { AsyncStream { $0.finish() } },
         start: { _, _, _, _, _ in "unused" },
-        update: { id, phase, start, end, _, _ in
+        update: { id, phase, start, end, _, savedSetIDs in
           #expect(id == "activity-other")
+          // 선택하지 않은 축제의 내 일정은 모르므로 비우지 않도록 nil로 넘긴다.
+          #expect(savedSetIDs == nil)
           #expect(phase == .ongoing)
           #expect(start == startDate)
           #expect(end == endDate)
