@@ -177,6 +177,21 @@ struct FestivalFlagDetailFeatureTests {
     await limitStore.receive(\.inner.toastExpired) { $0.toast = nil }
   }
 
+  @Test("화면을 떠나면 팔로우 요청을 멈추고 늦은 응답은 버린다")
+  func leavingCancelsFollowAndIgnoresLateResponse() async {
+    var state = Self.state()
+    state.content = .loaded(Self.detail())
+    state.isFollowPending = true
+    let store = makeStore(state: state)
+
+    await store.send(.view(.onDisappear)) {
+      $0.loadGeneration = 1
+      $0.isFollowPending = false
+    }
+    // 로그인 요청 응답이 늦게 와도 부모에게 알리지 않는다.
+    await store.send(.inner(.followFinished(.failure(.loginRequired))))
+  }
+
   @Test("지금 카드는 상태와 경과 시간에 따라 문구를 바꾼다")
   func nowCardFollowsStatusAndAge() {
     var state = Self.state()
