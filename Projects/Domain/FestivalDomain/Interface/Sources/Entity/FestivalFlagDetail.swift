@@ -45,6 +45,8 @@ public struct FestivalFlagDetail: Equatable, Sendable {
   public let isFollowing: Bool?
   /// 익명 조회면 nil.
   public let isBearer: Bool?
+  /// 내 잠금화면 대표 깃발인지. 익명 조회이거나 서버가 값을 주지 않으면 nil.
+  public let isPinned: Bool?
   /// 숨김 처리된 깃발. 기수 본인에게만 내려온다.
   public let isHidden: Bool
 
@@ -65,6 +67,7 @@ public struct FestivalFlagDetail: Equatable, Sendable {
     statusUpdatedAt: Date,
     isFollowing: Bool?,
     isBearer: Bool?,
+    isPinned: Bool? = nil,
     isHidden: Bool
   ) {
     self.id = id
@@ -83,6 +86,7 @@ public struct FestivalFlagDetail: Equatable, Sendable {
     self.statusUpdatedAt = statusUpdatedAt
     self.isFollowing = isFollowing
     self.isBearer = isBearer
+    self.isPinned = isPinned
     self.isHidden = isHidden
   }
 }

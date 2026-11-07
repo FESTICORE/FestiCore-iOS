@@ -11,7 +11,7 @@ import FestiCoreSharedUI
 import FestivalDomainInterface
 import SwiftUI
 
-/// Figma S05 깃발 상세. 공유·신고는 다음 단계에서 붙인다.
+/// Figma S05 깃발 상세. 공유·잠금화면 표시·신고하기를 포함한다.
 @ViewAction(for: FestivalFlagDetailFeature.self)
 public struct FestivalFlagDetailView: View {
   @Bindable public var store: StoreOf<FestivalFlagDetailFeature>
@@ -34,6 +34,12 @@ public struct FestivalFlagDetailView: View {
     .overlay(alignment: .bottom) {
       toast()
     }
+    .fcModal($store.scope(
+      state: \.destination?.report,
+      action: \.destination.report
+    )) { reportStore in
+      FestivalFlagReportView(store: reportStore)
+    }
     .onAppear { send(.onAppear) }
     .onDisappear { send(.onDisappear) }
   }
@@ -42,15 +48,27 @@ public struct FestivalFlagDetailView: View {
 private extension FestivalFlagDetailView {
   enum Metric {
     static let planListVerticalPadding = FestiCoreSpacing.paddingP4
+    /// 지금 카드와 잠금화면 표시 카드 사이(시안 B 실측)
+    static let nowSectionSpacing = FestiCoreSpacing.paddingP20
   }
 
-  /// 뒤로 가기와 깃발 이름
+  /// 뒤로 가기·깃발 이름·공유. 상세를 받기 전에는 공유를 감춘다.
+  @ViewBuilder
   var topBar: some View {
-    return FCTopBar(
+    let bar = FCTopBar(
       .back,
       title: store.detail?.name ?? ""
     )
     .onBack { send(.backTapped) }
+
+    if let detail = store.detail {
+      bar.shareLink(
+        store.shareURL,
+        title: detail.name
+      )
+    } else {
+      bar
+    }
   }
 
   /// 불러오는 중·없는 깃발·일시 오류·상세 본문
@@ -84,9 +102,15 @@ private extension FestivalFlagDetailView {
           alignment: .leading,
           spacing: FestiCoreSpacing.paddingP24
         ) {
-          nowCard()
+          VStack(spacing: Metric.nowSectionSpacing) {
+            nowCard()
+
+            lockScreenRow()
+          }
 
           planSection(detail)
+
+          reportButton
         }
         .padding(
           .top,
@@ -149,6 +173,33 @@ private extension FestivalFlagDetailView {
     }
     // 오프라인이거나 요청 중이면 팔로우 버튼만 끈다.
     .followEnabled(!store.isOffline && !store.isFollowPending)
+  }
+
+  /// 팔로우 중인 깃발만 잠금화면 대표 깃발로 켜고 끈다.
+  @ViewBuilder
+  func lockScreenRow() -> some View {
+    if store.showsLockScreenToggle {
+      FCListRow(
+        "잠금화면에 표시",
+        isOn: Binding(
+          get: { store.isPinned },
+          set: { send(.lockScreenToggled($0)) }
+        )
+      )
+      .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
+    }
+  }
+
+  /// 계획 아래 가운데 신고 버튼. 누르면 사유 선택 시트를 띄운다.
+  var reportButton: some View {
+    return Button { send(.reportTapped) } label: {
+      Text("신고하기")
+        .festiCoreFont(.baseFootnoteRegular)
+        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
   }
 
   /// 깃발 사진. 없으면 카드 배경색으로 채운다.
@@ -262,17 +313,43 @@ private extension FestivalFlagDetailView {
     )
   }
 
-  /// 팔로우 실패 안내
+  /// 팔로우·신고·잠금화면 표시 결과 안내
   @ViewBuilder
   func toast() -> some View {
-    if let message = store.toast {
-      FCToast(.init(
-        icon: .circleInfo16,
-        message: message
-      ))
-      .padding(FestiCoreSpacing.paddingP16)
-      .transition(.opacity)
+    if let toast = store.toast {
+      FCToast(toastItem(toast))
+        .iconColor(toastIconColor(toast))
+        .padding(FestiCoreSpacing.paddingP16)
+        .transition(.opacity)
     }
+  }
+
+  func toastItem(_ toast: FestivalFlagDetailFeature.State.Toast) -> FCToast.Item {
+    switch toast {
+    case let .followed(name): return .followed(name)
+    case .followLimit: return info("팔로우는 100개까지 할 수 있어요")
+    case .followFailed: return info("팔로우를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요")
+    case .reported: return FCToast.Item(
+      icon: .check,
+      message: "신고를 접수했어요"
+    )
+    case .alreadyReported: return info("이미 신고한 깃발이에요")
+    case .reportFailed: return info("신고하지 못했어요. 잠시 후 다시 시도해 주세요")
+    case .pinFailed: return info("잠금화면 표시를 바꾸지 못했어요")
+    }
+  }
+
+  /// 팔로우 완료만 깃발 아이콘을 라임으로 강조한다(시안 A→B).
+  func toastIconColor(_ toast: FestivalFlagDetailFeature.State.Toast) -> Color {
+    guard case .followed = toast else { return FestiCoreSemanticColor.staticWhite.color }
+    return FestiCoreSemanticColor.staticLime.color
+  }
+
+  func info(_ message: String) -> FCToast.Item {
+    return FCToast.Item(
+      icon: .circleInfo16,
+      message: message
+    )
   }
 
   func chipStatus(_ status: FestivalFlagDetail.Status) -> FCStatusChip.Status {

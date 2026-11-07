@@ -30,11 +30,18 @@ public struct FCTopBar: View {
     let action: () -> Void
   }
 
+  /// 오른쪽 공유 버튼이 시스템 공유 시트로 보낼 링크
+  struct ShareItem {
+    let url: URL
+    let title: String
+  }
+
   private var style: Style
   private var title: String
   private var customBackgroundColor: FestiCoreSemanticColor?
   private(set) var backAction: (() -> Void)?
   private(set) var trailing: TrailingAction?
+  private(set) var share: ShareItem?
   private(set) var showsBadge = false
   private(set) var badgeCount: Int?
   private(set) var bearerTitle = "기수"
@@ -174,7 +181,7 @@ extension FCTopBar {
       IconButton(
         icon: .chevronLeft,
         iconSize: Metric.backIconSize,
-        color: foregroundColor,
+        color: iconColor,
         action: backAction
       )
         .accessibilityLabel("뒤로")
@@ -188,11 +195,13 @@ extension FCTopBar {
 
   @ViewBuilder
   private var trailingButton: some View {
-    if showsTrailing, let trailing {
+    if showsTrailing, let share {
+      shareButton(share)
+    } else if showsTrailing, let trailing {
       IconButton(
         icon: trailing.icon,
         iconSize: Metric.iconSize,
-        color: foregroundColor,
+        color: iconColor,
         action: trailing.action
       )
         .overlay(alignment: .topTrailing) {
@@ -307,6 +316,35 @@ extension FCTopBar {
     return .labelNormal
   }
 
+  /// 뒤로·오른쪽 아이콘 색. Figma Top Bar 아이콘은 제목보다 한 단계 옅다(S01·S04·S05 실측 #c9c9cf).
+  private var iconColor: FestiCoreSemanticColor {
+    if case .backOnImage = style { return .staticWhite }
+    return .labelNeutral
+  }
+
+  /// 오른쪽 공유 버튼. 누르면 시스템 공유 시트를 연다.
+  private func shareButton(_ share: ShareItem) -> some View {
+    return ShareLink(
+      item: share.url,
+      preview: SharePreview(share.title)
+    ) {
+      Image(asset: .shareNodes)
+        .resizable()
+        .frame(
+          width: Metric.iconSize,
+          height: Metric.iconSize
+        )
+        .foregroundStyle(iconColor.color)
+        .frame(
+          width: Metric.touchSize,
+          height: Metric.touchSize
+        )
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel("공유")
+  }
+
   var height: CGFloat {
     switch style {
     case .large, .search: return Metric.largeHeight
@@ -327,10 +365,10 @@ extension FCTopBar {
     }
   }
 
-  /// trailing 버튼은 action을 지정한 경우에만 보이고, search 스타일에는 없다.
+  /// trailing 버튼은 action이나 공유 링크를 지정한 경우에만 보이고, search 스타일에는 없다.
   var showsTrailing: Bool {
     if case .search = style { return false }
-    return trailing != nil
+    return trailing != nil || share != nil
   }
 }
 
@@ -373,6 +411,19 @@ public extension FCTopBar {
       icon: icon,
       accessibilityLabel: accessibilityLabel,
       action: action
+    )
+    return copy
+  }
+
+  /// trailing 자리에 공유 버튼을 둔 사본을 돌려준다. `trailingAction`보다 우선한다.
+  func shareLink(
+    _ url: URL,
+    title: String
+  ) -> Self {
+    var copy = self
+    copy.share = ShareItem(
+      url: url,
+      title: title
     )
     return copy
   }

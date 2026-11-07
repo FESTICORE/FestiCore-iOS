@@ -5,9 +5,11 @@
 //  Created by FestiCore on 11/3/26.
 //
 
-/// 기수가 쓰는 깃발 API 경로. 깃발 ID는 경로 한 칸으로 붙인다.
+/// 깃발 API 경로. 깃발 ID는 경로 한 칸으로 붙인다.
 public enum FlagAPI: Sendable, Equatable {
   case profile(flagID: String)
+  case report(flagID: String)
+  case pinnedFlag
   case photo(flagID: String)
   case bearer(flagID: String)
   case status(flagID: String)
@@ -18,6 +20,8 @@ public enum FlagAPI: Sendable, Equatable {
   public var path: String {
     switch self {
     case let .profile(flagID): return "\(FestiCoreDomain.flags.path)/\(flagID)"
+    case let .report(flagID): return "\(FestiCoreDomain.flags.path)/\(flagID)/report"
+    case .pinnedFlag: return "\(FestiCoreDomain.me.path)/pinned-flag"
     case let .photo(flagID): return "\(FestiCoreDomain.flags.path)/\(flagID)/photo"
     case let .bearer(flagID): return "\(FestiCoreDomain.flags.path)/\(flagID)/bearer"
     case let .status(flagID): return "\(FestiCoreDomain.flags.path)/\(flagID)/status"

@@ -44,6 +44,7 @@ public extension ImageAsset {
   static let clock20 = ImageAsset(rawValue: "clock-20")
   static let route24 = ImageAsset(rawValue: "route-24")
   static let user24 = ImageAsset(rawValue: "user-24")
+  static let shareNodes = ImageAsset(rawValue: "share-nodes")
 
   // MARK: - 소셜 로그인
 

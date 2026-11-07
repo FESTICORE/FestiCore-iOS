@@ -94,3 +94,38 @@ public struct BearerClaimBody: Encodable, Sendable, Equatable {
     self.code = code
   }
 }
+
+/// `POST flags/:flagId/report` 본문. 메모가 없으면 키를 보내지 않는다.
+public struct FlagReportBody: Encodable, Sendable, Equatable {
+  public let reason: String
+  public let note: String?
+
+  public init(
+    reason: String,
+    note: String? = nil
+  ) {
+    self.reason = reason
+    self.note = note
+  }
+}
+
+/// `PUT me/pinned-flag` 본문. 해제할 때도 `flagId: null`을 명시해 보낸다.
+public struct PinnedFlagBody: Encodable, Sendable, Equatable {
+  public let flagId: String?
+
+  public init(flagId: String?) {
+    self.flagId = flagId
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case flagId
+  }
+
+  public func encode(to encoder: any Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(
+      flagId,
+      forKey: .flagId
+    )
+  }
+}

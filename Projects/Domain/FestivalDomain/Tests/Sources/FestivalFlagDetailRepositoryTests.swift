@@ -126,6 +126,146 @@ struct FestivalFlagDetailRepositoryTests {
     #expect(await client.sent == nil)
   }
 
+  @Test("로그인 상세의 대표 깃발 여부를 옮기고 필드가 없으면 비운다")
+  func mapsPinnedFlag() async throws {
+    let pinned = Self.json().replacingOccurrences(
+      of: #""isBearer":false,"#,
+      with: #""isBearer":false,"isPinned":true,"#
+    )
+    let detail = try await makeRepository(client: FlagDetailRecordingClient(json: pinned)).detail(flagID: "flg_1")
+    #expect(detail.isPinned == true)
+
+    let older = try await makeRepository(client: FlagDetailRecordingClient(json: Self.json())).detail(flagID: "flg_1")
+    #expect(older.isPinned == nil)
+  }
+
+  @Test("신고는 사유를 담아 로그인 토큰으로 보낸다")
+  func reportSendsReason() async throws {
+    let client = FlagDetailRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"reportId":"report_1"}}"#)
+    try await makeRepository(client: client).report(
+      flagID: "flg_1",
+      reason: .inappropriate
+    )
+
+    let sent = try #require(await client.sent)
+    #expect(sent.path == "api/v1/flags/flg_1/report")
+    #expect(sent.method == "POST")
+    #expect(sent.authorization == .automatic)
+    #expect(sent.body == #"{"reason":"inappropriate"}"#)
+  }
+
+  @Test("신고 실패를 로그인·약관·중복·없는 깃발·일시 오류로 나눈다")
+  func mapsReportErrors() async {
+    let cases: [(FestiCoreNetworkError, FestivalFlagReportError)] = [
+      (
+        .response(ResponseError(httpStatus: 401)),
+        .loginRequired
+      ),
+      (
+        .response(ResponseError(
+          httpStatus: 403,
+          code: "TERMS_REQUIRED"
+        )),
+        .termsRequired
+      ),
+      (
+        .response(ResponseError(
+          httpStatus: 409,
+          code: "ALREADY_REPORTED"
+        )),
+        .alreadyReported
+      ),
+      (
+        .response(ResponseError(httpStatus: 404)),
+        .notFound
+      ),
+      (
+        .response(ResponseError(httpStatus: 500)),
+        .unavailable
+      ),
+      (
+        .transport(.timedOut),
+        .unavailable
+      ),
+    ]
+    for item in cases {
+      let repository = makeRepository(client: FlagDetailRecordingClient(error: item.0))
+      await #expect(throws: item.1) {
+        try await repository.report(
+          flagID: "flg_1",
+          reason: .fake
+        )
+      }
+    }
+    let invalid = FlagDetailRecordingClient(json: "{}")
+    await #expect(throws: FestivalFlagReportError.invalidRequest) {
+      try await makeRepository(client: invalid).report(
+        flagID: "flg/1",
+        reason: .fake
+      )
+    }
+    #expect(await invalid.sent == nil)
+  }
+
+  @Test("대표 깃발 지정·해제는 PUT으로 보내고 서버가 저장한 값을 돌려준다")
+  func setsAndClearsPinnedFlag() async throws {
+    let pinClient = FlagDetailRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"pinnedFlagId":"flg_1"}}"#)
+    let pinned = try await makeRepository(client: pinClient).setPinnedFlag("flg_1")
+    #expect(pinned == "flg_1")
+    let pinSent = try #require(await pinClient.sent)
+    #expect(pinSent.path == "api/v1/me/pinned-flag")
+    #expect(pinSent.method == "PUT")
+    #expect(pinSent.authorization == .automatic)
+    #expect(pinSent.body == #"{"flagId":"flg_1"}"#)
+
+    let clearClient = FlagDetailRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"pinnedFlagId":null}}"#)
+    let cleared = try await makeRepository(client: clearClient).setPinnedFlag(nil)
+    #expect(cleared == nil)
+    #expect(try #require(await clearClient.sent).body == #"{"flagId":null}"#)
+  }
+
+  @Test("대표 깃발 응답이 요청과 다르거나 값이 빠지면 형식 오류, 팔로우하지 않은 깃발은 따로 알린다")
+  func mapsPinErrors() async {
+    let mismatched = FlagDetailRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"pinnedFlagId":"flg_other"}}"#)
+    await #expect(throws: FestivalFlagPinError.invalidResponse) {
+      _ = try await makeRepository(client: mismatched).setPinnedFlag("flg_1")
+    }
+    let missing = FlagDetailRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{}}"#)
+    await #expect(throws: FestivalFlagPinError.invalidResponse) {
+      _ = try await makeRepository(client: missing).setPinnedFlag(nil)
+    }
+    let cases: [(FestiCoreNetworkError, FestivalFlagPinError)] = [
+      (
+        .response(ResponseError(httpStatus: 401)),
+        .loginRequired
+      ),
+      (
+        .response(ResponseError(
+          httpStatus: 403,
+          code: "TERMS_REQUIRED"
+        )),
+        .termsRequired
+      ),
+      (
+        .response(ResponseError(
+          httpStatus: 409,
+          code: "PIN_NOT_FOLLOWING"
+        )),
+        .notFollowing
+      ),
+      (
+        .transport(.timedOut),
+        .unavailable
+      ),
+    ]
+    for item in cases {
+      let repository = makeRepository(client: FlagDetailRecordingClient(error: item.0))
+      await #expect(throws: item.1) {
+        _ = try await repository.setPinnedFlag("flg_1")
+      }
+    }
+  }
+
   @Test("유스케이스는 저장소 결과를 그대로 돌려준다")
   func useCaseDelegatesToRepository() async throws {
     let client = FlagDetailRecordingClient(json: Self.json())
@@ -179,6 +319,8 @@ private actor FlagDetailRecordingClient: FestiCoreNetworkClient {
     let path: String
     let method: String
     let authorization: FestiCoreAuthorization
+    /// JSON으로 인코딩한 요청 본문. 없으면 nil.
+    let body: String?
   }
 
   private let result: Result<FestiCoreHTTPResponse, FestiCoreNetworkError>
@@ -230,10 +372,18 @@ private actor FlagDetailRecordingClient: FestiCoreNetworkClient {
   }
 
   private func record<R: FestiCoreDataRequest>(_ request: R) throws(FestiCoreNetworkError) -> FestiCoreHTTPResponse {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = .sortedKeys
     sent = Sent(
       path: request.path,
       method: request.method.rawValue,
-      authorization: request.authorization
+      authorization: request.authorization,
+      body: request.parameters.flatMap { try? encoder.encode($0) }.map { data in
+        return String(
+          decoding: data,
+          as: UTF8.self
+        )
+      }
     )
     return try result.get()
   }

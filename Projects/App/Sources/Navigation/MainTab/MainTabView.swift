@@ -92,9 +92,10 @@ private extension MainTabView {
       timetableView
 
     case .flag:
-      FestivalFlagView(
-        store: store.scope(state: \.flagState, action: \.flag)
-      )
+      FlagCoordinatorView(store: store.scope(
+        state: \.flagCoordinatorState,
+        action: \.flagCoordinator
+      ))
 
     case .my:
       profileView

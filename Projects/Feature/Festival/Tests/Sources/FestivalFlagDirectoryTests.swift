@@ -109,6 +109,48 @@ struct FestivalFlagDirectoryTests {
     #expect(row?.followersText == "팔로워 11")
   }
 
+  @Test("카드를 누르면 부모에 깃발 상세를 요청한다")
+  func cardTapRequestsDetail() async {
+    let store = TestStore(initialState: loadedState(board([flag("a")]))) {
+      FestivalFlagFeature()
+    }
+
+    await store.send(.directory(.cardTapped("a")))
+    await store.receive(\.directory.delegate.detailRequested)
+  }
+
+  @Test("상세에서 바꾼 팔로우는 디렉토리 팔로우 성공처럼 카드에 보인다")
+  func followChangedElsewhereOverridesCard() async {
+    let snapshot = board([flag(
+      "a",
+      count: 10
+    )])
+    let store = TestStore(initialState: loadedState(snapshot)) {
+      FestivalFlagFeature()
+    }
+
+    await store.send(.directory(.followChangedElsewhere(
+      FestivalFlagFollowResult(
+        flagID: "a",
+        isFollowing: true,
+        followerCount: 11
+      ),
+      baseCount: 10
+    ))) {
+      $0.directory.followOverrides["a"] = .init(
+        isFollowing: true,
+        followerCount: 11,
+        baseCount: 10
+      )
+    }
+    let row = store.state.directory.rows(
+      in: snapshot,
+      isFailed: false
+    ).first
+    #expect(row?.isFollowing == true)
+    #expect(row?.followersText == "팔로워 11")
+  }
+
   @Test func loggedOutFollowAsksAppToShowLogin() async {
     let store = TestStore(initialState: loadedState(board([flag("a")]))) {
       FestivalFlagFeature()

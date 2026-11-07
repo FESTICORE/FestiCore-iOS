@@ -19,6 +19,19 @@ struct WidgetDeepLinkRoutingTests {
     #expect(WidgetDeepLink(url: URL(string: "com.googleusercontent.apps.sample:/oauth")!) == nil)
   }
 
+  @Test("깃발 공유 링크는 서버 ID 형식의 깃발 하나만 연다")
+  func parsesFlagShareLink() {
+    #expect(WidgetDeepLink(url: URL(string: "festicore://flag/flg_1")!) == .flag("flg_1"))
+    #expect(WidgetDeepLink(url: URL(string: "FESTICORE://FLAG/flg-A_9")!) == .flag("flg-A_9"))
+    #expect(WidgetDeepLink(url: URL(string: "festicore://flag")!) == nil)
+    #expect(WidgetDeepLink(url: URL(string: "festicore://flag/")!) == nil)
+    #expect(WidgetDeepLink(url: URL(string: "festicore://flag/a.b")!) == nil)
+    #expect(WidgetDeepLink(url: URL(string: "festicore://flag/%ED%98%B8")!) == nil)
+    #expect(WidgetDeepLink(url: URL(string: "festicore://flag/flg_1/extra")!) == nil)
+    #expect(WidgetDeepLink(url: URL(string: "festicore://flag/flg_1?ref=share")!) == nil)
+    #expect(WidgetDeepLink(url: URL(string: "festicore://unknown/flg_1")!) == nil)
+  }
+
   @Test("팩이 없는 위젯은 현재 탭에서 축제 목록으로 돌아간다")
   func noPackOpensFestivalListTab() async {
     var state = MainTabCoordinator.State(selectedTab: .my)

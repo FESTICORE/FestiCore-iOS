@@ -130,6 +130,40 @@ struct FlagRequestTests {
     #expect(sent == data)
   }
 
+  @Test("신고는 사유만 담은 POST이며 로그인 토큰을 붙이고 재시도하지 않는다")
+  func report() throws {
+    let endpoint = FlagUserRequest.report(
+      flagID: "flg_1",
+      body: FlagReportBody(reason: "fake")
+    )
+    let request = try endpoint.asURLRequest(baseURL: baseURL)
+
+    #expect(request.url?.absoluteString == "https://festicore-dev.up.railway.app/api/v1/flags/flg_1/report")
+    #expect(request.httpMethod == "POST")
+    #expect(endpoint.authorization == .automatic)
+    #expect(endpoint.maxRetryAttempts == 0)
+    let body = try jsonBody(request)
+    #expect(body["reason"] as? String == "fake")
+    #expect(body["note"] == nil)
+  }
+
+  @Test("대표 깃발 지정은 PUT이며 해제할 때 flagId null을 명시한다")
+  func pinnedFlag() throws {
+    let pin = FlagUserRequest.pinnedFlag(body: PinnedFlagBody(flagId: "flg_1"))
+    let pinRequest = try pin.asURLRequest(baseURL: baseURL)
+
+    #expect(pinRequest.url?.absoluteString == "https://festicore-dev.up.railway.app/api/v1/me/pinned-flag")
+    #expect(pinRequest.httpMethod == "PUT")
+    #expect(pin.authorization == .automatic)
+    #expect(pin.maxRetryAttempts == 0)
+    #expect(try jsonBody(pinRequest)["flagId"] as? String == "flg_1")
+
+    let unpin = try FlagUserRequest.pinnedFlag(body: PinnedFlagBody(flagId: nil)).asURLRequest(baseURL: baseURL)
+    let unpinBody = try jsonBody(unpin)
+    #expect(unpinBody.keys.contains("flagId"))
+    #expect(unpinBody["flagId"] is NSNull)
+  }
+
   private func jsonBody(_ request: URLRequest) throws -> [String: Any] {
     let data = try #require(request.httpBody)
     return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])

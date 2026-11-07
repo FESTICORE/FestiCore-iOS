@@ -39,6 +39,7 @@ extension FestivalFlagDetailDataDTO {
       statusUpdatedAt: updatedAt,
       isFollowing: isFollowing,
       isBearer: isBearer,
+      isPinned: isPinned,
       isHidden: hidden
     )
   }
