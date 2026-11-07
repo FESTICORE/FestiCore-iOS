@@ -185,6 +185,20 @@ struct FestivalActivityPayloadTests {
       )
       expected.nextMine = remote.nextMine
       #expect(unknownSchedule.state == expected)
+
+      // 내 일정이 비었다고 확인되면 팩 갱신이 없어도 다음 내 일정을 지운다.
+      let emptySchedule = FestiCoreFestivalLiveActivity.content(
+        phase: phase,
+        startDate: start,
+        endDate: end,
+        nextMine: nil,
+        isNextMineKnown: true,
+        previousState: remote,
+        updatedAt: start
+      )
+      expected.nowStages = remote.nowStages
+      expected.nextMine = nil
+      #expect(emptySchedule.state == expected)
     }
   }
 

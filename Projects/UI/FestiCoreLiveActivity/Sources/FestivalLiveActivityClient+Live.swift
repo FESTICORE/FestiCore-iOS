@@ -39,7 +39,9 @@ extension FestivalLiveActivityClient: @retroactive DependencyKey {
         endDate: endDate,
         nowStages: pack == nil ? nil : presentation.nowStages,
         nextMine: presentation.nextMine,
-        isNextMineKnown: savedSetIDs != nil
+        // 내 일정을 모르거나, 저장 공연은 있는데 팩이 없어 계산할 수 없으면 표시 중인 값을 유지한다.
+        // 내 일정이 비었다고 확인되면 팩이 없어도 지운다.
+        isNextMineKnown: savedSetIDs.map { $0.isEmpty || pack != nil } ?? false
       )
     },
     finish: { id, startDate in
