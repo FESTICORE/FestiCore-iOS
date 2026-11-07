@@ -183,6 +183,42 @@ struct FestiCoreDesignKitTests {
     #expect(harness.box.item == nil)
   }
 
+  @Test @MainActor func modalPresenceIsReportedToAncestors() async throws {
+    let box = ModalPresenceBox()
+    let controller = UIHostingController(rootView: ModalPresenceHost(box: box))
+    let window = UIWindow(frame: CGRect(
+      x: 0,
+      y: 0,
+      width: 390,
+      height: 844
+    ))
+    window.rootViewController = controller
+    window.makeKeyAndVisible()
+    defer {
+      window.isHidden = true
+      window.rootViewController = nil
+    }
+    controller.view.layoutIfNeeded()
+    try await Task.sleep(for: SheetTestTiming.renderWait)
+    #expect(!box.isPresented)
+
+    box.inner = .login
+    controller.view.layoutIfNeeded()
+    try await Task.sleep(for: SheetTestTiming.renderWait)
+    #expect(box.isPresented)
+
+    box.inner = nil
+    box.outer = .onboarding
+    controller.view.layoutIfNeeded()
+    try await Task.sleep(for: SheetTestTiming.renderWait)
+    #expect(box.isPresented)
+
+    box.outer = nil
+    controller.view.layoutIfNeeded()
+    try await Task.sleep(for: SheetTestTiming.renderWait)
+    #expect(!box.isPresented)
+  }
+
   @Test func pretendardRegistersForUIKitAndSwiftUI() {
     PretendardFontFamily.registerFonts()
     PretendardFontFamily.registerFonts()
@@ -411,6 +447,38 @@ private final class SheetTestHarness {
     box.dismiss = nil
     window.isHidden = true
     window.rootViewController = nil
+  }
+}
+
+@MainActor
+@Observable
+private final class ModalPresenceBox {
+  var outer: TestSheet?
+  var inner: TestSheet?
+  @ObservationIgnored var isPresented = false
+}
+
+/// 바깥 시트와 화면 안쪽 시트 중 하나라도 뜨면 상위에서 읽는 값이 true가 되는지 본다.
+private struct ModalPresenceHost: View {
+  let box: ModalPresenceBox
+
+  var body: some View {
+    ZStack {
+      Color.clear
+        .fcModal(item: Binding(
+          get: { box.inner },
+          set: { box.inner = $0 }
+        )) { _ in
+          Text("Inner")
+        }
+    }
+    .fcModal(item: Binding(
+      get: { box.outer },
+      set: { box.outer = $0 }
+    )) { _ in
+      Text("Outer")
+    }
+    .onPreferenceChange(FCModalPresentedKey.self) { box.isPresented = $0 }
   }
 }
 
