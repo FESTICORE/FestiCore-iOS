@@ -53,10 +53,12 @@ public struct FCPlanRow: View {
         VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM2) {
           Text(artist)
             .festiCoreFont(.baseCalloutMedium)
+            .festiCoreLineBox(.baseCalloutMedium)
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           HStack(spacing: FestiCoreSpacing.paddingP4) {
             Text(stage)
               .festiCoreFont(.baseCaption1Regular)
+              .festiCoreLineBox(.baseCaption1Regular)
               .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
             if state == .now {
               Text("· \(liveLabel)")
