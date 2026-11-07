@@ -27,6 +27,7 @@ public struct FCFlagNowCard: View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
       Text(label)
         .festiCoreFont(.baseCaption1Medium)
+        .festiCoreLineBox(.baseCaption1Medium)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       switch state {
       case let .active(zone, activity, source):
@@ -46,6 +47,7 @@ public struct FCFlagNowCard: View {
       case let .ended(text):
         Text(text)
           .festiCoreFont(.baseCalloutMedium)
+          .festiCoreLineBox(.baseCalloutMedium)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       }
     }
@@ -72,10 +74,12 @@ private extension FCFlagNowCard {
       .opacity(isMuted ? Metric.mutedOpacity : 1)
       Text(activity)
         .festiCoreFont(.baseBodyBold)
+        .festiCoreLineBox(.baseBodyBold)
         .foregroundStyle(isMuted ? FestiCoreSemanticColor.labelAssistive.color : FestiCoreSemanticColor.labelNormal.color)
     }
     Text(source)
       .festiCoreFont(.baseCaption1Regular)
+      .festiCoreLineBox(.baseCaption1Regular)
       .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
   }
 }
