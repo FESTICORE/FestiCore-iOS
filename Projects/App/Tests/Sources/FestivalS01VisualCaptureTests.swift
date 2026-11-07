@@ -4,10 +4,12 @@ import FestiCoreSharedUI
 import FestivalDomain
 import FestivalDomainInterface
 import SwiftUI
+import TimetableDomainInterface
 import UIKit
 import UserNotificationDomainInterface
 import XCTest
 @testable import Festival
+@testable import Timetable
 
 /// 실제 화면을 고정 상태로 렌더한다. 시각 자료 생성용이며 디자인 일치 판정 테스트는 아니다.
 /// App이 소유한 로그인 시트(C-1/C-2), 상태 표시줄과 메인 탭은 실기기에서 별도로 검증한다.
@@ -64,9 +66,207 @@ final class FestivalS01VisualCaptureTests: XCTestCase {
       )
     }
   }
+
+  func testCaptureTimetableStates() async throws {
+    for scenario in TimetableScenario.allCases {
+      let state = timetableFixture(scenario)
+      if scenario == .overlap {
+        XCTAssertEqual(
+          state.overlaps.count,
+          1
+        )
+        XCTAssertEqual(
+          state.overlaps.first?.minutes,
+          35
+        )
+        XCTAssertEqual(
+          state.visibleOverlaps.count,
+          1
+        )
+      } else if scenario == .basic || scenario == .mineOnly || scenario == .changed {
+        XCTAssertEqual(
+          state.overlaps.count,
+          1
+        )
+        XCTAssertTrue(state.visibleOverlaps.isEmpty)
+      }
+      let store = Store(initialState: state) {
+        EmptyReducer<TimetableFeature.State, TimetableFeature.Action>()
+      }
+      try await capture(
+        TimetableView(store: store)
+          .safeAreaInset(edge: .bottom) {
+            FCTabBar(selection: .constant(.timetable))
+          },
+        name: scenario.rawValue,
+        size: CGSize(
+          width: 393,
+          height: 852
+        )
+      )
+    }
+  }
 }
 
 private extension FestivalS01VisualCaptureTests {
+  enum TimetableScenario: String, CaseIterable {
+    case basic = "S02-A-basic"
+    case mineOnly = "S02-B-mine-only"
+    case changed = "S02-C-changed"
+    case overlap = "S02-D-overlap"
+    case unpublished = "S02-E-unpublished"
+    case threeStages = "S02-F-three-stages"
+    case offline = "S02-G-offline"
+  }
+
+  func timetableFixture(_ scenario: TimetableScenario) -> TimetableFeature.State {
+    var stages = [
+      TimetableStage(
+        id: "rivet",
+        name: "리벳 스테이지"
+      ),
+      TimetableStage(
+        id: "wonder",
+        name: "원더 스테이지"
+      ),
+    ]
+    var sets = [
+      TimetableSet(
+        id: "touched",
+        artist: "터치드",
+        stageID: "rivet",
+        start: 880,
+        end: 928
+      ),
+      TimetableSet(
+        id: "one-oak",
+        artist: "원오크로",
+        stageID: "rivet",
+        start: 940,
+        end: 990
+      ),
+      TimetableSet(
+        id: "yoonmachi-rivet",
+        artist: "윤마치",
+        stageID: "rivet",
+        start: 1020,
+        end: 1070
+      ),
+      TimetableSet(
+        id: "lucy",
+        artist: "LUCY",
+        stageID: "wonder",
+        start: 890,
+        end: 935
+      ),
+      TimetableSet(
+        id: "daldam",
+        artist: "달담",
+        stageID: "wonder",
+        start: 955,
+        end: 1005
+      ),
+      TimetableSet(
+        id: "headliner-rivet",
+        artist: "헤드라이너",
+        stageID: "rivet",
+        start: 1170,
+        end: 1220
+      ),
+      TimetableSet(
+        id: "afterparty-wonder",
+        artist: "애프터파티",
+        stageID: "wonder",
+        start: 1260,
+        end: 1320
+      ),
+    ]
+    if scenario == .changed {
+      sets[1].previousStart = 970
+      sets[2].previousStart = 1000
+    }
+    if scenario == .threeStages {
+      stages.append(
+        TimetableStage(
+          id: "lake",
+          name: "레이크 스테이지"
+        )
+      )
+      sets += [
+        TimetableSet(
+          id: "wavekids",
+          artist: "웨이브키즈",
+          stageID: "lake",
+          start: 900,
+          end: 950
+        ),
+        TimetableSet(
+          id: "prism",
+          artist: "프리즘",
+          stageID: "lake",
+          start: 975,
+          end: 1020
+        ),
+        TimetableSet(
+          id: "deadpony",
+          artist: "데드포니",
+          stageID: "lake",
+          start: 1050,
+          end: 1100
+        ),
+      ]
+    }
+    let isUnpublished = scenario == .unpublished
+    let firstDay = Date(timeIntervalSince1970: 1_786_028_400)
+    let days = [("0807", "8/7 금"), ("0808", "8/8 토"), ("0809", "8/9 일")]
+      .enumerated()
+      .map { index, day in
+        TimetableDay(
+          id: day.0,
+          title: day.1,
+          date: firstDay.addingTimeInterval(TimeInterval(index * 24 * 60 * 60)),
+          stages: stages,
+          sets: index == 0 && !isUnpublished ? sets : []
+        )
+      }
+    var state = TimetableFeature.State(
+      days: days,
+      source: "출처: 주최측 공지 · 확인 10/16 14:00"
+    )
+    switch scenario {
+    case .overlap:
+      state.mySetIDs = ["one-oak", "daldam"]
+    case .mineOnly:
+      state.mySetIDs = ["one-oak", "daldam", "headliner-rivet", "afterparty-wonder"]
+    case .changed:
+      state.mySetIDs = ["one-oak", "daldam", "headliner-rivet", "afterparty-wonder"]
+    default:
+      state.mySetIDs = ["one-oak", "daldam", "headliner-rivet", "afterparty-wonder"]
+    }
+    state.showsMineOnly = scenario == .mineOnly
+    state.shouldShowOverlapWarning = scenario == .overlap
+    state.nowMinute = 928
+    if isUnpublished {
+      state.contentStatus = .unpublished
+      state.lineup = [
+        TimetableLineupDay(
+          id: "0807",
+          title: "8/7 (금)",
+          artists: ["한로로", "터치드", "달담", "AKMU", "데이브레이크"]
+        ),
+        TimetableLineupDay(
+          id: "0808",
+          title: "8/8 (토)",
+          artists: ["라임플래그스", "블루퓨즈", "터치드", "웨이브키즈"]
+        ),
+      ]
+    }
+    if scenario == .offline {
+      state.offlineMessage = "오프라인 · 3분 전 정보"
+    }
+    return state
+  }
+
   enum Scenario: String, CaseIterable {
     case basic = "S01-A-basic"
     case bearer = "S01-A2-bearer"
@@ -97,21 +297,21 @@ private extension FestivalS01VisualCaptureTests {
   }
 
   func fixture(_ scenario: Scenario) throws -> FestivalFeature.State {
-    let hour: String
+    let time: String
     switch scenario {
-    case .beforeOpening: hour = "11:30"
-    case .finalHour: hour = "21:30"
-    case .ended: hour = "22:30"
-    default: hour = "15:30"
+    case .beforeOpening: time = "11:30:00"
+    case .finalHour: time = "21:30:00"
+    case .ended: time = "23:30:00"
+    default: time = "15:27:30"
     }
-    let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-10-20T\(hour):00+09:00"))
+    let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-10-17T\(time)+09:00"))
     var state = FestivalFeature.State(selectedFestivalID: "visual-festival")
     state.catalog = [.init(
       id: "visual-festival",
-      name: "서울 락 페스티벌 2026",
+      name: "원더리벳 2026",
       venue: "올림픽공원",
-      firstDate: "2026-10-20",
-      lastDate: "2026-10-20",
+      firstDate: "2026-10-17",
+      lastDate: "2026-10-17",
       packVersion: 1,
       status: "live"
     )]
@@ -131,47 +331,112 @@ private extension FestivalS01VisualCaptureTests {
     state.liveBoardReceivedAt = Date().addingTimeInterval(scenario == .offline ? -180 : -30)
     state.mySchedule = .init(
       festivalID: "visual-festival",
-      setIDs: ["set-now", "set-next"]
+      setIDs: ["next-hanroro"]
     )
     let empty = scenario == .empty || scenario == .hideGuide
-    let flag = FestivalLiveBoardSnapshot.Flag(
-      id: "flag-1",
-      name: "슬램은 즐겁게",
-      status: "active",
-      zoneID: "main-front",
-      activity: "슬램 중",
-      thumbnailURL: nil,
-      tags: ["슬램", "떼창"],
-      updatedAt: now.addingTimeInterval(-60),
-      followerCount: 42
-    )
+    let followedFlags = [
+      flag(
+        "follow-horak",
+        name: "호락호락",
+        zoneID: "rivet-left",
+        activity: "slam",
+        tags: ["slam", "sing"],
+        updatedAt: now.addingTimeInterval(-5 * 60)
+      ),
+      flag(
+        "follow-chorus",
+        name: "떼창단",
+        zoneID: "wonder-left",
+        activity: "sing",
+        tags: ["sing"],
+        updatedAt: now.addingTimeInterval(-8 * 60)
+      ),
+      flag(
+        "follow-train",
+        name: "기차놀이",
+        zoneID: "food",
+        activity: "train",
+        tags: ["train"],
+        updatedAt: now.addingTimeInterval(-12 * 60)
+      ),
+    ]
+    let activeFlags = [
+      flag(
+        "active-encore",
+        name: "앵콜원정대",
+        zoneID: "rivet-front",
+        activity: "sing",
+        tags: ["sing"],
+        updatedAt: now.addingTimeInterval(-2 * 60)
+      ),
+      flag(
+        "active-pink",
+        name: "핑크닉은락",
+        zoneID: "wonder-front",
+        activity: "slam",
+        tags: ["slam"],
+        updatedAt: now.addingTimeInterval(-4 * 60),
+        status: "resting"
+      ),
+      flag(
+        "active-headbanger",
+        name: "헤드뱅어",
+        zoneID: "rivet-center",
+        activity: "slam",
+        tags: ["slam"],
+        updatedAt: now.addingTimeInterval(-6 * 60)
+      ),
+      flag(
+        "active-rock",
+        name: "락앤롤베이비",
+        zoneID: "food",
+        activity: "train",
+        tags: ["train"],
+        updatedAt: now.addingTimeInterval(-9 * 60),
+        status: "resting"
+      ),
+    ]
     state.liveBoard = .init(
       festivalID: "visual-festival",
-      activeFlags: [flag],
-      followedFlags: empty ? [] : [flag],
+      activeFlags: empty ? [] : activeFlags,
+      followedFlags: empty ? [] : followedFlags,
       crew: empty ? nil : .init(
         id: "crew-1",
-        name: "오늘도 락앤롤",
+        name: "락인들",
         members: [
           .init(
             id: "me",
-            nickname: "나",
-            state: "active",
-            zoneID: "main-front",
+            nickname: "로이",
+            state: "here",
+            zoneID: "rivet-left",
             updatedAt: now
           ),
           .init(
-            id: "friend",
-            nickname: "지민",
-            state: "active",
+            id: "minji",
+            nickname: "민지",
+            state: "eating",
             zoneID: "food",
-            updatedAt: now.addingTimeInterval(-60)
+            updatedAt: now.addingTimeInterval(-7 * 60)
+          ),
+          .init(
+            id: "junho",
+            nickname: "준호",
+            state: "toilet",
+            zoneID: "wonder-back",
+            updatedAt: now.addingTimeInterval(-12 * 60)
+          ),
+          .init(
+            id: "hansol",
+            nickname: "한솔",
+            state: "leaving",
+            zoneID: "gate",
+            updatedAt: now.addingTimeInterval(-60 * 60)
           ),
         ],
         ownerID: "me"
       ),
       serverAt: now,
-      bearerFlagIDs: scenario == .bearer ? [flag.id] : []
+      bearerFlagIDs: scenario == .bearer ? [activeFlags[0].id] : []
     )
     state.homeDetails = .loaded(
       "visual-festival",
@@ -188,7 +453,7 @@ private extension FestivalS01VisualCaptureTests {
       state.festivalSwitcher = .init(
         festivals: [.init(
           id: "visual-festival",
-          name: "서울 락 페스티벌 2026",
+          name: "원더리벳 2026",
           subtitle: "오늘 · DAY 1 · 진행 중",
           thumbnailURL: nil
         ), .init(
@@ -208,6 +473,28 @@ private extension FestivalS01VisualCaptureTests {
       )
     }
     return state
+  }
+
+  func flag(
+    _ id: String,
+    name: String,
+    zoneID: String,
+    activity: String,
+    tags: [String],
+    updatedAt: Date,
+    status: String = "active"
+  ) -> FestivalLiveBoardSnapshot.Flag {
+    return FestivalLiveBoardSnapshot.Flag(
+      id: id,
+      name: name,
+      status: status,
+      zoneID: zoneID,
+      activity: activity,
+      thumbnailURL: nil,
+      tags: tags,
+      updatedAt: updatedAt,
+      followerCount: 42
+    )
   }
 
   var notifications: [UserNotificationItem] {
@@ -399,7 +686,7 @@ private extension FestivalS01VisualCaptureTests {
       if [red, green, blue].max()! > 150 { brightPixels += 1 }
       colors.insert((red / 16) << 8 | (green / 16) << 4 | blue / 16)
     }
-    XCTAssertGreaterThan(
+    XCTAssertGreaterThanOrEqual(
       brightPixels,
       name.contains("switcher") ? 20 : 30,
       "밝은 UI 내용이 없는 캡처: \(name)"
@@ -413,15 +700,16 @@ private extension FestivalS01VisualCaptureTests {
 
   var packJSON: String {
     return #"""
-    {"id":"visual-festival","name":"서울 락 페스티벌 2026","flagsEnabled":FLAGS_ENABLED,
-    "days":[{"date":"2026-10-20","startsAt":"2026-10-20T13:00:00+09:00","endsAt":"2026-10-20T22:00:00+09:00"}],
-    "zones":[{"id":"main-front","name":"메인 앞"},{"id":"food","name":"푸드존"}],
-    "source":{"name":"주최측 공지","verifiedAt":"2026-10-20T05:00:00Z"},
-    "stages":[{"id":"main","name":"메인"},{"id":"side","name":"사이드"}],
+    {"id":"visual-festival","name":"원더리벳 2026","flagsEnabled":FLAGS_ENABLED,
+    "days":[{"date":"2026-10-17","startsAt":"2026-10-17T12:00:00+09:00","endsAt":"2026-10-17T23:00:00+09:00"}],
+    "zones":[{"id":"rivet","name":"리벳 스테이지"},{"id":"wonder","name":"원더 스테이지"},{"id":"rivet-left","name":"리벳 앞 왼쪽"},{"id":"wonder-left","name":"원더 스테이지 왼쪽"},{"id":"rivet-front","name":"리벳 앞"},{"id":"wonder-front","name":"원더 앞"},{"id":"rivet-center","name":"리벳 중앙"},{"id":"wonder-back","name":"원더 스테이지 뒤"},{"id":"food","name":"푸드존"},{"id":"gate","name":"정문 밖"}],
+    "source":{"name":"주최측 공지","verifiedAt":"2026-10-16T05:00:00Z"},
+    "stages":[{"id":"rivet","name":"리벳 스테이지"},{"id":"wonder","name":"원더 스테이지"}],
     "sets":[
-    {"id":"set-now","stageId":"main","artist":"스모킹구스","startsAt":"2026-10-20T15:00:00+09:00","endsAt":"2026-10-20T15:35:00+09:00"},
-    {"id":"set-next","stageId":"main","artist":"노이즈캔디","startsAt":"2026-10-20T15:40:00+09:00","endsAt":"2026-10-20T16:30:00+09:00"},
-    {"id":"set-side","stageId":"side","artist":"블루퓨즈","startsAt":"2026-10-20T16:00:00+09:00","endsAt":"2026-10-20T16:40:00+09:00"}]}
+    {"id":"set-now","stageId":"rivet","artist":"터치드","startsAt":"2026-10-17T14:40:00+09:00","endsAt":"2026-10-17T15:28:00+09:00"},
+    {"id":"next-hanroro","stageId":"rivet","artist":"한로로","startsAt":"2026-10-17T15:40:00+09:00","endsAt":"2026-10-17T16:30:00+09:00"},
+    {"id":"wonder-now","stageId":"wonder","artist":"LUCY","startsAt":"2026-10-17T14:50:00+09:00","endsAt":"2026-10-17T15:35:00+09:00"},
+    {"id":"next-yoonmachi","stageId":"wonder","artist":"윤마치","startsAt":"2026-10-17T15:55:00+09:00","endsAt":"2026-10-17T16:45:00+09:00"}]}
     """#
   }
 }

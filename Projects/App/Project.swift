@@ -47,7 +47,8 @@ let project = Project.makeAppModule(
   entitlements: .file(path: "../../Entitlements/FestiCore.entitlements"),
   hasTests: true,
   testDependencies: [
-    .domain(.festival)
+    .domain(.festival),
+    .feature(.timetable)
   ],
   hasUITests: true
 )
