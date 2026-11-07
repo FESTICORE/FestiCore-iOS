@@ -188,6 +188,7 @@ private extension FestivalFlagView {
       }
     }
     .followEnabled(row.isFollowEnabled)
+    .onTap { store.send(.directory(.cardTapped(row.id))) }
   }
 
   func chipStatus(_ status: FestivalFlagDirectory.Status) -> FCStatusChip.Status {

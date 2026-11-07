@@ -21,6 +21,7 @@ public struct FCFlagCard<Thumbnail: View>: View {
   private var thumbnail: Thumbnail
   private(set) var isFollowEnabled = true
   private(set) var onZoneTap: () -> Void = {}
+  private(set) var onTap: (() -> Void)?
 
   /// `status`가 nil이면 상태 칩을 숨긴다. `thumbnail`은 56×56 둥근 사각형으로 잘린다.
   public init(
@@ -106,6 +107,10 @@ public struct FCFlagCard<Thumbnail: View>: View {
     .padding(FestiCoreSpacing.paddingP16)
     .background(FestiCoreSemanticColor.backgroundElevated.color, in: shape)
     .overlay { shape.strokeBorder(FestiCoreSemanticColor.lineNormal.color, lineWidth: 1) }
+    .cardTapAction(
+      onTap,
+      shape: shape
+    )
   }
 }
 
@@ -117,6 +122,24 @@ private extension FCFlagCard {
 }
 
 private extension View {
+  /// 카드 탭 동작이 있을 때만 카드 전체를 누를 수 있게 하고 접근성 동작을 더한다.
+  @ViewBuilder
+  func cardTapAction(
+    _ action: (() -> Void)?,
+    shape: some Shape
+  ) -> some View {
+    if let action {
+      contentShape(shape)
+        .onTapGesture(perform: action)
+        .accessibilityAction(
+          named: Text("깃발 상세 보기"),
+          action
+        )
+    } else {
+      self
+    }
+  }
+
   /// 깃발 디렉토리(S04) 텍스트에만 Figma 줄 높이 박스처럼 위아래 절반 여백을 둔다.
   func figmaLineBox(
     _ style: FestiCoreTextStyle,
@@ -166,6 +189,13 @@ public extension FCFlagCard {
   func onZoneTap(_ action: @escaping () -> Void) -> Self {
     var copy = self
     copy.onZoneTap = action
+    return copy
+  }
+
+  /// 카드 빈 곳을 눌렀을 때 동작(상세 열기)을 지정한 사본을 돌려준다. 팔로우·존 버튼은 각자 동작한다.
+  func onTap(_ action: @escaping () -> Void) -> Self {
+    var copy = self
+    copy.onTap = action
     return copy
   }
 }

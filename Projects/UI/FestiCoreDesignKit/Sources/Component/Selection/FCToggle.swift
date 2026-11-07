@@ -36,8 +36,9 @@ private extension FCToggle {
         .fill(configuration.isOn ? FestiCoreSemanticColor.primaryNormal.color : FestiCoreSemanticColor.fillStrong.color)
         .frame(width: Metric.width, height: Metric.height)
         .overlay(alignment: configuration.isOn ? .trailing : .leading) {
+          // Figma 노브는 라이트 흰색·다크 #111113이다(S03·S05 다크 시안 실측).
           Circle()
-            .fill(FestiCoreSemanticColor.staticWhite.color)
+            .fill(FestiCoreSemanticColor.primaryOnPrimary.color)
             .frame(width: Metric.knobSize, height: Metric.knobSize)
             .shadow(color: FestiCoreSemanticColor.staticBlack.color.opacity(Metric.shadowOpacity), radius: Metric.shadowRadius, y: Metric.shadowY)
             .padding(Metric.knobInset)

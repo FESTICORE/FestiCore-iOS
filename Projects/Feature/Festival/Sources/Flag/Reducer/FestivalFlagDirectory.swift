@@ -82,6 +82,13 @@ public struct FestivalFlagDirectory {
     case sortMenuDismissed
     case followTapped(id: String, follow: Bool, baseCount: Int?)
     case followResponse(id: String, Result<FestivalFlagFollowResult, FestivalFlagFollowError>)
+    /// 카드를 눌러 깃발 상세를 연다.
+    case cardTapped(String)
+    /// 깃발 상세에서 바꾼 팔로우 결과. 디렉토리 팔로우 성공과 같은 규칙으로 카드에 반영한다.
+    case followChangedElsewhere(
+      FestivalFlagFollowResult,
+      baseCount: Int?
+    )
     case toastExpired
     case delegate(Delegate)
 
@@ -89,6 +96,7 @@ public struct FestivalFlagDirectory {
     public enum Delegate: Equatable {
       case loginRequested
       case termsAcceptanceRequested
+      case detailRequested(flagID: String)
     }
   }
 
@@ -149,6 +157,20 @@ public struct FestivalFlagDirectory {
         case .failure:
           return showToast("팔로우를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요", state: &state)
         }
+
+      case let .cardTapped(id):
+        return .send(.delegate(.detailRequested(flagID: id)))
+
+      case let .followChangedElsewhere(
+        result,
+        baseCount
+      ):
+        state.followOverrides[result.flagID] = FollowOverride(
+          isFollowing: result.isFollowing,
+          followerCount: result.followerCount,
+          baseCount: baseCount
+        )
+        return .none
 
       case .toastExpired:
         state.toast = nil
