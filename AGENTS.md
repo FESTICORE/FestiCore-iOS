@@ -36,7 +36,7 @@
 
 ## SwiftUI View 구성
 
-- 앱·Feature·Widget·DesignKit·SharedUI의 SwiftUI View에 같은 규칙을 적용한다. 타입 본문에는 저장 속성, 초기화, `body`를 두고, 화면 섹션·하위 뷰 빌더·UI 전용 헬퍼는 같은 파일의 `private extension <View이름>`으로 분리한다. 테스트에서 접근하는 내부 헬퍼가 함께 있으면 일반 `extension`에서 각 비공개 멤버에 `private`를 붙인다. 외부에서 호출하는 체이닝 설정은 기존 `public extension`에 둔다. DesignKit·SharedUI 컴포넌트의 이니셜라이저에는 필수 내용만 두고 스타일·상태·옵션은 `public extension`의 `func x(_:) -> Self` 체이닝 설정으로 둔다. 분리할 내용이 없는 작은 View에 빈 extension을 만들지 않는다.
+- 앱·Feature·Widget·DesignKit·SharedUI의 SwiftUI View에 같은 규칙을 적용한다. 타입 본문에는 저장 속성, 초기화, `body`를 두고, 화면 섹션·하위 뷰 빌더·UI 전용 헬퍼는 같은 파일의 `private extension <View이름>`으로 분리한다. 테스트에서 접근하는 내부 헬퍼가 함께 있으면 일반 `extension`에서 각 비공개 멤버에 `private`를 붙인다. 외부에서 호출하는 체이닝 설정은 기존 `public extension`에 둔다. DesignKit·SharedUI 컴포넌트의 이니셜라이저에는 필수 내용만 두고 스타일·상태·옵션은 `public extension`의 `func x(_:) -> Self` 체이닝 설정으로 둔다. 아직 이니셜라이저 옵션으로 남은 기존 컴포넌트는 [SwiftUI](docs/agent/swiftui-patterns.md)에 이전 대상으로 적었으며 본보기로 삼지 않는다. 분리할 내용이 없는 작은 View에 빈 extension을 만들지 않는다.
 - 단일 View 조각은 계산 `var ...: some View`로 두고, 여러 View를 묶거나 분기하는 섹션은 `@ViewBuilder func ... -> some View`로 분리한다. 일반 계산 속성과 함수에는 명시적 `return`을 사용하되 결과 빌더는 Swift 문법을 따른다.
 - 화면 View는 `@ViewAction`을 붙이고 store 하나만 받는다. 확인 팝업은 SharedUI `Alert/`의 `fcAlert`, 바텀시트는 SharedUI `Modal/`의 `fcModal`로 띄운다. 자세한 규칙은 [SwiftUI](docs/agent/swiftui-patterns.md), [팝업·모달](docs/agent/popup-modal-system.md).
 - View 분리는 상태 전환, TCA 액션, 접근성, 다크 모드와 화면 동작을 바꾸지 않는 범위에서 한다. 여러 화면이 실제로 공유하는 컴포넌트만 공용 UI 모듈로 이동한다.
