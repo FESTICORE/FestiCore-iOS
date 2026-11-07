@@ -168,11 +168,16 @@ struct ProfileRoutingTests {
     #expect(store.state.profileRoutes.count == 2)
   }
 
-  @Test("마이 설정·정보 화면 다섯 곳에서 탭바를 숨기고 복귀하면 표시한다")
+  @Test("마이 계정·설정·정보 화면에서 탭바를 숨기고 복귀하면 표시한다")
   func profileInformationRoutesHideTabBarUntilDismissed() {
     var state = MainTabCoordinator.State(selectedTab: .my)
     #expect(!state.shouldHideTabBar)
     #expect(state.shouldReserveTabBarSpace)
+
+    state.profileState.destination = .account(.init(profile: nil))
+    #expect(state.profileState.profileRoutes.last?.screen.is(\.account) == true)
+    #expect(state.shouldHideTabBar)
+    #expect(!state.shouldReserveTabBarSpace)
 
     state.profileState.destination = .notifications(.init())
     #expect(state.profileState.profileRoutes.last?.screen.is(\.notifications) == true)
