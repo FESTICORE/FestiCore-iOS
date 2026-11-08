@@ -58,6 +58,11 @@ private extension FestivalLiveBoardCrewCard {
     return HStack(spacing: FestiCoreSpacing.paddingP16) {
       FCAvatar(member.nickname)
         .tint(tint)
+        // Figma S01: 크루 아바타는 다크 화면에서도 라이트 톤 배경·글자를 쓴다.
+        .environment(
+          \.colorScheme,
+          .light
+        )
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
         HStack(spacing: FestiCoreSpacing.paddingP4) {
           Text(member.nickname)
