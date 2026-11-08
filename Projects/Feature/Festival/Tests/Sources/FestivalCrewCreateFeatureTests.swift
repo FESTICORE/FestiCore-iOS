@@ -6,9 +6,9 @@ import Testing
 
 @MainActor
 struct FestivalCrewCreateFeatureTests {
-  @Test("유효한 크루 이름은 앞뒤 공백을 제거해 생성하고 결과를 부모에게 전달한다")
-  func createsCrew() async {
-    let crew = sampleCrew
+  @Test("만들면 초대 단계로 바뀌고 크루장 초대 링크를 만든 뒤 크루 화면으로 보낸다")
+  func createsCrewThenInvitesAndOpensCrew() async {
+    let crew = invitedCrew
     let recorder = CrewCreateCallRecorder()
     let store = TestStore(initialState: FestivalCrewCreateFeature.State(festivalID: "festival-1")) {
       FestivalCrewCreateFeature()
@@ -31,6 +31,7 @@ struct FestivalCrewCreateFeatureTests {
     )))
     await store.receive(.inner(.createSucceeded(crew))) {
       $0.isSubmitting = false
+      $0.step = .created(crew)
     }
     await store.receive(.delegate(.created(crew)))
     let calls = await recorder.calls
@@ -39,6 +40,52 @@ struct FestivalCrewCreateFeatureTests {
       name: "우리 크루",
       nickname: nil
     )])
+    #expect(store.state.inviteURL == URL(string: "festicore://crew/K7P2QX"))
+
+    await store.send(.view(.openCrewTapped))
+    await store.receive(.delegate(.openCrewRequested(crewID: "crew-1")))
+  }
+
+  @Test("이미 크루가 있거나 끝난 페스티벌이면 입력란 아래에 알리고 이름을 고치면 지운다")
+  func showsPermanentFailureInline() async {
+    let store = TestStore(initialState: FestivalCrewCreateFeature.State(festivalID: "festival-1")) {
+      FestivalCrewCreateFeature()
+    } withDependencies: {
+      $0.festivalCrewUseCase = CrewCreateStub(result: .failure(.alreadyInCrew))
+    }
+
+    await store.send(.view(.nameChanged("우리 크루"))) { $0.name = "우리 크루" }
+    await store.send(.view(.submitTapped)) { $0.isSubmitting = true }
+    await store.receive(.async(.create(
+      festivalID: "festival-1",
+      name: "우리 크루"
+    )))
+    await store.receive(.inner(.createFailed(.alreadyInCrew))) {
+      $0.isSubmitting = false
+      $0.errorMessage = "이 페스티벌에서 이미 크루에 있어요. 크루는 페스티벌마다 하나만 만들거나 참여할 수 있어요."
+    }
+    await store.send(.view(.nameChanged("새 크루"))) {
+      $0.name = "새 크루"
+      $0.errorMessage = nil
+    }
+  }
+
+  @Test("로그인이 풀렸으면 부모에게 로그인을 요청한다")
+  func requestsLoginWhenUnauthenticated() async {
+    let store = TestStore(initialState: FestivalCrewCreateFeature.State(festivalID: "festival-1")) {
+      FestivalCrewCreateFeature()
+    } withDependencies: {
+      $0.festivalCrewUseCase = CrewCreateStub(result: .failure(.unauthenticated))
+    }
+
+    await store.send(.view(.nameChanged("우리 크루"))) { $0.name = "우리 크루" }
+    await store.send(.view(.submitTapped)) { $0.isSubmitting = true }
+    await store.receive(.async(.create(
+      festivalID: "festival-1",
+      name: "우리 크루"
+    )))
+    await store.receive(.inner(.createFailed(.unauthenticated))) { $0.isSubmitting = false }
+    await store.receive(.delegate(.loginRequested))
   }
 
   @Test("빈 이름과 공백만 있는 이름은 제출되지 않는다")
@@ -68,7 +115,7 @@ struct FestivalCrewCreateFeatureTests {
       festivalID: "festival-1",
       name: "우리 크루"
     )))
-    await store.receive(.inner(.createFailed)) {
+    await store.receive(.inner(.createFailed(.unavailable))) {
       $0.isSubmitting = false
       $0.alert = .alert(
         title: "크루를 만들지 못했어요",
@@ -83,7 +130,7 @@ struct FestivalCrewCreateFeatureTests {
       festivalID: "festival-1",
       name: "우리 크루"
     )))
-    await store.receive(.inner(.createFailed)) {
+    await store.receive(.inner(.createFailed(.unavailable))) {
       $0.isSubmitting = false
       $0.alert = .alert(
         title: "크루를 만들지 못했어요",
@@ -110,6 +157,18 @@ struct FestivalCrewCreateFeatureTests {
     #expect(store.state.name == "우리 크루")
     #expect(store.state.canSubmit)
     await store.finish()
+  }
+
+  private var invitedCrew: FestivalCrew {
+    return FestivalCrew(
+      id: "crew-1",
+      festivalID: "festival-1",
+      name: "우리 크루",
+      ownerID: "user-1",
+      members: [],
+      inviteCode: "K7P2QX",
+      inviteExpiresAt: Date(timeIntervalSince1970: 1_800_172_800)
+    )
   }
 
   private var sampleCrew: FestivalCrew {

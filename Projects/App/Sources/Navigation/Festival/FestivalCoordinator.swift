@@ -19,10 +19,10 @@ struct FestivalCoordinator {
     }
 
     mutating func clearAccountData() {
-      // 기수 보드는 로그인한 기수의 화면이라 계정이 바뀌면 닫는다.
+      // 기수 보드·크루는 로그인한 사용자의 화면이라 계정이 바뀌면 닫는다.
       // 존 지도는 로그인 사용자의 팔로우·크루를 보여 주므로 함께 닫는다.
       routes.removeAll {
-        $0.screen.is(\.bearerBoard) || $0.screen.is(\.notificationInbox) || $0.screen.is(\.zoneMap)
+        $0.screen.is(\.bearerBoard) || $0.screen.is(\.notificationInbox) || $0.screen.is(\.zoneMap) || $0.screen.is(\.crew)
       }
       for index in routes.indices {
         switch routes[index].screen {
@@ -32,7 +32,7 @@ struct FestivalCoordinator {
         case var .liveBoard(board):
           board.clearAccountData()
           routes[index].screen = .liveBoard(board)
-        case .bearerBoard, .notificationInbox, .zoneMap:
+        case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin:
           break
         }
       }
@@ -57,6 +57,8 @@ struct FestivalCoordinator {
     case accountChanged
     case sessionChanged(hasSession: Bool, userID: String?)
     case myScheduleSaved(festivalID: String, setIDs: Set<String>)
+    /// 크루 초대 링크. 참여 확인(S08)을 연다.
+    case openCrewInvite(String)
   }
 
   enum Delegate {
@@ -182,6 +184,73 @@ struct FestivalCoordinator {
       state.routes.dismiss()
       return .none
 
+    case let .router(.routeAction(
+      id: _,
+      action: .liveBoard(.delegate(.crewRequested(crewID)))
+    )):
+      guard !state.routes.contains(where: { $0.screen.is(\.crew) }),
+            let board = state.routes.last(where: { $0.screen.is(\.liveBoard) })?.screen.liveBoard else { return .none }
+      state.routes.push(.crew(FestivalCrewFeature.State(
+        crewID: crewID,
+        festival: board.displayDocument,
+        sessionUserID: board.sessionUserID,
+        live: board.liveBoard?.crew
+      )))
+      return .none
+
+    case .router(.routeAction(
+      id: _,
+      action: .crew(.delegate(.backRequested))
+    )):
+      state.routes.goBack()
+      return .none
+
+    case .router(.routeAction(
+      id: _,
+      action: .crew(.delegate(.crewClosed))
+    )):
+      state.routes.removeAll { $0.screen.is(\.crew) }
+      return reloadLiveBoard(state)
+
+    case let .openCrewInvite(code):
+      state.routes.removeAll { $0.screen.is(\.crewJoin) || $0.screen.is(\.crew) }
+      let hasSession = state.routes.last(where: { $0.screen.festivalBoard != nil })?.screen.festivalBoard?.hasSession ?? false
+      state.routes.push(.crewJoin(FestivalCrewJoinFeature.State(
+        code: code,
+        hasSession: hasSession
+      )))
+      return .none
+
+    case .router(.routeAction(
+      id: _,
+      action: .crewJoin(.delegate(.closeRequested))
+    )):
+      state.routes.goBack()
+      return .none
+
+    case .router(.routeAction(
+      id: _,
+      action: .crewJoin(.delegate(.loginRequested))
+    )):
+      return .send(.delegate(.crewLoginRequested))
+
+    case let .router(.routeAction(
+      id: _,
+      action: .crewJoin(.delegate(.joined(
+        crewID,
+        festivalID
+      )))
+    )):
+      state.routes.removeAll { $0.screen.is(\.crewJoin) }
+      let board = state.routes.last(where: { $0.screen.is(\.liveBoard) })?.screen.liveBoard
+      let matches = board?.selectedFestivalID == festivalID
+      state.routes.push(.crew(FestivalCrewFeature.State(
+        crewID: crewID,
+        festival: matches ? board?.displayDocument : nil,
+        sessionUserID: board?.sessionUserID
+      )))
+      return reloadLiveBoard(state)
+
     case .router(.routeAction(id: _, action: .festivalList(.delegate(.loginRequested)))),
          .router(.routeAction(id: _, action: .liveBoard(.delegate(.loginRequested)))):
       return .send(.delegate(.loginRequested))
@@ -228,7 +297,7 @@ struct FestivalCoordinator {
       switch state.routes[index].screen {
       case .festivalList: action = .festivalList(.view(.bookmarkSaved(id: id, booked: booked)))
       case .liveBoard: action = .liveBoard(.view(.bookmarkSaved(id: id, booked: booked)))
-      case .bearerBoard, .notificationInbox, .zoneMap: return .none
+      case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin: return .none
       }
       return .send(.router(.routeAction(id: index, action: action)))
 
@@ -287,7 +356,7 @@ struct FestivalCoordinator {
         board.toastRevision += 1
         revision = board.toastRevision
         state.routes[index].screen = .liveBoard(board)
-      case .bearerBoard, .notificationInbox, .zoneMap:
+      case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin:
         return .none
       }
       return .run { send in
@@ -310,7 +379,7 @@ struct FestivalCoordinator {
       case var .liveBoard(board) where board.toastRevision == revision:
         board.toast = nil
         state.routes[index].screen = .liveBoard(board)
-      case .festivalList, .liveBoard, .bearerBoard, .notificationInbox, .zoneMap:
+      case .festivalList, .liveBoard, .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin:
         break
       }
       return .none
@@ -328,7 +397,7 @@ struct FestivalCoordinator {
             index,
             false
           )
-        case .bearerBoard, .notificationInbox, .zoneMap: return nil
+        case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin: return nil
         }
       }
       return .run { @MainActor send in
@@ -378,9 +447,23 @@ struct FestivalCoordinator {
         guard let board = $0.screen.liveBoard else { return false }
         return board.hasSession != hasSession || board.sessionUserID != userID
       }) {
-        state.routes.removeAll { $0.screen.is(\.notificationInbox) }
+        state.routes.removeAll { $0.screen.is(\.notificationInbox) || $0.screen.is(\.crew) }
       }
-      return broadcast(state, .view(.sessionChanged(hasSession: hasSession, userID: userID)))
+      let joinUpdates: [Effect<Action>] = state.routes.indices.compactMap { index in
+        guard state.routes[index].screen.is(\.crewJoin) else { return nil }
+        return .send(.router(.routeAction(
+          id: index,
+          action: .crewJoin(.view(.sessionChanged(hasSession)))
+        )))
+      }
+      let boardUpdate = broadcast(
+        state,
+        .view(.sessionChanged(
+          hasSession: hasSession,
+          userID: userID
+        ))
+      )
+      return .merge([boardUpdate] + joinUpdates)
 
     case let .myScheduleSaved(festivalID, setIDs):
       return broadcast(state, .view(.myScheduleSaved(festivalID: festivalID, setIDs: setIDs)))
@@ -395,6 +478,15 @@ struct FestivalCoordinator {
 }
 
 private extension FestivalCoordinator {
+  /// 크루가 바뀌었으니 라이브 보드의 크루 카드를 새로 받는다.
+  func reloadLiveBoard(_ state: State) -> Effect<Action> {
+    guard let index = state.routes.lastIndex(where: { $0.screen.is(\.liveBoard) }) else { return .none }
+    return .send(.router(.routeAction(
+      id: index,
+      action: .liveBoard(.view(.retryLiveBoard))
+    )))
+  }
+
   /// 열린 모든 라우트에 같은 `FestivalFeature` 액션을 보낸다.
   func broadcast(_ state: State, _ action: FestivalFeature.Action) -> Effect<Action> {
     return .merge(state.routes.enumerated().map { index, route in
@@ -404,7 +496,7 @@ private extension FestivalCoordinator {
         screenAction = .festivalList(action)
       case .liveBoard:
         screenAction = .liveBoard(action)
-      case .bearerBoard, .notificationInbox, .zoneMap:
+      case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin:
         return .none
       }
       return .send(.router(.routeAction(id: index, action: screenAction)))
@@ -420,7 +512,17 @@ extension FestivalCoordinator {
     case bearerBoard(BearerBoardFeature)
     case notificationInbox(NotificationInboxFeature)
     case zoneMap(FestivalZoneMapFeature)
+    case crew(FestivalCrewFeature)
+    case crewJoin(FestivalCrewJoinFeature)
   }
 }
 
-extension FestivalCoordinator.FestivalScreen.State: Equatable {}
+extension FestivalCoordinator.FestivalScreen.State: Equatable {
+  /// 축제 목록·라이브 보드 화면의 상태. 그 위에 덮인 화면이면 없다.
+  var festivalBoard: FestivalFeature.State? {
+    switch self {
+    case let .festivalList(festival), let .liveBoard(festival): return festival
+    case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin: return nil
+    }
+  }
+}

@@ -10,6 +10,7 @@ struct FestivalLiveBoardCrewCard: View {
   let onGather: () -> Void
   /// 존 칩을 누르면 존 지도를 연다(Figma Zone Chip).
   let onZoneTap: (String) -> Void
+  let onOpen: () -> Void
 
   var body: some View {
     VStack(spacing: .zero) {
@@ -49,6 +50,13 @@ struct FestivalLiveBoardCrewCard: View {
     }
     .background(FestiCoreSemanticColor.backgroundElevated.color)
     .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
+    // 모여! 버튼 밖을 누르면 크루 화면(S07)을 연다.
+    .contentShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
+    .onTapGesture(perform: onOpen)
+    .accessibilityAction(
+      named: "크루 화면 열기",
+      onOpen
+    )
   }
 }
 

@@ -20,6 +20,8 @@ public enum FestiCoreDeeplink: Equatable, Sendable {
     festivalID: String,
     setID: String
   )
+  /// 크루 초대(`festicore://crew/<초대 코드>`). 크루 참여 확인(S08)을 연다.
+  case crewInvite(code: String)
 
   /// 대기 저장용 URL 문자열. `FestiCoreDeeplinkParser.parse(urlString:)`로 되돌린다.
   public var encoded: String {
@@ -35,6 +37,8 @@ public enum FestiCoreDeeplink: Equatable, Sendable {
       setID
     ):
       return "festicore://festival/\(Self.escape(festivalID))/set/\(Self.escape(setID))"
+    case let .crewInvite(code):
+      return "festicore://crew/\(Self.escape(code))"
     }
   }
 
@@ -62,7 +66,8 @@ public enum FestiCoreDeeplinkParser {
     return nil
   }
 
-  /// `festicore://festival`, `festicore://festival/<id>`, `festicore://festival/<id>/set/<setId>`, `festicore://flag/<id>`.
+  /// `festicore://festival`, `festicore://festival/<id>`, `festicore://festival/<id>/set/<setId>`, `festicore://flag/<id>`,
+  /// `festicore://crew/<초대 코드>`.
   public static func parse(urlString: String) -> FestiCoreDeeplink? {
     return URL(string: urlString).flatMap(parse(url:))
   }
@@ -114,9 +119,20 @@ private extension FestiCoreDeeplinkParser {
       return festivalRoute(segments)
     case "flag":
       return segments.count == 1 ? .flag(id: segments[0]) : nil
+    case "crew":
+      return segments.count == 1 ? inviteCode(segments[0]).map { .crewInvite(code: $0) } : nil
     default:
       return nil
     }
+  }
+
+  /// 초대 코드는 헷갈리는 글자(I·O·0·1)를 뺀 영숫자 6자리다. 대문자로 맞춘다.
+  static func inviteCode(_ value: String) -> String? {
+    let code = value.uppercased()
+    let allowed = CharacterSet(charactersIn: "ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+    guard code.count == 6,
+          code.unicodeScalars.allSatisfy({ allowed.contains($0) }) else { return nil }
+    return code
   }
 
   static func festivalRoute(_ segments: [String]) -> FestiCoreDeeplink? {

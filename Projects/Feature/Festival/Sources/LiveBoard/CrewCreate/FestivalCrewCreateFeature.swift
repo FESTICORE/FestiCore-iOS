@@ -9,9 +9,18 @@ public struct FestivalCrewCreateFeature {
 
   @ObservableState
   public struct State: Equatable {
+    /// 이름 입력 → 만든 뒤 초대 공유
+    public enum Step: Equatable {
+      case naming
+      case created(FestivalCrew)
+    }
+
     public let festivalID: String
     public var name = ""
     public var isSubmitting = false
+    public var step: Step = .naming
+    /// 다시 시도로 풀리지 않는 실패(이미 크루가 있음·끝난 페스티벌 등) 안내
+    public var errorMessage: String?
     @Presents public var alert: FCAlertState<FCAlertAction>?
 
     public init(festivalID: String) {
@@ -21,6 +30,12 @@ public struct FestivalCrewCreateFeature {
     public var canSubmit: Bool {
       let count = name.trimmingCharacters(in: .whitespacesAndNewlines).count
       return (1 ... 20).contains(count) && !isSubmitting
+    }
+
+    /// 크루장 전용 초대 링크(`festicore://crew/<코드>`). S08 참여 확인 경로와 같다.
+    public var inviteURL: URL? {
+      guard case let .created(crew) = step, let code = crew.inviteCode else { return nil }
+      return URL(string: "festicore://crew/\(code)")
     }
   }
 
@@ -40,6 +55,7 @@ public struct FestivalCrewCreateFeature {
     case nameChanged(String)
     case submitTapped
     case closeTapped
+    case openCrewTapped
   }
 
   // MARK: - Async
@@ -54,14 +70,18 @@ public struct FestivalCrewCreateFeature {
   @CasePathable
   public enum InnerAction: Equatable {
     case createSucceeded(FestivalCrew)
-    case createFailed
+    case createFailed(FestivalCrewError)
   }
 
   // MARK: - Delegate
 
   @CasePathable
   public enum Delegate: Equatable {
+    /// 만들었다. 시트는 초대 단계로 남고 부모는 라이브 보드를 다시 읽는다.
     case created(FestivalCrew)
+    /// 크루 화면(S07)으로 간다.
+    case openCrewRequested(crewID: String)
+    case loginRequested
     case closeRequested
   }
 
@@ -109,6 +129,7 @@ private extension FestivalCrewCreateFeature {
     switch action {
     case let .nameChanged(name):
       state.name = String(name.prefix(20))
+      state.errorMessage = nil
       return .none
     case .submitTapped:
       guard state.canSubmit else { return .none }
@@ -121,6 +142,9 @@ private extension FestivalCrewCreateFeature {
     case .closeTapped:
       guard !state.isSubmitting else { return .none }
       return .send(.delegate(.closeRequested))
+    case .openCrewTapped:
+      guard case let .created(crew) = state.step else { return .none }
+      return .send(.delegate(.openCrewRequested(crewID: crew.id)))
     }
   }
 
@@ -139,7 +163,7 @@ private extension FestivalCrewCreateFeature {
           )
           await send(.inner(.createSucceeded(crew)))
         } catch {
-          await send(.inner(.createFailed))
+          await send(.inner(.createFailed(error as? FestivalCrewError ?? .unavailable)))
         }
       }
       .cancellable(id: CancelID.create)
@@ -153,9 +177,15 @@ private extension FestivalCrewCreateFeature {
     switch action {
     case let .createSucceeded(crew):
       state.isSubmitting = false
+      state.step = .created(crew)
       return .send(.delegate(.created(crew)))
-    case .createFailed:
+    case let .createFailed(error):
       state.isSubmitting = false
+      if error == .unauthenticated { return .send(.delegate(.loginRequested)) }
+      if let message = Self.message(for: error) {
+        state.errorMessage = message
+        return .none
+      }
       state.alert = .alert(
         title: "크루를 만들지 못했어요",
         message: "연결을 확인하고 다시 시도해 주세요.",
@@ -168,8 +198,24 @@ private extension FestivalCrewCreateFeature {
 
   func handleDelegateAction(_ action: Delegate) -> Effect<Action> {
     switch action {
-    case .created, .closeRequested:
+    case .created, .openCrewRequested, .loginRequested, .closeRequested:
       return .none
+    }
+  }
+
+  /// 다시 시도해도 같은 실패. 입력란 아래에 알린다. 일시 오류는 nil(다시 시도 알림).
+  static func message(for error: FestivalCrewError) -> String? {
+    switch error {
+    case .alreadyInCrew:
+      return "이 페스티벌에서 이미 크루에 있어요. 크루는 페스티벌마다 하나만 만들거나 참여할 수 있어요."
+    case .festivalEnded:
+      return "끝난 페스티벌에는 크루를 만들 수 없어요."
+    case .invalidInput:
+      return "크루 이름을 1~20자로 입력해 주세요."
+    case .termsRequired:
+      return "최신 이용약관에 동의한 뒤 다시 시도해 주세요."
+    case .unauthenticated, .invalidResponse, .forbidden, .cooldown, .unavailable, .notFound, .full:
+      return nil
     }
   }
 }

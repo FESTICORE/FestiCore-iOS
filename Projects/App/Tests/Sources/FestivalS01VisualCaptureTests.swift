@@ -785,6 +785,7 @@ extension FestivalS01VisualCaptureTests {
       width: 390,
       height: 844
     ),
+    topInset: CGFloat = 59,
     colorScheme: ColorScheme = .dark
   ) async throws {
     try await withDependencies {
@@ -799,7 +800,7 @@ extension FestivalS01VisualCaptureTests {
         )
         .padding(
           .top,
-          59
+          topInset
         )
         .padding(
           .bottom,

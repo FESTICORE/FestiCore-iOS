@@ -464,7 +464,10 @@ private extension FestivalLiveBoardScreen {
         onGather: {
           send(.gatherCrewTapped)
         },
-        onZoneTap: { send(.zoneChipTapped($0)) }
+        onZoneTap: { send(.zoneChipTapped($0)) },
+        onOpen: {
+          send(.crewTapped)
+        }
       )
     } else if model.liveBoard == nil, !model.liveBoardUnavailable {
       FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r16))
