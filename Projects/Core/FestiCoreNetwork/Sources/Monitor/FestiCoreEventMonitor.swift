@@ -9,10 +9,11 @@ import Foundation
 
 import FestiCoreLogger
 
-import Alamofire
+@_spi(WebSocket) import Alamofire
 
 /// 요청 / 응답 / 에러를 한 덩어리로 묶어 로깅하는 `EventMonitor`.
 /// 로깅은 `FestiCoreLogger(.network)` 에 위임 — 정상은 debug, 에러는 error 레벨.
+/// WebSocket 도 같은 세션의 이 모니터가 handshake 시도·종료를 남긴다.
 struct FestiCoreEventMonitor: EventMonitor {
   let queue = DispatchQueue(label: "io.festiCore.co.network.logger")
 
@@ -75,6 +76,122 @@ struct FestiCoreEventMonitor: EventMonitor {
     } else {
       FestiCoreLogger.debug(message, category: .network)
     }
+  }
+
+  // MARK: WebSocket handshake (시도 · 종료)
+  // Alamofire 에는 WebSocket 메시지 훅이 없어 열림·송수신·닫힘은 연결이 `log(_:)` 로 직접 남긴다.
+
+  func request(
+    _ request: Request,
+    didCreateTask _: URLSessionTask
+  ) {
+    guard request is WebSocketRequest else { return }
+    Self.log(.connecting(
+      id: Self.webSocketID(of: request),
+      attempt: request.retryCount + 1
+    ))
+  }
+
+  func requestDidFinish(_ request: Request) {
+    guard request is WebSocketRequest else { return }
+    let message = webSocketSummary(
+      id: Self.webSocketID(of: request),
+      request: request.request,
+      response: request.response,
+      duration: request.metrics?.taskInterval.duration ?? 0,
+      error: request.error
+    )
+    if request.error == nil {
+      FestiCoreLogger.debug(
+        message,
+        category: .network
+      )
+    } else {
+      FestiCoreLogger.error(
+        message,
+        category: .network
+      )
+    }
+  }
+}
+
+// MARK: - WebSocket
+
+extension FestiCoreEventMonitor {
+  /// WebSocket 이벤트. 주소·헤더·본문·종료 사유는 넣지 않는다.
+  enum WebSocketEvent: Equatable, Sendable {
+    case connecting(id: String, attempt: Int)
+    case opened(id: String)
+    case sent(id: String)
+    case received(id: String)
+    case nonText(id: String)
+    case closed(id: String, code: Int)
+  }
+
+  /// 로그에서 연결을 구분하는 짧은 번호. 요청 UUID 의 앞 8자리다.
+  static func webSocketID(of request: Request) -> String {
+    return String(request.id.uuidString.prefix(8))
+  }
+
+  static func log(_ event: WebSocketEvent) {
+    let message = description(of: event)
+    switch event {
+    case .nonText, .closed:
+      FestiCoreLogger.notice(
+        message,
+        category: .network
+      )
+    case .connecting, .opened, .sent, .received:
+      FestiCoreLogger.debug(
+        message,
+        category: .network
+      )
+    }
+  }
+
+  static func description(of event: WebSocketEvent) -> String {
+    switch event {
+    case let .connecting(
+      id,
+      attempt
+    ):
+      return "🔌 WS #\(id) connecting (attempt \(attempt))"
+    case let .opened(id):
+      return "🔌 WS #\(id) connected"
+    case let .sent(id):
+      return "🔌 WS #\(id) text sent"
+    case let .received(id):
+      return "🔌 WS #\(id) text received"
+    case let .nonText(id):
+      return "🔌 WS #\(id) non-text message rejected"
+    case let .closed(
+      id,
+      code
+    ):
+      return "🔌 WS #\(id) closed code=\(code)"
+    }
+  }
+
+  /// WebSocket handshake 결과 한 덩어리. 주소는 경로만 남기고, 헤더는 `NetworkLogRedactor` 로 가리고,
+  /// 오류는 도메인·코드만 남긴다.
+  func webSocketSummary(
+    id: String,
+    request: URLRequest?,
+    response: HTTPURLResponse?,
+    duration: TimeInterval,
+    error: AFError?
+  ) -> String {
+    let path = request?.url?.path ?? "?"
+    let status = response?.statusCode ?? -1
+    let milliseconds = Int(duration * 1000)
+    var lines = ["\(error == nil ? "✅" : "❌") WS #\(id) \(path) → \(status) (\(milliseconds)ms)"]
+    if let headers = request?.allHTTPHeaderFields, !headers.isEmpty {
+      lines.append("  · Request Headers\n\(format(NetworkLogRedactor.headers(headers)))")
+    }
+    if let error {
+      lines.append("  · Error\n       \(NetworkLogRedactor.errorSummary(error.underlyingError ?? error))")
+    }
+    return lines.joined(separator: "\n")
   }
 }
 

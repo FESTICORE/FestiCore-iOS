@@ -10,6 +10,8 @@ public enum FestivalAPI: Sendable {
   case packChanges(festivalID: String)
   /// 발행 팩 버전·지도 버전
   case packVersion(festivalID: String)
+  /// 팩 요청과 변경 알림을 주고받는 WebSocket
+  case packUpdates
 
   public var path: String {
     switch self {
@@ -17,6 +19,8 @@ public enum FestivalAPI: Sendable {
       return "\(FestiCoreDomain.festivals.path)/\(festivalID)/pack/changes"
     case let .packVersion(festivalID):
       return "\(FestiCoreDomain.festivals.path)/\(festivalID)/pack/version"
+    case .packUpdates:
+      return "\(FestiCoreDomain.festivals.path)/updates"
     }
   }
 }

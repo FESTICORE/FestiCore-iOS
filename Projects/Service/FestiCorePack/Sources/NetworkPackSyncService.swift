@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import APIEndpoint
 import FestiCorePackInterface
 import FestiCoreNetworkInterface
 import SQLiteData
@@ -7,7 +8,6 @@ import SQLiteData
 private enum PackUpdateWaitError: Error { case idleTimeout, packDeleted }
 
 public actor NetworkPackSyncService: PackSyncService {
-  private let baseURL: URL?
   private let cache: PackCache
   private let client: any FestiCoreWebSocketClient
   private let responseTimeoutNanoseconds: UInt64
@@ -19,12 +19,10 @@ public actor NetworkPackSyncService: PackSyncService {
   private var deletionCount: [String: Int] = [:]
 
   public init(
-    baseURL: URL?,
     cacheDirectory: URL,
     database: (any DatabaseWriter)? = nil,
     client: any FestiCoreWebSocketClient
   ) {
-    self.baseURL = baseURL
     cache = PackCache(
       directory: cacheDirectory,
       database: database
@@ -36,7 +34,6 @@ public actor NetworkPackSyncService: PackSyncService {
   }
 
   init(
-    baseURL: URL?,
     cacheDirectory: URL,
     responseTimeoutNanoseconds: UInt64 = 15_000_000_000,
     rejectedHandshakeRetryNanoseconds: UInt64 = 300_000_000_000,
@@ -44,7 +41,6 @@ public actor NetworkPackSyncService: PackSyncService {
     database: (any DatabaseWriter)? = nil,
     client: any FestiCoreWebSocketClient
   ) {
-    self.baseURL = baseURL
     cache = PackCache(
       directory: cacheDirectory,
       database: database
@@ -64,7 +60,7 @@ public actor NetworkPackSyncService: PackSyncService {
   }
 
   public func sync(for festivalID: String) async throws -> PackSyncResult {
-    let socket = client.connect(to: try endpoint())
+    let socket = try connect()
     return try await withTaskCancellationHandler {
       defer { socket.cancel() }
       return try await synchronize(for: festivalID, on: socket)
@@ -86,7 +82,7 @@ public actor NetworkPackSyncService: PackSyncService {
   ) async {
     do {
       guard isValidFestivalID(festivalID) else { throw PackSyncError.invalidFestivalID }
-      let socket = client.connect(to: try endpoint())
+      let socket = try connect()
       defer { socket.cancel() }
       let progress: @Sendable (PackDownloadProgress) -> Void = { value in
         continuation.yield(.progress(value))
@@ -159,7 +155,7 @@ public actor NetworkPackSyncService: PackSyncService {
     while !Task.isCancelled {
       do {
         try stopIfDeleted(festivalID, since: deletionsAtStart)
-        let socket = client.connect(to: try endpoint())
+        let socket = try connect()
         try await withTaskCancellationHandler {
           defer { socket.cancel() }
           while !Task.isCancelled {
@@ -319,17 +315,17 @@ public actor NetworkPackSyncService: PackSyncService {
     return saved == updated ? .updated(saved) : .notModified(saved)
   }
 
-  private func endpoint() throws -> URL {
-    guard let baseURL, baseURL.scheme == "https", baseURL.host != nil,
-          var parts = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
-      throw baseURL == nil ? PackSyncError.unconfigured : PackSyncError.invalidEndpoint
+  /// 팩 WebSocket 을 연다. 앱 서버 주소가 없거나 wss 로 바꿀 수 없으면 `.unconfigured`,
+  /// 그 밖의 요청 조립 실패는 `.invalidEndpoint` 다.
+  private func connect() throws -> any PackSocket {
+    do throws(FestiCoreNetworkError) {
+      return try client.connect(FestivalPackSocketRequest.updates)
+    } catch {
+      if case .request(.invalidURL) = error {
+        throw PackSyncError.unconfigured
+      }
+      throw PackSyncError.invalidEndpoint
     }
-    parts.scheme = "wss"
-    parts.path = "/api/v1/festivals/updates"
-    parts.query = nil
-    parts.fragment = nil
-    guard let url = parts.url else { throw PackSyncError.invalidEndpoint }
-    return url
   }
 
   private func isValidFestivalID(_ id: String) -> Bool {

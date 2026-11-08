@@ -67,7 +67,6 @@ public enum NetworkContainer {
       ),
       liveActivityRegistrationService: NetworkLiveActivityRegistrationService(client: auth.authenticatedClient),
       packSyncService: NetworkPackSyncService(
-        baseURL: NetworkClientFactory.bundleBaseURL,
         cacheDirectory: packCacheDirectory,
         database: StorageFactory.persistentDatabaseWriter,
         client: NetworkAssembly.webSocketClient()

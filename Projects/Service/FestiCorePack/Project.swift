@@ -11,6 +11,7 @@ let project = Project.makeModule(
       .network,
       .interface
     ),
+    .service(.apiEndpoint),
     .SPM.sqliteData
   ],
   hasTests: true,

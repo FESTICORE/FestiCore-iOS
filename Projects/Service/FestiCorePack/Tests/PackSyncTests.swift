@@ -34,9 +34,33 @@ struct PackSyncTests {
     let result = try await online.sync(for: id)
     guard case .updated(let saved) = result else { Issue.record("snapshot expected"); return }
 
-    let offline = NetworkPackSyncService(baseURL: nil, cacheDirectory: directory, client: SocketFactory([]))
+    let offline = NetworkPackSyncService(
+      cacheDirectory: directory,
+      client: SocketFactory.unconfigured
+    )
     #expect(try await offline.cachedPack(for: id) == saved)
     await #expect(throws: PackSyncError.unconfigured) { try await offline.sync(for: id) }
+  }
+
+  @Test("팩 WebSocket은 공개 팩 채널 요청으로 연다")
+  func connectsWithPackSocketRequest() async throws {
+    let factory = SocketFactory([
+      ScriptSocket { request in
+        return [snapshot(
+          request,
+          version: 1,
+          etag: "\"one\""
+        )]
+      }
+    ])
+    let syncService = NetworkPackSyncService(
+      cacheDirectory: temporaryDirectory(),
+      client: factory
+    )
+
+    _ = try await syncService.sync(for: id)
+
+    #expect(factory.paths == ["api/v1/festivals/updates"])
   }
 
   @Test("오프라인 목록은 검증된 팩만 정렬해 반환한다")
@@ -56,14 +80,18 @@ struct PackSyncTests {
       withDestinationURL: directory.appendingPathComponent("fst_a.json")
     )
 
-    let offline = NetworkPackSyncService(baseURL: nil, cacheDirectory: directory, client: SocketFactory([]))
+    let offline = NetworkPackSyncService(
+      cacheDirectory: directory,
+      client: SocketFactory.unconfigured
+    )
     #expect(try await offline.cachedPacks().map(\.festivalID) == ["fst_a", "fst_z"])
   }
 
   @Test("캐시 디렉터리가 없으면 오프라인 목록은 비어 있다")
   func missingCacheDirectoryHasNoPacks() async throws {
     let offline = NetworkPackSyncService(
-      baseURL: nil, cacheDirectory: temporaryDirectory(), client: SocketFactory([])
+      cacheDirectory: temporaryDirectory(),
+      client: SocketFactory.unconfigured
     )
     #expect(try await offline.cachedPacks().isEmpty)
   }
@@ -371,7 +399,6 @@ struct PackSyncTests {
       ]
     }
     let syncService = NetworkPackSyncService(
-      baseURL: URL(string: "https://festicore-dev.up.railway.app"),
       cacheDirectory: temporaryDirectory(), downloadRetryBudgetNanoseconds: 10_000_000,
       client: SocketFactory([socket])
     )
@@ -410,7 +437,6 @@ struct PackSyncTests {
       ])]
     }
     let syncService = NetworkPackSyncService(
-      baseURL: URL(string: "https://festicore-dev.up.railway.app"),
       cacheDirectory: temporaryDirectory(), downloadRetryBudgetNanoseconds: 10_000_000,
       client: SocketFactory([socket])
     )
@@ -648,8 +674,9 @@ struct PackSyncTests {
       [snapshot(request, version: 2, etag: "\"two\"")]
     }
     let retry = NetworkPackSyncService(
-      baseURL: URL(string: "https://festicore-dev.up.railway.app"), cacheDirectory: directory,
-      responseTimeoutNanoseconds: 20_000_000, client: SocketFactory([slow])
+      cacheDirectory: directory,
+      responseTimeoutNanoseconds: 20_000_000,
+      client: SocketFactory([slow])
     )
     await #expect(throws: PackSyncError.timeout) { try await retry.sync(for: id) }
     #expect(try await retry.cachedPack(for: id)?.packVersion == 1)
@@ -740,8 +767,9 @@ struct PackSyncTests {
   ) -> NetworkPackSyncService {
     let factory = SocketFactory(sockets)
     return NetworkPackSyncService(
-      baseURL: URL(string: "https://festicore-dev.up.railway.app"), cacheDirectory: directory,
-      rejectedHandshakeRetryNanoseconds: rejectedRetryNanoseconds, client: factory
+      cacheDirectory: directory,
+      rejectedHandshakeRetryNanoseconds: rejectedRetryNanoseconds,
+      client: factory
     )
   }
 
@@ -765,13 +793,37 @@ private func message(_ event: String, _ requestID: String, _ data: [String: Any]
 }
 
 private final class SocketFactory: FestiCoreWebSocketClient, @unchecked Sendable {
+  /// 앱 서버 주소가 없는 클라이언트처럼 연결 전에 실패한다.
+  static var unconfigured: SocketFactory {
+    return SocketFactory(
+      [],
+      configured: false
+    )
+  }
+
   private let lock = NSLock()
+  private let configured: Bool
   private var sockets: [ScriptSocket]
+  private var requestedPaths: [String] = []
 
-  init(_ sockets: [ScriptSocket]) { self.sockets = sockets }
+  init(
+    _ sockets: [ScriptSocket],
+    configured: Bool = true
+  ) {
+    self.sockets = sockets
+    self.configured = configured
+  }
 
-  func connect(to url: URL) -> any FestiCoreWebSocketConnection {
-    lock.withLock { sockets.isEmpty ? ScriptSocket { _ in [] } : sockets.removeFirst() }
+  var paths: [String] {
+    return lock.withLock { requestedPaths }
+  }
+
+  func connect<R: FestiCoreWebSocketRequest>(_ request: R) throws(FestiCoreNetworkError) -> any FestiCoreWebSocketConnection {
+    guard configured else { throw .request(.invalidURL) }
+    return lock.withLock {
+      requestedPaths.append(request.path)
+      return sockets.isEmpty ? ScriptSocket { _ in [] } : sockets.removeFirst()
+    }
   }
 }
 
