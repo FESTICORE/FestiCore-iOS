@@ -89,6 +89,7 @@ struct BearerPackDTO: Decodable, Sendable {
   let name: String?
   let zones: [Zone]?
   let stages: [Stage]?
+  /// 발행 팩은 공연을 `timetable`에 담고, 예전 팩은 `sets`에만 담는다.
   let performances: [Performance]?
 
   init(from decoder: any Decoder) throws {
@@ -99,13 +100,18 @@ struct BearerPackDTO: Decodable, Sendable {
       [Stage].self,
       forKey: .stages
     )
-    performances = try? container.decodeIfPresent(
+    let timetable = try? container.decodeIfPresent(
       [Performance].self,
-      forKey: .performances
+      forKey: .timetable
     )
+    let sets = try? container.decodeIfPresent(
+      [Performance].self,
+      forKey: .sets
+    )
+    performances = timetable.flatMap { $0.isEmpty ? nil : $0 } ?? sets
   }
 
   private enum CodingKeys: String, CodingKey {
-    case name, zones, stages, performances
+    case name, zones, stages, timetable, sets
   }
 }

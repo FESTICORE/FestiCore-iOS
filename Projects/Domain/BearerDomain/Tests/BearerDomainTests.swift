@@ -283,7 +283,7 @@ struct BearerUseCaseTests {
       festivalID: "fst_1",
       packVersion: 1,
       etag: "e",
-      pack: Data(#"{"stages":[{"id":"stg_a","name":"리벳 스테이지"}],"performances":[{"id":"set_2","artist":"실리카겔","stageId":"stg_a","startsAt":"2026-08-07T12:00:00.000Z","endsAt":"2026-08-07T13:00:00.000Z"},{"id":"set_1","artist":"새소년","stageName":"원더 스테이지","startsAt":"2026-08-07T10:00:00Z","endsAt":"2026-08-07T11:00:00Z"},{"id":"set_bad","artist":"시간 없음","startsAt":"2026-08-07T10:00:00Z"},{"id":"set_back","artist":"거꾸로","startsAt":"2026-08-07T11:00:00Z","endsAt":"2026-08-07T10:00:00Z"}]}"#.utf8)
+      pack: Data(#"{"stages":[{"id":"stg_a","name":"리벳 스테이지"}],"timetable":[{"id":"set_2","artist":"실리카겔","stageId":"stg_a","startsAt":"2026-08-07T12:00:00.000Z","endsAt":"2026-08-07T13:00:00.000Z"},{"id":"set_1","artist":"새소년","stageName":"원더 스테이지","startsAt":"2026-08-07T10:00:00Z","endsAt":"2026-08-07T11:00:00Z"},{"id":"set_bad","artist":"시간 없음","startsAt":"2026-08-07T10:00:00Z"},{"id":"set_back","artist":"거꾸로","startsAt":"2026-08-07T11:00:00Z","endsAt":"2026-08-07T10:00:00Z"}]}"#.utf8)
     )
     let useCase = withDependencies {
       $0.packSyncService = StubPackSyncService(pack: pack)
@@ -300,6 +300,17 @@ struct BearerUseCaseTests {
       "리벳 스테이지"
     ])
     #expect(festival.sets.first?.artist == "새소년")
+
+    // timetable이 없는 예전 팩은 sets를 읽는다.
+    let legacy = try await withDependencies {
+      $0.packSyncService = StubPackSyncService(pack: CachedFestivalPack(
+        festivalID: "fst_1",
+        packVersion: 1,
+        etag: "e",
+        pack: Data(#"{"sets":[{"id":"set_old","artist":"잔나비","startsAt":"2026-08-07T10:00:00Z","endsAt":"2026-08-07T11:00:00Z"}]}"#.utf8)
+      ))
+    } operation: { BearerUseCaseImpl() }.fetchFestival(festivalID: "fst_1")
+    #expect(legacy.sets.map(\.id) == ["set_old"])
   }
 }
 
