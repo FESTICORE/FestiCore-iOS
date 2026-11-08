@@ -7,11 +7,12 @@
 
 import SwiftUI
 
-/// 설정형 한 줄. chevron(이동) · toggle(켜기/끄기) · value(값 표시)를 지원한다.
+/// 설정형 한 줄. chevron(이동) · toggle(켜기/끄기) · check(하나 고르기) · value(값 표시)를 지원한다.
 public struct FCListRow: View {
   private enum Accessory {
     case chevron(action: () -> Void)
     case toggle(Binding<Bool>)
+    case check(isSelected: Bool, action: () -> Void)
   }
 
   private var label: String
@@ -34,6 +35,19 @@ public struct FCListRow: View {
   ) {
     self.label = label
     accessory = .toggle(isOn)
+  }
+
+  /// 여러 값 중 하나를 고르는 줄. 고른 줄 오른쪽에 체크를 표시한다(Figma S13-J 화면 모드).
+  public init(
+    _ label: String,
+    isSelected: Bool,
+    action: @escaping () -> Void
+  ) {
+    self.label = label
+    accessory = .check(
+      isSelected: isSelected,
+      action: action
+    )
   }
 
   public var body: some View {
@@ -63,6 +77,27 @@ public struct FCListRow: View {
           accessibilityLabel: label
         )
       }
+    case let .check(
+      isSelected,
+      action
+    ):
+      Button(action: action) {
+        content {
+          if isSelected {
+            Image(asset: .check)
+              .resizable()
+              .frame(
+                width: Metric.checkSize,
+                height: Metric.checkSize
+              )
+              .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+              .accessibilityHidden(true)
+          }
+        }
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
   }
 
@@ -99,6 +134,8 @@ private extension FCListRow {
   enum Metric {
     static let height: CGFloat = 56
     static let iconSize: CGFloat = 16
+    /// Figma List Row type=select의 Check 20pt
+    static let checkSize: CGFloat = 20
   }
 }
 

@@ -32,6 +32,13 @@ struct ProfileCoordinatorView: View {
             .hidden,
             for: .navigationBar
           )
+      case let .appearance(appearanceStore):
+        AppearanceSettingsView(store: appearanceStore)
+          .swipeBackButtonHidden()
+          .toolbar(
+            .hidden,
+            for: .navigationBar
+          )
       case let .legalDocument(webStore):
         WebView(store: webStore)
           .swipeBackButtonHidden()

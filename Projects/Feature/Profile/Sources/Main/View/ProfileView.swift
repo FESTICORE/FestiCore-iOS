@@ -187,6 +187,9 @@ private extension ProfileView {
       rowDivider
       FCListRow("잠금화면") { send(.lockScreenTapped) }
       rowDivider
+      FCListRow("화면 모드") { send(.appearanceTapped) }
+        .value(store.appearanceMode.summary)
+      rowDivider
       FCListRow("계정") {
         send(.accountTapped)
       }

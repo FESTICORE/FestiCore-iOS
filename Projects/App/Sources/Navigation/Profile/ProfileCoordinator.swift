@@ -49,6 +49,12 @@ struct ProfileCoordinator {
 
       case let .router(.routeAction(
         id: id,
+        action: .appearance(childAction)
+      )) where id == 1:
+        return .send(.profile(.destination(.presented(.appearance(childAction)))))
+
+      case let .router(.routeAction(
+        id: id,
         action: .legalDocument(childAction)
       )) where id == 1:
         return .send(.profile(.destination(.presented(.legalDocument(childAction)))))
