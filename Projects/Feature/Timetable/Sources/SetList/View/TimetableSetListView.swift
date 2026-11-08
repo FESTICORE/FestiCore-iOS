@@ -55,6 +55,7 @@ private extension TimetableSetListView {
           }
         }
       }
+      .fcScrollBottomInset()
     }
   }
 }

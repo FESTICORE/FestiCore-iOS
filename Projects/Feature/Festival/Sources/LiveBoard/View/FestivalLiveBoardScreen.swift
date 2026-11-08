@@ -184,12 +184,9 @@ private extension FestivalLiveBoardScreen {
             .top,
             store.notificationBanner == nil ? FestiCoreSpacing.paddingP16 : .zero
           )
-          .padding(
-            .bottom,
-            FestiCoreSpacing.paddingP24
-          )
         }
         .scrollIndicators(.hidden)
+        .fcScrollBottomInset()
       }
     }
   }

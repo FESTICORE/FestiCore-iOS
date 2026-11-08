@@ -37,9 +37,13 @@ public struct FestivalFlagView: View {
             content
           }
         }
-        .padding(FestiCoreSpacing.paddingP16)
+        .padding(
+          [.horizontal, .top],
+          FestiCoreSpacing.paddingP16
+        )
       }
       .scrollIndicators(.hidden)
+      .fcScrollBottomInset()
       .refreshable { store.send(.refresh) }
       .simultaneousGesture(
         TapGesture().onEnded { store.send(.directory(.sortMenuDismissed)) },

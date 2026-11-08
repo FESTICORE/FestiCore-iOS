@@ -57,6 +57,7 @@ private extension NoticeListView {
         .padding(FestiCoreSpacing.paddingP16)
       }
       .scrollIndicators(.hidden)
+      .fcScrollBottomInset()
     }
   }
 

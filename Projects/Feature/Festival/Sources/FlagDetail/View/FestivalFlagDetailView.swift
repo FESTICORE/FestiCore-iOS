@@ -120,12 +120,9 @@ private extension FestivalFlagDetailView {
           .horizontal,
           FestiCoreSpacing.paddingP16
         )
-        .padding(
-          .bottom,
-          FestiCoreSpacing.paddingP16
-        )
       }
     }
+    .fcScrollBottomInset()
   }
 
   /// 숨겨졌거나 공개하지 않는 깃발

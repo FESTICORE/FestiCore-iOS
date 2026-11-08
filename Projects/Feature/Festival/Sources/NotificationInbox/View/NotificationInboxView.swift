@@ -134,6 +134,7 @@ private extension NotificationInboxView {
       }
     }
     .scrollIndicators(.hidden)
+    .fcScrollBottomInset()
   }
 
   var loadingContent: some View {
