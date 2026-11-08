@@ -31,6 +31,8 @@ public struct ProfileFeature {
     public var message: String?
     /// 기기에 받아 둔 팩
     public var packs: [FestivalReceivedPack] = []
+    /// 새 버전이 있는 팩의 바뀐 공연 수(내 버전 기준). 읽지 못하면 비워 두고 버전만 보인다.
+    public var packChangedSets: [String: Int] = [:]
     public var packLoad = PackLoad.idle
     /// 아직 연결되지 않은 이동은 누를 수 없게 둔다.
     public var isSearchAvailable = false
@@ -100,6 +102,10 @@ public struct ProfileFeature {
   @CasePathable
   public enum AsyncAction: Equatable {
     case fetchPacks
+    case fetchPackChanges(
+      festivalID: String,
+      fromVersion: Int
+    )
   }
 
   // MARK: - 앱내에서 사용하는 액션
@@ -110,6 +116,10 @@ public struct ProfileFeature {
     /// 서버 목록으로 새 버전 여부를 갱신한 결과
     case packsRefreshed([FestivalReceivedPack])
     case packsFailed
+    case packChangesLoaded(
+      festivalID: String,
+      changedSets: Int?
+    )
   }
 
   // MARK: - DelegateAction
@@ -118,6 +128,7 @@ public struct ProfileFeature {
   public typealias DelegateAction = ProfileDelegate
 
   @Dependency(\.festivalReceivedPackUseCase) private var receivedPackUseCase
+  @Dependency(\.festivalPackDetailUseCase) private var packDetailUseCase
   @Dependency(\.festivalNotificationSettingsUseCase) private var notificationSettingsUseCase
 
   public var body: some ReducerOf<Self> {
@@ -250,6 +261,22 @@ extension ProfileFeature {
         }
       }
       .cancellable(id: CancelID.packs, cancelInFlight: true)
+
+    case let .fetchPackChanges(
+      festivalID,
+      fromVersion
+    ):
+      return .run { send in
+        // 실패·오프라인이면 아무것도 보내지 않아 버전 표시를 그대로 둔다.
+        guard let changes = try? await packDetailUseCase.packChanges(
+          festivalID: festivalID,
+          fromVersion: fromVersion
+        ) else { return }
+        await send(.inner(.packChangesLoaded(
+          festivalID: festivalID,
+          changedSets: changes.changedSets
+        )))
+      }
     }
   }
 
@@ -258,9 +285,31 @@ extension ProfileFeature {
     action: InnerAction
   ) -> Effect<Action> {
     switch action {
-    case .packsLoaded(let packs), .packsRefreshed(let packs):
+    case .packsLoaded(let packs):
       state.packs = packs
       state.packLoad = .loaded
+      return .none
+
+    case .packsRefreshed(let packs):
+      state.packs = packs
+      state.packLoad = .loaded
+      // 새 버전이 있는 팩만 바뀐 공연 수를 묻는다(시안 More: "새 버전이 있어요 · 시간표 N개 변경").
+      let updatable = packs.filter(\.hasUpdate)
+      state.packChangedSets = state.packChangedSets.filter { entry in
+        return updatable.contains { $0.id == entry.key }
+      }
+      return .merge(updatable.map { pack in
+        return .send(.async(.fetchPackChanges(
+          festivalID: pack.id,
+          fromVersion: pack.packVersion
+        )))
+      })
+
+    case let .packChangesLoaded(
+      festivalID,
+      changedSets
+    ):
+      state.packChangedSets[festivalID] = changedSets
       return .none
 
     case .packsFailed:

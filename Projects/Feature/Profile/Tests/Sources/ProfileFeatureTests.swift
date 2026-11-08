@@ -25,6 +25,16 @@ struct ProfileFeatureTests {
         receivedPacks: { local },
         refreshReceivedPacks: { refreshed }
       )
+      $0.festivalPackDetailUseCase = MockFestivalPackDetailUseCase(packChanges: { festivalID, fromVersion in
+        #expect(festivalID == "fst_a")
+        #expect(fromVersion == 12)
+        return FestivalPackChanges(
+          fromVersion: 12,
+          toVersion: 13,
+          sizeBytes: 1_024,
+          changedSets: 2
+        )
+      })
     }
 
     await store.send(.view(.onAppear)) { $0.packLoad = .loading }
@@ -35,6 +45,35 @@ struct ProfileFeatureTests {
     }
     await store.receive(\.inner.packsRefreshed) { $0.packs = refreshed }
     #expect(store.state.packs.first?.hasUpdate == true)
+    // 새 버전이 있는 팩은 내 버전 기준 바뀐 공연 수를 읽는다(시안 "시간표 N개 변경").
+    await store.receive(\.async.fetchPackChanges)
+    await store.receive(\.inner.packChangesLoaded) {
+      $0.packChangedSets["fst_a"] = 2
+    }
+  }
+
+  @Test func packChangesFailureKeepsVersionText() async {
+    let refreshed = [
+      FestivalReceivedPack(
+        id: "fst_a",
+        name: "원더리벳 2026",
+        packVersion: 12,
+        latestPackVersion: 13
+      )
+    ]
+    var state = ProfileFeature.State()
+    state.packLoad = .loaded
+    let store = TestStore(initialState: state) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.festivalPackDetailUseCase = MockFestivalPackDetailUseCase(packChanges: { _, _ in
+        throw URLError(.notConnectedToInternet)
+      })
+    }
+
+    await store.send(.inner(.packsRefreshed(refreshed))) { $0.packs = refreshed }
+    await store.receive(\.async.fetchPackChanges)
+    #expect(store.state.packChangedSets.isEmpty)
   }
 
   @Test func refreshFailureKeepsLocalPacks() async {

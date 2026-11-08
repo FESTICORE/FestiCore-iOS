@@ -172,6 +172,9 @@ private extension ProfileView {
     if pack.autoUpdateFailed, let latest = pack.latestPackVersion {
       return "새 버전을 받지 못했어요 · v\(latest)"
     }
+    if pack.hasUpdate, let count = store.packChangedSets[pack.id], count > 0 {
+      return "새 버전이 있어요 · 시간표 \(count)개 변경"
+    }
     if pack.hasUpdate, let latest = pack.latestPackVersion {
       return "새 버전이 있어요 · v\(latest)"
     }
