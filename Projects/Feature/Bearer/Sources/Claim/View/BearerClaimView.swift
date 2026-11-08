@@ -24,14 +24,33 @@ public struct BearerClaimView: View {
       FCTopBar(.back, title: "기수 인증")
         .onBack { send(.backTapped) }
       ScrollView {
-        VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
+        // Figma S13 F~I: 위아래 24·좌우 16, 제목과 코드 사이 32, 코드와 안내 사이 12
+        VStack(
+          alignment: .leading,
+          spacing: Metric.sectionSpacing
+        ) {
           header
-          VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM12) {
+          VStack(
+            alignment: .leading,
+            spacing: FestiCoreSpacing.marginM12
+          ) {
             codeInput
-            notices
+            VStack(
+              alignment: .leading,
+              spacing: Metric.noticeSpacing
+            ) {
+              notices
+            }
           }
         }
-        .padding(FestiCoreSpacing.paddingP16)
+        .padding(
+          .horizontal,
+          FestiCoreSpacing.paddingP16
+        )
+        .padding(
+          .vertical,
+          FestiCoreSpacing.paddingP24
+        )
       }
       .scrollDismissesKeyboard(.never)
       FCPrimaryButton(store.isSubmitting ? "확인하는 중" : "확인", isEnabled: store.canSubmit) {
@@ -51,9 +70,11 @@ extension BearerClaimView {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM8) {
       Text("운영팀에게 받은\n코드 6자리를 입력해 주세요")
         .festiCoreFont(.baseTitle2Bold)
+        .festiCoreLineBox(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       Text("영문과 숫자로 된 코드예요. 페스티벌마다 달라요.")
-        .festiCoreFont(.baseSubheadlineRegular)
+        .festiCoreFont(.baseCalloutRegular)
+        .festiCoreLineBox(.baseCalloutRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
@@ -114,6 +135,11 @@ extension BearerClaimView {
   private var lockRemainingText: String {
     let seconds = store.lockRemainingSeconds
     return "\(seconds / 60):" + String(format: "%02d", seconds % 60)
+  }
+
+  private enum Metric {
+    static let sectionSpacing: CGFloat = 32
+    static let noticeSpacing: CGFloat = 6
   }
 }
 
