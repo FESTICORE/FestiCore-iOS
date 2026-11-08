@@ -46,10 +46,10 @@ public struct FCTabBar: View {
         tabButton(tab)
       }
     }
-    .padding(.top, FestiCoreSpacing.paddingP8)
+    // Figma S01·S02 실측: 구분선→아이콘 10pt, 글자 아래는 안전 영역에 바로 붙는다.
     .padding(
-      .bottom,
-      FestiCoreSpacing.marginM2
+      .top,
+      Metric.topInset
     )
     .background {
       Rectangle()
@@ -96,6 +96,7 @@ private extension FCTabBar {
 private extension FCTabBar {
   enum Metric {
     static let iconSize: CGFloat = 24
+    static let topInset: CGFloat = 10
   }
 }
 
