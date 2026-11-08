@@ -699,12 +699,12 @@ extension FestivalS01VisualCaptureTests {
         festivals: [.init(
           id: "visual-festival",
           name: "원더리벳 2026",
-          subtitle: "오늘 · DAY 1 · 진행 중",
+          subtitle: "오늘 · DAY 1 진행 중",
           thumbnailURL: nil
         ), .init(
           id: "visual-next",
-          name: "부산 국제 록 페스티벌",
-          subtitle: "10/24(토) · 예정",
+          name: "부산국제록페스티벌 2026",
+          subtitle: "D-2 · 삼락생태공원",
           thumbnailURL: nil
         )],
         selectedFestivalID: "visual-festival"
