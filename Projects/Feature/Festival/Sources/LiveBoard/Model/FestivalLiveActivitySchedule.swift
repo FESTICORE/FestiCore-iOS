@@ -10,7 +10,8 @@ struct FestivalLiveActivitySchedule: Equatable, Sendable {
   let canStart: Bool
   let nextBoundary: Date?
 
-  /// 서버의 자동 시작 예약과 같은 기준: 현재 시각 이후의 첫 번째 저장 공연.
+  /// 라이브 활동을 띄울 저장 공연 중 가장 이른 시작 시각.
+  /// 아직 시작 전인 공연과, 이미 시작했지만 끝나지 않은 공연(공연 중에 저장한 경우)을 함께 본다.
   static func nextSavedPerformanceStart(
     pack: FestivalPackDocument?,
     setIDs: Set<String>,
@@ -19,8 +20,11 @@ struct FestivalLiveActivitySchedule: Equatable, Sendable {
     guard let pack, !setIDs.isEmpty else { return nil }
     return pack.performances
       .filter { setIDs.contains($0.id) }
-      .compactMap { $0.startsAt.flatMap(FestivalLiveBoardSchedule.parse) }
-      .filter { $0 > now }
+      .compactMap { performance -> Date? in
+        guard let start = performance.startsAt.flatMap(FestivalLiveBoardSchedule.parse) else { return nil }
+        let end = performance.endsAt.flatMap(FestivalLiveBoardSchedule.parse)
+        return (end ?? start) > now ? start : nil
+      }
       .min()
   }
 
