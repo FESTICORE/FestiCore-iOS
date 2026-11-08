@@ -18,8 +18,6 @@ import FestiCoreNetworkInterface
 final class WebSocketConnection: FestiCoreWebSocketConnection {
   /// 조립된 Alamofire WebSocket 요청
   private let request: WebSocketRequest
-  /// 요청은 세션을 약하게 참조하므로, 연결이 열려 있는 동안 연결이 세션을 붙잡는다.
-  private let session: Session
   /// Alamofire 이벤트를 송수신 대기와 잇는 상태
   private let state: WebSocketConnectionState
   /// 이벤트와 송신 완료를 순서대로 받는 큐
@@ -35,12 +33,20 @@ final class WebSocketConnection: FestiCoreWebSocketConnection {
       record: record
     )
     self.request = request
-    self.session = session
     self.state = state
     // 핸들러는 연결이 열리기 전에 달아야 첫 메시지를 놓치지 않는다. 핸들러를 달면 요청이 시작된다.
+    // 요청은 세션을 약하게 참조하므로 핸들러가 요청이 끝날 때까지 세션을 붙잡는다.
+    // 연결을 먼저 놓아도 세션이 남은 닫힘·완료 콜백을 받아야 Alamofire 가 요청을 정리한다.
     request.streamMessageEvents(on: queue) { event in
-      state.handle(Self.signal(for: event.kind))
+      withExtendedLifetime(session) {
+        state.handle(Self.signal(for: event.kind))
+      }
     }
+  }
+
+  deinit {
+    // 닫지 않고 놓은 연결도 닫아, 세션을 붙잡은 요청이 열린 채 남지 않게 한다.
+    request.close(sending: .goingAway)
   }
 
   func send(_ text: String) async throws {

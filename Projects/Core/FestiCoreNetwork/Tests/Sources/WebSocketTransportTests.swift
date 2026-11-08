@@ -1,512 +1,477 @@
+//
+//  WebSocketTransportTests.swift
+//  FestiCoreNetworkTests
+//
+//  Copyright © 2026 FestiCore. All rights reserved.
+//
+
 import Foundation
-import Darwin
 import Testing
 
+@_spi(WebSocket) import Alamofire
 @testable import FestiCoreNetwork
 import FestiCoreNetworkInterface
 
-@Suite("WebSocket 전송")
+/// Alamofire 세션 위의 WebSocket 연결을 로컬 서버(`LoopbackWebSocketServer`)로 확인한다. 외부 네트워크는 쓰지 않는다.
+@Suite(
+  "WebSocket 전송",
+  .timeLimit(.minutes(1))
+)
 struct WebSocketTransportTests {
-  @Test("WebSocket handshake는 공통 Accept 헤더를 사용한다")
-  func handshakeUsesDefaultHeaders() {
-    let headers = SessionFactory.webSocketConfiguration.httpAdditionalHeaders
-    let accept = headers?.first { String(describing: $0.key).lowercased() == "accept" }?.value as? String
+  // MARK: - 연결과 송수신
 
-    #expect(accept == "application/json")
+  @Test("요청 경로·헤더로 ws handshake 를 하고 텍스트를 주고받는다")
+  func textRoundTrip() async throws {
+    let server = try LoopbackWebSocketServer([.accept([.echo, .waitForClientClose])])
+    defer { server.stop() }
+    let connection = try makeClient(server).connect(SocketRequest())
+
+    try await connection.send("hello")
+    let reply = try await connection.receive()
+    connection.cancel()
+
+    #expect(reply == "hello")
+    #expect(server.messages == ["hello"])
+    let handshake = try #require(server.handshakes.first)
+    #expect(handshake.hasPrefix("GET /socket/updates HTTP/1.1"))
+    #expect(handshake.lowercased().contains("accept: application/json"))
+    #expect(handshake.contains("X-Socket-Test: on"))
   }
 
-  @Test("실제 WebSocket handshake의 non-101 응답은 상태와 원본 오류를 전달한다", arguments: [401, 200])
-  func rejectsNonUpgradeHandshake(statusCode: Int) async throws {
-    let server = try LoopbackHandshakeServer(statusCode: statusCode)
-    let events = RecordedWebSocketEvents()
-    let monitor = WebSocketMonitor(recorder: { events.record($0) })
-    let configuration = SessionFactory.webSocketConfiguration
-    configuration.timeoutIntervalForRequest = 5
-    let client = URLSessionWebSocketClient(configuration: configuration, monitor: monitor)
-    let connection = client.connect(to: server.url)
+  @Test("연결이 열리기 전에 보낸 메시지는 열린 뒤 한 번만 보낸다")
+  func sendWaitsUntilOpen() async throws {
+    let server = try LoopbackWebSocketServer([.accept([.receiveText, .sendText("ack"), .waitForClientClose])])
+    defer { server.stop() }
+    let connection = try makeClient(server).connect(SocketRequest())
 
+    // connect 직후 handshake 가 끝나기 전에 바로 보낸다.
+    try await connection.send("early")
+    let reply = try await connection.receive()
+    connection.cancel()
+
+    #expect(reply == "ack")
+    #expect(server.messages == ["early"])
+  }
+
+  @Test("서버가 먼저 보낸 메시지를 받고, 취소하면 going away 로 닫는다")
+  func cancelClosesWithGoingAway() async throws {
+    let server = try LoopbackWebSocketServer([.accept([.sendText("first"), .waitForClientClose])])
+    defer { server.stop() }
+    let connection = try makeClient(server).connect(SocketRequest())
+
+    let first = try await connection.receive()
+    connection.cancel()
+    try await waitUntil { !server.clientCloseCodes.isEmpty }
+
+    #expect(first == "first")
+    #expect(server.clientCloseCodes == [UInt16(URLSessionWebSocketTask.CloseCode.goingAway.rawValue)])
     do {
       _ = try await connection.receive()
-      Issue.record("non-101 handshake는 실패해야 한다")
-    } catch let error as URLError {
-      #expect(error.code == .badServerResponse)
+      Issue.record("취소한 연결의 수신은 끝나야 한다")
+    } catch is CancellationError {
     } catch {
-      Issue.record("예상하지 않은 handshake 오류: \(error)")
+      Issue.record("취소 오류가 아님: \(type(of: error))")
     }
-
-    let recorded = events.values
-    #expect(recorded.count == 2)
-    guard case .attempted(let id) = recorded.first,
-          case .failed(let failedID, let domain, let code, let status) = recorded.last
-    else {
-      Issue.record("연결 시도와 오류 이벤트가 필요함: \(recorded)")
-      return
-    }
-    #expect(failedID == id)
-    #expect(domain == NSURLErrorDomain)
-    #expect(code == URLError.badServerResponse.rawValue)
-    #expect(status == statusCode)
-    #expect(server.requestHeaders?.contains("Accept: application/json") == true)
-    #expect(!String(describing: recorded).contains("private-path"))
-    #expect(!String(describing: recorded).contains("token=secret"))
   }
 
-  @Test("텍스트 송수신은 원문을 전달하고 본문 없이 이벤트를 기록한다")
-  func textMessages() async throws {
-    let events = RecordedWebSocketEvents()
-    let monitor = WebSocketMonitor(recorder: { events.record($0) })
-    let task = StubWebSocketTask(receiveResult: .success(.string("private-response")))
-    let connection = URLSessionWebSocketConnection(
-      task: task,
-      state: WebSocketConnectionState(id: 12, monitor: monitor),
-      monitor: monitor
-    )
+  @Test("바이너리 메시지는 공개 WebSocket 오류로 거절하고 연결은 이어진다")
+  func binaryMessageIsRejected() async throws {
+    let server = try LoopbackWebSocketServer([.accept([.sendBinary([1, 2, 3]), .sendText("after"), .waitForClientClose])])
+    defer { server.stop() }
+    let connection = try makeClient(server).connect(SocketRequest())
 
-    try await connection.send("private-request")
-    let received = try await connection.receive()
+    await #expect(throws: FestiCoreWebSocketError.nonTextMessage) {
+      _ = try await connection.receive()
+    }
+    let next = try await connection.receive()
+    connection.cancel()
 
-    #expect(task.didResume)
-    #expect(task.sentText == "private-request")
-    #expect(received == "private-response")
-    #expect(events.values == [.sent(id: 12), .received(id: 12)])
-    #expect(!String(describing: events.values).contains("private-"))
+    #expect(next == "after")
   }
 
-  @Test("바이너리 메시지는 공개 WebSocket 오류로 거절한다")
-  func binaryMessage() async {
-    let events = RecordedWebSocketEvents()
-    let connection = makeConnection(
-      task: StubWebSocketTask(receiveResult: .success(.data(Data([1, 2, 3])))),
-      events: events
-    )
+  @Test("서버가 닫으면 그 전에 받은 메시지를 먼저 돌려주고 ENOTCONN 으로 끝낸다")
+  func serverCloseAfterMessage() async throws {
+    let server = try LoopbackWebSocketServer([.accept([
+      .sendText("bye"),
+      .close(
+        code: 1000,
+        reason: "private-reason"
+      )
+    ])])
+    defer { server.stop() }
+    let connection = try makeClient(server).connect(SocketRequest())
 
+    let last = try await connection.receive()
+    #expect(last == "bye")
     do {
       _ = try await connection.receive()
-      Issue.record("바이너리 메시지는 거절해야 한다")
-    } catch let error as FestiCoreWebSocketError {
-      #expect(error == .nonTextMessage)
-    } catch {
-      Issue.record("예상하지 않은 오류: \(error)")
-    }
-    #expect(events.values == [.nonText(id: 42)])
-  }
-
-  @Test("전송 오류를 감싸지 않고 원본으로 전달한다")
-  func originalSendError() async {
-    let original = WebSocketMarkerError()
-    let events = RecordedWebSocketEvents()
-    let connection = makeConnection(task: StubWebSocketTask(sendError: original), events: events)
-
-    do {
-      try await connection.send("secret-body")
-      Issue.record("전송 오류가 전달되어야 한다")
-    } catch let error as WebSocketMarkerError {
-      #expect(error === original)
-    } catch {
-      Issue.record("원본 오류가 아님: \(error)")
-    }
-    #expect(events.values.count == 1)
-    #expect(!String(describing: events.values).contains("secret-body"))
-  }
-
-  @Test("수신 오류를 감싸지 않고 원본으로 전달한다")
-  func originalReceiveError() async {
-    let original = WebSocketMarkerError()
-    let events = RecordedWebSocketEvents()
-    let connection = makeConnection(
-      task: StubWebSocketTask(receiveResult: .failure(original)),
-      events: events
-    )
-
-    do {
-      _ = try await connection.receive()
-      Issue.record("수신 오류가 전달되어야 한다")
-    } catch let error as WebSocketMarkerError {
-      #expect(error === original)
-    } catch {
-      Issue.record("원본 오류가 아님: \(error)")
-    }
-    #expect(events.values.count == 1)
-  }
-
-  @Test("정상 종료 코드가 먼저 설정되면 수신 오류보다 종료 이벤트를 기록한다")
-  func normalCloseWinsReceiveError() async {
-    let original = POSIXError(.ENOTCONN)
-    let events = RecordedWebSocketEvents()
-    let connection = makeConnection(
-      task: StubWebSocketTask(
-        receiveResult: .failure(original),
-        closeCode: .normalClosure
-      ),
-      events: events
-    )
-
-    do {
-      _ = try await connection.receive()
-      Issue.record("수신 오류가 전달되어야 한다")
+      Issue.record("닫힌 연결의 수신은 끝나야 한다")
     } catch let error as POSIXError {
       #expect(error.code == .ENOTCONN)
     } catch {
-      Issue.record("원본 POSIX 오류가 아님: \(error)")
+      Issue.record("ENOTCONN 이 아님: \(type(of: error))")
     }
-    #expect(events.values == [.closed(id: 42, code: URLSessionWebSocketTask.CloseCode.normalClosure.rawValue)])
   }
 
-  @Test("재연결 판단에 쓰는 URL·POSIX 오류 타입을 그대로 전달한다")
-  func retryableTransportErrorsRemainTyped() async {
-    for original in [
-      NSError(domain: NSURLErrorDomain, code: URLError.networkConnectionLost.rawValue),
-      NSError(domain: NSPOSIXErrorDomain, code: 54)
-    ] {
-      let events = RecordedWebSocketEvents()
-      let connection = makeConnection(
-        task: StubWebSocketTask(receiveResult: .failure(original)),
-        events: events
-      )
+  // MARK: - handshake 재접속
 
-      do {
-        _ = try await connection.receive()
-        Issue.record("전송 오류가 전달되어야 한다")
-      } catch {
-        #expect((error as NSError) === original)
+  @Test("handshake 거절은 재시도 횟수가 0이면 다시 연결하지 않고 원본 URL 오류를 던진다")
+  func rejectedHandshakeWithoutRetry() async throws {
+    let server = try LoopbackWebSocketServer([.reject(status: 401)])
+    defer { server.stop() }
+    let connection = try makeClient(server).connect(SocketRequest(maxRetryAttempts: 0))
+
+    do {
+      try await connection.send("never")
+      Issue.record("거절된 handshake 의 송신은 실패해야 한다")
+    } catch let error as URLError {
+      #expect(error.code == .badServerResponse)
+    } catch {
+      Issue.record("원본 URL 오류가 아님: \(type(of: error))")
+    }
+    #expect(server.handshakes.count == 1)
+    #expect(server.messages.isEmpty)
+  }
+
+  @Test("연결이 열리기 전 handshake 실패는 요청의 재시도 횟수 안에서 다시 연결한다")
+  func handshakeRetryBeforeOpen() async throws {
+    let server = try LoopbackWebSocketServer([
+      .reject(status: 503),
+      .accept([.echo, .waitForClientClose])
+    ])
+    defer { server.stop() }
+    let connection = try makeClient(server).connect(SocketRequest(maxRetryAttempts: 1))
+
+    try await connection.send("after-retry")
+    let reply = try await connection.receive()
+    connection.cancel()
+
+    #expect(reply == "after-retry")
+    #expect(server.handshakes.count == 2)
+    #expect(server.messages == ["after-retry"])
+  }
+
+  @Test("열린 뒤 끊긴 연결은 다시 열지 않고 보낸 메시지도 다시 보내지 않는다")
+  func noReconnectAfterOpen() async throws {
+    let server = try LoopbackWebSocketServer([
+      .accept([.receiveText]),
+      .accept([.receiveText])
+    ])
+    defer { server.stop() }
+    let connection = try makeClient(server).connect(SocketRequest(maxRetryAttempts: 3))
+
+    try await connection.send("once")
+    await #expect(throws: (any Error).self) {
+      _ = try await connection.receive()
+    }
+    await #expect(throws: (any Error).self) {
+      try await connection.send("again")
+    }
+    // 재시도가 있었다면 첫 지연(0.5초) 뒤 두 번째 handshake 가 들어온다.
+    try await Task.sleep(for: .milliseconds(1_500))
+
+    #expect(server.handshakes.count == 1)
+    #expect(server.messages == ["once"])
+  }
+
+  @Test(
+    "baseURL 이 없거나 http(s) 가 아니면 연결 전에 invalidURL 로 실패한다",
+    arguments: [nil, URL(string: "ftp://127.0.0.1")] as [URL?]
+  )
+  func invalidBaseURL(baseURL: URL?) {
+    let client = NetworkClient(
+      session: SessionFactory.plain(),
+      baseURL: baseURL
+    )
+
+    do {
+      _ = try client.connect(SocketRequest())
+      Issue.record("invalidURL 로 실패해야 한다")
+    } catch {
+      guard case .request(.invalidURL) = error else {
+        Issue.record("invalidURL 이 아님: \(error)")
+        return
       }
-      #expect(events.values == [.failed(id: 42, domain: original.domain, code: original.code, status: nil)])
     }
   }
 
-  @Test("로컬 취소가 먼저 오면 늦은 오류와 종료는 정상 종료 한 번만 기록한다")
-  func cancelBeforeFailure() {
+  // MARK: - 이벤트 기록
+
+  @Test("실제 연결은 열림·송신·수신을 본문 없이 기록한다")
+  func connectionRecordsEventsWithoutBodies() async throws {
+    let server = try LoopbackWebSocketServer([.accept([.echo, .waitForClientClose])])
+    defer { server.stop() }
     let events = RecordedWebSocketEvents()
-    let monitor = WebSocketMonitor(recorder: { events.record($0) })
-    let state = WebSocketConnectionState(id: 23, monitor: monitor)
+    let session = SessionFactory.plain()
+    let url = try #require(URL(string: server.baseURL.absoluteString.replacingOccurrences(
+      of: "http://",
+      with: "ws://"
+    ) + "/socket/updates"))
+    let request = session.webSocketRequest(performing: URLRequest(url: url))
+    let id = FestiCoreEventMonitor.webSocketID(of: request)
+    let connection = WebSocketConnection(
+      request: request,
+      session: session,
+      record: { events.record($0) }
+    )
 
-    state.cancel()
-    state.reportFailure(URLError(.cancelled))
-    state.reportClose(code: URLSessionWebSocketTask.CloseCode.normalClosure.rawValue)
+    try await connection.send("private-request")
+    _ = try await connection.receive()
+    connection.cancel()
 
-    #expect(events.values == [.closed(id: 23, code: URLSessionWebSocketTask.CloseCode.goingAway.rawValue)])
+    #expect(events.values == [
+      .opened(id: id),
+      .sent(id: id),
+      .received(id: id)
+    ])
+    #expect(!String(describing: events.values).contains("private-"))
   }
 
-  @Test("오류가 먼저 오면 늦은 취소와 종료가 오류를 덮지 않는다")
-  func failureBeforeCancel() {
-    let events = RecordedWebSocketEvents()
-    let monitor = WebSocketMonitor(recorder: { events.record($0) })
-    let state = WebSocketConnectionState(id: 24, monitor: monitor)
+  @Test("handshake 로그는 경로만 남기고 인증 헤더·쿼리·오류 상세를 가린다")
+  func handshakeSummaryRedactsSensitiveValues() throws {
+    var request = URLRequest(url: try #require(URL(string: "wss://private-host.test/socket/updates?token=secret")))
+    request.setValue(
+      "Bearer private-access",
+      forHTTPHeaderField: "Authorization"
+    )
+    let error = AFError.sessionTaskFailed(error: NSError(
+      domain: "private-host/path?token=secret",
+      code: 7,
+      userInfo: [NSLocalizedDescriptionKey: "private-reason"]
+    ))
 
-    state.reportFailure(URLError(.notConnectedToInternet), status: 503)
-    state.cancel()
-    state.reportClose(code: URLSessionWebSocketTask.CloseCode.goingAway.rawValue)
+    let summary = FestiCoreEventMonitor().webSocketSummary(
+      id: "abcd1234",
+      request: request,
+      response: nil,
+      duration: 0.25,
+      error: error
+    )
 
-    #expect(events.values == [.failed(id: 24, domain: NSURLErrorDomain, code: URLError.notConnectedToInternet.rawValue, status: 503)])
+    #expect(summary.contains("WS #abcd1234 /socket/updates → -1 (250ms)"))
+    #expect(summary.contains("domain=Other code=7"))
+    for secret in ["private-host", "token=secret", "private-access", "private-reason"] {
+      #expect(!summary.contains(secret))
+    }
   }
 
-  @Test("동시 종료 보고도 연결당 하나의 종료 이벤트만 남긴다")
-  func concurrentTerminalReports() async {
+  // MARK: - 연결 상태
+
+  @Test("처음 온 종료 신호 하나만 반영하고 닫힘 이벤트는 한 번 남긴다")
+  func firstTerminalSignalWins() async {
     let events = RecordedWebSocketEvents()
-    let monitor = WebSocketMonitor(recorder: { events.record($0) })
-    let state = WebSocketConnectionState(id: 25, monitor: monitor)
+    let state = makeState(events)
+
+    state.handle(.opened)
+    state.handle(.disconnected(code: 1000))
+    state.handle(.completed(.sessionTaskFailed(error: URLError(.networkConnectionLost))))
+    state.handle(.cancelled)
+
+    #expect(events.values == [
+      .opened(id: "state"),
+      .closed(
+        id: "state",
+        code: 1000
+      )
+    ])
+    do {
+      _ = try await state.nextMessage()
+      Issue.record("끝난 연결의 수신은 실패해야 한다")
+    } catch let error as POSIXError {
+      #expect(error.code == .ENOTCONN)
+    } catch {
+      Issue.record("ENOTCONN 이 아님: \(type(of: error))")
+    }
+  }
+
+  @Test("호출부 취소가 먼저 오면 늦은 전송 오류가 덮지 않는다")
+  func cancelBeforeFailure() async {
+    let events = RecordedWebSocketEvents()
+    let state = makeState(events)
+
+    state.handle(.cancelled)
+    state.handle(.completed(.sessionTaskFailed(error: URLError(.networkConnectionLost))))
+
+    #expect(events.values.isEmpty)
+    await #expect(throws: CancellationError.self) {
+      _ = try await state.nextMessage()
+    }
+  }
+
+  @Test(
+    "요청이 끝나면 AFError 를 벗겨 재접속 판단에 쓰는 원본 오류를 그대로 던진다",
+    arguments: [
+      NSError(
+        domain: NSURLErrorDomain,
+        code: URLError.networkConnectionLost.rawValue
+      ),
+      NSError(
+        domain: NSPOSIXErrorDomain,
+        code: Int(POSIXErrorCode.ECONNRESET.rawValue)
+      )
+    ]
+  )
+  func completionKeepsOriginalError(original: NSError) async {
+    let state = makeState(RecordedWebSocketEvents())
+
+    state.handle(.completed(.sessionTaskFailed(error: original)))
+
+    do {
+      try await state.waitUntilOpen()
+      Issue.record("끝난 연결은 열리지 않아야 한다")
+    } catch {
+      let thrown = error as NSError
+      #expect(thrown.domain == original.domain)
+      #expect(thrown.code == original.code)
+    }
+  }
+
+  @Test("명시적 취소로 끝나면 CancellationError, 오류 없이 끝나면 ENOTCONN 이다")
+  func completionWithoutTransportError() async {
+    let cancelled = makeState(RecordedWebSocketEvents())
+    cancelled.handle(.completed(.explicitlyCancelled))
+    await #expect(throws: CancellationError.self) {
+      _ = try await cancelled.nextMessage()
+    }
+
+    let finished = makeState(RecordedWebSocketEvents())
+    finished.handle(.completed(nil))
+    do {
+      _ = try await finished.nextMessage()
+      Issue.record("끝난 연결의 수신은 실패해야 한다")
+    } catch let error as POSIXError {
+      #expect(error.code == .ENOTCONN)
+    } catch {
+      Issue.record("ENOTCONN 이 아님: \(type(of: error))")
+    }
+  }
+
+  @Test("종료 전에 받은 텍스트와 바이너리를 도착 순서대로 돌려준 뒤 종료 오류를 던진다")
+  func bufferedMessagesBeforeEnd() async throws {
+    let events = RecordedWebSocketEvents()
+    let state = makeState(events)
+
+    state.handle(.message(.string("private-text")))
+    state.handle(.message(.data(Data([1]))))
+    state.handle(.disconnected(code: 1001))
+
+    #expect(try await state.nextMessage() == "private-text")
+    await #expect(throws: FestiCoreWebSocketError.nonTextMessage) {
+      _ = try await state.nextMessage()
+    }
+    await #expect(throws: POSIXError(.ENOTCONN)) {
+      _ = try await state.nextMessage()
+    }
+    #expect(events.values == [
+      .received(id: "state"),
+      .nonText(id: "state"),
+      .closed(
+        id: "state",
+        code: 1001
+      )
+    ])
+    #expect(!String(describing: events.values).contains("private-"))
+  }
+
+  @Test("완료 콜백이 오지 않는 송신은 종료 신호가 원본 오류로 끝낸다")
+  func endReleasesPendingSend() async {
+    let state = makeState(RecordedWebSocketEvents())
+    let started = AsyncStream<Void>.makeStream()
+    let sending = Task {
+      try await state.send { _ in
+        // Alamofire 는 끝난 요청의 송신 완료를 부르지 않는다.
+        started.continuation.yield()
+      }
+    }
+    var iterator = started.stream.makeAsyncIterator()
+    await iterator.next()
+
+    state.handle(.completed(.sessionTaskFailed(error: URLError(.networkConnectionLost))))
+
+    do {
+      try await sending.value
+      Issue.record("끝난 연결의 송신은 실패해야 한다")
+    } catch let error as URLError {
+      #expect(error.code == .networkConnectionLost)
+    } catch {
+      Issue.record("원본 URL 오류가 아님: \(type(of: error))")
+    }
+  }
+
+  @Test("동시에 들어온 종료 신호도 연결당 닫힘 이벤트를 한 번까지만 남긴다")
+  func concurrentTerminalSignals() async {
+    let events = RecordedWebSocketEvents()
+    let state = makeState(events)
 
     await withTaskGroup(of: Void.self) { group in
       for index in 0..<40 {
         group.addTask {
           if index.isMultiple(of: 2) {
-            state.reportClose(code: 1000)
+            state.handle(.disconnected(code: 1000))
           } else {
-            state.reportFailure(URLError(.networkConnectionLost))
+            state.handle(.completed(.sessionTaskFailed(error: URLError(.networkConnectionLost))))
           }
         }
       }
     }
 
-    #expect(events.values.count == 1)
+    #expect(events.values.count <= 1)
   }
+}
 
-  @Test("취소는 대기 중 수신을 해제하고 정상 종료 한 번만 기록한다")
-  func cancelReleasesPendingReceive() async {
-    let events = RecordedWebSocketEvents()
-    let task = StubWebSocketTask(receiveResult: nil)
-    let connection = makeConnection(task: task, events: events)
-    let receiving = Task { try await connection.receive() }
-    await task.waitUntilReceiving()
+// MARK: - Helpers
 
-    connection.cancel()
-    do {
-      _ = try await receiving.value
-      Issue.record("취소한 수신은 종료되어야 한다")
-    } catch let error as URLError {
-      #expect(error.code == .cancelled)
-    } catch {
-      Issue.record("예상하지 않은 취소 오류: \(error)")
-    }
-
-    #expect(task.cancelCode == .goingAway)
-    #expect(events.values == [.closed(id: 42, code: URLSessionWebSocketTask.CloseCode.goingAway.rawValue)])
-  }
-
-  @Test("오류 이벤트에는 URL·헤더·본문·close reason이 포함되지 않는다")
-  func monitorRedactsSensitiveValues() {
-    let events = RecordedWebSocketEvents()
-    let monitor = WebSocketMonitor(recorder: { events.record($0) })
-    let state = WebSocketConnectionState(id: 31, monitor: monitor)
-    let original = NSError(domain: "private-host/path?token=secret", code: 7, userInfo: [
-      NSLocalizedDescriptionKey: "Bearer private-access private-body private-reason"
-    ])
-
-    monitor.record(.attempted(id: 31))
-    state.monitorOpened()
-    state.reportFailure(original, status: 401)
-
-    #expect(events.values == [
-      .attempted(id: 31),
-      .opened(id: 31),
-      .failed(id: 31, domain: "Other", code: 7, status: 401)
-    ])
-    let output = String(describing: events.values)
-    for secret in ["private-host", "token=secret", "private-access", "private-body", "private-reason"] {
-      #expect(!output.contains(secret))
-    }
-  }
-
-  @Test("delegate 완료는 task 상태를 제거하고 늦은 오류를 중복 기록하지 않는다")
-  func delegateCompletionReleasesState() {
-    let events = RecordedWebSocketEvents()
-    let monitor = WebSocketMonitor(recorder: { events.record($0) })
-    let delegate = WebSocketSessionDelegate()
-    let session = URLSession(configuration: .ephemeral)
-    let task = session.webSocketTask(with: URL(string: "wss://private-host.test/path?token=secret")!)
-    let state = WebSocketConnectionState(id: task.taskIdentifier, monitor: monitor)
-    delegate.register(task: task, state: state)
-
-    delegate.urlSession(session, task: task, didCompleteWithError: URLError(.networkConnectionLost))
-    state.reportFailure(URLError(.cancelled))
-
-    #expect(delegate.state(for: task) == nil)
-    #expect(events.values == [
-      .failed(id: task.taskIdentifier, domain: NSURLErrorDomain, code: URLError.networkConnectionLost.rawValue, status: nil)
-    ])
-    #expect(!String(describing: events.values).contains("private-host"))
-  }
-
-  @Test("정상 close 이벤트는 reason을 기록하지 않고 완료 시 상태를 제거한다")
-  func delegateNormalClose() {
-    let events = RecordedWebSocketEvents()
-    let monitor = WebSocketMonitor(recorder: { events.record($0) })
-    let delegate = WebSocketSessionDelegate()
-    let session = URLSession(configuration: .ephemeral)
-    let task = session.webSocketTask(with: URL(string: "wss://private-host.test/")!)
-    let state = WebSocketConnectionState(id: task.taskIdentifier, monitor: monitor)
-    delegate.register(task: task, state: state)
-
-    delegate.urlSession(
-      session,
-      webSocketTask: task,
-      didCloseWith: .normalClosure,
-      reason: Data("private-close-reason".utf8)
+private extension WebSocketTransportTests {
+  func makeClient(_ server: LoopbackWebSocketServer) -> NetworkClient {
+    return NetworkClient(
+      session: SessionFactory.plain(),
+      baseURL: server.baseURL
     )
-    delegate.urlSession(session, task: task, didCompleteWithError: nil)
-
-    #expect(delegate.state(for: task) == nil)
-    #expect(events.values == [.closed(id: task.taskIdentifier, code: URLSessionWebSocketTask.CloseCode.normalClosure.rawValue)])
-    #expect(!String(describing: events.values).contains("private-close-reason"))
   }
 
-  @Test("비정상 close는 오류로 한 번만 기록한다")
-  func abnormalClose() {
-    let events = RecordedWebSocketEvents()
-    let monitor = WebSocketMonitor(recorder: { events.record($0) })
-    let state = WebSocketConnectionState(id: 32, monitor: monitor)
-
-    state.reportClose(code: 1008)
-    state.reportFailure(URLError(.networkConnectionLost))
-
-    #expect(events.values == [.failed(id: 32, domain: "WebSocketClose", code: 1008, status: nil)])
-  }
-
-  private func makeConnection(task: StubWebSocketTask, events: RecordedWebSocketEvents) -> URLSessionWebSocketConnection {
-    let monitor = WebSocketMonitor(recorder: { events.record($0) })
-    return URLSessionWebSocketConnection(
-      task: task,
-      state: WebSocketConnectionState(id: 42, monitor: monitor),
-      monitor: monitor
+  func makeState(_ events: RecordedWebSocketEvents) -> WebSocketConnectionState {
+    return WebSocketConnectionState(
+      id: "state",
+      record: { events.record($0) }
     )
+  }
+
+  /// 서버 스레드가 기록할 때까지 최대 5초 기다리고, 조건이 맞았는지 돌려준다.
+  @discardableResult
+  func waitUntil(_ condition: @Sendable () -> Bool) async throws -> Bool {
+    for _ in 0..<50 where !condition() {
+      try await Task.sleep(for: .milliseconds(100))
+    }
+    return condition()
+  }
+}
+
+/// 테스트용 WebSocket 요청. 인증 없이 재시도 횟수만 바꾼다.
+private struct SocketRequest: FestiCoreWebSocketRequest {
+  var maxRetryAttempts = 0
+
+  var path: String {
+    return "socket/updates"
+  }
+
+  var headers: HTTPHeaders {
+    return ["X-Socket-Test": "on"]
+  }
+
+  var authorization: FestiCoreAuthorization {
+    return .none
   }
 }
 
 private final class RecordedWebSocketEvents: @unchecked Sendable {
   private let lock = NSLock()
-  private var recorded: [WebSocketMonitor.Event] = []
+  private var recorded: [FestiCoreEventMonitor.WebSocketEvent] = []
 
-  func record(_ event: WebSocketMonitor.Event) {
+  var values: [FestiCoreEventMonitor.WebSocketEvent] {
+    return lock.withLock { recorded }
+  }
+
+  func record(_ event: FestiCoreEventMonitor.WebSocketEvent) {
     lock.withLock { recorded.append(event) }
-  }
-
-  var values: [WebSocketMonitor.Event] {
-    lock.withLock { recorded }
-  }
-}
-
-private final class WebSocketMarkerError: Error, @unchecked Sendable {}
-
-/// 한 번의 HTTP handshake에 고정 응답을 보내는 로컬 서버. 외부 네트워크에 의존하지 않는다.
-private final class LoopbackHandshakeServer: @unchecked Sendable {
-  let url: URL
-  private let listener: Int32
-  private let statusCode: Int
-  private let lock = NSLock()
-  private var capturedHeaders: String?
-
-  var requestHeaders: String? { lock.withLock { capturedHeaders } }
-
-  init(statusCode: Int) throws {
-    let listener = Darwin.socket(AF_INET, SOCK_STREAM, 0)
-    guard listener >= 0 else { throw POSIXError(.EIO) }
-
-    var address = sockaddr_in()
-    address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
-    address.sin_family = sa_family_t(AF_INET)
-    address.sin_port = 0
-    address.sin_addr = in_addr(s_addr: in_addr_t(0x7f000001).bigEndian)
-    let bound = withUnsafePointer(to: &address) { pointer in
-      pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-        Darwin.bind(listener, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
-      }
-    }
-    guard bound == 0, Darwin.listen(listener, 1) == 0 else {
-      Darwin.close(listener)
-      throw POSIXError(.EADDRINUSE)
-    }
-
-    var localAddress = sockaddr_in()
-    var localLength = socklen_t(MemoryLayout<sockaddr_in>.size)
-    let named = withUnsafeMutablePointer(to: &localAddress) { pointer in
-      pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-        Darwin.getsockname(listener, $0, &localLength)
-      }
-    }
-    guard named == 0 else {
-      Darwin.close(listener)
-      throw POSIXError(.EIO)
-    }
-
-    self.listener = listener
-    self.statusCode = statusCode
-    self.url = URL(string: "ws://127.0.0.1:\(UInt16(bigEndian: localAddress.sin_port))/private-path?token=secret")!
-    DispatchQueue.global().async { [self] in serveOneHandshake() }
-  }
-
-  deinit {
-    Darwin.shutdown(listener, SHUT_RDWR)
-    Darwin.close(listener)
-  }
-
-  private func serveOneHandshake() {
-    var descriptor = pollfd(fd: listener, events: Int16(POLLIN), revents: 0)
-    guard Darwin.poll(&descriptor, 1, 5_000) > 0 else { return }
-    let client = Darwin.accept(listener, nil, nil)
-    guard client >= 0 else { return }
-    defer { Darwin.close(client) }
-
-    var bytes = [UInt8](repeating: 0, count: 2_048)
-    var request = Data()
-    while request.count < 16_384 {
-      let count = Darwin.read(client, &bytes, bytes.count)
-      guard count > 0 else { return }
-      request.append(bytes, count: count)
-      if request.range(of: Data("\r\n\r\n".utf8)) != nil { break }
-    }
-    lock.withLock { capturedHeaders = String(data: request, encoding: .utf8) }
-
-    let reason = statusCode == 401 ? "Unauthorized" : "OK"
-    let response = Data("HTTP/1.1 \(statusCode) \(reason)\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".utf8)
-    response.withUnsafeBytes { buffer in
-      guard let base = buffer.baseAddress else { return }
-      var sent = 0
-      while sent < buffer.count {
-        let count = Darwin.write(client, base.advanced(by: sent), buffer.count - sent)
-        guard count > 0 else { return }
-        sent += count
-      }
-    }
-  }
-}
-
-private final class StubWebSocketTask: WebSocketTask, @unchecked Sendable {
-  private let lock = NSLock()
-  private let sendError: Error?
-  private let receiveResult: Result<URLSessionWebSocketTask.Message, Error>?
-  private var pendingReceive: CheckedContinuation<URLSessionWebSocketTask.Message, Error>?
-  private var receiveStarted: CheckedContinuation<Void, Never>?
-  private var receiving = false
-  private var resumed = false
-  private var message: URLSessionWebSocketTask.Message?
-  private var storedCloseCode: URLSessionWebSocketTask.CloseCode
-
-  init(
-    receiveResult: Result<URLSessionWebSocketTask.Message, Error>? = .success(.string("")),
-    sendError: Error? = nil,
-    closeCode: URLSessionWebSocketTask.CloseCode = .invalid
-  ) {
-    self.receiveResult = receiveResult
-    self.sendError = sendError
-    self.storedCloseCode = closeCode
-  }
-
-  func resume() {
-    lock.withLock { resumed = true }
-  }
-
-  func send(_ message: URLSessionWebSocketTask.Message) async throws {
-    lock.withLock { self.message = message }
-    if let sendError { throw sendError }
-  }
-
-  func receive() async throws -> URLSessionWebSocketTask.Message {
-    if let receiveResult { return try receiveResult.get() }
-    return try await withCheckedThrowingContinuation { continuation in
-      let started = lock.withLock { () -> CheckedContinuation<Void, Never>? in
-        pendingReceive = continuation
-        receiving = true
-        let started = receiveStarted
-        receiveStarted = nil
-        return started
-      }
-      started?.resume()
-    }
-  }
-
-  func cancel(with closeCode: URLSessionWebSocketTask.CloseCode, reason _: Data?) {
-    let pending = lock.withLock { () -> CheckedContinuation<URLSessionWebSocketTask.Message, Error>? in
-      self.storedCloseCode = closeCode
-      let pending = pendingReceive
-      pendingReceive = nil
-      return pending
-    }
-    pending?.resume(throwing: URLError(.cancelled))
-  }
-
-  func waitUntilReceiving() async {
-    await withCheckedContinuation { continuation in
-      let ready = lock.withLock { () -> Bool in
-        if receiving { return true }
-        receiveStarted = continuation
-        return false
-      }
-      if ready { continuation.resume() }
-    }
-  }
-
-  var didResume: Bool { lock.withLock { resumed } }
-
-  var sentText: String? {
-    lock.withLock {
-      if case .string(let text) = message { return text }
-      return nil
-    }
-  }
-
-  var closeCode: URLSessionWebSocketTask.CloseCode { lock.withLock { storedCloseCode } }
-  var cancelCode: URLSessionWebSocketTask.CloseCode? {
-    let code = closeCode
-    return code == .invalid ? nil : code
   }
 }
