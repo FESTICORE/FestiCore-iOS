@@ -21,15 +21,22 @@ struct BearerZoneButton: View {
           .resizable()
           .frame(width: 14, height: 14)
           .accessibilityHidden(true)
+        // Figma S10 존 버튼: 높이 44, 13pt(긴 존 이름도 한 줄에 다 보인다)
         Text(name)
-          .festiCoreFont(.baseSubheadlineMedium)
+          .festiCoreFont(.baseFootnoteMedium)
           .lineLimit(1)
           .minimumScaleFactor(0.85)
         Spacer(minLength: 0)
       }
       .foregroundStyle(foreground)
-      .padding(.horizontal, FestiCoreSpacing.paddingP16)
-      .frame(maxWidth: .infinity, minHeight: 56)
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP12
+      )
+      .frame(
+        maxWidth: .infinity,
+        minHeight: 44
+      )
       .background(background, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
       .overlay {
         if !isSelected {

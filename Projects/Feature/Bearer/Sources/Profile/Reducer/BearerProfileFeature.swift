@@ -36,6 +36,8 @@ public struct BearerProfileFeature {
     public var tags: [BearerFlagTag] = []
     public var homeZoneID: String?
     public var planVisible = true
+    /// 오늘 계획으로 고른 공연 ID(내 일정에서 고른 셋)
+    public var plan: [String] = []
     public var bearerCount = 1
 
     public var photoURL: URL?
@@ -89,6 +91,7 @@ public struct BearerProfileFeature {
     case tagTapped(BearerFlagTag)
     case zoneTapped(String)
     case planVisibleChanged(Bool)
+    case planTapped
     case photoPicked(Data)
     case photoCancelTapped
     case inviteTapped
@@ -195,6 +198,7 @@ extension BearerProfileFeature.State {
     tags = isPlaceholder ? [] : profile.tags
     homeZoneID = profile.homeZoneID
     planVisible = profile.planVisible
+    plan = profile.plan
     photoURL = profile.thumbnailURL ?? profile.photoURL
   }
 }
@@ -258,6 +262,9 @@ extension BearerProfileFeature {
 
     case .doneTapped:
       return .send(.delegate(.finished(flagID: state.flagID)))
+
+    case .planTapped:
+      return .send(.delegate(.planRequested(festivalID: state.festivalID)))
 
     case .backTapped:
       return .merge(
@@ -428,7 +435,7 @@ extension BearerProfileFeature {
     action: DelegateAction
   ) -> Effect<Action> {
     switch action {
-    case .finished, .closeRequested:
+    case .finished, .closeRequested, .planRequested:
       return .none
     }
   }

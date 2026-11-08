@@ -55,7 +55,10 @@ extension BearerProfileView {
         loadingContent
       } else {
         ScrollView {
-          VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
+          VStack(
+            alignment: .leading,
+            spacing: Metric.sectionSpacing
+          ) {
             header
             photoSection
             FCTextField(text: Binding(get: { store.name }, set: { send(.nameChanged($0)) }), placeholder: "예) 호락호락")
@@ -84,8 +87,10 @@ extension BearerProfileView {
           send(.saveTapped)
         }
         .padding(.horizontal, FestiCoreSpacing.paddingP16)
-        .padding(.top, FestiCoreSpacing.paddingP12)
-        .padding(.bottom, FestiCoreSpacing.paddingP8)
+        .padding(
+          .vertical,
+          FestiCoreSpacing.paddingP12
+        )
       }
     }
   }
@@ -118,9 +123,11 @@ extension BearerProfileView {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM8) {
       Text(headerTitle)
         .festiCoreFont(.baseTitle2Bold)
+        .festiCoreLineBox(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       Text("팔로워에게 보일 깃발 프로필이에요.\n언제든 고칠 수 있어요.")
-        .festiCoreFont(.baseSubheadlineRegular)
+        .festiCoreFont(.baseCalloutRegular)
+        .festiCoreLineBox(.baseCalloutRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
   }
@@ -144,7 +151,10 @@ extension BearerProfileView {
   }
 
   private var tagSection: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM8) {
+    VStack(
+      alignment: .leading,
+      spacing: Metric.groupSpacing
+    ) {
       sectionLabel("성향 태그", count: "\(store.tags.count) / \(BearerProfileFeature.tagLimit)")
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: FestiCoreSpacing.marginM6) {
@@ -159,9 +169,21 @@ extension BearerProfileView {
   }
 
   private var zoneSection: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM8) {
+    VStack(
+      alignment: .leading,
+      spacing: Metric.groupSpacing
+    ) {
       sectionLabel("주로 있는 존", count: nil)
-      LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: FestiCoreSpacing.marginM8) {
+      LazyVGrid(
+        columns: [
+          GridItem(
+            .flexible(),
+            spacing: FestiCoreSpacing.marginM8
+          ),
+          GridItem(.flexible()),
+        ],
+        spacing: Metric.groupSpacing
+      ) {
         ForEach(store.zones) { zone in
           BearerZoneButton(name: zone.name, isSelected: store.homeZoneID == zone.id) {
             send(.zoneTapped(zone.id))
@@ -173,20 +195,27 @@ extension BearerProfileView {
   }
 
   private var settingSection: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM8) {
+    VStack(
+      alignment: .leading,
+      spacing: Metric.groupSpacing
+    ) {
       sectionLabel("오늘 계획 · 함께하는 기수", count: nil)
       VStack(spacing: .zero) {
+        FCListRow("오늘 계획") { send(.planTapped) }
+          .value(store.plan.isEmpty ? "고르기" : "\(store.plan.count)개 선택")
         FCListRow("팔로워에게 오늘 계획 보여주기", isOn: Binding(
           get: { store.planVisible },
           set: { send(.planVisibleChanged($0)) }
         ))
+        // Figma S10은 나를 뺀 공동 기수 수를 보인다(서버 한도는 나를 포함해 3명).
         FCListRow("공동 기수 초대") { send(.inviteTapped) }
-          .value("\(store.bearerCount) / 3명")
+          .value("\(max(0, store.bearerCount - 1)) / 3명")
       }
       .overlay {
         RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
           .strokeBorder(FestiCoreSemanticColor.lineNormal.color, lineWidth: 1)
       }
+      helper("오늘 계획은 내 일정에서 고른 셋이 그대로 보여요.")
     }
   }
 
@@ -265,6 +294,7 @@ extension BearerProfileView {
     HStack {
       Text(title)
         .festiCoreFont(.baseFootnoteBold)
+        .festiCoreLineBox(.baseFootnoteBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       Spacer()
       if let count {
@@ -276,9 +306,11 @@ extension BearerProfileView {
     }
   }
 
+  /// Figma 안내 줄: 13pt, 줄 상자 18
   private func helper(_ text: String) -> some View {
     Text(text)
-      .festiCoreFont(.baseCaption1Regular)
+      .festiCoreFont(.baseFootnoteRegular)
+      .festiCoreLineBox(.baseFootnoteRegular)
       .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
   }
 
@@ -311,6 +343,13 @@ extension BearerProfileView {
   private func image(from data: Data?) -> Image? {
     guard let data, let image = UIImage(data: data) else { return nil }
     return Image(uiImage: image)
+  }
+
+  private enum Metric {
+    /// Figma S10 Contents 섹션 사이
+    static let sectionSpacing: CGFloat = 28
+    /// 라벨·내용·안내 사이(성향 태그·주로 있는 존·오늘 계획)
+    static let groupSpacing: CGFloat = 12
   }
 }
 

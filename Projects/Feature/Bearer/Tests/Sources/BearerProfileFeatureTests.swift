@@ -27,6 +27,32 @@ struct BearerProfileFeatureTests {
     #expect(!state.canSave)
   }
 
+  @Test("오늘 계획은 프로필의 고른 공연을 들고 누르면 부모에게 내 일정을 요청한다")
+  func planOpensMySchedule() async {
+    let profile = BearerFlagProfile(
+      id: "flg_1",
+      name: "호락호락",
+      plan: [
+        "set_1",
+        "set_2"
+      ]
+    )
+    let store = TestStore(initialState: BearerProfileFeature.State(
+      festivalID: "fst_1",
+      flagID: "flg_1",
+      profile: profile
+    )) {
+      BearerProfileFeature()
+    }
+    #expect(store.state.plan == [
+      "set_1",
+      "set_2"
+    ])
+
+    await store.send(.view(.planTapped))
+    await store.receive(.delegate(.planRequested(festivalID: "fst_1")))
+  }
+
   @Test("팩의 존·축제 이름과 기수 수를 채운다")
   func loads() async {
     let festival = BearerFestival(id: "fst_1", name: "원더리벳 2026", zones: [BearerZone(id: "zone_a", name: "리벳 스테이지 앞 왼쪽")])
