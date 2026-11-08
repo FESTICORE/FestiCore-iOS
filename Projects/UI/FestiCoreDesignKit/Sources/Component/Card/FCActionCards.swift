@@ -229,7 +229,10 @@ public struct FCDoneCard: View {
   }
 
   public var body: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
+    VStack(
+      alignment: .leading,
+      spacing: Metric.headerToStats
+    ) {
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
         Text(title)
           .festiCoreFont(.pointHeading)
@@ -240,7 +243,10 @@ public struct FCDoneCard: View {
       }
       HStack(spacing: FestiCoreSpacing.paddingP8) {
         ForEach(stats, id: \.self) { stat in
-          VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
+          VStack(
+            alignment: .leading,
+            spacing: Metric.statValueToLabel
+          ) {
             Text(stat.value)
               .festiCoreFont(.baseTitle2Bold)
               .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
@@ -256,8 +262,29 @@ public struct FCDoneCard: View {
         }
       }
     }
-    .padding(FestiCoreSpacing.paddingP20)
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP20
+    )
+    .padding(
+      .top,
+      Metric.topInset
+    )
+    .padding(
+      .bottom,
+      Metric.bottomInset
+    )
     .background(FestiCoreSemanticColor.backgroundElevated.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
+  }
+}
+
+private extension FCDoneCard {
+  /// Figma S01 F(종료 후) 실측. pointHeading 글꼴 기본 줄 높이가 커서 위 여백을 줄이고 나머지 간격을 맞춘다.
+  enum Metric {
+    static let topInset: CGFloat = 17
+    static let headerToStats: CGFloat = 18
+    static let statValueToLabel: CGFloat = 6
+    static let bottomInset: CGFloat = 22
   }
 }
 
