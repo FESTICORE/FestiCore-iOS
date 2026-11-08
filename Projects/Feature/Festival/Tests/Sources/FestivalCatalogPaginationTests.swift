@@ -4,6 +4,18 @@ import Testing
 @testable import Festival
 
 struct FestivalCatalogPaginationTests {
+  /// 받아 둔 목록이 있어도 첫 서버 갱신이 끝나기 전에는 S00 목록 스켈레톤을 보인다.
+  @Test @MainActor func listSkeletonShowsUntilFirstCatalogRefresh() {
+    var state = FestivalFeature.State()
+    #expect(state.showsListSkeleton)
+
+    _ = FestivalFeature().reduce(
+      into: &state,
+      action: .inner(.catalogFailed)
+    )
+    #expect(!state.showsListSkeleton)
+  }
+
   @Test @MainActor func explicitSelectionSurvivesEmptyDiskCacheAndFirstPageRefresh() {
     let firstPage = (1...10).map { FestivalCatalogItem(
       id: "fst_\($0)",
@@ -120,6 +132,7 @@ struct FestivalCatalogPaginationTests {
     ),
       after: nil
     ))) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.viewState = .loaded
       $0.catalog = [first]
       $0.catalogNextCursor = "cursor-a"
@@ -127,6 +140,7 @@ struct FestivalCatalogPaginationTests {
       $0.connection = .unavailable
     }
     await store.receive(\.inner.catalogRefreshed) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.catalog = [first, booked]
       $0.catalogNextCursor = nil
     }
@@ -157,6 +171,7 @@ struct FestivalCatalogPaginationTests {
     ),
       after: nil
     ))) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.viewState = .loaded
       $0.catalog = [first]
       $0.catalogNextCursor = "cursor-a"
@@ -169,6 +184,7 @@ struct FestivalCatalogPaginationTests {
     ),
       after: "cursor-a"
     ))) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.catalog = [first, saved]
       $0.catalogNextCursor = nil
       $0.connection = .unavailable
@@ -204,6 +220,7 @@ struct FestivalCatalogPaginationTests {
     ),
       after: nil
     ))) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.viewState = .loaded
       $0.catalog = [first]
       $0.catalogNextCursor = "cursor-a"
@@ -217,6 +234,7 @@ struct FestivalCatalogPaginationTests {
     ),
       after: "cursor-a"
     ))) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.catalog = [first, second]
       $0.catalogNextCursor = nil
     }
