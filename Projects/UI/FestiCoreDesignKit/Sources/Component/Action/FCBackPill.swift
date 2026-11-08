@@ -29,6 +29,8 @@ public struct FCBackPill: View {
           .accessibilityHidden(true)
         Text(label)
           .festiCoreFont(.baseFootnoteMedium)
+          // Figma Back Pill(34pt)은 줄 높이 박스(18pt) 기준이다.
+          .festiCoreLineBox(.baseFootnoteMedium)
           .lineLimit(1)
       }
       .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)

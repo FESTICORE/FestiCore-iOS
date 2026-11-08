@@ -25,6 +25,8 @@ public struct FCBearerFooter: View {
         .accessibilityHidden(true)
       Text(message ?? (isQueued ? "보내기 대기 \(queuedCount)건 · 연결되면 자동으로 보내요" : "오프라인이어도 눌러져요 · 연결되면 자동으로 보내요"))
         .festiCoreFont(.baseFootnoteRegular)
+        // Figma Bearer Footer(42pt)는 줄 높이 박스(18pt) 기준이다.
+        .festiCoreLineBox(.baseFootnoteRegular)
     }
     .foregroundStyle(isQueued ? FestiCoreSemanticColor.labelNormal.color : FestiCoreSemanticColor.labelAssistive.color)
     .padding(.vertical, FestiCoreSpacing.paddingP12)

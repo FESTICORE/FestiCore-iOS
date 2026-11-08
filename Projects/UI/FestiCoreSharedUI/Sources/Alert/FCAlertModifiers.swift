@@ -51,6 +51,7 @@ struct FCAlertStoreModifier: ViewModifier {
               onCancel: { alertStore.send(.cancelTapped) }
             ),
             textAlignment: textAlignment,
+            confirmStyle: state.style.confirmStyle,
             onDimTap: dismissesOnDimTap ? { store = nil } : nil,
             onDismiss: {}
           )

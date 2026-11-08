@@ -16,6 +16,7 @@ public struct FCDialogOverlay: View {
   @State private var isHandled = false
   private let item: FCDialogItem
   private let textAlignment: TextAlignment
+  private let confirmStyle: FCButton.Style
   private let dismissesOnDimTap: Bool
   private let onDimTap: (() -> Void)?
   private let onDismiss: () -> Void
@@ -26,12 +27,14 @@ public struct FCDialogOverlay: View {
   public init(
     item: FCDialogItem,
     textAlignment: TextAlignment = .leading,
+    confirmStyle: FCButton.Style = .primary,
     dismissesOnDimTap: Bool = false,
     onDimTap: (() -> Void)? = nil,
     onDismiss: @escaping () -> Void
   ) {
     self.item = item
     self.textAlignment = textAlignment
+    self.confirmStyle = confirmStyle
     self.dismissesOnDimTap = dismissesOnDimTap
     self.onDimTap = onDimTap
     self.onDismiss = onDismiss
@@ -57,6 +60,7 @@ public struct FCDialogOverlay: View {
         onDismiss: onDismiss
       )
       .textAlignment(textAlignment)
+      .confirmStyle(confirmStyle)
       .offset(y: isContentVisible ? 0 : Metric.appearOffset)
       .opacity(isContentVisible ? 1 : 0)
     }

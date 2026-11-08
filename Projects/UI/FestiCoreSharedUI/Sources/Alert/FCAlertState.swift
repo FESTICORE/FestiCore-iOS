@@ -46,6 +46,15 @@ public struct FCAlertState<Action>: Equatable {
 /// 다이얼로그 모양. 지금은 DesignKit `FCDialog`의 확인·취소 두 버튼 모양 하나뿐이다.
 public enum FCAlertStyle: Equatable {
   case confirmation
+  /// 확인 버튼을 반전색(다크에서 흰색)으로 그린다. Figma S09 F 종료 확인.
+  case inverseConfirmation
+
+  var confirmStyle: FCButton.Style {
+    switch self {
+    case .confirmation: return .primary
+    case .inverseConfirmation: return .inverse
+    }
+  }
 }
 
 @CasePathable
@@ -68,14 +77,15 @@ public extension FCAlertState where Action == FCAlertAction {
     title: String,
     message: String = "",
     confirmTitle: String = "확인",
-    cancelTitle: String = "취소"
+    cancelTitle: String = "취소",
+    style: FCAlertStyle = .confirmation
   ) -> FCAlertState<FCAlertAction> {
-    FCAlertState(
+    return FCAlertState(
       title: title,
       message: message,
       confirmTitle: confirmTitle,
       cancelTitle: cancelTitle,
-      style: .confirmation
+      style: style
     )
   }
 

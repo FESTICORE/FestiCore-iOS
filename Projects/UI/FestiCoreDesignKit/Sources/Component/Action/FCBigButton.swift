@@ -35,9 +35,13 @@ public struct FCBigButton: View {
           .frame(width: Metric.iconSize, height: Metric.iconSize)
         Text(label)
           .festiCoreFont(.baseTitle1Bold)
+          .festiCoreLineBox(.baseTitle1Bold)
           .frame(maxWidth: .infinity)
         Text(sub)
           .festiCoreFont(.baseFootnoteMedium)
+          .festiCoreLineBox(.baseFootnoteMedium)
+          // Figma S09: 선택 전 보조 문구는 labelNeutral(#C9C9CF)이다.
+          .foregroundStyle(isSelected ? FestiCoreSemanticColor.inverseLabel.color : FestiCoreSemanticColor.labelNeutral.color)
           .frame(maxWidth: .infinity)
       }
       .multilineTextAlignment(.center)
@@ -50,7 +54,11 @@ public struct FCBigButton: View {
       )
       .overlay {
         if !isSelected {
-          shape.stroke(FestiCoreSemanticColor.labelStrong.color, lineWidth: Metric.borderWidth)
+          // Figma S09 Big Button 테두리는 lineNormal(#2A2A30)이다.
+          shape.stroke(
+            FestiCoreSemanticColor.lineNormal.color,
+            lineWidth: Metric.borderWidth
+          )
         }
       }
       .contentShape(shape)
