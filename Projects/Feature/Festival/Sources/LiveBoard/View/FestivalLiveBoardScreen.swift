@@ -287,6 +287,8 @@ private extension FestivalLiveBoardScreen {
             ))
         }
         .festiCoreFont(.baseTitle2Bold)
+        // Figma S01 헤더는 줄 높이 박스 기준으로 배치된다.
+        .festiCoreLineBox(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       }
       .buttonStyle(.plain)
@@ -298,6 +300,7 @@ private extension FestivalLiveBoardScreen {
       ) {
         Text(dayLine)
           .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
       }
     }
@@ -342,10 +345,6 @@ private extension FestivalLiveBoardScreen {
         progress: card.progress
       )
       .label(card.label)
-      .padding(
-        .top,
-        FestiCoreSpacing.paddingP4
-      )
     } else if model.pack == nil, store.onlineDetailFailed {
       VStack(
         alignment: .leading,
