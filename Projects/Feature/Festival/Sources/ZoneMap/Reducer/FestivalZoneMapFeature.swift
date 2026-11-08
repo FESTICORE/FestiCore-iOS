@@ -234,11 +234,11 @@ extension FestivalZoneMapFeature {
             let snapshot = try await liveBoardUseCase.liveBoard(for: festivalID)
             await send(.inner(.liveLoaded(snapshot)))
           } catch FestivalLiveBoardError.rateLimited(let retryAfter) {
+            // 조회 제한은 장애가 아니다. 보이던 지도를 그대로 두고 허용 시각 뒤에 다시 불러온다.
             interval = max(
               interval,
               retryAfter
             )
-            await send(.inner(.liveFailed))
           } catch {
             await send(.inner(.liveFailed))
           }

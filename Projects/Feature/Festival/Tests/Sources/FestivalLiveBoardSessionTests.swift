@@ -153,6 +153,48 @@ struct FestivalLiveBoardSessionTests {
     }
   }
 
+  @Test("조회 제한(429)이면 오프라인으로 바꾸지 않고 보이던 보드를 둔 채 허용 시각 뒤에 다시 불러온다")
+  func rateLimitKeepsPreviousBoardAndRetries() async {
+    let clock = TestClock()
+    let calls = LockIsolated(0)
+    let receivedAt = Date(timeIntervalSince1970: 2_000)
+    let store = TestStore(initialState: {
+      var state = FestivalFeature.State(selectedFestivalID: "fst")
+      state.liveBoard = previousAccountBoard
+      state.liveBoardReceivedAt = Date(timeIntervalSince1970: 1_000)
+      return state
+    }()) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.continuousClock = clock
+      $0.date = .constant(receivedAt)
+      $0.festivalLiveBoardService = SessionLiveBoardService { _ in
+        let attempt = calls.withValue { count in
+          count += 1
+          return count
+        }
+        if attempt == 1 { throw FestivalLiveBoardError.rateLimited(retryAfter: 50) }
+        return emptyBoard
+      }
+    }
+
+    await store.send(.view(.liveBoardOnAppear)) { $0.isLiveBoardVisible = true }
+    await store.receive(\.async.startLiveBoard)
+    await clock.advance(by: .seconds(1))
+    #expect(!store.state.liveBoardUnavailable)
+    #expect(store.state.liveBoard == previousAccountBoard)
+    await clock.advance(by: .seconds(49))
+    await store.receive(\.inner.liveBoardLoaded) {
+      $0.liveBoard = emptyBoard
+      $0.liveBoardClockAnchorAt = receivedAt
+      $0.liveBoardReceivedAt = receivedAt
+    }
+    #expect(calls.value == 2)
+    #expect(!store.state.liveBoardUnavailable)
+    await store.send(.view(.liveBoardOnDisappear)) {
+      $0.isLiveBoardVisible = false
+    }
+  }
+
   @Test("사용자 ID를 확인하지 못한 세션도 라이브 보드가 보이면 내 일정을 불러온다")
   func sessionWithoutUserIDLoadsMySchedule() async {
     let clock = TestClock()
