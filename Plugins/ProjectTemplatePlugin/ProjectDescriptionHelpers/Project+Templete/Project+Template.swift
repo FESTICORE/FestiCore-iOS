@@ -199,6 +199,11 @@ public extension Project {
   ) -> Project {
     return Project(
       name: name,
+      // 위젯·알림 확장도 앱과 같이 한국어로 날짜·상대 시간을 표기한다.
+      options: .options(
+        defaultKnownRegions: ["en", "ko"],
+        developmentRegion: "ko"
+      ),
       settings: .moduleSettings,
       targets: [
         .target(
