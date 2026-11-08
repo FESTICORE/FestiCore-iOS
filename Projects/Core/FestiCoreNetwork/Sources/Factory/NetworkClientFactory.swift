@@ -11,10 +11,11 @@ import FestiCoreNetworkInterface
 
 /// `FestiCoreNetworkClient` 조립 진입점. 호출부는 이 팩토리만 알면 된다.
 public enum NetworkClientFactory {
-  public static func webSocket() -> any FestiCoreWebSocketClient {
-    return URLSessionWebSocketClient(
-      configuration: SessionFactory.webSocketConfiguration,
-      monitor: WebSocketMonitor()
+  /// 인증 없는 WebSocket 클라이언트. HTTP 와 같은 세션·EventMonitor·요청별 재시도 정책으로 연결한다.
+  public static func webSocket(baseURL: URL? = NetworkClientFactory.bundleBaseURL) -> any FestiCoreWebSocketClient {
+    return NetworkClient(
+      session: SessionFactory.plain(),
+      baseURL: baseURL
     )
   }
 

@@ -9,7 +9,7 @@ import Foundation
 
 import FestiCoreNetworkInterface
 
-import Alamofire
+@_spi(WebSocket) import Alamofire
 
 /// Alamofire 기반 `FestiCoreNetworkClient` 구현.
 ///
@@ -155,6 +155,51 @@ extension NetworkClient: FestiCoreFileUploadClient {
     if case let .failure(afError) = response.result {
       throw Self.mapFailure(afError, data: response.data, status: response.response?.statusCode ?? -1)
     }
+  }
+}
+
+// MARK: - FestiCoreWebSocketClient (WebSocket 연결)
+
+extension NetworkClient: FestiCoreWebSocketClient {
+  func connect<R: FestiCoreWebSocketRequest>(_ request: R) throws(FestiCoreNetworkError) -> any FestiCoreWebSocketConnection {
+    let urlRequest = try makeWebSocketURLRequest(request)
+    // 인증·재시도는 HTTP 와 같은 요청별 인터셉터를 쓰고, 재시도는 handshake 재접속에만 쓴다.
+    let webSocketRequest = session.webSocketRequest(
+      performing: urlRequest,
+      interceptor: WebSocketHandshakeInterceptor(base: interceptor(for: request))
+    )
+    return WebSocketConnection(
+      request: webSocketRequest,
+      session: session
+    )
+  }
+
+  /// baseURL 의 https 를 wss 로(테스트 서버의 http 는 ws 로) 바꾼 handshake 요청을 만든다.
+  private func makeWebSocketURLRequest(_ request: some FestiCoreWebSocketRequest) throws(FestiCoreNetworkError) -> URLRequest {
+    let url = try resolvedBaseURL().appendingPathComponent(request.path)
+    guard var components = URLComponents(
+      url: url,
+      resolvingAgainstBaseURL: false
+    ) else {
+      throw .request(.invalidURL)
+    }
+    switch components.scheme {
+    case "https":
+      components.scheme = "wss"
+    case "http":
+      components.scheme = "ws"
+    default:
+      throw .request(.invalidURL)
+    }
+    guard let webSocketURL = components.url else { throw .request(.invalidURL) }
+
+    var urlRequest = URLRequest(url: webSocketURL)
+    urlRequest.method = request.method
+    urlRequest.headers = request.headers
+    if let timeout = request.timeoutInterval {
+      urlRequest.timeoutInterval = timeout
+    }
+    return urlRequest
   }
 }
 

@@ -31,4 +31,11 @@ enum NetworkLogRedactor {
     }
     return path.hasPrefix("/api/v1/flags/") && path.hasSuffix("/co-bearers/invite")
   }
+
+  /// 오류는 도메인·코드만 남긴다. URL·POSIX 밖의 도메인 이름에는 주소나 사용자 값이 섞일 수 있어 가린다.
+  static func errorSummary(_ error: any Error) -> String {
+    let nsError = error as NSError
+    let domain = [NSURLErrorDomain, NSPOSIXErrorDomain].contains(nsError.domain) ? nsError.domain : "Other"
+    return "domain=\(domain) code=\(nsError.code)"
+  }
 }

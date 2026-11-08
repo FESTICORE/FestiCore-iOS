@@ -574,7 +574,7 @@ private struct FileUploadRequest: FestiCoreFileUploadRequest {
   let timeoutInterval: TimeInterval?
 }
 
-private struct ClientTokenRefresher: TokenRefreshing {
+struct ClientTokenRefresher: TokenRefreshing {
   let credential: FestiCoreCredential
 
   func refresh(_: FestiCoreCredential, sessionID _: UUID) async throws(FestiCoreNetworkError) -> FestiCoreCredential {
@@ -582,7 +582,7 @@ private struct ClientTokenRefresher: TokenRefreshing {
   }
 }
 
-private final class ClientCredentialStore: CredentialStore, @unchecked Sendable {
+final class ClientCredentialStore: CredentialStore, @unchecked Sendable {
   private let lock = NSLock()
   private var credential: FestiCoreCredential?
   private var currentRevision = UUID()
