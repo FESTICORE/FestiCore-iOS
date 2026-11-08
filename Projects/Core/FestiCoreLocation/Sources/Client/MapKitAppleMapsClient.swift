@@ -39,21 +39,21 @@ enum MapKitRouting {
   static let searchRadius: CLLocationDistance = 5_000
 
   /// 서버 좌표가 있으면 그대로 쓰고, 없으면 이름을 축제 장소 근처에서 찾는다.
+  /// 축제 장소 좌표도 없으면 같은 이름의 다른 지역 장소를 고를 수 있어 찾지 않는다.
   static func coordinate(of place: WalkingPlace) async throws -> LocationCoordinate {
     if let coordinate = place.coordinate, coordinate.isValid { return coordinate }
+    guard let center = place.searchCenter, center.isValid else { throw LocationClientError.placeNotFound }
     let request = MKLocalSearch.Request()
     request.naturalLanguageQuery = place.name
     request.resultTypes = [
       .pointOfInterest,
       .address
     ]
-    if let center = place.searchCenter, center.isValid {
-      request.region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(center),
-        latitudinalMeters: searchRadius * 2,
-        longitudinalMeters: searchRadius * 2
-      )
-    }
+    request.region = MKCoordinateRegion(
+      center: CLLocationCoordinate2D(center),
+      latitudinalMeters: searchRadius * 2,
+      longitudinalMeters: searchRadius * 2
+    )
     let candidates: [LocationCoordinate]
     do {
       let response = try await MKLocalSearch(request: request).start()
@@ -63,7 +63,7 @@ enum MapKitRouting {
     }
     guard let match = NearestPlace.match(
       candidates,
-      near: place.searchCenter,
+      near: center,
       within: searchRadius
     ) else { throw LocationClientError.placeNotFound }
     return match

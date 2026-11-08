@@ -55,17 +55,17 @@ struct NearestPlaceTests {
     #expect(match == nil)
   }
 
-  @Test("기준 위치가 없으면 지도 검색 순서의 첫 후보를 쓴다")
-  func usesFirstCandidateWithoutCenter() {
+  @Test("기준 위치가 잘못됐으면 어떤 후보도 목적지로 쓰지 않는다")
+  func refusesInvalidCenter() {
     let match = NearestPlace.match(
-      [
-        fartherStation,
-        nearStation,
-      ],
-      near: nil,
+      [nearStation],
+      near: LocationCoordinate(
+        latitude: .nan,
+        longitude: 127
+      ),
       within: 5_000
     )
-    #expect(match == fartherStation)
+    #expect(match == nil)
   }
 
   @Test("범위를 벗어난 좌표 후보는 버린다")
@@ -79,7 +79,7 @@ struct NearestPlaceTests {
         invalid,
         nearStation,
       ],
-      near: nil,
+      near: venue,
       within: 5_000
     )
     #expect(match == nearStation)

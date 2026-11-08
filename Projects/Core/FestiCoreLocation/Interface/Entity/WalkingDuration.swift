@@ -16,10 +16,10 @@ public struct WalkingDuration: Equatable, Sendable {
   }
 
   /// 화면에 보일 분. 막차를 놓치지 않도록 남는 초는 1분으로 올리고 최소 1분이다.
-  /// 음수·무한대 같은 잘못된 값이면 nil이다.
+  /// 음수·무한대나 정수로 나타낼 수 없는 큰 값이면 nil이다.
   public var minutes: Int? {
-    guard seconds.isFinite, seconds >= 0 else { return nil }
-    let minutes = Int((seconds / 60).rounded(.up))
+    guard seconds.isFinite, seconds >= 0,
+          let minutes = Int(exactly: (seconds / 60).rounded(.up)) else { return nil }
     return max(
       1,
       minutes

@@ -265,6 +265,43 @@ struct FestivalHomeWalkTests {
     }
   }
 
+  @Test("라이브 보드를 떠나면 계산을 멈추고 직전 결과로 되돌려 다시 보일 때 새로 계산한다")
+  func stopsEstimateWhenLiveBoardDisappears() async {
+    var state = homeState()
+    state.homeWalk = .estimating(
+      festivalID,
+      last: .init(
+        station: 5,
+        shuttleStop: 2
+      )
+    )
+    let store = TestStore(initialState: state) { FestivalFeature() }
+
+    await store.send(.view(.liveBoardOnDisappear)) {
+      $0.homeWalk = .estimated(
+        festivalID,
+        .init(
+          station: 5,
+          shuttleStop: 2
+        )
+      )
+    }
+  }
+
+  @Test("직전 결과 없이 계산하다 떠나면 처음 상태로 둔다")
+  func resetsEstimateWithoutLastWhenLiveBoardDisappears() async {
+    var state = homeState()
+    state.homeWalk = .estimating(
+      festivalID,
+      last: nil
+    )
+    let store = TestStore(initialState: state) { FestivalFeature() }
+
+    await store.send(.view(.liveBoardOnDisappear)) {
+      $0.homeWalk = .idle
+    }
+  }
+
   @Test("역·정류장 이름이 없으면 위치 권한을 묻지 않는다")
   func skipsWithoutPlaces() async {
     let store = TestStore(initialState: homeState(directions: .init(lastTrainAt: "23:52"))) {

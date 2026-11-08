@@ -37,6 +37,7 @@ struct WalkingDurationTests {
       -1.0,
       .infinity,
       .nan,
+      .greatestFiniteMagnitude,
     ]
   )
   func rejectsInvalidSeconds(seconds: TimeInterval) {

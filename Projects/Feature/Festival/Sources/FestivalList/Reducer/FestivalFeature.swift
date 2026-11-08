@@ -804,9 +804,12 @@ extension FestivalFeature {
     case .liveBoardOnDisappear:
       state.isLiveBoardVisible = false
       state.onlineDetailLoading = false
+      // 화면을 떠나면 위치·경로 계산을 멈추고, 다시 보일 때 새로 계산한다.
+      state.homeWalk = state.homeWalk.stopped
       return .merge(
         .cancel(id: CancelID.liveBoard),
-        .cancel(id: CancelID.onlineDetail)
+        .cancel(id: CancelID.onlineDetail),
+        .cancel(id: CancelID.homeWalk)
       )
 
     case .retryMySchedule:

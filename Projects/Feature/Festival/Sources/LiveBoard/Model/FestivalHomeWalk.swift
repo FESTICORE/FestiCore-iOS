@@ -25,6 +25,19 @@ extension FestivalFeature {
     /// 위치 권한이 없거나 현재 위치를 잡지 못했다. 서버 값으로 보인다.
     case unavailable(String)
 
+    /// 계산을 멈췄을 때의 상태. 계산 중이었으면 직전 결과로 되돌린다.
+    var stopped: HomeWalkState {
+      guard case let .estimating(
+        id,
+        last
+      ) = self else { return self }
+      guard let last else { return .idle }
+      return .estimated(
+        id,
+        last
+      )
+    }
+
     func isEstimating(_ festivalID: String) -> Bool {
       guard case let .estimating(
         id,
