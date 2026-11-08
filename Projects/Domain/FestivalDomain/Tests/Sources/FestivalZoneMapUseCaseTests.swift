@@ -99,7 +99,7 @@ struct FestivalZoneMapUseCaseTests {
 
     #expect(try await useCase.isMapChanged(map))
     let request = try #require(await client.lastRequest)
-    #expect(request.path == "/api/v1/festivals/fst_a/pack/version")
+    #expect(request.path == "api/v1/festivals/fst_a/pack/version")
     #expect(request.method == "GET")
     #expect(request.isPublic)
   }
