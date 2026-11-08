@@ -53,6 +53,14 @@ struct BearerProfileFeatureTests {
     await store.receive(.delegate(.planRequested(festivalID: "fst_1")))
   }
 
+  @Test("공동 기수는 나를 빼고 세어 3명까지 보인다")
+  func coBearerText() {
+    var state = newState()
+    #expect(state.coBearerText == "0 / 3명")
+    state.bearerCount = 4
+    #expect(state.coBearerText == "3 / 3명")
+  }
+
   @Test("팩의 존·축제 이름과 기수 수를 채운다")
   func loads() async {
     let festival = BearerFestival(id: "fst_1", name: "원더리벳 2026", zones: [BearerZone(id: "zone_a", name: "리벳 스테이지 앞 왼쪽")])
