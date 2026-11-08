@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCoreLocationInterface
 import FestivalDomainInterface
 import FestiCorePackInterface
 import FestiCoreSharedUI
@@ -50,6 +51,8 @@ public struct FestivalFeature {
     public var toastRevision = 0
     public var selectedPack: FestivalPackDocument?
     public var homeDetails: HomeDetailsState = .idle
+    /// 현재 위치에서 귀가 카드의 역·셔틀 정류장까지 Apple 지도로 계산한 도보 시간
+    var homeWalk: HomeWalkState = .idle
     public var onlineDetail: FestivalPackDocument?
     public var onlineDetailLoading = false
     public var onlineDetailFailed = false
@@ -400,6 +403,7 @@ public struct FestivalFeature {
     case createCrewTapped
     case findFlagTapped
     case hideFollowGuideTapped
+    case homeRideAppeared
     case homeDirectionsTapped
     case homeTogetherTapped
     case bearerTapped
@@ -431,6 +435,11 @@ public struct FestivalFeature {
     case loadOnlineDetail(String)
     case loadMySchedule
     case loadHomeDetails(String)
+    case estimateHomeWalk(String)
+    case openHomeDirections(
+      festivalID: String,
+      WalkingPlace
+    )
     case loadNotificationUnreadCount
     case markNotificationRead(String)
     case startLiveActivity(festivalID: String)
@@ -470,6 +479,9 @@ public struct FestivalFeature {
     case myScheduleFailed(festivalID: String, requestID: Int, generation: Int)
     case homeDetailsLoaded(String, FestivalPackDetail.Directions?)
     case homeDetailsFailed(String)
+    case homeWalkEstimated(String, HomeWalkMinutes)
+    case homeWalkUnavailable(String)
+    case homeDirectionsMapsFailed(String)
     case notificationUnreadCountLoaded(Int, generation: Int)
     case notificationBannerLoaded(UserNotificationItem?, generation: Int)
     case toastExpired
@@ -478,6 +490,7 @@ public struct FestivalFeature {
   enum CancelID {
     case catalog, packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary
     case liveBoard, onlineDetail, mySchedule, notificationUnreadCount, notificationMarkRead, toast
+    case homeWalk
   }
   private struct LiveActivitySyncID: Hashable { let id: String }
   private struct PackDownloadID: Hashable { let id: String }
@@ -494,6 +507,8 @@ public struct FestivalFeature {
   @Dependency(\.date) private var date
   @Dependency(\.continuousClock) private var clock
   @Dependency(\.festivalGuideVisibilityUseCase) private var guideVisibilityUseCase
+  @Dependency(\.locationClient) var locationClient
+  @Dependency(\.appleMapsClient) var appleMapsClient
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -680,6 +695,7 @@ extension FestivalFeature {
       state.isFollowedFlagGuideHidden = guideVisibilityUseCase.isHidden(for: id)
       state.alert = nil
       state.homeDetails = .idle
+      state.homeWalk = .idle
       state.onlineDetail = nil
       state.onlineDetailLoading = state.isLiveBoardVisible
       state.onlineDetailFailed = false
@@ -887,11 +903,33 @@ extension FestivalFeature {
     case .findFlagTapped:
       return .send(.delegate(.flagDirectoryRequested))
 
+    case .homeRideAppeared:
+      guard let festivalID = state.selectedFestivalID,
+            !state.homeWalkPlaces.isEmpty,
+            !state.homeWalk.isEstimating(festivalID) else { return .none }
+      state.homeWalk = .estimating(
+        festivalID,
+        last: state.homeWalk.minutes(for: festivalID)
+      )
+      return .send(.async(.estimateHomeWalk(festivalID)))
+
     case .homeDirectionsTapped:
       guard let festival = state.selectedFestival else { return .none }
-      return .send(.delegate(.packDirectionsRequested(
+      let now = FestivalLiveBoardPresentation.serverNow(
+        serverAt: state.liveBoard?.serverAt,
+        clockAnchorAt: state.liveBoardClockAnchorAt,
+        deviceNow: date.now
+      )
+      // 안내할 역·정류장이 없으면 기존처럼 팩 상세의 가는 길로 보낸다.
+      guard let place = state.homeDirectionsPlace(now: now) else {
+        return .send(.delegate(.packDirectionsRequested(
+          festivalID: festival.id,
+          title: festival.name
+        )))
+      }
+      return .send(.async(.openHomeDirections(
         festivalID: festival.id,
-        title: festival.name
+        place
       )))
 
     case .homeTogetherTapped:
@@ -1169,6 +1207,21 @@ extension FestivalFeature {
           await send(.inner(.homeDetailsFailed(id)))
         }
       }
+
+    case let .estimateHomeWalk(festivalID):
+      return estimateHomeWalk(
+        festivalID: festivalID,
+        places: state.homeWalkPlaces
+      )
+
+    case let .openHomeDirections(
+      festivalID,
+      place
+    ):
+      return openHomeDirections(
+        festivalID: festivalID,
+        place: place
+      )
 
     case .loadNotificationUnreadCount:
       return loadNotificationUnreadCount(state)
@@ -1597,6 +1650,29 @@ extension FestivalFeature {
       guard state.selectedFestivalID == id else { return .none }
       state.homeDetails = .failed(id)
       return .none
+
+    case let .homeWalkEstimated(
+      festivalID,
+      minutes
+    ):
+      guard state.selectedFestivalID == festivalID else { return .none }
+      state.homeWalk = .estimated(
+        festivalID,
+        minutes
+      )
+      return .none
+
+    case let .homeWalkUnavailable(festivalID):
+      guard state.selectedFestivalID == festivalID else { return .none }
+      state.homeWalk = .unavailable(festivalID)
+      return .none
+
+    case let .homeDirectionsMapsFailed(festivalID):
+      guard let festival = state.selectedFestival, festival.id == festivalID else { return .none }
+      return .send(.delegate(.packDirectionsRequested(
+        festivalID: festival.id,
+        title: festival.name
+      )))
 
     case let .notificationBannerLoaded(
       item,
