@@ -42,4 +42,15 @@ struct NetworkLogRedactorTests {
     #expect(!NetworkLogRedactor.hidesBody(for: URL(string: "\(base)/flags/flg_1/bearer")))
     #expect(!NetworkLogRedactor.hidesBody(for: URL(string: "\(base)/flags/flg_1/co-bearers/usr_2")))
   }
+
+  @Test("크루 초대 코드가 담긴 본문은 로그에서 숨기고 상태·집결 본문은 남긴다")
+  func hidesCrewInviteBodies() {
+    let base = "https://festicore-dev.up.railway.app/api/v1"
+    for path in ["crews", "crews/join", "crews/crw_1", "crews/crw_1/invite/rotate"] {
+      #expect(NetworkLogRedactor.hidesBody(for: URL(string: "\(base)/\(path)")))
+    }
+    for path in ["crews/crw_1/status", "crews/crw_1/gather", "crews/invite/K7P2QX"] {
+      #expect(!NetworkLogRedactor.hidesBody(for: URL(string: "\(base)/\(path)")))
+    }
+  }
 }

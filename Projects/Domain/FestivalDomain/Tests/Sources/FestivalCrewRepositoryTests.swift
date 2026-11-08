@@ -119,6 +119,138 @@ struct FestivalCrewRepositoryTests {
     }
   }
 
+  @Test func detailMapsLiveMembersAndArchive() async throws {
+    let client = CrewRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"id":"crw_1","festivalId":"fst_1","name":"펜타 크루","ownerId":"usr_1","members":[{"userId":"usr_1","nickname":"민지","joinedAt":"2026-10-21T01:00:00.000Z"}],"inviteCode":"K7P2QX","inviteExpiresAt":"2026-10-23T01:00:00.000Z","archivedAt":null,"live":{"id":"crw_1","name":"펜타 크루","ownerId":"usr_1","members":[{"userId":"usr_1","nickname":"민지","zoneId":"zone_a","state":"here","updatedAt":"2026-10-21T01:02:00.000Z"}],"gatherRequest":{"zoneId":"zone_a","byUserId":"usr_1","at":"2026-10-21T01:03:00.000Z"},"gatherAvailableAt":"2026-10-21T01:13:00.000Z"}}}"#)
+    let repository = makeRepository(
+      client: client,
+      sessionID: sessionID
+    )
+
+    let crew = try await repository.detail(crewID: "crw_1")
+
+    #expect(crew.live?.members.first?.state == "here")
+    #expect(crew.live?.members.first?.zoneID == "zone_a")
+    #expect(crew.live?.gatherRequest?.byUserID == "usr_1")
+    #expect(crew.live?.gatherAvailableAt != nil)
+    #expect(crew.archivedAt == nil)
+    let sent = try #require(await client.sent)
+    #expect(sent.path == "api/v1/crews/crw_1")
+    #expect(sent.method == "GET")
+    #expect(sent.authorization == .sessionBound(sessionID))
+  }
+
+  @Test func updateStatusSendsStateWithIdempotencyKey() async throws {
+    let client = CrewRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"userId":"usr_1","zoneId":"zone_a","state":"eating","updatedAt":"2026-10-21T01:00:00.000Z"}}"#)
+    let repository = makeRepository(
+      client: client,
+      sessionID: sessionID
+    )
+
+    try await repository.updateStatus(
+      crewID: "crw_1",
+      state: .eating,
+      zoneID: "zone_a"
+    )
+
+    let sent = try #require(await client.sent)
+    #expect(sent.path == "api/v1/crews/crw_1/status")
+    #expect(sent.method == "POST")
+    #expect(sent.idempotencyKey?.isEmpty == false)
+    let data = try #require(sent.body)
+    let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: String])
+    #expect(body["state"] == "eating")
+    #expect(body["zoneId"] == "zone_a")
+    #expect(body["clientAt"] != nil)
+  }
+
+  @Test func invitePreviewIsPublicAndMapsInviter() async throws {
+    let client = CrewRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"crewName":"펜타 크루","festivalId":"fst_1","festivalName":"펜타포트 락 페스티벌 2026","ownerNickname":"민지","memberCount":4,"expiresAt":"2026-08-08T14:59:00.000Z"}}"#)
+    let repository = makeRepository(
+      client: client,
+      sessionID: nil
+    )
+
+    let invite = try await repository.invite(code: "K7P2QX")
+
+    #expect(invite.crewName == "펜타 크루")
+    #expect(invite.inviterNickname == "민지")
+    #expect(invite.memberCount == 4)
+    let sent = try #require(await client.sent)
+    #expect(sent.path == "api/v1/crews/invite/K7P2QX")
+    #expect(sent.authorization == FestiCoreAuthorization.none)
+  }
+
+  @Test func joinSendsInviteCode() async throws {
+    let client = CrewRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"id":"crw_1","festivalId":"fst_1","name":"펜타 크루","ownerId":"usr_1","members":[],"inviteCode":null,"inviteExpiresAt":null,"archivedAt":null}}"#)
+    let repository = makeRepository(
+      client: client,
+      sessionID: sessionID
+    )
+
+    let crew = try await repository.join(inviteCode: "K7P2QX")
+
+    #expect(crew.id == "crw_1")
+    let sent = try #require(await client.sent)
+    #expect(sent.path == "api/v1/crews/join")
+    #expect(sent.method == "POST")
+    let data = try #require(sent.body)
+    let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: String])
+    #expect(body == ["inviteCode": "K7P2QX"])
+  }
+
+  @Test func leaderActionsUseCrewPaths() async throws {
+    let rotate = CrewRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"inviteCode":"ABCDEF","inviteExpiresAt":"2026-10-23T01:00:00.000Z"}}"#)
+    let code = try await makeRepository(
+      client: rotate,
+      sessionID: sessionID
+    ).rotateInvite(crewID: "crw_1")
+    #expect(code.code == "ABCDEF")
+    #expect(await rotate.sent?.path == "api/v1/crews/crw_1/invite/rotate")
+
+    let remove = CrewRecordingClient(json: "{}")
+    try await makeRepository(
+      client: remove,
+      sessionID: sessionID
+    ).removeMember(
+      crewID: "crw_1",
+      userID: "usr_2"
+    )
+    #expect(await remove.sent?.path == "api/v1/crews/crw_1/members/usr_2")
+    #expect(await remove.sent?.method == "DELETE")
+
+    let dissolve = CrewRecordingClient(json: "{}")
+    try await makeRepository(
+      client: dissolve,
+      sessionID: sessionID
+    ).dissolve(crewID: "crw_1")
+    #expect(await dissolve.sent?.path == "api/v1/crews/crw_1")
+    #expect(await dissolve.sent?.method == "DELETE")
+  }
+
+  @Test(arguments: [
+    (404, "NOT_FOUND", FestivalCrewError.notFound),
+    (409, "CREW_FULL", FestivalCrewError.full),
+    (409, "CREW_ALREADY_IN", FestivalCrewError.alreadyInCrew),
+    (410, "INVITE_EXPIRED", FestivalCrewError.festivalEnded)
+  ])
+  func joinMapsRejection(
+    status: Int,
+    code: String,
+    expected: FestivalCrewError
+  ) async {
+    let client = CrewRecordingClient(error: .response(.init(
+      httpStatus: status,
+      code: code
+    )))
+    let repository = makeRepository(
+      client: client,
+      sessionID: sessionID
+    )
+    await #expect(throws: expected) {
+      try await repository.join(inviteCode: "K7P2QX")
+    }
+  }
+
   private func makeRepository(
     client: CrewRecordingClient,
     sessionID: UUID?
@@ -126,6 +258,7 @@ struct FestivalCrewRepositoryTests {
     return withDependencies {
       $0.networkClient = client
       $0.authService = CrewAuthService(sessionID: sessionID)
+      $0.uuid = .incrementing
     } operation: {
       FestivalCrewRepositoryImpl()
     }
@@ -138,6 +271,7 @@ private actor CrewRecordingClient: FestiCoreNetworkClient {
     let method: String
     let authorization: FestiCoreAuthorization
     let body: Data?
+    let idempotencyKey: String?
   }
 
   private let result: Result<FestiCoreHTTPResponse, FestiCoreNetworkError>
@@ -191,7 +325,8 @@ private actor CrewRecordingClient: FestiCoreNetworkClient {
       path: request.path,
       method: request.method.rawValue,
       authorization: request.authorization,
-      body: try? request.asURLRequest(baseURL: URL(string: "https://festicore.test")!).httpBody
+      body: try? request.asURLRequest(baseURL: URL(string: "https://festicore.test")!).httpBody,
+      idempotencyKey: request.headers["Idempotency-Key"]
     )
     return try result.get()
   }

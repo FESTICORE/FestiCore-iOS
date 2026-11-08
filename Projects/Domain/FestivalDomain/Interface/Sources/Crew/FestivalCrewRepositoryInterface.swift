@@ -1,6 +1,6 @@
 import Dependencies
 
-/// 인증된 사용자의 축제 크루 생성 통신을 정의한다.
+/// 축제 크루의 생성·상세·상태·초대·크루장 관리 통신을 정의한다.
 public protocol FestivalCrewRepositoryInterface: Sendable {
   /// 선택한 공식 존으로 크루 집결 요청을 보낸다.
   func gather(
@@ -13,6 +13,46 @@ public protocol FestivalCrewRepositoryInterface: Sendable {
     name: String,
     nickname: String?
   ) async throws -> FestivalCrew
+
+  /// 크루 상세와 크루원 존·상태를 받는다. 크루원만 볼 수 있다.
+  func detail(crewID: String) async throws -> FestivalCrew
+
+  /// 내 상태를 크루원에게 공유한다. `leaving`이면 서버가 존을 비운다.
+  func updateStatus(
+    crewID: String,
+    state: FestivalCrewState,
+    zoneID: String?
+  ) async throws
+
+  /// 초대 코드를 새로 만든다. 크루장만 부를 수 있고 이전 코드는 바로 무효가 된다.
+  func rotateInvite(crewID: String) async throws -> FestivalCrewInviteCode
+
+  /// 크루 이름을 바꾼다. 크루장만 부를 수 있다.
+  func rename(
+    crewID: String,
+    name: String
+  ) async throws -> FestivalCrew
+
+  /// 크루원을 내보낸다. 크루장만 부를 수 있다.
+  func removeMember(
+    crewID: String,
+    userID: String
+  ) async throws
+
+  /// 크루장을 다른 크루원에게 넘긴다.
+  func transfer(
+    crewID: String,
+    toUserID: String
+  ) async throws -> FestivalCrew
+
+  /// 크루를 해산한다. 크루장만 부를 수 있다.
+  func dissolve(crewID: String) async throws
+
+  /// 초대 코드의 크루를 로그인 없이 미리 본다.
+  func invite(code: String) async throws -> FestivalCrewInvite
+
+  /// 초대 코드로 크루에 들어간다.
+  func join(inviteCode: String) async throws -> FestivalCrew
 }
 
 public enum FestivalCrewRepositoryDependency: TestDependencyKey {
@@ -27,7 +67,7 @@ public extension DependencyValues {
   }
 }
 
-/// 저장소가 주입되지 않은 크루 생성 호출을 테스트 오류로 알린다.
+/// 저장소가 주입되지 않은 크루 호출을 테스트 오류로 알린다.
 private struct UnregisteredFestivalCrewRepository: FestivalCrewRepositoryInterface {
   func gather(
     crewID: String,
@@ -43,6 +83,64 @@ private struct UnregisteredFestivalCrewRepository: FestivalCrewRepositoryInterfa
     nickname _: String?
   ) async throws -> FestivalCrew {
     reportIssue("festivalCrewRepository.create 미등록")
+    throw FestivalCrewError.unavailable
+  }
+
+  func detail(crewID _: String) async throws -> FestivalCrew {
+    reportIssue("festivalCrewRepository.detail 미등록")
+    throw FestivalCrewError.unavailable
+  }
+
+  func updateStatus(
+    crewID _: String,
+    state _: FestivalCrewState,
+    zoneID _: String?
+  ) async throws {
+    reportIssue("festivalCrewRepository.updateStatus 미등록")
+    throw FestivalCrewError.unavailable
+  }
+
+  func rotateInvite(crewID _: String) async throws -> FestivalCrewInviteCode {
+    reportIssue("festivalCrewRepository.rotateInvite 미등록")
+    throw FestivalCrewError.unavailable
+  }
+
+  func rename(
+    crewID _: String,
+    name _: String
+  ) async throws -> FestivalCrew {
+    reportIssue("festivalCrewRepository.rename 미등록")
+    throw FestivalCrewError.unavailable
+  }
+
+  func removeMember(
+    crewID _: String,
+    userID _: String
+  ) async throws {
+    reportIssue("festivalCrewRepository.removeMember 미등록")
+    throw FestivalCrewError.unavailable
+  }
+
+  func transfer(
+    crewID _: String,
+    toUserID _: String
+  ) async throws -> FestivalCrew {
+    reportIssue("festivalCrewRepository.transfer 미등록")
+    throw FestivalCrewError.unavailable
+  }
+
+  func dissolve(crewID _: String) async throws {
+    reportIssue("festivalCrewRepository.dissolve 미등록")
+    throw FestivalCrewError.unavailable
+  }
+
+  func invite(code _: String) async throws -> FestivalCrewInvite {
+    reportIssue("festivalCrewRepository.invite 미등록")
+    throw FestivalCrewError.unavailable
+  }
+
+  func join(inviteCode _: String) async throws -> FestivalCrew {
+    reportIssue("festivalCrewRepository.join 미등록")
     throw FestivalCrewError.unavailable
   }
 }
