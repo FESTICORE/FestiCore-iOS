@@ -841,13 +841,16 @@ extension FestivalS01VisualCaptureTests {
         window,
         name: name
       )
-      if let scroll = verticalScroll(in: controller.view), scroll.contentSize.height > scroll.bounds.height {
+      // 실제 앱처럼 하단 inset(contentMargins)까지 포함한 맨 끝으로 내린다.
+      if let scroll = verticalScroll(in: controller.view),
+         scroll.contentSize.height + scroll.adjustedContentInset.bottom > scroll.bounds.height {
+        let insets = scroll.adjustedContentInset
         scroll.setContentOffset(
           CGPoint(
             x: 0,
             y: max(
-              0,
-              scroll.contentSize.height - scroll.bounds.height
+              -insets.top,
+              scroll.contentSize.height + insets.bottom - scroll.bounds.height
             )
           ),
           animated: false

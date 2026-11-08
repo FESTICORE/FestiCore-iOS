@@ -23,6 +23,7 @@ struct FestivalListView: View {
           searchContent()
         }
         .scrollIndicators(.hidden)
+        .fcScrollBottomInset()
         .scrollDismissesKeyboard(.immediately)
       } else {
         FCTopBar(
@@ -47,11 +48,8 @@ struct FestivalListView: View {
             .horizontal,
             FestiCoreSpacing.paddingP16
           )
-          .padding(
-            .bottom,
-            FestiCoreSpacing.paddingP16
-          )
         }
+        .fcScrollBottomInset()
         .padding(
           .top,
           FestiCoreSpacing.paddingP20
