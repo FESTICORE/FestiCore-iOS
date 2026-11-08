@@ -36,11 +36,14 @@ public struct FCActiveFlagRow: View {
         FCThumbnail(image)
           .size(Metric.thumbnailSize, cornerRadius: FestiCoreRadius.r12)
         VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
+          // Figma 행 높이 70은 이름(24)·설명(18) 줄 상자 기준이다.
           Text(name)
             .festiCoreFont(.baseCalloutBold)
+            .festiCoreLineBox(.baseCalloutBold)
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           Text(meta)
             .festiCoreFont(.baseFootnoteRegular)
+            .festiCoreLineBox(.baseFootnoteRegular)
             .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         }
         .lineLimit(1)

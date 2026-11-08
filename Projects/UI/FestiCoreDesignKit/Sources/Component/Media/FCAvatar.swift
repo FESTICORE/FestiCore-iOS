@@ -31,7 +31,7 @@ public struct FCAvatar: View {
 
   public var body: some View {
     Text(initial.prefix(1))
-      .festiCoreFont(avatarSize == .large ? .baseBodyBold : .baseSubheadlineBold)
+      .festiCoreFont(avatarSize.textStyle)
       .foregroundStyle(colors.foreground.color)
       .frame(width: avatarSize.side, height: avatarSize.side)
       .background(colors.background.color, in: Circle())
@@ -80,11 +80,22 @@ public extension FCAvatar {
     case medium
     /// 48, 검색 결과
     case large
+    /// 28, 존 지도 마커(Figma S06)
+    case small
 
     var side: CGFloat {
       switch self {
       case .medium: return 40
       case .large: return 48
+      case .small: return 28
+      }
+    }
+
+    var textStyle: FestiCoreTextStyle {
+      switch self {
+      case .medium: return .baseSubheadlineBold
+      case .large: return .baseBodyBold
+      case .small: return .baseCaption1Bold
       }
     }
   }
