@@ -316,6 +316,27 @@ struct FestivalLiveActivityScheduleTests {
     ) == nil)
   }
 
+  @Test("공연 중에 저장한 공연도 라이브 활동 대상이다")
+  func ongoingSavedSetCountsAsActivityTarget() throws {
+    let pack = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: Data(
+      #"{"id":"fst_1","sets":[{"id":"playing","startsAt":"2026-11-08T13:15:00Z","endsAt":"2026-11-08T14:05:00Z"},{"id":"ended","startsAt":"2026-11-08T12:00:00Z","endsAt":"2026-11-08T12:50:00Z"}]}"#.utf8
+    ))
+    let now = utc("2026-11-08T13:29:00Z")
+
+    #expect(FestivalLiveActivitySchedule.nextSavedPerformanceStart(
+      pack: pack,
+      setIDs: ["playing", "ended"],
+      now: now
+    ) == utc("2026-11-08T13:15:00Z"))
+    #expect(FestivalLiveActivitySchedule.nextSavedPerformanceStart(
+      pack: pack,
+      setIDs: ["ended"],
+      now: now
+    ) == nil)
+  }
+
   private func overview(
     first: String?,
     last: String?

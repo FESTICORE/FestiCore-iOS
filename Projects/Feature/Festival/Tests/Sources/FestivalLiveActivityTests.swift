@@ -298,7 +298,10 @@ struct HomeLiveActivityTests {
     #expect(!state.liveActivityState.isEnabled)
     state.liveActivity.now = start.addingTimeInterval(-7_200)
     #expect(state.liveActivityState.isEnabled)
+    // 공연 중에도 켤 수 있고, 저장 공연이 끝나면(11:00) 끈다.
     state.liveActivity.now = start
+    #expect(state.liveActivityState.isEnabled)
+    state.liveActivity.now = start.addingTimeInterval(3_600)
     #expect(!state.liveActivityState.isEnabled)
 
     state.liveActivity.now = start.addingTimeInterval(-7_200)
