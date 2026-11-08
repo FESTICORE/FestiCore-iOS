@@ -23,10 +23,15 @@ public struct FCOfflineBadge: View {
         .accessibilityHidden(true)
       Text(message)
         .festiCoreFont(.baseFootnoteMedium)
+        // Figma 오프라인 띠(36pt)는 줄 높이 박스 기준이다.
+        .festiCoreLineBox(.baseFootnoteMedium)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
     .foregroundStyle(FestiCoreSemanticColor.statusInfo.color)
-    .padding(.vertical, FestiCoreSpacing.paddingP8)
+    .padding(
+      .vertical,
+      Metric.verticalPadding
+    )
     .padding(.horizontal, FestiCoreSpacing.paddingP16)
     .background(FestiCoreSemanticColor.accentBackgroundBlue.color)
   }
@@ -35,6 +40,8 @@ public struct FCOfflineBadge: View {
 private extension FCOfflineBadge {
   enum Metric {
     static let iconSize: CGFloat = 16
+    /// Figma 오프라인 띠 높이 36pt 실측(줄 높이 박스 포함).
+    static let verticalPadding: CGFloat = 9
   }
 }
 
