@@ -37,23 +37,27 @@ public struct FlagProfileBody: Encodable, Sendable, Equatable {
   public let tags: [String]
   public let planVisible: Bool
   public let homeZoneId: String?
+  /// 오늘 계획(셋 ID). nil이면 보내지 않아 서버 값을 그대로 둔다.
+  public let plan: [String]?
 
   public init(
     name: String,
     bio: String?,
     tags: [String],
     planVisible: Bool,
-    homeZoneId: String?
+    homeZoneId: String?,
+    plan: [String]? = nil
   ) {
     self.name = name
     self.bio = bio
     self.tags = tags
     self.planVisible = planVisible
     self.homeZoneId = homeZoneId
+    self.plan = plan
   }
 
   private enum CodingKeys: String, CodingKey {
-    case name, bio, tags, planVisible, homeZoneId
+    case name, bio, tags, planVisible, homeZoneId, plan
   }
 
   public func encode(to encoder: any Encoder) throws {
@@ -77,6 +81,10 @@ public struct FlagProfileBody: Encodable, Sendable, Equatable {
     try container.encode(
       homeZoneId,
       forKey: .homeZoneId
+    )
+    try container.encodeIfPresent(
+      plan,
+      forKey: .plan
     )
   }
 }

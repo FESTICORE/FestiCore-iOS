@@ -2,7 +2,7 @@ import ComposableArchitecture
 import FeatureAssembly
 import TCAFlow
 
-/// 마이 '기수이신가요?'에서 여는 기수 등록 흐름. 인증(S13 F~I) → 깃발 프로필(S10) → 기수 보드.
+/// 마이 '기수이신가요?'에서 여는 기수 등록 흐름. 인증(S13 F~I) → 깃발 프로필(S10, 오늘 계획 고르기) → 기수 보드.
 /// 첫 화면은 `BearerClaimDelegate.claimed`만 알리면 된다. 코드 입력을 QR 스캔으로 바꿔도 첫 화면만 갈아 끼우면 된다.
 @FlowCoordinator(
   screen: "BearerEntryScreen",
@@ -75,6 +75,36 @@ struct BearerEntryCoordinator {
 
     case .router(.routeAction(
       id: _,
+      action: .profile(.delegate(.planRequested))
+    )):
+      guard !state.routes.contains(where: { $0.screen.is(\.planPick) }),
+            let profile = state.routes.last(where: { $0.screen.is(\.profile) })?.screen.profile else { return .none }
+      state.routes.push(.planPick(BearerPlanPickFeature.State(
+        sets: profile.sets,
+        plan: profile.plan
+      )))
+      return .none
+
+    case let .router(.routeAction(
+      id: _,
+      action: .planPick(.delegate(.picked(plan)))
+    )):
+      state.routes.removeAll { $0.screen.is(\.planPick) }
+      guard let profileIndex = state.routes.lastIndex(where: { $0.screen.is(\.profile) }) else { return .none }
+      return .send(.router(.routeAction(
+        id: profileIndex,
+        action: .profile(.view(.planChanged(plan)))
+      )))
+
+    case .router(.routeAction(
+      id: _,
+      action: .planPick(.delegate(.closeRequested))
+    )):
+      state.routes.removeAll { $0.screen.is(\.planPick) }
+      return .none
+
+    case .router(.routeAction(
+      id: _,
       action: .claim(.delegate(.closeRequested))
     )),
       .router(.routeAction(
@@ -99,6 +129,7 @@ extension BearerEntryCoordinator {
   enum BearerEntryScreen {
     case claim(BearerClaimFeature)
     case profile(BearerProfileFeature)
+    case planPick(BearerPlanPickFeature)
     case board(BearerBoardFeature)
   }
 }

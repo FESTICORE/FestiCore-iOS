@@ -25,6 +25,13 @@ struct BearerEntryCoordinatorView: View {
             .hidden,
             for: .navigationBar
           )
+      case let .planPick(planStore):
+        BearerPlanPickView(store: planStore)
+          .swipeBackButtonHidden()
+          .toolbar(
+            .hidden,
+            for: .navigationBar
+          )
       case let .board(boardStore):
         BearerBoardView(store: boardStore)
           .swipeBackButtonHidden()

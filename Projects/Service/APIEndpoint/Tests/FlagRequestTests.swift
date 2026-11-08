@@ -79,6 +79,34 @@ struct FlagRequestTests {
     #expect(body["homeZoneId"] is NSNull)
     #expect(body["tags"] as? [String] == ["slam"])
     #expect(body["planVisible"] as? Bool == true)
+    // 오늘 계획을 고르지 않았으면 plan을 보내지 않아 서버 값을 그대로 둔다.
+    #expect(body["plan"] == nil)
+  }
+
+  @Test("오늘 계획을 고른 프로필 수정은 plan 셋 ID를 함께 보낸다")
+  func profileWithPlan() throws {
+    let endpoint = FlagRequest.updateProfile(
+      flagID: "flg_1",
+      body: FlagProfileBody(
+        name: "호락호락",
+        bio: nil,
+        tags: ["slam"],
+        planVisible: true,
+        homeZoneId: nil,
+        plan: [
+          "set_1",
+          "set_2"
+        ]
+      ),
+      sessionID: sessionID
+    )
+    let request = try endpoint.asURLRequest(baseURL: baseURL)
+
+    let body = try jsonBody(request)
+    #expect(body["plan"] as? [String] == [
+      "set_1",
+      "set_2"
+    ])
   }
 
   @Test("코드 등록은 기기 ID 헤더와 축제 ID·코드를 보낸다")

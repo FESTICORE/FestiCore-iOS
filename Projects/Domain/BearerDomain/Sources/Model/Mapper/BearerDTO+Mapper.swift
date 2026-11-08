@@ -111,7 +111,32 @@ extension BearerPackDTO {
       zones: (zones ?? []).compactMap { zone in
         guard let id = zone.id, !id.isEmpty, let name = zone.name else { return nil }
         return BearerZone(id: id, name: name)
-      }
+      },
+      sets: bearerSets
     )
+  }
+
+  /// 시간이 맞는 공연만 시작 순으로 둔다. 무대 이름은 공연에 없으면 무대 목록에서 찾는다.
+  private var bearerSets: [BearerSet] {
+    var stageNames: [String: String] = [:]
+    for stage in stages ?? [] {
+      guard let id = stage.id, let name = stage.name, stageNames[id] == nil else { continue }
+      stageNames[id] = name
+    }
+    return (performances ?? [])
+      .compactMap { performance -> BearerSet? in
+        guard let id = performance.id, !id.isEmpty,
+              let startsAt = performance.startsAt.flatMap(BearerDateFormat.date(from:)),
+              let endsAt = performance.endsAt.flatMap(BearerDateFormat.date(from:)),
+              endsAt > startsAt else { return nil }
+        return BearerSet(
+          id: id,
+          artist: performance.artist ?? "",
+          stageName: performance.stageName ?? performance.stageId.flatMap { stageNames[$0] },
+          startsAt: startsAt,
+          endsAt: endsAt
+        )
+      }
+      .sorted { $0.startsAt < $1.startsAt }
   }
 }

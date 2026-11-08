@@ -40,6 +40,10 @@ public struct BearerProfileFeature {
     public var planVisible = true
     /// 오늘 계획으로 고른 공연 ID(내 일정에서 고른 셋)
     public var plan: [String] = []
+    /// 오늘 계획에서 고를 수 있는 공연(받아 둔 팩)
+    public var sets: [BearerSet] = []
+    /// 이 화면에서 오늘 계획을 다시 골랐다. 저장할 때만 계획을 함께 보낸다.
+    public var isPlanEdited = false
     public var bearerCount = 1
 
     /// Figma S10 "공동 기수 초대 0 / 3명": 나(원래 기수)를 뺀 공동 기수 수
@@ -99,6 +103,8 @@ public struct BearerProfileFeature {
     case zoneTapped(String)
     case planVisibleChanged(Bool)
     case planTapped
+    /// 오늘 계획 고르기에서 고른 공연(시작 순)
+    case planChanged([String])
     case photoPicked(Data)
     case photoCancelTapped
     case inviteTapped
@@ -194,7 +200,14 @@ extension BearerProfileFeature.State {
   }
 
   var change: BearerProfileChange {
-    BearerProfileChange(name: trimmedName, bio: bio, tags: tags, planVisible: planVisible, homeZoneID: homeZoneID)
+    BearerProfileChange(
+      name: trimmedName,
+      bio: bio,
+      tags: tags,
+      planVisible: planVisible,
+      homeZoneID: homeZoneID,
+      plan: isPlanEdited ? plan : nil
+    )
   }
 
   /// 코드 등록 직후 서버가 붙인 임시 이름(`새 깃발 …`)과 기본 태그는 빈 입력으로 보여 준다.
@@ -272,6 +285,11 @@ extension BearerProfileFeature {
 
     case .planTapped:
       return .send(.delegate(.planRequested(festivalID: state.festivalID)))
+
+    case .planChanged(let setIDs):
+      state.plan = setIDs
+      state.isPlanEdited = true
+      return .none
 
     case .backTapped:
       return .merge(
@@ -367,6 +385,7 @@ extension BearerProfileFeature {
       if let festival {
         state.festivalName = festival.name
         state.zones = festival.zones
+        state.sets = festival.sets
       }
       if let board {
         if state.isLoading { state.apply(board.profile) }
@@ -399,6 +418,7 @@ extension BearerProfileFeature {
 
     case .saved(let profile):
       state.isSaving = false
+      state.isPlanEdited = false
       state.savedProfile = profile
       return .none
 
