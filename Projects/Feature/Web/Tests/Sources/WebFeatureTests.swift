@@ -44,6 +44,39 @@ struct WebFeatureTests {
     await store.send(.view(.onAppear))
   }
 
+  @Test func defaultScopeIsDocumentAndBookingKeepsScope() {
+    #expect(WebFeature.State(
+      url: url,
+      title: "약관"
+    ).navigationScope == .document)
+    #expect(WebFeature.State(
+      url: url,
+      title: "티켓 예매",
+      navigationScope: .booking
+    ).navigationScope == .booking)
+  }
+
+  @Test func externalURLOpensOutsideWebView() async throws {
+    let opened = LockIsolated<[URL]>([])
+    let payment = try #require(URL(string: "ispmobile://TID=1234"))
+    let store = TestStore(initialState: WebFeature.State(
+      url: url,
+      title: "티켓 예매",
+      navigationScope: .booking
+    )) {
+      WebFeature()
+    } withDependencies: {
+      $0.openURL = .init { url in
+        opened.withValue { $0.append(url) }
+        return true
+      }
+    }
+
+    await store.send(.view(.externalURLRequested(payment)))
+    await store.finish()
+    #expect(opened.value == [payment])
+  }
+
   @Test func closeAsksParentToDismiss() async {
     let store = TestStore(initialState: WebFeature.State(url: url, title: "약관")) { WebFeature() }
 
