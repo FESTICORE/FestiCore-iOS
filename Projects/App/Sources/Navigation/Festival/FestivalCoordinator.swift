@@ -7,6 +7,7 @@ import TCAFlow
 @FlowCoordinator(screen: "FestivalScreen", navigation: true)
 struct FestivalCoordinator {
   @Dependency(\.festivalPackUseCase) private var packUseCase
+  @Dependency(\.festivalScheduleUseCase) private var scheduleUseCase
   @Dependency(\.continuousClock) private var clock
   private enum CancelID { case widgetLink, widgetLookupToast }
 
@@ -20,10 +21,11 @@ struct FestivalCoordinator {
 
     mutating func clearAccountData() {
       // 기수 보드·크루는 로그인한 사용자의 화면이라 계정이 바뀌면 닫는다.
-      // 존 지도는 로그인 사용자의 팔로우·크루를 보여 주므로 함께 닫는다.
+      // 존 지도는 로그인 사용자의 팔로우·크루를 보여 주므로 함께 닫는다. 준비 안내도 계정의 일정·팔로우를 쓴다.
       routes.removeAll {
         $0.screen.is(\.bearerBoard) || $0.screen.is(\.notificationInbox) || $0.screen.is(\.zoneMap)
           || $0.screen.is(\.crew) || $0.screen.is(\.crewCreate)
+          || $0.screen.is(\.prepSchedule) || $0.screen.is(\.prepFlags)
       }
       for index in routes.indices {
         switch routes[index].screen {
@@ -33,7 +35,7 @@ struct FestivalCoordinator {
         case var .liveBoard(board):
           board.clearAccountData()
           routes[index].screen = .liveBoard(board)
-        case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate:
+        case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate, .prepSchedule, .prepFlags:
           break
         }
       }
@@ -60,6 +62,11 @@ struct FestivalCoordinator {
     case myScheduleSaved(festivalID: String, setIDs: Set<String>)
     /// 크루 초대 링크. 참여 확인(S08)을 연다.
     case openCrewInvite(String)
+    /// 준비 안내 1단계에 쓸 서버 내 일정. 읽지 못하면 nil이라 1단계를 건너뛴다.
+    case prepScheduleLoaded(
+      festivalID: String,
+      setIDs: [String]?
+    )
   }
 
   enum Delegate {
@@ -70,6 +77,12 @@ struct FestivalCoordinator {
     case followLoginRequested
     case flagDirectoryRequested
     case packDirectionsRequested(festivalID: String, title: String)
+    /// 준비 안내에서 내 일정을 저장했다. 타임테이블에도 반영한다.
+    case prepScheduleSaved(
+      festivalID: String,
+      setIDs: Set<String>
+    )
+    case termsAcceptanceRequested
   }
 
   func handleRoute(state: inout State, action: Action) -> Effect<Action> {
@@ -250,6 +263,116 @@ struct FestivalCoordinator {
       state.routes.removeAll { $0.screen.is(\.crew) }
       return reloadLiveBoard(state)
 
+    case let .router(.routeAction(
+      id: _,
+      action: .liveBoard(.delegate(.prepGuideRequested(festivalID)))
+    )),
+      let .router(.routeAction(
+        id: _,
+        action: .festivalList(.delegate(.prepGuideRequested(festivalID)))
+      )):
+      guard !state.routes.contains(where: { $0.screen.is(\.prepSchedule) || $0.screen.is(\.prepFlags) }) else { return .none }
+      return .run { send in
+        do throws(FestivalScheduleError) {
+          let schedule = try await scheduleUseCase.mySchedule(festivalID: festivalID)
+          await send(.prepScheduleLoaded(
+            festivalID: festivalID,
+            setIDs: schedule.setIDs
+          ))
+        } catch {
+          await send(.prepScheduleLoaded(
+            festivalID: festivalID,
+            setIDs: nil
+          ))
+        }
+      }
+
+    case let .prepScheduleLoaded(
+      festivalID,
+      setIDs
+    ):
+      guard !state.routes.contains(where: { $0.screen.is(\.prepSchedule) || $0.screen.is(\.prepFlags) }) else { return .none }
+      let board = state.routes.last(where: { $0.screen.festivalBoard != nil })?.screen.festivalBoard
+      let pack = prepPackDocument(
+        state,
+        festivalID: festivalID
+      )
+      let days = pack.map {
+        FestivalPackTimetableMapper.days(
+          from: $0,
+          imageURL: { board?.imageURL(for: $0) }
+        )
+      } ?? []
+      // 서버 일정을 읽지 못했으면 덮어쓰지 않도록 1단계를 건너뛴다.
+      guard let setIDs, !days.isEmpty else {
+        pushPrepFlags(
+          &state,
+          festivalID: festivalID
+        )
+        return .none
+      }
+      state.routes.push(.prepSchedule(SchedulePickFeature.State(
+        festivalID: festivalID,
+        days: days,
+        selectedSetIDs: Set(setIDs)
+      )))
+      return .none
+
+    case let .router(.routeAction(
+      id: _,
+      action: .prepSchedule(.delegate(.saved(
+        festivalID,
+        setIDs
+      )))
+    )):
+      pushPrepFlags(
+        &state,
+        festivalID: festivalID
+      )
+      return .send(.delegate(.prepScheduleSaved(
+        festivalID: festivalID,
+        setIDs: setIDs
+      )))
+
+    case .router(.routeAction(
+      id: _,
+      action: .prepSchedule(.delegate(.skipped))
+    )):
+      guard let festivalID = state.routes.last(where: { $0.screen.is(\.prepSchedule) })?.screen.prepSchedule?.festivalID else { return .none }
+      pushPrepFlags(
+        &state,
+        festivalID: festivalID
+      )
+      return .none
+
+    case .router(.routeAction(
+      id: _,
+      action: .prepSchedule(.delegate(.later))
+    )),
+      .router(.routeAction(
+        id: _,
+        action: .prepFlags(.delegate(.later))
+      )),
+      .router(.routeAction(
+        id: _,
+        action: .prepFlags(.delegate(.finished))
+      )):
+      // 3단계(준비물)는 다음 작업에서 잇는다. 지금은 2단계가 끝이다.
+      state.routes.removeAll { $0.screen.is(\.prepSchedule) || $0.screen.is(\.prepFlags) }
+      return .none
+
+    case .router(.routeAction(
+      id: _,
+      action: .prepFlags(.delegate(.loginRequested))
+    )):
+      return .send(.delegate(.followLoginRequested))
+
+    case .router(.routeAction(
+      id: _,
+      action: .prepFlags(.delegate(.termsAcceptanceRequested))
+    )):
+      return .send(.delegate(.termsAcceptanceRequested))
+
     case let .openCrewInvite(code):
       state.routes.removeAll { $0.screen.is(\.crewJoin) || $0.screen.is(\.crew) }
       let hasSession = state.routes.last(where: { $0.screen.festivalBoard != nil })?.screen.festivalBoard?.hasSession ?? false
@@ -335,7 +458,7 @@ struct FestivalCoordinator {
       switch state.routes[index].screen {
       case .festivalList: action = .festivalList(.view(.bookmarkSaved(id: id, booked: booked)))
       case .liveBoard: action = .liveBoard(.view(.bookmarkSaved(id: id, booked: booked)))
-      case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate: return .none
+      case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate, .prepSchedule, .prepFlags: return .none
       }
       return .send(.router(.routeAction(id: index, action: action)))
 
@@ -394,7 +517,7 @@ struct FestivalCoordinator {
         board.toastRevision += 1
         revision = board.toastRevision
         state.routes[index].screen = .liveBoard(board)
-      case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate:
+      case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate, .prepSchedule, .prepFlags:
         return .none
       }
       return .run { send in
@@ -417,7 +540,7 @@ struct FestivalCoordinator {
       case var .liveBoard(board) where board.toastRevision == revision:
         board.toast = nil
         state.routes[index].screen = .liveBoard(board)
-      case .festivalList, .liveBoard, .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate:
+      case .festivalList, .liveBoard, .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate, .prepSchedule, .prepFlags:
         break
       }
       return .none
@@ -435,7 +558,7 @@ struct FestivalCoordinator {
             index,
             false
           )
-        case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate: return nil
+        case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate, .prepSchedule, .prepFlags: return nil
         }
       }
       return .run { @MainActor send in
@@ -487,6 +610,7 @@ struct FestivalCoordinator {
       }) {
         state.routes.removeAll {
           $0.screen.is(\.notificationInbox) || $0.screen.is(\.crew) || $0.screen.is(\.crewCreate)
+            || $0.screen.is(\.prepSchedule)
         }
       }
       let joinUpdates: [Effect<Action>] = state.routes.indices.compactMap { index in
@@ -518,6 +642,34 @@ struct FestivalCoordinator {
 }
 
 private extension FestivalCoordinator {
+  /// 준비 안내 2단계(깃발 팔로우)를 올린다. 1단계가 있으면 그 위에 쌓아 뒤로 가면 1단계로 돌아간다.
+  func pushPrepFlags(
+    _ state: inout State,
+    festivalID: String
+  ) {
+    guard !state.routes.contains(where: { $0.screen.is(\.prepFlags) }) else { return }
+    var zoneNames: [String: String] = [:]
+    for zone in prepPackDocument(
+      state,
+      festivalID: festivalID
+    )?.zones ?? [] where zoneNames[zone.id] == nil {
+      zoneNames[zone.id] = zone.name
+    }
+    state.routes.push(.prepFlags(FestivalPrepFlagsFeature.State(
+      festivalID: festivalID,
+      zoneNames: zoneNames
+    )))
+  }
+
+  /// 준비 안내에 쓸 받아 둔 팩 문서
+  func prepPackDocument(
+    _ state: State,
+    festivalID: String
+  ) -> FestivalPackDocument? {
+    let board = state.routes.last(where: { $0.screen.festivalBoard != nil })?.screen.festivalBoard
+    return board?.packDocument(for: festivalID)
+  }
+
   /// 라이브 보드 위에 크루 화면(S07)을 올린다. 이미 열려 있으면 그대로 둔다.
   func pushCrew(
     _ state: inout State,
@@ -551,7 +703,7 @@ private extension FestivalCoordinator {
         screenAction = .festivalList(action)
       case .liveBoard:
         screenAction = .liveBoard(action)
-      case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate:
+      case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate, .prepSchedule, .prepFlags:
         return .none
       }
       return .send(.router(.routeAction(id: index, action: screenAction)))
@@ -570,6 +722,10 @@ extension FestivalCoordinator {
     case crew(FestivalCrewFeature)
     case crewJoin(FestivalCrewJoinFeature)
     case crewCreate(FestivalCrewCreateFeature)
+    /// 준비 안내 1단계(S15-①) 내 일정 고르기
+    case prepSchedule(SchedulePickFeature)
+    /// 준비 안내 2단계(S15-②) 깃발 팔로우
+    case prepFlags(FestivalPrepFlagsFeature)
   }
 }
 
@@ -578,7 +734,7 @@ extension FestivalCoordinator.FestivalScreen.State: Equatable {
   var festivalBoard: FestivalFeature.State? {
     switch self {
     case let .festivalList(festival), let .liveBoard(festival): return festival
-    case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate: return nil
+    case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate, .prepSchedule, .prepFlags: return nil
     }
   }
 }

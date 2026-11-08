@@ -27,4 +27,6 @@ public enum FestivalDelegate: Equatable, Sendable {
   case crewRequested(crewID: String)
   /// 빈 크루 카드의 크루 만들기. 부모가 크루 만들기 화면을 연다.
   case crewCreateRequested(festivalID: String)
+  /// 팩을 처음 받았다. 부모가 준비 안내(S15 내 일정 → 깃발 → 준비물)를 연다.
+  case prepGuideRequested(festivalID: String)
 }

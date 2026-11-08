@@ -284,6 +284,16 @@ public struct FestivalFeature {
       return value.flatMap { imageURLs[$0] }
     }
 
+    /// 받아 둔 팩 문서. 준비 안내(S15)가 일정·존 이름을 읽는다.
+    public func packDocument(for festivalID: String) -> FestivalPackDocument? {
+      if festivalID == selectedFestivalID, let selectedPack { return selectedPack }
+      guard let cached = cachedPacks[festivalID] else { return nil }
+      return try? JSONDecoder().decode(
+        FestivalPackDocument.self,
+        from: cached.pack
+      )
+    }
+
     /// 로그아웃·인증 상실 때 이전 계정의 라이브 보드와 예약 목록을 비운다.
     public mutating func clearAccountData() {
       toast = nil
@@ -1534,6 +1544,10 @@ extension FestivalFeature {
       state.packDownloads.removeValue(forKey: id)
       switch result {
       case let .updated(pack), let .notModified(pack):
+        // 처음 받은 팩이면 준비 안내를 연다(Figma Row A 준비 흐름: S00 → S15). 저장에는 계정이 필요하다.
+        let guide: Effect<Action> = state.cachedPacks[id] == nil && state.hasSession
+          ? .send(.delegate(.prepGuideRequested(festivalID: id)))
+          : .none
         if state.selectedFestivalID == id {
           let received = handleInnerAction(
             state: &state,
@@ -1544,11 +1558,12 @@ extension FestivalFeature {
           )
           return .merge(
             received,
-            watchSelectedPack(state)
+            watchSelectedPack(state),
+            guide
           )
         }
         state.cachedPacks[id] = pack
-        return .none
+        return guide
       case .retryAfter, .reconnecting:
         state.toast = .packDownloadFailed
         state.toastRevision += 1
