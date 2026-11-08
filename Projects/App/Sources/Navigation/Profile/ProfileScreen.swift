@@ -7,6 +7,7 @@ enum ProfileScreen {
   case profile(ProfileFeature)
   case packDetail(PackDetailFeature)
   case account(AccountSettingsFeature)
+  case appearance(AppearanceSettingsFeature)
   case legalDocument(WebFeature)
   case lockScreen(LockScreenSettingsFeature)
   case noticeList(NoticeListFeature)

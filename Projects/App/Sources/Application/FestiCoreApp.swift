@@ -47,10 +47,12 @@ private struct RootView: View {
   @State private var showNotificationSettingsAlert = false
   @State private var notificationSettingsAlertGate = NotificationSettingsAlertGate()
   @State private var notificationPermissionRefreshGate = NotificationPermissionRefreshGate()
+  /// 마이 > 화면 모드(Figma S13-J)
+  @SharedReader(.appearanceMode) private var appearanceMode
 
   var body: some View {
     AppCoordinatorView(store: store)
-      .preferredColorScheme(.dark)
+      .preferredColorScheme(appearanceMode.colorScheme)
       .onOpenURL { url in
         // festicore:// 딥링크가 아니면 OAuth 콜백으로 넘긴다.
         if !AppDeeplinkBridge.handleURL(url) {

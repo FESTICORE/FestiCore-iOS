@@ -265,6 +265,17 @@ struct ProfileFeatureTests {
     }
   }
 
+  @Test func appearanceRowOpensScreenAndBackReturnsToProfile() async {
+    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
+
+    await store.send(.view(.appearanceTapped)) {
+      $0.destination = .appearance(.init())
+    }
+    await store.send(.destination(.presented(.appearance(.delegate(.backRequested))))) {
+      $0.destination = nil
+    }
+  }
+
   @Test func noticeRowOpensListAndBackReturnsToProfile() async {
     let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
 

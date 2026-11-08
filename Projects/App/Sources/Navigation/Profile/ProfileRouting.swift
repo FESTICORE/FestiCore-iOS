@@ -6,7 +6,7 @@ extension ProfileFeature.State {
   var hidesTabBarForProfileRoute: Bool {
     guard let screen = profileRoutes.last?.screen else { return false }
     switch screen {
-    case .account, .legalDocument, .lockScreen, .noticeList, .noticeDetail, .notifications:
+    case .account, .appearance, .legalDocument, .lockScreen, .noticeList, .noticeDetail, .notifications:
       return true
     case .profile, .packDetail:
       return false
@@ -30,6 +30,8 @@ extension ProfileFeature.State {
         routes.append(.push(.packDetail(detail)))
       case let .account(account):
         routes.append(.push(.account(account)))
+      case let .appearance(appearance):
+        routes.append(.push(.appearance(appearance)))
       case let .legalDocument(web):
         routes.append(.push(.legalDocument(web)))
       case let .lockScreen(lockScreen):

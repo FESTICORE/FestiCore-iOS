@@ -34,6 +34,8 @@ public struct ProfileFeature {
     public var packLoad = PackLoad.idle
     /// 아직 연결되지 않은 이동은 누를 수 없게 둔다.
     public var isSearchAvailable = false
+    /// 설정의 '화면 모드' 줄에 보이는 값
+    @SharedReader(.appearanceMode) public var appearanceMode
 
     /// 팝업과 마이 화면의 하위 목적지
     @Presents public var destination: Destination.State?
@@ -55,6 +57,7 @@ public struct ProfileFeature {
   public enum Destination {
     case alert(FCConfirmAlert)
     case account(AccountSettingsFeature)
+    case appearance(AppearanceSettingsFeature)
     case legalDocument(WebFeature)
     case lockScreen(LockScreenSettingsFeature)
     case noticeList(NoticeListFeature)
@@ -85,6 +88,7 @@ public struct ProfileFeature {
     case openPackDirections(festivalID: String, title: String)
     case notificationsTapped
     case lockScreenTapped
+    case appearanceTapped
     case accountTapped
     case noticeTapped
     case termsTapped
@@ -204,6 +208,10 @@ extension ProfileFeature {
       state.destination = .lockScreen(.init())
       return .none
 
+    case .appearanceTapped:
+      state.destination = .appearance(.init())
+      return .none
+
     case .accountTapped:
       guard state.profile != nil || state.hasSession else {
         return .send(.delegate(.loginRequested))
@@ -287,6 +295,13 @@ extension ProfileFeature {
       }
 
     case .presented(.account):
+      return .none
+
+    case .presented(.appearance(.delegate(.backRequested))):
+      state.destination = nil
+      return .none
+
+    case .presented(.appearance):
       return .none
 
     case .presented(.legalDocument(.delegate(.backToRoot))):
