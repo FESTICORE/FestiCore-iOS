@@ -30,6 +30,12 @@ struct FestivalCoordinatorView: View {
       case let .crewCreate(createStore):
         FestivalCrewCreateView(store: createStore)
           .swipeBackButtonHidden()
+      case let .prepSchedule(scheduleStore):
+        SchedulePickView(store: scheduleStore)
+          .swipeBackButtonHidden()
+      case let .prepFlags(flagsStore):
+        FestivalPrepFlagsView(store: flagsStore)
+          .swipeBackButtonHidden()
       }
     }
   }

@@ -75,10 +75,11 @@ struct MainTabCoordinator {
       return festivalState.routes.last?.screen.is(\.notificationInbox) == true
     }
 
-    /// 크루(S07)·참여 확인(S08)·크루 만들기는 아래 고정 영역이 있어 탭바 없이 표시한다.
+    /// 크루(S07)·참여 확인(S08)·크루 만들기·준비 안내(S15)는 아래 고정 영역이 있어 탭바 없이 표시한다.
     var isCrewOnTop: Bool {
       guard let screen = festivalState.routes.last?.screen else { return false }
       return screen.is(\.crew) || screen.is(\.crewJoin) || screen.is(\.crewCreate)
+        || screen.is(\.prepSchedule) || screen.is(\.prepFlags)
     }
 
     var shouldHideTabBar: Bool {
@@ -212,6 +213,22 @@ struct MainTabCoordinator {
 
       case .festival(.delegate(.followLoginRequested)):
         return .send(.delegate(.myFollowLoginRequested))
+
+      case .festival(.delegate(.termsAcceptanceRequested)):
+        return .send(.delegate(.myProfileRefreshRequested))
+
+      case let .festival(.delegate(.prepScheduleSaved(
+        festivalID,
+        setIDs
+      ))):
+        // 준비 안내에서 저장한 내 일정을 같은 페스티벌의 타임테이블과 라이브 보드에 반영한다.
+        if state.timetableState.festivalID == festivalID {
+          state.timetableState.mySetIDs = setIDs
+        }
+        return .send(.festival(.myScheduleSaved(
+          festivalID: festivalID,
+          setIDs: setIDs
+        )))
 
       case .festival(.delegate(.flagDirectoryRequested)):
         return .send(.selectTab(.flag))

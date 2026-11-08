@@ -134,7 +134,7 @@ struct AppCoordinator {
       switch screen {
       case let .festivalList(list): festival = list
       case let .liveBoard(board): festival = board
-      case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate: return nil
+      case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin, .crewCreate, .prepSchedule, .prepFlags: return nil
       }
       festival.hasSession = home.authFlow.hasSession && festival.hasSession
       return festival.widgetSnapshotContent
