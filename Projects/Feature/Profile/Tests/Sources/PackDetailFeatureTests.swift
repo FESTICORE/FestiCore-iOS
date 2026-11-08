@@ -14,6 +14,15 @@ import Testing
 
 @MainActor
 struct PackDetailFeatureTests {
+  @Test("막차·셔틀 시각은 기기 설정과 관계없이 서울 시간대의 24시간 HH:mm으로 보인다")
+  func lastRideTimeUsesSeoul24Hour() {
+    #expect(PackDetailView.timeText("2026-11-22T22:20:00+09:00") == "22:20")
+    #expect(PackDetailView.timeText("2026-11-22T13:52:00Z") == "22:52")
+    #expect(PackDetailView.timeText("2026-11-23T00:10:00+09:00") == "00:10")
+    #expect(PackDetailView.timeText("23:40") == "23:40")
+    #expect(PackDetailView.timeText(nil) == "-")
+  }
+
   @Test func appearLoadsPackChecklistAndChangesForOutdatedPack() async {
     let detail = sampleDetail(version: 12, latest: 13)
     let changes = FestivalPackChanges(fromVersion: 12, toVersion: 13, sizeBytes: 524_288, changedSets: 2)
