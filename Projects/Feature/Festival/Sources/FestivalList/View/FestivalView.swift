@@ -13,7 +13,7 @@ public struct FestivalView: View {
 
   public var body: some View {
     return festivalList
-    .overlay(alignment: .bottom) { toast }
+    .overlay(alignment: .top) { toast }
     .background(FestiCoreSemanticColor.backgroundNormal.color)
     .toolbar(
       .hidden,
