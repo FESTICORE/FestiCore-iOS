@@ -1,8 +1,9 @@
 name: PR Test Coverage
 
-# 테스트 검증은 develop push의 Develop Sharded Tests에서만 한다. 필요하면 수동 실행.
+# Attendance와 같이 PR마다 테스트·커버리지를 돌려 PR 댓글로 결과를 남긴다.
 on:
-  workflow_dispatch:
+  pull_request:
+    branches: [develop, main]
 
 # 같은 PR 에 새 커밋이 오면 이전 실행은 취소한다(러너가 한 대뿐이라 대기열을 줄인다).
 concurrency:
