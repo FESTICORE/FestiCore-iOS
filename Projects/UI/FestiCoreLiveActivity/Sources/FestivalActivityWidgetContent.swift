@@ -40,4 +40,36 @@ public enum FestivalActivityWidgetContent {
       startsAt: ISO8601DateFormatter().string(from: performance.startsAt)
     )
   }
+
+  /// 고정 깃발 줄. 예: "호락호락 · 슬램", 쉬는 중이면 "호락호락 · 쉬는 중".
+  public static func pinnedFlagText(
+    _ flag: FestiCoreFestivalActivityAttributes.ContentState.PinnedFlag?
+  ) -> String? {
+    guard let flag else { return nil }
+    let name = flag.name?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let status = flag.status == .resting ? "쉬는 중" : flag.activity.flatMap(activityTitle)
+    return [name?.isEmpty == false ? name : "내 깃발", status]
+      .compactMap { $0 }
+      .joined(separator: " · ")
+  }
+
+  /// 크루 줄. 예: "크루 4명 · 3명 현장".
+  public static func crewText(
+    _ crew: FestiCoreFestivalActivityAttributes.ContentState.CrewSummary?
+  ) -> String? {
+    guard let crew else { return nil }
+    let total = "크루 \(crew.memberCount)명"
+    guard crew.hereCount > 0 else { return total }
+    return "\(total) · \(crew.hereCount)명 현장"
+  }
+
+  static func activityTitle(_ raw: String) -> String? {
+    switch raw {
+    case "slam": return "슬램"
+    case "sing": return "떼창"
+    case "train": return "기차놀이"
+    case "calm": return "차분"
+    default: return nil
+    }
+  }
 }

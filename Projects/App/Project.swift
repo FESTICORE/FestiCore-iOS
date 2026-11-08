@@ -39,7 +39,8 @@ let project = Project.makeAppModule(
     .appExtension(.notificationService),
     .SPM.composableArchitecture,
     .SPM.tcaFlow,
-    .SPM.dependencies
+    .SPM.dependencies,
+    .SPM.sharing
   ],
   sources: ["Sources/**"],
   resources: ["Resources/**"],

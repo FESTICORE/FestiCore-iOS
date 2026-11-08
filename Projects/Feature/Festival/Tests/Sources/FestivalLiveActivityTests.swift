@@ -354,6 +354,53 @@ struct HomeLiveActivityTests {
     await store.finish()
   }
 
+  @Test @MainActor func duplicateActivityForSameFestivalIsEnded() async {
+    let now = ISO8601DateFormatter().date(from: "2026-10-29T09:30:00Z")!
+    let start = ISO8601DateFormatter().date(from: "2026-10-29T09:00:00Z")!
+    let end = ISO8601DateFormatter().date(from: "2026-10-30T09:00:00Z")!
+    let ended = LockIsolated<[String]>([])
+    let kept = FestivalLiveActivityRecord(
+      id: "a-local",
+      festivalID: "festival",
+      phase: .ongoing,
+      startDate: start,
+      endDate: end
+    )
+    let pushStarted = FestivalLiveActivityRecord(
+      id: "b-push",
+      festivalID: "festival",
+      phase: .ongoing,
+      startDate: start,
+      endDate: end
+    )
+    var state = FestivalFeature.State()
+    state.hasStarted = true
+    state.isForeground = false
+    let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.date.now = now
+      $0.festivalLiveActivityClient = .init(
+        activities: { [] },
+        changes: { AsyncStream { $0.finish() } },
+        start: { _, _, _, _, _ in "unused" },
+        update: { _, _, _, _, _, _ in },
+        finish: { _, _ in },
+        end: { id in ended.withValue { $0.append(id) } }
+      )
+    }
+
+    await store.send(.inner(.liveActivitiesLoaded(
+      [pushStarted, kept],
+      0
+    ))) {
+      $0.liveActivity.isReady = true
+      $0.liveActivity.now = now
+      $0.liveActivity.activities = ["festival": kept]
+    }
+    await store.finish()
+    #expect(ended.value == ["b-push"])
+  }
+
   @Test @MainActor func finishingOtherFestivalKeepsCurrentOperationBusy() async {
     let now = ISO8601DateFormatter().date(from: "2026-10-29T09:30:00Z")!
     let oldStart = ISO8601DateFormatter().date(from: "2026-10-27T09:00:00Z")!

@@ -126,40 +126,25 @@ private extension FestiCoreFestivalActivityWidget {
       spacing: FestiCoreSpacing.marginM4
     ) {
       HStack(alignment: .firstTextBaseline) {
-        Text(phaseLabel(
-          for: state,
-          isStale: isStale
-        ))
+        // Figma: "NOW PLAYING · 리벳 스테이지"처럼 단계와 무대를 한 줄에 둔다.
+        Text([
+          phaseLabel(
+            for: state,
+            isStale: isStale
+          ),
+          currentStageName(
+            for: state,
+            festivalID: festivalID
+          )
+        ]
+          .compactMap { $0 }
+          .joined(separator: " · "))
           .font(.pretendardFontFamily(
             family: .Bold,
             size: 9
           ))
           .tracking(0.9)
         Spacer(minLength: FestiCoreSpacing.marginM4)
-        if state.pinnedFlag != nil || state.crewSummary != nil {
-          Image(systemName: "star.fill")
-            .font(.pretendardFontFamily(
-              family: .Bold,
-              size: 10
-            ))
-          Text(state.crewSummary?.name ?? "내 깃발")
-            .font(.pretendardFontFamily(
-              family: .Medium,
-              size: 10
-            ))
-            .lineLimit(1)
-        }
-      }
-      if let stage = currentStageName(
-        for: state,
-        festivalID: festivalID
-      ) {
-        Text(stage)
-          .font(.pretendardFontFamily(
-            family: .Medium,
-            size: 11
-          ))
-          .lineLimit(1)
       }
       Text(headline(
         for: state,
@@ -170,6 +155,7 @@ private extension FestiCoreFestivalActivityWidget {
         .opacity(isStale ? 0.4 : 1)
         .minimumScaleFactor(0.7)
         .lineLimit(1)
+      companionLines(for: state)
     }
     .foregroundStyle(WidgetPalette.black)
     .padding(
@@ -229,12 +215,10 @@ private extension FestiCoreFestivalActivityWidget {
       for: state,
       festivalID: festivalID
     ) {
-      Text([next.artist, next.stageName ?? stageName(
-        for: next.setId,
+      Text(nextScheduleText(
+        next,
         festivalID: festivalID
-      ), performanceDate(next.startsAt)?.formatted(.time)]
-        .compactMap { $0 }
-        .joined(separator: " · "))
+      ))
         .font(.pretendardFontFamily(
           family: .Bold,
           size: 13
@@ -289,6 +273,45 @@ private extension FestiCoreFestivalActivityWidget {
       .leading,
       FestiCoreSpacing.marginM4
     )
+  }
+
+  /// Figma: 제목 아래에 "호락호락 · 슬램"(고정 깃발)과 "크루 4명 · 3명 현장"(크루)을 나란히 둔다.
+  @ViewBuilder
+  func companionLines(for state: FestiCoreFestivalActivityAttributes.ContentState) -> some View {
+    let flag = FestivalActivityWidgetContent.pinnedFlagText(state.pinnedFlag)
+    let crew = FestivalActivityWidgetContent.crewText(state.crewSummary)
+    if flag != nil || crew != nil {
+      HStack(spacing: FestiCoreSpacing.marginM12) {
+        if let flag {
+          companionLabel(
+            flag,
+            systemImage: "flag.fill"
+          )
+        }
+        if let crew {
+          companionLabel(
+            crew,
+            systemImage: "person.2.fill"
+          )
+        }
+      }
+    }
+  }
+
+  func companionLabel(
+    _ text: String,
+    systemImage: String
+  ) -> some View {
+    return HStack(spacing: FestiCoreSpacing.marginM4) {
+      Image(systemName: systemImage)
+        .font(.system(size: 9))
+      Text(text)
+        .font(.pretendardFontFamily(
+          family: .Medium,
+          size: 11
+        ))
+        .lineLimit(1)
+    }
   }
 
   @ViewBuilder
@@ -414,9 +437,13 @@ private extension FestiCoreFestivalActivityWidget {
       for: state,
       festivalID: festivalID
     ), let start = performanceDate(next.startsAt) {
+      // Figma: "12분 후". 시스템이 분 단위로 갱신하는 상대 표기를 쓴다.
       Text(
-        start,
-        style: .relative
+        .currentDate,
+        format: .reference(
+          to: start,
+          allowedFields: [.hour, .minute]
+        )
       )
         .font(WidgetFont.bagel(size))
         .minimumScaleFactor(0.65)
@@ -445,7 +472,7 @@ private extension FestiCoreFestivalActivityWidget {
     if isStale { return "오래된 정보" }
     switch state.phase {
     case .upcoming: return "UP NEXT"
-    case .ongoing: return "NOW PLAYING"
+    case .ongoing: return state.nowStages.isEmpty ? "UP NEXT" : "NOW PLAYING"
     case .finished: return "SEE YOU"
     }
   }
@@ -472,7 +499,7 @@ private extension FestiCoreFestivalActivityWidget {
     if let current = state.nowStages.first { return current.artist }
     switch state.phase {
     case .upcoming: return "\(state.startDate.formatted(.time)) 공연 시작"
-    case .ongoing: return "공연 진행 중"
+    case .ongoing: return "다음 공연 준비 중"
     case .finished: return "오늘 끝!"
     }
   }
@@ -496,6 +523,31 @@ private extension FestiCoreFestivalActivityWidget {
   func performanceDate(_ value: String) -> Date? {
     return value.isoDate
   }
+
+  /// "아티스트 · 무대 21:22" 형식의 다음 내 일정 문구.
+  func nextScheduleText(
+    _ next: FestiCoreFestivalActivityAttributes.ContentState.NextMine,
+    festivalID: String
+  ) -> String {
+    let stage = next.stageName ?? stageName(
+      for: next.setId,
+      festivalID: festivalID
+    )
+    let time = performanceDate(next.startsAt).map { Self.clockFormatter.string(from: $0) }
+    let place = [stage, time]
+      .compactMap { $0 }
+      .joined(separator: " ")
+    return [next.artist, place.isEmpty ? nil : place]
+      .compactMap { $0 }
+      .joined(separator: " · ")
+  }
+
+  static let clockFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "HH:mm"
+    return formatter
+  }()
 }
 
 private extension FestiCoreFestivalActivityWidget {

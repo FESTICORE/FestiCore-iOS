@@ -15,6 +15,7 @@ import FestiCoreAuthInterface
 import FestiCoreDeviceInterface
 import FestiCoreNetworkInterface
 import FestiCoreStorageInterface
+import FestiCoreUtility
 import Foundation
 import OSLog
 
@@ -153,7 +154,10 @@ struct AppCoordinator {
     case foregrounded
     case backgrounded
     case remoteContentChanged
-    case openWidgetRoute(WidgetDeepLink)
+    /// 위젯·푸시 딥링크로 화면을 연다.
+    case openDeeplink(FestiCoreDeeplink)
+    /// 대기 저장소에 새 딥링크가 들어왔다. 홈이면 바로 꺼내 연다.
+    case deeplinkReceived
     /// 로그인 시트의 로그인 요청(`LoginDelegate.signInRequested`)도 여기서 시트 상태를 확인한다.
     case startLogin(OAuthProvider)
     case dismissFlow
@@ -382,9 +386,15 @@ private extension AppCoordinator {
       guard case .home = state else { return .none }
       return .send(.scope(.home(.festival(.remoteContentChanged))))
 
-    case let .openWidgetRoute(route):
+    case let .openDeeplink(deeplink):
       guard case .home = state else { return .none }
-      return .send(.scope(.home(.openWidgetRoute(route))))
+      return .send(.scope(.home(.openDeeplink(deeplink))))
+
+    case .deeplinkReceived:
+      // 홈 전환 전이면 대기 값을 남겨 두고, 홈에 들어갈 때 다시 꺼낸다.
+      guard case .home = state,
+            let deeplink = AppDeeplinkBridge.consumePending() else { return .none }
+      return .send(.view(.openDeeplink(deeplink)))
 
     case let .startLogin(provider):
       // 수락한 로그인을 확정하는 동안 새 로그인을 시작하면 두 결과가 서로의 임시 세션을 무효로 만든다.
@@ -469,6 +479,7 @@ private extension AppCoordinator {
       state = .home(.init())
       return .merge(
         .send(.view(.foregrounded)),
+        .send(.view(.deeplinkReceived)),
         .run { send in
           for await _ in authSessionExpiryClient.events() {
             await send(.inner(.sessionExpired))

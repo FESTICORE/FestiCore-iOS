@@ -380,3 +380,30 @@ struct FestivalActivityPayloadTests {
     ) == nil)
   }
 }
+
+struct FestivalActivityCompanionTextTests {
+  @Test func pinnedFlagLineUsesServerNameAndActivity() throws {
+    let state = try JSONDecoder().decode(
+      FestiCoreFestivalActivityAttributes.ContentState.PinnedFlag.self,
+      from: Data(#"{"flagId":"flg_1","name":"호락호락","status":"active","zoneId":null,"activity":"slam"}"#.utf8)
+    )
+    #expect(FestivalActivityWidgetContent.pinnedFlagText(state) == "호락호락 · 슬램")
+  }
+
+  @Test func pinnedFlagLineFallsBackForOldPayloadAndResting() throws {
+    let state = try JSONDecoder().decode(
+      FestiCoreFestivalActivityAttributes.ContentState.PinnedFlag.self,
+      from: Data(#"{"flagId":"flg_1","status":"resting","zoneId":null,"activity":"slam"}"#.utf8)
+    )
+    #expect(FestivalActivityWidgetContent.pinnedFlagText(state) == "내 깃발 · 쉬는 중")
+    #expect(FestivalActivityWidgetContent.pinnedFlagText(nil) == nil)
+  }
+
+  @Test func crewLineShowsMembersOnSite() throws {
+    let crew = try JSONDecoder().decode(
+      FestiCoreFestivalActivityAttributes.ContentState.CrewSummary.self,
+      from: Data(#"{"crewId":"crew","name":"락인들","memberCount":4,"hereCount":3,"gatherZoneId":null}"#.utf8)
+    )
+    #expect(FestivalActivityWidgetContent.crewText(crew) == "크루 4명 · 3명 현장")
+  }
+}

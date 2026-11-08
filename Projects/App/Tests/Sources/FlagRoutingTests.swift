@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import FeatureAssembly
 import FestivalDomainInterface
+import FestiCoreUtility
 import Foundation
 import Testing
 import TCAFlow
@@ -226,7 +227,7 @@ struct FlagRoutingTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.openWidgetRoute(.flag("flg_9")))
+    await store.send(.openDeeplink(.flag(id: "flg_9")))
     await store.receive(\.selectTab) {
       $0.previousTab = .live
       $0.selectedTab = .flag
