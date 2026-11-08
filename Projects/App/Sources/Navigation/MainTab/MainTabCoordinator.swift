@@ -45,6 +45,16 @@ struct MainTabCoordinator {
     var profileState = ProfileFeature.State()
     var loginState = LoginFeature.State()
     var authFlow = AppCoordinator.AuthFlow()
+    /// 마이 '기수이신가요?'로 여는 기수 등록 흐름(전체 화면)
+    @Presents var bearerEntry: BearerEntryCoordinator.State?
+
+    /// 기수 코드를 넣을 페스티벌. 라이브 탭에서 연 페스티벌, 없으면 받은 팩이 하나일 때 그 팩이다.
+    var bearerFestivalID: String? {
+      if let festivalID = festivalState.routes.last(where: { $0.screen.is(\.liveBoard) })?.screen.liveBoard?.selectedFestivalID {
+        return festivalID
+      }
+      return profileState.packs.count == 1 ? profileState.packs.first?.id : nil
+    }
 
     /// 모달이 열려도 기존 탭바 공간은 유지해 뒤 화면이 이동하지 않게 한다.
     var shouldReserveTabBarSpace: Bool {
@@ -107,6 +117,7 @@ struct MainTabCoordinator {
     case timetableCoordinator(TimetableCoordinator.Action)
     case flagCoordinator(FlagCoordinator.Action)
     case profileCoordinator(ProfileCoordinator.Action)
+    case bearerEntry(PresentationAction<BearerEntryCoordinator.Action>)
     case login(LoginFeature.Action)
     case signUp(SignUpFlowCoordinator.Action)
     case authInputsChanged(previous: AuthInputs?, current: AuthInputs)
@@ -265,6 +276,10 @@ struct MainTabCoordinator {
         previous,
         current
       ):
+        // 기수 등록은 로그인한 사용자의 흐름이라 세션이 바뀌면 닫는다.
+        if previous?.session != current.session {
+          state.bearerEntry = nil
+        }
         return synchronizeAuthInputs(
           previous: previous,
           current: current
@@ -272,6 +287,22 @@ struct MainTabCoordinator {
 
       case .profileCoordinator(.profile(.delegate(.loginRequested))):
         return .send(.delegate(.myLoginRequested))
+      case .profileCoordinator(.profile(.delegate(.bearerRequested))):
+        guard state.authFlow.hasSession else { return .send(.delegate(.myLoginRequested)) }
+        guard let festivalID = state.bearerFestivalID else {
+          state.profileState.destination = .alert(.alert(
+            title: "페스티벌을 먼저 열어 주세요",
+            message: "기수 코드는 페스티벌마다 달라요. 라이브 탭에서 기수로 참여할 페스티벌을 연 뒤 다시 눌러 주세요.",
+            confirmTitle: "확인",
+            cancelTitle: "닫기"
+          ))
+          return .none
+        }
+        state.bearerEntry = BearerEntryCoordinator.State(
+          festivalID: festivalID,
+          viewerUserID: state.authFlow.verifiedUserID
+        )
+        return .none
       case .profileCoordinator(.profile(.delegate(.profileRefreshRequested))):
         return .send(.delegate(.myProfileRefreshRequested))
       case .profileCoordinator(.profile(.delegate(.logoutRequested))):
@@ -284,6 +315,12 @@ struct MainTabCoordinator {
            .profileCoordinator(.profile(.destination(.presented(.packDetail(.delegate(.packChanged)))))):
         return .send(.festival(.reloadCachedPacks))
       case .profileCoordinator:
+        return .none
+
+      case .bearerEntry(.presented(.delegate(.closeRequested))):
+        state.bearerEntry = nil
+        return .none
+      case .bearerEntry:
         return .none
 
       case .login, .signUp:
@@ -302,6 +339,12 @@ struct MainTabCoordinator {
           )))
         }
       }
+    }
+    .ifLet(
+      \.$bearerEntry,
+      action: \.bearerEntry
+    ) {
+      BearerEntryCoordinator()
     }
   }
 

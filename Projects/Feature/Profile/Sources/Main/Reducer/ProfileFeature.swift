@@ -33,7 +33,6 @@ public struct ProfileFeature {
     public var packs: [FestivalReceivedPack] = []
     public var packLoad = PackLoad.idle
     /// 아직 연결되지 않은 이동은 누를 수 없게 둔다.
-    public var isBearerNavigationAvailable = false
     public var isSearchAvailable = false
 
     /// 팝업과 마이 화면의 하위 목적지

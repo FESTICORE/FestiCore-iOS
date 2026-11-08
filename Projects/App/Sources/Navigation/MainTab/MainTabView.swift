@@ -67,6 +67,12 @@ struct MainTabView: View {
       ) { sheet in
         authSheetContent(sheet)
       }
+      .fullScreenCover(item: $store.scope(
+        state: \.bearerEntry,
+        action: \.bearerEntry
+      )) { bearerStore in
+        BearerEntryCoordinatorView(store: bearerStore)
+      }
       .onPreferenceChange(FCModalPresentedKey.self) { isModalPresented = $0 }
   }
 }
