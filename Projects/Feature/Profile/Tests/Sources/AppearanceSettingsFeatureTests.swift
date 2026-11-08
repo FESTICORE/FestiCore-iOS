@@ -6,6 +6,7 @@
 //
 
 import ComposableArchitecture
+import FestiCoreStorageInterface
 import Foundation
 import SwiftUI
 import Testing
@@ -18,7 +19,7 @@ struct AppearanceSettingsFeatureTests {
     return TestStore(initialState: AppearanceSettingsFeature.State()) {
       AppearanceSettingsFeature()
     } withDependencies: {
-      $0.defaultAppStorage = UserDefaults(suiteName: "AppearanceSettingsFeatureTests.\(UUID().uuidString)")!
+      $0.defaultInMemoryStorage = InMemoryStorage()
     }
   }
 
@@ -28,11 +29,12 @@ struct AppearanceSettingsFeatureTests {
     #expect(store.state.mode == .dark)
 
     await store.send(.view(.modeTapped(.system))) {
-      $0.$mode.withLock { $0 = .system }
+      $0.$storedMode.withLock { $0 = "system" }
     }
     await store.send(.view(.modeTapped(.light))) {
-      $0.$mode.withLock { $0 = .light }
+      $0.$storedMode.withLock { $0 = "light" }
     }
+    #expect(store.state.mode == .light)
   }
 
   @Test("뒤로 가면 마이로 돌아간다")
@@ -54,5 +56,7 @@ struct AppearanceSettingsFeatureTests {
       "다크"
     ])
     #expect(AppearanceMode.system.summary == "시스템 설정")
+    #expect(AppearanceMode(storedValue: "system") == .system)
+    #expect(AppearanceMode(storedValue: "unknown") == .dark)
   }
 }

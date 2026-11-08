@@ -8,6 +8,7 @@
 import AuthDomainInterface
 import ComposableArchitecture
 import FestiCoreSharedUI
+import FestiCoreStorageInterface
 import FestivalDomainInterface
 import Foundation
 import ProfileInterface
@@ -36,8 +37,12 @@ public struct ProfileFeature {
     public var packLoad = PackLoad.idle
     /// 아직 연결되지 않은 이동은 누를 수 없게 둔다.
     public var isSearchAvailable = false
+    /// 영속 저장소의 화면 모드 원시 값
+    @SharedReader(.appearanceMode) public var storedAppearanceMode
     /// 설정의 '화면 모드' 줄에 보이는 값
-    @SharedReader(.appearanceMode) public var appearanceMode
+    public var appearanceMode: AppearanceMode {
+      return AppearanceMode(storedValue: storedAppearanceMode)
+    }
 
     /// 팝업과 마이 화면의 하위 목적지
     @Presents public var destination: Destination.State?

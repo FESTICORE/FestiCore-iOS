@@ -16,6 +16,10 @@ let project = Project.makeModule(
     .domain(.auth, .interface),
     .domain(.festival, .interface),
     .domain(.notice, .interface),
+    .core(
+      .storage,
+      .interface
+    ),
     .core(.utility),
     .feature(.web),
     .feature(.web, .interface),
@@ -35,6 +39,10 @@ let project = Project.makeModule(
     .domain(.auth, .interface),
     .domain(.festival, .interface),
     .domain(.notice, .interface),
+    .core(
+      .storage,
+      .interface
+    ),
     .core(.utility),
     .feature(.web),
     .feature(.web, .interface),

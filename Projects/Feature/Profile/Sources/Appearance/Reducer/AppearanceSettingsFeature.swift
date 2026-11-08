@@ -8,6 +8,8 @@
 import ComposableArchitecture
 import Foundation
 
+import FestiCoreStorageInterface
+
 /// Figma S13-J 화면 모드. 고르면 바로 저장하고 앱 전체에 적용한다.
 @Reducer
 public struct AppearanceSettingsFeature {
@@ -15,7 +17,12 @@ public struct AppearanceSettingsFeature {
 
   @ObservableState
   public struct State: Equatable {
-    @Shared(.appearanceMode) public var mode
+    /// 영속 저장소의 화면 모드 원시 값
+    @Shared(.appearanceMode) public var storedMode
+
+    public var mode: AppearanceMode {
+      return AppearanceMode(storedValue: storedMode)
+    }
 
     public init() {}
   }
@@ -64,7 +71,7 @@ extension AppearanceSettingsFeature {
   ) -> Effect<Action> {
     switch action {
     case .modeTapped(let mode):
-      state.$mode.withLock { $0 = mode }
+      state.$storedMode.withLock { $0 = mode.rawValue }
       return .none
 
     case .backTapped:

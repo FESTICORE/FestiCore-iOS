@@ -5,7 +5,6 @@
 //  Created by FestiCore on 11/8/26.
 //
 
-import ComposableArchitecture
 import SwiftUI
 
 /// 화면 모드(Figma S13-J). 앱 루트가 `preferredColorScheme`으로 적용한다.
@@ -13,6 +12,11 @@ public enum AppearanceMode: String, CaseIterable, Equatable, Sendable {
   case system
   case light
   case dark
+
+  /// 저장된 원시 값(`appearanceMode` 키)에서 만든다. 알 수 없는 값은 지금까지처럼 다크로 본다.
+  public init(storedValue: String) {
+    self = AppearanceMode(rawValue: storedValue) ?? .dark
+  }
 
   /// 화면 모드 화면의 줄 이름
   public var title: String {
@@ -39,16 +43,5 @@ public enum AppearanceMode: String, CaseIterable, Equatable, Sendable {
     case .light: return .light
     case .dark: return .dark
     }
-  }
-}
-
-public extension SharedKey where Self == AppStorageKey<AppearanceMode>.Default {
-  /// 고른 화면 모드. 지금까지 앱이 다크로 고정돼 있었으므로 기본값은 다크다.
-  /// 키에 `.`이 있으면 UserDefaults 값 관찰(KVO)을 쓰지 못해 붙여 쓴다.
-  static var appearanceMode: Self {
-    return Self[
-      .appStorage("FestiCoreAppearanceMode"),
-      default: .dark
-    ]
   }
 }

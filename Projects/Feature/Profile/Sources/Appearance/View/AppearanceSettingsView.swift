@@ -67,12 +67,10 @@ private extension AppearanceSettingsView {
                 FestiCoreSpacing.paddingP16
               )
           }
-          FCListRow(
-            mode.title,
-            isSelected: store.mode == mode
-          ) {
+          FCListRow(mode.title) {
             send(.modeTapped(mode))
           }
+          .isSelected(store.mode == mode)
         }
       }
       .background(
