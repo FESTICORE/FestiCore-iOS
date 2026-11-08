@@ -65,10 +65,10 @@ struct MainTabCoordinator {
       return festivalState.routes.last?.screen.is(\.notificationInbox) == true
     }
 
-    /// 크루(S07)·참여 확인(S08)은 아래 고정 영역이 있어 탭바 없이 표시한다.
+    /// 크루(S07)·참여 확인(S08)·크루 만들기는 아래 고정 영역이 있어 탭바 없이 표시한다.
     var isCrewOnTop: Bool {
       guard let screen = festivalState.routes.last?.screen else { return false }
-      return screen.is(\.crew) || screen.is(\.crewJoin)
+      return screen.is(\.crew) || screen.is(\.crewJoin) || screen.is(\.crewCreate)
     }
 
     var shouldHideTabBar: Bool {

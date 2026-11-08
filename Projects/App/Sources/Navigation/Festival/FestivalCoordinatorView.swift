@@ -27,6 +27,9 @@ struct FestivalCoordinatorView: View {
       case let .crewJoin(joinStore):
         FestivalCrewJoinView(store: joinStore)
           .swipeBackButtonHidden()
+      case let .crewCreate(createStore):
+        FestivalCrewCreateView(store: createStore)
+          .swipeBackButtonHidden()
       }
     }
   }

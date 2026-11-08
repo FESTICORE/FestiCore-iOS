@@ -5,8 +5,8 @@ import FestiCoreUtility
 import FestivalDomainInterface
 import SwiftUI
 
-/// 라이브 보드의 크루 만들기 바텀시트 내용. 부모가 `fcModal`로 표시한다.
-/// 이름을 정해 만들면 같은 시트에서 크루장 전용 초대 링크를 보내고 크루 화면(S07)으로 갈 수 있다.
+/// 라이브 보드에서 push로 여는 크루 만들기 화면. 탭바 없이 아래 고정 버튼을 둔다.
+/// 이름을 정해 만들면 같은 화면이 초대 단계로 바뀌어 크루장 전용 초대 링크를 보내고 크루 화면(S07)으로 갈 수 있다.
 @ViewAction(for: FestivalCrewCreateFeature.self)
 public struct FestivalCrewCreateView: View {
   @Bindable public var store: StoreOf<FestivalCrewCreateFeature>
@@ -16,6 +16,47 @@ public struct FestivalCrewCreateView: View {
   }
 
   public var body: some View {
+    VStack(spacing: .zero) {
+      topBar
+      ScrollView {
+        content
+          .padding(
+            .horizontal,
+            FestiCoreSpacing.paddingP20
+          )
+          .padding(
+            .vertical,
+            FestiCoreSpacing.paddingP24
+          )
+      }
+      .scrollBounceBehavior(.basedOnSize)
+    }
+    .background(FestiCoreSemanticColor.backgroundNormal.color.ignoresSafeArea())
+    .safeAreaInset(
+      edge: .bottom,
+      spacing: .zero
+    ) {
+      footer
+    }
+    .fcAlert($store.scope(
+      state: \.alert,
+      action: \.alert
+    ))
+  }
+}
+
+private extension FestivalCrewCreateView {
+  var topBar: some View {
+    return FCTopBar(
+      .back,
+      title: "크루 만들기"
+    )
+    .onBack { send(.closeTapped) }
+    .backgroundColor(.backgroundNavigation)
+  }
+
+  @ViewBuilder
+  var content: some View {
     VStack(
       alignment: .leading,
       spacing: FestiCoreSpacing.paddingP24
@@ -27,31 +68,12 @@ public struct FestivalCrewCreateView: View {
         created(crew)
       }
     }
-    .padding(
-      .horizontal,
-      FestiCoreSpacing.paddingP20
-    )
-    .padding(
-      .top,
-      FestiCoreSpacing.paddingP8
-    )
-    .padding(
-      .bottom,
-      FestiCoreSpacing.paddingP24
-    )
     .frame(
       maxWidth: .infinity,
       alignment: .leading
     )
-    .background(FestiCoreSemanticColor.backgroundElevated.color)
-    .fcAlert($store.scope(
-      state: \.alert,
-      action: \.alert
-    ))
   }
-}
 
-private extension FestivalCrewCreateView {
   @ViewBuilder
   var naming: some View {
     header(
@@ -70,13 +92,6 @@ private extension FestivalCrewCreateView {
     .helper("1~20자로 입력해 주세요")
     .error(store.errorMessage)
     .disabled(store.isSubmitting)
-
-    FCPrimaryButton(
-      store.isSubmitting ? "만드는 중" : "크루 만들기",
-      isEnabled: store.canSubmit
-    ) {
-      send(.submitTapped)
-    }
   }
 
   @ViewBuilder
@@ -91,49 +106,60 @@ private extension FestivalCrewCreateView {
         expiresAt: crew.inviteExpiresAt
       )
     }
-    VStack(spacing: FestiCoreSpacing.paddingP12) {
-      if let url = store.inviteURL {
-        shareButton(url)
-      }
-      FCButton("크루 보기") { send(.openCrewTapped) }
-        .style(store.inviteURL == nil ? .primary : .secondary)
-        .isFullWidth(true)
-    }
   }
 
   func header(
     title: String,
     message: String
   ) -> some View {
-    return HStack(
-      alignment: .top,
-      spacing: FestiCoreSpacing.paddingP16
+    return VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP8
     ) {
-      VStack(
-        alignment: .leading,
-        spacing: FestiCoreSpacing.paddingP8
-      ) {
-        Text(title)
-          .festiCoreFont(.baseTitle2Bold)
-          .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-          .accessibilityAddTraits(.isHeader)
-        Text(message)
-          .festiCoreFont(.baseSubheadlineRegular)
-          .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+      Text(title)
+        .festiCoreFont(.baseTitle2Bold)
+        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+        .accessibilityAddTraits(.isHeader)
+      Text(message)
+        .festiCoreFont(.baseSubheadlineRegular)
+        .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+    }
+  }
+
+  /// 아래 고정 버튼. 이름 단계는 만들기, 초대 단계는 링크 보내기·크루 보기다.
+  var footer: some View {
+    return VStack(spacing: FestiCoreSpacing.paddingP12) {
+      switch store.step {
+      case .naming:
+        FCButton(store.isSubmitting ? "만드는 중" : "크루 만들기") { send(.submitTapped) }
+          .isFullWidth(true)
+          .isEnabled(store.canSubmit)
+      case .created:
+        if let url = store.inviteURL {
+          shareButton(url)
+        }
+        FCButton("크루 보기") { send(.openCrewTapped) }
+          .style(store.inviteURL == nil ? .primary : .secondary)
+          .isFullWidth(true)
       }
-      Spacer(minLength: .zero)
-      Button { send(.closeTapped) } label: {
-        Image(asset: .xmark16)
-          .resizable()
-          .frame(
-            width: Metric.closeIcon,
-            height: Metric.closeIcon
-          )
-          .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-      }
-      .buttonStyle(.plain)
-      .disabled(store.isSubmitting)
-      .accessibilityLabel("닫기")
+    }
+    .padding(
+      .top,
+      Metric.footerTopPadding
+    )
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP16
+    )
+    .padding(
+      .bottom,
+      Metric.footerBottomPadding
+    )
+    .background(FestiCoreSemanticColor.backgroundElevated.color.ignoresSafeArea(edges: .bottom))
+    .overlay(alignment: .top) {
+      Rectangle()
+        .fill(FestiCoreSemanticColor.lineNormal.color)
+        .frame(height: Metric.divider)
     }
   }
 
@@ -181,7 +207,10 @@ private extension FestivalCrewCreateView {
       }
   }
 
+  /// 하단 고정 영역은 크루 참여 확인(S08)과 같은 여백을 쓴다.
   enum Metric {
-    static let closeIcon: CGFloat = 20
+    static let footerTopPadding: CGFloat = 13
+    static let footerBottomPadding: CGFloat = 1
+    static let divider: CGFloat = 1
   }
 }

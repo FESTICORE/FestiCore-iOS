@@ -25,4 +25,6 @@ public enum FestivalDelegate: Equatable, Sendable {
   case zoneMapRequested(festivalID: String, zoneID: String?)
   /// 라이브 보드 내 크루 카드. 부모가 크루 화면(S07)을 연다.
   case crewRequested(crewID: String)
+  /// 빈 크루 카드의 크루 만들기. 부모가 크루 만들기 화면을 연다.
+  case crewCreateRequested(festivalID: String)
 }
