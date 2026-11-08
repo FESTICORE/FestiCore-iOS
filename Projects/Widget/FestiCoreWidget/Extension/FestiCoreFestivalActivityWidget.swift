@@ -145,19 +145,6 @@ private extension FestiCoreFestivalActivityWidget {
           ))
           .tracking(0.9)
         Spacer(minLength: FestiCoreSpacing.marginM4)
-        if state.pinnedFlag != nil || state.crewSummary != nil {
-          Image(systemName: "star.fill")
-            .font(.pretendardFontFamily(
-              family: .Bold,
-              size: 10
-            ))
-          Text(state.crewSummary?.name ?? "내 깃발")
-            .font(.pretendardFontFamily(
-              family: .Medium,
-              size: 10
-            ))
-            .lineLimit(1)
-        }
       }
       Text(headline(
         for: state,
@@ -168,6 +155,7 @@ private extension FestiCoreFestivalActivityWidget {
         .opacity(isStale ? 0.4 : 1)
         .minimumScaleFactor(0.7)
         .lineLimit(1)
+      companionLines(for: state)
     }
     .foregroundStyle(WidgetPalette.black)
     .padding(
@@ -285,6 +273,45 @@ private extension FestiCoreFestivalActivityWidget {
       .leading,
       FestiCoreSpacing.marginM4
     )
+  }
+
+  /// Figma: 제목 아래에 "호락호락 · 슬램"(고정 깃발)과 "크루 4명 · 3명 현장"(크루)을 나란히 둔다.
+  @ViewBuilder
+  func companionLines(for state: FestiCoreFestivalActivityAttributes.ContentState) -> some View {
+    let flag = FestivalActivityWidgetContent.pinnedFlagText(state.pinnedFlag)
+    let crew = FestivalActivityWidgetContent.crewText(state.crewSummary)
+    if flag != nil || crew != nil {
+      HStack(spacing: FestiCoreSpacing.marginM12) {
+        if let flag {
+          companionLabel(
+            flag,
+            systemImage: "flag.fill"
+          )
+        }
+        if let crew {
+          companionLabel(
+            crew,
+            systemImage: "person.2.fill"
+          )
+        }
+      }
+    }
+  }
+
+  func companionLabel(
+    _ text: String,
+    systemImage: String
+  ) -> some View {
+    return HStack(spacing: FestiCoreSpacing.marginM4) {
+      Image(systemName: systemImage)
+        .font(.system(size: 9))
+      Text(text)
+        .font(.pretendardFontFamily(
+          family: .Medium,
+          size: 11
+        ))
+        .lineLimit(1)
+    }
   }
 
   @ViewBuilder
