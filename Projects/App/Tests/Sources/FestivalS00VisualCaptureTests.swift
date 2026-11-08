@@ -77,6 +77,7 @@ private extension FestivalS01VisualCaptureTests {
   func festivalListFixture(_ scenario: FestivalListScenario) throws -> FestivalFeature.State {
     var state = FestivalFeature.State()
     state.viewState = .loaded
+    state.hasFinishedFirstCatalogRefresh = true
     state.catalog = IdentifiedArray(uniqueElements: festivalListCatalog)
     state.imageURLs = try festivalListPosterURLs()
     switch scenario {

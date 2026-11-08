@@ -27,6 +27,8 @@ public struct FestivalFeature {
     }
 
     public var viewState: ViewState = .loading
+    /// 이번 실행에서 서버 목록 갱신이 한 번이라도 끝났는지(성공·실패 모두). 그 전에는 받아 둔 목록이 있어도 스켈레톤을 보인다.
+    var hasFinishedFirstCatalogRefresh = false
     public var catalog: IdentifiedArrayOf<FestivalCatalogItem> = []
     var catalogNextCursor: String?
     var isLoadingMoreCatalog = false
@@ -1295,6 +1297,7 @@ extension FestivalFeature {
 
     case let .catalogRefreshed(catalog):
       state.viewState = .loaded
+      state.hasFinishedFirstCatalogRefresh = true
       state.catalogRefreshFailed = false
       let hasMoreCatalogPages = state.catalogNextCursor != nil
       state.catalogNextCursor = nil
@@ -1365,6 +1368,7 @@ extension FestivalFeature {
 
     case .catalogFailed:
       state.viewState = .loaded
+      state.hasFinishedFirstCatalogRefresh = true
       state.catalogRefreshFailed = true
       state.isLoadingMoreCatalog = false
       if state.connection != .live {
@@ -2091,6 +2095,11 @@ extension FestivalFeature {
 }
 
 extension FestivalFeature.State {
+  /// S00 목록 스켈레톤. 첫 서버 갱신 전이거나, 불러오는 중인데 보일 목록이 없을 때 보인다.
+  var showsListSkeleton: Bool {
+    return !hasFinishedFirstCatalogRefresh || (viewState == .loading && festivals.isEmpty)
+  }
+
   /// 같은 ID가 다시 오면 처음 항목만 남긴다.
   static func uniqueCatalog(_ items: [FestivalCatalogItem]) -> IdentifiedArrayOf<FestivalCatalogItem> {
     var result: IdentifiedArrayOf<FestivalCatalogItem> = []

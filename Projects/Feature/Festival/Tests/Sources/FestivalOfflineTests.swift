@@ -37,6 +37,7 @@ struct HomeOfflineTests {
     }
     await store.receive(\.async.refresh)
     await store.receive(\.inner.catalogFailed) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.viewState = .loaded
       $0.catalogRefreshFailed = true
       $0.connection = .offline
@@ -153,6 +154,7 @@ struct HomeOfflineTests {
       $0.connection = .cached
     }
     await store.receive(\.inner.catalogFailed) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.catalogRefreshFailed = true
       $0.connection = .offline
       $0.imageRetryPending = true
@@ -182,6 +184,7 @@ struct HomeOfflineTests {
       $0.connection = .unavailable
     }
     await store.receive(\.inner.catalogFailed) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.viewState = .loaded
       $0.catalogRefreshFailed = true
       $0.connection = .offline
@@ -229,6 +232,7 @@ struct HomeOfflineTests {
       $0.connection = .cached
     }
     await store.receive(\.inner.catalogFailed) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.catalogRefreshFailed = true
       $0.connection = .offline
       $0.imageRetryPending = true
@@ -250,6 +254,7 @@ struct HomeOfflineTests {
     }
 
     await store.send(.inner(.catalogRefreshed([item]))) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.viewState = .loaded
       $0.catalog = [item]
       $0.catalogCacheReadFailed = false
@@ -287,6 +292,7 @@ struct HomeOfflineTests {
       "팩 연결 실패는 목록 오류가 아니다"
     )
     await store.send(.inner(.catalogRefreshed([]))) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.viewState = .loaded
       $0.packWatchFailed = false
       $0.imageRetryPending = false
@@ -311,6 +317,7 @@ struct HomeOfflineTests {
     }
 
     await store.send(.inner(.catalogRefreshed([item]))) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.viewState = .loaded
       $0.catalog = [item]
       $0.selectedFestivalID = item.id
@@ -416,6 +423,7 @@ struct HomeOfflineTests {
     }
 
     await store.send(.inner(.catalogRefreshed([first, duplicate, other]))) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.viewState = .loaded
       $0.catalog = [first, other]
       $0.selectedFestivalID = first.id
@@ -447,6 +455,7 @@ struct HomeOfflineTests {
     }
 
     await store.send(.inner(.catalogRefreshed([item]))) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.viewState = .loaded
       $0.imageURLs = [item.thumbnailURL!.absoluteString: item.thumbnailURL!]
       $0.connection = .unavailable
@@ -484,6 +493,7 @@ struct HomeOfflineTests {
     }
 
     await store.send(.inner(.catalogRefreshed([]))) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.viewState = .loaded
       $0.imageURLs = [
         "https://example.com/selected.webp": URL(string: "https://example.com/selected.webp")!,
@@ -514,12 +524,14 @@ struct HomeOfflineTests {
     }
 
     await store.send(.inner(.catalogFailed)) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.viewState = .loaded
       $0.catalogRefreshFailed = true
       $0.connection = .offline
       $0.imageRetryPending = true
     }
     await store.send(.inner(.catalogRefreshed([item]))) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.catalogRefreshFailed = false
       $0.imageRevision = 1
       $0.imageRetryPending = false
@@ -578,6 +590,7 @@ struct HomeOfflineTests {
     #expect(await recorder.startCount() == 1)
 
     await store.send(.inner(.catalogFailed)) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.viewState = .loaded
       $0.catalogRefreshFailed = true
     }
@@ -655,6 +668,7 @@ struct HomeOfflineTests {
       $0.connection = .live
     }
     await store.send(.inner(.catalogRefreshed(items))) {
+      $0.hasFinishedFirstCatalogRefresh = true
       $0.viewState = .loaded
       $0.catalog = IdentifiedArray(uniqueElements: items)
       for item in items {

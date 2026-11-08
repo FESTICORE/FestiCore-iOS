@@ -175,7 +175,7 @@ private extension FestivalListView {
     Text(store.listInteraction.selectedFilter == .all ? Copy.allGuide : Copy.bookedGuide)
       .festiCoreFont(.baseSubheadlineMedium)
       .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-    if store.viewState == .loading, festivals.isEmpty {
+    if store.showsListSkeleton {
       FestivalListSkeletonView()
     } else if visibleFestivals.isEmpty {
       emptyCard()
