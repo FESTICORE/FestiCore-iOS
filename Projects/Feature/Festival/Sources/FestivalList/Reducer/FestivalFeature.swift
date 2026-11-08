@@ -6,6 +6,8 @@ import FestiCoreSharedUI
 import FestivalInterface
 import Foundation
 import UserNotificationDomainInterface
+import Web
+import WebInterface
 
 @Reducer
 public struct FestivalFeature {
@@ -99,6 +101,8 @@ public struct FestivalFeature {
     @Presents public var festivalSwitcher: FestivalSwitcherFeature.State?
     @Presents public var crewGather: FestivalCrewGatherFeature.State?
     @Presents public var followGuideAlert: FCAlertState<FCAlertAction>?
+    /// 목록 카드의 티켓 예매 링크를 여는 앱 안 웹 화면
+    @Presents public var ticket: WebFeature.State?
     public var hiddenFollowGuideFestivalIDs: Set<String> = []
     public var showsFollowGuide: Bool {
       !isFollowedFlagGuideHidden && (selectedFestivalID.map { !hiddenFollowGuideFestivalIDs.contains($0) } ?? false)
@@ -369,6 +373,7 @@ public struct FestivalFeature {
     case festivalSwitcher(PresentationAction<FestivalSwitcherFeature.Action>)
     case crewGather(PresentationAction<FestivalCrewGatherFeature.Action>)
     case followGuideAlert(PresentationAction<FCAlertAction>)
+    case ticket(PresentationAction<WebFeature.Action>)
     case delegate(FestivalDelegate)
     case alert(PresentationAction<FCAlertAction>)
   }
@@ -422,7 +427,8 @@ public struct FestivalFeature {
     case findFlagsTapped
     case closeFollowedFlagGuideTapped
     case notificationUnreadCountChanged(Int)
-    case ticketLinkMissing
+    /// 목록 카드의 티켓 예매. 링크가 있으면 앱 안 웹 화면, 없으면 안내 토스트를 띄운다.
+    case ticketLinkTapped(festivalID: String)
     /// 코디네이터가 계정·세션·내 일정 변경을 알린다.
     case reloadBookmarks(userID: String?)
     case accountChanged
@@ -583,6 +589,13 @@ public struct FestivalFeature {
       case .followGuideAlert:
         return .none
 
+      case .ticket(.presented(.delegate(.backToRoot))):
+        state.ticket = nil
+        return .none
+
+      case .ticket:
+        return .none
+
       case .delegate:
         return .none
       }
@@ -603,6 +616,10 @@ public struct FestivalFeature {
       \.$followGuideAlert,
       action: \.followGuideAlert
     ) { FCConfirmAlert() }
+    .ifLet(
+      \.$ticket,
+      action: \.ticket
+    ) { WebFeature() }
   }
 }
 
@@ -981,7 +998,16 @@ extension FestivalFeature {
       if count <= 0 { state.notificationBanner = nil }
       return .none
 
-    case .ticketLinkMissing:
+    case let .ticketLinkTapped(festivalID):
+      // 카탈로그·팩 매퍼가 https 링크만 남긴다. 결제 앱 전환은 예매 범위의 웹 화면이 맡는다.
+      if let url = state.festivals.first(where: { $0.id == festivalID })?.ticketURL {
+        state.ticket = WebFeature.State(
+          url: url,
+          title: "티켓 예매",
+          navigationScope: .booking
+        )
+        return .none
+      }
       state.toast = .ticketLinkMissing
       state.toastRevision += 1
       return .send(.async(.expireToast))
