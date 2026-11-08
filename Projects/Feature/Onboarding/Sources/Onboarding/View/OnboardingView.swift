@@ -66,16 +66,21 @@ private extension OnboardingView {
 
       Spacer(minLength: 16)
 
-      VStack(alignment: .leading, spacing: 12) {
+      // Figma Onboarding 1~4 실측: 제목 줄 간격 38px, 제목→설명 49px, 설명 줄 간격 26px, 점은 바닥에서 40pt.
+      VStack(
+        alignment: .leading,
+        spacing: 19
+      ) {
         Text(OnboardingPage.all[index].title)
           .pretendardFont(family: .Bold, size: 26)
+          .lineSpacing(7)
           .foregroundStyle(Color.labelNormal)
           .fixedSize(horizontal: false, vertical: true)
 
         Text(OnboardingPage.all[index].description)
           .festiCoreFont(.baseCalloutRegular)
           .foregroundStyle(Color.labelNeutral)
-          .lineSpacing(5)
+          .lineSpacing(7)
           .fixedSize(horizontal: false, vertical: true)
       }
 
@@ -88,8 +93,14 @@ private extension OnboardingView {
       }
       .accessibilityElement(children: .ignore)
       .accessibilityLabel("\(index + 1) / \(OnboardingPage.all.count) 페이지")
-      .padding(.top, 34)
-      .padding(.bottom, 48)
+      .padding(
+        .top,
+        36
+      )
+      .padding(
+        .bottom,
+        40
+      )
     }
     .padding(.horizontal, 24)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
