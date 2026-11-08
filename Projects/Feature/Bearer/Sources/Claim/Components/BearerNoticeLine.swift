@@ -17,14 +17,23 @@ struct BearerNoticeLine: View {
     HStack(spacing: FestiCoreSpacing.marginM6) {
       Image(asset: isWarning ? .triangleExclamation16 : .circleInfo16)
         .resizable()
-        .frame(width: 14, height: 14)
+        .frame(
+          width: Metric.iconSize,
+          height: Metric.iconSize
+        )
         .accessibilityHidden(true)
       Text(text)
         .festiCoreFont(.baseFootnoteRegular)
+        .festiCoreLineBox(.baseFootnoteRegular)
     }
     .foregroundStyle(
       isWarning ? FestiCoreSemanticColor.statusNegative.color : FestiCoreSemanticColor.labelAssistive.color
     )
     .frame(maxWidth: .infinity, alignment: .leading)
+  }
+
+  /// Figma Inline Message: 아이콘 16, 글자 13/18
+  private enum Metric {
+    static let iconSize: CGFloat = 16
   }
 }

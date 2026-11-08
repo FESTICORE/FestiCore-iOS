@@ -35,10 +35,13 @@ public struct FCBearerPrompt: View {
           .background(FestiCoreSemanticColor.staticInk.color, in: Circle())
           .accessibilityHidden(true)
         VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM2) {
+          // Figma Bearer Prompt: 제목 15/22·설명 12/16, 높이 64
           Text(title)
             .festiCoreFont(.baseSubheadlineBold)
+            .festiCoreLineBox(.baseSubheadlineBold)
           Text(sub)
             .festiCoreFont(.baseCaption1Medium)
+            .festiCoreLineBox(.baseCaption1Medium)
             .opacity(Metric.subOpacity)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

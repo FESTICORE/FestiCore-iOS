@@ -84,7 +84,10 @@ private extension ProfileView {
         sectionTitle("내가 받은 팩")
         Spacer()
         if store.packLoad == .loaded {
-          sectionTitle("\(store.packs.count)개")
+          Text("\(store.packs.count)개")
+            .festiCoreFont(.baseFootnoteRegular)
+            .festiCoreLineBox(.baseFootnoteRegular)
+            .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         }
       }
       .padding(.horizontal, FestiCoreSpacing.paddingP4)
@@ -207,9 +210,11 @@ private extension ProfileView {
     }
   }
 
+  /// Figma More 그룹 제목: Pretendard Bold 13, 줄 높이 18
   func sectionTitle(_ title: String) -> some View {
     Text(title)
-      .festiCoreFont(.baseCaption1Medium)
+      .festiCoreFont(.baseFootnoteBold)
+      .festiCoreLineBox(.baseFootnoteBold)
       .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
   }
 
