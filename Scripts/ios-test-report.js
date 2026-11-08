@@ -600,6 +600,17 @@ function renderReport({ summary, coverage, coverageStats, buildErrors, bundleIns
   return lines.join("\n");
 }
 
+/** PR 실행은 그 PR, develop push 실행은 이 커밋을 머지한 PR에 결과를 단다. */
+async function reportIssueNumber({ github, context }) {
+  if (context.payload.pull_request) return context.payload.pull_request.number;
+  const { data } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    commit_sha: context.sha,
+  });
+  return data.find((pull) => pull.merged_at)?.number ?? null;
+}
+
 module.exports = async ({ github, context, core }) => {
   const bundles = findResultBundles(process.env.RESULT_BUNDLE_DIR);
   const shardIds = (process.env.COVERAGE_SHARD_IDS || "").split(",").filter(Boolean);
@@ -626,7 +637,7 @@ module.exports = async ({ github, context, core }) => {
     bundleInsights,
     outcome: issues.length > 0 ? "failure" : process.env.TEST_OUTCOME || "unknown",
     runUrl: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-    sha: context.payload.pull_request.head.sha,
+    sha: context.payload.pull_request?.head.sha ?? context.sha,
     testRunUrl,
     buildRunUrl,
   });
@@ -643,10 +654,21 @@ module.exports = async ({ github, context, core }) => {
   if (issues.length > 0) core.setFailed(issues.join("; "));
   if (process.env.REPORT_COMMENT === "false") return;
 
+  const issueNumber = await reportIssueNumber({ github, context });
+  if (!issueNumber) {
+    // 머지한 PR을 찾지 못한 develop 커밋은 커밋 댓글로 남긴다.
+    await github.rest.repos.createCommitComment({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      commit_sha: context.sha,
+      body,
+    });
+    return;
+  }
   const target = {
     owner: context.repo.owner,
     repo: context.repo.repo,
-    issue_number: context.payload.pull_request.number,
+    issue_number: issueNumber,
   };
 
   const comments = await github.paginate(github.rest.issues.listComments, { ...target, per_page: 100 });
