@@ -30,14 +30,18 @@ public struct FCCheckOverlay: View {
   }
 
   public var body: some View {
+    // Figma Check Overlay: 체크·8pt 공간·제목·설명을 12pt 간격과 줄 높이 박스로 쌓는다.
     VStack(spacing: FestiCoreSpacing.paddingP12) {
       FCCheckBadge()
-        .padding(.bottom, FestiCoreSpacing.paddingP8)
+      Spacer()
+        .frame(height: FestiCoreSpacing.paddingP8)
       Text(item.title)
         .festiCoreFont(.baseTitle2Bold)
+        .festiCoreLineBox(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.staticWhite.color)
       Text(item.message)
         .festiCoreFont(.baseCalloutRegular)
+        .festiCoreLineBox(.baseCalloutRegular)
         .foregroundStyle(FestiCoreSemanticColor.staticWhite.color.opacity(Metric.messageOpacity))
     }
     .multilineTextAlignment(.center)

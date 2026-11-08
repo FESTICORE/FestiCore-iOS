@@ -67,18 +67,22 @@ public struct FCBearerCTA: View {
   public var body: some View {
     VStack(spacing: FestiCoreSpacing.paddingP16) {
       flagMark
+      // Figma Bearer CTA는 문구마다 줄 높이 박스(30·24·18pt)로 쌓는다.
       Text(copy.title)
         .festiCoreFont(.baseTitle2Bold)
+        .festiCoreLineBox(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       Spacer()
         .frame(height: FestiCoreSpacing.paddingP8)
       ctaButton
       Text(copy.caption)
         .festiCoreFont(.baseCalloutMedium)
+        .festiCoreLineBox(.baseCalloutMedium)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
       if let note = copy.note {
         Text(note)
           .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
           .frame(maxWidth: .infinity)
       }
@@ -115,7 +119,7 @@ private extension FCBearerCTA {
     let shape = RoundedRectangle(cornerRadius: FestiCoreRadius.r24)
     return Button(action: action) {
       Text(copy.buttonTitle)
-        .festiCoreFont(.baseTitle2Bold)
+        .festiCoreFont(.baseCalloutBold)
         .foregroundStyle(state == .start ? FestiCoreSemanticColor.staticInk.color : FestiCoreSemanticColor.inverseLabel.color)
         .lineLimit(1)
         .padding(.horizontal, FestiCoreSpacing.paddingP20)

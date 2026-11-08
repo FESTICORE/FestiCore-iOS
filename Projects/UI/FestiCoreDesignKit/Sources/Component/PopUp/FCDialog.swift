@@ -43,6 +43,7 @@ public struct FCDialog: View {
   private var item: FCDialogItem
   private var onDismiss: () -> Void
   private var textAlignment: TextAlignment = .leading
+  private var confirmStyle: FCButton.Style = .primary
 
   public init(
     _ item: FCDialogItem,
@@ -55,8 +56,10 @@ public struct FCDialog: View {
   public var body: some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
+        // Figma Dialog 문구는 줄 높이 박스(제목 24pt·설명 18pt/줄)로 쌓는다.
         Text(item.title)
           .festiCoreFont(.baseBodyBold)
+          .festiCoreLineBox(.baseBodyBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .multilineTextAlignment(textAlignment)
           .frame(
@@ -66,6 +69,7 @@ public struct FCDialog: View {
           .accessibilityAddTraits(.isHeader)
         Text(item.message)
           .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
           .multilineTextAlignment(textAlignment)
           .frame(
@@ -86,6 +90,7 @@ public struct FCDialog: View {
           item.onConfirm()
           onDismiss()
         }
+        .style(confirmStyle)
         .size(.medium)
         .isFullWidth(true)
       }
@@ -103,6 +108,13 @@ public extension FCDialog {
   func textAlignment(_ alignment: TextAlignment) -> Self {
     var copy = self
     copy.textAlignment = alignment
+    return copy
+  }
+
+  /// 확인 버튼 스타일을 지정한다. 기본은 primary이고 S09 기수 보드는 inverse(흰색)다.
+  func confirmStyle(_ style: FCButton.Style) -> Self {
+    var copy = self
+    copy.confirmStyle = style
     return copy
   }
 }
