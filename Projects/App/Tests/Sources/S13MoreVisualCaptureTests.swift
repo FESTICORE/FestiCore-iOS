@@ -57,6 +57,8 @@ extension FestivalS01VisualCaptureTests {
         latestPackVersion: 3
       ),
     ]
+    // 시안 More A: "새 버전이 있어요 · 시간표 2개 변경"
+    state.packChangedSets["fst_busan"] = 2
     let store = Store(initialState: state) {
       EmptyReducer<ProfileFeature.State, ProfileFeature.Action>()
     }
