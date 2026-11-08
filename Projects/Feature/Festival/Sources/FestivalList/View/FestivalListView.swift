@@ -121,7 +121,7 @@ private extension FestivalListView {
         bookedIDs: store.bookedFestivalIDs,
         onlyBooked: store.listInteraction.selectedFilter == .booked
       ),
-      now: .now
+      now: date.now
     )
   }
 
@@ -133,7 +133,7 @@ private extension FestivalListView {
         bookedIDs: store.bookedFestivalIDs,
         onlyBooked: false
       ),
-      now: .now
+      now: date.now
     )
   }
 
@@ -141,9 +141,16 @@ private extension FestivalListView {
     return FestivalListPresentation.matchingArtists(
       FestivalListPresentation.sorted(
       festivals,
-      now: .now
+      now: date.now
     ),
       query: trimmedQuery
+    )
+  }
+
+  var upcomingFestivals: [FestivalOverview] {
+    return FestivalListPresentation.upcoming(
+      festivals,
+      now: date.now
     )
   }
 
@@ -296,6 +303,7 @@ private extension FestivalListView {
             FestiCoreSpacing.paddingP16
           )
         }
+        upcomingSection()
       }
     } else if store.viewState == .loading, festivals.isEmpty {
       searchSkeleton
@@ -356,6 +364,27 @@ private extension FestivalListView {
     }
   }
 
+  /// Figma S00 검색 - 최근 검색어: 검색어 입력 전 아래에 다가오는 페스티벌을 보여 준다.
+  @ViewBuilder
+  func upcomingSection() -> some View {
+    if !upcomingFestivals.isEmpty {
+      FCSectionHeader("다가오는 페스티벌")
+        .padding(
+          .top,
+          FestiCoreSpacing.paddingP20
+        )
+        .padding(
+          .bottom,
+          FestiCoreSpacing.paddingP8
+        )
+        .padding(
+          .horizontal,
+          FestiCoreSpacing.paddingP16
+        )
+      resultRows(upcomingFestivals)
+    }
+  }
+
   var searchSkeleton: some View {
     return VStack(
       alignment: .leading,
@@ -403,7 +432,7 @@ private extension FestivalListView {
             image: nil,
             dDay: FestivalListPresentation.searchBadge(
               for: festival,
-              now: .now
+              now: date.now
             )
           ),
           title: festival.name,
@@ -433,7 +462,7 @@ private extension FestivalListView {
           title: result.artist.name,
           meta: FestivalListPresentation.artistMeta(
             result,
-            now: .now
+            now: date.now
           ),
           action: {
             saveRecentSearch()
@@ -461,7 +490,7 @@ private extension FestivalListView {
   func status(for festival: FestivalOverview) -> FCFestivalCard<FestivalPosterView>.Status {
     return switch FestivalListPresentation.cardStatus(
       for: festival,
-      now: .now
+      now: date.now
     ) {
     case let .dDay(label): .dDay(label)
     case let .closing(label): .closing(label)
@@ -505,7 +534,7 @@ private extension FestivalListView {
   func badgeStyle(for festival: FestivalOverview) -> FCSearchResultRow.BadgeStyle {
     return switch FestivalListPresentation.cardStatus(
       for: festival,
-      now: .now
+      now: date.now
     ) {
     case .closing: .closing
     case .upcoming: .upcoming

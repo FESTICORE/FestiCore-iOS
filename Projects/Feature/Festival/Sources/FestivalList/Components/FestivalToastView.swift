@@ -3,6 +3,7 @@ import FestiCoreSharedUI
 import SwiftUI
 
 /// 축제 목록과 라이브 보드에서 같은 북마크 결과를 표시한다.
+/// 사용자 결정: 토스트는 화면 위에서 아래로 내려온다. 시안의 하단 위치로 옮기지 않는다.
 struct FestivalToastView: View {
   let toast: FestivalFeature.Toast
   let revision: Int

@@ -186,6 +186,26 @@ extension FestivalListPresentation {
     return .ready(festival.cachedPackVersion == nil ? "팩 받기" : "팩 업데이트")
   }
 
+  /// 검색 시작 화면의 다가오는 페스티벌. 진행 중이거나 시작일이 정해진 예정 축제만 일정 순으로 고른다.
+  static func upcoming(
+    _ festivals: [FestivalOverview],
+    now: Date
+  ) -> [FestivalOverview] {
+    return sorted(
+      festivals,
+      now: now
+    )
+    .filter { festival in
+      switch timing(
+        for: festival,
+        now: now
+      ) {
+      case .live, .daysUntil: return true
+      case .ended, .undated: return false
+      }
+    }
+  }
+
   /// 진행 중 → 가까운 일정 → 날짜 없음 → 종료 순서. 팩 발행 여부는 날짜 정렬에 영향을 주지 않는다.
   static func sorted(
     _ festivals: [FestivalOverview],

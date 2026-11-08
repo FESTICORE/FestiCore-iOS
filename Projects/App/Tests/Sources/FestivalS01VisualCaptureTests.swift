@@ -240,7 +240,7 @@ final class FestivalS01VisualCaptureTests: XCTestCase {
   }
 }
 
-private extension FestivalS01VisualCaptureTests {
+extension FestivalS01VisualCaptureTests {
   enum FlagDetailScenario: String, CaseIterable {
     case basic = "S05-A-basic"
     case followedToast = "S05-AB-followed-toast"
