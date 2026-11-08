@@ -64,6 +64,8 @@ public struct FCDialogOverlay: View {
       .offset(y: isContentVisible ? 0 : Metric.appearOffset)
       .opacity(isContentVisible ? 1 : 0)
     }
+    // Figma: 다이얼로그는 상태 막대·탭바를 포함한 전체 화면의 가운데에 둔다.
+    .ignoresSafeArea()
     .allowsHitTesting(!isHandled)
     .transition(.opacity.animation(.fcModal))
     .onAppear {

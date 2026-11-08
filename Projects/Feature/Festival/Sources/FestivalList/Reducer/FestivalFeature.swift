@@ -1706,15 +1706,16 @@ extension FestivalFeature {
       }
       state.liveActivity.isReady = true
       state.liveActivity.now = date.now
-      var current: [String: FestivalLiveActivityRecord] = [:]
-      for activity in activities where current[activity.festivalID] == nil {
-        current[activity.festivalID] = activity
-      }
+      let resolved = FestivalLiveActivityDeduplication.resolve(activities)
+      var current = resolved.kept
       if let busyID = state.liveActivity.busyFestivalID {
         current[busyID] = state.liveActivity.activities[busyID]
       }
       state.liveActivity.activities = current
-      return syncLiveActivities(state)
+      return .merge(
+        syncLiveActivities(state),
+        endDuplicateLiveActivities(resolved.duplicates)
+      )
 
     case let .liveActivityStarted(activity):
       state.liveActivity.busyFestivalID = nil
@@ -1847,6 +1848,16 @@ extension FestivalFeature {
         await liveActivityUseCase.activities(),
         revision
       )))
+    }
+  }
+
+  /// 앱 시작과 서버 push-to-start가 겹쳐 같은 축제에 생긴 여분 활동을 잠금화면에서 바로 내린다.
+  private func endDuplicateLiveActivities(_ duplicates: [FestivalLiveActivityRecord]) -> Effect<Action> {
+    guard !duplicates.isEmpty else { return .none }
+    return .run { _ in
+      for duplicate in duplicates {
+        await liveActivityUseCase.end(activityID: duplicate.id)
+      }
     }
   }
 
