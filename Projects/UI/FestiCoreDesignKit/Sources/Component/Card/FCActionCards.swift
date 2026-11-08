@@ -324,6 +324,10 @@ public struct FCEmptyCard: View {
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
       }
       .multilineTextAlignment(.center)
+      .padding(
+        .top,
+        EmptyCardMetric.iconToTextExtra
+      )
       if let action {
         FCButton(
           action.title,
@@ -334,7 +338,18 @@ public struct FCEmptyCard: View {
       }
     }
     .frame(maxWidth: .infinity)
-    .padding(FestiCoreSpacing.paddingP20)
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP20
+    )
+    .padding(
+      .top,
+      FestiCoreSpacing.paddingP20
+    )
+    .padding(
+      .bottom,
+      action == nil ? FestiCoreSpacing.paddingP20 : EmptyCardMetric.bottomInsetWithAction
+    )
     .background(FestiCoreSemanticColor.backgroundElevated.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
     .overlay(alignment: .topTrailing) {
       if let closeAction {
@@ -473,4 +488,10 @@ public struct FCGuideSection: View {
     .padding(FestiCoreSpacing.paddingP16)
   }
   .background(FestiCoreSemanticColor.backgroundNormal.color)
+}
+
+/// Figma S02 E(시간표 공개 전) 빈 상태 카드 실측: 아이콘→제목 16pt, 버튼 아래 16pt.
+private enum EmptyCardMetric {
+  static let iconToTextExtra: CGFloat = 4
+  static let bottomInsetWithAction: CGFloat = 16
 }
