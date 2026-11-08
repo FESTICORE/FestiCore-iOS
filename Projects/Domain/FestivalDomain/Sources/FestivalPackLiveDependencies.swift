@@ -33,3 +33,11 @@ extension FestivalFlagDetailRepositoryDependency: DependencyKey {
 extension FestivalFlagDetailUseCaseDependency: DependencyKey {
   public static var liveValue: any FestivalFlagDetailUseCaseInterface { return FestivalFlagDetailUseCaseImpl() }
 }
+
+extension FestivalZoneMapRepositoryDependency: DependencyKey {
+  public static var liveValue: any FestivalZoneMapRepositoryInterface { return FestivalZoneMapRepositoryImpl() }
+}
+
+extension FestivalZoneMapUseCaseDependency: DependencyKey {
+  public static var liveValue: any FestivalZoneMapUseCaseInterface { return FestivalZoneMapUseCaseImpl() }
+}
