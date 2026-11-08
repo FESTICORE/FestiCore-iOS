@@ -117,8 +117,8 @@ extension PackDetailView {
     } else {
       if directions.lastShuttleAt != nil || directions.lastTrainAt != nil {
         FCLastRideCard(
-          shuttle: timeText(directions.lastShuttleAt),
-          train: timeText(directions.lastTrainAt)
+          shuttle: Self.timeText(directions.lastShuttleAt),
+          train: Self.timeText(directions.lastTrainAt)
         )
       }
       if let shuttle = directions.shuttle {
@@ -432,13 +432,11 @@ extension PackDetailView {
     return lines.isEmpty ? nil : lines.joined(separator: " ")
   }
 
-  /// ISO 시각이면 HH:mm으로, 아니면 서버 값 그대로 보인다.
-  private func timeText(_ value: String?) -> String {
+  /// ISO 시각이면 축제 시간대(서울)의 24시간 HH:mm으로, 아니면 서버 값 그대로 보인다.
+  /// 기기 설정의 12시간제·시간대를 따르면 22:20이 10:20으로 보인다.
+  static func timeText(_ value: String?) -> String {
     guard let value else { return "-" }
-    if let date = try? Date(value, strategy: .iso8601) {
-      return date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
-    }
-    return value
+    return value.isoDate.map { $0.formatted(.time) } ?? value
   }
 
   private func sourceText(_ source: FestivalPackDetail.Source?) -> String? {
@@ -476,10 +474,10 @@ extension PackDetailView {
     var parts: [String] = []
     if let count = changes.changedSets, count > 0 { parts.append("시간표 \(count)개 변경") }
     if let shuttle = changes.lastShuttleAt {
-      parts.append("셔틀 막차 \(timeText(shuttle.before)) → \(timeText(shuttle.after))")
+      parts.append("셔틀 막차 \(Self.timeText(shuttle.before)) → \(Self.timeText(shuttle.after))")
     }
     if let train = changes.lastTrainAt {
-      parts.append("막차 \(timeText(train.before)) → \(timeText(train.after))")
+      parts.append("막차 \(Self.timeText(train.before)) → \(Self.timeText(train.after))")
     }
     return parts.isEmpty ? nil : parts.joined(separator: " · ")
   }
