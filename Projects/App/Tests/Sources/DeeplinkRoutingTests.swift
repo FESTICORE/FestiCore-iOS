@@ -1,36 +1,14 @@
 import ComposableArchitecture
 import FestiCorePackInterface
 import FestivalDomainInterface
+import FestiCoreUtility
 import Foundation
 import Testing
 @testable import FestiCore
 
 @MainActor
-struct WidgetDeepLinkRoutingTests {
+struct DeeplinkRoutingTests {
   private enum LookupError: Error { case unavailable }
-
-  @Test("위젯 URL은 목록과 축제 상세만 허용하며 OAuth URL은 분기하지 않는다")
-  func parsesOnlyWidgetRoutes() {
-    #expect(WidgetDeepLink(url: URL(string: "festicore://festival")!) == .festivalList)
-    #expect(WidgetDeepLink(url: URL(string: "festicore://festival/fst_a")!) == .festival("fst_a"))
-    #expect(WidgetDeepLink(url: URL(string: "festicore://festival/")!) == nil)
-    #expect(WidgetDeepLink(url: URL(string: "festicore://festival/a%2Fb")!) == nil)
-    #expect(WidgetDeepLink(url: URL(string: "festicore://festival/fst?other=1")!) == nil)
-    #expect(WidgetDeepLink(url: URL(string: "com.googleusercontent.apps.sample:/oauth")!) == nil)
-  }
-
-  @Test("깃발 공유 링크는 서버 ID 형식의 깃발 하나만 연다")
-  func parsesFlagShareLink() {
-    #expect(WidgetDeepLink(url: URL(string: "festicore://flag/flg_1")!) == .flag("flg_1"))
-    #expect(WidgetDeepLink(url: URL(string: "FESTICORE://FLAG/flg-A_9")!) == .flag("flg-A_9"))
-    #expect(WidgetDeepLink(url: URL(string: "festicore://flag")!) == nil)
-    #expect(WidgetDeepLink(url: URL(string: "festicore://flag/")!) == nil)
-    #expect(WidgetDeepLink(url: URL(string: "festicore://flag/a.b")!) == nil)
-    #expect(WidgetDeepLink(url: URL(string: "festicore://flag/%ED%98%B8")!) == nil)
-    #expect(WidgetDeepLink(url: URL(string: "festicore://flag/flg_1/extra")!) == nil)
-    #expect(WidgetDeepLink(url: URL(string: "festicore://flag/flg_1?ref=share")!) == nil)
-    #expect(WidgetDeepLink(url: URL(string: "festicore://unknown/flg_1")!) == nil)
-  }
 
   @Test("팩이 없는 위젯은 현재 탭에서 축제 목록으로 돌아간다")
   func noPackOpensFestivalListTab() async {
@@ -40,7 +18,7 @@ struct WidgetDeepLinkRoutingTests {
       MainTabCoordinator(legalBaseURL: nil)
     }
 
-    await store.send(.openWidgetRoute(.festivalList)) {
+    await store.send(.openDeeplink(.festivalList)) {
       $0.previousTab = .my
       $0.selectedTab = .live
     }
@@ -49,6 +27,27 @@ struct WidgetDeepLinkRoutingTests {
     }
     #expect(store.state.festivalState.routes.count == 1)
     await store.finish()
+  }
+
+  @Test("공연 알림 링크는 축제를 고르고 타임테이블에서 공연 상세를 연다")
+  func setDeeplinkOpensTimetableDetail() async {
+    let store = TestStore(initialState: MainTabCoordinator.State(selectedTab: .my)) {
+      MainTabCoordinator(legalBaseURL: nil)
+    } withDependencies: {
+      $0.date.now = Date(timeIntervalSince1970: 1_800_000_000)
+      $0.festivalPackUseCase = MockFestivalPackUseCase(cachedPacks: { [] })
+    }
+    store.exhaustivity = .off
+
+    await store.send(.openDeeplink(.set(
+      festivalID: "fst_a",
+      setID: "set_1"
+    )))
+    await store.receive(\.festival.openWidgetFestival)
+    await store.receive(\.selectTab) {
+      $0.selectedTab = .timetable
+    }
+    await store.receive(\.timetable.view.setTapped)
   }
 
   @Test("저장된 팩의 축제 ID만 코디네이터가 라이브 보드로 연다")
