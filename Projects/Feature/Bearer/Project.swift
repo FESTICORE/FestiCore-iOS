@@ -14,6 +14,7 @@ let project = Project.makeModule(
   name: "Bearer",
   dependencies: [
     .domain(.bearer, .interface),
+    .core(.utility),
     .ui(.designSystem),
     .ui(.sharedUI),
     .SPM.composableArchitecture,

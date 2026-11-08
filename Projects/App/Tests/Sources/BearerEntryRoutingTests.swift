@@ -9,6 +9,7 @@ import BearerDomainInterface
 import ComposableArchitecture
 import FeatureAssembly
 import FestivalDomainInterface
+import Foundation
 import Testing
 import TCAFlow
 @testable import FestiCore
@@ -152,6 +153,66 @@ struct BearerEntryRoutingTests {
       flagID: "flg_1",
       viewerUserID: "usr_me"
     ))
+  }
+
+  @Test("오늘 계획은 팩 공연으로 고르기 화면을 열고, 고르면 닫고 프로필에 넣는다")
+  func planPickFillsProfile() async {
+    let set = BearerSet(
+      id: "set_1",
+      artist: "새소년",
+      stageName: "원더 스테이지",
+      startsAt: Date(timeIntervalSince1970: 1_786_089_600),
+      endsAt: Date(timeIntervalSince1970: 1_786_093_200)
+    )
+    var profile = BearerProfileFeature.State(
+      festivalID: "fst",
+      flagID: "flg_1",
+      profile: claim.profile,
+      isNewBearer: true
+    )
+    profile.sets = [set]
+    var state = BearerEntryCoordinator.State(
+      festivalID: "fst",
+      viewerUserID: "usr_me"
+    )
+    state.routes.push(.profile(profile))
+    let store = TestStore(initialState: state) { BearerEntryCoordinator() }
+
+    await store.send(.router(.routeAction(
+      id: 1,
+      action: .profile(.view(.planTapped))
+    )))
+    await store.receive({ action in
+      guard case .router(.routeAction(
+        id: 1,
+        action: .profile(.delegate(.planRequested))
+      )) = action else { return false }
+      return true
+    }) {
+      $0.routes.push(.planPick(BearerPlanPickFeature.State(
+        sets: [set],
+        plan: []
+      )))
+    }
+
+    await store.send(.router(.routeAction(
+      id: 2,
+      action: .planPick(.delegate(.picked(["set_1"])))
+    ))) {
+      $0.routes.removeAll { $0.screen.is(\.planPick) }
+    }
+    await store.receive({ action in
+      guard case .router(.routeAction(
+        id: 1,
+        action: .profile(.view(.planChanged))
+      )) = action else { return false }
+      return true
+    }) {
+      $0.routes[1].screen.modify(\.profile) {
+        $0.plan = ["set_1"]
+        $0.isPlanEdited = true
+      }
+    }
   }
 
   @Test("인증·프로필·보드에서 닫으면 흐름을 닫는다")

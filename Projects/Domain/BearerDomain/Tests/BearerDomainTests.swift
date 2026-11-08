@@ -276,6 +276,31 @@ struct BearerUseCaseTests {
     } operation: { BearerUseCaseImpl() }.fetchFestival(festivalID: "fst_2")
     #expect(empty.zones.isEmpty)
   }
+
+  @Test("팩 공연을 시작 순으로 읽고 무대 이름은 무대 목록에서 채우며 시간이 틀린 공연은 건너뛴다")
+  func fetchFestivalSets() async throws {
+    let pack = CachedFestivalPack(
+      festivalID: "fst_1",
+      packVersion: 1,
+      etag: "e",
+      pack: Data(#"{"stages":[{"id":"stg_a","name":"리벳 스테이지"}],"performances":[{"id":"set_2","artist":"실리카겔","stageId":"stg_a","startsAt":"2026-08-07T12:00:00.000Z","endsAt":"2026-08-07T13:00:00.000Z"},{"id":"set_1","artist":"새소년","stageName":"원더 스테이지","startsAt":"2026-08-07T10:00:00Z","endsAt":"2026-08-07T11:00:00Z"},{"id":"set_bad","artist":"시간 없음","startsAt":"2026-08-07T10:00:00Z"},{"id":"set_back","artist":"거꾸로","startsAt":"2026-08-07T11:00:00Z","endsAt":"2026-08-07T10:00:00Z"}]}"#.utf8)
+    )
+    let useCase = withDependencies {
+      $0.packSyncService = StubPackSyncService(pack: pack)
+    } operation: { BearerUseCaseImpl() }
+
+    let festival = try await useCase.fetchFestival(festivalID: "fst_1")
+
+    #expect(festival.sets.map(\.id) == [
+      "set_1",
+      "set_2"
+    ])
+    #expect(festival.sets.map(\.stageName) == [
+      "원더 스테이지",
+      "리벳 스테이지"
+    ])
+    #expect(festival.sets.first?.artist == "새소년")
+  }
 }
 
 @Suite("사진 업로드 스트림")

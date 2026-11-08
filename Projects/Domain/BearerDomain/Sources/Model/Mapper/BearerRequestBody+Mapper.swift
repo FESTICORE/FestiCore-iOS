@@ -39,7 +39,8 @@ extension BearerProfileChange {
       bio: trimmedBio?.isEmpty == false ? trimmedBio : nil,
       tags: tags.map(\.rawValue),
       planVisible: planVisible,
-      homeZoneId: homeZoneID
+      homeZoneId: homeZoneID,
+      plan: plan
     )
   }
 }

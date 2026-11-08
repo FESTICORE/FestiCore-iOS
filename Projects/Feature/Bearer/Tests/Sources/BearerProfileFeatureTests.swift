@@ -139,6 +139,48 @@ struct BearerProfileFeatureTests {
     await store.receive(.delegate(.finished(flagID: "flg_1")))
   }
 
+  @Test("오늘 계획을 다시 고르면 저장할 때 plan을 함께 보내고, 고르지 않았으면 보내지 않는다")
+  func savesEditedPlan() async {
+    let saved = BearerFlagProfile(
+      id: "flg_1",
+      name: "호락호락",
+      tags: [.slam]
+    )
+    var state = newState()
+    state.name = "호락호락"
+    state.tags = [.slam]
+    #expect(state.change.plan == nil)
+    let store = TestStore(initialState: state) {
+      BearerProfileFeature()
+    } withDependencies: {
+      $0.bearerUseCase = BearerUseCaseStub(updateProfile: { _, change in
+        #expect(change.plan == [
+          "set_2",
+          "set_1"
+        ])
+        return saved
+      })
+    }
+
+    await store.send(.view(.planChanged([
+      "set_2",
+      "set_1"
+    ]))) {
+      $0.plan = [
+        "set_2",
+        "set_1"
+      ]
+      $0.isPlanEdited = true
+    }
+    await store.send(.view(.saveTapped)) { $0.isSaving = true }
+    await store.receive(\.async.save)
+    await store.receive(\.inner.saved) {
+      $0.isSaving = false
+      $0.isPlanEdited = false
+      $0.savedProfile = saved
+    }
+  }
+
   @Test("이름이 겹치면 이름 칸에 오류를 보이고 고치면 지운다")
   func nameTaken() async {
     var state = newState()

@@ -59,12 +59,22 @@ public struct BearerProfileChange: Sendable, Equatable {
   public let tags: [BearerFlagTag]
   public let planVisible: Bool
   public let homeZoneID: String?
+  /// 바꾼 오늘 계획(셋 ID). 고르지 않았으면 nil이라 서버 값을 건드리지 않는다.
+  public let plan: [String]?
 
-  public init(name: String, bio: String?, tags: [BearerFlagTag], planVisible: Bool, homeZoneID: String?) {
+  public init(
+    name: String,
+    bio: String?,
+    tags: [BearerFlagTag],
+    planVisible: Bool,
+    homeZoneID: String?,
+    plan: [String]? = nil
+  ) {
     self.name = name
     self.bio = bio
     self.tags = tags
     self.planVisible = planVisible
     self.homeZoneID = homeZoneID
+    self.plan = plan
   }
 }
