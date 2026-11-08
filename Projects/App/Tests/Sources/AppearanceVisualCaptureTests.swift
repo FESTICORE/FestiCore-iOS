@@ -8,7 +8,7 @@ import XCTest
 extension FestivalS01VisualCaptureTests {
   func testCaptureAppearanceSettings() async throws {
     var state = AppearanceSettingsFeature.State()
-    state.$mode.withLock { $0 = .system }
+    state.$storedMode.withLock { $0 = AppearanceMode.system.rawValue }
     let store = Store(initialState: state) {
       EmptyReducer<AppearanceSettingsFeature.State, AppearanceSettingsFeature.Action>()
     }

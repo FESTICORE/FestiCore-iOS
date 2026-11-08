@@ -37,19 +37,6 @@ public struct FCListRow: View {
     accessory = .toggle(isOn)
   }
 
-  /// 여러 값 중 하나를 고르는 줄. 고른 줄 오른쪽에 체크를 표시한다(Figma S13-J 화면 모드).
-  public init(
-    _ label: String,
-    isSelected: Bool,
-    action: @escaping () -> Void
-  ) {
-    self.label = label
-    accessory = .check(
-      isSelected: isSelected,
-      action: action
-    )
-  }
-
   public var body: some View {
     switch accessory {
     case let .chevron(action):
@@ -128,6 +115,30 @@ public extension FCListRow {
     copy.value = value
     return copy
   }
+
+  /// 여러 값 중 하나를 고르는 줄로 바꾼 사본을 돌려준다. 화살표 대신 고른 줄 오른쪽에 체크를 표시한다(Figma S13-J 화면 모드).
+  /// 토글 줄에서는 무시한다.
+  func isSelected(_ isSelected: Bool) -> Self {
+    var copy = self
+    switch accessory {
+    case let .chevron(action):
+      copy.accessory = .check(
+        isSelected: isSelected,
+        action: action
+      )
+    case let .check(
+      _,
+      action
+    ):
+      copy.accessory = .check(
+        isSelected: isSelected,
+        action: action
+      )
+    case .toggle:
+      break
+    }
+    return copy
+  }
 }
 
 private extension FCListRow {
@@ -151,6 +162,8 @@ private extension FCListRow {
     )
     FCListRow("항목") {}
       .value("값")
+    FCListRow("항목") {}
+      .isSelected(true)
   }
   .padding(FestiCoreSpacing.paddingP16)
   .background(FestiCoreSemanticColor.backgroundNormal.color)
