@@ -9,30 +9,35 @@ import ProjectDescription
 
 public extension Settings {
   static var appMainSettings: Settings {
-    .settings(base: [
-      "AS_AUTHENTICATION_SERVICES_ENABLED": "YES",
-      "CODE_SIGN_STYLE": "Manual",
-      "DEVELOPMENT_TEAM": .string(Project.Environment.organizationTeamId),
-      "MARKETING_VERSION": "$(FESTICORE_VERSION)",
-      "CURRENT_PROJECT_VERSION": "$(FESTICORE_BUILD_NUMBER)"
-    ], configurations: [
-      .debug(
-        name: BuildEnvironment.stage.configurationName,
-        settings: [
-          "FESTICORE_APNS_ENVIRONMENT": "development",
-          "PROVISIONING_PROFILE_SPECIFIER": .string("match Development \(Project.Environment.mainBundleId)")
-        ],
-        xcconfig: BuildEnvironment.stage.xcconfigPath
-      ),
-      .release(
-        name: BuildEnvironment.prod.configurationName,
-        settings: [
-          "FESTICORE_APNS_ENVIRONMENT": "production",
-          "PROVISIONING_PROFILE_SPECIFIER": .string("match AppStore \(Project.Environment.mainBundleId)")
-        ],
-        xcconfig: BuildEnvironment.prod.xcconfigPath
-      )
-    ])
+    .settings(
+      base: [
+        "AS_AUTHENTICATION_SERVICES_ENABLED": "YES",
+        "CODE_SIGN_STYLE": "Manual",
+        "DEVELOPMENT_TEAM": .string(Project.Environment.organizationTeamId),
+        "MARKETING_VERSION": "$(FESTICORE_VERSION)",
+        "CURRENT_PROJECT_VERSION": "$(FESTICORE_BUILD_NUMBER)",
+        // 앱도 모듈과 같이 Point-Free Sharing을 별칭으로 가져온다(딥링크 대기 저장소의 @Shared).
+        "OTHER_SWIFT_FLAGS": "$(inherited) -module-alias Sharing=FestiCorePointFreeSharing"
+      ],
+      configurations: [
+        .debug(
+          name: BuildEnvironment.stage.configurationName,
+          settings: [
+            "FESTICORE_APNS_ENVIRONMENT": "development",
+            "PROVISIONING_PROFILE_SPECIFIER": .string("match Development \(Project.Environment.mainBundleId)")
+          ],
+          xcconfig: BuildEnvironment.stage.xcconfigPath
+        ),
+        .release(
+          name: BuildEnvironment.prod.configurationName,
+          settings: [
+            "FESTICORE_APNS_ENVIRONMENT": "production",
+            "PROVISIONING_PROFILE_SPECIFIER": .string("match AppStore \(Project.Environment.mainBundleId)")
+          ],
+          xcconfig: BuildEnvironment.prod.xcconfigPath
+        )
+      ]
+    )
   }
 
   static var moduleSettings: Settings {

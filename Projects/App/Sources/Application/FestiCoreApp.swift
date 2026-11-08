@@ -13,6 +13,7 @@ import ComposableArchitecture
 import FeatureAssembly
 import FestiCoreAnalytics
 import FestivalDomainInterface
+import FestiCoreUtility
 
 @main
 struct FestiCoreApp: App {
@@ -46,21 +47,20 @@ private struct RootView: View {
   @State private var showNotificationSettingsAlert = false
   @State private var notificationSettingsAlertGate = NotificationSettingsAlertGate()
   @State private var notificationPermissionRefreshGate = NotificationPermissionRefreshGate()
-  @State private var pendingWidgetRoute: WidgetDeepLink?
 
   var body: some View {
     AppCoordinatorView(store: store)
       .preferredColorScheme(.dark)
       .onOpenURL { url in
-        if let route = WidgetDeepLink(url: url) {
-          pendingWidgetRoute = route
-          openPendingWidgetRouteIfReady()
-        } else {
+        // festicore:// 딥링크가 아니면 OAuth 콜백으로 넘긴다.
+        if !AppDeeplinkBridge.handleURL(url) {
           FeatureOAuthURLHandler.handle(url)
         }
       }
+      .onReceive(NotificationCenter.default.publisher(for: .festiCoreDeeplink)) { _ in
+        store.send(.view(.deeplinkReceived))
+      }
       .onChange(of: store.state.animationID) { _, _ in
-        openPendingWidgetRouteIfReady()
         Task { await refreshNotificationPermission() }
       }
       .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
@@ -88,12 +88,6 @@ private struct RootView: View {
 }
 
 private extension RootView {
-  func openPendingWidgetRouteIfReady() {
-    guard store.state.animationID == "home", let route = pendingWidgetRoute else { return }
-    pendingWidgetRoute = nil
-    store.send(.view(.openWidgetRoute(route)))
-  }
-
   func refreshNotificationPermission() async {
     guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
           notificationPermissionRefreshGate.beginIfNeeded(

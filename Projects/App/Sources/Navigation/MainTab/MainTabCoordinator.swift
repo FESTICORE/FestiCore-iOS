@@ -95,7 +95,7 @@ struct MainTabCoordinator {
     case tabTapped(Tab)
     case selectTab(Tab)
     case tabReselected(Tab)
-    case openWidgetRoute(WidgetDeepLink)
+    case openDeeplink(FestiCoreDeeplink)
     case festival(FestivalCoordinator.Action)
     case timetable(TimetableFeature.Action)
     case timetableCoordinator(TimetableCoordinator.Action)
@@ -178,9 +178,9 @@ struct MainTabCoordinator {
         _ = tab
         return .none
 
-      case let .openWidgetRoute(route):
-        return openWidgetRoute(
-          route,
+      case let .openDeeplink(deeplink):
+        return openDeeplink(
+          deeplink,
           state: &state
         )
 
@@ -399,12 +399,12 @@ struct MainTabCoordinator {
     )
   }
 
-  /// 위젯·공유 링크로 연 화면. 축제 경로는 라이브 탭, 깃발 경로는 깃발 탭에서 연다.
-  private func openWidgetRoute(
-    _ route: WidgetDeepLink,
+  /// 위젯·푸시로 연 화면. 축제 경로는 라이브 탭, 깃발 경로는 깃발 탭, 공연 경로는 타임테이블 탭에서 연다.
+  private func openDeeplink(
+    _ deeplink: FestiCoreDeeplink,
     state: inout State
   ) -> Effect<Action> {
-    switch route {
+    switch deeplink {
     case .festivalList:
       select(
         .live,
@@ -417,6 +417,16 @@ struct MainTabCoordinator {
         state: &state
       )
       return .send(.festival(.openWidgetFestival(id)))
+    case let .set(
+      festivalID,
+      setID
+    ):
+      // 공연 2시간 전 알림: 축제를 고른 뒤 타임테이블에서 그 공연 상세를 연다.
+      return .concatenate(
+        .send(.festival(.openWidgetFestival(festivalID))),
+        .send(.selectTab(.timetable)),
+        .send(.timetable(.view(.setTapped(setID))))
+      )
     case let .flag(id):
       let context = flagDetailContext(state)
       return .concatenate(
