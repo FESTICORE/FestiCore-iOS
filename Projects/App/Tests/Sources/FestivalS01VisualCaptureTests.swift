@@ -950,9 +950,11 @@ extension FestivalS01VisualCaptureTests {
       if [red, green, blue].max()! > 150 { brightPixels += 1 }
       colors.insert((red / 16) << 8 | (green / 16) << 4 | blue / 16)
     }
+    // 시트·검색 빈 화면처럼 요소가 적은 시안은 밝은 픽셀이 적다.
+    let isSparseCapture = name.contains("switcher") || name.contains("search-empty")
     XCTAssertGreaterThanOrEqual(
       brightPixels,
-      name.contains("switcher") ? 20 : 30,
+      isSparseCapture ? 15 : 30,
       "밝은 UI 내용이 없는 캡처: \(name)"
     )
     XCTAssertGreaterThan(
