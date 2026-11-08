@@ -106,6 +106,8 @@ public struct FestiCoreFestivalActivityAttributes: ActivityAttributes {
       }
 
       public let flagId: String
+      /// 서버가 보내는 깃발 이름. 이전 서버 payload에는 없다.
+      public let name: String?
       public let status: Status
       public let zoneId: String?
       public let activity: String?
