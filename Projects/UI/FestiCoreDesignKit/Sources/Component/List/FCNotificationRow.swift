@@ -45,6 +45,8 @@ public struct FCNotificationRow: View {
         HStack(spacing: FestiCoreSpacing.paddingP12) {
           Text(title)
             .festiCoreFont(.baseCalloutBold)
+            // Figma S01-1 알림 행은 줄 높이 박스 기준이다.
+            .festiCoreLineBox(.baseCalloutBold)
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
             .frame(maxWidth: .infinity, alignment: .leading)
             .lineLimit(1)
@@ -55,6 +57,7 @@ public struct FCNotificationRow: View {
         }
         Text(message)
           .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
           .lineLimit(2)
       }

@@ -46,7 +46,8 @@ enum NotificationInboxPresentation {
     if type.hasPrefix("crew.") { return .users24 }
     if type.hasPrefix("flag.") { return .flag16 }
     if type.hasPrefix("festival.") { return .music24 }
-    if type.hasPrefix("pack.") { return .bookmark16 }
+    // Figma S01-1: 시간표 변경(pack.updated)은 달력 아이콘이다.
+    if type.hasPrefix("pack.") { return .navTimetableInactive }
     return .bell16
   }
 }
