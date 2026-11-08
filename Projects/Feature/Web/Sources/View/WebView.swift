@@ -9,7 +9,7 @@ import ComposableArchitecture
 import FestiCoreDesignKit
 import SwiftUI
 
-/// 약관 같은 문서를 앱 안에서 보여 준다. 웹뷰는 항상 붙여 두고 로딩·실패 중에는 덮개로 가린다.
+/// 약관·티켓 예매 같은 웹 화면을 앱 안에서 보여 준다. 웹뷰는 항상 붙여 두고 로딩·실패 중에는 덮개로 가린다.
 @ViewAction(for: WebFeature.self)
 public struct WebView: View {
   @Bindable public var store: StoreOf<WebFeature>
@@ -39,8 +39,10 @@ private extension WebView {
     WebRepresentableView(
       url: store.url,
       loadID: store.loadID,
+      scope: store.navigationScope,
       onFinished: { send(.loadFinished(loadID: $0)) },
-      onFailed: { send(.loadFailed(loadID: $0)) }
+      onFailed: { send(.loadFailed(loadID: $0)) },
+      onExternalURL: { send(.externalURLRequested($0)) }
     )
     .allowsHitTesting(store.phase == .loaded)
     .accessibilityHidden(store.phase != .loaded)

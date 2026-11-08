@@ -2,7 +2,6 @@ import ComposableArchitecture
 import FestiCoreDesignKit
 import FestiCoreUtility
 import SwiftUI
-import UIKit
 
 /// Figma S00 페스티벌 목록. 전체·예매 완료 탭과 검색(최근 검색·결과·결과 없음)을 보여 준다.
 @ViewAction(for: FestivalFeature.self)
@@ -237,7 +236,7 @@ private extension FestivalListView {
       store.bookedFestivalIDs.contains(festival.id),
       onToggle: { send(.toggleBookedFestival(festival.id)) }
     )
-    .ticketLink { openTicketLink(festival) }
+    .ticketLink { send(.ticketLinkTapped(festivalID: festival.id)) }
     .onTapGesture { send(.selectFestival(festival.id)) }
     .accessibilityIdentifier(FestivalAccessibilityID.card(festival.id))
   }
@@ -475,14 +474,6 @@ private extension FestivalListView {
   func saveRecentSearch() {
     guard !trimmedQuery.isEmpty else { return }
     send(.recentSearchSubmitted(trimmedQuery))
-  }
-
-  func openTicketLink(_ festival: FestivalOverview) {
-    if let url = festival.ticketURL {
-      UIApplication.shared.open(url)
-    } else {
-      send(.ticketLinkMissing)
-    }
   }
 
   func status(for festival: FestivalOverview) -> FCFestivalCard<FestivalPosterView>.Status {

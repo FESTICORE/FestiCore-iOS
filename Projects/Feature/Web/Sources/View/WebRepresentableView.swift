@@ -12,11 +12,16 @@ import WebKit
 struct WebRepresentableView: UIViewRepresentable {
   let url: URL
   let loadID: Int
+  let scope: WebNavigationScope
   let onFinished: (Int) -> Void
   let onFailed: (Int) -> Void
+  let onExternalURL: (URL) -> Void
 
   func makeCoordinator() -> Coordinator {
-    Coordinator(allowedHost: url.host)
+    Coordinator(
+      allowedHost: url.host,
+      scope: scope
+    )
   }
 
   func makeUIView(context: Context) -> WKWebView {
@@ -32,6 +37,7 @@ struct WebRepresentableView: UIViewRepresentable {
     let coordinator = context.coordinator
     coordinator.onFinished = onFinished
     coordinator.onFailed = onFailed
+    coordinator.onExternalURL = onExternalURL
     guard loadID > 0, coordinator.currentLoadID != loadID else { return }
     coordinator.start(loadID: loadID, url: url, in: webView)
   }
@@ -41,6 +47,7 @@ extension WebRepresentableView {
   @MainActor
   final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
     let allowedHost: String?
+    let scope: WebNavigationScope
     private(set) var currentLoadID = 0
     /// 이번 시도에서 아직 첫 페이지를 받지 못했다. 이때 막힌 main frame 이동은 실패로 본다.
     private var isAwaitingFirstPage = false
@@ -50,9 +57,14 @@ extension WebRepresentableView {
     private var failedLoadIDs: Set<Int> = []
     var onFinished: (Int) -> Void = { _ in }
     var onFailed: (Int) -> Void = { _ in }
+    var onExternalURL: (URL) -> Void = { _ in }
 
-    init(allowedHost: String?) {
+    init(
+      allowedHost: String?,
+      scope: WebNavigationScope
+    ) {
       self.allowedHost = allowedHost
+      self.scope = scope
     }
 
     func start(loadID: Int, url: URL, in webView: WKWebView) {
@@ -89,7 +101,8 @@ extension WebRepresentableView {
       switch WebNavigationPolicy.decide(
         request: navigationAction.request.url,
         isNewWindow: navigationAction.targetFrame == nil,
-        allowedHost: allowedHost
+        allowedHost: allowedHost,
+        scope: scope
       ) {
       case .allow:
         return .allow
@@ -102,6 +115,10 @@ extension WebRepresentableView {
       case let .loadInPlace(url):
         // 새 창 요청은 취소하고, 판단이 끝난 뒤 지금 웹뷰로 연다.
         Task { @MainActor in webView.load(URLRequest(url: url)) }
+        return .cancel
+      case let .openExternally(url):
+        // 결제·간편결제 앱 전환은 실패가 아니다. 웹뷰는 지금 페이지에 머문다.
+        onExternalURL(url)
         return .cancel
       }
     }

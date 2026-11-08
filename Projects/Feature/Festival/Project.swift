@@ -21,6 +21,11 @@ let project = Project.makeModule(
     .domain(.festival, .interface),
     .domain(.userNotification, .interface),
     .service(.pack, .interface),
+    .feature(.web),
+    .feature(
+      .web,
+      .interface
+    ),
     .ui(.designSystem),
     .ui(.sharedUI),
     .SPM.composableArchitecture,

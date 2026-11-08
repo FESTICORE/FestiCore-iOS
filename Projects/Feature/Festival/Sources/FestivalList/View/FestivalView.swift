@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import FestiCoreDesignKit
 import SwiftUI
+import Web
 
 @ViewAction(for: FestivalFeature.self)
 public struct FestivalView: View {
@@ -15,6 +16,12 @@ public struct FestivalView: View {
     return festivalList
     .overlay(alignment: .top) { toast }
     .background(FestiCoreSemanticColor.backgroundNormal.color)
+    .fullScreenCover(item: $store.scope(
+      state: \.ticket,
+      action: \.ticket
+    )) { ticketStore in
+      WebView(store: ticketStore)
+    }
     .toolbar(
       .hidden,
       for: .navigationBar
