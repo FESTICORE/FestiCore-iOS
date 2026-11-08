@@ -61,19 +61,41 @@ public struct FCCountdownCard: View {
   }
 
   public var body: some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
+    VStack(
+      alignment: .leading,
+      spacing: .zero
+    ) {
       Text(label)
         .festiCoreFont(.baseFootnoteBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
       Text(time)
         .festiCoreFont(.pointTitle)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+        .padding(
+          .top,
+          Metric.labelToTime
+        )
       Text(sub)
         .festiCoreFont(.baseFootnoteRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+        .padding(
+          .top,
+          Metric.timeToSub
+        )
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(FestiCoreSpacing.paddingP20)
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP20
+    )
+    .padding(
+      .top,
+      FestiCoreSpacing.paddingP20
+    )
+    .padding(
+      .bottom,
+      Metric.bottomInset
+    )
     .background(FestiCoreSemanticColor.backgroundElevated.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
     .accessibilityElement(children: .combine)
   }
@@ -110,6 +132,15 @@ public struct FCLastRideCard: View {
     .background(FestiCoreSemanticColor.backgroundElevated.color, in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
   }
 
+}
+
+private extension FCCountdownCard {
+  /// Figma S01 B(개장까지) 실측. pointTitle 글꼴의 기본 줄 높이가 시안 줄 높이보다 커서 간격을 줄여 맞춘다.
+  enum Metric {
+    static let labelToTime: CGFloat = 5
+    static let timeToSub: CGFloat = 6
+    static let bottomInset: CGFloat = 22
+  }
 }
 
 private extension FCLastRideCard {
