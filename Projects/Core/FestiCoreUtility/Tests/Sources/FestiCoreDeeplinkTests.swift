@@ -36,6 +36,16 @@ struct FestiCoreDeeplinkTests {
     #expect(parse("festicore://festival/fst_a/set") == nil)
   }
 
+  @Test("크루 초대 링크는 초대 코드 형식 6자리만 열고 대문자로 맞춘다")
+  func parsesCrewInviteURL() {
+    #expect(parse("festicore://crew/K7P2QX") == .crewInvite(code: "K7P2QX"))
+    #expect(parse("festicore://crew/k7p2qx") == .crewInvite(code: "K7P2QX"))
+    #expect(parse("festicore://crew") == nil)
+    #expect(parse("festicore://crew/K7P2Q") == nil)
+    #expect(parse("festicore://crew/K7P2Q0") == nil)
+    #expect(parse("festicore://crew/K7P2QX/extra") == nil)
+  }
+
   @Test("대기 저장 문자열은 같은 딥링크로 되돌아온다")
   func encodedRoundTrips() {
     let links: [FestiCoreDeeplink] = [
@@ -45,7 +55,8 @@ struct FestiCoreDeeplinkTests {
       .set(
         festivalID: "fst_a",
         setID: "set_1"
-      )
+      ),
+      .crewInvite(code: "K7P2QX")
     ]
     for link in links {
       #expect(FestiCoreDeeplinkParser.parse(urlString: link.encoded) == link)

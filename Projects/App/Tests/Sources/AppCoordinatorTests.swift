@@ -573,8 +573,8 @@ struct AppCoordinatorTests {
       switch route.screen {
       case let .festivalList(state): screen = state
       case let .liveBoard(state): screen = state
-      case .bearerBoard, .notificationInbox, .zoneMap:
-        Issue.record("계정 정리 뒤에는 기수 보드나 알림함이 남지 않아야 한다")
+      case .bearerBoard, .notificationInbox, .zoneMap, .crew, .crewJoin:
+        Issue.record("계정 정리 뒤에는 기수 보드나 알림함, 존 지도, 크루 화면이 남지 않아야 한다")
         continue
       }
       #expect(screen.liveBoard == nil)

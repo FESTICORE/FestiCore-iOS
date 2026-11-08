@@ -403,6 +403,7 @@ public struct FestivalFeature {
     /// 라이브 보드 존 칩. 부모가 존 지도를 연다.
     case zoneChipTapped(String)
     case createCrewTapped
+    case crewTapped
     case findFlagTapped
     case hideFollowGuideTapped
     case homeRideAppeared
@@ -563,8 +564,16 @@ public struct FestivalFeature {
         return .none
 
       case .crewCreate(.presented(.delegate(.created(_)))):
-        state.crewCreate = nil
+        // 시트는 초대 단계로 남기고, 보드의 크루 카드를 바로 채운다.
         return .send(.async(.startLiveBoard))
+
+      case let .crewCreate(.presented(.delegate(.openCrewRequested(crewID)))):
+        state.crewCreate = nil
+        return .send(.delegate(.crewRequested(crewID: crewID)))
+
+      case .crewCreate(.presented(.delegate(.loginRequested))):
+        state.crewCreate = nil
+        return .send(.delegate(.crewLoginRequested))
 
       case .crewCreate(.presented(.delegate(.closeRequested))):
         state.crewCreate = nil
@@ -911,6 +920,10 @@ extension FestivalFeature {
       guard let festivalID = state.selectedFestivalID, state.crewCreate == nil else { return .none }
       state.crewCreate = FestivalCrewCreateFeature.State(festivalID: festivalID)
       return .none
+
+    case .crewTapped:
+      guard state.hasSession, let crew = state.liveBoard?.crew else { return .none }
+      return .send(.delegate(.crewRequested(crewID: crew.id)))
 
     case .findFlagTapped:
       return .send(.delegate(.flagDirectoryRequested))

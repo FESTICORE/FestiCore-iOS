@@ -58,18 +58,24 @@ struct MainTabCoordinator {
       if selectedTab == .flag, flagCoordinatorState.isDetailOpen {
         return false
       }
-      return selectedTab != .live || (festivalState.routes.count != 1 && !isNotificationInboxOnTop)
+      return selectedTab != .live || (festivalState.routes.count != 1 && !isNotificationInboxOnTop && !isCrewOnTop)
     }
 
     var isNotificationInboxOnTop: Bool {
       return festivalState.routes.last?.screen.is(\.notificationInbox) == true
     }
 
+    /// 크루(S07)·참여 확인(S08)은 아래 고정 영역이 있어 탭바 없이 표시한다.
+    var isCrewOnTop: Bool {
+      guard let screen = festivalState.routes.last?.screen else { return false }
+      return screen.is(\.crew) || screen.is(\.crewJoin)
+    }
+
     var shouldHideTabBar: Bool {
       if authFlow.presentation != nil { return true }
       switch selectedTab {
       case .live:
-        return festivalState.routes.count == 1 || isNotificationInboxOnTop
+        return festivalState.routes.count == 1 || isNotificationInboxOnTop || isCrewOnTop
           || festivalState.routes.last?.screen.liveBoard?.alert != nil
           || festivalState.routes.last?.screen.liveBoard?.festivalSwitcher != nil
       case .timetable:
@@ -381,15 +387,7 @@ struct MainTabCoordinator {
 
   /// 깃발 탭이 따르는 축제 보드. 기수 보드·알림함은 라이브 보드 위에 덮이는 화면이라 그 아래 축제를 기준으로 삼는다.
   private func flagBoard(_ state: State) -> FestivalFeature.State? {
-    guard let screen = state.festivalState.routes.last(where: {
-      !$0.screen.is(\.bearerBoard) && !$0.screen.is(\.notificationInbox) && !$0.screen.is(\.zoneMap)
-    })?.screen else { return nil }
-    switch screen {
-    case let .festivalList(festival), let .liveBoard(festival):
-      return festival
-    case .bearerBoard, .notificationInbox, .zoneMap:
-      return nil
-    }
+    return state.festivalState.routes.last { $0.screen.festivalBoard != nil }?.screen.festivalBoard
   }
 
   private func flagDetailContext(_ state: State) -> FestivalFlagDetailContext {
@@ -399,7 +397,7 @@ struct MainTabCoordinator {
     )
   }
 
-  /// 위젯·푸시로 연 화면. 축제 경로는 라이브 탭, 깃발 경로는 깃발 탭, 공연 경로는 타임테이블 탭에서 연다.
+  /// 위젯·푸시로 연 화면. 축제·크루 초대 경로는 라이브 탭, 깃발 경로는 깃발 탭, 공연 경로는 타임테이블 탭에서 연다.
   private func openDeeplink(
     _ deeplink: FestiCoreDeeplink,
     state: inout State
@@ -427,6 +425,12 @@ struct MainTabCoordinator {
         .send(.selectTab(.timetable)),
         .send(.timetable(.view(.setTapped(setID))))
       )
+    case let .crewInvite(code):
+      select(
+        .live,
+        state: &state
+      )
+      return .send(.festival(.openCrewInvite(code)))
     case let .flag(id):
       let context = flagDetailContext(state)
       return .concatenate(
