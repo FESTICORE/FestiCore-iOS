@@ -19,6 +19,8 @@ public struct BearerProfileFeature {
   static let nameRange = 2 ... 20
   static let bioLimit = 60
   static let tagLimit = 3
+  /// 원래 기수를 뺀 공동 기수 한도(서버 MAX_FLAG_BEARERS 4명 = 원래 기수 1 + 공동 기수 3)
+  static let coBearerLimit = 3
 
   @ObservableState
   public struct State: Equatable {
@@ -39,6 +41,11 @@ public struct BearerProfileFeature {
     /// 오늘 계획으로 고른 공연 ID(내 일정에서 고른 셋)
     public var plan: [String] = []
     public var bearerCount = 1
+
+    /// Figma S10 "공동 기수 초대 0 / 3명": 나(원래 기수)를 뺀 공동 기수 수
+    public var coBearerText: String {
+      return "\(max(0, bearerCount - 1)) / \(BearerProfileFeature.coBearerLimit)명"
+    }
 
     public var photoURL: URL?
     /// 마지막으로 올리기에 성공한 사진
@@ -471,7 +478,7 @@ extension BearerProfileFeature {
   static func inviteMessage(for error: BearerError) -> String {
     switch error {
     case .notOwner: return "처음 깃발을 만든 기수만 초대할 수 있어요."
-    case .coBearerFull: return "기수는 깃발마다 3명까지예요."
+    case .coBearerFull: return "공동 기수는 깃발마다 3명까지예요."
     case .offline: return "인터넷에 연결되지 않았어요."
     default: return "초대 코드를 만들지 못했어요. 잠시 후 다시 시도해 주세요."
     }

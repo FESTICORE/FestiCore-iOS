@@ -207,9 +207,8 @@ extension BearerProfileView {
           get: { store.planVisible },
           set: { send(.planVisibleChanged($0)) }
         ))
-        // Figma S10은 나를 뺀 공동 기수 수를 보인다(서버 한도는 나를 포함해 3명).
         FCListRow("공동 기수 초대") { send(.inviteTapped) }
-          .value("\(max(0, store.bearerCount - 1)) / 3명")
+          .value(store.coBearerText)
       }
       .overlay {
         RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
