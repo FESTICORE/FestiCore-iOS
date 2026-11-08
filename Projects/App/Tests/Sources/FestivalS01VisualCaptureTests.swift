@@ -545,7 +545,7 @@ extension FestivalS01VisualCaptureTests {
     let time: String
     switch scenario {
     case .beforeOpening: time = "11:30:00"
-    case .finalHour: time = "21:30:00"
+    case .finalHour: time = "22:08:00"
     case .ended: time = "23:30:00"
     default: time = "15:27:30"
     }
@@ -683,11 +683,21 @@ extension FestivalS01VisualCaptureTests {
       serverAt: now,
       bearerFlagIDs: scenario == .bearer ? [activeFlags[0].id] : []
     )
+    // S01 E 시안: 종료 1시간 전 귀가 카드(마지막 셔틀·막차와 정류장·역)
     state.homeDetails = .loaded(
       "visual-festival",
       .init(
-        lastShuttleAt: "23:00",
-        lastTrainAt: "23:20"
+        lastShuttleAt: "22:50",
+        lastTrainAt: "23:00",
+        shuttle: .init(
+          body: nil,
+          stationName: "정문 셔틀 정류장"
+        ),
+        transit: .init(
+          body: nil,
+          stationName: "서현역",
+          walkMinutes: 12
+        )
       )
     )
     if scenario == .notification {
