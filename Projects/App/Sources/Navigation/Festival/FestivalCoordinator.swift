@@ -20,7 +20,10 @@ struct FestivalCoordinator {
 
     mutating func clearAccountData() {
       // 기수 보드는 로그인한 기수의 화면이라 계정이 바뀌면 닫는다.
-      routes.removeAll { $0.screen.is(\.bearerBoard) || $0.screen.is(\.notificationInbox) }
+      // 존 지도는 로그인 사용자의 팔로우·크루를 보여 주므로 함께 닫는다.
+      routes.removeAll {
+        $0.screen.is(\.bearerBoard) || $0.screen.is(\.notificationInbox) || $0.screen.is(\.zoneMap)
+      }
       for index in routes.indices {
         switch routes[index].screen {
         case var .festivalList(board):
@@ -29,7 +32,7 @@ struct FestivalCoordinator {
         case var .liveBoard(board):
           board.clearAccountData()
           routes[index].screen = .liveBoard(board)
-        case .bearerBoard, .notificationInbox:
+        case .bearerBoard, .notificationInbox, .zoneMap:
           break
         }
       }
@@ -143,6 +146,38 @@ struct FestivalCoordinator {
       state.routes.presentCover(.bearerBoard(.init(festivalID: festivalID, flagID: flagID, viewerUserID: userID)))
       return .none
 
+    case let .router(.routeAction(
+      id: _,
+      action: .liveBoard(.delegate(.zoneMapRequested(
+        festivalID,
+        zoneID
+      )))
+    )):
+      guard !state.routes.contains(where: { $0.screen.is(\.zoneMap) }) else { return .none }
+      let board = state.routes.last(where: { $0.screen.is(\.liveBoard) })?.screen.liveBoard
+      state.routes.push(.zoneMap(.init(
+        festivalID: festivalID,
+        viewerUserID: board?.sessionUserID,
+        selectedZoneID: zoneID,
+        snapshot: board?.liveBoard,
+        receivedAt: board?.liveBoardReceivedAt
+      )))
+      return .none
+
+    case .router(.routeAction(
+      id: _,
+      action: .zoneMap(.delegate(.backRequested))
+    )):
+      state.routes.goBack()
+      return .none
+
+    case .router(.routeAction(
+      id: _,
+      action: .zoneMap(.delegate(.flagDirectoryRequested))
+    )):
+      state.routes.goBack()
+      return .send(.delegate(.flagTabRequested))
+
     case .router(.routeAction(id: _, action: .bearerBoard(.delegate(.closeRequested)))):
       state.routes.dismiss()
       return .none
@@ -193,7 +228,7 @@ struct FestivalCoordinator {
       switch state.routes[index].screen {
       case .festivalList: action = .festivalList(.view(.bookmarkSaved(id: id, booked: booked)))
       case .liveBoard: action = .liveBoard(.view(.bookmarkSaved(id: id, booked: booked)))
-      case .bearerBoard, .notificationInbox: return .none
+      case .bearerBoard, .notificationInbox, .zoneMap: return .none
       }
       return .send(.router(.routeAction(id: index, action: action)))
 
@@ -252,7 +287,7 @@ struct FestivalCoordinator {
         board.toastRevision += 1
         revision = board.toastRevision
         state.routes[index].screen = .liveBoard(board)
-      case .bearerBoard, .notificationInbox:
+      case .bearerBoard, .notificationInbox, .zoneMap:
         return .none
       }
       return .run { send in
@@ -275,7 +310,7 @@ struct FestivalCoordinator {
       case var .liveBoard(board) where board.toastRevision == revision:
         board.toast = nil
         state.routes[index].screen = .liveBoard(board)
-      case .festivalList, .liveBoard, .bearerBoard, .notificationInbox:
+      case .festivalList, .liveBoard, .bearerBoard, .notificationInbox, .zoneMap:
         break
       }
       return .none
@@ -293,7 +328,7 @@ struct FestivalCoordinator {
             index,
             false
           )
-        case .bearerBoard, .notificationInbox: return nil
+        case .bearerBoard, .notificationInbox, .zoneMap: return nil
         }
       }
       return .run { @MainActor send in
@@ -369,7 +404,7 @@ private extension FestivalCoordinator {
         screenAction = .festivalList(action)
       case .liveBoard:
         screenAction = .liveBoard(action)
-      case .bearerBoard, .notificationInbox:
+      case .bearerBoard, .notificationInbox, .zoneMap:
         return .none
       }
       return .send(.router(.routeAction(id: index, action: screenAction)))
@@ -384,6 +419,7 @@ extension FestivalCoordinator {
     case liveBoard(FestivalFeature)
     case bearerBoard(BearerBoardFeature)
     case notificationInbox(NotificationInboxFeature)
+    case zoneMap(FestivalZoneMapFeature)
   }
 }
 

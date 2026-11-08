@@ -19,6 +19,9 @@ struct FestivalCoordinatorView: View {
       case let .notificationInbox(inboxStore):
         NotificationInboxView(store: inboxStore)
           .swipeBackButtonHidden()
+      case let .zoneMap(zoneMapStore):
+        FestivalZoneMapView(store: zoneMapStore)
+          .swipeBackButtonHidden()
       }
     }
   }

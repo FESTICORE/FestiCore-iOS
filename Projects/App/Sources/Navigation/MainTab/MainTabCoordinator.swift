@@ -382,12 +382,12 @@ struct MainTabCoordinator {
   /// 깃발 탭이 따르는 축제 보드. 기수 보드·알림함은 라이브 보드 위에 덮이는 화면이라 그 아래 축제를 기준으로 삼는다.
   private func flagBoard(_ state: State) -> FestivalFeature.State? {
     guard let screen = state.festivalState.routes.last(where: {
-      !$0.screen.is(\.bearerBoard) && !$0.screen.is(\.notificationInbox)
+      !$0.screen.is(\.bearerBoard) && !$0.screen.is(\.notificationInbox) && !$0.screen.is(\.zoneMap)
     })?.screen else { return nil }
     switch screen {
     case let .festivalList(festival), let .liveBoard(festival):
       return festival
-    case .bearerBoard, .notificationInbox:
+    case .bearerBoard, .notificationInbox, .zoneMap:
       return nil
     }
   }

@@ -55,6 +55,8 @@ enum FestivalLiveBoardPresentation {
     let id: String
     let nickname: String
     let isMe: Bool
+    /// 존 칩을 누르면 존 지도에서 고를 존
+    let zoneID: String?
     let zone: String?
     let status: String?
     let time: String?
@@ -393,6 +395,7 @@ extension FestivalLiveBoardPresentation {
         id: member.id,
         nickname: member.nickname,
         isMe: sessionUserID != nil && member.id == sessionUserID,
+        zoneID: member.zoneID,
         zone: zoneName(member.zoneID),
         status: member.state.flatMap(crewStateText),
         time: relativeTime(

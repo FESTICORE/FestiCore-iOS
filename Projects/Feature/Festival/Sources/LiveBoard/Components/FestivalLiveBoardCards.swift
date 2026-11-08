@@ -8,6 +8,8 @@ struct FestivalLiveBoardCrewCard: View {
   let showsGather: Bool
   let canGather: Bool
   let onGather: () -> Void
+  /// 존 칩을 누르면 존 지도를 연다(Figma Zone Chip).
+  let onZoneTap: (String) -> Void
 
   var body: some View {
     VStack(spacing: .zero) {
@@ -74,8 +76,9 @@ private extension FestivalLiveBoardCrewCard {
         }
         HStack(spacing: FestiCoreSpacing.paddingP8) {
           if let zone = member.zone {
-            FCZoneChip(zone) {}
-              .allowsHitTesting(false)
+            FCZoneChip(zone) {
+              if let zoneID = member.zoneID { onZoneTap(zoneID) }
+            }
           }
           if let status = member.status {
             Text(status)
