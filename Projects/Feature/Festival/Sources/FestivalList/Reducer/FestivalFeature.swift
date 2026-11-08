@@ -400,6 +400,8 @@ public struct FestivalFeature {
     case crewLoginTapped
     case followLoginTapped
     case gatherCrewTapped
+    /// 라이브 보드 존 칩. 부모가 존 지도를 연다.
+    case zoneChipTapped(String)
     case createCrewTapped
     case findFlagTapped
     case hideFollowGuideTapped
@@ -876,6 +878,13 @@ extension FestivalFeature {
 
     case .crewLoginTapped:
       return .send(.delegate(.crewLoginRequested))
+
+    case let .zoneChipTapped(zoneID):
+      guard let festivalID = state.selectedFestivalID else { return .none }
+      return .send(.delegate(.zoneMapRequested(
+        festivalID: festivalID,
+        zoneID: zoneID
+      )))
 
     case .followLoginTapped:
       return .send(.delegate(.followLoginRequested))

@@ -466,7 +466,8 @@ private extension FestivalLiveBoardScreen {
         canGather: !model.showsOfflineStatus && (crew.gatherAvailableAt.map { $0 <= now } ?? true),
         onGather: {
           send(.gatherCrewTapped)
-        }
+        },
+        onZoneTap: { send(.zoneChipTapped($0)) }
       )
     } else if model.liveBoard == nil, !model.liveBoardUnavailable {
       FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r16))

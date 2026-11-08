@@ -784,7 +784,8 @@ extension FestivalS01VisualCaptureTests {
     size: CGSize = CGSize(
       width: 390,
       height: 844
-    )
+    ),
+    colorScheme: ColorScheme = .dark
   ) async throws {
     try await withDependencies {
       $0.festivalLiveBoardUseCase = FestivalLiveBoardUseCaseImpl()
@@ -794,7 +795,7 @@ extension FestivalS01VisualCaptureTests {
       let controller = UIHostingController(rootView: content
         .environment(
           \.colorScheme,
-          .dark
+          colorScheme
         )
         .padding(
           .top,
@@ -819,7 +820,7 @@ extension FestivalS01VisualCaptureTests {
         origin: .zero,
         size: size
       )
-      window.overrideUserInterfaceStyle = .dark
+      window.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
       window.rootViewController = controller
       window.makeKeyAndVisible()
       defer {

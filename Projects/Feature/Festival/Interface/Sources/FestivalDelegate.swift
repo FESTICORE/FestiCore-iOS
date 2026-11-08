@@ -21,4 +21,6 @@ public enum FestivalDelegate: Equatable, Sendable {
   case flagTabRequested
   /// 라이브 보드 상단 기수 버튼. 부모가 기수 보드를 연다.
   case bearerBoardRequested(festivalID: String, flagID: String, userID: String?)
+  /// 라이브 보드 존 칩. 부모가 존 지도(Figma S06)를 열고 그 존을 고른다.
+  case zoneMapRequested(festivalID: String, zoneID: String?)
 }

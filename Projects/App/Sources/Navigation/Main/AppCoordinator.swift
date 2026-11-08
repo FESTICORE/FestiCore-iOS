@@ -134,7 +134,7 @@ struct AppCoordinator {
       switch screen {
       case let .festivalList(list): festival = list
       case let .liveBoard(board): festival = board
-      case .bearerBoard, .notificationInbox: return nil
+      case .bearerBoard, .notificationInbox, .zoneMap: return nil
       }
       festival.hasSession = home.authFlow.hasSession && festival.hasSession
       return festival.widgetSnapshotContent
@@ -1136,12 +1136,12 @@ private extension AppCoordinator {
     in festival: FestivalCoordinator.State
   ) -> Bool {
     guard let screen = festival.routes.last(where: {
-      !$0.screen.is(\.bearerBoard) && !$0.screen.is(\.notificationInbox)
+      !$0.screen.is(\.bearerBoard) && !$0.screen.is(\.notificationInbox) && !$0.screen.is(\.zoneMap)
     })?.screen else { return false }
     switch screen {
     case let .festivalList(list): return list.bookedFestivalIDs.contains(id)
     case let .liveBoard(board): return board.bookedFestivalIDs.contains(id)
-    case .bearerBoard, .notificationInbox: return false
+    case .bearerBoard, .notificationInbox, .zoneMap: return false
     }
   }
 }
