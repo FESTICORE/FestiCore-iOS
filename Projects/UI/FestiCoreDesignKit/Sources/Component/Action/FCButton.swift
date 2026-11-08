@@ -63,7 +63,8 @@ public struct FCButton: View {
         }
         .contentShape(shape)
     }
-    .buttonStyle(.plain)
+    // .plain은 비활성 라벨을 한 번 더 흐리게 해서 30%보다 옅어진다(Figma S07 모여! 쿨다운).
+    .buttonStyle(PressStyle())
     .disabled(!isEnabled)
     // Foundation state.disabled는 요소 전체에 30% opacity를 적용한다.
     .opacity(isEnabled ? 1 : FestiCoreState.disabledOpacity)
@@ -137,6 +138,15 @@ private extension FCButton {
     static let largeHeight: CGFloat = 52
     static let mediumHeight: CGFloat = 40
     static let borderWidth: CGFloat = 1
+    static let pressedOpacity: Double = 0.7
+  }
+
+  /// 누르는 동안만 옅게 하고, 비활성 표현은 버튼의 30% opacity 하나만 쓴다.
+  struct PressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+      return configuration.label
+        .opacity(configuration.isPressed ? Metric.pressedOpacity : 1)
+    }
   }
 }
 
