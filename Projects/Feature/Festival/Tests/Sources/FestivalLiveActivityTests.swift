@@ -69,6 +69,60 @@ struct HomeLiveActivityTests {
     await store.finish()
   }
 
+  /// push-to-start로 이미 생긴 같은 축제 활동이 있으면 자동 시작하지 않고 그 활동을 이어 쓴다.
+  @Test @MainActor func pushStartedActivityIsReusedWithoutAutomaticStart() async {
+    let now = ISO8601DateFormatter().date(from: "2026-10-29T08:00:00Z")!
+    let start = ISO8601DateFormatter().date(from: "2026-10-29T09:00:00Z")!
+    let end = ISO8601DateFormatter().date(from: "2026-10-30T09:00:00Z")!
+    let pushStarted = FestivalLiveActivityRecord(
+      id: "push-activity",
+      festivalID: "festival",
+      phase: .upcoming,
+      startDate: start,
+      endDate: end
+    )
+    let starts = LockIsolated(0)
+    var state = FestivalFeature.State(selectedFestivalID: "festival")
+    state.catalog = [festival(id: "festival")]
+    state.selectedPack = savedPerformancePack()
+    state.hasSession = true
+    state.mySchedule = .init(
+      festivalID: "festival",
+      setIDs: ["saved-set"]
+    )
+    state.liveActivity.isReady = true
+    state.liveActivity.now = now
+    state.hasStarted = true
+    let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.date.now = now
+      $0.continuousClock = TestClock()
+      $0.festivalLiveActivityClient = .init(
+        activities: { [pushStarted] },
+        changes: { AsyncStream { $0.finish() } },
+        start: { _, _, _, _, _ in
+          starts.withValue { $0 += 1 }
+          return "local-activity"
+        },
+        update: { _, _, _, _, _, _ in },
+        finish: { _, _ in },
+        end: { _ in }
+      )
+    }
+
+    await store.send(.inner(.liveActivityChanged))
+    await store.receive(\.inner.liveActivitiesLoaded) {
+      $0.liveActivity.activities["festival"] = pushStarted
+    }
+    #expect(starts.value == 0)
+    await store.send(.view(.foregroundChanged(false))) {
+      $0.isForeground = false
+    }
+    await store.receive(\.async.prefetchImages)
+    await store.finish()
+    #expect(starts.value == 0)
+  }
+
   @Test @MainActor func handledPerformanceDoesNotAutoRestart() async {
     let now = ISO8601DateFormatter().date(from: "2026-10-29T08:30:00Z")!
     let performanceStart = ISO8601DateFormatter().date(from: "2026-10-29T10:00:00Z")!

@@ -10,11 +10,13 @@ final class LiveActivityTokenSync {
     var activities: () -> [FestiCoreFestivalActivitySummary]
     var changes: () -> AsyncStream<Void>
     var pushTokenUpdates: (String) -> AsyncStream<FestiCoreFestivalPushToken>?
+    var endDuplicates: () async -> Void
 
     @MainActor static let live = Self(
       activities: { FestiCoreFestivalLiveActivity.activities() },
       changes: { FestiCoreFestivalLiveActivity.activityChanges() },
-      pushTokenUpdates: { FestiCoreFestivalLiveActivity.pushTokenUpdates(id: $0) }
+      pushTokenUpdates: { FestiCoreFestivalLiveActivity.pushTokenUpdates(id: $0) },
+      endDuplicates: { await FestiCoreFestivalLiveActivity.endDuplicates() }
     )
   }
 
@@ -62,7 +64,13 @@ final class LiveActivityTokenSync {
   }
 
   private func refresh() {
-    let activities = source.activities().sorted {
+    // 같은 축제의 중복 활동은 토큰을 등록하지 않고 닫는다. 닫히면 변경 신호로 다시 갱신한다.
+    let partition = FestiCoreFestivalLiveActivity.partitionDuplicates(source.activities())
+    if !partition.duplicates.isEmpty {
+      let endDuplicates = source.endDuplicates
+      Task { await endDuplicates() }
+    }
+    let activities = partition.kept.sorted {
       if $0.startDate != $1.startDate { return $0.startDate < $1.startDate }
       return $0.id < $1.id
     }
