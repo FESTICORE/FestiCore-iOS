@@ -159,7 +159,10 @@ public struct FCHomeCard: View {
       }
       Text(remain)
         .festiCoreFont(.pointHeading)
-      VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
+      VStack(
+        alignment: .leading,
+        spacing: Metric.rideLineSpacing
+      ) {
         Text(shuttle)
         Text(train)
       }
@@ -177,6 +180,11 @@ public struct FCHomeCard: View {
 }
 
 private extension FCHomeCard {
+  /// Figma S01 E 실측: 셔틀 줄과 막차 줄 사이 29px(줄 높이 포함).
+  enum Metric {
+    static let rideLineSpacing: CGFloat = 10
+  }
+
   var cardActions: [FCCardAction] {
     return actions.map { item in
       var action = item
