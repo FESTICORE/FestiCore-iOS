@@ -50,6 +50,9 @@ public enum FestiCoreFestivalLiveActivity {
     case disabled
   }
 
+  /// 같은 축제 활동을 동시에 두 번 요청하지 않도록 시작을 직렬화한다.
+  private static let startLock = NSLock()
+
   public static func activities() -> [FestiCoreFestivalActivitySummary] {
     Activity<FestiCoreFestivalActivityAttributes>.activities.compactMap { activity in
       guard isCurrent(activity.activityState) else {
@@ -139,7 +142,11 @@ public enum FestiCoreFestivalLiveActivity {
       throw Error.disabled
     }
 
-    if let existing = activities().first(where: { $0.festivalID == festivalID }) {
+    startLock.lock()
+    defer { startLock.unlock() }
+
+    // push-to-start로 이미 생긴 활동이나 먼저 시작한 활동이 있으면 새로 만들지 않는다.
+    if let existing = partitionDuplicates(activities()).kept.first(where: { $0.festivalID == festivalID }) {
       return existing.id
     }
 
@@ -207,6 +214,47 @@ public enum FestiCoreFestivalLiveActivity {
       return
     }
     await activity.end(nil, dismissalPolicy: .immediate)
+  }
+
+  /// 같은 축제에 활동이 둘 이상이면 하나만 남기고 나머지를 즉시 종료한다. 종료한 ID를 돌려준다.
+  @discardableResult
+  public static func endDuplicates() async -> [String] {
+    let duplicateIDs = Set(partitionDuplicates(activities()).duplicates.map(\.id))
+    guard !duplicateIDs.isEmpty else { return [] }
+    for activity in Activity<FestiCoreFestivalActivityAttributes>.activities where duplicateIDs.contains(activity.id) {
+      await activity.end(
+        nil,
+        dismissalPolicy: .immediate
+      )
+    }
+    return duplicateIDs.sorted()
+  }
+
+  /// 축제마다 남길 활동 하나와 정리할 중복 활동을 나눈다.
+  /// active, stale, pending 순으로 남기고 같은 상태면 ID 순서로 정해 입력 순서와 무관하게 같은 결과를 낸다.
+  public static func partitionDuplicates(
+    _ activities: [FestiCoreFestivalActivitySummary]
+  ) -> (kept: [FestiCoreFestivalActivitySummary], duplicates: [FestiCoreFestivalActivitySummary]) {
+    let ordered = activities.sorted {
+      let lhsRank = stateRank($0.state)
+      let rhsRank = stateRank($1.state)
+      if lhsRank != rhsRank { return lhsRank < rhsRank }
+      return $0.id < $1.id
+    }
+    var keptFestivalIDs = Set<String>()
+    var kept: [FestiCoreFestivalActivitySummary] = []
+    var duplicates: [FestiCoreFestivalActivitySummary] = []
+    for activity in ordered {
+      if keptFestivalIDs.insert(activity.festivalID).inserted {
+        kept.append(activity)
+      } else {
+        duplicates.append(activity)
+      }
+    }
+    return (
+      kept: kept,
+      duplicates: duplicates
+    )
   }
 
   public static func endFinished(id: String, startDate: Date) async {
@@ -277,6 +325,17 @@ public enum FestiCoreFestivalLiveActivity {
       activityID: activity.id,
       value: data.map { String(format: "%02x", $0) }.joined()
     )
+  }
+
+  private static func stateRank(_ state: ActivityState) -> Int {
+    switch state {
+    case .active:
+      return 0
+    case .stale:
+      return 1
+    default:
+      return 2
+    }
   }
 
   private static func isCurrent(_ state: ActivityState) -> Bool {

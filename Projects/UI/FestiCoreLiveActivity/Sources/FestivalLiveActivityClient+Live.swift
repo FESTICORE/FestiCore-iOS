@@ -5,7 +5,9 @@ import Foundation
 extension FestivalLiveActivityClient: @retroactive DependencyKey {
   public static let liveValue = Self(
     activities: {
-      FestiCoreFestivalLiveActivity.activities().map {
+      // push-to-start와 로컬 시작이 겹친 중복을 먼저 닫아 축제마다 활동 하나만 돌려준다.
+      await FestiCoreFestivalLiveActivity.endDuplicates()
+      return FestiCoreFestivalLiveActivity.partitionDuplicates(FestiCoreFestivalLiveActivity.activities()).kept.map {
         FestivalLiveActivityRecord(
           id: $0.id,
           festivalID: $0.festivalID,

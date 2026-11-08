@@ -53,6 +53,44 @@ struct LiveActivityTokenSyncTests {
     #expect(await waitFor { await service.operations.last == .register("activity-b", "token-b") })
   }
 
+  @Test("같은 축제에 push-to-start 활동이 겹치면 하나만 남기고 그 토큰만 등록한다")
+  func endsDuplicateActivityForSameFestival() async {
+    let source = TestActivitySource(summaries: [
+      summary(
+        id: "push-started",
+        festivalID: "festival-a"
+      ),
+      summary(
+        id: "local-started",
+        festivalID: "festival-a"
+      )
+    ])
+    let service = RecordingLiveActivityService()
+    let sync = makeSync(
+      source: source,
+      service: service
+    )
+    sync.start()
+    defer { sync.stop() }
+
+    #expect(await waitFor { source.endedIDs == ["push-started"] })
+    #expect(await waitFor { source.isObserving("local-started") })
+    #expect(!source.isObserving("push-started"))
+    #expect(source.summaries.map(\.id) == ["local-started"])
+
+    source.emitToken(
+      id: "local-started",
+      festivalID: "festival-a",
+      value: "token-local"
+    )
+    let expected = LiveActivityOperation.register(
+      "local-started",
+      "token-local"
+    )
+    #expect(await waitFor { await service.operations.contains(expected) })
+    #expect(await service.operations == [expected])
+  }
+
   @Test("기존 stale Activity 대신 새 active Activity의 업데이트 토큰을 등록한다")
   func selectsActiveOverStaleActivity() async {
     let source = TestActivitySource(summaries: [
@@ -150,6 +188,7 @@ private final class TestActivitySource {
   var summaries: [FestiCoreFestivalActivitySummary]
   private let changes = AsyncStream<Void>.makeStream()
   private var tokens: [String: AsyncStream<FestiCoreFestivalPushToken>.Continuation] = [:]
+  private(set) var endedIDs: [String] = []
 
   init(summaries: [FestiCoreFestivalActivitySummary]) {
     self.summaries = summaries
@@ -163,6 +202,15 @@ private final class TestActivitySource {
         let updates = AsyncStream<FestiCoreFestivalPushToken>.makeStream()
         self.tokens[id] = updates.continuation
         return updates.stream
+      },
+      endDuplicates: {
+        // 실제 정리처럼 중복을 닫고 변경 신호를 보낸다.
+        let duplicates = FestiCoreFestivalLiveActivity.partitionDuplicates(self.summaries).duplicates
+        self.endedIDs.append(contentsOf: duplicates.map(\.id))
+        self.summaries.removeAll { summary in
+          return duplicates.contains { $0.id == summary.id }
+        }
+        self.emitChange()
       }
     )
   }
