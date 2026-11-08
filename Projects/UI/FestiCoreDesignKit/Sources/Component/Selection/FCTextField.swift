@@ -34,8 +34,10 @@ public struct FCTextField: View {
       }
       field
       if let message = error ?? helper {
+        // Figma Text Field의 Helper 12/16
         Text(message)
           .festiCoreFont(.baseCaption1Regular)
+          .festiCoreLineBox(.baseCaption1Regular)
           .foregroundStyle(error == nil ? FestiCoreSemanticColor.labelAssistive.color : FestiCoreSemanticColor.statusNegative.color)
           .frame(maxWidth: .infinity, alignment: .leading)
       }

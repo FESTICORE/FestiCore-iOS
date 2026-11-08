@@ -30,6 +30,8 @@ public struct FCFieldLabel: View {
       }
     }
     .lineLimit(1)
+    // Figma Text Field의 Label Row 높이 18(13/18)
+    .festiCoreLineBox(.baseFootnoteBold)
     .accessibilityElement(children: .combine)
   }
 }
