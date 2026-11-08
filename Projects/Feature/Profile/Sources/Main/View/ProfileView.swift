@@ -43,7 +43,6 @@ extension ProfileView {
       ScrollView {
         VStack(spacing: FestiCoreSpacing.paddingP24) {
           FCBearerPrompt { send(.bearerTapped) }
-            .allowsHitTesting(store.isBearerNavigationAvailable)
 
           receivedPacks
           settings
