@@ -5,9 +5,10 @@ on:
   pull_request:
     branches: [develop, main]
 
-# 같은 PR 에 새 커밋이 오면 이전 실행은 취소한다(러너가 한 대뿐이라 대기열을 줄인다).
+# 러너가 한 대뿐이라 PR 커버리지는 가장 최근 PR 하나만 돌린다. PR은 바로 머지하므로
+# 최신 PR이 앞서 머지된 변경까지 함께 검증하고, 쌓인 실행이 develop 배포를 막지 않게 한다.
 concurrency:
-  group: pr-coverage-${{ github.event.pull_request.number }}
+  group: pr-coverage
   cancel-in-progress: true
 
 env:
