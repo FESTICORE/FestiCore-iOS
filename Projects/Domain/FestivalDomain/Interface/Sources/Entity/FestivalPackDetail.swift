@@ -41,6 +41,8 @@ public struct FestivalPackDetail: Equatable, Sendable {
     public let memo: String?
     public let naverMapURL: URL?
     public let kakaoMapURL: URL?
+    /// 출처를 확인한 축제 장소 좌표. 역·정류장을 이름으로 찾을 때 기준 위치로 쓴다.
+    public let venueLocation: Coordinate?
     public let source: Source?
 
     public init(
@@ -52,6 +54,7 @@ public struct FestivalPackDetail: Equatable, Sendable {
       memo: String? = nil,
       naverMapURL: URL? = nil,
       kakaoMapURL: URL? = nil,
+      venueLocation: Coordinate? = nil,
       source: Source? = nil
     ) {
       self.lastShuttleAt = lastShuttleAt
@@ -62,6 +65,7 @@ public struct FestivalPackDetail: Equatable, Sendable {
       self.memo = memo
       self.naverMapURL = naverMapURL
       self.kakaoMapURL = kakaoMapURL
+      self.venueLocation = venueLocation
       self.source = source
     }
 
@@ -75,14 +79,42 @@ public struct FestivalPackDetail: Equatable, Sendable {
   public struct Section: Equatable, Sendable {
     public let body: String?
     public let links: [Link]
+    /// 대중교통의 가까운 역 이름
     public let stationName: String?
+    /// 셔틀 정류장 이름
+    public let stopName: String?
     public let walkMinutes: Int?
+    /// 서버가 준 역·정류장 좌표. 없으면 이름으로 찾는다.
+    public let location: Coordinate?
 
-    public init(body: String?, links: [Link] = [], stationName: String? = nil, walkMinutes: Int? = nil) {
+    public init(
+      body: String?,
+      links: [Link] = [],
+      stationName: String? = nil,
+      stopName: String? = nil,
+      walkMinutes: Int? = nil,
+      location: Coordinate? = nil
+    ) {
       self.body = body
       self.links = links
       self.stationName = stationName
+      self.stopName = stopName
       self.walkMinutes = walkMinutes
+      self.location = location
+    }
+  }
+
+  /// 위도·경도 한 지점
+  public struct Coordinate: Equatable, Sendable {
+    public let latitude: Double
+    public let longitude: Double
+
+    public init(
+      latitude: Double,
+      longitude: Double
+    ) {
+      self.latitude = latitude
+      self.longitude = longitude
     }
   }
 

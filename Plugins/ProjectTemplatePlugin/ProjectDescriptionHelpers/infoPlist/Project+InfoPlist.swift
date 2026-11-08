@@ -38,6 +38,10 @@ public extension InfoPlist {
       )
       .setFestiCoreMixpanelToken("$(FESTICORE_MIXPANEL_TOKEN)")
       .setFestiCoreSentryDSN("$(FESTICORE_SENTRY_DSN)")
+      .set(
+        "NSLocationWhenInUseUsageDescription",
+        .string("귀가 카드에서 지금 위치부터 역·셔틀 정류장까지 걸어서 걸리는 시간을 Apple 지도로 계산하는 데 사용해요.")
+      )
       .set("NSSupportsLiveActivities", .boolean(true))
       .set(
         "UIBackgroundModes",

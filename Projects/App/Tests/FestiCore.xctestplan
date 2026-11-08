@@ -15,6 +15,7 @@
     { "target": { "containerPath": "container:Projects/App/FestiCore.xcodeproj", "identifier": "40E83F3AA76A953E7B9097E0", "name": "FestiCoreTests" } },
     { "target": { "containerPath": "container:Projects/App/FestiCore.xcodeproj", "identifier": "CFC4642C7890383243B43534", "name": "FestiCoreUITests" } },
     { "target": { "containerPath": "container:Projects/Core/CoreAssembly/CoreAssembly.xcodeproj", "identifier": "CCB9372E197172D37648EB7D", "name": "CoreAssemblyTests" } },
+    { "target": { "containerPath": "container:Projects/Core/FestiCoreLocation/FestiCoreLocation.xcodeproj", "identifier": "30433DA2FE83D0C520EAD4E5", "name": "FestiCoreLocationTests" } },
     { "target": { "containerPath": "container:Projects/Core/FestiCoreLogger/FestiCoreLogger.xcodeproj", "identifier": "6587E7CD20D518868CF1C33A", "name": "FestiCoreLoggerTests" } },
     { "target": { "containerPath": "container:Projects/Core/FestiCoreNetwork/FestiCoreNetwork.xcodeproj", "identifier": "34D54AFA2FE302A132BBB075", "name": "FestiCoreNetworkTests" } },
     { "target": { "containerPath": "container:Projects/Core/FestiCoreStorage/FestiCoreStorage.xcodeproj", "identifier": "C3A7A4C878250A948210E6AB", "name": "FestiCoreStorageTests" } },

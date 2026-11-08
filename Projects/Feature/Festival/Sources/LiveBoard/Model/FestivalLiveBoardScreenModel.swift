@@ -30,6 +30,8 @@ struct FestivalLiveBoardScreenModel {
   let hasMySchedule: Bool
   let myScheduleUnavailable: Bool
   let homeDetails: FestivalFeature.HomeDetailsState
+  /// Apple 지도로 계산한 도보 분. 계산하지 못한 역은 서버 값이다.
+  let homeWalkMinutes: FestivalFeature.HomeWalkMinutes
   let showsFollowGuide: Bool
 
   init(state: FestivalFeature.State) {
@@ -48,6 +50,7 @@ struct FestivalLiveBoardScreenModel {
     hasMySchedule = state.mySchedule != nil
     myScheduleUnavailable = state.myScheduleUnavailable
     homeDetails = state.homeDetails
+    homeWalkMinutes = state.homeWalkMinutes
     showsFollowGuide = state.showsFollowGuide
   }
 
@@ -57,34 +60,22 @@ struct FestivalLiveBoardScreenModel {
 
   func homeRide(now: Date) -> HomeRide? {
     guard let festivalID = pack?.id,
-          let directions = homeDetails.directions(for: festivalID) else { return nil }
+          let directions = homeDetails.directions(for: festivalID),
+          let departure = FestivalHomeDeparture(
+            directions: directions,
+            walkMinutes: homeWalkMinutes,
+            now: now
+          ) else { return nil }
     let shuttleAt = nonempty(directions.lastShuttleAt)
     let trainAt = nonempty(directions.lastTrainAt)
-    let trainDate = trainAt.flatMap { departureDate(
-      $0,
-      now: now
-    ) }
-    let shuttleDate = shuttleAt.flatMap { departureDate(
-      $0,
-      now: now
-    ) }
-    let departure: (name: String, date: Date)
-    if let trainDate, trainDate > now {
-      departure = ("막차", trainDate)
-    } else if let shuttleDate, shuttleDate > now {
-      departure = ("셔틀", shuttleDate)
-    } else {
-      return nil
-    }
-    let minutes = Int(ceil(departure.date.timeIntervalSince(now) / 60))
-    guard minutes > 0 else { return nil }
-    let shuttleStation = directions.shuttle?.stationName.map { " · \($0)" } ?? ""
+    let shuttleStation = directions.shuttleStopName.map { " · \($0)" } ?? ""
     let trainStation = directions.transit?.stationName.map { " · \($0)" } ?? ""
-    let walkMinutes = directions.transit?.walkMinutes.map { " (도보 \($0)분)" } ?? ""
+    let shuttleWalk = walkText(homeWalkMinutes.shuttleStop)
+    let trainWalk = walkText(homeWalkMinutes.station)
     return HomeRide(
-      remain: "\(departure.name)까지 \(minutes)분",
-      shuttle: shuttleAt.map { "마지막 셔틀 \(timeText($0))\(shuttleStation)" } ?? "셔틀 시간 미공개",
-      train: trainAt.map { "막차 \(timeText($0))\(trainStation)\(walkMinutes)" } ?? "막차 시간 미공개"
+      remain: "\(departure.name)까지 \(departure.remainingMinutes(now: now))분",
+      shuttle: shuttleAt.map { "마지막 셔틀 \(timeText($0))\(shuttleStation)\(shuttleWalk)" } ?? "셔틀 시간 미공개",
+      train: trainAt.map { "막차 \(timeText($0))\(trainStation)\(trainWalk)" } ?? "막차 시간 미공개"
     )
   }
 
@@ -115,43 +106,16 @@ struct FestivalLiveBoardScreenModel {
     )
   }
 
-  private func departureDate(
-    _ value: String,
-    now: Date
-  ) -> Date? {
-    if let date = FestivalLiveBoardSchedule.parse(value) { return date }
-    let parts = value.split(separator: ":")
-    guard parts.count == 2,
-          let hour = Int(parts[0]), (0...23).contains(hour),
-          let minute = Int(parts[1]), (0...59).contains(minute),
-          let seoulTimeZone = TimeZone(identifier: "Asia/Seoul") else { return nil }
-    var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = seoulTimeZone
-    guard let sameDay = calendar.date(
-      bySettingHour: hour,
-      minute: minute,
-      second: 0,
-      of: now
-    ) else { return nil }
-    if sameDay <= now, hour < 6, calendar.component(
-      .hour,
-      from: now
-    ) >= 18 {
-      return calendar.date(
-        byAdding: .day,
-        value: 1,
-        to: sameDay
-      )
-    }
-    return sameDay
-  }
-
   private func timeText(_ value: String) -> String {
     guard let date = FestivalLiveBoardSchedule.parse(value) else { return value }
     let formatter = DateFormatter()
     formatter.dateFormat = "HH:mm"
     formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
     return formatter.string(from: date)
+  }
+
+  private func walkText(_ minutes: Int?) -> String {
+    return minutes.map { " (도보 \($0)분)" } ?? ""
   }
 
   private func nonempty(_ value: String?) -> String? {

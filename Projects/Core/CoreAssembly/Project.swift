@@ -13,6 +13,7 @@ import DependencyPackagePlugin
 let project = Project.makeModule(
   name: "CoreAssembly",
   dependencies: [
+    .core(.location),
     .core(.logger),
     .core(.network),
     .core(.storage),

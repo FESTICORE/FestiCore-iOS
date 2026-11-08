@@ -388,6 +388,8 @@ private extension FestivalLiveBoardScreen {
           ) { send(.homeTogetherTapped) },
         ]
       )
+      // 귀가 카드가 보일 때 도보 시간을 계산한다. 위치 권한은 아직 정하지 않았을 때만 묻는다.
+      .onAppear { send(.homeRideAppeared) }
     } else if model.isHomeRideLoading {
       FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r16))
         .frame(height: 204)

@@ -33,14 +33,43 @@ struct FestivalPackDetailDTO: Decodable {
     let lastShuttleAt: String?
     let lastTrainAt: String?
     let mapLinks: MapLinksDTO?
+    /// 출처를 확인한 축제 장소 좌표
+    let location: CoordinateDTO?
     let source: SourceDTO?
   }
 
   struct SectionDTO: Decodable {
     let body: String?
     let links: [LinkDTO]?
+    /// 대중교통의 가까운 역
     let stationName: String?
+    /// 셔틀 정류장
+    let stopName: String?
     let walkMinutes: Int?
+    /// 역·정류장 좌표
+    let location: CoordinateDTO?
+  }
+
+  /// 좌표 형식이 달라도 가는 길 전체를 버리지 않도록 값마다 따로 읽는다.
+  struct CoordinateDTO: Decodable {
+    let latitude: Double?
+    let longitude: Double?
+
+    private enum CodingKeys: String, CodingKey {
+      case latitude, longitude
+    }
+
+    init(from decoder: Decoder) throws {
+      let container = try? decoder.container(keyedBy: CodingKeys.self)
+      latitude = try? container?.decodeIfPresent(
+        Double.self,
+        forKey: .latitude
+      )
+      longitude = try? container?.decodeIfPresent(
+        Double.self,
+        forKey: .longitude
+      )
+    }
   }
 
   struct LinkDTO: Decodable {

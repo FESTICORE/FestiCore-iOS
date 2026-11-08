@@ -13,6 +13,10 @@ import ProjectTemplatePlugin
 let project = Project.makeModule(
   name: "Festival",
   dependencies: [
+    .core(
+      .location,
+      .interface
+    ),
     .core(.utility),
     .domain(.festival, .interface),
     .domain(.userNotification, .interface),
@@ -32,6 +36,7 @@ let project = Project.makeModule(
   ],
   hasDemo: true,
   demoDependencies: [
+    .core(.location),
     .domain(.festival),
     .domain(.festival, .interface),
     .domain(.userNotification),
