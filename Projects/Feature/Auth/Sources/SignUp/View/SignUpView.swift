@@ -40,6 +40,7 @@ private extension SignUpView {
         VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
           Text("반가워요!\n어떻게 불러 드릴까요?")
             .festiCoreFont(.baseTitle2Bold)
+            .festiCoreLineBox(.baseTitle2Bold)
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
             .frame(maxWidth: .infinity, alignment: .leading)
           FCTextField(
