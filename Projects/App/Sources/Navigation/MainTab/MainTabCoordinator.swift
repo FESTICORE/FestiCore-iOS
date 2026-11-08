@@ -79,7 +79,7 @@ struct MainTabCoordinator {
     var isCrewOnTop: Bool {
       guard let screen = festivalState.routes.last?.screen else { return false }
       return screen.is(\.crew) || screen.is(\.crewJoin) || screen.is(\.crewCreate)
-        || screen.is(\.prepSchedule) || screen.is(\.prepFlags)
+        || screen.is(\.prepSchedule) || screen.is(\.prepFlags) || screen.is(\.prepChecklist)
     }
 
     var shouldHideTabBar: Bool {

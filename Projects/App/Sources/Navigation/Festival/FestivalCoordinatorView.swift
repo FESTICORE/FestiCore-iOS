@@ -36,6 +36,9 @@ struct FestivalCoordinatorView: View {
       case let .prepFlags(flagsStore):
         FestivalPrepFlagsView(store: flagsStore)
           .swipeBackButtonHidden()
+      case let .prepChecklist(checklistStore):
+        PrepChecklistView(store: checklistStore)
+          .swipeBackButtonHidden()
       }
     }
   }
