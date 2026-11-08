@@ -31,6 +31,7 @@ extension FestivalPackDetailDTO.DirectionsDTO {
       memo: memo?.nonEmpty,
       naverMapURL: mapLinks?.naver.flatMap(httpsURL),
       kakaoMapURL: mapLinks?.kakao.flatMap(httpsURL),
+      venueLocation: location?.toDomain(),
       source: source?.toDomain()
     )
   }
@@ -45,8 +46,30 @@ extension FestivalPackDetailDTO.SectionDTO {
     }
     let body = body?.nonEmpty
     let station = stationName?.nonEmpty
-    guard body != nil || !links.isEmpty || station != nil else { return nil }
-    return FestivalPackDetail.Section(body: body, links: links, stationName: station, walkMinutes: walkMinutes)
+    let stop = stopName?.nonEmpty
+    guard body != nil || !links.isEmpty || station != nil || stop != nil else { return nil }
+    return FestivalPackDetail.Section(
+      body: body,
+      links: links,
+      stationName: station,
+      stopName: stop,
+      walkMinutes: walkMinutes,
+      location: location?.toDomain()
+    )
+  }
+}
+
+extension FestivalPackDetailDTO.CoordinateDTO {
+  /// 위도·경도가 모두 있고 범위 안일 때만 좌표로 쓴다.
+  func toDomain() -> FestivalPackDetail.Coordinate? {
+    guard let latitude, let longitude,
+          latitude.isFinite, longitude.isFinite,
+          (-90...90).contains(latitude),
+          (-180...180).contains(longitude) else { return nil }
+    return FestivalPackDetail.Coordinate(
+      latitude: latitude,
+      longitude: longitude
+    )
   }
 }
 
