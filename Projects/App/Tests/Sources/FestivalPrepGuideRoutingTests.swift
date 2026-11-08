@@ -61,13 +61,13 @@ struct FestivalPrepGuideRoutingTests {
         setIDs: ["set_1"]
       )))
     )))
-    await store.receive({ action in
+    await store.receive { action in
       guard case .delegate(.prepScheduleSaved(
         festivalID: "festival",
         setIDs: ["set_1"]
       )) = action else { return false }
       return true
-    })
+    }
     #expect(store.state.routes.count == 3)
     #expect(store.state.routes.last?.screen.prepFlags?.flag.festivalID == "festival")
     #expect(store.state.routes.last?.screen.prepFlags?.flag.directory.zoneNames == ["zone_a": "리벳 앞"])
@@ -76,7 +76,17 @@ struct FestivalPrepGuideRoutingTests {
       id: 2,
       action: .prepFlags(.delegate(.finished))
     )))
+    #expect(store.state.routes.count == 4)
+    #expect(store.state.routes.last?.screen.prepChecklist?.detail.festivalID == "festival")
+    #expect(store.state.routes.last?.screen.prepChecklist?.detail.title == "원더리벳 2026")
+    #expect(store.state.routes.last?.screen.prepChecklist?.detail.tab == .checklist)
+
+    await store.send(.router(.routeAction(
+      id: 3,
+      action: .prepChecklist(.delegate(.finished))
+    )))
     #expect(store.state.routes.count == 1)
+    #expect(!store.state.isPrepGuideOpen)
   }
 
   @Test("서버 내 일정을 읽지 못하면 덮어쓰지 않게 1단계를 건너뛰고 2단계부터 연다")
@@ -110,10 +120,10 @@ struct FestivalPrepGuideRoutingTests {
       id: 1,
       action: .prepFlags(.delegate(.loginRequested))
     )))
-    await store.receive({ action in
+    await store.receive { action in
       guard case .delegate(.followLoginRequested) = action else { return false }
       return true
-    })
+    }
 
     await store.send(.router(.routeAction(
       id: 1,
