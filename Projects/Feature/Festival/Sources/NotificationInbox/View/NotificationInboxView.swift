@@ -89,6 +89,7 @@ private extension NotificationInboxView {
         ForEach(NotificationInboxPresentation.sections(store.items, now: now)) { section in
           Text(section.title)
             .festiCoreFont(.baseCaption1Bold)
+            .festiCoreLineBox(.baseCaption1Bold)
             .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, FestiCoreSpacing.paddingP16)

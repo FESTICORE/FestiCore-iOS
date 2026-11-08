@@ -752,22 +752,31 @@ extension FestivalS01VisualCaptureTests {
     )
   }
 
+  /// Figma S01-1 알림함 시안과 같은 다섯 알림. 시각은 캡처 시점 기준(오늘·방금~2시간 전)이다.
   var notifications: [UserNotificationItem] {
-    return (0..<5).map { index -> UserNotificationItem in
-      let timestamp: TimeInterval = 1_792_475_400 - Double(index * 900)
-      let readAt: Date? = index > 1 ? Date(timeIntervalSince1970: 1_792_475_400) : nil
+    let now = Date()
+    let rows: [(type: String, title: String, body: String, minutesAgo: Double, isRead: Bool)] = [
+      ("crew.gather", "모여! · 민지", "리벳 스테이지 앞으로 모여 주세요", 0, false),
+      ("festival.reminder", "한로로 10분 후 시작", "리벳 스테이지 · 15:40", 2, false),
+      ("flag.status", "호락호락이 이동했어요", "리벳 스테이지 앞 왼쪽 · 슬램", 5, false),
+      ("crew.member_joined", "로이가 크루에 들어왔어요", "락린이들 · 4명", 60, true),
+      ("pack.updated", "시간표가 바뀌었어요 · 2개 변경", "원더 스테이지 순서가 바뀌었어요. 타임테이블에서 확인해 보세요.", 120, true),
+    ]
+    return rows.enumerated().map { index, row -> UserNotificationItem in
+      let createdAt = now.addingTimeInterval(-row.minutesAgo * 60)
       return UserNotificationItem(
         id: "notification-\(index)",
-        type: "crew.gather",
+        type: row.type,
         festivalID: "visual-festival",
-        title: index == 0 ? "크루가 모이자고 해요" : "팔로우한 깃발이 이동했어요",
-        body: index == 0 ? "메인 앞에서 함께 만나요." : "슬램은 즐겁게 · 메인 앞",
-        createdAt: Date(timeIntervalSince1970: timestamp),
-        readAt: readAt,
+        title: row.title,
+        body: row.body,
+        createdAt: createdAt,
+        readAt: row.isRead ? createdAt : nil,
         route: nil
       )
     }
   }
+
 
   func capture<Content: View>(
     _ content: Content,
