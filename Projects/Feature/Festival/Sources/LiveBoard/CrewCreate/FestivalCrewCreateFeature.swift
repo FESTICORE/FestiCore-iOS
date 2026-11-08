@@ -77,7 +77,7 @@ public struct FestivalCrewCreateFeature {
 
   @CasePathable
   public enum Delegate: Equatable {
-    /// 만들었다. 시트는 초대 단계로 남고 부모는 라이브 보드를 다시 읽는다.
+    /// 만들었다. 화면은 초대 단계로 남고 부모는 라이브 보드를 다시 읽는다.
     case created(FestivalCrew)
     /// 크루 화면(S07)으로 간다.
     case openCrewRequested(crewID: String)

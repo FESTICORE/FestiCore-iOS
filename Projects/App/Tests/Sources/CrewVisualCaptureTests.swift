@@ -22,8 +22,14 @@ extension FestivalS01VisualCaptureTests {
         view = AnyView(FestivalCrewJoinView(store: Store(initialState: state) {
           EmptyReducer<FestivalCrewJoinFeature.State, FestivalCrewJoinFeature.Action>()
         }))
+      case .createName:
+        // 크루 만들기는 Figma 시안이 없어 S07·S08과 같은 구성(상단 뒤로·아래 고정 버튼)으로 그린다(확인용).
+        var state = FestivalCrewCreateFeature.State(festivalID: "festival")
+        state.name = "펜타"
+        view = AnyView(FestivalCrewCreateView(store: Store(initialState: state) {
+          EmptyReducer<FestivalCrewCreateFeature.State, FestivalCrewCreateFeature.Action>()
+        }))
       case .createInvite:
-        // 크루 만들기 초대 단계는 Figma 시안이 없어 S07·S08과 같은 구성으로 그린다(확인용).
         var state = FestivalCrewCreateFeature.State(festivalID: "festival")
         state.step = .created(FestivalCrew(
           id: "crew",
@@ -72,6 +78,7 @@ extension FestivalS01VisualCaptureTests {
     case cooldown = "S07-B-cooldown"
     case menu = "S07-C-menu"
     case join = "S08-A-join"
+    case createName = "S07-D-create-name"
     case createInvite = "S07-D-create-invite"
   }
 

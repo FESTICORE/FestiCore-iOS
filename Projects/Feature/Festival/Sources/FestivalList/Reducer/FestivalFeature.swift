@@ -98,7 +98,6 @@ public struct FestivalFeature {
     public var myScheduleUnavailable = false
     @Presents public var festivalSwitcher: FestivalSwitcherFeature.State?
     @Presents public var crewGather: FestivalCrewGatherFeature.State?
-    @Presents public var crewCreate: FestivalCrewCreateFeature.State?
     @Presents public var followGuideAlert: FCAlertState<FCAlertAction>?
     public var hiddenFollowGuideFestivalIDs: Set<String> = []
     public var showsFollowGuide: Bool {
@@ -359,7 +358,6 @@ public struct FestivalFeature {
     case inner(InnerAction)
     case festivalSwitcher(PresentationAction<FestivalSwitcherFeature.Action>)
     case crewGather(PresentationAction<FestivalCrewGatherFeature.Action>)
-    case crewCreate(PresentationAction<FestivalCrewCreateFeature.Action>)
     case followGuideAlert(PresentationAction<FCAlertAction>)
     case delegate(FestivalDelegate)
     case alert(PresentationAction<FCAlertAction>)
@@ -563,25 +561,6 @@ public struct FestivalFeature {
       case .crewGather:
         return .none
 
-      case .crewCreate(.presented(.delegate(.created(_)))):
-        // 시트는 초대 단계로 남기고, 보드의 크루 카드를 바로 채운다.
-        return .send(.async(.startLiveBoard))
-
-      case let .crewCreate(.presented(.delegate(.openCrewRequested(crewID)))):
-        state.crewCreate = nil
-        return .send(.delegate(.crewRequested(crewID: crewID)))
-
-      case .crewCreate(.presented(.delegate(.loginRequested))):
-        state.crewCreate = nil
-        return .send(.delegate(.crewLoginRequested))
-
-      case .crewCreate(.presented(.delegate(.closeRequested))):
-        state.crewCreate = nil
-        return .none
-
-      case .crewCreate:
-        return .none
-
       case .followGuideAlert(.presented(.confirmTapped)):
         if let id = state.selectedFestivalID {
           state.hiddenFollowGuideFestivalIDs.insert(id)
@@ -610,10 +589,6 @@ public struct FestivalFeature {
       \.$crewGather,
       action: \.crewGather
     ) { FestivalCrewGatherFeature() }
-    .ifLet(
-      \.$crewCreate,
-      action: \.crewCreate
-    ) { FestivalCrewCreateFeature() }
     .ifLet(
       \.$followGuideAlert,
       action: \.followGuideAlert
@@ -917,9 +892,8 @@ extension FestivalFeature {
 
     case .createCrewTapped:
       guard state.hasSession else { return .send(.delegate(.crewLoginRequested)) }
-      guard let festivalID = state.selectedFestivalID, state.crewCreate == nil else { return .none }
-      state.crewCreate = FestivalCrewCreateFeature.State(festivalID: festivalID)
-      return .none
+      guard let festivalID = state.selectedFestivalID else { return .none }
+      return .send(.delegate(.crewCreateRequested(festivalID: festivalID)))
 
     case .crewTapped:
       guard state.hasSession, let crew = state.liveBoard?.crew else { return .none }

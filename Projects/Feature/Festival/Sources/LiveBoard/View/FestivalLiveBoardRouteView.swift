@@ -72,12 +72,6 @@ public struct FestivalLiveBoardRouteView: View {
     )) { gatherStore in
       FestivalCrewGatherView(store: gatherStore)
     }
-    .fcModal($store.scope(
-      state: \.crewCreate,
-      action: \.crewCreate
-    )) { crewStore in
-      FestivalCrewCreateView(store: crewStore)
-    }
     .fcAlert($store.scope(
       state: \.alert,
       action: \.alert
