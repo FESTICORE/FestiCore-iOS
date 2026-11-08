@@ -2075,14 +2075,11 @@ extension FestivalFeature {
             generation: generation
           )))
         } catch FestivalLiveBoardError.rateLimited(let retryAfter) {
+          // 조회 제한은 장애가 아니다. 보이던 보드를 그대로 두고 허용 시각 뒤에 다시 불러온다.
           interval = max(
             interval,
             retryAfter
           )
-          await send(.inner(.liveBoardFailed(
-            id,
-            generation: generation
-          )))
         } catch {
           await send(.inner(.liveBoardFailed(
             id,
