@@ -31,10 +31,15 @@ public struct FCZoneChip: View {
           .accessibilityHidden(true)
         Text(zone)
           .festiCoreFont(.baseCaption1Medium)
+          .festiCoreLineBox(.baseCaption1Medium)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .lineLimit(1)
       }
-      .padding(.vertical, FestiCoreSpacing.paddingP4)
+      // Figma 칩(높이 26)은 안쪽 테두리 1pt를 배치에 포함한다.
+      .padding(
+        .vertical,
+        FestiCoreSpacing.paddingP4 + Metric.borderWidth
+      )
       .padding(.leading, FestiCoreSpacing.marginM6)
       .padding(.trailing, FestiCoreSpacing.paddingP8)
       .background(FestiCoreSemanticColor.backgroundElevated.color, in: shape)

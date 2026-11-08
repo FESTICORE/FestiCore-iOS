@@ -12,6 +12,7 @@ public struct FCBanner: View {
   private var text: String
   private var action: () -> Void
   private(set) var icon: ImageAsset = .triangleExclamation16
+  private(set) var showsChevron = true
 
   public init(
     _ text: String,
@@ -31,10 +32,15 @@ public struct FCBanner: View {
         Text(text)
           .festiCoreFont(.baseFootnoteBold)
           .frame(maxWidth: .infinity, alignment: .leading)
-        Image(asset: .chevronRight16)
-          .resizable()
-          .frame(width: Metric.iconSize, height: Metric.iconSize)
-          .accessibilityHidden(true)
+        if showsChevron {
+          Image(asset: .chevronRight16)
+            .resizable()
+            .frame(
+              width: Metric.iconSize,
+              height: Metric.iconSize
+            )
+            .accessibilityHidden(true)
+        }
       }
       .foregroundStyle(FestiCoreSemanticColor.inverseLabel.color)
       .padding(.vertical, FestiCoreSpacing.paddingP12)
@@ -53,6 +59,13 @@ public extension FCBanner {
   func icon(_ icon: ImageAsset) -> Self {
     var copy = self
     copy.icon = icon
+    return copy
+  }
+
+  /// 오른쪽 화살표 표시 여부를 바꾼 사본을 돌려준다. 누를 곳이 없는 안내는 끈다(Figma S06 H).
+  func showsChevron(_ showsChevron: Bool) -> Self {
+    var copy = self
+    copy.showsChevron = showsChevron
     return copy
   }
 }

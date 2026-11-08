@@ -12,10 +12,13 @@ import FestiCoreNetworkInterface
 public enum FestivalPackRequest: FestiCoreDataRequest, Sendable {
   /// 앱에 저장된 버전(`from`)과 현재 발행 팩의 차이. 공개 API라 인증하지 않는다.
   case changes(festivalID: String, fromVersion: Int)
+  /// 현재 발행 팩 버전과 지도 버전. 공개 API라 인증하지 않는다.
+  case version(festivalID: String)
 
   public var path: String {
     switch self {
     case let .changes(festivalID, _): return FestivalAPI.packChanges(festivalID: festivalID).path
+    case let .version(festivalID): return FestivalAPI.packVersion(festivalID: festivalID).path
     }
   }
 
@@ -26,6 +29,7 @@ public enum FestivalPackRequest: FestiCoreDataRequest, Sendable {
   public var parameters: (any Encodable & Sendable)? {
     switch self {
     case let .changes(_, fromVersion): return PackChangesQuery(from: fromVersion)
+    case .version: return nil
     }
   }
 }

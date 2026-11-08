@@ -38,16 +38,19 @@ public struct FCCrewRow: View {
         HStack(spacing: FestiCoreSpacing.paddingP4) {
           Text(name)
             .festiCoreFont(.baseCalloutBold)
+            .festiCoreLineBox(.baseCalloutBold)
             .foregroundStyle(primaryColor.color)
           if isMe {
             FCTag("나")
           }
         }
         HStack(spacing: FestiCoreSpacing.paddingP8) {
+          // 상태 글자보다 존 이름을 먼저 다 보여 준다.
           FCZoneChip(
             zone,
             action: onZoneTap
           )
+          .layoutPriority(1)
           Text(status)
             .festiCoreFont(.baseFootnoteBold)
             .foregroundStyle(primaryColor.color)
