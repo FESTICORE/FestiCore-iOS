@@ -17,13 +17,7 @@ extension FestivalCrewDataDTO {
         joinedAt: joinedAt
       )
     }
-    let expiresAt: Date?
-    if let inviteExpiresAt {
-      guard let parsed = Self.parseDate(inviteExpiresAt) else { throw FestivalCrewError.invalidResponse }
-      expiresAt = parsed
-    } else {
-      expiresAt = nil
-    }
+    if let live, live.id != id { throw FestivalCrewError.invalidResponse }
     return FestivalCrew(
       id: id,
       festivalID: festivalId,
@@ -31,14 +25,53 @@ extension FestivalCrewDataDTO {
       ownerID: ownerId,
       members: members,
       inviteCode: inviteCode,
-      inviteExpiresAt: expiresAt
+      inviteExpiresAt: try Self.optionalDate(inviteExpiresAt),
+      live: live?.toDomain(),
+      archivedAt: try Self.optionalDate(archivedAt)
     )
   }
 
-  private static func parseDate(_ value: String) -> Date? {
+  static func parseDate(_ value: String) -> Date? {
     let fractional = ISO8601DateFormatter()
     fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     if let date = fractional.date(from: value) { return date }
     return ISO8601DateFormatter().date(from: value)
+  }
+
+  /// 값이 있으면 반드시 날짜여야 한다. 형식이 틀리면 응답 전체를 거부한다.
+  private static func optionalDate(_ value: String?) throws -> Date? {
+    guard let value else { return nil }
+    guard let date = parseDate(value) else { throw FestivalCrewError.invalidResponse }
+    return date
+  }
+}
+
+extension FestivalCrewInviteDataDTO {
+  func toDomain(code: String) throws -> FestivalCrewInvite {
+    guard !crewName.isEmpty, !festivalId.isEmpty, memberCount >= 0,
+          let expiresAt = FestivalCrewDataDTO.parseDate(expiresAt) else {
+      throw FestivalCrewError.invalidResponse
+    }
+    return FestivalCrewInvite(
+      code: code,
+      crewName: crewName,
+      festivalID: festivalId,
+      festivalName: festivalName,
+      inviterNickname: ownerNickname,
+      memberCount: memberCount,
+      expiresAt: expiresAt
+    )
+  }
+}
+
+extension FestivalCrewInviteCodeDataDTO {
+  func toDomain() throws -> FestivalCrewInviteCode {
+    guard !inviteCode.isEmpty, let expiresAt = FestivalCrewDataDTO.parseDate(inviteExpiresAt) else {
+      throw FestivalCrewError.invalidResponse
+    }
+    return FestivalCrewInviteCode(
+      code: inviteCode,
+      expiresAt: expiresAt
+    )
   }
 }

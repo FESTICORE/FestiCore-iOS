@@ -24,6 +24,13 @@ public struct FestivalCrew: Equatable, Sendable {
   public let members: [Member]
   public let inviteCode: String?
   public let inviteExpiresAt: Date?
+  /// 크루원 존·상태와 집결 요청. 상세·가입 응답에만 있다.
+  public let live: FestivalLiveBoardSnapshot.Crew?
+  /// 축제가 끝나 보관된 시각. 보관된 크루는 읽기만 할 수 있다.
+  public let archivedAt: Date?
+
+  /// 서버가 받는 크루 최대 인원
+  public static let maxMembers = 12
 
   public init(
     id: String,
@@ -32,7 +39,9 @@ public struct FestivalCrew: Equatable, Sendable {
     ownerID: String,
     members: [Member],
     inviteCode: String?,
-    inviteExpiresAt: Date?
+    inviteExpiresAt: Date?,
+    live: FestivalLiveBoardSnapshot.Crew? = nil,
+    archivedAt: Date? = nil
   ) {
     self.id = id
     self.festivalID = festivalID
@@ -41,6 +50,8 @@ public struct FestivalCrew: Equatable, Sendable {
     self.members = members
     self.inviteCode = inviteCode
     self.inviteExpiresAt = inviteExpiresAt
+    self.live = live
+    self.archivedAt = archivedAt
   }
 }
 
@@ -54,4 +65,8 @@ public enum FestivalCrewError: Error, Equatable, Sendable {
   case forbidden
   case cooldown
   case unavailable
+  /// 없거나 만료된 초대 코드
+  case notFound
+  /// 정원이 찬 크루
+  case full
 }

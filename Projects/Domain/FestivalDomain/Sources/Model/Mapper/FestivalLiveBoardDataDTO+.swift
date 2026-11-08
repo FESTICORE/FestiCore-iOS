@@ -32,25 +32,7 @@ public extension FestivalLiveBoardDataDTO {
       return activeByID[profile.id]
         ?? makeFlag(nil, id: profile.id, profile: profile, imageURL: imageURL, updatedAt: nil, status: missingStatus)
     }
-    let crew = me?.crew.map { crew in
-      FestivalLiveBoardSnapshot.Crew(
-        id: crew.id,
-        name: crew.name,
-        members: crew.members.map {
-          .init(
-            id: $0.userId, nickname: $0.nickname, state: $0.state,
-            zoneID: $0.zoneId, updatedAt: parseDate($0.updatedAt)
-          )
-        },
-        ownerID: crew.ownerId,
-        gatherRequest: crew.gatherRequest.flatMap { request in
-          parseDate(request.at).map {
-            .init(zoneID: request.zoneId, byUserID: request.byUserId, at: $0)
-          }
-        },
-        gatherAvailableAt: parseDate(crew.gatherAvailableAt)
-      )
-    }
+    let crew = me?.crew?.toDomain()
     return .init(
       festivalID: festivalId,
       activeFlags: activeFlags,
@@ -92,4 +74,34 @@ public extension FestivalLiveBoardDataDTO {
     value?.isoDate
   }
 
+}
+
+extension FestivalLiveBoardCrewDTO {
+  /// 라이브 보드와 크루 상세가 같은 크루원 존·상태 값을 쓴다.
+  func toDomain() -> FestivalLiveBoardSnapshot.Crew {
+    return FestivalLiveBoardSnapshot.Crew(
+      id: id,
+      name: name,
+      members: members.map {
+        .init(
+          id: $0.userId,
+          nickname: $0.nickname,
+          state: $0.state,
+          zoneID: $0.zoneId,
+          updatedAt: $0.updatedAt?.isoDate
+        )
+      },
+      ownerID: ownerId,
+      gatherRequest: gatherRequest.flatMap { request in
+        request.at.isoDate.map {
+          .init(
+            zoneID: request.zoneId,
+            byUserID: request.byUserId,
+            at: $0
+          )
+        }
+      },
+      gatherAvailableAt: gatherAvailableAt?.isoDate
+    )
+  }
 }
