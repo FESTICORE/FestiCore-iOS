@@ -425,13 +425,7 @@ struct FestivalCoordinator {
     )):
       return .send(.delegate(.crewLoginRequested))
 
-    case let .router(.routeAction(
-      id: _,
-      action: .crewJoin(.delegate(.joined(
-        crewID,
-        festivalID
-      )))
-    )):
+    case let .router(.routeAction(id: _,action: .crewJoin(.delegate(.joined(crewID, festivalID))))):
       state.routes.removeAll { $0.screen.is(\.crewJoin) }
       let board = state.routes.last(where: { $0.screen.is(\.liveBoard) })?.screen.liveBoard
       let matches = board?.selectedFestivalID == festivalID
