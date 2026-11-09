@@ -36,6 +36,15 @@ FestiCore는 축제 목록, 공연 시간표와 현장 정보를 한곳에서 �
 
 SwiftUI와 The Composable Architecture를 사용하는 Tuist 멀티모듈 프로젝트입니다. `AppCoordinator`가 Splash·온보딩·탭 전환을, `FestivalCoordinator`가 축제 화면 경로를 관리합니다.
 
+`AppCoordinator`는 `Projects/App/Sources/Navigation/Main/`에서 액션 종류별 파일로 나뉩니다.
+
+| 파일 | 역할 |
+| --- | --- |
+| `AppCoordinator.swift` | 의존성, State·Action, `body` |
+| `AppCoordinator+AuthFlow.swift` | 로그인·가입 시트 상태, 대기 예약·요청 세대 메서드, 안내 문구 |
+| `AppCoordinator+ViewAction.swift` / `+InnerAction.swift` / `+ScopeAction.swift` | `view`·`inner`·하위 화면 위임 액션 처리 |
+| `AppCoordinator+Effects.swift` | `withHome` 헬퍼, 프로필 조회, 예약·계정·기기 Effect |
+
 ### 폴더 구조
 
 ~~~text
@@ -188,7 +197,7 @@ Festival 모듈의 파일을 추가하거나 이동한 뒤에는 `./make generat
 - [SwiftUI 패턴](docs/agent/swiftui-patterns.md), [Swift 코딩 규칙](docs/agent/swift-coding-rules.md)
 - [의존성 주입](docs/agent/dependency-injection.md), [개발 환경](docs/agent/development-environment.md)
 
-프로젝트 운영 규칙과 AI 에이전트 지침은 [AGENTS.md](AGENTS.md)를 기준으로 합니다.
+프로젝트 운영 규칙과 AI 에이전트 지침은 [AGENTS.md](AGENTS.md)를 기준으로 합니다. 커밋 전 훅(`.claude/hooks/pre-commit-check.sh`)이 Swift 규칙을 검사합니다. 인자가 2개 이상인 호출은 인자마다 줄을 나누고, `switch`의 `case` 패턴 매칭만 한 줄로 쓸 수 있습니다.
 
 ## 브랜치 전략
 
