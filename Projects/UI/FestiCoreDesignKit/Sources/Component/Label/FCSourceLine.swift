@@ -36,7 +36,8 @@ public struct FCSourceLine: View {
       .horizontal,
       isInset ? FestiCoreSpacing.paddingP16 : .zero
     )
-    .background(isInset ? FestiCoreSemanticColor.backgroundNormal.color : .clear)
+    // Figma Source Line 띠: Fill/Normal
+    .background(isInset ? FestiCoreSemanticColor.fillNormal.color : .clear)
   }
 }
 
