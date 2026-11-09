@@ -10,6 +10,7 @@ import FestiCoreDesignKit
 import SwiftUI
 
 /// 딤 배경 위에 다이얼로그를 띄운다. 딤이 밝아지며 다이얼로그가 아래에서 올라오고, 닫힐 때는 함께 사라진다.
+/// 카드·문구·버튼은 한 레이어로 묶어 함께 움직이고 함께 투명해진다.
 public struct FCDialogOverlay: View {
   @State private var isContentVisible = false
   /// 첫 입력을 처리했는지. 닫히는 동안 늦게 들어온 탭이 동작을 다시 실행하지 않게 한다.
@@ -61,6 +62,10 @@ public struct FCDialogOverlay: View {
       )
       .textAlignment(textAlignment)
       .confirmStyle(confirmStyle)
+      // 버튼 배경이 카드·문구와 다른 경로로 움직이지 않게 위치를 한 덩어리로 묶고,
+      // 카드 배경과 문구·버튼에 투명도가 따로 걸리면 버튼만 떠 보이므로 한 장으로 합성한다.
+      .geometryGroup()
+      .compositingGroup()
       .offset(y: isContentVisible ? 0 : Metric.appearOffset)
       .opacity(isContentVisible ? 1 : 0)
     }
