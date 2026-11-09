@@ -963,10 +963,11 @@ extension FestivalS01VisualCaptureTests {
     // 시트·검색 빈 화면처럼 요소가 적은 시안은 밝은 픽셀이 적다.
     let isSparseCapture = name.contains("switcher") || name.contains("search-empty") || name.contains("report")
     // 줄 몇 개뿐인 설정 화면(S13)은 128px로 줄이면 글자가 거의 남지 않는다.
+    // 계정(S13-D)은 줄 두 개·계정 삭제·로그아웃뿐이라 밝은 픽셀이 4개다.
     let isSettingsCapture = name.hasPrefix("S13-")
     XCTAssertGreaterThanOrEqual(
       brightPixels,
-      isSettingsCapture ? 5 : (isSparseCapture ? 15 : 30),
+      isSettingsCapture ? 4 : (isSparseCapture ? 15 : 30),
       "밝은 UI 내용이 없는 캡처: \(name)"
     )
     XCTAssertGreaterThan(

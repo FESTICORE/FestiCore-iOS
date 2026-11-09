@@ -36,7 +36,11 @@ public struct AccountSettingsView: View {
           }
         }
         .padding(.horizontal, FestiCoreSpacing.paddingP16)
-        .padding(.top, FestiCoreSpacing.paddingP8)
+        // Figma S13-D Contents 위 여백
+        .padding(
+          .top,
+          FestiCoreSpacing.paddingP16
+        )
       }
       .scrollIndicators(.hidden)
       logoutButton
@@ -49,8 +53,16 @@ public struct AccountSettingsView: View {
     }
     .overlay {
       // 확인 팝업은 별도 층에 띄워 뒤 화면 배치에 애니메이션이 번지지 않게 한다.
+      // Figma S13-E: 확인 팝업 제목·설명은 가운데 정렬
       Color.clear
-        .fcAlert($store.scope(state: \.destination?.alert, action: \.destination.alert), dismissesOnDimTap: true)
+        .fcAlert(
+          $store.scope(
+            state: \.destination?.alert,
+            action: \.destination.alert
+          ),
+          dismissesOnDimTap: true,
+          textAlignment: .center
+        )
     }
   }
 }
@@ -109,6 +121,7 @@ private extension AccountSettingsView {
       .disabled(store.isLoading)
       Text("계정을 삭제하면 내 일정, 크루, 깃발 기록이 모두 지워지고 되돌릴 수 없어요.")
         .festiCoreFont(.baseFootnoteRegular)
+        .festiCoreLineBox(.baseFootnoteRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, FestiCoreSpacing.paddingP4)
@@ -155,8 +168,10 @@ private extension AccountSettingsView {
   }
 
   func sectionTitle(_ title: String) -> some View {
+    // Figma 그룹 제목: Pretendard Bold 13, 줄 높이 18
     return Text(title)
-      .festiCoreFont(.baseCaption1Medium)
+      .festiCoreFont(.baseFootnoteBold)
+      .festiCoreLineBox(.baseFootnoteBold)
       .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       .padding(.horizontal, FestiCoreSpacing.paddingP4)
   }
