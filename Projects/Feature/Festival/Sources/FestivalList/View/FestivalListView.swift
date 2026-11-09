@@ -269,6 +269,7 @@ private extension FestivalListView {
       ) {
         if !store.recentSearches.isEmpty {
           FCSectionHeader("최근 검색")
+            .compact(true)
             .action(
               "전체 삭제",
               perform: { send(.recentSearchesCleared) }
@@ -330,6 +331,7 @@ private extension FestivalListView {
       ) {
         if !searchResults.isEmpty {
           FCSectionHeader("페스티벌 \(searchResults.count)")
+            .compact(true)
             .padding(
               .top,
               FestiCoreSpacing.paddingP20
@@ -346,6 +348,7 @@ private extension FestivalListView {
         }
         if !artistResults.isEmpty {
           FCSectionHeader("아티스트 \(artistResults.count)")
+            .compact(true)
             .padding(
               .top,
               FestiCoreSpacing.paddingP20
@@ -369,6 +372,7 @@ private extension FestivalListView {
   func upcomingSection() -> some View {
     if !upcomingFestivals.isEmpty {
       FCSectionHeader("다가오는 페스티벌")
+        .compact(true)
         .padding(
           .top,
           FestiCoreSpacing.paddingP20
