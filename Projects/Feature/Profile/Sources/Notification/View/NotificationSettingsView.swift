@@ -87,8 +87,16 @@ extension NotificationSettingsView {
               .accessibilityAddTraits(.updatesFrequently)
           }
         }
+        // Figma S13-A Contents: 위 16·아래 24
         .padding(.horizontal, FestiCoreSpacing.paddingP16)
-        .padding(.vertical, FestiCoreSpacing.paddingP8)
+        .padding(
+          .top,
+          FestiCoreSpacing.paddingP16
+        )
+        .padding(
+          .bottom,
+          FestiCoreSpacing.paddingP24
+        )
       }
       .scrollIndicators(.hidden)
     }
@@ -100,8 +108,10 @@ extension NotificationSettingsView {
     footnote: String
   ) -> some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
+      // Figma 그룹 제목: Pretendard Bold 13, 줄 높이 18
       Text(title)
-        .festiCoreFont(.baseCaption1Medium)
+        .festiCoreFont(.baseFootnoteBold)
+        .festiCoreLineBox(.baseFootnoteBold)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         .padding(.horizontal, FestiCoreSpacing.paddingP4)
       VStack(spacing: .zero) {
@@ -121,6 +131,7 @@ extension NotificationSettingsView {
       )
       Text(footnote)
         .festiCoreFont(.baseFootnoteRegular)
+        .festiCoreLineBox(.baseFootnoteRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, FestiCoreSpacing.paddingP4)
