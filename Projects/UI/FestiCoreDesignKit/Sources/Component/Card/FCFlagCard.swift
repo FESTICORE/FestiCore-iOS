@@ -47,7 +47,7 @@ public struct FCFlagCard<Thumbnail: View>: View {
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
         HStack(spacing: FestiCoreSpacing.paddingP8) {
           Text(name)
-            .festiCoreFont(.baseBodyBold)
+            .festiCoreFont(.baseHeadlineBold)
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
             .lineLimit(1)
           if let status {

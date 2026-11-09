@@ -317,7 +317,7 @@ public struct FCEmptyCard: View {
         .accessibilityHidden(true)
       VStack(spacing: FestiCoreSpacing.paddingP4) {
         Text(title)
-          .festiCoreFont(.baseBodyBold)
+          .festiCoreFont(.baseHeadlineBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         Text(message)
           .festiCoreFont(.baseFootnoteRegular)
@@ -411,7 +411,7 @@ public struct FCGuideSection: View {
   public var body: some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
       Text(title)
-        .festiCoreFont(.baseBodyBold)
+        .festiCoreFont(.baseHeadlineBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .accessibilityAddTraits(.isHeader)
       Text(message)

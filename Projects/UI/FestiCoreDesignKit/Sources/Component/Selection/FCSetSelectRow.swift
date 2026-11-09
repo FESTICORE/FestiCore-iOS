@@ -48,7 +48,8 @@ public struct FCSetSelectRow: View {
         .frame(width: Metric.timeWidth, alignment: .leading)
         VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
           Text(artist)
-            .festiCoreFont(.baseBodyBold)
+            // Figma Set Select Row 아티스트: Base/Headline/Bold
+            .festiCoreFont(.baseHeadlineBold)
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           Text(stage)
             .festiCoreFont(.baseCaption2Medium)

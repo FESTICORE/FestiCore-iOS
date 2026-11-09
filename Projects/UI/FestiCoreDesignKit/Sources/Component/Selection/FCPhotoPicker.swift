@@ -36,8 +36,9 @@ public struct FCPhotoPicker: View {
       // Figma Photo Picker: 제목 줄 24·설명 줄 18, 설명과 버튼 사이 12(간격 4 + 여백 4 + 간격 4)로 높이 98
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
         Text(title)
-          .festiCoreFont(.baseBodyBold)
-          .festiCoreLineBox(.baseBodyBold)
+          // Figma Photo Picker 제목: Base/Headline/Bold
+          .festiCoreFont(.baseHeadlineBold)
+          .festiCoreLineBox(.baseHeadlineBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         Text(customDescription ?? description)
           .festiCoreFont(.baseFootnoteRegular)

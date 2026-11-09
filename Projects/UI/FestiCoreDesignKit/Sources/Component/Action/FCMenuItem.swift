@@ -20,6 +20,8 @@ public struct FCMenuItem: View {
     HStack(spacing: FestiCoreSpacing.paddingP8) {
       Text(label)
         .festiCoreFont(isSelected ? .baseCalloutBold : .baseCalloutRegular)
+        // Figma Menu Item(48pt) = 위아래 12 + 줄 높이 박스 24
+        .festiCoreLineBox(isSelected ? .baseCalloutBold : .baseCalloutRegular)
         .lineLimit(1)
         .frame(maxWidth: .infinity, alignment: .leading)
       if isSelected {

@@ -73,8 +73,8 @@ private extension FCFlagNowCard {
       )
       .opacity(isMuted ? Metric.mutedOpacity : 1)
       Text(activity)
-        .festiCoreFont(.baseBodyBold)
-        .festiCoreLineBox(.baseBodyBold)
+        .festiCoreFont(.baseHeadlineBold)
+        .festiCoreLineBox(.baseHeadlineBold)
         .foregroundStyle(isMuted ? FestiCoreSemanticColor.labelAssistive.color : FestiCoreSemanticColor.labelNormal.color)
     }
     Text(source)

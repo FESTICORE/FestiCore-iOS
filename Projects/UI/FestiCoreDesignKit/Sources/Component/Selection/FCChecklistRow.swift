@@ -31,6 +31,8 @@ public struct FCChecklistRow: View {
           .iconSize(Metric.checkIconSize)
         Text(label)
           .festiCoreFont(.baseCalloutMedium)
+          // Figma Checklist Row 49pt 중 구분선 1은 화면이 그린다(행 자체 48 = 위아래 12 + 줄 높이 24)
+          .festiCoreLineBox(.baseCalloutMedium)
           .foregroundStyle(isChecked ? FestiCoreSemanticColor.labelAssistive.color : FestiCoreSemanticColor.labelNormal.color)
           .frame(maxWidth: .infinity, alignment: .leading)
         if isRequired {

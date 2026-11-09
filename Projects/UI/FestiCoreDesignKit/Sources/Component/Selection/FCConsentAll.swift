@@ -28,7 +28,9 @@ public struct FCConsentAll: View {
       HStack(spacing: FestiCoreSpacing.paddingP12) {
         FCCheckCircle(isChecked: isChecked)
         Text(label)
-          .festiCoreFont(.baseBodyBold)
+          // Figma Consent All 57pt 중 구분선 1은 화면이 그린다(행 자체 56 = 위아래 16 + Base/Headline/Bold 줄 높이 24)
+          .festiCoreFont(.baseHeadlineBold)
+          .festiCoreLineBox(.baseHeadlineBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .frame(maxWidth: .infinity, alignment: .leading)
       }

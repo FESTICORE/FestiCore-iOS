@@ -36,6 +36,8 @@ public struct FCStatusChip: View {
       dot
       Text(status.title)
         .festiCoreFont(.baseCaption1Medium)
+        // Figma Status Chip(24pt)은 줄 높이 박스(16pt) 기준이다.
+        .festiCoreLineBox(.baseCaption1Medium)
         .foregroundStyle(foregroundColor.color)
         .lineLimit(1)
     }

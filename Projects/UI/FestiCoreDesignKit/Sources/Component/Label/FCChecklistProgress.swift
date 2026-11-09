@@ -23,7 +23,9 @@ public struct FCChecklistProgress: View {
   public var body: some View {
     VStack(alignment: .leading, spacing: Metric.spacing) {
       Text("\(total)개 중 \(checked)개 챙겼어요")
-        .festiCoreFont(.baseBodyBold)
+        // Figma Checklist Progress: Base/Headline/Bold(17/24)
+        .festiCoreFont(.baseHeadlineBold)
+        .festiCoreLineBox(.baseHeadlineBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       Capsule()
         .fill(FestiCoreSemanticColor.fillNormal.color)

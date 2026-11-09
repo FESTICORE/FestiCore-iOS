@@ -29,6 +29,8 @@ public struct FCSortButton: View {
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
         Text(label)
           .festiCoreFont(.baseFootnoteMedium)
+          // Figma Sort Button(26pt) = 위아래 4 + 줄 높이 박스 18
+          .festiCoreLineBox(.baseFootnoteMedium)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
           .lineLimit(1)
         // Figma는 chevron-right를 90도 돌린 인스턴스를 쓴다.
