@@ -52,13 +52,16 @@ private extension FestivalPrepFlagsView {
     ) {
       Text("Step 2. 깃발 팔로우 하기")
         .festiCoreFont(.baseCaption1Medium)
+        .festiCoreLineBox(.baseCaption1Medium)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       Text("만나보고 싶은 깃발이 있나요?")
         .festiCoreFont(.baseTitle2Bold)
+        .festiCoreLineBox(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .accessibilityAddTraits(.isHeader)
       Text("팔로우 하면 깃발이 움직일 때 조용히 알려 드려요.\n없어도 공연은 그대로 즐길 수 있어요.")
         .festiCoreFont(.baseSubheadlineRegular)
+        .festiCoreLineBox(.baseSubheadlineRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
   }

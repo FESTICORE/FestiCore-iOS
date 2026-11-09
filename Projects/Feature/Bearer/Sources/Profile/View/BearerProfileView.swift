@@ -220,19 +220,42 @@ extension BearerProfileView {
 
   private func doneContent(_ profile: BearerFlagProfile) -> some View {
     VStack(spacing: .zero) {
-      ScrollView {
-        VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
-          FCDoneHero(title: "깃발이 준비됐어요", message: "공연 당일 기수 보드에서 깃발을 올리면\n팔로워에게 알림이 가요.")
+      // Figma S10-E: 내용(히어로·미리보기, 사이 40)을 위아래 24 여백 안에서 세로 가운데에 둔다.
+      GeometryReader { proxy in
+        ScrollView {
+          VStack(
+            alignment: .leading,
+            spacing: Metric.doneSectionSpacing
+          ) {
+            FCDoneHero(
+              title: "깃발이 준비됐어요",
+              message: "공연 당일 기수 보드에서 깃발을 올리면\n팔로워에게 알림이 가요."
+            )
             .frame(maxWidth: .infinity)
-            .padding(.top, 72)
-          VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM12) {
-            Text("깃발 목록에서 이렇게 보여요")
-              .festiCoreFont(.baseFootnoteBold)
-              .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
-            previewCard(profile)
+            VStack(
+              alignment: .leading,
+              spacing: FestiCoreSpacing.marginM12
+            ) {
+              Text("깃발 목록에서 이렇게 보여요")
+                .festiCoreFont(.baseFootnoteBold)
+                .festiCoreLineBox(.baseFootnoteBold)
+                .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+              previewCard(profile)
+            }
           }
+          .padding(
+            .horizontal,
+            FestiCoreSpacing.paddingP16
+          )
+          .padding(
+            .vertical,
+            FestiCoreSpacing.paddingP24
+          )
+          .frame(
+            minHeight: proxy.size.height,
+            alignment: .center
+          )
         }
-        .padding(FestiCoreSpacing.paddingP16)
       }
       VStack(spacing: FestiCoreSpacing.marginM8) {
         FCPrimaryButton("완료") { send(.doneTapped) }
@@ -349,6 +372,8 @@ extension BearerProfileView {
     static let sectionSpacing: CGFloat = 28
     /// 라벨·내용·안내 사이(성향 태그·주로 있는 존·오늘 계획)
     static let groupSpacing: CGFloat = 12
+    /// Figma S10-E 히어로와 미리보기 사이
+    static let doneSectionSpacing: CGFloat = 40
   }
 }
 
