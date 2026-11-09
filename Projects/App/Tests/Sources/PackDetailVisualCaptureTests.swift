@@ -5,13 +5,15 @@ import SwiftUI
 import XCTest
 @testable import Profile
 
-/// 팩 상세의 S11 가는 길·S12 준비물을 고정 상태로 렌더한다(다크 393).
+/// 팩 상세의 S11 가는 길·S12 준비물·팩 관리 탭을 고정 상태로 렌더한다(다크 393).
 /// Figma에는 두 화면의 Design 393 판이 없어 와이어프레임(375x812) 구조와 비교한다. 시각 자료 생성용이다.
+/// 세 장의 탭 밑줄 위치로 선택 탭에 따라 밑줄과 본문 페이지가 함께 바뀌는지 확인한다.
 extension FestivalS01VisualCaptureTests {
   func testCapturePackDetailStates() async throws {
     for tab in [
       PackDetailFeature.Tab.directions,
       PackDetailFeature.Tab.checklist,
+      PackDetailFeature.Tab.manage,
     ] {
       var state = PackDetailFeature.State(
         festivalID: "festival",
@@ -29,7 +31,7 @@ extension FestivalS01VisualCaptureTests {
       }
       try await capture(
         PackDetailView(store: store),
-        name: tab == .directions ? "S11-directions" : "S12-checklist",
+        name: packDetailCaptureName(tab),
         size: CGSize(
           width: 393,
           height: 852
@@ -40,6 +42,17 @@ extension FestivalS01VisualCaptureTests {
 }
 
 extension FestivalS01VisualCaptureTests {
+  func packDetailCaptureName(_ tab: PackDetailFeature.Tab) -> String {
+    switch tab {
+    case .directions:
+      return "S11-directions"
+    case .checklist:
+      return "S12-checklist"
+    case .manage:
+      return "S11-pack-manage"
+    }
+  }
+
   var packDetailFixture: FestivalPackDetail {
     let source = FestivalPackDetail.Source(
       name: "주최측 공지 · 인천교통공사",

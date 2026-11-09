@@ -259,6 +259,60 @@ struct PackDetailFeatureTests {
     #expect(deleted.value == ["fst_a"])
   }
 
+  @Test("탭 바 칸 번호와 본문 페이지 번호는 같은 탭을 가리키고, 범위 밖이면 가는 길로 둔다")
+  func tabBarIndexAndPageIndexShareTab() {
+    #expect(PackDetailFeature.Tab.allCases.map(\.rawValue) == [0, 1, 2])
+    #expect(PackDetailView.tab(at: 0) == .directions)
+    #expect(PackDetailView.tab(at: 1) == .checklist)
+    #expect(PackDetailView.tab(at: 2) == .manage)
+    #expect(PackDetailView.tab(at: 3) == .directions)
+  }
+
+  @Test("탭 바를 누르면 선택 탭 상태가 바뀐다")
+  func tabTapChangesSelectedTab() async {
+    var state = PackDetailFeature.State(
+      festivalID: "fst_a",
+      title: "팩"
+    )
+    state.detail = sampleDetail(
+      version: 12,
+      latest: 12
+    )
+    state.load = .loaded
+    let store = TestStore(initialState: state) {
+      PackDetailFeature()
+    }
+
+    await store.send(.view(.tabSelected(.manage))) { $0.tab = .manage }
+    await store.send(.view(.tabSelected(.directions))) { $0.tab = .directions }
+  }
+
+  @Test("본문을 좌우로 넘기면 페이지 번호대로 같은 선택 탭이 바뀌고, 준비물 페이지를 벗어나면 편집을 끝낸다")
+  func swipeChangesSameSelectedTab() async {
+    var state = PackDetailFeature.State(
+      festivalID: "fst_a",
+      title: "팩"
+    )
+    state.detail = sampleDetail(
+      version: 12,
+      latest: 12
+    )
+    state.load = .loaded
+    state.tab = .checklist
+    state.isEditingChecklist = true
+    let store = TestStore(initialState: state) {
+      PackDetailFeature()
+    }
+
+    // 준비물(1) → 팩 관리(2) → 준비물(1) → 가는 길(0)
+    await store.send(.view(.tabSelected(PackDetailView.tab(at: 2)))) {
+      $0.tab = .manage
+      $0.isEditingChecklist = false
+    }
+    await store.send(.view(.tabSelected(PackDetailView.tab(at: 1)))) { $0.tab = .checklist }
+    await store.send(.view(.tabSelected(PackDetailView.tab(at: 0)))) { $0.tab = .directions }
+  }
+
   @Test func autoDownloadToggleIsStored() async {
     let stored = LockIsolated<Bool?>(nil)
     let store = TestStore(initialState: PackDetailFeature.State(festivalID: "fst_a", title: "팩")) {
