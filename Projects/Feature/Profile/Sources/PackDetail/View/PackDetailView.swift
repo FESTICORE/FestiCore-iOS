@@ -37,11 +37,17 @@ public struct PackDetailView: View {
 }
 
 extension PackDetailView {
+  /// 탭 바 칸 번호와 본문 페이지 번호가 함께 쓰는 선택 값. 탭을 누르든 스와이프하든 같은 액션을 보낸다.
   private var tabSelection: Binding<Int> {
-    Binding(
+    return Binding(
       get: { store.tab.rawValue },
-      set: { send(.tabSelected(PackDetailFeature.Tab(rawValue: $0) ?? .directions)) }
+      set: { send(.tabSelected(Self.tab(at: $0))) }
     )
+  }
+
+  /// 탭 바 칸·본문 페이지 번호를 탭으로 바꾼다. 범위를 벗어나면 가는 길로 둔다.
+  static func tab(at index: Int) -> PackDetailFeature.Tab {
+    return PackDetailFeature.Tab(rawValue: index) ?? .directions
   }
 
   @ViewBuilder
@@ -55,20 +61,50 @@ extension PackDetailView {
       messageContent("기기에 받은 팩이 없어요", actionTitle: nil, action: nil)
     case .loaded:
       if let detail = store.detail {
-        ScrollView {
-          VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
-            switch store.tab {
-            case .directions: directions(detail)
-            case .checklist: checklist(detail)
-            case .manage: manage(detail.pack)
-            }
+        // 탭 바와 같은 선택 값을 써서 본문을 좌우로 넘기면 탭도 함께 바뀐다.
+        TabView(selection: tabSelection) {
+          ForEach(
+            PackDetailFeature.Tab.allCases,
+            id: \.self
+          ) { tab in
+            page(
+              tab,
+              detail: detail
+            )
+            .tag(tab.rawValue)
           }
-          .padding(.horizontal, FestiCoreSpacing.paddingP16)
-          .padding(.vertical, FestiCoreSpacing.paddingP16)
         }
-        .scrollIndicators(.hidden)
+        .tabViewStyle(.page(indexDisplayMode: .never))
       }
     }
+  }
+
+  /// 탭 한 장. 탭마다 스크롤 위치를 따로 둔다.
+  private func page(
+    _ tab: PackDetailFeature.Tab,
+    detail: FestivalPackDetail
+  ) -> some View {
+    return ScrollView {
+      VStack(
+        alignment: .leading,
+        spacing: FestiCoreSpacing.paddingP16
+      ) {
+        switch tab {
+        case .directions: directions(detail)
+        case .checklist: checklist(detail)
+        case .manage: manage(detail.pack)
+        }
+      }
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP16
+      )
+      .padding(
+        .vertical,
+        FestiCoreSpacing.paddingP16
+      )
+    }
+    .scrollIndicators(.hidden)
   }
 
   private var loadingContent: some View {

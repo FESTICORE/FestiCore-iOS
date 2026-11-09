@@ -8,7 +8,9 @@
 import SwiftUI
 
 /// 상단 밑줄형 탭. 화면 폭을 칸 수로 나눈다.
+/// 밑줄은 하나만 그려 선택한 칸으로 옮긴다. 본문을 스와이프해 선택이 바뀌어도 같이 따라간다.
 public struct FCTab: View {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Binding private var selection: Int
   private var items: [String]
   private var indicatorColor = FestiCoreSemanticColor.labelNormal.color
@@ -30,11 +32,12 @@ public struct FCTab: View {
           Button {
             selection = index
           } label: {
+            // 칸마다 밑줄을 그리지 않고 아래 indicator 하나를 옮긴다.
             FCTabItem(
               item,
               isSelected: isSelected
             )
-              .indicatorColor(indicatorColor)
+              .indicatorColor(.clear)
               .frame(maxWidth: .infinity)
               .contentShape(Rectangle())
           }
@@ -42,7 +45,59 @@ public struct FCTab: View {
           .accessibilityAddTraits(isSelected ? .isSelected : [])
         }
       }
+      .overlay(alignment: .bottomLeading) {
+        indicator
+      }
     }
+  }
+}
+
+private extension FCTab {
+  /// 범위 안의 선택 칸. 범위를 벗어나면 밑줄을 그리지 않는다.
+  var selectedIndex: Int? {
+    return (0..<items.count).first { index in
+      return FCSelection.isSelected(
+        index: index,
+        selection: selection,
+        count: items.count
+      )
+    }
+  }
+
+  /// FCTabItem 밑줄과 같은 위치·크기(칸 폭에서 좌우 여백을 뺀 2pt 막대)로 선택 칸을 따라 움직인다.
+  var indicator: some View {
+    return GeometryReader { proxy in
+      if let selectedIndex {
+        let width = proxy.size.width / CGFloat(items.count)
+        UnevenRoundedRectangle(
+          topLeadingRadius: Metric.indicatorRadius,
+          topTrailingRadius: Metric.indicatorRadius
+        )
+        .fill(indicatorColor)
+        .frame(
+          width: max(
+            0,
+            width - FestiCoreSpacing.paddingP16 * 2
+          ),
+          height: Metric.indicatorHeight
+        )
+        .offset(
+          x: width * CGFloat(selectedIndex) + FestiCoreSpacing.paddingP16,
+          y: proxy.size.height - Metric.indicatorHeight
+        )
+        .animation(
+          reduceMotion ? nil : .easeOut(duration: 0.2),
+          value: selectedIndex
+        )
+      }
+    }
+    .allowsHitTesting(false)
+    .accessibilityHidden(true)
+  }
+
+  enum Metric {
+    static let indicatorHeight: CGFloat = 2
+    static let indicatorRadius: CGFloat = 2
   }
 }
 
