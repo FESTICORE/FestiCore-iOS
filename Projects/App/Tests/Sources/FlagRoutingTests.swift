@@ -15,7 +15,7 @@ struct FlagRoutingTests {
   func cardTapOpensDetailWithContext() async throws {
     let state = try Self.flagTabState()
     let store = TestStore(initialState: state) {
-      MainTabCoordinator(legalBaseURL: nil)
+      MainTabCoordinator()
     }
     // 상세 상태의 표시 시각(now)은 만들 때의 기기 시각이라 경로·문맥만 확인한다.
     store.exhaustivity = .off
@@ -39,7 +39,7 @@ struct FlagRoutingTests {
     var state = try Self.flagTabState()
     state.flagCoordinatorState.routes.push(.detail(Self.detailState()))
     let store = TestStore(initialState: state) {
-      MainTabCoordinator(legalBaseURL: nil)
+      MainTabCoordinator()
     }
 
     await store.send(.flagCoordinator(.router(.routeAction(
@@ -55,7 +55,7 @@ struct FlagRoutingTests {
     var reopened = store.state
     reopened.flagCoordinatorState.routes.push(.detail(Self.detailState()))
     let swipeStore = TestStore(initialState: reopened) {
-      MainTabCoordinator(legalBaseURL: nil)
+      MainTabCoordinator()
     }
     await swipeStore.send(.flagCoordinator(.router(.updateRoutes([
       reopened.flagCoordinatorState.routes[0]
@@ -70,7 +70,7 @@ struct FlagRoutingTests {
     var state = try Self.flagTabState()
     state.flagCoordinatorState.routes.push(.detail(Self.detailState()))
     let store = TestStore(initialState: state) {
-      MainTabCoordinator(legalBaseURL: nil)
+      MainTabCoordinator()
     }
 
     await store.send(.flagCoordinator(.router(.routeAction(
@@ -110,7 +110,7 @@ struct FlagRoutingTests {
     state.flagState.snapshot = Self.snapshot(followerCount: 10)
     state.flagCoordinatorState.routes.push(.detail(Self.detailState()))
     let store = TestStore(initialState: state) {
-      MainTabCoordinator(legalBaseURL: nil)
+      MainTabCoordinator()
     }
     store.exhaustivity = .off
 
@@ -150,7 +150,7 @@ struct FlagRoutingTests {
     board.sessionUserID = "user-b"
     state.festivalState.routes[state.festivalState.routes.count - 1].screen = .liveBoard(board)
     let store = TestStore(initialState: state) {
-      MainTabCoordinator(legalBaseURL: nil)
+      MainTabCoordinator()
     } withDependencies: {
       $0.date = .constant(Date(timeIntervalSince1970: 0))
       $0.festivalFlagDetailUseCase = MockFestivalFlagDetailUseCase(detail: { _ throws(FestivalFlagDetailError) in
@@ -181,7 +181,7 @@ struct FlagRoutingTests {
     state.flagCoordinatorState.routes.push(.detail(detailState))
     let reloadGeneration = detailState.loadGeneration + 1
     let store = TestStore(initialState: state) {
-      MainTabCoordinator(legalBaseURL: nil)
+      MainTabCoordinator()
     } withDependencies: {
       $0.date = .constant(Date(timeIntervalSince1970: 0))
       // 축제 보드는 계정이 바뀌면 최근 검색을 새 계정 기준으로 다시 읽는다.
@@ -223,7 +223,7 @@ struct FlagRoutingTests {
     var state = try Self.flagTabState()
     state.selectedTab = .live
     let store = TestStore(initialState: state) {
-      MainTabCoordinator(legalBaseURL: nil)
+      MainTabCoordinator()
     }
     store.exhaustivity = .off
 

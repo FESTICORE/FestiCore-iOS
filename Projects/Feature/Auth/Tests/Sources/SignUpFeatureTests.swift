@@ -38,23 +38,6 @@ struct SignUpFeatureTests {
     }
   }
 
-  @Test @MainActor func legalDetailRequestsWebAndKeepsDraft() async {
-    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
-    state.nickname = "테스터"
-    state.acceptedServiceTerms = true
-    state.pushOptIn = true
-    let store = TestStore(initialState: state) { SignUpFeature() }
-
-    await store.send(.view(.legalDocumentTapped(.terms)))
-    await store.receive(.delegate(.legalDocumentRequested(
-      url: URL(string: "https://example.com/api/v1/legal/terms")!,
-      title: "서비스 이용약관"
-    )))
-    #expect(store.state.nickname == "테스터")
-    #expect(store.state.acceptedServiceTerms)
-    #expect(store.state.pushOptIn)
-  }
-
   @Test @MainActor func nicknameIsLimitedByTrimmedLength() async {
     let store = TestStore(initialState: SignUpFeature.State()) { SignUpFeature() }
     store.exhaustivity = .off
@@ -73,7 +56,7 @@ struct SignUpFeatureTests {
   }
 
   @Test func submitNeedsCurrentConsentNicknameAndIdleFlow() {
-    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    var state = SignUpFeature.State(canOpenLegal: true)
     state.currentTermsVersion = "2026-10"
     state.nickname = "테스터"
     state.acceptedServiceTerms = true
@@ -93,7 +76,7 @@ struct SignUpFeatureTests {
     state.currentTermsVersion = "2026-11"
     #expect(!state.canSubmit)
 
-    var withoutLegal = SignUpFeature.State()
+    var withoutLegal = SignUpFeature.State(canOpenLegal: false)
     withoutLegal.currentTermsVersion = "2026-10"
     withoutLegal.nickname = "테스터"
     withoutLegal.acceptedServiceTerms = true
@@ -137,43 +120,25 @@ struct SignUpFeatureTests {
   }
 
   @Test @MainActor func flowChangedUpdatesParentFlowValues() async {
-    let base = URL(string: "https://example.com/api/v1/legal/")
     let store = TestStore(initialState: SignUpFeature.State()) { SignUpFeature() }
 
     await store.send(.view(.flowChanged(
       isSubmitting: true,
       message: "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요.",
-      termsUpdateExhausted: true,
-      legalBaseURL: base
+      termsUpdateExhausted: true
     ))) {
       $0.isSubmitting = true
       $0.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
       $0.termsUpdateExhausted = true
-      $0.legalBaseURL = base
     }
   }
 
   @Test @MainActor func sheetClosedKeepsFormState() async {
-    let store = TestStore(initialState: SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))) {
+    let store = TestStore(initialState: SignUpFeature.State(canOpenLegal: true)) {
       SignUpFeature()
     }
 
     await store.send(.view(.sheetClosed))
-  }
-
-  @Test @MainActor func legalDetailRequestKeepsDraft() async {
-    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
-    state.nickname = "테스터"
-    state.acceptedPrivacyTerms = true
-    let store = TestStore(initialState: state) { SignUpFeature() }
-
-    await store.send(.view(.legalDocumentTapped(.privacy)))
-    await store.receive(.delegate(.legalDocumentRequested(
-      url: URL(string: "https://example.com/api/v1/legal/privacy")!,
-      title: "개인정보 수집 · 이용"
-    )))
-    #expect(store.state.nickname == "테스터")
-    #expect(store.state.acceptedPrivacyTerms)
   }
 
   @Test @MainActor func closeTappedRequestsClose() async {
@@ -268,7 +233,7 @@ struct SignUpFeatureTests {
   }
 
   private func submittableState(nickname: String) -> SignUpFeature.State {
-    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    var state = SignUpFeature.State(canOpenLegal: true)
     state.currentTermsVersion = "2026-10"
     state.nickname = nickname
     state.acceptedServiceTerms = true

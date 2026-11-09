@@ -7,7 +7,7 @@ import XCTest
 /// Figma S14-2 가입 정보(Design 393 다크)를 고정 상태로 렌더한다. 시각 자료 생성용이다.
 extension FestivalS01VisualCaptureTests {
   func testCaptureSignUp() async throws {
-    var state = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com"))
+    var state = SignUpFeature.State()
     state.nickname = "민지"
     let store = Store(initialState: state) {
       EmptyReducer<SignUpFeature.State, SignUpFeature.Action>()

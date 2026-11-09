@@ -34,15 +34,6 @@ struct AppCoordinator {
 
   enum CancelID { case sessionExpiry, accountOperation, widgetSnapshot }
 
-  /// 약관 상세 기준 주소. 탭 코디네이터와 가입 화면이 같은 값을 쓴다.
-  private let legalBaseURL: URL?
-
-  init(legalBaseURL: URL? = AppCoordinatorView.legalBaseURL(
-    host: Bundle.main.object(forInfoDictionaryKey: "FestiCoreAPIHost") as? String
-  )) {
-    self.legalBaseURL = legalBaseURL
-  }
-
   @ObservableState
   enum State: Equatable {
     case splash(SplashFeature.State)
@@ -213,7 +204,12 @@ struct AppCoordinator {
     }
     .ifCaseLet(\.splash, action: \.scope.splash) { SplashFeature() }
     .ifCaseLet(\.onboarding, action: \.scope.onboarding) { OnboardingFeature() }
-    .ifCaseLet(\.home, action: \.scope.home) { MainTabCoordinator(legalBaseURL: legalBaseURL) }
+    .ifCaseLet(
+      \.home,
+      action: \.scope.home
+    ) {
+      MainTabCoordinator()
+    }
     .onChange(of: \.self) { previous, state in
       return authInputsChanged(
         previous: previous,

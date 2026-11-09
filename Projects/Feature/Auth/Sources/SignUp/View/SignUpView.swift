@@ -121,7 +121,7 @@ private extension SignUpView {
 
   /// 약관 상세 링크. 기준 주소가 없으면 화살표를 숨긴다.
   func legalLink(_ document: LegalDocument) -> (() -> Void)? {
-    guard store.legalBaseURL != nil else { return nil }
+    guard store.canOpenLegal else { return nil }
     return { send(.legalDocumentTapped(document)) }
   }
 }

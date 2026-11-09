@@ -36,12 +36,15 @@ struct AppCoordinatorTests {
   }
 
   @Test func legalLinksUseConfiguredAPIHost() {
-    let base = AppCoordinatorView.legalBaseURL(host: "festicore-dev.up.railway.app")
+    // 앱 Info.plist의 약관 기준 주소는 xcconfig에서 API 호스트로 조립한다.
+    let host = Bundle.main.object(forInfoDictionaryKey: "FestiCoreAPIHost") as? String
+    let base = LegalDocumentURL.baseURL
+    #expect(host?.isEmpty == false)
+    #expect(base?.host() == host)
     #expect(base?.appending(path: "terms").absoluteString
-      == "https://festicore-dev.up.railway.app/api/v1/legal/terms")
+      == "https://\(host ?? "")/api/v1/legal/terms")
     #expect(base?.appending(path: "privacy").absoluteString
-      == "https://festicore-dev.up.railway.app/api/v1/legal/privacy")
-    #expect(AppCoordinatorView.legalBaseURL(host: nil) == nil)
+      == "https://\(host ?? "")/api/v1/legal/privacy")
   }
 
   @Test func remoteContentRefreshCompletesBackgroundFetchOnlyOnce() {
@@ -594,7 +597,7 @@ struct AppCoordinatorTests {
     home.authFlow.presentation = .onboarding
     home.authFlow.isLoading = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
-      AppCoordinator(legalBaseURL: nil)
+      AppCoordinator()
     } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
     }
@@ -629,7 +632,7 @@ struct AppCoordinatorTests {
       pushOptIn: false, profileImageURL: nil
     )
     var home = MainTabCoordinator.State()
-    home.authFlow.signUp = SignUpFeature.State(legalBaseURL: URL(string: "https://example.com/api/v1/legal/"))
+    home.authFlow.signUp = SignUpFeature.State()
     home.authFlow.pendingFestivalID = "festival"
     home.authFlow.generation = 1
     home.authFlow.profile = AuthProfile(user: user, currentTermsVersion: "2026-09")
@@ -1014,7 +1017,7 @@ struct AppCoordinatorTests {
     home.authFlow.signUp.acceptedPrivacyTerms = true
     home.authFlow.signUp.termsDraftVersion = "2026-10"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
-      AppCoordinator(legalBaseURL: nil)
+      AppCoordinator()
     } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
     }
@@ -2973,15 +2976,14 @@ struct AppCoordinatorTests {
     await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged) { syncProfileAccount(&$0) }
   }
 
-  @Test func signUpSheetReceivesFlowValuesAndInjectedLegalBaseURL() async {
-    let legalBaseURL = URL(string: "https://injected.example.com/api/v1/legal/")
+  @Test func signUpSheetReceivesFlowValuesAndConfiguredLegalURL() async {
     let profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
     var home = MainTabCoordinator.State()
     home.authFlow.profile = profile
     home.authFlow.verifiedUserID = "user-a"
     home.authFlow.lastVerifiedUserID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
-      AppCoordinator(legalBaseURL: legalBaseURL)
+      AppCoordinator()
     } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
       $0.authUseCase = ReturningProfileAuthUseCase(profile: profile)
@@ -2990,25 +2992,21 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    // 가입 시트가 열리면 부모가 주입받은 약관 기준 주소와 흐름 값을 입력 액션으로 넘긴다.
+    // 가입 시트가 열리면 부모가 흐름 값을 입력 액션으로 넘기고, 약관 주소는 앱 설정 값을 쓴다.
     await store.send(.view(.foregrounded))
     await store.receive(\.inner.profileLoaded)
     await store.receive(\.scope.home.signUp.view.flowChanged)
     await store.receive(\.scope.home.signUp.router)
     guard let signUp = signUpState(store.state) else { Issue.record("홈 상태가 아니다"); return }
-    #expect(signUp.legalBaseURL == legalBaseURL)
+    #expect(signUp.canOpenLegal)
     #expect(signUp.isSubmitting == false)
-    #expect(signUp.legalURL(for: .terms) == URL(string: "https://injected.example.com/api/v1/legal/terms"))
+    #expect(signUp.legalURL(for: .terms) == LegalDocumentURL.baseURL?.appending(path: "terms"))
   }
 
   @Test func closingSignUpAlsoClosesLegalDocument() async {
-    guard let baseURL = AppCoordinatorView.legalBaseURL(host: "festicore-dev.up.railway.app") else {
-      Issue.record("Stage 약관 기준 주소를 만들지 못했어요")
-      return
-    }
     var home = MainTabCoordinator.State()
     home.authFlow.presentation = .onboarding
-    home.authFlow.signUp = SignUpFeature.State(legalBaseURL: baseURL)
+    home.authFlow.signUp = SignUpFeature.State()
     home.authFlow.signUp.nickname = "테스터"
     guard let privacyURL = home.authFlow.signUp.legalURL(for: .privacy) else {
       Issue.record("개인정보 약관 주소를 만들지 못했어요")
@@ -3033,10 +3031,6 @@ struct AppCoordinatorTests {
   }
 
   @Test func switchingFromSignUpToRetryClosesLegalDocument() async {
-    guard let baseURL = AppCoordinatorView.legalBaseURL(host: "festicore-dev.up.railway.app") else {
-      Issue.record("Stage 약관 기준 주소를 만들지 못했어요")
-      return
-    }
     var home = MainTabCoordinator.State()
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.verifiedUserID = "user-a"
@@ -3044,7 +3038,7 @@ struct AppCoordinatorTests {
     home.authFlow.pendingFestivalID = "festival"
     home.authFlow.pendingOwnerID = "user-a"
     home.authFlow.presentation = .onboarding
-    home.authFlow.signUp = SignUpFeature.State(legalBaseURL: baseURL)
+    home.authFlow.signUp = SignUpFeature.State()
     guard let termsURL = home.authFlow.signUp.legalURL(for: .terms) else {
       Issue.record("서비스 약관 주소를 만들지 못했어요")
       return

@@ -9,9 +9,12 @@ import TCAFlow
 struct ProfileRoutingTests {
   @Test("마이 코디네이터가 라우터 입력을 직접 처리해 법적 문서를 연다")
   func coordinatorReducesProfileRoute() async {
-    let baseURL = URL(string: "https://festicore-dev.up.railway.app/api/v1/legal")!
+    guard let baseURL = LegalDocumentURL.baseURL else {
+      Issue.record("앱 Info.plist에 약관 기준 주소가 없어요")
+      return
+    }
     let store = TestStore(initialState: ProfileCoordinator.State()) {
-      ProfileCoordinator(legalBaseURL: baseURL)
+      ProfileCoordinator()
     }
 
     await store.send(.router(.routeAction(
@@ -39,12 +42,42 @@ struct ProfileRoutingTests {
     await store.finish()
   }
 
+  @Test("약관 행은 앱 설정의 약관 기준 주소로 앱 안 문서를 연다")
+  func legalRowsOpenInAppAndBackReturnsToProfile() async {
+    guard let base = LegalDocumentURL.baseURL else {
+      Issue.record("앱 Info.plist에 약관 기준 주소가 없어요")
+      return
+    }
+    let store = TestStore(initialState: ProfileFeature.State()) {
+      ProfileFeature()
+    }
+
+    await store.send(.view(.termsTapped)) {
+      $0.destination = .legalDocument(.init(
+        url: base.appending(path: "terms"),
+        title: "이용약관"
+      ))
+    }
+    await store.send(.destination(.presented(.legalDocument(.delegate(.backToRoot))))) {
+      $0.destination = nil
+    }
+    await store.send(.view(.privacyTapped)) {
+      $0.destination = .legalDocument(.init(
+        url: base.appending(path: "privacy"),
+        title: "개인정보 처리방침"
+      ))
+    }
+    await store.send(.destination(.presented(.legalDocument(.delegate(.backToRoot))))) {
+      $0.destination = nil
+    }
+  }
+
   @Test("마이 상세 화면의 뒤로 가기도 코디네이터 안에서 처리한다")
   func coordinatorReducesChildBackAction() async {
     var state = ProfileCoordinator.State()
     state.destination = .noticeList(.init())
     let store = TestStore(initialState: state) {
-      ProfileCoordinator(legalBaseURL: nil)
+      ProfileCoordinator()
     }
 
     await store.send(.router(.routeAction(
@@ -60,7 +93,7 @@ struct ProfileRoutingTests {
   @Test("마이 로그인 요청은 자식 코디네이터에서 홈으로 한 번 전달한다")
   func profileLoginDelegateReachesHome() async {
     let store = TestStore(initialState: MainTabCoordinator.State(selectedTab: .my)) {
-      MainTabCoordinator(legalBaseURL: nil)
+      MainTabCoordinator()
     }
 
     await store.send(.profileCoordinator(.router(.routeAction(
@@ -82,7 +115,7 @@ struct ProfileRoutingTests {
     state.profileState.hasSession = true
     state.profileState.destination = .account(.init(profile: nil))
     let store = TestStore(initialState: state) {
-      MainTabCoordinator(legalBaseURL: nil)
+      MainTabCoordinator()
     }
     store.exhaustivity = .off
 
@@ -154,7 +187,7 @@ struct ProfileRoutingTests {
     #expect(state.profileRoutes[2].screen.noticeDetail?.id == "notice-1")
 
     let store = TestStore(initialState: state) {
-      ProfileCoordinator(legalBaseURL: nil)
+      ProfileCoordinator()
     }
     store.exhaustivity = .off
     await store.send(.router(.updateRoutes(Array(store.state.profileRoutes.prefix(2)))))

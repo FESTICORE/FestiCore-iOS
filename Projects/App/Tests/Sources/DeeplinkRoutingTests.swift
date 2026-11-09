@@ -15,7 +15,7 @@ struct DeeplinkRoutingTests {
     var state = MainTabCoordinator.State(selectedTab: .my)
     state.festivalState.routes.push(.liveBoard(.init(selectedFestivalID: "fst_a")))
     let store = TestStore(initialState: state) {
-      MainTabCoordinator(legalBaseURL: nil)
+      MainTabCoordinator()
     }
 
     await store.send(.openDeeplink(.festivalList)) {
@@ -32,7 +32,7 @@ struct DeeplinkRoutingTests {
   @Test("공연 알림 링크는 축제를 고르고 타임테이블에서 공연 상세를 연다")
   func setDeeplinkOpensTimetableDetail() async {
     let store = TestStore(initialState: MainTabCoordinator.State(selectedTab: .my)) {
-      MainTabCoordinator(legalBaseURL: nil)
+      MainTabCoordinator()
     } withDependencies: {
       $0.date.now = Date(timeIntervalSince1970: 1_800_000_000)
       $0.festivalPackUseCase = MockFestivalPackUseCase(cachedPacks: { [] })

@@ -19,6 +19,12 @@ extension InfoPlistDictionary {
   func setCFBundleVersion(_ value: String) -> Self { set("CFBundleVersion", .string(value)) }
   func setFestiCoreEnvironment(_ value: String) -> Self { set("FestiCoreEnvironment", .string(value)) }
   func setFestiCoreAPIHost(_ value: String) -> Self { set("FestiCoreAPIHost", .string(value)) }
+  func setFestiCoreLegalBaseURL(_ value: String) -> Self {
+    return set(
+      "FestiCoreLegalBaseURL",
+      .string(value)
+    )
+  }
   func setFestiCoreMixpanelToken(_ value: String) -> Self { set("FestiCoreMixpanelToken", .string(value)) }
   func setFestiCoreSentryDSN(_ value: String) -> Self { set("FestiCoreSentryDSN", .string(value)) }
   func setNSExtension(pointIdentifier: String, principalClass: String? = nil) -> Self {
