@@ -34,28 +34,14 @@ struct FestivalLiveBoardView: View {
         .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
       }
       if let source {
-        sourceLine(source)
+        FCSourceLine(source)
+          .inset(false)
       }
     }
   }
 }
 
 private extension FestivalLiveBoardView {
-  /// Figma S01은 출처 줄의 안쪽 여백과 배경을 지우고 섹션 간격만 쓴다.
-  func sourceLine(_ source: String) -> some View {
-    HStack(spacing: FestiCoreSpacing.paddingP8) {
-      Image(asset: .circleCheck16)
-        .resizable()
-        .frame(width: 16, height: 16)
-        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
-        .accessibilityHidden(true)
-      Text(source)
-        .festiCoreFont(.baseCaption1Regular)
-        .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-  }
-
   func stageRow(_ row: FestivalLiveBoardPresentation.StageRow) -> some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
       HStack(spacing: FestiCoreSpacing.paddingP8) {
