@@ -71,6 +71,31 @@ extension FestivalS01VisualCaptureTests {
       )
     )
   }
+
+  /// 로그아웃 상태의 마이. 받은 팩·설정은 그대로 보이고 로그인 유도 카드가 맨 위에 온다.
+  func testCaptureMoreGuest() async throws {
+    var state = ProfileFeature.State()
+    state.packLoad = .loaded
+    state.packs = [
+      FestivalReceivedPack(
+        id: "fst_wonder",
+        name: "원더리벳 2026",
+        packVersion: 3,
+        checkedAt: Date(timeIntervalSince1970: 1_792_134_000)
+      ),
+    ]
+    let store = Store(initialState: state) {
+      EmptyReducer<ProfileFeature.State, ProfileFeature.Action>()
+    }
+    try await capture(
+      ProfileView(store: store),
+      name: "More-A-guest",
+      size: CGSize(
+        width: 393,
+        height: 940
+      )
+    )
+  }
 }
 
 extension FestivalS01VisualCaptureTests {

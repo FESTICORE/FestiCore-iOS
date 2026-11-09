@@ -47,6 +47,11 @@ public struct ProfileFeature {
     /// 팝업과 마이 화면의 하위 목적지
     @Presents public var destination: Destination.State?
 
+    /// 로그인하지 않았으면 맨 위에 로그인 유도 카드를 보인다. 계정 상태를 확인하는 동안에는 숨긴다.
+    public var showsLoginPrompt: Bool {
+      return profile == nil && !hasSession && !isLoading
+    }
+
     public init() {}
   }
 
@@ -89,6 +94,7 @@ public struct ProfileFeature {
     case accountChanged(profile: AuthProfile?, hasSession: Bool, isLoading: Bool, message: String?)
     case onAppear
     case packsRetryTapped
+    case loginTapped
     case bearerTapped
     case searchTapped
     case packTapped(String)
@@ -194,6 +200,9 @@ extension ProfileFeature {
       guard state.packLoad == .failed else { return .none }
       state.packLoad = .loading
       return .send(.async(.fetchPacks))
+
+    case .loginTapped:
+      return .send(.delegate(.loginRequested))
 
     case .bearerTapped:
       return .send(.delegate(.bearerRequested))
