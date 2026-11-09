@@ -228,6 +228,17 @@ class SwiftConventionsTests(unittest.TestCase):
         self.assertEqual(1, len(issues))
         self.assertIn("인자가 2개 이상", issues[0])
 
+    def test_switch_case_pattern_may_stay_on_one_line(self):
+        source = "    case let .router(.routeAction(id: _, action: .joined(crewID, festivalID))):\n"
+        self.assertEqual([], module.check(source, "Sample.swift", changed_lines={1}))
+        source = "    case .home(.a), .home(.b(x, y)):\n"
+        self.assertEqual([], module.check(source, "Sample.swift", changed_lines={1}))
+
+    def test_call_in_case_body_is_still_checked(self):
+        source = "    case .home:\n      return make(id: 1, name: \"A\")\n"
+        issues = module.check(source, "Sample.swift", changed_lines={1, 2})
+        self.assertEqual(1, len(issues))
+
     def test_multiline_call_and_nested_commas_are_accepted(self):
         source = """
         let result = make(

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Check high-confidence Swift conventions without rewriting source files."""
 
+from __future__ import annotations
+
 import argparse
 import json
 import pathlib
@@ -158,6 +160,11 @@ def check(source: str, name: str, changed_lines: set[int] | None = None) -> list
         line_start = code.rfind("\n", 0, match.start()) + 1
         prefix = code[line_start:match.start()]
         if re.search(r"\b(?:case|func|protocol|struct|class|enum|actor|typealias)\s+\.?\s*$", prefix):
+            continue
+        # switch case 패턴은 한 줄로 써도 된다. case 본문의 호출은 계속 검사한다.
+        line_end = code.find("\n", match.start())
+        line = code[line_start:len(code) if line_end < 0 else line_end]
+        if line.lstrip().startswith("case ") and line.rstrip().endswith(":"):
             continue
         parsed = parameter_positions(code, opening)
         if parsed is None:
