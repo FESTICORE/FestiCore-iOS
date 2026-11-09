@@ -41,7 +41,7 @@ extension AppCoordinator {
       guard isLoggedIn else {
         await send(.inner(.profileLoaded(
           generation: generation,
-          .failure(.unauthenticated)
+          .failure(.notAuthenticated)
         )))
         return
       }
@@ -54,10 +54,26 @@ extension AppCoordinator {
       } catch {
         await send(.inner(.profileLoaded(
           generation: generation,
-          .failure(ProfileFailure(error))
+          .failure(authFailure(error))
         )))
       }
     }
+  }
+
+  /// 도메인이 매핑하지 않은 오류는 계정 요청 실패로 본다.
+  func authFailure(_ error: any Error) -> AuthDomainError {
+    return error as? AuthDomainError ?? .unavailable
+  }
+
+  /// 확인한 계정을 비우고 새 세대로 프로필을 다시 읽는다. 예약 목록은 비로그인 기준으로 먼저 다시 읽는다.
+  func recheckProfile(home: inout MainTabCoordinator.State) -> Effect<Action> {
+    let generation = home.authFlow.beginRequest()
+    home.authFlow.profile = nil
+    home.authFlow.verifiedUserID = nil
+    return .merge(
+      fetchProfile(generation: generation),
+      reloadBookmarks(userID: nil)
+    )
   }
 
   /// 시트가 열려 있고 현재 세대의 로그인 시도일 때만 결과를 받아들인다.
@@ -96,9 +112,7 @@ extension AppCoordinator {
     )
     home.authFlow.verifiedUserID = userID
     home.authFlow.lastVerifiedUserID = userID
-    home.authFlow.hasRetriedTermsUpdate = false
-    home.authFlow.termsUpdateExhausted = false
-    home.authFlow.message = nil
+    home.authFlow.resetSignUpRetryState()
     if !bookedStore.legacyBookmarks().isEmpty {
       home.authFlow.presentation = .migration
       return .none
@@ -146,6 +160,11 @@ extension AppCoordinator {
   /// 이전 계정의 라이브 보드·예약 목록을 바로 비운다.
   func clearAccountData(_ home: inout MainTabCoordinator.State) -> Effect<Action> {
     clearAccountDisplayData(&home)
+    return notifyAccountChanged()
+  }
+
+  /// 축제 화면에 계정이 바뀌었다고 알려 예약 목록을 다시 정리하게 한다.
+  func notifyAccountChanged() -> Effect<Action> {
     return .send(.scope(.home(.festival(.accountChanged))))
   }
 
@@ -171,14 +190,13 @@ extension AppCoordinator {
   ) -> Effect<Action> {
     return state.withHome { home in
       guard home.authFlow.hasSession, !home.authFlow.isLoading else { return .none }
-      home.authFlow.generation += 1
-      home.authFlow.accountOperationGeneration = home.authFlow.generation
+      let generation = home.authFlow.beginRequest()
+      home.authFlow.accountOperationGeneration = generation
       home.authFlow.accountOperation = operation
-      home.authFlow.isLoading = true
       home.authFlow.message = nil
       return runAccountOperation(
         operation,
-        generation: home.authFlow.generation
+        generation: generation
       )
     }
   }
@@ -213,7 +231,7 @@ extension AppCoordinator {
         await send(.inner(.myAccountFinished(
           generation: generation,
           operation: operation,
-          result: .failure(ProfileFailure(error))
+          result: .failure(authFailure(error))
         )))
       }
     }

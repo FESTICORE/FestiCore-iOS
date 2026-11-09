@@ -7,11 +7,6 @@ import TCAFlow
 @Reducer
 struct ProfileCoordinator {
   typealias State = ProfileFeature.State
-  private let legalBaseURL: URL?
-
-  init(legalBaseURL: URL?) {
-    self.legalBaseURL = legalBaseURL
-  }
 
   @CasePathable
   enum Action {
@@ -24,7 +19,7 @@ struct ProfileCoordinator {
       state: \.self,
       action: \.profile
     ) {
-      ProfileFeature(legalBaseURL: legalBaseURL)
+      ProfileFeature()
     }
 
     Reduce { state, action in

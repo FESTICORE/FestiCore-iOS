@@ -18,13 +18,6 @@ struct MainTabCoordinator {
   typealias Tab = FCTabBar.Tab
   @Dependency(\.festivalBookedStore) private var bookedStore
   @Dependency(\.date.now) private var now
-  private let legalBaseURL: URL?
-
-  init(legalBaseURL: URL? = AppCoordinatorView.legalBaseURL(
-    host: Bundle.main.object(forInfoDictionaryKey: "FestiCoreAPIHost") as? String
-  )) {
-    self.legalBaseURL = legalBaseURL
-  }
 
   @ObservableState
   struct State: Equatable {
@@ -159,7 +152,7 @@ struct MainTabCoordinator {
       state: \.profileState,
       action: \.profileCoordinator
     ) {
-      ProfileCoordinator(legalBaseURL: legalBaseURL)
+      ProfileCoordinator()
     }
     Scope(state: \.loginState, action: \.login) {
       LoginFeature()
@@ -384,8 +377,7 @@ struct MainTabCoordinator {
           await send(.signUp(.view(.flowChanged(
             isSubmitting: signUp.isSubmitting,
             message: signUp.message,
-            termsUpdateExhausted: signUp.termsUpdateExhausted,
-            legalBaseURL: legalBaseURL
+            termsUpdateExhausted: signUp.termsUpdateExhausted
           ))))
         } else if previous?.signUp != nil {
           await send(.signUp(.view(.sheetClosed)))

@@ -112,6 +112,12 @@ extension AppCoordinator.AuthFlow {
     return [verifiedUserID, lastVerifiedUserID].contains { $0 != nil && $0 != userID }
   }
 
+  /// 진행 중이던 로그아웃·탈퇴 표시를 지운다.
+  mutating func endAccountOperation() {
+    accountOperationGeneration = nil
+    accountOperation = nil
+  }
+
   /// 인증을 잃었을 때 확인한 계정과 프로필을 지운다.
   mutating func forgetVerifiedAccount() {
     verifiedUserID = nil

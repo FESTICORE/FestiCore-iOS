@@ -36,14 +36,10 @@ extension AppCoordinator {
       return state.withHome { home in
         let resumeFestival: Effect<Action> = .send(.scope(.home(.festival(.foregrounded))))
         guard home.authFlow.presentation != .login, !home.authFlow.isLoading else { return resumeFestival }
-        let generation = home.authFlow.beginRequest()
-        home.authFlow.profile = nil
-        home.authFlow.verifiedUserID = nil
         home.authFlow.presentation = nil
         return .merge(
           resumeFestival,
-          fetchProfile(generation: generation),
-          reloadBookmarks(userID: nil)
+          recheckProfile(home: &home)
         )
       }
 
@@ -97,14 +93,8 @@ extension AppCoordinator {
     case .retryProfile:
       return state.withHome { home in
         guard !home.authFlow.isLoading else { return .none }
-        let generation = home.authFlow.beginRequest()
         home.authFlow.message = nil
-        home.authFlow.profile = nil
-        home.authFlow.verifiedUserID = nil
-        return .merge(
-          fetchProfile(generation: generation),
-          reloadBookmarks(userID: nil)
-        )
+        return recheckProfile(home: &home)
       }
 
     case let .resolveMigration(accepted):

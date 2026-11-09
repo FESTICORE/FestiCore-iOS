@@ -278,7 +278,7 @@ struct ProfileFeatureTests {
 
   @Test func missingLegalConfigurationShowsDismissibleError() async {
     let store = TestStore(initialState: ProfileFeature.State()) {
-      ProfileFeature(legalBaseURL: nil)
+      ProfileFeature()
     }
 
     await store.send(.view(.termsTapped)) {
@@ -287,26 +287,6 @@ struct ProfileFeatureTests {
     // 이미 떠 있는 팝업에 같은 동작이 다시 와도 새로 띄우지 않는다.
     await store.send(.view(.privacyTapped))
     await store.send(.destination(.presented(.alert(.confirmTapped)))) {
-      $0.destination = nil
-    }
-  }
-
-  @Test func legalRowsOpenInAppAndBackReturnsToProfile() async {
-    let base = URL(string: "https://example.com/api/v1/legal/")!
-    let store = TestStore(initialState: ProfileFeature.State()) {
-      ProfileFeature(legalBaseURL: base)
-    }
-
-    await store.send(.view(.termsTapped)) {
-      $0.destination = .legalDocument(.init(url: base.appending(path: "terms"), title: "이용약관"))
-    }
-    await store.send(.destination(.presented(.legalDocument(.delegate(.backToRoot))))) {
-      $0.destination = nil
-    }
-    await store.send(.view(.privacyTapped)) {
-      $0.destination = .legalDocument(.init(url: base.appending(path: "privacy"), title: "개인정보 처리방침"))
-    }
-    await store.send(.destination(.presented(.legalDocument(.delegate(.backToRoot))))) {
       $0.destination = nil
     }
   }

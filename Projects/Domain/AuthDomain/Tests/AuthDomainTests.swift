@@ -69,7 +69,7 @@ struct AuthDomainTests {
       $0.networkClient = client
       $0.authService = auth
     } operation: { AuthRepositoryImpl() }
-    await #expect(throws: FestiCoreNetworkError.self) { try await repository.fetchProfile() }
+    await #expect(throws: AuthDomainError.unavailable) { try await repository.fetchProfile() }
   }
 
   @Test("인증된 프로필을 GET me에서 조회한다")
@@ -135,7 +135,10 @@ struct AuthDomainTests {
     #expect(await client.calls == 0)
   }
 
-  @Test("프로필 조회 실패는 전파하고 401에서만 세션을 지운다", arguments: [0, 401, 500])
+  @Test(
+    "프로필 조회 실패는 도메인 오류로 전파하고 401에서만 세션을 지운다",
+    arguments: [0, 401, 500]
+  )
   func profileFailure(status: Int) async {
     let auth = StubAuthService(loggedIn: true)
     let error: FestiCoreNetworkError = status == 0
@@ -146,7 +149,7 @@ struct AuthDomainTests {
       $0.networkClient = client
       $0.authService = auth
     } operation: { AuthRepositoryImpl() }
-    await #expect(throws: FestiCoreNetworkError.self) { try await repository.fetchProfile() }
+    await #expect(throws: expectedAuthError(status: status)) { try await repository.fetchProfile() }
     #expect(await auth.signOutCalls == (status == 401 ? 1 : 0))
   }
 
@@ -164,12 +167,15 @@ struct AuthDomainTests {
   @Test("프로필 수정의 약관 만료 오류는 세션을 유지하고 전파한다")
   func updateProfileOutdatedTerms() async {
     let auth = StubAuthService(loggedIn: true)
-    let client = StubClient(result: .failure(.response(ResponseError(httpStatus: 422))))
+    let client = StubClient(result: .failure(.response(ResponseError(
+      httpStatus: 422,
+      code: "TERMS_VERSION_OUTDATED"
+    ))))
     let repository = withDependencies {
       $0.networkClient = client
       $0.authService = auth
     } operation: { AuthRepositoryImpl() }
-    await #expect(throws: FestiCoreNetworkError.self) {
+    await #expect(throws: AuthDomainError.termsVersionOutdated) {
       try await repository.updateProfile(nickname: "축제관객", termsVersion: "2026-09", pushOptIn: false)
     }
     #expect(await client.calls == 1)
@@ -383,7 +389,7 @@ struct AuthDomainTests {
       $0.networkClient = client
       $0.authService = auth
     } operation: { AuthRepositoryImpl() }
-    await #expect(throws: FestiCoreNetworkError.self) { try await repository.signOut() }
+    await #expect(throws: expectedAuthError(status: status)) { try await repository.signOut() }
     #expect(await auth.isLoggedIn)
     #expect(await auth.signOutCalls == 0)
     #expect(await auth.revocationPending)
@@ -552,23 +558,7 @@ struct AuthDomainTests {
       $0.authService = auth
     } operation: { AuthRepositoryImpl() }
 
-    do {
-      try await repository.withdraw()
-      Issue.record("회원 탈퇴 요청 오류가 전파되지 않음")
-    } catch let received as FestiCoreNetworkError {
-      let matchesExpectedError: Bool
-      switch (status, received) {
-      case (0, .transport(.notConnected)):
-        matchesExpectedError = true
-      case let (expectedStatus, .response(response)):
-        matchesExpectedError = response.httpStatus == expectedStatus
-      default:
-        matchesExpectedError = false
-      }
-      #expect(matchesExpectedError)
-    } catch {
-      Issue.record("네트워크 오류 타입이 유지되지 않음")
-    }
+    await #expect(throws: expectedAuthError(status: status)) { try await repository.withdraw() }
     #expect(await client.calls == 1)
     #expect(await auth.isLoggedIn == (status != 401))
     #expect(await auth.signOutCalls == (status == 401 ? 1 : 0))
@@ -576,7 +566,7 @@ struct AuthDomainTests {
     #expect(await auth.finishedRevocationRequests == 1)
   }
 
-  @Test("회원 탈퇴 중 토큰 갱신 실패가 세션을 지워도 원래 전송 오류를 전파한다")
+  @Test("회원 탈퇴 중 토큰 갱신 실패가 세션을 지워도 원래 전송 오류를 도메인 오류로 전파한다")
   func withdrawRefreshFailure() async {
     let auth = StubAuthService(loggedIn: true)
     let client = StubClient(result: .failure(.transport(.notConnected))) {
@@ -587,17 +577,7 @@ struct AuthDomainTests {
       $0.authService = auth
     } operation: { AuthRepositoryImpl() }
 
-    do {
-      try await repository.withdraw()
-      Issue.record("토큰 갱신 실패 오류가 전파되지 않음")
-    } catch let error as FestiCoreNetworkError {
-      guard case .transport(.notConnected) = error else {
-        Issue.record("원래 전송 오류가 유지되지 않음")
-        return
-      }
-    } catch {
-      Issue.record("네트워크 오류 타입이 유지되지 않음")
-    }
+    await #expect(throws: AuthDomainError.offline) { try await repository.withdraw() }
     #expect(await client.calls == 1)
     #expect(await auth.isLoggedIn == false)
     #expect(await auth.signOutCalls == 1)
@@ -668,6 +648,18 @@ struct AuthDomainTests {
 
   private var profileBody: Data {
     Data(#"{"code":"SUCCESS","message":"OK","data":{"id":"user-1","provider":"google","email":null,"nickname":"축제관객","nicknameConfirmed":true,"termsAcceptedAt":"2026-10-30T00:00:00Z","termsVersion":"2026-10","pushOptIn":false,"profileImageUrl":null,"currentTermsVersion":"2026-10","admin":null}}"#.utf8)
+  }
+
+  /// 0은 연결 끊김, 401은 인증 만료, 나머지는 요청 실패로 매핑된다.
+  private func expectedAuthError(status: Int) -> AuthDomainError {
+    switch status {
+    case 0:
+      return .offline
+    case 401:
+      return .notAuthenticated
+    default:
+      return .unavailable
+    }
   }
 }
 

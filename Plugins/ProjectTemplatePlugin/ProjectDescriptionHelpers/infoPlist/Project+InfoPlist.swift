@@ -17,6 +17,7 @@ public extension InfoPlist {
       .setFestiCoreEnvironment("$(FESTICORE_ENVIRONMENT)")
       .set("FestiCoreAPNsEnvironment", .string("$(FESTICORE_APNS_ENVIRONMENT)"))
       .setFestiCoreAPIHost("$(FESTICORE_API_HOST)")
+      .setFestiCoreLegalBaseURL("$(FESTICORE_LEGAL_BASE_URL)")
       .set("GIDClientID", .string("$(GOOGLE_IOS_CLIENT_ID)"))
       .set("GIDServerClientID", .string("$(GOOGLE_CLIENT_ID)"))
       .set(

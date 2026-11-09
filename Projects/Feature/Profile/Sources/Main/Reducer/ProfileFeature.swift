@@ -17,11 +17,7 @@ import WebInterface
 
 @Reducer
 public struct ProfileFeature {
-  private let legalBaseURL: URL?
-
-  public init(legalBaseURL: URL? = nil) {
-    self.legalBaseURL = legalBaseURL
-  }
+  public init() {}
 
   @ObservableState
   public struct State: Equatable {
@@ -432,7 +428,7 @@ extension ProfileFeature {
   }
 
   private func showLegalDocument(path: String, title: String, state: inout State) -> Effect<Action> {
-    guard let legalBaseURL else {
+    guard let legalBaseURL = LegalDocumentURL.baseURL else {
       // 이미 떠 있으면 다시 띄우지 않는다.
       if state.destination?.alert == nil { state.destination = .alert(.legalLinkUnavailable()) }
       return .none
