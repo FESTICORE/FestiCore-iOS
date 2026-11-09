@@ -35,34 +35,8 @@ extension AppCoordinator {
         await send(.inner(.completeHomeTransition))
       }
 
-    // MARK: 화면 동작을 그대로 넘기는 위임
-
-    case .home(.signUp(.delegate(.closeRequested))), .home(.login(.delegate(.closeRequested))), .home(.delegate(.dismissAuthFlow)):
-      return handleViewAction(
-        state: &state,
-        action: .dismissFlow
-      )
-
-    case .home(.delegate(.retryProfile)):
-      return handleViewAction(
-        state: &state,
-        action: .retryProfile
-      )
-
     case .home(.delegate(.myProfileRefreshRequested)):
       return .send(.view(.retryProfile))
-
-    case let .home(.delegate(.resolveMigration(shouldRestore))):
-      return handleViewAction(
-        state: &state,
-        action: .resolveMigration(shouldRestore)
-      )
-
-    case let .home(.login(.delegate(.signInRequested(provider)))):
-      return handleViewAction(
-        state: &state,
-        action: .startLogin(provider)
-      )
 
     case .home(.delegate(.myLogoutRequested)):
       return myAccountOperation(
@@ -103,7 +77,9 @@ extension AppCoordinator {
         )
       }
 
-    case .home(.delegate(.myLoginRequested)), .home(.delegate(.myCrewLoginRequested)), .home(.delegate(.myFollowLoginRequested)):
+    case .home(.delegate(.myLoginRequested)),
+         .home(.delegate(.myCrewLoginRequested)),
+         .home(.delegate(.myFollowLoginRequested)):
       return state.withHome { home in
         guard !home.authFlow.isLoading else { return .none }
         home.authFlow.generation += 1
@@ -126,7 +102,11 @@ extension AppCoordinator {
       }
 
     default:
-      return .none
+      guard let viewAction = forwardedViewAction(action) else { return .none }
+      return handleViewAction(
+        state: &state,
+        action: viewAction
+      )
     }
   }
 }
@@ -136,7 +116,7 @@ private extension AppCoordinator {
     _ id: String,
     home: inout MainTabCoordinator.State
   ) -> Effect<Action> {
-    home.authFlow.generation += 1
+    let generation = home.authFlow.beginRequest()
     home.authFlow.pendingFestivalID = id
     if let userID = home.authFlow.verifiedUserID, home.authFlow.profile?.isEligible == true {
       home.authFlow.pendingShouldBeBooked = !bookedStore.load(for: userID).contains(id)
@@ -147,11 +127,8 @@ private extension AppCoordinator {
       )
     }
     home.authFlow.pendingOwnerID = home.authFlow.verifiedUserID ?? home.authFlow.lastVerifiedUserID
-    home.authFlow.message = nil
-    home.authFlow.hasRetriedTermsUpdate = false
-    home.authFlow.termsUpdateExhausted = false
-    home.authFlow.isLoading = true
-    return fetchProfile(generation: home.authFlow.generation)
+    home.authFlow.resetSignUpRetryState()
+    return fetchProfile(generation: generation)
   }
 
   func submitSignUp(
@@ -218,6 +195,24 @@ private extension AppCoordinator {
         generation: generation,
         committed: committed
       )))
+    }
+  }
+
+  /// 화면 동작을 그대로 넘기는 위임. 같은 상태에서 바로 처리하도록 View 동작으로 대응시킨다.
+  func forwardedViewAction(_ action: ScopeAction) -> View? {
+    switch action {
+    case .home(.signUp(.delegate(.closeRequested))),
+         .home(.login(.delegate(.closeRequested))),
+         .home(.delegate(.dismissAuthFlow)):
+      return .dismissFlow
+    case .home(.delegate(.retryProfile)):
+      return .retryProfile
+    case let .home(.delegate(.resolveMigration(shouldRestore))):
+      return .resolveMigration(shouldRestore)
+    case let .home(.login(.delegate(.signInRequested(provider)))):
+      return .startLogin(provider)
+    default:
+      return nil
     }
   }
 

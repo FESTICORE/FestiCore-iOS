@@ -116,8 +116,7 @@ extension AppCoordinator {
     case let .myAccountFinished(generation, operation, result):
       return state.withHome { home in
         guard home.authFlow.accountOperationGeneration == generation else { return .none }
-        home.authFlow.accountOperationGeneration = nil
-        home.authFlow.accountOperation = nil
+        home.authFlow.endAccountOperation()
         home.authFlow.isLoading = false
         return handleMyAccountFinished(
           home: &home,
@@ -135,14 +134,10 @@ extension AppCoordinator {
 private extension AppCoordinator {
   func handleSessionExpired(home: inout MainTabCoordinator.State) -> Effect<Action> {
     let interruptedOperation = home.authFlow.accountOperation
-    home.authFlow.hasSession = false
-    home.authFlow.profile = nil
-    home.authFlow.verifiedUserID = nil
-    home.authFlow.lastVerifiedUserID = nil
+    home.authFlow.forgetVerifiedAccount()
     home.authFlow.generation += 1
     home.authFlow.isLoading = false
-    home.authFlow.accountOperationGeneration = nil
-    home.authFlow.accountOperation = nil
+    home.authFlow.endAccountOperation()
     home.authFlow.loginAttemptGeneration = nil
     // 프로필 401 처리와 같이, 로그인이 필요해 멈춘 예약이 있으면 유지하고 로그인 시트를 띄운다.
     // 요청 계정을 모르면 다른 계정에 적용되지 않도록 버린다.
@@ -241,11 +236,13 @@ private extension AppCoordinator {
       if hadSession { home.authFlow.dropUnownedPendingBookmark() }
       home.authFlow.presentation = home.authFlow.pendingFestivalID == nil ? nil : .login
       // 같은 로그아웃을 `sessionRestored`가 이미 비웠다면 그 뒤 받은 비로그인 라이브 보드를 다시 지우지 않고 예약 목록만 정리한다.
-      return hadSession ? clearAccountData(&home) : .send(.scope(.home(.festival(.accountChanged))))
+      return hadSession ? clearAccountData(&home) : notifyAccountChanged()
 
     case .failure(.offline):
       home.authFlow.profile = nil
-      if let userID = home.authFlow.verifiedUserID, bookedStore.offlineEligible(userID), home.authFlow.pendingFestivalID != nil {
+      if let userID = home.authFlow.verifiedUserID,
+         bookedStore.offlineEligible(userID),
+         home.authFlow.pendingFestivalID != nil {
         home.authFlow.presentation = nil
         return completePendingBookmark(
           home.authFlow.takePendingBookmark(),
