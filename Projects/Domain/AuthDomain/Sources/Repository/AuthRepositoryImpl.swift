@@ -57,7 +57,7 @@ public struct AuthRepositoryImpl: AuthInterface {
       return response.data.toDomain()
     } catch {
       try await clearUnauthorizedSession(error, sessionID: sessionID)
-      throw error
+      throw AuthDomainError.mapping(error)
     }
   }
 
@@ -78,7 +78,7 @@ public struct AuthRepositoryImpl: AuthInterface {
       return response.data.toDomain()
     } catch {
       try await clearUnauthorizedSession(error, sessionID: sessionID)
-      throw error
+      throw AuthDomainError.mapping(error)
     }
   }
 
@@ -156,7 +156,7 @@ public struct AuthRepositoryImpl: AuthInterface {
         return
       }
       await authService.finishRevocationRequest()
-      throw error
+      throw AuthDomainError.mapping(error)
     }
     guard await authService.confirmSignOut() else {
       await authService.finishRevocationRequest()
@@ -200,7 +200,7 @@ public struct AuthRepositoryImpl: AuthInterface {
       }
       try await clearUnauthorizedSession(error, sessionID: sessionID)
       await authService.finishRevocationRequest()
-      throw error
+      throw AuthDomainError.mapping(error)
     }
     guard await authService.completeWithdrawal() else { throw AuthDomainError.localSessionClearFailed }
   }

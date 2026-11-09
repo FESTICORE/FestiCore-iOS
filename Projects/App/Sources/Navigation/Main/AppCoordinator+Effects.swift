@@ -41,7 +41,7 @@ extension AppCoordinator {
       guard isLoggedIn else {
         await send(.inner(.profileLoaded(
           generation: generation,
-          .failure(.unauthenticated)
+          .failure(.notAuthenticated)
         )))
         return
       }
@@ -54,10 +54,15 @@ extension AppCoordinator {
       } catch {
         await send(.inner(.profileLoaded(
           generation: generation,
-          .failure(ProfileFailure(error))
+          .failure(authFailure(error))
         )))
       }
     }
+  }
+
+  /// 도메인이 매핑하지 않은 오류는 계정 요청 실패로 본다.
+  func authFailure(_ error: any Error) -> AuthDomainError {
+    return error as? AuthDomainError ?? .unavailable
   }
 
   /// 확인한 계정을 비우고 새 세대로 프로필을 다시 읽는다. 예약 목록은 비로그인 기준으로 먼저 다시 읽는다.
@@ -226,7 +231,7 @@ extension AppCoordinator {
         await send(.inner(.myAccountFinished(
           generation: generation,
           operation: operation,
-          result: .failure(ProfileFailure(error))
+          result: .failure(authFailure(error))
         )))
       }
     }

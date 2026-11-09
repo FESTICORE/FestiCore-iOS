@@ -164,7 +164,7 @@ private extension AppCoordinator {
       } catch {
         await send(.inner(.profileUpdated(
           generation: generation,
-          .failure(ProfileFailure(error))
+          .failure(authFailure(error))
         )))
       }
     }

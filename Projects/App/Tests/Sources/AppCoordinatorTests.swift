@@ -460,7 +460,10 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.profileUpdated(generation: 1, .failure(.unauthenticated)))) {
+    await store.send(.inner(.profileUpdated(
+      generation: 1,
+      .failure(.notAuthenticated)
+    ))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.hasSession = false
       home.authFlow.isLoading = false
@@ -499,11 +502,17 @@ struct AppCoordinatorTests {
   }
 
   @Test func profileLoad401ClearsPreviousAccountFlagsLiveBoardAndBookingsImmediately() async {
-    await expectAccountDataCleared(by: .inner(.profileLoaded(generation: 1, .failure(.unauthenticated))))
+    await expectAccountDataCleared(by: .inner(.profileLoaded(
+      generation: 1,
+      .failure(.notAuthenticated)
+    )))
   }
 
   @Test func profileUpdate401ClearsPreviousAccountFlagsLiveBoardAndBookingsImmediately() async {
-    await expectAccountDataCleared(by: .inner(.profileUpdated(generation: 1, .failure(.unauthenticated))))
+    await expectAccountDataCleared(by: .inner(.profileUpdated(
+      generation: 1,
+      .failure(.notAuthenticated)
+    )))
   }
 
   private func expectAccountDataCleared(by action: AppCoordinator.Action) async {
@@ -928,8 +937,14 @@ struct AppCoordinatorTests {
 
   @Test func unauthenticatedProfileResultsDropPendingBookmarkWithoutKnownOwner() async {
     for result in [
-      AppCoordinator.Action.inner(.profileLoaded(generation: 1, .failure(.unauthenticated))),
-      .inner(.profileUpdated(generation: 1, .failure(.unauthenticated)))
+      AppCoordinator.Action.inner(.profileLoaded(
+        generation: 1,
+        .failure(.notAuthenticated)
+      )),
+      .inner(.profileUpdated(
+        generation: 1,
+        .failure(.notAuthenticated)
+      ))
     ] {
       var home = MainTabCoordinator.State()
       home.authFlow.generation = 1
@@ -960,7 +975,10 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.profileLoaded(generation: 1, .failure(.unauthenticated))))
+    await store.send(.inner(.profileLoaded(
+      generation: 1,
+      .failure(.notAuthenticated)
+    )))
     guard case let .home(after) = store.state else { return }
     #expect(after.authFlow.pendingFestivalID == "festival")
     #expect(after.authFlow.presentation == .login)
@@ -984,7 +1002,10 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.profileUpdated(generation: 1, .failure(.unauthenticated))))
+    await store.send(.inner(.profileUpdated(
+      generation: 1,
+      .failure(.notAuthenticated)
+    )))
     guard case let .home(after) = store.state else { return }
     #expect(after.authFlow.signUp.nickname.isEmpty)
     #expect(!after.authFlow.signUp.nicknameEdited)
@@ -1022,7 +1043,10 @@ struct AppCoordinatorTests {
       $0.useAppCoordinatorFestivalUseCases()
     }
 
-    await store.send(.inner(.profileUpdated(generation: 2, .failure(.termsOutdated)))) {
+    await store.send(.inner(.profileUpdated(
+      generation: 2,
+      .failure(.termsVersionOutdated)
+    ))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       home.authFlow.termsUpdateExhausted = true
@@ -1893,7 +1917,7 @@ struct AppCoordinatorTests {
     } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
       $0.analyticsUseCase = .recording()
-      $0.authUseCase = FailingMyAuthUseCase(withdrawError: .transport(.notConnected))
+      $0.authUseCase = FailingMyAuthUseCase(withdrawError: .offline)
       $0.deviceRegistrationService = UnboundTestDevice()
       $0.authService = StubAuthService(loggedIn: false, userID: nil)
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
@@ -1935,7 +1959,7 @@ struct AppCoordinatorTests {
     await store.send(.inner(.myAccountFinished(
       generation: 1,
       operation: .withdraw,
-      result: .failure(.unauthenticated)
+      result: .failure(.notAuthenticated)
     ))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
@@ -2355,7 +2379,10 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.profileLoaded(generation: 1, .failure(.unauthenticated))))
+    await store.send(.inner(.profileLoaded(
+      generation: 1,
+      .failure(.notAuthenticated)
+    )))
     await store.finish()
     guard case let .home(signedOut) = store.state else { return }
     #expect(signedOut.timetableState.mySetIDs == ["local-set"])
@@ -2655,7 +2682,10 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     // `sessionRestored`가 이미 로그아웃을 정리한 뒤 받은 비로그인 보드는 뒤따르는 401로 지우지 않는다.
-    await store.send(.inner(.profileLoaded(generation: 1, .failure(.unauthenticated))))
+    await store.send(.inner(.profileLoaded(
+      generation: 1,
+      .failure(.notAuthenticated)
+    )))
     await store.receive(\.scope.home.festival.accountChanged)
     guard case let .home(updated) = store.state else { return }
     #expect(updated.festivalState.routes.last?.screen.liveBoard?.liveBoard == snapshot)
@@ -3125,14 +3155,14 @@ struct AppCoordinatorTests {
 }
 
 private struct FailingMyAuthUseCase: AuthUseCaseInterface {
-  var withdrawError: FestiCoreNetworkError = .response(ResponseError(httpStatus: 503))
+  var withdrawError: AuthDomainError = .unavailable
   func signIn(with credential: AuthCredential) async throws -> AuthLoginResult { throw AuthDomainError.notAuthenticated }
   func fetchProfile() async throws -> AuthProfile { throw AuthDomainError.notAuthenticated }
   func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser {
     throw AuthDomainError.notAuthenticated
   }
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
-  func signOut() async throws { throw FestiCoreNetworkError.response(ResponseError(httpStatus: 503)) }
+  func signOut() async throws { throw AuthDomainError.unavailable }
   func withdraw() async throws { throw withdrawError }
 }
 
@@ -3150,7 +3180,7 @@ private actor WithdrawalGate {
   }
 
   func fail() {
-    continuation?.resume(throwing: FestiCoreNetworkError.transport(.notConnected))
+    continuation?.resume(throwing: AuthDomainError.offline)
     continuation = nil
   }
 }
@@ -3217,7 +3247,7 @@ private struct FailingProfileAuthUseCase: AuthUseCaseInterface {
   func signIn(with credential: AuthCredential) async throws -> AuthLoginResult { throw AuthDomainError.invalidResponse }
   func fetchProfile() async throws -> AuthProfile {
     switch failure {
-    case .server: throw FestiCoreNetworkError.response(ResponseError(httpStatus: 503))
+    case .server: throw AuthDomainError.unavailable
     case .missingVersion: throw AuthDomainError.invalidResponse
     }
   }
@@ -3246,9 +3276,7 @@ private struct OutdatedTermsAuthUseCase: AuthUseCaseInterface {
   func signIn(with credential: AuthCredential) async throws -> AuthLoginResult { throw AuthDomainError.invalidResponse }
   func fetchProfile() async throws -> AuthProfile { profile }
   func updateProfile(nickname: String, termsVersion: String, pushOptIn: Bool) async throws -> AuthUser {
-    throw FestiCoreNetworkError.response(ResponseError(
-      httpStatus: 422, code: "TERMS_VERSION_OUTDATED"
-    ))
+    throw AuthDomainError.termsVersionOutdated
   }
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func signOut() async throws {}

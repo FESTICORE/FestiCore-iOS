@@ -198,7 +198,7 @@ private extension AppCoordinator {
 private extension AppCoordinator {
   func handleProfileLoaded(
     home: inout MainTabCoordinator.State,
-    result: Result<AuthProfile, ProfileFailure>
+    result: Result<AuthProfile, AuthDomainError>
   ) -> Effect<Action> {
     switch result {
     case let .success(profile):
@@ -227,7 +227,7 @@ private extension AppCoordinator {
       home.authFlow.message = home.authFlow.hasRetriedTermsUpdate ? AuthFlow.Message.termsChangedReconsent : nil
       return reloadBookmarks(userID: nil)
 
-    case .failure(.unauthenticated):
+    case .failure(.notAuthenticated):
       let hadSession = home.authFlow.hasSession
       home.authFlow.forgetVerifiedAccount()
       // 로그인을 잃으면 다른 계정이 이어받지 않도록 가입 초안과 소유자 없는 대기 예약을 지운다.
@@ -269,7 +269,7 @@ private extension AppCoordinator {
   func handleProfileUpdated(
     home: inout MainTabCoordinator.State,
     previous: AuthProfile,
-    result: Result<AuthUser, ProfileFailure>
+    result: Result<AuthUser, AuthDomainError>
   ) -> Effect<Action> {
     switch result {
     case let .success(user):
@@ -292,7 +292,7 @@ private extension AppCoordinator {
       home.authFlow.message = AuthFlow.Message.requiredInfoMissing
       return .none
 
-    case .failure(.termsOutdated):
+    case .failure(.termsVersionOutdated):
       home.authFlow.signUp.clearRequiredTerms()
       guard !home.authFlow.hasRetriedTermsUpdate else {
         home.authFlow.termsUpdateExhausted = true
@@ -303,7 +303,7 @@ private extension AppCoordinator {
       home.authFlow.message = AuthFlow.Message.termsChanged
       return fetchProfile(generation: home.authFlow.beginRequest())
 
-    case .failure(.unauthenticated):
+    case .failure(.notAuthenticated):
       home.authFlow.forgetVerifiedAccount()
       home.authFlow.clearSignUpDraft()
       home.authFlow.dropUnownedPendingBookmark()
@@ -314,7 +314,7 @@ private extension AppCoordinator {
       home.authFlow.message = AuthFlow.Message.saveOffline
       return .none
 
-    case .failure(.unavailable):
+    case .failure:
       home.authFlow.message = AuthFlow.Message.saveFailed
       return .none
     }
@@ -328,7 +328,7 @@ private extension AppCoordinator {
     home: inout MainTabCoordinator.State,
     generation: Int,
     operation: MyAccountOperation,
-    result: Result<Void, ProfileFailure>
+    result: Result<Void, AuthDomainError>
   ) -> Effect<Action> {
     switch result {
     case .success:
@@ -340,7 +340,7 @@ private extension AppCoordinator {
       )
       return clearAccountData(&home)
 
-    case .failure(.unauthenticated):
+    case .failure(.notAuthenticated):
       analyticsUseCase.reset()
       var cleared = clearedAuthFlow(
         after: home.authFlow,

@@ -13,7 +13,6 @@ import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreDeviceInterface
-import FestiCoreNetworkInterface
 import FestiCoreStorageInterface
 import FestiCoreUtility
 import Foundation
@@ -106,16 +105,16 @@ struct AppCoordinator {
     )
     case profileLoaded(
       generation: Int,
-      Result<AuthProfile, ProfileFailure>
+      Result<AuthProfile, AuthDomainError>
     )
     case profileUpdated(
       generation: Int,
-      Result<AuthUser, ProfileFailure>
+      Result<AuthUser, AuthDomainError>
     )
     case myAccountFinished(
       generation: Int,
       operation: MyAccountOperation,
-      result: Result<Void, ProfileFailure>
+      result: Result<Void, AuthDomainError>
     )
     case loginCommitted(
       AuthLoginResult,
@@ -130,44 +129,6 @@ struct AppCoordinator {
     case splash(SplashFeature.Action)
     case onboarding(OnboardingFeature.Action)
     case home(MainTabCoordinator.Action)
-  }
-
-  enum ProfileFailure: Error, Equatable, Sendable {
-    case unauthenticated
-    case offline
-    case termsOutdated
-    case unavailable
-
-    init(_ error: Error) {
-      if let domain = error as? AuthDomainError, domain == .notAuthenticated {
-        self = .unauthenticated
-        return
-      }
-      guard let network = error as? FestiCoreNetworkError else {
-        self = .unavailable
-        return
-      }
-
-      switch network {
-      case let .transport(transport):
-        switch transport {
-        case .notConnected, .timedOut:
-          self = .offline
-        case .cancelled, .unknown:
-          self = .unavailable
-        }
-      case let .response(response):
-        if response.httpStatus == 401 {
-          self = .unauthenticated
-        } else if response.httpStatus == 422 && response.code == "TERMS_VERSION_OUTDATED" {
-          self = .termsOutdated
-        } else {
-          self = .unavailable
-        }
-      case .request, .decoding:
-        self = .unavailable
-      }
-    }
   }
 
   enum MyAccountOperation: Equatable, Sendable {
