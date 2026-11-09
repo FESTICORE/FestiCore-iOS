@@ -30,7 +30,7 @@ public struct FCSourceLine: View {
     }
     .padding(
       .vertical,
-      FestiCoreSpacing.paddingP12
+      isInset ? FestiCoreSpacing.paddingP12 : .zero
     )
     .padding(
       .horizontal,
@@ -41,7 +41,7 @@ public struct FCSourceLine: View {
 }
 
 public extension FCSourceLine {
-  /// 시트처럼 부모가 여백과 배경을 가진 곳에서는 false로 두어 본문 여백에 맞춘다.
+  /// 카드처럼 부모가 여백과 배경을 가진 곳에서는 false로 두어 띠와 안쪽 여백 없이 아이콘과 글자만 그린다(한 줄이면 높이 16).
   func inset(_ isInset: Bool) -> Self {
     var copy = self
     copy.isInset = isInset

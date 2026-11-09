@@ -90,8 +90,13 @@ public struct FCSetSheet: View {
       }
       scheduleRow
       if let source {
+        // 시안 S03 시트의 출처 줄은 배경 없이 위아래 12pt 여백을 둔다.
         FCSourceLine(source)
           .inset(false)
+          .padding(
+            .vertical,
+            FestiCoreSpacing.paddingP12
+          )
       }
     }
     .padding(.top, FestiCoreSpacing.paddingP16)

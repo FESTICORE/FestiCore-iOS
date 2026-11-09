@@ -100,11 +100,13 @@ extension PackDetailView {
         FestiCoreSpacing.paddingP16
       )
       .padding(
-        .vertical,
+        .top,
         FestiCoreSpacing.paddingP16
       )
     }
     .scrollIndicators(.hidden)
+    // 탭바 없이 열리므로 마지막 카드가 화면 아래(홈 인디케이터)에서 20pt 떨어져 멈춘다.
+    .fcScrollBottomInset()
   }
 
   private var loadingContent: some View {
@@ -183,8 +185,8 @@ extension PackDetailView {
         }
       }
       if let source = sourceText(directions.source ?? detail.source) {
+        // 시안 Pack A의 출처 줄은 본문 폭(361) 그대로 띠를 깐다.
         FCSourceLine(source)
-          .padding(.horizontal, FestiCoreSpacing.paddingP8)
       }
     }
   }
@@ -279,7 +281,9 @@ extension PackDetailView {
           VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
             PackRuleTags(tags: detail.rules)
             if let source = sourceText(detail.source) {
+              // 카드 안에서는 출처 줄의 띠와 안쪽 여백을 빼고 카드 여백을 쓴다.
               FCSourceLine(source)
+                .inset(false)
             }
           }
         }
