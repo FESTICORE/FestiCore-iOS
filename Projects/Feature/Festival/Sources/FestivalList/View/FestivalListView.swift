@@ -489,21 +489,10 @@ private extension FestivalListView {
   }
 
   func pack(for festival: FestivalOverview) -> FCFestivalCard<FestivalPosterView>.Pack {
-    if case let .some(.downloading(progress)) = store.packDownloads[festival.id] {
-      let fraction = progress.flatMap { value -> Double? in
-        guard value.totalBytes > 0 else { return nil }
-        return min(
-          max(
-          Double(value.receivedBytes) / Double(value.totalBytes),
-          0
-        ),
-          1
-        )
-      }
-      let text = fraction.map { "팩 받는 중 · \(Int(($0 * 100).rounded()))%" } ?? "팩 받는 중"
+    if let download = store.state.packDownloadDisplay(for: festival.id) {
       return .downloading(
-        progress: fraction,
-        text: text
+        progress: download.progress,
+        text: download.text
       )
     }
     let copy = FestivalListPresentation.packCopy(

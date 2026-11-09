@@ -97,6 +97,9 @@ private extension FestivalLiveBoardScreen {
                 festival: festival
               )
             }
+            if let packDownload = model.packDownload {
+              packDownloadCard(packDownload)
+            }
             if model.liveBoardUnpublished {
               FCEmptyCard(
                 icon: .music24,
@@ -261,6 +264,21 @@ private extension FestivalLiveBoardScreen {
   }
 
   @ViewBuilder
+  /// 목록에서 받기 시작한 팩을 라이브 보드에서도 같은 진행 바·퍼센트로 보인다.
+  func packDownloadCard(_ download: FestivalPackDownloadDisplay) -> some View {
+    return FCPackDownloadProgress(download.text)
+      .progress(download.progress)
+      .padding(FestiCoreSpacing.paddingP16)
+      .frame(
+        maxWidth: .infinity,
+        alignment: .leading
+      )
+      .background(
+        FestiCoreSemanticColor.backgroundElevated.color,
+        in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
+      )
+  }
+
   func festivalHeader(
     now: Date,
     festival: FestivalOverview

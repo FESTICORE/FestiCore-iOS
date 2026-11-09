@@ -33,6 +33,8 @@ struct FestivalLiveBoardScreenModel {
   /// Apple 지도로 계산한 도보 분. 계산하지 못한 역은 서버 값이다.
   let homeWalkMinutes: FestivalFeature.HomeWalkMinutes
   let showsFollowGuide: Bool
+  /// 선택 축제의 팩을 받는 중이면 진행 표시
+  let packDownload: FestivalPackDownloadDisplay?
 
   init(state: FestivalFeature.State) {
     connection = state.connection
@@ -52,6 +54,7 @@ struct FestivalLiveBoardScreenModel {
     homeDetails = state.homeDetails
     homeWalkMinutes = state.homeWalkMinutes
     showsFollowGuide = state.showsFollowGuide
+    packDownload = state.packDownloadDisplay(for: state.selectedFestivalID)
   }
 
   var showsOfflineStatus: Bool {
