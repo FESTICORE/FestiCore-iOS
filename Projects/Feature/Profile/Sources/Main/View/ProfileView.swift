@@ -42,6 +42,9 @@ extension ProfileView {
 
       ScrollView {
         VStack(spacing: FestiCoreSpacing.paddingP24) {
+          if store.showsLoginPrompt {
+            loginPrompt
+          }
           FCBearerPrompt { send(.bearerTapped) }
 
           receivedPacks
@@ -75,6 +78,39 @@ private extension ProfileView {
         .trailingAction { send(.searchTapped) }
     } else {
       FCTopBar(.large, title: "마이")
+    }
+  }
+
+  /// 로그인하지 않았을 때 맨 위에 두는 로그인 유도 카드.
+  /// 시안에 비로그인 변형이 없어 설정 카드와 같은 표면·여백으로 만들었다(디자이너 확인 필요).
+  var loginPrompt: some View {
+    return VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP12
+    ) {
+      VStack(
+        alignment: .leading,
+        spacing: FestiCoreSpacing.paddingP4
+      ) {
+        Text("로그인하고 깃발과 크루를 함께 써 보세요")
+          .festiCoreFont(.baseCalloutBold)
+          .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+        Text("받은 팩·타임테이블·설정은 로그인 없이 그대로 쓸 수 있어요.")
+          .festiCoreFont(.baseFootnoteRegular)
+          .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+      }
+      FCButton("로그인") { send(.loginTapped) }
+        .size(.medium)
+        .isFullWidth(true)
+    }
+    .frame(
+      maxWidth: .infinity,
+      alignment: .leading
+    )
+    .padding(FestiCoreSpacing.paddingP16)
+    .background {
+      RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
+        .fill(FestiCoreSemanticColor.backgroundElevated.color)
     }
   }
 

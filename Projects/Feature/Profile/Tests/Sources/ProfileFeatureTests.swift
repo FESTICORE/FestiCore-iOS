@@ -144,6 +144,24 @@ struct ProfileFeatureTests {
     await store.receive(\.delegate.loginRequested)
   }
 
+  @Test("로그인 유도 카드는 로그인하지 않았을 때만 보이고 계정 상태를 확인하는 동안에는 숨긴다")
+  func loginPromptShowsOnlyForGuest() {
+    #expect(ProfileFeature.State().showsLoginPrompt)
+    #expect(!signedInState().showsLoginPrompt)
+
+    var loading = ProfileFeature.State()
+    loading.isLoading = true
+    #expect(!loading.showsLoginPrompt)
+  }
+
+  @Test("비로그인 마이의 로그인 카드는 로그인 시트를 요청한다")
+  func guestLoginPromptRequestsLogin() async {
+    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
+
+    await store.send(.view(.loginTapped))
+    await store.receive(\.delegate.loginRequested)
+  }
+
   @Test func packTapOpensPackDetailAndDeletionReloadsPacks() async {
     var state = ProfileFeature.State()
     state.packs = [FestivalReceivedPack(id: "fst_a", name: "원더리벳 2026", packVersion: 12)]
