@@ -126,6 +126,11 @@ final class FestivalS01VisualCaptureTests: XCTestCase {
         .default,
         false
       ),
+      // 같은 기본 상태에서 내 일정을 켠 캡처. 시트 상단 y가 S03-A-default와 같아야 한다.
+      "S03-A2-default-scheduled": (
+        .default,
+        true
+      ),
       "S03-C-overlap": (
         .overlap(warning: "달담(원더 스테이지 15:55–16:45)과 35분 겹쳐요"),
         true

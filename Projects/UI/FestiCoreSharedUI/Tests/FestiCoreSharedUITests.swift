@@ -84,6 +84,34 @@ struct FestiCoreSharedUITests {
     #expect(imageHeight > plainHeight)
   }
 
+  @Test(
+    "내 일정 토글로 태그가 나타나고 사라져도 시트 높이가 같다",
+    arguments: [
+      FCSetSheet.State.default,
+      .overlap(warning: "달담과 35분 겹쳐요"),
+    ]
+  )
+  @MainActor
+  func setSheetHeightStaysWhenScheduleToggles(state: FCSetSheet.State) {
+    let heights = [false, true].map { isScheduled in
+      let sheet = FCSetSheet(
+        artist: "윤마치",
+        stage: "리벳 스테이지",
+        time: "17:00–17:50 · 50분",
+        relativeTime: "1시간 후",
+        isScheduled: .constant(isScheduled)
+      )
+      .state(state)
+      return UIHostingController(rootView: sheet).sizeThatFits(in: CGSize(
+        width: 393,
+        height: CGFloat.greatestFiniteMagnitude
+      )).height
+    }
+
+    #expect(heights[0] > 0)
+    #expect(heights[0] == heights[1])
+  }
+
   private func setSheet() -> FCSetSheet {
     FCSetSheet(
       artist: "가수",

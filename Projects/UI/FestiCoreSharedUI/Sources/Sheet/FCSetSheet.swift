@@ -12,6 +12,8 @@ import SwiftUI
 ///
 /// 내 일정 여부는 `isScheduled`로 정하고, 겹침·변경·종료는 `state`로 정한다.
 public struct FCSetSheet: View {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
   public enum State: Equatable, Sendable {
     case `default`
     /// 내 일정끼리 겹침. `warning`에 겹치는 공연을 적는다.
@@ -60,11 +62,20 @@ public struct FCSetSheet: View {
       }
       if !tags.isEmpty {
         HStack(spacing: FestiCoreSpacing.paddingP4) {
-          ForEach(tags, id: \.self) { tag in
-            FCTag(tag)
-              .tone(tag == "내 일정" ? .lime : .warning)
+          ForEach(
+            tags,
+            id: \.label
+          ) { tag in
+            FCTag(tag.label)
+              .tone(tag.tone)
+              .opacity(tag.isVisible ? 1 : 0)
+              .accessibilityHidden(!tag.isVisible)
           }
         }
+        .animation(
+          reduceMotion ? nil : .easeOut(duration: 0.15),
+          value: isScheduled
+        )
       }
       titleRow
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
@@ -95,14 +106,38 @@ private extension FCSetSheet {
     state == .ended
   }
 
-  private var tags: [String] {
+  /// 태그 한 칸. 숨긴 태그도 자리를 차지해 토글할 때 시트 높이와 다른 태그 위치가 바뀌지 않는다.
+  struct Tag {
+    let label: String
+    let tone: FCTag.Tone
+    let isVisible: Bool
+  }
+
+  /// 기본·겹침 상태는 "내 일정" 칸을 항상 두고, 저장하지 않았으면 투명하게 숨긴다.
+  private var tags: [Tag] {
+    let mine = Tag(
+      label: "내 일정",
+      tone: .lime,
+      isVisible: isScheduled
+    )
     switch state {
     case .default:
-      return isScheduled ? ["내 일정"] : []
+      return [mine]
     case .overlap:
-      return isScheduled ? ["내 일정", "겹침"] : ["겹침"]
+      return [
+        mine,
+        Tag(
+          label: "겹침",
+          tone: .warning,
+          isVisible: true
+        ),
+      ]
     case let .changed(_, change):
-      return [change]
+      return [Tag(
+        label: change,
+        tone: .warning,
+        isVisible: true
+      )]
     case .ended:
       return []
     }
