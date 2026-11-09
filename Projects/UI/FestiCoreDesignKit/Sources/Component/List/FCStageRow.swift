@@ -82,7 +82,7 @@ private extension FCStageRow {
       FCLiveBadge(kind)
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
         Text(slot.artist)
-          .festiCoreFont(kind == .now ? .baseBodyBold : .baseCalloutMedium)
+          .festiCoreFont(kind == .now ? .baseHeadlineBold : .baseCalloutMedium)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         Text(slot.time)
           .festiCoreFont(.baseCaption1Regular)

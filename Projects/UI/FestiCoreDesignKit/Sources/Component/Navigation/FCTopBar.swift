@@ -89,7 +89,8 @@ extension FCTopBar {
       HStack(spacing: FestiCoreSpacing.paddingP16) {
         backButton
         Text(title)
-          .festiCoreFont(.baseBodyBold)
+          // Figma Top Bar back 제목: Base/Headline/Bold
+          .festiCoreFont(.baseHeadlineBold)
           .foregroundStyle(foregroundColor.color)
           .lineLimit(1)
           .frame(maxWidth: .infinity)

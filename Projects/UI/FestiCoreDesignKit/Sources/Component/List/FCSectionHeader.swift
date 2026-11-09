@@ -20,7 +20,8 @@ public struct FCSectionHeader: View {
   public var body: some View {
     HStack(spacing: FestiCoreSpacing.paddingP16) {
       Text(title)
-        .festiCoreFont(.baseBodyBold)
+        // Figma Section Header 제목: Base/Headline/Bold
+        .festiCoreFont(.baseHeadlineBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .lineLimit(1)
         .frame(maxWidth: .infinity, alignment: .leading)

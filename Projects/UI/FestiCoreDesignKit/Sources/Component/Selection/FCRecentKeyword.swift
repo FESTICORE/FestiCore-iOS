@@ -28,6 +28,8 @@ public struct FCRecentKeyword: View {
       Button(action: onSelect) {
         Text(keyword)
           .festiCoreFont(.baseFootnoteMedium)
+          // Figma Recent Keyword(30pt) = 위아래 6 + 줄 높이 박스 18
+          .festiCoreLineBox(.baseFootnoteMedium)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .lineLimit(1)
       }

@@ -40,8 +40,15 @@ public struct FCZoneChip: View {
         .vertical,
         FestiCoreSpacing.paddingP4 + Metric.borderWidth
       )
-      .padding(.leading, FestiCoreSpacing.marginM6)
-      .padding(.trailing, FestiCoreSpacing.paddingP8)
+      // Figma Zone Chip은 테두리(1pt)가 자리를 차지해 좌우에도 1pt를 더한다(100×26).
+      .padding(
+        .leading,
+        FestiCoreSpacing.marginM6 + Metric.borderWidth
+      )
+      .padding(
+        .trailing,
+        FestiCoreSpacing.paddingP8 + Metric.borderWidth
+      )
       .background(FestiCoreSemanticColor.backgroundElevated.color, in: shape)
       .overlay { shape.strokeBorder(FestiCoreSemanticColor.lineNormal.color, lineWidth: Metric.borderWidth) }
       .contentShape(shape)

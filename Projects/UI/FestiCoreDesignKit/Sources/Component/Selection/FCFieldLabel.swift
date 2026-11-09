@@ -20,11 +20,14 @@ public struct FCFieldLabel: View {
     HStack(spacing: FestiCoreSpacing.paddingP8) {
       Text(label)
         .festiCoreFont(.baseFootnoteBold)
+        // Figma Field Label(18pt)은 줄 높이 박스 기준이다.
+        .festiCoreLineBox(.baseFootnoteBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .frame(maxWidth: .infinity, alignment: .leading)
       if let counter {
         Text(counter)
           .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
           .monospacedDigit()
       }

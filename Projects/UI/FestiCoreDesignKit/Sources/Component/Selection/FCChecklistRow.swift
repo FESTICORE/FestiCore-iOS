@@ -31,6 +31,8 @@ public struct FCChecklistRow: View {
           .iconSize(Metric.checkIconSize)
         Text(label)
           .festiCoreFont(.baseCalloutMedium)
+          // Figma Checklist Row(49pt) = 위아래 12 + 줄 높이 박스 24 + 구분선 1
+          .festiCoreLineBox(.baseCalloutMedium)
           .foregroundStyle(isChecked ? FestiCoreSemanticColor.labelAssistive.color : FestiCoreSemanticColor.labelNormal.color)
           .frame(maxWidth: .infinity, alignment: .leading)
         if isRequired {

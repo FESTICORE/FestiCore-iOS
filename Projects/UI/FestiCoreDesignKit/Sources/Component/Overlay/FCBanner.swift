@@ -31,6 +31,8 @@ public struct FCBanner: View {
           .accessibilityHidden(true)
         Text(text)
           .festiCoreFont(.baseFootnoteBold)
+          // Figma Banner(42pt) = 위아래 12 + 줄 높이 박스 18
+          .festiCoreLineBox(.baseFootnoteBold)
           .frame(maxWidth: .infinity, alignment: .leading)
         if showsChevron {
           Image(asset: .chevronRight16)

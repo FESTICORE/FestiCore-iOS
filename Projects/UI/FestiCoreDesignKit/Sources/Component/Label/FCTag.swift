@@ -27,6 +27,8 @@ public struct FCTag: View {
   public var body: some View {
     Text(label)
       .festiCoreFont(.baseCaption2Medium)
+      // Figma Tag(18pt)는 줄 높이 박스(14pt) 기준이다.
+      .festiCoreLineBox(.baseCaption2Medium)
       .foregroundStyle(foregroundColor.color)
       .lineLimit(1)
       .padding(.vertical, FestiCoreSpacing.marginM2)

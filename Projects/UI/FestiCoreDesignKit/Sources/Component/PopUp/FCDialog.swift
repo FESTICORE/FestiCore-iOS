@@ -58,8 +58,8 @@ public struct FCDialog: View {
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
         // Figma Dialog 문구는 줄 높이 박스(제목 24pt·설명 18pt/줄)로 쌓는다.
         Text(item.title)
-          .festiCoreFont(.baseBodyBold)
-          .festiCoreLineBox(.baseBodyBold)
+          .festiCoreFont(.baseHeadlineBold)
+          .festiCoreLineBox(.baseHeadlineBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .multilineTextAlignment(textAlignment)
           .frame(

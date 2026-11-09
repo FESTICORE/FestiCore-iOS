@@ -25,6 +25,8 @@ public struct FCTabItem: View {
     VStack(spacing: FestiCoreSpacing.paddingP8) {
       Text(label)
         .festiCoreFont(isSelected ? .baseCalloutBold : .baseCalloutMedium)
+        // Figma Tab Item(46pt) = 위 12 + 줄 높이 박스 24 + 간격 8 + 밑줄 2
+        .festiCoreLineBox(isSelected ? .baseCalloutBold : .baseCalloutMedium)
         .foregroundStyle(
           isSelected
             ? FestiCoreSemanticColor.labelNormal.color

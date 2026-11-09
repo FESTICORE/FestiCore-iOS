@@ -67,7 +67,7 @@ public struct FCFestivalCard<Media: View>: View {
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
         HStack(spacing: FestiCoreSpacing.paddingP8) {
           Text(title)
-            .festiCoreFont(.baseBodyBold)
+            .festiCoreFont(.baseHeadlineBold)
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)

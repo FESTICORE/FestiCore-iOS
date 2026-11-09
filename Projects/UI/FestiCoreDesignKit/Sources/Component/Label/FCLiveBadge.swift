@@ -23,6 +23,8 @@ public struct FCLiveBadge: View {
   public var body: some View {
     Text(kind == .now ? "지금" : "다음")
       .festiCoreFont(.baseCaption1Bold)
+      // Figma Live Badge(24pt)는 줄 높이 박스(16pt) 기준이다.
+      .festiCoreLineBox(.baseCaption1Bold)
       .foregroundStyle(kind == .now ? FestiCoreSemanticColor.inverseLabel.color : FestiCoreSemanticColor.labelNeutral.color)
       .padding(.vertical, FestiCoreSpacing.paddingP4)
       .padding(.horizontal, FestiCoreSpacing.marginM6)
