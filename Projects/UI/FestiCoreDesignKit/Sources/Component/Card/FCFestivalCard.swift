@@ -9,7 +9,6 @@ import SwiftUI
 
 /// 페스티벌 목록 카드. 상태(D-N, 마감 임박, 예정, 종료) · 예매 여부 · 팩 상태를 표시한다.
 public struct FCFestivalCard<Media: View>: View {
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   public enum Status: Sendable {
     /// 진행 전, 태그에 D-N을 표시한다.
@@ -151,30 +150,8 @@ private extension FCFestivalCard {
       .size(.medium)
       .isFullWidth(true)
     case let .downloading(progress, text):
-      VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
-        if let progress {
-          Capsule()
-            .fill(FestiCoreSemanticColor.fillStrong.color)
-            .frame(height: Metric.progressHeight)
-            .overlay(alignment: .leading) {
-              GeometryReader { proxy in
-                Capsule()
-                  .fill(FestiCoreSemanticColor.staticLime.color)
-                  .frame(width: proxy.size.width * min(max(progress, 0), 1))
-                  .animation(reduceMotion ? nil : .easeOut(duration: 0.3), value: progress)
-              }
-            }
-            .accessibilityHidden(true)
-        } else {
-          ProgressView()
-            .progressViewStyle(.linear)
-            .tint(FestiCoreSemanticColor.staticLime.color)
-            .accessibilityHidden(true)
-        }
-        Text(text)
-          .festiCoreFont(.baseFootnoteBold)
-          .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-      }
+      FCPackDownloadProgress(text)
+        .progress(progress)
     case let .received(text):
       HStack(spacing: FestiCoreSpacing.paddingP4) {
         Image(asset: .circleCheck16)
@@ -284,7 +261,6 @@ private enum Metric {
   static let bookmarkSize: CGFloat = 36
   static let bookmarkIconSize: CGFloat = 20
   static let iconSize: CGFloat = 16
-  static let progressHeight: CGFloat = 6
   static let borderWidth: CGFloat = 1
 }
 
