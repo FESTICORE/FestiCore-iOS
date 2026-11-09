@@ -6,9 +6,9 @@ extension ProfileFeature.State {
   var hidesTabBarForProfileRoute: Bool {
     guard let screen = profileRoutes.last?.screen else { return false }
     switch screen {
-    case .account, .appearance, .legalDocument, .lockScreen, .noticeList, .noticeDetail, .notifications:
+    case .account, .appearance, .legalDocument, .lockScreen, .noticeList, .noticeDetail, .notifications, .packDetail:
       return true
-    case .profile, .packDetail:
+    case .profile:
       return false
     }
   }

@@ -194,6 +194,14 @@ struct ProfileRoutingTests {
     #expect(state.shouldHideTabBar)
     #expect(!state.shouldReserveTabBarSpace)
 
+    state.profileState.destination = .packDetail(.init(
+      festivalID: "festival",
+      title: "축제 팩"
+    ))
+    #expect(state.profileState.profileRoutes.last?.screen.is(\.packDetail) == true)
+    #expect(state.shouldHideTabBar)
+    #expect(!state.shouldReserveTabBarSpace)
+
     let baseURL = URL(string: "https://festicore-dev.up.railway.app/api/v1/legal")!
     state.profileState.destination = .legalDocument(.init(
       url: baseURL.appending(path: "terms"),
