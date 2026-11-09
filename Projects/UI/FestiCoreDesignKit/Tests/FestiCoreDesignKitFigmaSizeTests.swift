@@ -45,6 +45,11 @@ struct FestiCoreDesignKitFigmaSizeTests {
 
   @Test("존 칩은 좌우 테두리를 포함해 100×26이다")
   func zoneChipWidthIncludesBorderOnBothSides() {
+    // 폭은 글자 폭에 기대므로 Pretendard가 등록됐는지 먼저 확인한다.
+    #expect(UIFont.pretendardFontFamily(
+      family: .Medium,
+      size: 12
+    ).fontName.hasPrefix("Pretendard"))
     let size = renderedSize(
       AnyView(FCZoneChip("리벳 앞 왼쪽") {}),
       width: nil
@@ -130,6 +135,34 @@ struct FigmaHeightCase: Sendable, CustomTestStringConvertible {
       }
     ),
     FigmaHeightCase(
+      name: "Tab Item 비선택",
+      figmaHeight: 46,
+      width: nil,
+      makeView: {
+        AnyView(FCTabItem(
+          "예매 완료",
+          isSelected: false
+        ))
+      }
+    ),
+    FigmaHeightCase(
+      name: "Menu Item 선택",
+      figmaHeight: 48,
+      width: 200,
+      makeView: { AnyView(FCMenuItem("활동 중 순").isSelected(true)) }
+    ),
+    FigmaHeightCase(
+      name: "Photo Picker",
+      figmaHeight: 98,
+      width: 361,
+      makeView: {
+        AnyView(FCPhotoPicker(
+          .empty,
+          action: {}
+        ))
+      }
+    ),
+    FigmaHeightCase(
       name: "Menu Item",
       figmaHeight: 48,
       width: 200,
@@ -165,8 +198,9 @@ struct FigmaHeightCase: Sendable, CustomTestStringConvertible {
       makeView: { AnyView(FCFieldLabel("성향 태그")) }
     ),
     FigmaHeightCase(
+      // Figma 49 중 구분선 1은 화면이 그린다.
       name: "Checklist Row",
-      figmaHeight: 49,
+      figmaHeight: 48,
       width: 343,
       makeView: {
         AnyView(FCChecklistRow(
@@ -177,8 +211,9 @@ struct FigmaHeightCase: Sendable, CustomTestStringConvertible {
       }
     ),
     FigmaHeightCase(
+      // Figma 57 중 구분선 1은 화면이 그린다.
       name: "Consent All",
-      figmaHeight: 57,
+      figmaHeight: 56,
       width: 343,
       makeView: {
         AnyView(FCConsentAll(
