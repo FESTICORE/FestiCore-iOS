@@ -1107,10 +1107,11 @@ struct AppCoordinatorTests {
     )
 
     for confirmation in [
+      nil,
       FCAlertState<FCAlertAction>.alert(title: "새 팩을 받을까요?"),
       .deletePack(name: "축제")
     ] {
-      packDetail.destination = .alert(confirmation)
+      packDetail.destination = confirmation.map { .alert($0) }
       state.profileState.destination = .packDetail(packDetail)
       // 팩 상세는 마지막 카드까지 스크롤되도록 탭바 없이 표시하고, 확인 팝업이 떠도 그대로 숨긴다.
       #expect(state.shouldHideTabBar)
