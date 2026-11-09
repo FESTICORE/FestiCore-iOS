@@ -24,12 +24,15 @@ public struct FCDoneHero: View {
     VStack(spacing: FestiCoreSpacing.paddingP20) {
       FCCheckBadge()
       VStack(spacing: FestiCoreSpacing.paddingP8) {
+        // Figma Done Hero: 제목 줄 30·설명 줄 24
         Text(title)
           .festiCoreFont(.baseTitle2Bold)
+          .festiCoreLineBox(.baseTitle2Bold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .accessibilityAddTraits(.isHeader)
         Text(message)
           .festiCoreFont(.baseCalloutRegular)
+          .festiCoreLineBox(.baseCalloutRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
       }
       .multilineTextAlignment(.center)

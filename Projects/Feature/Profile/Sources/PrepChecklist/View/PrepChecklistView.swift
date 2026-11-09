@@ -49,13 +49,16 @@ private extension PrepChecklistView {
     ) {
       Text("Step 3. 준비물 챙기기")
         .festiCoreFont(.baseCaption1Medium)
+        .festiCoreLineBox(.baseCaption1Medium)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       Text("준비물 체크리스트를 미리 챙겨 볼까요?")
         .festiCoreFont(.baseTitle2Bold)
+        .festiCoreLineBox(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .accessibilityAddTraits(.isHeader)
       Text("D-1 저녁에 한 번 더 알려 드려요.")
         .festiCoreFont(.baseSubheadlineRegular)
+        .festiCoreLineBox(.baseSubheadlineRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
   }

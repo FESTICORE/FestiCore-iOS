@@ -89,9 +89,14 @@ extension FestivalS01VisualCaptureTests {
       state.savedProfile = BearerFlagProfile(
         id: "flag",
         name: "호락호락",
-        tags: [.slam],
+        tags: [
+          .slam,
+          .sing,
+          .newbie,
+        ],
         bio: "처음 와도 괜찮아요. 슬램은 앞쪽으로",
-        followerCount: 0
+        followerCount: 0,
+        homeZoneID: "zone-1"
       )
     case .empty, .filled:
       break
