@@ -49,9 +49,10 @@ struct FestivalListView: View {
           )
         }
         .fcScrollBottomInset()
+        // Figma S00 목록 Contents 위 여백 16
         .padding(
           .top,
-          FestiCoreSpacing.paddingP20
+          FestiCoreSpacing.paddingP16
         )
         .scrollIndicators(.hidden)
         .refreshable { send(.refreshRequested) }
@@ -171,6 +172,8 @@ private extension FestivalListView {
   func listContent() -> some View {
     Text(store.listInteraction.selectedFilter == .all ? Copy.allGuide : Copy.bookedGuide)
       .festiCoreFont(.baseSubheadlineMedium)
+      // Figma 안내 문구 두 줄 44pt = 줄 높이 22 × 2
+      .festiCoreLineBox(.baseSubheadlineMedium)
       .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     if store.showsListSkeleton {
       FestivalListSkeletonView()
