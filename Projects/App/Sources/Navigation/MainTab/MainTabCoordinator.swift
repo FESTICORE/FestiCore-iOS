@@ -36,7 +36,7 @@ struct MainTabCoordinator {
       set { flagCoordinatorState.directory = newValue }
     }
     var profileState = ProfileFeature.State()
-    var authFlow = SessionCoordinator.State()
+    var authFlow = AuthFlowState()
     /// 마이 '기수이신가요?'로 여는 기수 등록 흐름(전체 화면)
     @Presents var bearerEntry: BearerEntryCoordinator.State?
 
@@ -217,10 +217,10 @@ struct MainTabCoordinator {
         // 예약 요청도 다른 축제 동작처럼 선택한 탭을 먼저 맞춘 뒤 프로필 확인을 시작한다.
         return .merge(
           syncSelectedTab(state: &state),
-          requestBookmark(
-            id,
-            state: &state
-          )
+          .send(.session(.view(.bookmarkRequested(
+            id: id,
+            displayedAsBooked: flagBoard(state)?.bookedFestivalIDs.contains(id) == true
+          ))))
         )
 
       case .festival(.delegate(.flagTabRequested)):
@@ -323,7 +323,7 @@ struct MainTabCoordinator {
         return .send(.festival(.accountChanged))
 
       case .account(.delegate(.sessionExpired)):
-        return .send(.session(.async(.sessionExpired)))
+        return .send(.session(.view(.sessionExpired)))
 
       case .account:
         return .none
@@ -413,12 +413,8 @@ struct MainTabCoordinator {
       return .send(.festival(.accountChanged))
     case let .bookmarksReloadRequested(userID):
       return .send(.festival(.reloadBookmarks(userID: userID)))
-    case let .pendingBookmarkCompleted(id, userID, shouldBeBooked):
-      return .send(.completePendingBookmark(
-        id: id,
-        userID: userID,
-        shouldBeBooked: shouldBeBooked
-      ))
+    case let .pendingBookmarkResolved(resolution):
+      return resolvePendingBookmark(resolution)
     case .accountOperationInterrupted:
       // 계정 작업이 같은 홈 범위에 있어 그 효과를 바로 취소한다.
       return .send(.account(.view(.cancelOperation)))
@@ -428,44 +424,34 @@ struct MainTabCoordinator {
   private func handleAuthDelegate(_ delegate: AuthCoordinator.Delegate) -> Effect<Action> {
     switch delegate {
     case let .profileFetchRequested(generation):
-      return .send(.session(.async(.fetchProfile(generation: generation))))
+      return .send(.session(.view(.fetchProfile(generation: generation))))
     case let .signUpSubmitted(
       generation,
       result
     ):
-      return .send(.session(.inner(.profileUpdated(
+      return .send(.session(.view(.signUpSubmitted(
         generation: generation,
         result
       ))))
     case .retryProfileRequested:
       return .send(.session(.view(.retryProfile)))
-    case let .bookmarksReloadRequested(userID):
+    case let .pendingBookmarkResolved(resolution):
+      return resolvePendingBookmark(resolution)
+    }
+  }
+
+  /// 세션·로그인 코디네이터가 정한 대로 대기 예약을 계정에 반영하거나 예약 목록만 다시 읽는다.
+  private func resolvePendingBookmark(_ resolution: AuthFlowState.PendingBookmarkResolution) -> Effect<Action> {
+    switch resolution {
+    case let .reloadBookmarks(userID):
       return .send(.festival(.reloadBookmarks(userID: userID)))
-    case let .pendingBookmarkCompleted(id, userID, shouldBeBooked):
+    case let .complete(id, userID, shouldBeBooked):
       return .send(.completePendingBookmark(
         id: id,
         userID: userID,
         shouldBeBooked: shouldBeBooked
       ))
     }
-  }
-
-  /// 예약은 계정의 일이라 새 세대로 프로필을 확인한 뒤 반영한다. 로그아웃·탈퇴 중에는 받지 않는다.
-  private func requestBookmark(
-    _ id: String,
-    state: inout State
-  ) -> Effect<Action> {
-    guard state.authFlow.accountOperationGeneration == nil else { return .none }
-    let generation = state.authFlow.beginRequest()
-    state.authFlow.pendingFestivalID = id
-    if let userID = state.authFlow.verifiedUserID, state.authFlow.profile?.isEligible == true {
-      state.authFlow.pendingShouldBeBooked = !bookedStore.load(for: userID).contains(id)
-    } else {
-      state.authFlow.pendingShouldBeBooked = flagBoard(state)?.bookedFestivalIDs.contains(id) != true
-    }
-    state.authFlow.pendingOwnerID = state.authFlow.verifiedUserID ?? state.authFlow.lastVerifiedUserID
-    state.authFlow.resetSignUpRetryState()
-    return .send(.session(.async(.fetchProfile(generation: generation))))
   }
 
   /// 축제 화면이 바뀌면 지금 보이는 타임테이블·깃발 탭에 반영한다.

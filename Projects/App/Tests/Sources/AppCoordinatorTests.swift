@@ -204,7 +204,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival")))))) {
+    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival"))))))
+    await store.receive(\.scope.home.session.view.bookmarkRequested) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 1
       home.authFlow.pendingFestivalID = "festival"
@@ -368,7 +369,8 @@ struct AppCoordinatorTests {
       home.authFlow.message = "회원 정보를 확인할 수 없어요. 다시 시도해 주세요."
       $0 = .home(home)
     }
-    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival")))))) {
+    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival"))))))
+    await store.receive(\.scope.home.session.view.bookmarkRequested) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 2
       home.authFlow.pendingFestivalID = "festival"
@@ -406,7 +408,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival")))))) {
+    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival"))))))
+    await store.receive(\.scope.home.session.view.bookmarkRequested) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 2
       home.authFlow.pendingFestivalID = "festival"
@@ -482,7 +485,7 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.session(.inner(.profileUpdated(
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
       generation: 1,
       .failure(.notAuthenticated)
     )))))) {
@@ -531,7 +534,7 @@ struct AppCoordinatorTests {
   }
 
   @Test func profileUpdate401ClearsPreviousAccountFlagsLiveBoardAndBookingsImmediately() async {
-    await expectAccountDataCleared(by: .scope(.home(.session(.inner(.profileUpdated(
+    await expectAccountDataCleared(by: .scope(.home(.session(.view(.signUpSubmitted(
       generation: 1,
       .failure(.notAuthenticated)
     ))))))
@@ -633,7 +636,7 @@ struct AppCoordinatorTests {
       $0.useAppCoordinatorFestivalUseCases()
     }
 
-    await store.send(.scope(.home(.session(.inner(.profileUpdated(
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
       generation: 1,
       .failure(.offline)
     )))))) {
@@ -701,7 +704,7 @@ struct AppCoordinatorTests {
       home.authFlow.isLoading = true
       $0 = .home(home)
     }
-    await store.receive(\.scope.home.session.inner.profileUpdated) {
+    await store.receive(\.scope.home.session.view.signUpSubmitted) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = true
       home.authFlow.hasRetriedTermsUpdate = true
@@ -842,7 +845,7 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.session(.inner(.profileUpdated(
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
       generation: 1,
       .success(signUpUser("user-b"))
     ))))))
@@ -993,7 +996,7 @@ struct AppCoordinatorTests {
         generation: 1,
         .failure(.notAuthenticated)
       ))))),
-      .scope(.home(.session(.inner(.profileUpdated(
+      .scope(.home(.session(.view(.signUpSubmitted(
         generation: 1,
         .failure(.notAuthenticated)
       )))))
@@ -1053,7 +1056,7 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.session(.inner(.profileUpdated(
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
       generation: 1,
       .failure(.notAuthenticated)
     ))))))
@@ -1093,7 +1096,7 @@ struct AppCoordinatorTests {
       $0.useAppCoordinatorFestivalUseCases()
     }
 
-    await store.send(.scope(.home(.session(.inner(.profileUpdated(
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
       generation: 2,
       .failure(.termsVersionOutdated)
     )))))) {
@@ -1374,7 +1377,7 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     // 마이 화면 상태는 앱이 보낸 입력 액션으로만 바뀐다.
-    await store.send(.scope(.home(.session(.async(.sessionExpired)))))
+    await store.send(.scope(.home(.session(.view(.sessionExpired)))))
     await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged)
     guard case let .home(updated) = store.state else {
       Issue.record("홈 상태가 아니다")
@@ -1869,7 +1872,7 @@ struct AppCoordinatorTests {
       Issue.record("기기 바인딩 해제가 시작되지 않았어요")
       return
     }
-    store.send(.scope(.home(.session(.async(.sessionExpired)))))
+    store.send(.scope(.home(.session(.view(.sessionExpired)))))
     await gate.failWithCancellation()
     await operation.finish()
 
@@ -1982,7 +1985,7 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     await store.send(.scope(.home(.account(.view(.withdrawRequested)))))
-    await store.receive(\.scope.home.session.async.sessionExpired)
+    await store.receive(\.scope.home.session.view.sessionExpired)
     await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged)
     guard case let .home(cleared) = store.state else { return }
     #expect(!cleared.authFlow.hasSession)
@@ -2094,7 +2097,7 @@ struct AppCoordinatorTests {
       $0 = .home(home)
     }
     let previous = eligibleProfile(id: "user-a").user
-    await store.send(.scope(.home(.session(.inner(.profileUpdated(
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
       generation: 1,
       .success(previous)
     ))))))
@@ -2196,7 +2199,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival")))))) {
+    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival"))))))
+    await store.receive(\.scope.home.session.view.bookmarkRequested) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 2
       home.authFlow.pendingFestivalID = "festival"
@@ -2262,7 +2266,7 @@ struct AppCoordinatorTests {
       $0.useAppCoordinatorFestivalUseCases()
     }
 
-    await store.send(.scope(.home(.session(.inner(.profileUpdated(
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
       generation: 1,
       .failure(.offline)
     )))))) {
@@ -2304,14 +2308,14 @@ struct AppCoordinatorTests {
     home.festivalState.routes.push(.liveBoard(board))
     expectFlagClearedImmediately(
       from: home,
-      by: .scope(.home(.session(.async(.sessionExpired))))
+      by: .scope(.home(.session(.view(.sessionExpired))))
     )
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.session(.async(.sessionExpired)))))
+    await store.send(.scope(.home(.session(.view(.sessionExpired)))))
     await store.receive {
       guard case .scope(.home(.festival(.accountChanged))) = $0 else { return false }
       return true
@@ -2343,7 +2347,7 @@ struct AppCoordinatorTests {
     #expect(expired.timetableState.mySetIDs.isEmpty)
     #expect(expired.festivalState.routes.last?.screen.liveBoard?.bookedFestivalIDs.isEmpty == true)
 
-    await store.send(.scope(.home(.session(.async(.sessionExpired)))))
+    await store.send(.scope(.home(.session(.view(.sessionExpired)))))
     guard case let .home(unchanged) = store.state else { return }
     #expect(unchanged.authFlow.generation == 1)
   }
@@ -2363,7 +2367,7 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     // 토큰 갱신 401은 프로필 실패 응답보다 만료 알림이 먼저 도착한다.
-    await store.send(.scope(.home(.session(.async(.sessionExpired)))))
+    await store.send(.scope(.home(.session(.view(.sessionExpired)))))
     guard case let .home(expired) = store.state else { return }
     #expect(expired.authFlow.presentation == .login)
     #expect(expired.authFlow.pendingFestivalID == "festival")
@@ -2399,7 +2403,7 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.session(.async(.sessionExpired)))))
+    await store.send(.scope(.home(.session(.view(.sessionExpired)))))
     await store.finish()
 
     #expect(calls.value == ["recover", "end:activity-a"])
@@ -2416,7 +2420,7 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.session(.async(.sessionExpired)))))
+    await store.send(.scope(.home(.session(.view(.sessionExpired)))))
     guard case let .home(expired) = store.state else { return }
     #expect(expired.authFlow.pendingFestivalID == nil)
     #expect(expired.authFlow.pendingOwnerID == nil)
@@ -2486,7 +2490,7 @@ struct AppCoordinatorTests {
       $0.useAppCoordinatorFestivalUseCases()
     }
 
-    store.send(.scope(.home(.session(.async(.sessionExpired)))))
+    store.send(.scope(.home(.session(.view(.sessionExpired)))))
     guard case let .home(expired) = store.withState({ $0 }) else { return }
     #expect(!expired.authFlow.hasSession)
     #expect(expired.authFlow.profile == nil)
@@ -2539,7 +2543,7 @@ struct AppCoordinatorTests {
       Issue.record("회원 탈퇴 요청이 시작되지 않았어요")
       return
     }
-    store.send(.scope(.home(.session(.async(.sessionExpired)))))
+    store.send(.scope(.home(.session(.view(.sessionExpired)))))
     await gate.fail()
     await operation.finish()
 
@@ -2549,6 +2553,66 @@ struct AppCoordinatorTests {
     #expect(expired.profileState.destination == nil)
     #expect(expired.authFlow.accountOperationGeneration == nil)
     #expect(expired.authFlow.message?.contains("결과를 확인할 수 없어요") == true)
+  }
+
+  @Test func sessionExpiryCancelsInFlightAccountOperationThroughDelegate() async {
+    let (
+      started,
+      signal
+    ) = AsyncStream<Void>.makeStream()
+    let gate = WithdrawalGate(started: signal)
+    var iterator = started.makeAsyncIterator()
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.hasSession = true
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.verifiedUserID = "user-a"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useAppCoordinatorFestivalUseCases()
+      $0.analyticsUseCase = .recording()
+      $0.authUseCase = SuspendedWithdrawalAuthUseCase(gate: gate)
+      $0.deviceRegistrationService = UnboundTestDevice()
+      $0.authService = StubAuthService(
+        loggedIn: false,
+        userID: nil
+      )
+      $0.festivalBookedStore = FestivalBookedStore(
+        load: { _ in [] },
+        save: { _, _ in }
+      )
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.account(.view(.withdrawRequested))))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 1
+      home.authFlow.accountOperationGeneration = 1
+      home.authFlow.accountOperation = .withdraw
+      home.authFlow.isLoading = true
+      $0 = .home(home)
+    }
+    guard await iterator.next() != nil else {
+      Issue.record("회원 탈퇴 요청이 시작되지 않았어요")
+      return
+    }
+    await store.send(.scope(.home(.session(.view(.sessionExpired))))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 2
+      home.authFlow.accountOperationGeneration = nil
+      home.authFlow.accountOperation = nil
+      home.authFlow.isLoading = false
+      home.authFlow.hasSession = false
+      $0 = .home(home)
+    }
+    // 세션이 끝났다는 위임을 받은 홈이 계정 코디네이터에 진행 중인 작업 취소를 명령한다.
+    await store.receive(\.scope.home.session.delegate.accountOperationInterrupted)
+    await store.receive(\.scope.home.account.view.cancelOperation)
+    await gate.fail()
+    await store.finish()
+
+    guard case let .home(expired) = store.state else { return }
+    #expect(expired.authFlow.message == AuthFlowState.Message.sessionExpiredDuringWithdraw)
   }
 
   @Test func expiryNotificationIsSubscribedAfterSplashTransition() async {
@@ -2568,7 +2632,7 @@ struct AppCoordinatorTests {
     guard case let .home(signedIn) = store.state else { return }
     #expect(signedIn.authFlow.hasSession)
     continuation.yield(())
-    await store.receive(\.scope.home.session.async.sessionExpired)
+    await store.receive(\.scope.home.session.view.sessionExpired)
     guard case let .home(expired) = store.state else { return }
     #expect(!expired.authFlow.hasSession)
     #expect(expired.authFlow.profile == nil)
@@ -2815,7 +2879,7 @@ struct AppCoordinatorTests {
     let other = eligibleProfile(id: "user-b").user
     expectFlagClearedImmediately(
       from: home,
-      by: .scope(.home(.session(.inner(.profileUpdated(
+      by: .scope(.home(.session(.view(.signUpSubmitted(
         generation: 1,
         .success(other)
       )))))
@@ -2825,7 +2889,7 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.session(.inner(.profileUpdated(
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
       generation: 1,
       .success(other)
     ))))))
@@ -3308,6 +3372,21 @@ private struct FailingMyAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func signOut() async throws { throw AuthDomainError.unavailable }
   func withdraw() async throws { throw withdrawError }
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }
 
 private actor WithdrawalGate {
@@ -3340,6 +3419,21 @@ private struct SuspendedWithdrawalAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func signOut() async throws { throw AuthDomainError.notAuthenticated }
   func withdraw() async throws { try await gate.wait() }
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }
 
 private struct UnauthenticatedAuthUseCase: AuthUseCaseInterface {
@@ -3362,6 +3456,21 @@ private struct UnauthenticatedAuthUseCase: AuthUseCaseInterface {
 
   func signOut() async throws { calls?.withValue { $0.append("signOut") } }
   func withdraw() async throws {}
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }
 
 private struct RecordingWithdrawalAuthUseCase: AuthUseCaseInterface {
@@ -3379,6 +3488,21 @@ private struct RecordingWithdrawalAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.notAuthenticated }
   func signOut() async throws { calls.withValue { $0.append("signOut") } }
   func withdraw() async throws { calls.withValue { $0.append("withdraw") } }
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }
 
 enum ProfileStubFailure: Sendable {
@@ -3401,6 +3525,21 @@ private struct FailingProfileAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func signOut() async throws {}
   func withdraw() async throws {}
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }
 
 private struct ReturningProfileAuthUseCase: AuthUseCaseInterface {
@@ -3413,6 +3552,21 @@ private struct ReturningProfileAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func signOut() async throws {}
   func withdraw() async throws {}
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }
 
 private struct OutdatedTermsAuthUseCase: AuthUseCaseInterface {
@@ -3425,6 +3579,21 @@ private struct OutdatedTermsAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func signOut() async throws {}
   func withdraw() async throws {}
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }
 
 /// 세션 확정·폐기 호출은 기록 대역 인증 서비스로 넘기고 나머지 호출은 `base`에 맡긴다.

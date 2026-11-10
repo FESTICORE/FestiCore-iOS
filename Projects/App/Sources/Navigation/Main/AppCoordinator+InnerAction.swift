@@ -30,7 +30,7 @@ extension AppCoordinator {
         .send(.view(.deeplinkReceived)),
         .run { send in
           for await _ in authSessionExpiryClient.events() {
-            await send(.scope(.home(.session(.async(.sessionExpired)))))
+            await send(.scope(.home(.session(.view(.sessionExpired)))))
           }
         }
         .cancellable(

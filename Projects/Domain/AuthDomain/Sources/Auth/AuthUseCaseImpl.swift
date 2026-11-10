@@ -9,6 +9,7 @@ import Dependencies
 import AuthDomainInterface
 import Foundation
 
+/// `AuthUseCaseInterface`의 라이브 구현이다. 각 요청을 `authRepository`에 넘기고 그 결과를 그대로 돌려준다.
 public struct AuthUseCaseImpl: AuthUseCaseInterface {
   @Dependency(\.authRepository) private var repository
 

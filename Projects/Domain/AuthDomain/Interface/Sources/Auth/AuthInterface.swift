@@ -8,6 +8,8 @@
 import Dependencies
 import Foundation
 
+/// 인증 API 요청과 공용 인증 세션 저장을 묶는 Repository 계약이다.
+/// UseCase 구현만 이 계약을 쓰며, 응답 DTO는 Entity로 바꿔 돌려준다.
 public protocol AuthInterface: Sendable {
   func signIn(with credential: AuthCredential) async throws -> AuthLoginResult
   func fetchProfile() async throws -> AuthProfile

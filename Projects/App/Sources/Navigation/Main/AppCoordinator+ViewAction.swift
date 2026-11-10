@@ -34,9 +34,10 @@ extension AppCoordinator {
 
     case .foregrounded:
       guard case .home = state else { return .none }
+      // 축제 화면이 다시 읽기 전에 세션이 확인한 계정을 비우고 새 세대를 연다.
       return .merge(
-        .send(.scope(.home(.festival(.foregrounded)))),
-        .send(.scope(.home(.session(.view(.foregrounded)))))
+        .send(.scope(.home(.session(.view(.foregrounded))))),
+        .send(.scope(.home(.festival(.foregrounded))))
       )
 
     case .backgrounded:

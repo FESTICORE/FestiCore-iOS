@@ -7,8 +7,9 @@
 
 import Dependencies
 import Foundation
-import IssueReporting
 
+/// Feature·코디네이터가 쓰는 로그인·프로필·계정 작업과 임시 세션 확정의 계약이다.
+/// 토큰 저장과 통신은 구현이 Repository에 맡기며, Feature는 이 계약만 주입받는다.
 public protocol AuthUseCaseInterface: Sendable {
   func signIn(with credential: AuthCredential) async throws -> AuthLoginResult
   func fetchProfile() async throws -> AuthProfile
@@ -26,24 +27,6 @@ public protocol AuthUseCaseInterface: Sendable {
 }
 
 extension MockAuthRepository: AuthUseCaseInterface {}
-
-/// 세션 확정 계약을 쓰지 않는 테스트 대역의 기본 구현이다. 호출되면 미등록 이슈로 기록한다.
-public extension AuthUseCaseInterface {
-  func commitSession(_ id: UUID) async -> Bool {
-    reportIssue("authUseCase.commitSession 미등록")
-    return false
-  }
-
-  func discardSession(_ id: UUID) async -> Bool {
-    reportIssue("authUseCase.discardSession 미등록")
-    return false
-  }
-
-  func signOut(ifSession id: UUID) async -> Bool {
-    reportIssue("authUseCase.signOut(ifSession:) 미등록")
-    return false
-  }
-}
 
 public enum AuthUseCaseDependency: TestDependencyKey {
   public static var testValue: any AuthUseCaseInterface { MockAuthRepository(dependencyName: "authUseCase") }

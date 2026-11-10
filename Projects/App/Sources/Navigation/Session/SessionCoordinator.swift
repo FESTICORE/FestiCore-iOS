@@ -16,23 +16,33 @@ struct SessionCoordinator {
   @Dependency(\.authService) var authService
   @Dependency(\.festivalBookedStore) var bookedStore
 
+  typealias State = AuthFlowState
+
   enum Action {
     case view(View)
-    case async(AsyncAction)
     case inner(InnerAction)
     case delegate(Delegate)
   }
 
+  /// 부모와 다른 코디네이터가 세션에 맡기는 명령
   @CasePathable
   enum View {
     case foregrounded
     case retryProfile
-  }
-
-  @CasePathable
-  enum AsyncAction {
+    /// 인증 만료 알림이나 계정 작업 중 인증 상실로 세션을 끝낸다.
     case sessionExpired
+    /// 로그인 확정 뒤 열린 세대로 프로필을 읽는다.
     case fetchProfile(generation: Int)
+    /// 가입 제출 결과를 그 세대의 프로필 갱신으로 반영한다.
+    case signUpSubmitted(
+      generation: Int,
+      Result<AuthUser, AuthDomainError>
+    )
+    /// 예약을 대기시키고 새 세대로 프로필을 확인한다. `displayedAsBooked`는 화면에 보이는 예약 여부다.
+    case bookmarkRequested(
+      id: String,
+      displayedAsBooked: Bool
+    )
   }
 
   @CasePathable
@@ -46,10 +56,6 @@ struct SessionCoordinator {
       generation: Int,
       Result<AuthProfile, AuthDomainError>
     )
-    case profileUpdated(
-      generation: Int,
-      Result<AuthUser, AuthDomainError>
-    )
   }
 
   @CasePathable
@@ -59,11 +65,7 @@ struct SessionCoordinator {
     /// 축제 화면에 계정이 바뀌었다고만 알린다.
     case accountChanged
     case bookmarksReloadRequested(userID: String?)
-    case pendingBookmarkCompleted(
-      id: String,
-      userID: String,
-      shouldBeBooked: Bool
-    )
+    case pendingBookmarkResolved(State.PendingBookmarkResolution)
     /// 세션이 끝나 진행 중이던 로그아웃·탈퇴 요청을 취소한다.
     case accountOperationInterrupted
   }
@@ -84,11 +86,6 @@ struct SessionCoordinator {
     switch action {
     case let .view(action):
       return handleViewAction(
-        state: &state,
-        action: action
-      )
-    case let .async(action):
-      return handleAsyncAction(
         state: &state,
         action: action
       )
@@ -123,20 +120,29 @@ extension SessionCoordinator {
       guard !state.isLoading else { return .none }
       state.message = nil
       return recheckProfile(state: &state)
-    }
-  }
 
-  private func handleAsyncAction(
-    state: inout State,
-    action: AsyncAction
-  ) -> Effect<Action> {
-    switch action {
     case .sessionExpired:
       guard state.hasSession else { return .none }
       return handleSessionExpired(state: &state)
 
     case let .fetchProfile(generation):
       return fetchProfile(generation: generation)
+
+    case let .signUpSubmitted(generation, result):
+      guard state.generation == generation, let previous = state.profile else { return .none }
+      state.isLoading = false
+      return handleProfileUpdated(
+        state: &state,
+        previous: previous,
+        result: result
+      )
+
+    case let .bookmarkRequested(id, displayedAsBooked):
+      return requestBookmark(
+        id,
+        displayedAsBooked: displayedAsBooked,
+        state: &state
+      )
     }
   }
 
@@ -158,15 +164,6 @@ extension SessionCoordinator {
       state.isLoading = false
       return handleProfileLoaded(
         state: &state,
-        result: result
-      )
-
-    case let .profileUpdated(generation, result):
-      guard state.generation == generation, let previous = state.profile else { return .none }
-      state.isLoading = false
-      return handleProfileUpdated(
-        state: &state,
-        previous: previous,
         result: result
       )
     }
@@ -327,10 +324,7 @@ private extension SessionCoordinator {
          bookedStore.offlineEligible(userID),
          state.pendingFestivalID != nil {
         state.presentation = nil
-        return completePendingBookmark(
-          state.takePendingBookmark(),
-          userID: userID
-        )
+        return .send(.delegate(.pendingBookmarkResolved(state.resolvePendingBookmark(userID: userID))))
       }
       guard state.pendingFestivalID != nil else {
         state.presentation = nil
@@ -418,22 +412,29 @@ private extension SessionCoordinator {
       return .none
     }
     state.presentation = nil
-    return completePendingBookmark(
-      state.takePendingBookmark(),
-      userID: userID
-    )
+    return .send(.delegate(.pendingBookmarkResolved(state.resolvePendingBookmark(userID: userID))))
   }
+}
 
-  /// 대기 예약이 있으면 그 계정으로 마저 반영하고, 없으면 예약 목록만 다시 읽는다.
-  func completePendingBookmark(
-    _ pending: State.PendingBookmark?,
-    userID: String
+// MARK: - 예약 요청
+
+private extension SessionCoordinator {
+  /// 예약은 계정의 일이라 새 세대로 프로필을 확인한 뒤 반영한다. 로그아웃·탈퇴 중에는 받지 않는다.
+  func requestBookmark(
+    _ id: String,
+    displayedAsBooked: Bool,
+    state: inout State
   ) -> Effect<Action> {
-    guard let pending else { return .send(.delegate(.bookmarksReloadRequested(userID: userID))) }
-    return .send(.delegate(.pendingBookmarkCompleted(
-      id: pending.id,
-      userID: userID,
-      shouldBeBooked: pending.shouldBeBooked
-    )))
+    guard state.accountOperationGeneration == nil else { return .none }
+    let generation = state.beginRequest()
+    state.pendingFestivalID = id
+    if let userID = state.verifiedUserID, state.profile?.isEligible == true {
+      state.pendingShouldBeBooked = !bookedStore.load(for: userID).contains(id)
+    } else {
+      state.pendingShouldBeBooked = !displayedAsBooked
+    }
+    state.pendingOwnerID = state.verifiedUserID ?? state.lastVerifiedUserID
+    state.resetSignUpRetryState()
+    return fetchProfile(generation: generation)
   }
 }

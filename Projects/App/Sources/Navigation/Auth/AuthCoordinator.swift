@@ -19,7 +19,7 @@ struct AuthCoordinator {
   @Dependency(\.analyticsUseCase) var analyticsUseCase
   @Dependency(\.festivalBookedStore) var bookedStore
 
-  typealias State = SessionCoordinator.State
+  typealias State = AuthFlowState
 
   // MARK: - Action
 
@@ -68,12 +68,7 @@ struct AuthCoordinator {
       Result<AuthUser, AuthDomainError>
     )
     case retryProfileRequested
-    case bookmarksReloadRequested(userID: String?)
-    case pendingBookmarkCompleted(
-      id: String,
-      userID: String,
-      shouldBeBooked: Bool
-    )
+    case pendingBookmarkResolved(State.PendingBookmarkResolution)
   }
 
   // MARK: - SignUp
@@ -182,10 +177,7 @@ extension AuthCoordinator {
         for: userID
       )
       state.presentation = nil
-      return completePendingBookmark(
-        state.takePendingBookmark(),
-        userID: userID
-      )
+      return .send(.delegate(.pendingBookmarkResolved(state.resolvePendingBookmark(userID: userID))))
 
     case .retryTapped:
       return .send(.delegate(.retryProfileRequested))
@@ -424,19 +416,6 @@ private extension AuthCoordinator {
         )))
       }
     }
-  }
-
-  /// 대기 예약이 있으면 그 계정으로 마저 반영하고, 없으면 예약 목록만 다시 읽는다.
-  func completePendingBookmark(
-    _ pending: State.PendingBookmark?,
-    userID: String
-  ) -> Effect<Action> {
-    guard let pending else { return .send(.delegate(.bookmarksReloadRequested(userID: userID))) }
-    return .send(.delegate(.pendingBookmarkCompleted(
-      id: pending.id,
-      userID: userID,
-      shouldBeBooked: pending.shouldBeBooked
-    )))
   }
 }
 

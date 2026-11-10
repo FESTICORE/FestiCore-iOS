@@ -16,7 +16,7 @@ struct AccountCoordinator {
   @Dependency(\.authService) var authService
   @Dependency(\.analyticsUseCase) var analyticsUseCase
 
-  typealias State = SessionCoordinator.State
+  typealias State = AuthFlowState
 
   enum CancelID { case operation }
 

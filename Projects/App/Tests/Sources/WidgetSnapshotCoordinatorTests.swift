@@ -50,7 +50,7 @@ struct WidgetSnapshotCoordinatorTests {
 
     #expect(store.state.activeWidgetSnapshotContent?.performances.first?.isSaved == true)
 
-    await store.send(.scope(.home(.session(.async(.sessionExpired)))))
+    await store.send(.scope(.home(.session(.view(.sessionExpired)))))
     await store.finish()
 
     let snapshot = try #require(store.state.activeWidgetSnapshotContent)

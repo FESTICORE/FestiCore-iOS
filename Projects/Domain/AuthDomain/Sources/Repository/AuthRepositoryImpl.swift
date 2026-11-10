@@ -12,6 +12,8 @@ import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
 import Foundation
 
+/// `AuthInterface`의 라이브 구현이다. 공용 `networkClient`로 인증 요청을 보내고,
+/// 검증한 로그인 응답과 세션 변경은 공용 `authService`에 저장한다.
 public struct AuthRepositoryImpl: AuthInterface {
   @Dependency(\.networkClient) private var client
   @Dependency(\.authService) private var authService
