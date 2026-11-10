@@ -25,6 +25,8 @@ public struct TimetableView: View {
         FCOfflineBadge(offlineMessage)
       }
       content()
+      // Figma S02: 출처 줄은 내용 길이와 상관없이 탭바 바로 위에 붙는다.
+      Spacer(minLength: .zero)
       if !store.source.isEmpty {
         FCSourceLine(store.source)
       }

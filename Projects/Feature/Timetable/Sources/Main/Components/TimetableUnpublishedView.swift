@@ -46,8 +46,17 @@ struct TimetableUnpublishedView: View {
           section(day)
         }
       }
-      .padding(FestiCoreSpacing.paddingP16)
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP16
+      )
+      .padding(
+        .top,
+        FestiCoreSpacing.paddingP16
+      )
     }
+    // 라인업 끝까지 스크롤해도 하단에서 20만큼 띄운다.
+    .fcScrollBottomInset()
   }
 }
 
