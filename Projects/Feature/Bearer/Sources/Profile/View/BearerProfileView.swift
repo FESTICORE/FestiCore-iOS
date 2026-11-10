@@ -81,16 +81,26 @@ extension BearerProfileView {
             }
           }
           .padding(FestiCoreSpacing.paddingP16)
+          // Figma S10 Contents 아래 여백 32 = 공통 16 + 16
+          .padding(
+            .bottom,
+            FestiCoreSpacing.paddingP16
+          )
         }
         .scrollDismissesKeyboard(.interactively)
-        FCPrimaryButton(saveTitle, isEnabled: store.canSave) {
-          send(.saveTapped)
+        .safeAreaInset(
+          edge: .bottom,
+          spacing: .zero
+        ) {
+          actionBar {
+            FCPrimaryButton(
+              saveTitle,
+              isEnabled: store.canSave
+            ) {
+              send(.saveTapped)
+            }
+          }
         }
-        .padding(.horizontal, FestiCoreSpacing.paddingP16)
-        .padding(
-          .vertical,
-          FestiCoreSpacing.paddingP12
-        )
       }
     }
   }
@@ -157,7 +167,7 @@ extension BearerProfileView {
     ) {
       sectionLabel("성향 태그", count: "\(store.tags.count) / \(BearerProfileFeature.tagLimit)")
       ScrollView(.horizontal, showsIndicators: false) {
-        HStack(spacing: FestiCoreSpacing.marginM6) {
+        HStack(spacing: FestiCoreSpacing.marginM8) {
           ForEach(BearerFlagTag.allCases, id: \.self) { tag in
             FCChip(tag.title) { send(.tagTapped(tag)) }
               .isSelected(store.tags.contains(tag))
@@ -210,6 +220,8 @@ extension BearerProfileView {
         FCListRow("공동 기수 초대") { send(.inviteTapped) }
           .value(store.coBearerText)
       }
+      // Figma S10 Card: 모서리 16 안에 행을 자르고 1pt 테두리를 두른다.
+      .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
       .overlay {
         RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
           .strokeBorder(FestiCoreSemanticColor.lineNormal.color, lineWidth: 1)
@@ -219,7 +231,7 @@ extension BearerProfileView {
   }
 
   private func doneContent(_ profile: BearerFlagProfile) -> some View {
-    VStack(spacing: .zero) {
+    Group {
       // Figma S10-E: 내용(히어로·미리보기, 사이 40)을 위아래 24 여백 안에서 세로 가운데에 둔다.
       GeometryReader { proxy in
         ScrollView {
@@ -257,25 +269,42 @@ extension BearerProfileView {
           )
         }
       }
-      // Figma S10 Actions: 간격 4, 위 12·아래 8
-      VStack(spacing: FestiCoreSpacing.paddingP4) {
+    }
+    .safeAreaInset(
+      edge: .bottom,
+      spacing: .zero
+    ) {
+      actionBar {
         FCPrimaryButton("완료") { send(.doneTapped) }
         FCButton("공동 기수 초대하기") { send(.inviteTapped) }
           .style(.ghost)
           .isEnabled(!store.isInviting)
       }
-      .padding(
-        .horizontal,
-        FestiCoreSpacing.paddingP16
-      )
-      .padding(
-        .top,
-        FestiCoreSpacing.paddingP12
-      )
-      .padding(
-        .bottom,
-        FestiCoreSpacing.paddingP8
-      )
+    }
+  }
+
+  /// Figma S10 Bottom Bar: 글래스 배경, 버튼 사이 4, 위 12·아래 8
+  private func actionBar<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    return VStack(spacing: FestiCoreSpacing.paddingP4) {
+      content()
+    }
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP16
+    )
+    .padding(
+      .top,
+      FestiCoreSpacing.paddingP12
+    )
+    .padding(
+      .bottom,
+      FestiCoreSpacing.paddingP8
+    )
+    .background {
+      Rectangle()
+        .fill(.ultraThinMaterial)
+        .overlay(FestiCoreSemanticColor.materialGlass.color)
+        .ignoresSafeArea(edges: .bottom)
     }
   }
 
@@ -320,6 +349,7 @@ extension BearerProfileView {
       if let count {
         Text(count)
           .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
           .monospacedDigit()
       }
