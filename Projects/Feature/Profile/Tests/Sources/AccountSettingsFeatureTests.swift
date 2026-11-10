@@ -141,4 +141,19 @@ private struct NicknameAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_: String) async throws -> AuthUser { try result.get() }
   func signOut() async throws {}
   func withdraw() async throws {}
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }

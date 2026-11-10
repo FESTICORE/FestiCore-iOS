@@ -9,7 +9,6 @@ import AuthDomainInterface
 import ComposableArchitecture
 import CoreAssembly
 import FeatureAssembly
-import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreDeviceInterface
@@ -20,18 +19,12 @@ import OSLog
 
 @Reducer
 struct AppCoordinator {
-  @Dependency(\.authUseCase) var authUseCase
-  @Dependency(\.authService) var authService
-  @Dependency(\.deviceRegistrationService) var deviceRegistrationService
-  @Dependency(\.festivalLiveActivityUseCase) var festivalLiveActivityUseCase
   @Dependency(\.festivalWidgetClient) var festivalWidgetClient
   @Dependency(\.date) var date
-  @Dependency(\.festivalBookedStore) var bookedStore
   @Dependency(\.authSessionExpiryClient) var authSessionExpiryClient
-  @Dependency(\.analyticsUseCase) var analyticsUseCase
   @Dependency(\.firstInstallOnboardingStore) var firstInstallOnboardingStore
 
-  enum CancelID { case sessionExpiry, accountOperation, widgetSnapshot }
+  enum CancelID { case sessionExpiry, widgetSnapshot }
 
   @ObservableState
   enum State: Equatable {
@@ -83,45 +76,12 @@ struct AppCoordinator {
     case openDeeplink(FestiCoreDeeplink)
     /// 대기 저장소에 새 딥링크가 들어왔다. 홈이면 바로 꺼내 연다.
     case deeplinkReceived
-    /// 로그인 시트의 로그인 요청(`LoginDelegate.signInRequested`)도 여기서 시트 상태를 확인한다.
-    case startLogin(OAuthProvider)
-    case dismissFlow
-    case retryProfile
-    case resolveMigration(Bool)
   }
 
   @CasePathable
   enum InnerAction {
     case firstInstallStatus(Bool)
     case completeHomeTransition
-    case sessionExpired
-
-    // MARK: 세션·프로필 결과
-
-    case sessionRestored(
-      generation: Int,
-      userID: String?,
-      isLoggedIn: Bool
-    )
-    case profileLoaded(
-      generation: Int,
-      Result<AuthProfile, AuthDomainError>
-    )
-    case profileUpdated(
-      generation: Int,
-      Result<AuthUser, AuthDomainError>
-    )
-    case myAccountFinished(
-      generation: Int,
-      operation: MyAccountOperation,
-      result: Result<Void, AuthDomainError>
-    )
-    case loginCommitted(
-      AuthLoginResult,
-      generation: Int,
-      committed: Bool
-    )
-    case staleLoginDiscarded
   }
 
   @CasePathable
@@ -131,37 +91,25 @@ struct AppCoordinator {
     case home(MainTabCoordinator.Action)
   }
 
-  enum MyAccountOperation: Equatable, Sendable {
-    case signOut
-    case withdraw
-  }
-
   var body: some ReducerOf<Self> {
     Reduce { state, action in
-      let previousSession = session(in: state)
-      let effect: Effect<Action>
       switch action {
       case let .view(viewAction):
-        effect = handleViewAction(
+        return handleViewAction(
           state: &state,
           action: viewAction
         )
       case let .inner(innerAction):
-        effect = handleInnerAction(
+        return handleInnerAction(
           state: &state,
           action: innerAction
         )
       case let .scope(scopeAction):
-        effect = handleScopeAction(
+        return handleScopeAction(
           state: &state,
           action: scopeAction
         )
       }
-      reconcileAccountDisplayData(
-        previousSession: previousSession,
-        state: &state
-      )
-      return effect
     }
     .ifCaseLet(\.splash, action: \.scope.splash) { SplashFeature() }
     .ifCaseLet(\.onboarding, action: \.scope.onboarding) { OnboardingFeature() }
@@ -187,25 +135,6 @@ struct AppCoordinator {
 }
 
 private extension AppCoordinator {
-  func session(in state: State) -> MainTabCoordinator.AuthInputs.Session? {
-    guard case let .home(home) = state else { return nil }
-    return home.authInputs.session
-  }
-
-  func reconcileAccountDisplayData(
-    previousSession: MainTabCoordinator.AuthInputs.Session?,
-    state: inout State
-  ) {
-    guard let previousSession, case var .home(home) = state else { return }
-    let currentSession = home.authInputs.session
-    if previousSession.userID != nil && previousSession.userID != currentSession.userID {
-      clearAccountDisplayData(&home)
-    } else if !previousSession.hasSession && currentSession.hasSession {
-      home.flagState.clearAccountData()
-    }
-    state = .home(home)
-  }
-
   func authInputsChanged(
     previous: State,
     current: State

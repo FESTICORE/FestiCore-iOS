@@ -6,6 +6,7 @@
 //
 
 import Dependencies
+import Foundation
 import AuthDomainInterface
 import Testing
 @testable import AuthDomain
@@ -94,4 +95,19 @@ private actor RecordingAuthUseCase: AuthUseCaseInterface {
   }
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func withdraw() async throws {}
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }

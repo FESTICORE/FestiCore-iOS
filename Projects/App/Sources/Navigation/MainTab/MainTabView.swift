@@ -65,7 +65,13 @@ struct MainTabView: View {
         height: authSheet.wrappedValue == .onboarding ? .fraction(1) : .auto,
         showsGrabber: authSheet.wrappedValue != .onboarding
       ) { sheet in
-        authSheetContent(sheet)
+        AuthCoordinatorView(
+          store: store.scope(
+            state: \.authFlow,
+            action: \.auth
+          ),
+          sheet: sheet
+        )
       }
       .fullScreenCover(item: $store.scope(
         state: \.bearerEntry,
@@ -80,6 +86,16 @@ struct MainTabView: View {
 private extension MainTabView {
   var isTabBarHidden: Bool {
     return store.shouldHideTabBar || isModalPresented
+  }
+
+  /// 인증 흐름의 표시 상태를 시트 바인딩으로 바꾼다. 시트를 내리면 흐름을 닫는다.
+  var authSheet: Binding<AuthCoordinatorView.Sheet?> {
+    return Binding(
+      get: { AuthCoordinatorView.Sheet(store.authFlow.presentation) },
+      set: { value in
+        if value == nil { store.send(.auth(.view(.dismissFlow))) }
+      }
+    )
   }
 
   /// 선택한 탭의 화면만 만든다. 탭 상태는 스토어에 남아 있어 다시 돌아와도 유지된다.

@@ -661,6 +661,57 @@ struct AuthDomainTests {
       return .unavailable
     }
   }
+
+  @Test(
+    "네트워크 오류를 화면이 분기하는 도메인 오류로 바꾼다",
+    arguments: [
+      (FestiCoreNetworkError.transport(.notConnected), AuthDomainError.offline),
+      (.transport(.timedOut), .offline),
+      (.transport(.cancelled), .unavailable),
+      (.response(ResponseError(
+        httpStatus: 401
+      )), .notAuthenticated),
+      (.response(ResponseError(
+        httpStatus: 422,
+        code: "TERMS_VERSION_OUTDATED"
+      )), .termsVersionOutdated),
+      (.response(ResponseError(
+        httpStatus: 422,
+        code: "NICKNAME_INVALID"
+      )), .unavailable),
+      (.request(.invalidURL), .unavailable),
+      (.decoding(.dataMissing), .unavailable),
+    ]
+  )
+  func networkErrorMapping(
+    network: FestiCoreNetworkError,
+    expected: AuthDomainError
+  ) {
+    #expect(AuthDomainError(network) == expected)
+  }
+
+  @Test("use case는 임시 세션 확정·폐기와 조건부 로그아웃을 인증 서비스에 전달한다")
+  func useCaseSessionCommit() async throws {
+    let auth = StubAuthService()
+    let client = StubClient(result: .success(loginBody))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+    let useCase = withDependencies {
+      $0.authRepository = repository
+    } operation: { AuthUseCaseImpl() }
+
+    let discarded = try #require(try await useCase.signIn(with: .google(idToken: "id")).sessionID)
+    #expect(await useCase.discardSession(discarded))
+    #expect(await auth.isLoggedIn == false)
+
+    let committed = try #require(try await useCase.signIn(with: .google(idToken: "id")).sessionID)
+    #expect(await useCase.commitSession(committed))
+    #expect(await auth.isLoggedIn)
+    #expect(await useCase.discardSession(committed) == false)
+    #expect(await useCase.signOut(ifSession: UUID()) == false)
+  }
 }
 
 private actor StubAuthService: AuthService {

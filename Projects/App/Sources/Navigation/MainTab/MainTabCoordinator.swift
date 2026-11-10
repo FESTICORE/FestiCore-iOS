@@ -36,8 +36,7 @@ struct MainTabCoordinator {
       set { flagCoordinatorState.directory = newValue }
     }
     var profileState = ProfileFeature.State()
-    var loginState = LoginFeature.State()
-    var authFlow = AppCoordinator.AuthFlow()
+    var authFlow = AuthFlowState()
     /// 마이 '기수이신가요?'로 여는 기수 등록 흐름(전체 화면)
     @Presents var bearerEntry: BearerEntryCoordinator.State?
 
@@ -112,8 +111,9 @@ struct MainTabCoordinator {
     case flagCoordinator(FlagCoordinator.Action)
     case profileCoordinator(ProfileCoordinator.Action)
     case bearerEntry(PresentationAction<BearerEntryCoordinator.Action>)
-    case login(LoginFeature.Action)
-    case signUp(SignUpFlowCoordinator.Action)
+    case auth(AuthCoordinator.Action)
+    case session(SessionCoordinator.Action)
+    case account(AccountCoordinator.Action)
     case authInputsChanged(previous: AuthInputs?, current: AuthInputs)
     case delegate(Delegate)
     case completePendingBookmark(id: String, userID: String, shouldBeBooked: Bool)
@@ -121,18 +121,24 @@ struct MainTabCoordinator {
 
   enum Delegate {
     case myProfileUpdated(AuthUser)
-    case myLoginRequested
-    case myCrewLoginRequested
-    case myFollowLoginRequested
-    case myLogoutRequested
-    case myWithdrawRequested
     case myProfileRefreshRequested
-    case dismissAuthFlow
-    case retryProfile
-    case resolveMigration(Bool)
   }
 
   var body: some ReducerOf<Self> {
+    Reduce { state, action in
+      // 자식 기능이 세션을 바꾸면 같은 액션 안에서 이전 계정의 화면 데이터를 비운다.
+      let previousSession = state.authInputs.session
+      let effect = features.reduce(
+        into: &state,
+        action: action
+      )
+      state.reconcileAccountDisplayData(previousSession: previousSession)
+      return effect
+    }
+  }
+
+  @ReducerBuilder<State, Action>
+  private var features: some ReducerOf<Self> {
     Scope(state: \.festivalState, action: \.festival) {
       FestivalCoordinator()
     }
@@ -154,14 +160,23 @@ struct MainTabCoordinator {
     ) {
       ProfileCoordinator()
     }
-    Scope(state: \.loginState, action: \.login) {
-      LoginFeature()
+    Scope(
+      state: \.authFlow,
+      action: \.auth
+    ) {
+      AuthCoordinator()
     }
     Scope(
-      state: \.authFlow.signUpFlow,
-      action: \.signUp
+      state: \.authFlow,
+      action: \.session
     ) {
-      SignUpFlowCoordinator()
+      SessionCoordinator()
+    }
+    Scope(
+      state: \.authFlow,
+      action: \.account
+    ) {
+      AccountCoordinator()
     }
 
     Reduce { state, action in
@@ -196,16 +211,26 @@ struct MainTabCoordinator {
         )
 
       case .festival(.delegate(.loginRequested)):
-        return .send(.delegate(.myLoginRequested))
+        return .send(.auth(.view(.loginRequested(nil))))
+
+      case let .festival(.delegate(.bookmarkRequested(id))):
+        // 예약 요청도 다른 축제 동작처럼 선택한 탭을 먼저 맞춘 뒤 프로필 확인을 시작한다.
+        return .merge(
+          syncSelectedTab(state: &state),
+          .send(.session(.view(.bookmarkRequested(
+            id: id,
+            displayedAsBooked: flagBoard(state)?.bookedFestivalIDs.contains(id) == true
+          ))))
+        )
 
       case .festival(.delegate(.flagTabRequested)):
         return .send(.selectTab(.flag))
 
       case .festival(.delegate(.crewLoginRequested)):
-        return .send(.delegate(.myCrewLoginRequested))
+        return .send(.auth(.view(.loginRequested(.crew))))
 
       case .festival(.delegate(.followLoginRequested)):
-        return .send(.delegate(.myFollowLoginRequested))
+        return .send(.auth(.view(.loginRequested(.follow))))
 
       case .festival(.delegate(.termsAcceptanceRequested)):
         return .send(.delegate(.myProfileRefreshRequested))
@@ -239,11 +264,7 @@ struct MainTabCoordinator {
         )
 
       case .festival:
-        switch state.selectedTab {
-        case .timetable: return syncTimetable(state: &state, appearing: false)
-        case .flag: return syncFlag(state: &state)
-        case .live, .my: return .none
-        }
+        return syncSelectedTab(state: &state)
 
       case let .timetableCoordinator(.delegate(.scheduleSaved(
         id,
@@ -271,15 +292,40 @@ struct MainTabCoordinator {
         ))))
 
       case .flagCoordinator(.delegate(.loginRequested)):
-        return .send(.delegate(.myLoginRequested))
+        return .send(.auth(.view(.loginRequested(nil))))
 
       case .flagCoordinator(.delegate(.followLoginRequested)):
-        return .send(.delegate(.myFollowLoginRequested))
+        return .send(.auth(.view(.loginRequested(.follow))))
 
       case .flagCoordinator(.delegate(.termsAcceptanceRequested)):
         return .send(.delegate(.myProfileRefreshRequested))
 
       case .flagCoordinator, .delegate:
+        return .none
+
+      case let .session(.delegate(delegate)):
+        return handleSessionDelegate(
+          state: &state,
+          delegate: delegate
+        )
+
+      case .session:
+        return .none
+
+      case let .auth(.delegate(delegate)):
+        return handleAuthDelegate(delegate)
+
+      case .auth:
+        return .none
+
+      case .account(.delegate(.accountDataCleared)):
+        state.clearAccountDisplayData()
+        return .send(.festival(.accountChanged))
+
+      case .account(.delegate(.sessionExpired)):
+        return .send(.session(.view(.sessionExpired)))
+
+      case .account:
         return .none
 
       case let .authInputsChanged(
@@ -296,9 +342,9 @@ struct MainTabCoordinator {
         )
 
       case .profileCoordinator(.profile(.delegate(.loginRequested))):
-        return .send(.delegate(.myLoginRequested))
+        return .send(.auth(.view(.loginRequested(nil))))
       case .profileCoordinator(.profile(.delegate(.bearerRequested))):
-        guard state.authFlow.hasSession else { return .send(.delegate(.myLoginRequested)) }
+        guard state.authFlow.hasSession else { return .send(.auth(.view(.loginRequested(nil)))) }
         guard let festivalID = state.bearerFestivalID else {
           state.profileState.destination = .alert(.alert(
             title: "페스티벌을 먼저 열어 주세요",
@@ -316,9 +362,9 @@ struct MainTabCoordinator {
       case .profileCoordinator(.profile(.delegate(.profileRefreshRequested))):
         return .send(.delegate(.myProfileRefreshRequested))
       case .profileCoordinator(.profile(.delegate(.logoutRequested))):
-        return .send(.delegate(.myLogoutRequested))
+        return .send(.account(.view(.signOutRequested)))
       case .profileCoordinator(.profile(.delegate(.withdrawRequested))):
-        return .send(.delegate(.myWithdrawRequested))
+        return .send(.account(.view(.withdrawRequested)))
       case let .profileCoordinator(.profile(.delegate(.profileUpdated(user)))):
         return .send(.delegate(.myProfileUpdated(user)))
       case .profileCoordinator(.profile(.destination(.presented(.packDetail(.delegate(.packDeleted)))))),
@@ -331,9 +377,6 @@ struct MainTabCoordinator {
         state.bearerEntry = nil
         return .none
       case .bearerEntry:
-        return .none
-
-      case .login, .signUp:
         return .none
 
       case let .completePendingBookmark(id, userID, shouldBeBooked):
@@ -358,6 +401,74 @@ struct MainTabCoordinator {
     }
   }
 
+  private func handleSessionDelegate(
+    state: inout State,
+    delegate: SessionCoordinator.Delegate
+  ) -> Effect<Action> {
+    switch delegate {
+    case .accountDataCleared:
+      state.clearAccountDisplayData()
+      return .send(.festival(.accountChanged))
+    case .accountChanged:
+      return .send(.festival(.accountChanged))
+    case let .bookmarksReloadRequested(userID):
+      return .send(.festival(.reloadBookmarks(userID: userID)))
+    case let .pendingBookmarkResolved(resolution):
+      return resolvePendingBookmark(resolution)
+    case .accountOperationInterrupted:
+      // 계정 작업이 같은 홈 범위에 있어 그 효과를 바로 취소한다.
+      return .send(.account(.view(.cancelOperation)))
+    }
+  }
+
+  private func handleAuthDelegate(_ delegate: AuthCoordinator.Delegate) -> Effect<Action> {
+    switch delegate {
+    case let .profileFetchRequested(generation):
+      return .send(.session(.view(.fetchProfile(generation: generation))))
+    case let .signUpSubmitted(
+      generation,
+      result
+    ):
+      return .send(.session(.view(.signUpSubmitted(
+        generation: generation,
+        result
+      ))))
+    case .retryProfileRequested:
+      return .send(.session(.view(.retryProfile)))
+    case let .pendingBookmarkResolved(resolution):
+      return resolvePendingBookmark(resolution)
+    }
+  }
+
+  /// 세션·로그인 코디네이터가 정한 대로 대기 예약을 계정에 반영하거나 예약 목록만 다시 읽는다.
+  private func resolvePendingBookmark(_ resolution: AuthFlowState.PendingBookmarkResolution) -> Effect<Action> {
+    switch resolution {
+    case let .reloadBookmarks(userID):
+      return .send(.festival(.reloadBookmarks(userID: userID)))
+    case let .complete(id, userID, shouldBeBooked):
+      return .send(.completePendingBookmark(
+        id: id,
+        userID: userID,
+        shouldBeBooked: shouldBeBooked
+      ))
+    }
+  }
+
+  /// 축제 화면이 바뀌면 지금 보이는 타임테이블·깃발 탭에 반영한다.
+  private func syncSelectedTab(state: inout State) -> Effect<Action> {
+    switch state.selectedTab {
+    case .timetable:
+      return syncTimetable(
+        state: &state,
+        appearing: false
+      )
+    case .flag:
+      return syncFlag(state: &state)
+    case .live, .my:
+      return .none
+    }
+  }
+
   /// 계정 입력의 소유자인 홈에서 각 기능에 필요한 변경만 순서대로 전달한다.
   private func synchronizeAuthInputs(
     previous: AuthInputs?,
@@ -366,21 +477,21 @@ struct MainTabCoordinator {
     guard previous != current else { return .none }
     return .run { send in
       if previous?.login != current.login, let login = current.login {
-        await send(.login(.view(.contextChanged(
+        await send(.auth(.login(.view(.contextChanged(
           login.context,
           flowMessage: login.message
-        ))))
+        )))))
       }
 
       if previous?.signUp != current.signUp {
         if let signUp = current.signUp {
-          await send(.signUp(.view(.flowChanged(
+          await send(.auth(.signUp(.view(.flowChanged(
             isSubmitting: signUp.isSubmitting,
             message: signUp.message,
             termsUpdateExhausted: signUp.termsUpdateExhausted
-          ))))
+          )))))
         } else if previous?.signUp != nil {
-          await send(.signUp(.view(.sheetClosed)))
+          await send(.auth(.signUp(.view(.sheetClosed))))
         }
       }
 
@@ -579,5 +690,31 @@ extension MainTabCoordinator.Action {
       id: 0,
       action: .directory(action)
     )))
+  }
+}
+
+// MARK: - 계정 화면 데이터
+
+extension MainTabCoordinator.State {
+  /// 비동기 입력 액션 전에 개인 데이터가 화면에 남지 않도록 동기 정리한다.
+  mutating func clearAccountDisplayData() {
+    festivalState.clearAccountData()
+    flagState.clearAccountData()
+    timetableState.mySetIDs = []
+    timetableState.scheduleSync = .idle
+    timetableState.isScheduleLimitReached = false
+    timetableState.setDetail = nil
+    timetableState.destination = nil
+    profileState.destination = nil
+  }
+
+  /// 확인한 계정이 바뀌면 이전 계정 데이터를 모두 비우고, 새로 로그인하면 비로그인 깃발 목록만 비운다.
+  mutating func reconcileAccountDisplayData(previousSession: MainTabCoordinator.AuthInputs.Session) {
+    let currentSession = authInputs.session
+    if previousSession.userID != nil && previousSession.userID != currentSession.userID {
+      clearAccountDisplayData()
+    } else if !previousSession.hasSession && currentSession.hasSession {
+      flagState.clearAccountData()
+    }
   }
 }

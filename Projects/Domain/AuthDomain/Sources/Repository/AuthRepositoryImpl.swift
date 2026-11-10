@@ -12,12 +12,15 @@ import FestiCoreAuthInterface
 import FestiCoreNetworkInterface
 import Foundation
 
+/// `AuthInterface`의 라이브 구현이다. 공용 `networkClient`로 인증 요청을 보내고,
+/// 검증한 로그인 응답과 세션 변경은 공용 `authService`에 저장한다.
 public struct AuthRepositoryImpl: AuthInterface {
   @Dependency(\.networkClient) private var client
   @Dependency(\.authService) private var authService
 
   public init() {}
 
+  /// 로그인은 네트워크 오류를 `AuthDomainError`로 매핑하지 않고 그대로 던진다.
   public func signIn(with credential: AuthCredential) async throws -> AuthLoginResult {
     switch credential {
     case let .google(idToken, serverAuthCode):
@@ -82,6 +85,7 @@ public struct AuthRepositoryImpl: AuthInterface {
     }
   }
 
+  /// 닉네임 변경은 네트워크 오류를 `AuthDomainError`로 매핑하지 않고 그대로 던진다(호출 화면이 `AuthDomainError` 외 오류를 실패로 본다).
   public func updateNickname(_ nickname: String) async throws -> AuthUser {
     guard let sessionID = await authService.authenticatedSessionID else {
       throw AuthDomainError.notAuthenticated
@@ -203,5 +207,17 @@ public struct AuthRepositoryImpl: AuthInterface {
       throw AuthDomainError.mapping(error)
     }
     guard await authService.completeWithdrawal() else { throw AuthDomainError.localSessionClearFailed }
+  }
+
+  public func commitSession(_ id: UUID) async -> Bool {
+    return await authService.commitSession(id)
+  }
+
+  public func discardSession(_ id: UUID) async -> Bool {
+    return await authService.discardSession(id)
+  }
+
+  public func signOut(ifSession id: UUID) async -> Bool {
+    return await authService.signOut(ifSession: id)
   }
 }

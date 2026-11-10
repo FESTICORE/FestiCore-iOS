@@ -5,6 +5,7 @@
 //  Created by FestiCore on 10/29/26.
 //
 
+import Foundation
 import IssueReporting
 
 public struct MockAuthRepository: AuthInterface {
@@ -42,5 +43,20 @@ public struct MockAuthRepository: AuthInterface {
   public func withdraw() async throws {
     reportIssue("\(dependencyName) 미등록")
     throw AuthDomainError.configurationMissing
+  }
+
+  public func commitSession(_ id: UUID) async -> Bool {
+    reportIssue("\(dependencyName) 미등록")
+    return false
+  }
+
+  public func discardSession(_ id: UUID) async -> Bool {
+    reportIssue("\(dependencyName) 미등록")
+    return false
+  }
+
+  public func signOut(ifSession id: UUID) async -> Bool {
+    reportIssue("\(dependencyName) 미등록")
+    return false
   }
 }

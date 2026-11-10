@@ -17,7 +17,6 @@ import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreDeviceInterface
-import FestiCoreNetworkInterface
 import FestiCoreStorageInterface
 import FestiCoreSharedUI
 import TCAFlow
@@ -205,19 +204,20 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival")))))) {
+    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival"))))))
+    await store.receive(\.scope.home.session.view.bookmarkRequested) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 1
       home.authFlow.pendingFestivalID = "festival"
       home.authFlow.isLoading = true
       $0 = .home(home)
     }
-    await store.receive(\.inner.sessionRestored) {
+    await store.receive(\.scope.home.session.inner.sessionRestored) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.presentation = .login
       $0 = .home(home)
     }
-    await store.receive(\.inner.profileLoaded) {
+    await store.receive(\.scope.home.session.inner.profileLoaded) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       $0 = .home(home)
@@ -243,7 +243,11 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-a", isLoggedIn: true))) {
+    await store.send(.scope(.home(.session(.inner(.sessionRestored(
+      generation: 1,
+      userID: "user-a",
+      isLoggedIn: true
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.lastVerifiedUserID = "user-a"
       home.authFlow.hasSession = true
@@ -273,8 +277,15 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-a", isLoggedIn: true)))
-    await store.send(.inner(.profileLoaded(generation: 1, .failure(.offline))))
+    await store.send(.scope(.home(.session(.inner(.sessionRestored(
+      generation: 1,
+      userID: "user-a",
+      isLoggedIn: true
+    ))))))
+    await store.send(.scope(.home(.session(.inner(.profileLoaded(
+      generation: 1,
+      .failure(.offline)
+    ))))))
     await store.receive(\.scope.home.completePendingBookmark)
     #expect(box.ids == ["saved", "new"])
     guard case let .home(restored) = store.state else { return }
@@ -298,14 +309,25 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-b", isLoggedIn: true)))
-    await store.send(.inner(.profileLoaded(generation: 1, .failure(.offline))))
+    await store.send(.scope(.home(.session(.inner(.sessionRestored(
+      generation: 1,
+      userID: "user-b",
+      isLoggedIn: true
+    ))))))
+    await store.send(.scope(.home(.session(.inner(.profileLoaded(
+      generation: 1,
+      .failure(.offline)
+    ))))))
     guard case let .home(switched) = store.state else { return }
     #expect(switched.authFlow.pendingFestivalID == nil)
     #expect(switched.authFlow.verifiedUserID == "user-b")
     #expect(box.ids == ["saved-a"])
 
-    await store.send(.inner(.sessionRestored(generation: 1, userID: nil, isLoggedIn: false)))
+    await store.send(.scope(.home(.session(.inner(.sessionRestored(
+      generation: 1,
+      userID: nil,
+      isLoggedIn: false
+    ))))))
     guard case let .home(signedOut) = store.state else { return }
     #expect(signedOut.authFlow.verifiedUserID == nil)
     #expect(signedOut.authFlow.lastVerifiedUserID == nil)
@@ -332,7 +354,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.view(.foregrounded)) {
+    await store.send(.view(.foregrounded))
+    await store.receive(\.scope.home.session.view.foregrounded) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 1
       home.authFlow.isLoading = true
@@ -340,13 +363,14 @@ struct AppCoordinatorTests {
       home.authFlow.verifiedUserID = nil
       $0 = .home(home)
     }
-    await store.receive(\.inner.profileLoaded) {
+    await store.receive(\.scope.home.session.inner.profileLoaded) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       home.authFlow.message = "회원 정보를 확인할 수 없어요. 다시 시도해 주세요."
       $0 = .home(home)
     }
-    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival")))))) {
+    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival"))))))
+    await store.receive(\.scope.home.session.view.bookmarkRequested) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 2
       home.authFlow.pendingFestivalID = "festival"
@@ -355,7 +379,7 @@ struct AppCoordinatorTests {
       home.authFlow.message = nil
       $0 = .home(home)
     }
-    await store.receive(\.inner.profileLoaded) {
+    await store.receive(\.scope.home.session.inner.profileLoaded) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       home.authFlow.presentation = .retry
@@ -384,14 +408,15 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival")))))) {
+    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival"))))))
+    await store.receive(\.scope.home.session.view.bookmarkRequested) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 2
       home.authFlow.pendingFestivalID = "festival"
       home.authFlow.pendingOwnerID = "user-a"
       $0 = .home(home)
     }
-    await store.receive(\.inner.profileLoaded) {
+    await store.receive(\.scope.home.session.inner.profileLoaded) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       home.authFlow.pendingFestivalID = nil
@@ -422,7 +447,7 @@ struct AppCoordinatorTests {
       )
     }
 
-    await store.send(.view(.dismissFlow)) {
+    await store.send(.scope(.home(.auth(.view(.dismissFlow))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.pendingFestivalID = nil
       home.authFlow.generation = 2
@@ -432,7 +457,7 @@ struct AppCoordinatorTests {
     }
     await store.receive(\.scope.home.authInputsChanged)
     let result = AuthLoginResult(newUser: false, user: eligibleProfile(id: "user-a").user)
-    await store.send(.scope(.home(.login(.delegate(.signedIn(result))))))
+    await store.send(.scope(.home(.auth(.login(.delegate(.signedIn(result)))))))
     #expect(box.ids.isEmpty)
   }
 
@@ -460,10 +485,10 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.profileUpdated(
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
       generation: 1,
       .failure(.notAuthenticated)
-    ))) {
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.hasSession = false
       home.authFlow.isLoading = false
@@ -494,25 +519,25 @@ struct AppCoordinatorTests {
   }
 
   @Test func signOutClearsPreviousAccountFlagsLiveBoardAndBookingsImmediately() async {
-    await expectAccountDataCleared(by: .inner(.myAccountFinished(
+    await expectAccountDataCleared(by: .scope(.home(.account(.inner(.finished(
       generation: 1,
       operation: .signOut,
       result: .success(())
-    )))
+    ))))))
   }
 
   @Test func profileLoad401ClearsPreviousAccountFlagsLiveBoardAndBookingsImmediately() async {
-    await expectAccountDataCleared(by: .inner(.profileLoaded(
+    await expectAccountDataCleared(by: .scope(.home(.session(.inner(.profileLoaded(
       generation: 1,
       .failure(.notAuthenticated)
-    )))
+    ))))))
   }
 
   @Test func profileUpdate401ClearsPreviousAccountFlagsLiveBoardAndBookingsImmediately() async {
-    await expectAccountDataCleared(by: .inner(.profileUpdated(
+    await expectAccountDataCleared(by: .scope(.home(.session(.view(.signUpSubmitted(
       generation: 1,
       .failure(.notAuthenticated)
-    )))
+    ))))))
   }
 
   private func expectAccountDataCleared(by action: AppCoordinator.Action) async {
@@ -572,7 +597,7 @@ struct AppCoordinatorTests {
       Issue.record("홈 상태가 아니에요")
       return
     }
-    await store.receive({ $0.homeFlagDirectoryAction == .accountChanged })
+    await store.receive { $0.homeFlagDirectoryAction == .accountChanged }
     guard case let .home(flagCleared) = store.state else { return }
     #expect(flagCleared.flagState.snapshot == nil)
     #expect(flagCleared.flagState.viewState == .idle)
@@ -611,7 +636,10 @@ struct AppCoordinatorTests {
       $0.useAppCoordinatorFestivalUseCases()
     }
 
-    await store.send(.inner(.profileUpdated(generation: 1, .failure(.offline)))) {
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
+      generation: 1,
+      .failure(.offline)
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       home.authFlow.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
@@ -619,8 +647,8 @@ struct AppCoordinatorTests {
     }
     // 가입 시트가 떠 있으므로 바뀐 흐름 문구를 가입 화면에 알린다.
     await store.receive(\.scope.home.authInputsChanged)
-    await store.receive(\.scope.home.signUp.view.flowChanged)
-    await store.receive(\.scope.home.signUp.router) {
+    await store.receive(\.scope.home.auth.signUp.view.flowChanged)
+    await store.receive(\.scope.home.auth.signUp.router) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.signUp.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
       $0 = .home(home)
@@ -663,14 +691,20 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.signUp(.view(.submitTapped)))))
-    await store.receive(\.scope.home.signUp.router)
-    await store.receive(\.scope.home.signUp.delegate.submitRequested) {
+    await store.send(.scope(.home(.auth(.signUp(.view(.submitTapped))))))
+    await store.receive(\.scope.home.auth.signUp.router)
+    await store.receive {
+      guard case .scope(.home(.auth(.signUp(.router(.routeAction(
+        id: _,
+        action: .signUp(.delegate(.submitRequested))
+      )))))) = $0 else { return false }
+      return true
+    } assert: {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = true
       $0 = .home(home)
     }
-    await store.receive(\.inner.profileUpdated) {
+    await store.receive(\.scope.home.session.view.signUpSubmitted) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = true
       home.authFlow.hasRetriedTermsUpdate = true
@@ -681,7 +715,7 @@ struct AppCoordinatorTests {
       home.authFlow.generation = 2
       $0 = .home(home)
     }
-    await store.receive(\.inner.profileLoaded) {
+    await store.receive(\.scope.home.session.inner.profileLoaded) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       home.authFlow.profile = AuthProfile(user: user, currentTermsVersion: "2026-10")
@@ -718,7 +752,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.view(.foregrounded)) {
+    await store.send(.view(.foregrounded))
+    await store.receive(\.scope.home.session.view.foregrounded) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 1
       home.authFlow.isLoading = true
@@ -727,7 +762,7 @@ struct AppCoordinatorTests {
       home.authFlow.presentation = nil
       $0 = .home(home)
     }
-    await store.receive(\.inner.profileLoaded) {
+    await store.receive(\.scope.home.session.inner.profileLoaded) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       home.authFlow.profile = profile
@@ -750,23 +785,23 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.signUp(.view(.serviceTermsChanged(true))))))
-    await store.receive(\.scope.home.signUp.router)
+    await store.send(.scope(.home(.auth(.signUp(.view(.serviceTermsChanged(true)))))))
+    await store.receive(\.scope.home.auth.signUp.router)
     guard case let .home(one) = store.state else { return }
     #expect(!one.authFlow.signUp.acceptedTerms)
     #expect(one.authFlow.signUp.consentedVersion == nil)
     #expect(one.authFlow.signUp.draftOwnerID == "user-a")
 
-    await store.send(.scope(.home(.signUp(.view(.privacyTermsChanged(true))))))
-    await store.receive(\.scope.home.signUp.router)
+    await store.send(.scope(.home(.auth(.signUp(.view(.privacyTermsChanged(true)))))))
+    await store.receive(\.scope.home.auth.signUp.router)
     guard case let .home(both) = store.state else { return }
     #expect(both.authFlow.signUp.acceptedTerms)
     #expect(both.authFlow.signUp.consentedVersion == "2026-10")
     // 시안 S14-2는 필수 약관 2개만 받으므로 둘 다 켜지면 전체 동의다.
     #expect(both.authFlow.signUp.isAllConsented)
 
-    await store.send(.scope(.home(.signUp(.view(.allConsentToggled)))))
-    await store.receive(\.scope.home.signUp.router)
+    await store.send(.scope(.home(.auth(.signUp(.view(.allConsentToggled))))))
+    await store.receive(\.scope.home.auth.signUp.router)
     guard case let .home(none) = store.state else { return }
     #expect(!none.authFlow.signUp.acceptedServiceTerms && !none.authFlow.signUp.acceptedPrivacyTerms)
     #expect(!none.authFlow.signUp.acceptedTerms)
@@ -786,7 +821,10 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     let profile = AuthProfile(user: signUpUser("user-b"), currentTermsVersion: "2026-10")
-    await store.send(.inner(.profileLoaded(generation: 1, .success(profile))))
+    await store.send(.scope(.home(.session(.inner(.profileLoaded(
+      generation: 1,
+      .success(profile)
+    ))))))
     guard case let .home(loaded) = store.state else { return }
     #expect(loaded.authFlow.signUp.nickname.isEmpty)
     #expect(!loaded.authFlow.signUp.acceptedServiceTerms)
@@ -807,7 +845,10 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
     store.exhaustivity = .off
 
-    await store.send(.inner(.profileUpdated(generation: 1, .success(signUpUser("user-b")))))
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
+      generation: 1,
+      .success(signUpUser("user-b"))
+    ))))))
     guard case let .home(after) = store.state else { return }
     #expect(after.authFlow.signUp.nickname.isEmpty)
     #expect(!after.authFlow.hasRetriedTermsUpdate)
@@ -826,7 +867,10 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     let profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
-    await store.send(.inner(.profileLoaded(generation: 1, .success(profile))))
+    await store.send(.scope(.home(.session(.inner(.profileLoaded(
+      generation: 1,
+      .success(profile)
+    ))))))
     guard case let .home(loaded) = store.state else { return }
     #expect(loaded.authFlow.signUp.nickname.isEmpty)
     #expect(!loaded.authFlow.signUp.acceptedPrivacyTerms)
@@ -848,7 +892,10 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     let profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-11")
-    await store.send(.inner(.profileLoaded(generation: 1, .success(profile))))
+    await store.send(.scope(.home(.session(.inner(.profileLoaded(
+      generation: 1,
+      .success(profile)
+    ))))))
     guard case let .home(loaded) = store.state else { return }
     #expect(!loaded.authFlow.signUp.acceptedServiceTerms && !loaded.authFlow.signUp.acceptedPrivacyTerms)
     #expect(!loaded.authFlow.signUp.acceptedTerms)
@@ -864,8 +911,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.signUp(.view(.serviceTermsChanged(true))))))
-    await store.receive(\.scope.home.signUp.router)
+    await store.send(.scope(.home(.auth(.signUp(.view(.serviceTermsChanged(true)))))))
+    await store.receive(\.scope.home.auth.signUp.router)
     // 포그라운드 갱신처럼 프로필을 비운 뒤 새 약관 버전 프로필을 받는다.
     store.exhaustivity = .off
     guard case var .home(refreshing) = store.state else { return }
@@ -876,9 +923,12 @@ struct AppCoordinatorTests {
     }
     refreshed.exhaustivity = .off
     let newProfile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-11")
-    await refreshed.send(.inner(.profileLoaded(generation: 1, .success(newProfile))))
-    await refreshed.send(.scope(.home(.signUp(.view(.privacyTermsChanged(true))))))
-    await refreshed.receive(\.scope.home.signUp.router)
+    await refreshed.send(.scope(.home(.session(.inner(.profileLoaded(
+      generation: 1,
+      .success(newProfile)
+    ))))))
+    await refreshed.send(.scope(.home(.auth(.signUp(.view(.privacyTermsChanged(true)))))))
+    await refreshed.receive(\.scope.home.auth.signUp.router)
     guard case let .home(after) = refreshed.state else { return }
     #expect(!after.authFlow.signUp.acceptedServiceTerms)
     #expect(!after.authFlow.signUp.acceptedTerms)
@@ -900,9 +950,15 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.signUp(.view(.nicknameChanged(""))))))
-    await store.receive(\.scope.home.signUp.router)
-    await store.send(.inner(.profileLoaded(generation: 1, .success(AuthProfile(user: user, currentTermsVersion: "2026-10")))))
+    await store.send(.scope(.home(.auth(.signUp(.view(.nicknameChanged("")))))))
+    await store.receive(\.scope.home.auth.signUp.router)
+    await store.send(.scope(.home(.session(.inner(.profileLoaded(
+      generation: 1,
+      .success(AuthProfile(
+        user: user,
+        currentTermsVersion: "2026-10"
+      ))
+    ))))))
     guard case let .home(loaded) = store.state else { return }
     #expect(loaded.authFlow.signUp.nickname.isEmpty)
   }
@@ -922,7 +978,13 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.profileLoaded(generation: 1, .success(AuthProfile(user: userB, currentTermsVersion: "2026-10")))))
+    await store.send(.scope(.home(.session(.inner(.profileLoaded(
+      generation: 1,
+      .success(AuthProfile(
+        user: userB,
+        currentTermsVersion: "2026-10"
+      ))
+    ))))))
     guard case let .home(loaded) = store.state else { return }
     #expect(loaded.authFlow.signUp.nickname == "B 닉네임")
     #expect(loaded.authFlow.signUp.draftOwnerID == "user-b")
@@ -930,14 +992,14 @@ struct AppCoordinatorTests {
 
   @Test func unauthenticatedProfileResultsDropPendingBookmarkWithoutKnownOwner() async {
     for result in [
-      AppCoordinator.Action.inner(.profileLoaded(
+      AppCoordinator.Action.scope(.home(.session(.inner(.profileLoaded(
         generation: 1,
         .failure(.notAuthenticated)
-      )),
-      .inner(.profileUpdated(
+      ))))),
+      .scope(.home(.session(.view(.signUpSubmitted(
         generation: 1,
         .failure(.notAuthenticated)
-      ))
+      )))))
     ] {
       var home = MainTabCoordinator.State()
       home.authFlow.generation = 1
@@ -968,10 +1030,10 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.profileLoaded(
+    await store.send(.scope(.home(.session(.inner(.profileLoaded(
       generation: 1,
       .failure(.notAuthenticated)
-    )))
+    ))))))
     guard case let .home(after) = store.state else { return }
     #expect(after.authFlow.pendingFestivalID == "festival")
     #expect(after.authFlow.presentation == .login)
@@ -994,10 +1056,10 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.profileUpdated(
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
       generation: 1,
       .failure(.notAuthenticated)
-    )))
+    ))))))
     guard case let .home(after) = store.state else { return }
     #expect(after.authFlow.signUp.nickname.isEmpty)
     #expect(!after.authFlow.signUp.nicknameEdited)
@@ -1034,10 +1096,10 @@ struct AppCoordinatorTests {
       $0.useAppCoordinatorFestivalUseCases()
     }
 
-    await store.send(.inner(.profileUpdated(
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
       generation: 2,
       .failure(.termsVersionOutdated)
-    ))) {
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       home.authFlow.termsUpdateExhausted = true
@@ -1048,8 +1110,8 @@ struct AppCoordinatorTests {
       $0 = .home(home)
     }
     await store.receive(\.scope.home.authInputsChanged)
-    await store.receive(\.scope.home.signUp.view.flowChanged)
-    await store.receive(\.scope.home.signUp.router) {
+    await store.receive(\.scope.home.auth.signUp.view.flowChanged)
+    await store.receive(\.scope.home.auth.signUp.router) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.signUp.termsUpdateExhausted = true
       home.authFlow.signUp.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
@@ -1315,7 +1377,7 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     // 마이 화면 상태는 앱이 보낸 입력 액션으로만 바뀐다.
-    await store.send(.inner(.sessionExpired))
+    await store.send(.scope(.home(.session(.view(.sessionExpired)))))
     await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged)
     guard case let .home(updated) = store.state else {
       Issue.record("홈 상태가 아니다")
@@ -1467,7 +1529,7 @@ struct AppCoordinatorTests {
 
     await store.send(.scope(.home(.festival(.router(.routeAction(id: 1, action: .liveBoard(.view(.loginTapped))))))))
     await store.receive {
-      guard case .scope(.home(.delegate(.myLoginRequested))) = $0 else { return false }
+      guard case .scope(.home(.auth(.view(.loginRequested(.none))))) = $0 else { return false }
       return true
     }
     guard case let .home(presented) = store.state else { return }
@@ -1483,7 +1545,11 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-a", isLoggedIn: true)))
+    await store.send(.scope(.home(.session(.inner(.sessionRestored(
+      generation: 1,
+      userID: "user-a",
+      isLoggedIn: true
+    ))))))
     await store.receive {
       guard case .scope(.home(.festival(.sessionChanged(hasSession: true, userID: "user-a")))) = $0 else { return false }
       return true
@@ -1623,8 +1689,11 @@ struct AppCoordinatorTests {
     await store.send(.flagDirectory(.directory(.delegate(.loginRequested))))
     await store.receive(\.flagCoordinator.delegate.loginRequested)
     await store.receive {
-      guard case .delegate(.myLoginRequested) = $0 else { return false }
+      guard case .auth(.view(.loginRequested(.none))) = $0 else { return false }
       return true
+    } assert: {
+      $0.authFlow.generation = 1
+      $0.authFlow.presentation = .login
     }
   }
 
@@ -1658,7 +1727,7 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.delegate(.myLogoutRequested)))) {
+    await store.send(.scope(.home(.account(.view(.signOutRequested))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 1
       home.authFlow.accountOperationGeneration = 1
@@ -1668,7 +1737,7 @@ struct AppCoordinatorTests {
     }
     guard case let .home(loading) = store.state else { return }
     #expect(loading.authFlow.profile?.user.id == "user-a")
-    await store.receive(\.inner.myAccountFinished) {
+    await store.receive(\.scope.home.account.inner.finished) {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
       home.authFlow.generation = 1
@@ -1708,8 +1777,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.delegate(.myLogoutRequested))))
-    await store.receive(\.inner.myAccountFinished)
+    await store.send(.scope(.home(.account(.view(.signOutRequested)))))
+    await store.receive(\.scope.home.account.inner.finished)
 
     #expect(calls.value == ["unbind", "end:activity-a", "signOut"])
   }
@@ -1735,8 +1804,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.delegate(.myLogoutRequested))))
-    await store.receive(\.inner.myAccountFinished)
+    await store.send(.scope(.home(.account(.view(.signOutRequested)))))
+    await store.receive(\.scope.home.account.inner.finished)
 
     #expect(calls.value == ["unbind", "signOut"])
     guard case let .home(signedOut) = store.state else { return }
@@ -1764,8 +1833,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.delegate(.myWithdrawRequested))))
-    await store.receive(\.inner.myAccountFinished)
+    await store.send(.scope(.home(.account(.view(.withdrawRequested)))))
+    await store.receive(\.scope.home.account.inner.finished)
 
     #expect(calls.value == ["unbind", "withdraw"])
     guard case let .home(withdrawn) = store.state else { return }
@@ -1798,12 +1867,12 @@ struct AppCoordinatorTests {
       )
     }
 
-    let operation = store.send(.scope(.home(.delegate(.myWithdrawRequested))))
+    let operation = store.send(.scope(.home(.account(.view(.withdrawRequested)))))
     guard await iterator.next() != nil else {
       Issue.record("기기 바인딩 해제가 시작되지 않았어요")
       return
     }
-    store.send(.inner(.sessionExpired))
+    store.send(.scope(.home(.session(.view(.sessionExpired)))))
     await gate.failWithCancellation()
     await operation.finish()
 
@@ -1828,11 +1897,11 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.myAccountFinished(
+    await store.send(.scope(.home(.account(.inner(.finished(
       generation: 1,
       operation: .signOut,
       result: .success(())
-    ))) {
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
       home.authFlow.generation = 1
@@ -1861,7 +1930,7 @@ struct AppCoordinatorTests {
       $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
     }
 
-    await store.send(.scope(.home(.delegate(.myWithdrawRequested)))) {
+    await store.send(.scope(.home(.account(.view(.withdrawRequested))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 1
       home.authFlow.accountOperationGeneration = 1
@@ -1874,7 +1943,7 @@ struct AppCoordinatorTests {
     await store.receive(\.scope.home.profileCoordinator.profile.destination.presented.account.view.accountChanged) {
       syncAccountScreen(&$0)
     }
-    await store.receive(\.inner.myAccountFinished) {
+    await store.receive(\.scope.home.account.inner.finished) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.accountOperationGeneration = nil
       home.authFlow.accountOperation = nil
@@ -1915,8 +1984,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.delegate(.myWithdrawRequested))))
-    await store.receive(\.inner.sessionExpired)
+    await store.send(.scope(.home(.account(.view(.withdrawRequested)))))
+    await store.receive(\.scope.home.session.view.sessionExpired)
     await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged)
     guard case let .home(cleared) = store.state else { return }
     #expect(!cleared.authFlow.hasSession)
@@ -1947,11 +2016,11 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.myAccountFinished(
+    await store.send(.scope(.home(.account(.inner(.finished(
       generation: 1,
       operation: .withdraw,
       result: .failure(.notAuthenticated)
-    ))) {
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
       home.authFlow.generation = 1
@@ -1982,15 +2051,19 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.view(.dismissFlow)) {
+    await store.send(.scope(.home(.auth(.view(.dismissFlow))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 2
       home.authFlow.isLoading = false
       home.authFlow.presentation = nil
       $0 = .home(home)
     }
-    await store.send(.inner(.profileLoaded(generation: 1, .failure(.offline))))
-    await store.send(.view(.foregrounded)) {
+    await store.send(.scope(.home(.session(.inner(.profileLoaded(
+      generation: 1,
+      .failure(.offline)
+    ))))))
+    await store.send(.view(.foregrounded))
+    await store.receive(\.scope.home.session.view.foregrounded) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 3
       home.authFlow.isLoading = true
@@ -2016,7 +2089,7 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.view(.dismissFlow)) {
+    await store.send(.scope(.home(.auth(.view(.dismissFlow))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 2
       home.authFlow.isLoading = false
@@ -2024,8 +2097,11 @@ struct AppCoordinatorTests {
       $0 = .home(home)
     }
     let previous = eligibleProfile(id: "user-a").user
-    await store.send(.inner(.profileUpdated(generation: 1, .success(previous))))
-    await store.send(.scope(.home(.delegate(.myLogoutRequested)))) {
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
+      generation: 1,
+      .success(previous)
+    ))))))
+    await store.send(.scope(.home(.account(.view(.signOutRequested))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 3
       home.authFlow.accountOperationGeneration = 3
@@ -2049,13 +2125,17 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionRestored(generation: 0, userID: nil, isLoggedIn: true))) {
+    await store.send(.scope(.home(.session(.inner(.sessionRestored(
+      generation: 0,
+      userID: nil,
+      isLoggedIn: true
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.hasSession = true
       $0 = .home(home)
     }
 
-    await store.send(.scope(.home(.delegate(.myLogoutRequested)))) {
+    await store.send(.scope(.home(.account(.view(.signOutRequested))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 1
       home.authFlow.accountOperationGeneration = 1
@@ -2064,7 +2144,7 @@ struct AppCoordinatorTests {
       home.authFlow.message = nil
       $0 = .home(home)
     }
-    await store.receive(\.inner.myAccountFinished) {
+    await store.receive(\.scope.home.account.inner.finished) {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
       home.authFlow.generation = 1
@@ -2091,11 +2171,11 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival"))))))
-    await store.send(.inner(.myAccountFinished(
+    await store.send(.scope(.home(.account(.inner(.finished(
       generation: 1,
       operation: .signOut,
       result: .success(())
-    ))) {
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
       home.authFlow.generation = 1
@@ -2119,18 +2199,19 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival")))))) {
+    await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival"))))))
+    await store.receive(\.scope.home.session.view.bookmarkRequested) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 2
       home.authFlow.pendingFestivalID = "festival"
       $0 = .home(home)
     }
-    await store.receive(\.inner.sessionRestored) {
+    await store.receive(\.scope.home.session.inner.sessionRestored) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.presentation = .login
       $0 = .home(home)
     }
-    await store.receive(\.inner.profileLoaded) {
+    await store.receive(\.scope.home.session.inner.profileLoaded) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       $0 = .home(home)
@@ -2154,17 +2235,17 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.view(.dismissFlow)) {
+    await store.send(.scope(.home(.auth(.view(.dismissFlow))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 2
       home.authFlow.presentation = nil
       $0 = .home(home)
     }
-    await store.send(.inner(.myAccountFinished(
+    await store.send(.scope(.home(.account(.inner(.finished(
       generation: 1,
       operation: .withdraw,
       result: .success(())
-    ))) {
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
       home.authFlow.generation = 2
@@ -2185,7 +2266,10 @@ struct AppCoordinatorTests {
       $0.useAppCoordinatorFestivalUseCases()
     }
 
-    await store.send(.inner(.profileUpdated(generation: 1, .failure(.offline)))) {
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
+      generation: 1,
+      .failure(.offline)
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.isLoading = false
       home.authFlow.message = "오프라인에서 저장하지 못했어요. 연결 후 다시 시도해 주세요."
@@ -2222,13 +2306,16 @@ struct AppCoordinatorTests {
     board.bookedUserID = "user-a"
     board.bookedFestivalIDs = ["festival"]
     home.festivalState.routes.push(.liveBoard(board))
-    expectFlagClearedImmediately(from: home, by: .inner(.sessionExpired))
+    expectFlagClearedImmediately(
+      from: home,
+      by: .scope(.home(.session(.view(.sessionExpired))))
+    )
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionExpired))
+    await store.send(.scope(.home(.session(.view(.sessionExpired)))))
     await store.receive {
       guard case .scope(.home(.festival(.accountChanged))) = $0 else { return false }
       return true
@@ -2260,7 +2347,7 @@ struct AppCoordinatorTests {
     #expect(expired.timetableState.mySetIDs.isEmpty)
     #expect(expired.festivalState.routes.last?.screen.liveBoard?.bookedFestivalIDs.isEmpty == true)
 
-    await store.send(.inner(.sessionExpired))
+    await store.send(.scope(.home(.session(.view(.sessionExpired)))))
     guard case let .home(unchanged) = store.state else { return }
     #expect(unchanged.authFlow.generation == 1)
   }
@@ -2280,7 +2367,7 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     // 토큰 갱신 401은 프로필 실패 응답보다 만료 알림이 먼저 도착한다.
-    await store.send(.inner(.sessionExpired))
+    await store.send(.scope(.home(.session(.view(.sessionExpired)))))
     guard case let .home(expired) = store.state else { return }
     #expect(expired.authFlow.presentation == .login)
     #expect(expired.authFlow.pendingFestivalID == "festival")
@@ -2316,7 +2403,7 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionExpired))
+    await store.send(.scope(.home(.session(.view(.sessionExpired)))))
     await store.finish()
 
     #expect(calls.value == ["recover", "end:activity-a"])
@@ -2333,7 +2420,7 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionExpired))
+    await store.send(.scope(.home(.session(.view(.sessionExpired)))))
     guard case let .home(expired) = store.state else { return }
     #expect(expired.authFlow.pendingFestivalID == nil)
     #expect(expired.authFlow.pendingOwnerID == nil)
@@ -2351,7 +2438,11 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionRestored(generation: 0, userID: nil, isLoggedIn: false)))
+    await store.send(.scope(.home(.session(.inner(.sessionRestored(
+      generation: 0,
+      userID: nil,
+      isLoggedIn: false
+    ))))))
     guard case let .home(restored) = store.state else { return }
     #expect(restored.authFlow.pendingFestivalID == nil)
     #expect(!restored.authFlow.pendingShouldBeBooked)
@@ -2368,10 +2459,10 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.profileLoaded(
+    await store.send(.scope(.home(.session(.inner(.profileLoaded(
       generation: 1,
       .failure(.notAuthenticated)
-    )))
+    ))))))
     await store.finish()
     guard case let .home(signedOut) = store.state else { return }
     #expect(signedOut.timetableState.mySetIDs == ["local-set"])
@@ -2399,7 +2490,7 @@ struct AppCoordinatorTests {
       $0.useAppCoordinatorFestivalUseCases()
     }
 
-    store.send(.inner(.sessionExpired))
+    store.send(.scope(.home(.session(.view(.sessionExpired)))))
     guard case let .home(expired) = store.withState({ $0 }) else { return }
     #expect(!expired.authFlow.hasSession)
     #expect(expired.authFlow.profile == nil)
@@ -2411,8 +2502,16 @@ struct AppCoordinatorTests {
     #expect(expired.authFlow.accountOperation == nil)
     #expect(expired.authFlow.message?.contains("결과를 확인할 수 없어요") == true)
 
-    store.send(.inner(.sessionRestored(generation: 3, userID: "user-b", isLoggedIn: true)))
-    store.send(.inner(.myAccountFinished(generation: 2, operation: .withdraw, result: .success(()))))
+    store.send(.scope(.home(.session(.inner(.sessionRestored(
+      generation: 3,
+      userID: "user-b",
+      isLoggedIn: true
+    ))))))
+    store.send(.scope(.home(.account(.inner(.finished(
+      generation: 2,
+      operation: .withdraw,
+      result: .success(())
+    ))))))
     guard case let .home(newAccount) = store.withState({ $0 }) else { return }
     #expect(newAccount.authFlow.hasSession)
     #expect(newAccount.authFlow.lastVerifiedUserID == "user-b")
@@ -2439,12 +2538,12 @@ struct AppCoordinatorTests {
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
 
-    let operation = store.send(.scope(.home(.delegate(.myWithdrawRequested))))
+    let operation = store.send(.scope(.home(.account(.view(.withdrawRequested)))))
     guard await iterator.next() != nil else {
       Issue.record("회원 탈퇴 요청이 시작되지 않았어요")
       return
     }
-    store.send(.inner(.sessionExpired))
+    store.send(.scope(.home(.session(.view(.sessionExpired)))))
     await gate.fail()
     await operation.finish()
 
@@ -2454,6 +2553,66 @@ struct AppCoordinatorTests {
     #expect(expired.profileState.destination == nil)
     #expect(expired.authFlow.accountOperationGeneration == nil)
     #expect(expired.authFlow.message?.contains("결과를 확인할 수 없어요") == true)
+  }
+
+  @Test func sessionExpiryCancelsInFlightAccountOperationThroughDelegate() async {
+    let (
+      started,
+      signal
+    ) = AsyncStream<Void>.makeStream()
+    let gate = WithdrawalGate(started: signal)
+    var iterator = started.makeAsyncIterator()
+    var home = MainTabCoordinator.State(selectedTab: .my)
+    home.authFlow.hasSession = true
+    home.authFlow.profile = eligibleProfile(id: "user-a")
+    home.authFlow.verifiedUserID = "user-a"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useAppCoordinatorFestivalUseCases()
+      $0.analyticsUseCase = .recording()
+      $0.authUseCase = SuspendedWithdrawalAuthUseCase(gate: gate)
+      $0.deviceRegistrationService = UnboundTestDevice()
+      $0.authService = StubAuthService(
+        loggedIn: false,
+        userID: nil
+      )
+      $0.festivalBookedStore = FestivalBookedStore(
+        load: { _ in [] },
+        save: { _, _ in }
+      )
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.account(.view(.withdrawRequested))))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 1
+      home.authFlow.accountOperationGeneration = 1
+      home.authFlow.accountOperation = .withdraw
+      home.authFlow.isLoading = true
+      $0 = .home(home)
+    }
+    guard await iterator.next() != nil else {
+      Issue.record("회원 탈퇴 요청이 시작되지 않았어요")
+      return
+    }
+    await store.send(.scope(.home(.session(.view(.sessionExpired))))) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.generation = 2
+      home.authFlow.accountOperationGeneration = nil
+      home.authFlow.accountOperation = nil
+      home.authFlow.isLoading = false
+      home.authFlow.hasSession = false
+      $0 = .home(home)
+    }
+    // 세션이 끝났다는 위임을 받은 홈이 계정 코디네이터에 진행 중인 작업 취소를 명령한다.
+    await store.receive(\.scope.home.session.delegate.accountOperationInterrupted)
+    await store.receive(\.scope.home.account.view.cancelOperation)
+    await gate.fail()
+    await store.finish()
+
+    guard case let .home(expired) = store.state else { return }
+    #expect(expired.authFlow.message == AuthFlowState.Message.sessionExpiredDuringWithdraw)
   }
 
   @Test func expiryNotificationIsSubscribedAfterSplashTransition() async {
@@ -2469,11 +2628,11 @@ struct AppCoordinatorTests {
 
     await store.send(.inner(.completeHomeTransition))
     await store.receive(\.view.foregrounded)
-    await store.receive(\.inner.profileLoaded)
+    await store.receive(\.scope.home.session.inner.profileLoaded)
     guard case let .home(signedIn) = store.state else { return }
     #expect(signedIn.authFlow.hasSession)
     continuation.yield(())
-    await store.receive(\.inner.sessionExpired)
+    await store.receive(\.scope.home.session.view.sessionExpired)
     guard case let .home(expired) = store.state else { return }
     #expect(!expired.authFlow.hasSession)
     #expect(expired.authFlow.profile == nil)
@@ -2496,7 +2655,11 @@ struct AppCoordinatorTests {
       $0.useAppCoordinatorFestivalUseCases()
     }
 
-    store.send(.inner(.sessionRestored(generation: 1, userID: nil, isLoggedIn: false)))
+    store.send(.scope(.home(.session(.inner(.sessionRestored(
+      generation: 1,
+      userID: nil,
+      isLoggedIn: false
+    ))))))
     guard case let .home(signedOut) = store.withState({ $0 }) else { return }
     #expect(signedOut.flagState.snapshot == nil)
     #expect(signedOut.flagState.viewState == .idle)
@@ -2524,7 +2687,11 @@ struct AppCoordinatorTests {
     )
     expectFlagClearedImmediately(
       from: home,
-      by: .inner(.sessionRestored(generation: 1, userID: "user-b", isLoggedIn: true))
+      by: .scope(.home(.session(.inner(.sessionRestored(
+        generation: 1,
+        userID: "user-b",
+        isLoggedIn: true
+      )))))
     ) { $0.festivalBookedStore = bookedStore }
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
@@ -2532,7 +2699,11 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionRestored(generation: 1, userID: "user-b", isLoggedIn: true)))
+    await store.send(.scope(.home(.session(.inner(.sessionRestored(
+      generation: 1,
+      userID: "user-b",
+      isLoggedIn: true
+    ))))))
     await store.receive {
       guard case .scope(.home(.festival(.reloadBookmarks(userID: "user-b")))) = $0 else { return false }
       return true
@@ -2559,7 +2730,10 @@ struct AppCoordinatorTests {
     #expect(updated.festivalState.routes.last?.screen.liveBoard?.bookedUserID == "user-b")
     #expect(updated.festivalState.routes.last?.screen.liveBoard?.bookedFestivalIDs == ["booked-b"])
 
-    await store.send(.inner(.profileLoaded(generation: 1, .failure(.offline))))
+    await store.send(.scope(.home(.session(.inner(.profileLoaded(
+      generation: 1,
+      .failure(.offline)
+    ))))))
     guard case let .home(offline) = store.state else { return }
     #expect(offline.festivalState.routes.last?.screen.liveBoard?.bookedUserID == "user-b")
     #expect(offline.festivalState.routes.last?.screen.liveBoard?.bookedFestivalIDs == ["booked-b"])
@@ -2574,7 +2748,11 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.sessionRestored(generation: 0, userID: "user-a", isLoggedIn: true)))
+    await store.send(.scope(.home(.session(.inner(.sessionRestored(
+      generation: 0,
+      userID: "user-a",
+      isLoggedIn: true
+    ))))))
     await store.receive {
       guard case .scope(.home(.festival(.sessionChanged(hasSession: true, userID: "user-a")))) = $0 else { return false }
       return true
@@ -2609,7 +2787,7 @@ struct AppCoordinatorTests {
     let result = AuthLoginResult(newUser: false, user: eligibleProfile(id: "user-a").user)
     expectFlagClearedImmediately(
       from: home,
-      by: .scope(.home(.login(.delegate(.signedIn(result))))),
+      by: .scope(.home(.auth(.login(.delegate(.signedIn(result)))))),
       dependencies: dependencies
     )
     let store = TestStore(
@@ -2619,7 +2797,7 @@ struct AppCoordinatorTests {
     )
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.login(.delegate(.signedIn(result))))))
+    await store.send(.scope(.home(.auth(.login(.delegate(.signedIn(result)))))))
     await store.finish()
     await store.skipReceivedActions()
     guard case let .home(signedIn) = store.state else { return }
@@ -2646,8 +2824,12 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     // 세션은 남았지만 저장된 계정 ID를 읽지 못하면 다음 프로필이 다른 계정일 수 있다(A→nil→B).
-    await store.send(.inner(.sessionRestored(generation: 1, userID: nil, isLoggedIn: true)))
-    await store.receive({ $0.homeFlagDirectoryAction == .accountChanged })
+    await store.send(.scope(.home(.session(.inner(.sessionRestored(
+      generation: 1,
+      userID: nil,
+      isLoggedIn: true
+    ))))))
+    await store.receive { $0.homeFlagDirectoryAction == .accountChanged }
     await store.receive(\.scope.home.timetable.view.accountChanged)
     await store.receive(\.scope.home.timetableCoordinator.timetable)
     guard case let .home(cleared) = store.state else { return }
@@ -2671,10 +2853,10 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     // `sessionRestored`가 이미 로그아웃을 정리한 뒤 받은 비로그인 보드는 뒤따르는 401로 지우지 않는다.
-    await store.send(.inner(.profileLoaded(
+    await store.send(.scope(.home(.session(.inner(.profileLoaded(
       generation: 1,
       .failure(.notAuthenticated)
-    )))
+    ))))))
     await store.receive(\.scope.home.festival.accountChanged)
     guard case let .home(updated) = store.state else { return }
     #expect(updated.festivalState.routes.last?.screen.liveBoard?.liveBoard == snapshot)
@@ -2695,14 +2877,23 @@ struct AppCoordinatorTests {
     )
     home.timetableState.mySetIDs = ["set-a"]
     let other = eligibleProfile(id: "user-b").user
-    expectFlagClearedImmediately(from: home, by: .inner(.profileUpdated(generation: 1, .success(other))))
+    expectFlagClearedImmediately(
+      from: home,
+      by: .scope(.home(.session(.view(.signUpSubmitted(
+        generation: 1,
+        .success(other)
+      )))))
+    )
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.profileUpdated(generation: 1, .success(other))))
-    await store.receive({ $0.homeFlagDirectoryAction == .accountChanged })
+    await store.send(.scope(.home(.session(.view(.signUpSubmitted(
+      generation: 1,
+      .success(other)
+    ))))))
+    await store.receive { $0.homeFlagDirectoryAction == .accountChanged }
     await store.receive(\.scope.home.timetable.view.accountChanged)
     await store.receive(\.scope.home.timetableCoordinator.timetable)
     guard case let .home(cleared) = store.state else { return }
@@ -2742,20 +2933,24 @@ struct AppCoordinatorTests {
       $0.authService = auth
       $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-a"))
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+      $0.authUseCase = SessionForwardingAuthUseCase(
+        base: $0.authUseCase,
+        auth: $0.authService
+      )
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.login(.delegate(.signedIn(loginResult(sessionID)))))))
+    await store.send(.scope(.home(.auth(.login(.delegate(.signedIn(loginResult(sessionID))))))))
     guard case let .home(pending) = store.state else { return }
     #expect(!pending.authFlow.hasSession)
-    await store.receive(\.inner.loginCommitted)
+    await store.receive(\.scope.home.auth.inner.loginCommitted)
     guard case let .home(committed) = store.state else { return }
     #expect(committed.authFlow.hasSession)
     #expect(committed.authFlow.verifiedUserID == "user-a")
     #expect(await auth.committed == [sessionID])
     // 기존 계정은 sign_up 없이 사용자만 연결한다.
     #expect(analytics.value == [.identify("user-a", "apple")])
-    await store.receive(\.inner.profileLoaded)
+    await store.receive(\.scope.home.session.inner.profileLoaded)
   }
 
   @Test func acceptedNewUserLoginTracksSignUp() async {
@@ -2766,14 +2961,18 @@ struct AppCoordinatorTests {
       $0.authService = SessionRecordingAuthService()
       $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-a"))
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+      $0.authUseCase = SessionForwardingAuthUseCase(
+        base: $0.authUseCase,
+        auth: $0.authService
+      )
     }
     store.exhaustivity = .off
     let result = AuthLoginResult(newUser: true, user: eligibleProfile(id: "user-a").user, sessionID: UUID())
 
-    await store.send(.scope(.home(.login(.delegate(.signedIn(result))))))
-    await store.receive(\.inner.loginCommitted)
+    await store.send(.scope(.home(.auth(.login(.delegate(.signedIn(result)))))))
+    await store.receive(\.scope.home.auth.inner.loginCommitted)
     #expect(analytics.value == [.identify("user-a", "apple"), .track(.signUp(method: .apple))])
-    await store.receive(\.inner.profileLoaded)
+    await store.receive(\.scope.home.session.inner.profileLoaded)
   }
 
   @Test func failedCommitKeepsLoginOpenWithError() async {
@@ -2784,11 +2983,15 @@ struct AppCoordinatorTests {
       $0.analyticsUseCase = .recording(analytics)
       $0.authService = auth
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+      $0.authUseCase = SessionForwardingAuthUseCase(
+        base: $0.authUseCase,
+        auth: $0.authService
+      )
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.login(.delegate(.signedIn(loginResult(UUID())))))))
-    await store.receive(\.inner.loginCommitted)
+    await store.send(.scope(.home(.auth(.login(.delegate(.signedIn(loginResult(UUID()))))))))
+    await store.receive(\.scope.home.auth.inner.loginCommitted)
     guard case let .home(rejected) = store.state else { return }
     #expect(!rejected.authFlow.hasSession)
     #expect(rejected.authFlow.verifiedUserID == nil)
@@ -2808,9 +3011,13 @@ struct AppCoordinatorTests {
       $0.useAppCoordinatorFestivalUseCases()
       $0.analyticsUseCase = .recording()
       $0.authService = auth
+      $0.authUseCase = SessionForwardingAuthUseCase(
+        base: $0.authUseCase,
+        auth: $0.authService
+      )
     }
 
-    await store.send(.scope(.home(.login(.delegate(.signedIn(loginResult(sessionID)))))))
+    await store.send(.scope(.home(.auth(.login(.delegate(.signedIn(loginResult(sessionID))))))))
     await store.finish()
     #expect(await auth.discarded == [sessionID])
     #expect(await auth.committed.isEmpty)
@@ -2824,15 +3031,19 @@ struct AppCoordinatorTests {
       $0.analyticsUseCase = .recording()
       $0.authService = auth
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+      $0.authUseCase = SessionForwardingAuthUseCase(
+        base: $0.authUseCase,
+        auth: $0.authService
+      )
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.login(.delegate(.signedIn(loginResult(sessionID)))))))
+    await store.send(.scope(.home(.auth(.login(.delegate(.signedIn(loginResult(sessionID))))))))
     await auth.waitUntilCommitStarts()
-    await store.send(.view(.dismissFlow))
-    await store.send(.scope(.home(.delegate(.myLoginRequested))))
+    await store.send(.scope(.home(.auth(.view(.dismissFlow)))))
+    await store.send(.scope(.home(.auth(.view(.loginRequested(nil))))))
     await auth.releaseCommit()
-    await store.receive(\.inner.loginCommitted)
+    await store.receive(\.scope.home.auth.inner.loginCommitted)
     await store.finish()
     guard case let .home(reopened) = store.state else { return }
     // 이전 확정은 새로 연 로그인 시트를 닫거나 프로필을 다시 읽지 않고, 닫은 로그인의 세션만 되돌린다.
@@ -2850,15 +3061,19 @@ struct AppCoordinatorTests {
       $0.analyticsUseCase = .recording()
       $0.authService = auth
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
+      $0.authUseCase = SessionForwardingAuthUseCase(
+        base: $0.authUseCase,
+        auth: $0.authService
+      )
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.login(.delegate(.signedIn(loginResult(sessionID)))))))
+    await store.send(.scope(.home(.auth(.login(.delegate(.signedIn(loginResult(sessionID))))))))
     await auth.waitUntilCommitStarts()
-    await store.send(.view(.dismissFlow))
+    await store.send(.scope(.home(.auth(.view(.dismissFlow)))))
     await auth.releaseCommit()
-    await store.receive(\.inner.loginCommitted)
-    await store.receive(\.inner.staleLoginDiscarded)
+    await store.receive(\.scope.home.auth.inner.loginCommitted)
+    await store.receive(\.scope.home.auth.inner.staleLoginDiscarded)
     await store.finish()
     guard case let .home(dismissed) = store.state else { return }
     // 닫힘이 확정보다 먼저면 임시 세션을 버리고, 확정이 먼저 끝났으면 그 세션만 되돌린다.
@@ -2872,13 +3087,13 @@ struct AppCoordinatorTests {
     var home = MainTabCoordinator.State()
     home.authFlow.generation = 3
     home.authFlow.presentation = .login
-    home.loginState.isSigningIn = true
+    home.authFlow.login.isSigningIn = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
     }
 
     // 진행 중인 로그인을 새로 시작하지 않고 이번 시도로 받는다(효과 없음).
-    await store.send(.view(.startLogin(.apple))) {
+    await store.send(.scope(.home(.auth(.view(.startLogin(.apple)))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.loginAttemptGeneration = 3
       $0 = .home(home)
@@ -2893,7 +3108,7 @@ struct AppCoordinatorTests {
     }
 
     // 확정 중에는 새 로그인을 시작하지 않는다(상태·효과 없음).
-    await store.send(.view(.startLogin(.google)))
+    await store.send(.scope(.home(.auth(.view(.startLogin(.google))))))
   }
 
   @Test func loginSheetTapAsksParentThenStartsLogin() async {
@@ -2905,21 +3120,21 @@ struct AppCoordinatorTests {
     }
 
     // 로그인 시트 탭은 부모에게 요청하고, 부모가 시트 상태를 확인한 뒤 로그인을 시작한다.
-    await store.send(.scope(.home(.login(.view(.signInTapped(.apple))))))
-    await store.receive(\.scope.home.login.delegate.signInRequested) {
+    await store.send(.scope(.home(.auth(.login(.view(.signInTapped(.apple)))))))
+    await store.receive(\.scope.home.auth.login.delegate.signInRequested) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.loginAttemptGeneration = 1
       $0 = .home(home)
     }
-    await store.receive(\.scope.home.login.view.signIn) {
+    await store.receive(\.scope.home.auth.login.view.signIn) {
       guard case var .home(home) = $0 else { return }
-      home.loginState.isSigningIn = true
+      home.authFlow.login.isSigningIn = true
       $0 = .home(home)
     }
-    await store.receive(\.scope.home.login.async.signIn)
-    await store.receive(\.scope.home.login.inner.signInFailed) {
+    await store.receive(\.scope.home.auth.login.async.signIn)
+    await store.receive(\.scope.home.auth.login.inner.signInFailed) {
       guard case var .home(home) = $0 else { return }
-      home.loginState.isSigningIn = false
+      home.authFlow.login.isSigningIn = false
       $0 = .home(home)
     }
   }
@@ -2928,8 +3143,8 @@ struct AppCoordinatorTests {
     let store = TestStore(initialState: AppCoordinator.State.home(.init())) { AppCoordinator() }
 
     // 로그인 시트가 아니면 부모가 요청을 무시한다(상태·효과 없음).
-    await store.send(.scope(.home(.login(.view(.signInTapped(.google))))))
-    await store.receive(\.scope.home.login.delegate.signInRequested)
+    await store.send(.scope(.home(.auth(.login(.view(.signInTapped(.google)))))))
+    await store.receive(\.scope.home.auth.login.delegate.signInRequested)
   }
 
   @Test func loginSheetTapWhileCommittingDoesNotStartAnotherLogin() async {
@@ -2937,8 +3152,8 @@ struct AppCoordinatorTests {
     home.authFlow.pendingCommitSessionID = UUID()
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
 
-    await store.send(.scope(.home(.login(.view(.signInTapped(.google))))))
-    await store.receive(\.scope.home.login.delegate.signInRequested)
+    await store.send(.scope(.home(.auth(.login(.view(.signInTapped(.google)))))))
+    await store.receive(\.scope.home.auth.login.delegate.signInRequested)
   }
 
   @Test func loginSheetCopyFollowsSelectedTab() async {
@@ -2954,9 +3169,9 @@ struct AppCoordinatorTests {
       $0 = .home(home)
     }
     await store.receive(\.scope.home.authInputsChanged)
-    await store.receive(\.scope.home.login.view.contextChanged) {
+    await store.receive(\.scope.home.auth.login.view.contextChanged) {
       guard case var .home(home) = $0 else { return }
-      home.loginState.context = .profile
+      home.authFlow.login.context = .profile
       $0 = .home(home)
     }
   }
@@ -2979,7 +3194,11 @@ struct AppCoordinatorTests {
     home.authFlow.pendingCommitSessionID = sessionID
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
 
-    await store.send(.inner(.loginCommitted(loginResult(sessionID), generation: 1, committed: false))) {
+    await store.send(.scope(.home(.auth(.inner(.loginCommitted(
+      loginResult(sessionID),
+      generation: 1,
+      committed: false
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.pendingCommitSessionID = nil
       home.authFlow.loginAttemptGeneration = nil
@@ -2987,9 +3206,9 @@ struct AppCoordinatorTests {
       $0 = .home(home)
     }
     await store.receive(\.scope.home.authInputsChanged)
-    await store.receive(\.scope.home.login.view.contextChanged) {
+    await store.receive(\.scope.home.auth.login.view.contextChanged) {
       guard case var .home(home) = $0 else { return }
-      home.loginState.flowMessage = "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."
+      home.authFlow.login.flowMessage = "로그인 정보를 저장하지 못했어요. 다시 시도해 주세요."
       $0 = .home(home)
     }
     await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged) { syncProfileAccount(&$0) }
@@ -3013,9 +3232,9 @@ struct AppCoordinatorTests {
 
     // 가입 시트가 열리면 부모가 흐름 값을 입력 액션으로 넘기고, 약관 주소는 앱 설정 값을 쓴다.
     await store.send(.view(.foregrounded))
-    await store.receive(\.inner.profileLoaded)
-    await store.receive(\.scope.home.signUp.view.flowChanged)
-    await store.receive(\.scope.home.signUp.router)
+    await store.receive(\.scope.home.session.inner.profileLoaded)
+    await store.receive(\.scope.home.auth.signUp.view.flowChanged)
+    await store.receive(\.scope.home.auth.signUp.router)
     guard let signUp = signUpState(store.state) else { Issue.record("홈 상태가 아니다"); return }
     #expect(signUp.canOpenLegal)
     #expect(signUp.isSubmitting == false)
@@ -3042,8 +3261,8 @@ struct AppCoordinatorTests {
     #expect(opened.authFlow.signUpFlow.routes.count == 2)
 
     // 가입 화면을 닫으면 그 위의 약관 상세도 닫고 초안은 남긴다.
-    await store.send(.view(.dismissFlow))
-    await store.receive(\.scope.home.signUp.view.sheetClosed)
+    await store.send(.scope(.home(.auth(.view(.dismissFlow)))))
+    await store.receive(\.scope.home.auth.signUp.view.sheetClosed)
     guard case let .home(closed) = store.state else { Issue.record("홈 상태가 아니다"); return }
     #expect(closed.authFlow.signUpFlow.routes.count == 1)
     #expect(signUpState(store.state)?.nickname == "테스터")
@@ -3081,7 +3300,7 @@ struct AppCoordinatorTests {
 
     // 약관이 열린 채 포그라운드 갱신이 실패해 재시도 시트로 바뀌면 약관 상세도 닫힌다.
     await store.send(.view(.foregrounded))
-    await store.receive(\.inner.profileLoaded)
+    await store.receive(\.scope.home.session.inner.profileLoaded)
     // 약관 상세를 닫는 중간 액션 경로는 구현에 따라 달라지므로 최종 상태로 확인한다.
     await store.skipReceivedActions()
     guard case let .home(after) = store.state else { Issue.record("홈 상태가 아니다"); return }
@@ -3100,8 +3319,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.staleLoginDiscarded))
-    await store.receive(\.inner.sessionRestored)
+    await store.send(.scope(.home(.auth(.inner(.staleLoginDiscarded)))))
+    await store.receive(\.scope.home.session.inner.sessionRestored)
     guard case let .home(reread) = store.state else { return }
     #expect(!reread.authFlow.hasSession)
   }
@@ -3153,6 +3372,21 @@ private struct FailingMyAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func signOut() async throws { throw AuthDomainError.unavailable }
   func withdraw() async throws { throw withdrawError }
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }
 
 private actor WithdrawalGate {
@@ -3185,6 +3419,21 @@ private struct SuspendedWithdrawalAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func signOut() async throws { throw AuthDomainError.notAuthenticated }
   func withdraw() async throws { try await gate.wait() }
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }
 
 private struct UnauthenticatedAuthUseCase: AuthUseCaseInterface {
@@ -3207,6 +3456,21 @@ private struct UnauthenticatedAuthUseCase: AuthUseCaseInterface {
 
   func signOut() async throws { calls?.withValue { $0.append("signOut") } }
   func withdraw() async throws {}
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }
 
 private struct RecordingWithdrawalAuthUseCase: AuthUseCaseInterface {
@@ -3224,6 +3488,21 @@ private struct RecordingWithdrawalAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.notAuthenticated }
   func signOut() async throws { calls.withValue { $0.append("signOut") } }
   func withdraw() async throws { calls.withValue { $0.append("withdraw") } }
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }
 
 enum ProfileStubFailure: Sendable {
@@ -3246,6 +3525,21 @@ private struct FailingProfileAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func signOut() async throws {}
   func withdraw() async throws {}
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }
 
 private struct ReturningProfileAuthUseCase: AuthUseCaseInterface {
@@ -3258,6 +3552,21 @@ private struct ReturningProfileAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func signOut() async throws {}
   func withdraw() async throws {}
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
 }
 
 private struct OutdatedTermsAuthUseCase: AuthUseCaseInterface {
@@ -3270,6 +3579,71 @@ private struct OutdatedTermsAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func signOut() async throws {}
   func withdraw() async throws {}
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
+  }
+}
+
+/// 세션 확정·폐기 호출은 기록 대역 인증 서비스로 넘기고 나머지 호출은 `base`에 맡긴다.
+private struct SessionForwardingAuthUseCase: AuthUseCaseInterface {
+  let base: any AuthUseCaseInterface
+  let auth: any AuthService
+
+  func signIn(with credential: AuthCredential) async throws -> AuthLoginResult {
+    return try await base.signIn(with: credential)
+  }
+
+  func fetchProfile() async throws -> AuthProfile {
+    return try await base.fetchProfile()
+  }
+
+  func updateProfile(
+    nickname: String,
+    termsVersion: String,
+    pushOptIn: Bool
+  ) async throws -> AuthUser {
+    return try await base.updateProfile(
+      nickname: nickname,
+      termsVersion: termsVersion,
+      pushOptIn: pushOptIn
+    )
+  }
+
+  func updateNickname(_ nickname: String) async throws -> AuthUser {
+    return try await base.updateNickname(nickname)
+  }
+
+  func signOut() async throws {
+    try await base.signOut()
+  }
+
+  func withdraw() async throws {
+    try await base.withdraw()
+  }
+
+  func commitSession(_ id: UUID) async -> Bool {
+    return await auth.commitSession(id)
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    return await auth.discardSession(id)
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    return await auth.signOut(ifSession: id)
+  }
 }
 
 struct StubAuthService: AuthService {

@@ -7,7 +7,9 @@
 
 import Dependencies
 import AuthDomainInterface
+import Foundation
 
+/// `AuthUseCaseInterface`의 라이브 구현이다. 각 요청을 `authRepository`에 넘기고 그 결과를 그대로 돌려준다.
 public struct AuthUseCaseImpl: AuthUseCaseInterface {
   @Dependency(\.authRepository) private var repository
 
@@ -35,5 +37,17 @@ public struct AuthUseCaseImpl: AuthUseCaseInterface {
 
   public func withdraw() async throws {
     try await repository.withdraw()
+  }
+
+  public func commitSession(_ id: UUID) async -> Bool {
+    return await repository.commitSession(id)
+  }
+
+  public func discardSession(_ id: UUID) async -> Bool {
+    return await repository.discardSession(id)
+  }
+
+  public func signOut(ifSession id: UUID) async -> Bool {
+    return await repository.signOut(ifSession: id)
   }
 }
