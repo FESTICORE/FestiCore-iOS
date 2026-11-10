@@ -76,6 +76,7 @@ public struct FCFlagHero<Background: View>: View {
           .frame(height: Metric.dividerHeight)
         Text(intro)
           .festiCoreFont(.baseSubheadlineRegular)
+          .festiCoreLineBox(.baseSubheadlineRegular)
           .foregroundStyle(FestiCoreSemanticColor.staticalphaWhite80.color)
           .lineLimit(2)
       }
@@ -88,9 +89,10 @@ public struct FCFlagHero<Background: View>: View {
       .horizontal,
       FestiCoreSpacing.paddingP16
     )
+    // Figma S05 Flag Hero: 안쪽 여백 16(소개 줄 높이 박스 포함)
     .padding(
       .bottom,
-      FestiCoreSpacing.paddingP20
+      FestiCoreSpacing.paddingP16
     )
     .frame(maxWidth: .infinity)
     .frame(height: Metric.height)

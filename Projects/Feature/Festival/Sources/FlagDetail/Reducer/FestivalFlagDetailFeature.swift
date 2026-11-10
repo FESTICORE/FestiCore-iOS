@@ -659,7 +659,8 @@ extension FestivalFlagDetailFeature.State {
         detail,
         isStale: isStale
       ),
-      isMuted: detail.status == .resting || isStale || isOffline
+      // Figma S05 F: 쉬는 중은 기본 카드로 보이고, 오래된 정보·오프라인만 흐리게 보인다.
+      isMuted: isStale || isOffline
     )
   }
 

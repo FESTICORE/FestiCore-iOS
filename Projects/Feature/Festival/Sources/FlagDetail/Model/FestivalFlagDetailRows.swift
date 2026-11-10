@@ -9,7 +9,7 @@ import Foundation
 
 /// "지금" 카드에 보일 내용.
 enum FestivalFlagDetailNow: Equatable {
-  /// 현재 위치와 활동. isMuted면 쉬는 중·오래된 정보·오프라인이라 흐리게 보인다.
+  /// 현재 위치와 활동. isMuted면 오래된 정보·오프라인이라 흐리게 보인다.
   case located(
     zone: String,
     activity: String,

@@ -11,7 +11,7 @@ import TCAFlow
 @MainActor
 @Suite("깃발 탭 이동")
 struct FlagRoutingTests {
-  @Test("디렉토리 카드를 누르면 선택 축제 문맥으로 상세를 열고 탭바를 숨긴다")
+  @Test("디렉토리 카드를 누르면 선택 축제 문맥으로 상세를 열고 탭바를 그대로 보인다")
   func cardTapOpensDetailWithContext() async throws {
     let state = try Self.flagTabState()
     let store = TestStore(initialState: state) {
@@ -30,11 +30,11 @@ struct FlagRoutingTests {
     #expect(detail.context == Self.expectedContext)
     #expect(store.state.flagCoordinatorState.routes.count == 2)
     #expect(store.state.flagCoordinatorState.routes[1].isPush)
-    #expect(store.state.shouldHideTabBar)
-    #expect(!store.state.shouldReserveTabBarSpace)
+    #expect(!store.state.shouldHideTabBar)
+    #expect(store.state.shouldReserveTabBarSpace)
   }
 
-  @Test("상세 뒤로 가기와 스와이프는 디렉토리로 돌아가 탭바를 다시 보인다")
+  @Test("상세 뒤로 가기와 스와이프는 디렉토리로 돌아가도 탭바를 유지한다")
   func backAndSwipeCloseDetail() async throws {
     var state = try Self.flagTabState()
     state.flagCoordinatorState.routes.push(.detail(Self.detailState()))
@@ -102,14 +102,15 @@ struct FlagRoutingTests {
       id: 1,
       action: .detail(.delegate(.reportLoginRequested))
     ))))
-    await store.receive(\.flagCoordinator.delegate.loginRequested)
+    await store.receive(\.flagCoordinator.delegate.reportLoginRequested)
     await store.receive {
-      guard case .auth(.view(.loginRequested(.none))) = $0 else { return false }
+      guard case .auth(.view(.loginRequested(.report))) = $0 else { return false }
       return true
     } assert: {
       $0.authFlow.generation = 2
-      $0.authFlow.loginContextOverride = nil
+      $0.authFlow.loginContextOverride = .report
     }
+    #expect(store.state.authInputs.login?.context == .report)
 
     await store.send(.flagCoordinator(.router(.routeAction(
       id: 1,
@@ -253,7 +254,7 @@ struct FlagRoutingTests {
     let detail = try #require(store.state.flagCoordinatorState.routes.last?.screen.detail)
     #expect(detail.flagID == "flg_9")
     #expect(detail.context == Self.expectedContext)
-    #expect(store.state.shouldHideTabBar)
+    #expect(!store.state.shouldHideTabBar)
   }
 }
 

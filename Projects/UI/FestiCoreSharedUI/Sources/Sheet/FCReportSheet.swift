@@ -32,10 +32,12 @@ public struct FCReportSheet: View {
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
         Text(title)
           .festiCoreFont(.baseTitle3Bold)
+          .festiCoreLineBox(.baseTitle3Bold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .accessibilityAddTraits(.isHeader)
         Text(message)
           .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       }
       VStack(spacing: 0) {
@@ -47,6 +49,7 @@ public struct FCReportSheet: View {
               FCCheckCircle(isChecked: selection == index)
               Text(option)
                 .festiCoreFont(.baseCalloutRegular)
+                .festiCoreLineBox(.baseCalloutRegular)
                 .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

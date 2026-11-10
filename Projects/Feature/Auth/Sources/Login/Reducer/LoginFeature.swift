@@ -22,6 +22,8 @@ public struct LoginFeature {
       case flag
       case crew
       case follow
+      /// 깃발 상세의 신고하기
+      case report
     }
 
     public var isSigningIn = false

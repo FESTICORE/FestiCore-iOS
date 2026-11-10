@@ -92,6 +92,11 @@ private extension LoginView {
       )
     case .bookmark:
       return ("축제를 저장하려면 로그인이 필요해요", "로그인 후 선택한 축제를 저장할 수 있어요.")
+    case .report:
+      return (
+        "깃발을 신고하려면 로그인이 필요해요",
+        "로그인 후 문제가 있는 깃발을 신고할 수 있어요."
+      )
     }
   }
 }

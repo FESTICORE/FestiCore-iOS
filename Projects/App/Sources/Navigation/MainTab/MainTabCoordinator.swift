@@ -56,10 +56,6 @@ struct MainTabCoordinator {
       if selectedTab == .my, profileState.hidesTabBarForProfileRoute {
         return false
       }
-      // 깃발 상세는 탭바 자리까지 화면을 쓴다.
-      if selectedTab == .flag, flagCoordinatorState.isDetailOpen {
-        return false
-      }
       return selectedTab != .live || (festivalState.routes.count != 1 && !isNotificationInboxOnTop && !isCrewOnTop)
     }
 
@@ -89,7 +85,8 @@ struct MainTabCoordinator {
           || profileState.hidesTabBarForProfileRoute
           || profileState.destination?.account?.destination != nil
       case .flag:
-        return flagCoordinatorState.isDetailOpen
+        // Figma S05: 깃발 상세에서도 탭바(깃발 탭 선택)를 보인다.
+        return false
       }
     }
 
@@ -290,6 +287,9 @@ struct MainTabCoordinator {
 
       case .flagCoordinator(.delegate(.followLoginRequested)):
         return .send(.auth(.view(.loginRequested(.follow))))
+
+      case .flagCoordinator(.delegate(.reportLoginRequested)):
+        return .send(.auth(.view(.loginRequested(.report))))
 
       case .flagCoordinator(.delegate(.termsAcceptanceRequested)):
         return .send(.session(.view(.retryProfile)))
