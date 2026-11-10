@@ -257,48 +257,46 @@ extension BearerProfileView {
           )
         }
       }
-      VStack(spacing: FestiCoreSpacing.marginM8) {
+      // Figma S10 Actions: 간격 4, 위 12·아래 8
+      VStack(spacing: FestiCoreSpacing.paddingP4) {
         FCPrimaryButton("완료") { send(.doneTapped) }
         FCButton("공동 기수 초대하기") { send(.inviteTapped) }
           .style(.ghost)
           .isEnabled(!store.isInviting)
       }
-      .padding(.horizontal, FestiCoreSpacing.paddingP16)
-      .padding(.bottom, FestiCoreSpacing.paddingP8)
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP16
+      )
+      .padding(
+        .top,
+        FestiCoreSpacing.paddingP12
+      )
+      .padding(
+        .bottom,
+        FestiCoreSpacing.paddingP8
+      )
     }
   }
 
+  /// Figma S10 Preview: 깃발 목록과 같은 Flag Card(디렉토리)로 보여 준다.
   private func previewCard(_ profile: BearerFlagProfile) -> some View {
-    HStack(alignment: .top, spacing: FestiCoreSpacing.paddingP16) {
+    let zone = store.zones.first { $0.id == profile.homeZoneID }
+    return FCFlagCard(
+      name: profile.name,
+      status: .scheduled,
+      zone: zone?.name ?? "",
+      context: .directory(
+        followers: "팔로워 \(profile.followerCount)",
+        tags: profile.tags.map(\.title),
+        isFollowing: false,
+        onFollow: {}
+      )
+    ) {
       previewThumbnail
-        .frame(width: 56, height: 56)
-        .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
-      VStack(alignment: .leading, spacing: FestiCoreSpacing.marginM8) {
-        HStack(spacing: FestiCoreSpacing.marginM8) {
-          Text(profile.name)
-            .festiCoreFont(.baseBodyBold)
-            .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-            .lineLimit(1)
-          FCStatusChip(.scheduled)
-        }
-        Text("팔로워 \(profile.followerCount)")
-          .festiCoreFont(.baseFootnoteRegular)
-          .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-        HStack(spacing: FestiCoreSpacing.paddingP4) {
-          ForEach(profile.tags, id: \.self) { FCTag($0.title) }
-        }
-        if let zone = store.zones.first(where: { $0.id == profile.homeZoneID }) {
-          FCZoneChip(zone.name) {}
-            .allowsHitTesting(false)
-        }
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
     }
-    .padding(FestiCoreSpacing.paddingP16)
-    .overlay {
-      RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
-        .strokeBorder(FestiCoreSemanticColor.lineNormal.color, lineWidth: 1)
-    }
+    .showsZone(zone != nil)
+    .allowsHitTesting(false)
   }
 
   @ViewBuilder
