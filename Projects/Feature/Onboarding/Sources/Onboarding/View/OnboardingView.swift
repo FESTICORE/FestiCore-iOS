@@ -34,18 +34,50 @@ private extension OnboardingView {
   }
 
   @ViewBuilder
-  func pageView(at index: Int, size: CGSize) -> some View {
-    VStack(alignment: .leading, spacing: 0) {
+  func pageView(
+    at index: Int,
+    size: CGSize
+  ) -> some View {
+    VStack(
+      alignment: .leading,
+      spacing: .zero
+    ) {
+      // Figma Onboarding Top Actions: 높이 52, 좌우 8, ghost·M 건너뛰기 버튼
       HStack {
         Spacer()
-        Button("건너뛰기") { send(.skipTapped) }
-          .pretendardFont(family: .Medium, size: 15)
-          .foregroundStyle(Color.labelNeutral)
+        FCButton("건너뛰기") { send(.skipTapped) }
+          .style(.ghost)
+          .size(.medium)
           .accessibilityIdentifier("onboarding.skip")
       }
-      .padding(.top, 16)
+      .frame(height: 52)
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP8
+      )
 
-      Spacer(minLength: 16)
+      onboardingContents(
+        at: index,
+        size: size
+      )
+    }
+    .frame(
+      maxWidth: .infinity,
+      maxHeight: .infinity
+    )
+    .background(Color.backgroundNormal)
+  }
+
+  /// Figma Onboarding Contents: 간격 32, 좌우 24·위 24·아래 40
+  @ViewBuilder
+  func onboardingContents(
+    at index: Int,
+    size: CGSize
+  ) -> some View {
+    VStack(
+      alignment: .leading,
+      spacing: Metric.contentSpacing
+    ) {
 
       Button {
         send(.nextTapped)
@@ -57,30 +89,35 @@ private extension OnboardingView {
           .resizable()
           .scaledToFit()
           .frame(maxWidth: .infinity)
-          .frame(height: min(431, max(200, size.height - 320)))
+          // Figma Onboarding 그림 431 = 화면 높이 - (상단 52 + 위 24 + 간격 32 + 문구 140 + 간격 32 + 점 8 + 아래 40)
+          .frame(height: min(
+            Metric.visualMaxHeight,
+            max(
+              Metric.visualMinHeight,
+              size.height - Metric.nonVisualHeight
+            )
+          ))
           .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
       .accessibilityLabel(index == OnboardingPage.all.count - 1 ? "시작하기" : "다음 화면")
       .accessibilityIdentifier("onboarding.next")
 
-      Spacer(minLength: 16)
-
-      // Figma Onboarding 1~4 실측: 제목 줄 간격 38px, 제목→설명 49px, 설명 줄 간격 26px, 점은 바닥에서 40pt.
+      // Figma Onboarding Text: 제목 Title 1/Bold(28/38)·설명 Body/Regular(17/26), 간격 12
       VStack(
         alignment: .leading,
-        spacing: 19
+        spacing: FestiCoreSpacing.paddingP12
       ) {
         Text(OnboardingPage.all[index].title)
-          .pretendardFont(family: .Bold, size: 26)
-          .lineSpacing(7)
+          .festiCoreFont(.baseTitle1Bold)
+          .festiCoreLineBox(.baseTitle1Bold)
           .foregroundStyle(Color.labelNormal)
           .fixedSize(horizontal: false, vertical: true)
 
         Text(OnboardingPage.all[index].description)
-          .festiCoreFont(.baseCalloutRegular)
+          .festiCoreFont(.baseBodyRegular)
+          .festiCoreLineBox(.baseBodyRegular)
           .foregroundStyle(Color.labelNeutral)
-          .lineSpacing(7)
           .fixedSize(horizontal: false, vertical: true)
       }
 
@@ -93,18 +130,33 @@ private extension OnboardingView {
       }
       .accessibilityElement(children: .ignore)
       .accessibilityLabel("\(index + 1) / \(OnboardingPage.all.count) 페이지")
-      .padding(
-        .top,
-        36
-      )
-      .padding(
-        .bottom,
-        40
-      )
     }
-    .padding(.horizontal, 24)
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color.backgroundNormal)
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP24
+    )
+    .padding(
+      .top,
+      FestiCoreSpacing.paddingP24
+    )
+    .padding(
+      .bottom,
+      Metric.bottomPadding
+    )
+    .frame(
+      maxHeight: .infinity,
+      alignment: .top
+    )
+  }
+}
+
+private extension OnboardingView {
+  enum Metric {
+    static let contentSpacing: CGFloat = 32
+    static let bottomPadding: CGFloat = 40
+    static let visualMaxHeight: CGFloat = 431
+    static let visualMinHeight: CGFloat = 200
+    static let nonVisualHeight: CGFloat = 328
   }
 }
 
