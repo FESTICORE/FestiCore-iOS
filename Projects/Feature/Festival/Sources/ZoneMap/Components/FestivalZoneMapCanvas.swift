@@ -225,7 +225,12 @@ private extension FestivalZoneMapArea {
     return Text(zone.name)
       .festiCoreFont(.baseFootnoteBold)
       .festiCoreLineBox(.baseFootnoteBold)
-      .foregroundStyle(FestiCoreSemanticColor.staticInk.color)
+      // Figma Zone Label: 선택은 Lime 위 Static/Ink, 기본은 Fill/Normal 위 Label/Normal(다크 대비)
+      .foregroundStyle(
+        isSelected
+          ? FestiCoreSemanticColor.staticInk.color
+          : FestiCoreSemanticColor.labelNormal.color
+      )
       .lineLimit(1)
       .fixedSize()
       .padding(
