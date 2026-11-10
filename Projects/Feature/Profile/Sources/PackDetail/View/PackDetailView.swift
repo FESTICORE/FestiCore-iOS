@@ -293,16 +293,21 @@ extension PackDetailView {
 
   private var addItemPrompt: some View {
     Button { send(.editTapped) } label: {
-      HStack(spacing: FestiCoreSpacing.paddingP8) {
-        Image(systemName: "plus")
-          .font(.system(size: 16, weight: .semibold))
-          .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+      // Figma Add Item Row(default): plus 20, 간격 10, Callout/Medium·Label/Neutral
+      HStack(spacing: Metric.addItemSpacing) {
+        Image(asset: .plus20)
+          .resizable()
+          .frame(
+            width: Metric.addItemIconSize,
+            height: Metric.addItemIconSize
+          )
           .accessibilityHidden(true)
         Text("내 항목 추가")
-          .festiCoreFont(.baseCalloutRegular)
-          .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+          .festiCoreFont(.baseCalloutMedium)
+          .festiCoreLineBox(.baseCalloutMedium)
         Spacer()
       }
+      .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
       .padding(.horizontal, FestiCoreSpacing.paddingP16)
       .frame(height: 56)
       .contentShape(Rectangle())
@@ -525,6 +530,13 @@ extension PackDetailView {
   private func sizeText(_ bytes: Int) -> String {
     let megabytes = Double(bytes) / 1_048_576
     return megabytes >= 0.1 ? String(format: "%.1fMB", megabytes) : "\(max(1, bytes / 1024))KB"
+  }
+}
+
+private extension PackDetailView {
+  enum Metric {
+    static let addItemSpacing: CGFloat = 10
+    static let addItemIconSize: CGFloat = 20
   }
 }
 
