@@ -7,11 +7,12 @@
 
 import SwiftUI
 
-/// 시간표 공개 전 라인업 한 줄.
+/// 시간표 공개 전 라인업 한 줄(Figma Lineup Row: 번호·아티스트·40 썸네일).
 public struct FCLineupRow: View {
   private var number: String
   private var artist: String
   private var showsSeparator: Bool
+  private(set) var thumbnail: AnyView?
 
   public init(
     number: String,
@@ -24,40 +25,74 @@ public struct FCLineupRow: View {
   }
 
   public var body: some View {
-    HStack(spacing: FestiCoreSpacing.paddingP12) {
-      Text(number)
-        .festiCoreFont(.baseFootnoteBold)
-        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
-        .monospacedDigit()
-        .frame(width: Metric.numberWidth, alignment: .leading)
-      Text(artist)
-        .festiCoreFont(.baseCalloutMedium)
-        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-    .lineLimit(1)
-    .padding(
-      .horizontal,
-      FestiCoreSpacing.paddingP16
-    )
-    .padding(
-      .vertical,
-      FestiCoreSpacing.paddingP20 - 1
-    )
-    .background(FestiCoreSemanticColor.backgroundElevated.color)
-    .overlay(alignment: .bottom) {
+    VStack(spacing: .zero) {
+      HStack(spacing: FestiCoreSpacing.paddingP12) {
+        Text(number)
+          .festiCoreFont(.baseFootnoteBold)
+          .festiCoreLineBox(.baseFootnoteBold)
+          .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+          .monospacedDigit()
+          .frame(
+            width: Metric.numberWidth,
+            alignment: .leading
+          )
+        Text(artist)
+          .festiCoreFont(.baseCalloutMedium)
+          .festiCoreLineBox(.baseCalloutMedium)
+          .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+          .frame(
+            maxWidth: .infinity,
+            alignment: .leading
+          )
+        thumbnailView
+      }
+      .lineLimit(1)
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP16
+      )
+      .padding(
+        .vertical,
+        FestiCoreSpacing.paddingP12
+      )
+      // Figma 행 65 = 64 + 아래 구분선 1, 마지막 행은 64
       if showsSeparator {
         FestiCoreSemanticColor.lineNormal.color
           .frame(height: 1)
       }
     }
+    .background(FestiCoreSemanticColor.backgroundElevated.color)
     .accessibilityElement(children: .combine)
   }
 }
 
 private extension FCLineupRow {
+  /// Figma Thumbnail 40×40 r8, 사진이 없으면 Fill/Strong 바탕만 보인다.
+  var thumbnailView: some View {
+    return FestiCoreSemanticColor.fillStrong.color
+      .overlay { thumbnail }
+      .frame(
+        width: Metric.thumbnailSize,
+        height: Metric.thumbnailSize
+      )
+      .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r8))
+      .accessibilityHidden(true)
+  }
+
   enum Metric {
     static let numberWidth: CGFloat = 20
+    static let thumbnailSize: CGFloat = 40
+  }
+}
+
+// MARK: - 체이닝 설정
+
+public extension FCLineupRow {
+  /// 썸네일 자리에 채울 사진 뷰를 바꾼 사본을 돌려준다.
+  func thumbnail<Content: View>(_ content: Content) -> Self {
+    var copy = self
+    copy.thumbnail = AnyView(content)
+    return copy
   }
 }
 
