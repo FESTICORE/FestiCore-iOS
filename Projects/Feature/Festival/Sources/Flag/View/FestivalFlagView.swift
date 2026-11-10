@@ -58,23 +58,26 @@ public struct FestivalFlagView: View {
 }
 
 private extension FestivalFlagView {
-  /// Figma 줄 높이 여백만큼 제목 위와 제목·부제 사이를 보정한다(실측 기준).
+  /// Figma S04 Head: 제목 Title 3/Bold·부제 Footnote/Regular, 간격 4
   var head: some View {
     VStack(
       alignment: .leading,
-      spacing: FestiCoreSpacing.paddingP8
+      spacing: FestiCoreSpacing.paddingP4
     ) {
       Text("만나보고 싶은 깃발이 있나요?")
         .festiCoreFont(.baseTitle3Bold)
+        .festiCoreLineBox(.baseTitle3Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       Text("팔로우하지 않아도 괜찮아요. 깃발이 움직이면 조용히 알려 드려요.")
         .festiCoreFont(.baseFootnoteRegular)
+        .festiCoreLineBox(.baseFootnoteRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
-    .padding(
-      .top,
-      FestiCoreSpacing.marginM2
-    )
+  }
+
+  /// 목록을 받지 못해 이전 스냅샷을 보이는 오프라인 상태(Figma S04-E)
+  var isOffline: Bool {
+    return store.viewState == .failed && store.snapshot != nil
   }
 
   /// 칩 줄은 화면 오른쪽 끝까지 스크롤된다(Figma Filter Chips).
@@ -179,7 +182,8 @@ private extension FestivalFlagView {
   func card(_ row: FestivalFlagDirectory.Row) -> some View {
     FCFlagCard(
       name: row.name,
-      status: row.status.map(chipStatus),
+      // Figma S04-E 오프라인은 지난 상태·위치를 보이지 않는다.
+      status: isOffline ? nil : row.status.map(chipStatus),
       zone: row.zone,
       context: .directory(followers: row.followersText, tags: row.tags, isFollowing: row.isFollowing) {
         store.send(.directory(.followTapped(id: row.id, follow: !row.isFollowing, baseCount: row.serverFollowerCount)))
@@ -192,6 +196,7 @@ private extension FestivalFlagView {
       }
     }
     .followEnabled(row.isFollowEnabled)
+    .showsZone(!isOffline)
     .onTap { store.send(.directory(.cardTapped(row.id))) }
   }
 

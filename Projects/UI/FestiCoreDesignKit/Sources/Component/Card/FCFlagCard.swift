@@ -20,6 +20,7 @@ public struct FCFlagCard<Thumbnail: View>: View {
   private var context: Context
   private var thumbnail: Thumbnail
   private(set) var isFollowEnabled = true
+  private(set) var showsZone = true
   private(set) var onZoneTap: () -> Void = {}
   private(set) var onTap: (() -> Void)?
 
@@ -55,7 +56,7 @@ public struct FCFlagCard<Thumbnail: View>: View {
           }
         }
         .figmaLineBox(
-          .baseBodyBold,
+          .baseHeadlineBold,
           isEnabled: isDirectory
         )
         switch context {
@@ -87,10 +88,12 @@ public struct FCFlagCard<Thumbnail: View>: View {
               FCTag(tag)
             }
           }
-          FCZoneChip(
-            zone,
-            action: onZoneTap
-          )
+          if showsZone {
+            FCZoneChip(
+              zone,
+              action: onZoneTap
+            )
+          }
         }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -182,6 +185,13 @@ public extension FCFlagCard {
   func followEnabled(_ isEnabled: Bool) -> Self {
     var copy = self
     copy.isFollowEnabled = isEnabled
+    return copy
+  }
+
+  /// 디렉토리 카드의 존 칩 표시 여부를 바꾼 사본을 돌려준다. Figma S04-E 오프라인은 존 칩을 숨긴다.
+  func showsZone(_ isVisible: Bool) -> Self {
+    var copy = self
+    copy.showsZone = isVisible
     return copy
   }
 
