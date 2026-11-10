@@ -82,7 +82,7 @@ private extension ProfileView {
   }
 
   /// 로그인하지 않았을 때 맨 위에 두는 로그인 유도 카드.
-  /// 시안에 비로그인 변형이 없어 설정 카드와 같은 표면·여백으로 만들었다(디자이너 확인 필요).
+  /// Figma More 마이 B: Login Card(위아래 20·좌우 16, 간격 12), 제목 Headline/Bold·설명 Footnote/Regular(간격 4)
   var loginPrompt: some View {
     return VStack(
       alignment: .leading,
@@ -92,11 +92,13 @@ private extension ProfileView {
         alignment: .leading,
         spacing: FestiCoreSpacing.paddingP4
       ) {
-        Text("로그인하고 깃발과 크루를 함께 써 보세요")
-          .festiCoreFont(.baseCalloutBold)
+        Text("로그인하고 더 함께 즐겨요")
+          .festiCoreFont(.baseHeadlineBold)
+          .festiCoreLineBox(.baseHeadlineBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-        Text("받은 팩·타임테이블·설정은 로그인 없이 그대로 쓸 수 있어요.")
+        Text("깃발 팔로우 · 크루 · 기수는 로그인이 필요해요. 타임테이블과 팩은 로그인 없이도 쓸 수 있어요.")
           .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
       }
       FCButton("로그인") { send(.loginTapped) }
@@ -107,7 +109,14 @@ private extension ProfileView {
       maxWidth: .infinity,
       alignment: .leading
     )
-    .padding(FestiCoreSpacing.paddingP16)
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP16
+    )
+    .padding(
+      .vertical,
+      FestiCoreSpacing.paddingP20
+    )
     .background {
       RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
         .fill(FestiCoreSemanticColor.backgroundElevated.color)

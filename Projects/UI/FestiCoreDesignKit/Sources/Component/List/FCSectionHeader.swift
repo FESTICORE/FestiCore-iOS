@@ -12,6 +12,7 @@ public struct FCSectionHeader: View {
   private var title: String
   private(set) var actionTitle: String?
   private(set) var action: (() -> Void)?
+  private(set) var isCompact = false
 
   public init(_ title: String) {
     self.title = title
@@ -20,8 +21,9 @@ public struct FCSectionHeader: View {
   public var body: some View {
     HStack(spacing: FestiCoreSpacing.paddingP16) {
       Text(title)
-        // Figma Section Header 제목: Base/Headline/Bold
-        .festiCoreFont(.baseHeadlineBold)
+        // Figma Section Header 제목: Base/Headline/Bold, 작은 머리글은 Base/Footnote/Bold
+        .festiCoreFont(isCompact ? .baseFootnoteBold : .baseHeadlineBold)
+        .festiCoreLineBox(isCompact ? .baseFootnoteBold : .baseHeadlineBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .lineLimit(1)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -37,7 +39,7 @@ public struct FCSectionHeader: View {
         }
       }
     }
-    .frame(minHeight: Metric.height)
+    .frame(minHeight: isCompact ? nil : Metric.height)
   }
 
 }
@@ -45,8 +47,9 @@ public struct FCSectionHeader: View {
 private extension FCSectionHeader {
   func actionText(_ text: String) -> some View {
     Text(text)
-      .festiCoreFont(.baseFootnoteMedium)
-      .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+      .festiCoreFont(isCompact ? .baseFootnoteRegular : .baseFootnoteMedium)
+      .festiCoreLineBox(isCompact ? .baseFootnoteRegular : .baseFootnoteMedium)
+      .foregroundStyle(isCompact ? FestiCoreSemanticColor.labelAssistive.color : FestiCoreSemanticColor.labelNeutral.color)
       .lineLimit(1)
   }
 }
@@ -62,6 +65,13 @@ public extension FCSectionHeader {
     var copy = self
     copy.actionTitle = title
     copy.action = action
+    return copy
+  }
+
+  /// 검색 목록처럼 작은 머리글(Figma S00 검색: Footnote/Bold 제목·Footnote/Regular 보조 글, 높이 18)로 바꾼 사본을 돌려준다.
+  func compact(_ isCompact: Bool) -> Self {
+    var copy = self
+    copy.isCompact = isCompact
     return copy
   }
 }

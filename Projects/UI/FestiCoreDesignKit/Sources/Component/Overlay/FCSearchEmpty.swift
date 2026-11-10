@@ -21,14 +21,18 @@ public struct FCSearchEmpty: View {
       Image(asset: .magnifyingGlass)
         .resizable()
         .frame(width: Metric.iconSize, height: Metric.iconSize)
-        .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+        // Figma Search Empty 아이콘: Label/Disable
+        .foregroundStyle(FestiCoreSemanticColor.labelDisable.color)
         .accessibilityHidden(true)
       VStack(spacing: FestiCoreSpacing.paddingP12) {
         Text(query.isEmpty ? "검색어를 입력해 주세요" : "‘\(query)’ 검색 결과가 없어요")
           .festiCoreFont(.baseCalloutBold)
+          // Figma Search Empty 202pt = 위아래 48 + 아이콘 36 + 16 + 제목 24 + 12 + 설명 18
+          .festiCoreLineBox(.baseCalloutBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         Text(message)
           .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       }
       .multilineTextAlignment(.center)
