@@ -71,6 +71,17 @@ struct FlagRoutingTests {
     state.flagCoordinatorState.routes.push(.detail(Self.detailState()))
     let store = TestStore(initialState: state) {
       MainTabCoordinator()
+    } withDependencies: {
+      // 약관 요청은 세션 재조회로 이어지므로 그 효과의 의존성과 로그아웃 상태를 명시한다.
+      $0.useAppCoordinatorFestivalUseCases()
+      $0.authService = StubAuthService(
+        loggedIn: false,
+        userID: nil
+      )
+      // 세션 재조회가 프로필을 비우면 열린 상세가 새 문맥으로 다시 불러오므로 그 응답을 고정한다.
+      $0.festivalFlagDetailUseCase = MockFestivalFlagDetailUseCase(detail: { _ throws(FestivalFlagDetailError) in
+        throw .unavailable
+      })
     }
 
     await store.send(.flagCoordinator(.router(.routeAction(
@@ -105,10 +116,9 @@ struct FlagRoutingTests {
       action: .detail(.delegate(.termsAcceptanceRequested))
     ))))
     await store.receive(\.flagCoordinator.delegate.termsAcceptanceRequested)
-    await store.receive {
-      guard case .delegate(.myProfileRefreshRequested) = $0 else { return false }
-      return true
-    }
+    // 이어지는 세션 재조회의 상태 변화는 세션 테스트가 검증한다.
+    store.exhaustivity = .off
+    await store.receive(\.session.view.retryProfile)
   }
 
   @Test("상세에서 바꾼 팔로우를 디렉토리 카드에도 반영한다")

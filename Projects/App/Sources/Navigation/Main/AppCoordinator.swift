@@ -163,3 +163,56 @@ private extension AppCoordinator {
       )
   }
 }
+
+// MARK: - 앱 생명주기·딥링크
+
+extension AppCoordinator {
+  /// 앞·뒤 전환과 딥링크를 홈에 전달한다. 홈이 아니면 무시한다.
+  func handleViewAction(
+    state: inout State,
+    action: View
+  ) -> Effect<Action> {
+    switch action {
+    case .presentHome:
+      guard case .splash = state else { return .none }
+      return .run { send in
+        // 이전 실행에서 남은 개인 Widget 파일은 세션 확인 전에 지운다.
+        await festivalWidgetClient.save(nil)
+        do {
+          await send(.inner(.firstInstallStatus(try firstInstallOnboardingStore.hasCompleted())))
+        } catch {
+          FestiCoreLogger.error(
+            "첫 설치 기록을 확인할 수 없음: \(error.localizedDescription)",
+            category: .app
+          )
+          await send(.inner(.firstInstallStatus(true)))
+        }
+      }
+
+    case .foregrounded:
+      guard case .home = state else { return .none }
+      // 축제 화면이 다시 읽기 전에 세션이 확인한 계정을 비우고 새 세대를 연다.
+      return .merge(
+        .send(.scope(.home(.session(.view(.foregrounded))))),
+        .send(.scope(.home(.festival(.foregrounded))))
+      )
+
+    case .backgrounded:
+      guard case .home = state else { return .none }
+      return .send(.scope(.home(.festival(.backgrounded))))
+
+    case .remoteContentChanged:
+      guard case .home = state else { return .none }
+      return .send(.scope(.home(.festival(.remoteContentChanged))))
+
+    case let .openDeeplink(deeplink):
+      guard case .home = state else { return .none }
+      return .send(.scope(.home(.openDeeplink(deeplink))))
+
+    case .deeplinkReceived:
+      // 홈 전환 전이면 대기 값을 남겨 두고, 홈에 들어갈 때 다시 꺼낸다.
+      guard case .home = state, let deeplink = AppDeeplinkBridge.consumePending() else { return .none }
+      return .send(.view(.openDeeplink(deeplink)))
+    }
+  }
+}

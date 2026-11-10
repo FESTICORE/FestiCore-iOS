@@ -334,6 +334,56 @@ struct AppCoordinatorTests {
     #expect(box.ids == ["saved-a"])
   }
 
+  @Test func foregroundSendsSessionBeforeFestival() async {
+    let profile = eligibleProfile(id: "user-a")
+    var home = MainTabCoordinator.State()
+    home.authFlow.profile = profile
+    home.authFlow.verifiedUserID = "user-a"
+    home.authFlow.lastVerifiedUserID = "user-a"
+    // 루트가 보낸 포그라운드 뒤에 받은 액션을 받은 순서대로 기록한다.
+    let received = LockIsolated<[String]>([])
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) {
+      AppCoordinator()
+      Reduce { _, action in
+        if action.is(\.view.foregrounded) { return .none }
+        let label: String
+        if action.is(\.scope.home.session.view.foregrounded) {
+          label = "session.foregrounded"
+        } else if action.is(\.scope.home.festival) {
+          label = "festival"
+        } else {
+          label = "other"
+        }
+        received.withValue { $0.append(label) }
+        return .none
+      }
+    } withDependencies: {
+      $0.useAppCoordinatorFestivalUseCases()
+      $0.authUseCase = ReturningProfileAuthUseCase(profile: profile)
+      $0.authService = StubAuthService(
+        loggedIn: true,
+        userID: "user-a"
+      )
+      $0.festivalBookedStore = FestivalBookedStore(
+        load: { _ in [] },
+        save: { _, _ in }
+      )
+    }
+    store.exhaustivity = .off
+
+    await store.send(.view(.foregrounded))
+    await store.receive(\.scope.home.session.view.foregrounded)
+    await store.receive(\.scope.home.festival)
+    await store.finish()
+
+    // 세션이 먼저 확인한 계정을 비워야 축제 화면이 이전 계정으로 다시 읽지 않는다.
+    let labels = received.value
+    #expect(labels.first == "session.foregrounded")
+    let festivalIndex = labels.firstIndex(of: "festival")
+    #expect(festivalIndex != nil)
+    #expect((festivalIndex ?? 0) > 0)
+  }
+
   @Test(arguments: [ProfileStubFailure.server, .missingVersion])
   func foregroundFailureDoesNotReuseCachedEligibility(failure: ProfileStubFailure) async {
     let box = BookmarkBox(ids: [])
@@ -1352,8 +1402,8 @@ struct AppCoordinatorTests {
     )
 
     // 다른 계정의 결과는 받지 않는다.
-    await store.send(.scope(.home(.delegate(.myProfileUpdated(other)))))
-    await store.send(.scope(.home(.delegate(.myProfileUpdated(renamed)))))
+    await store.send(.scope(.home(.session(.view(.profileUpdated(other))))))
+    await store.send(.scope(.home(.session(.view(.profileUpdated(renamed))))))
     await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged)
     guard case let .home(updated) = store.state else {
       Issue.record("홈 상태가 아니다")
@@ -1700,14 +1750,17 @@ struct AppCoordinatorTests {
   @Test func flagFollowTermsRequestRoutesToProfileRefresh() async {
     let store = TestStore(initialState: MainTabCoordinator.State(selectedTab: .flag)) { MainTabCoordinator() } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
+      $0.authService = StubAuthService(
+        loggedIn: false,
+        userID: nil
+      )
     }
 
     await store.send(.flagDirectory(.directory(.delegate(.termsAcceptanceRequested))))
     await store.receive(\.flagCoordinator.delegate.termsAcceptanceRequested)
-    await store.receive {
-      guard case .delegate(.myProfileRefreshRequested) = $0 else { return false }
-      return true
-    }
+    // 이어지는 세션 재조회의 상태 변화는 세션 테스트가 검증한다.
+    store.exhaustivity = .off
+    await store.receive(\.session.view.retryProfile)
   }
 
   @Test func myLogoutClearsVisibleAccountOnlyAfterSuccess() async {
@@ -2566,8 +2619,19 @@ struct AppCoordinatorTests {
     home.authFlow.hasSession = true
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.verifiedUserID = "user-a"
+    // 취소되지 않으면 탈퇴 효과가 완료나 세션 만료 위임을 보낸다. 그 결과 액션이 오는지 기록한다.
+    let operationResults = LockIsolated<[String]>([])
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
+      Reduce { _, action in
+        if action.is(\.scope.home.account.inner.finished) {
+          operationResults.withValue { $0.append("finished") }
+        }
+        if action.is(\.scope.home.account.delegate.sessionExpired) {
+          operationResults.withValue { $0.append("sessionExpired") }
+        }
+        return .none
+      }
     } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
       $0.analyticsUseCase = .recording()
@@ -2610,6 +2674,8 @@ struct AppCoordinatorTests {
     await store.receive(\.scope.home.account.view.cancelOperation)
     await gate.fail()
     await store.finish()
+    // 취소된 탈퇴 효과는 멈춘 요청이 실패로 끝나도 결과 액션을 보내지 않는다.
+    #expect(operationResults.value.isEmpty)
 
     guard case let .home(expired) = store.state else { return }
     #expect(expired.authFlow.message == AuthFlowState.Message.sessionExpiredDuringWithdraw)
@@ -3951,7 +4017,7 @@ private func syncAccountScreen(_ state: inout AppCoordinator.State) {
   state = .home(home)
 }
 
-private extension DependencyValues {
+extension DependencyValues {
   /// 이 테스트가 실행하는 홈 시작 효과에 필요한 의존성을 명시한다.
   mutating func useAppCoordinatorFestivalUseCases() {
     useServiceBackedFestivalUseCases()

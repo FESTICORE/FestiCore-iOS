@@ -29,6 +29,8 @@ struct SessionCoordinator {
   enum View {
     case foregrounded
     case retryProfile
+    /// 마이에서 바꾼 프로필을 표시 이름에 바로 반영한다.
+    case profileUpdated(AuthUser)
     /// 인증 만료 알림이나 계정 작업 중 인증 상실로 세션을 끝낸다.
     case sessionExpired
     /// 로그인 확정 뒤 열린 세대로 프로필을 읽는다.
@@ -64,7 +66,11 @@ struct SessionCoordinator {
     case accountDataCleared
     /// 축제 화면에 계정이 바뀌었다고만 알린다.
     case accountChanged
+    /// 세션 복원·재확인·실패처럼 계정이 정해지지 않았거나 바뀐 뒤 예약 목록만 다시 읽는다.
+    /// 확인 전이면 `nil`로 계정 없이 읽으며, 대기 예약은 건드리지 않는다.
     case bookmarksReloadRequested(userID: String?)
+    /// 확정된 계정으로 대기 예약을 마저 반영하거나, 대기 예약이 없으면 그 계정의 목록을 다시 읽는다.
+    /// 대기 예약을 소비하는 경로라 확정된 `userID`가 반드시 있다.
     case pendingBookmarkResolved(State.PendingBookmarkResolution)
     /// 세션이 끝나 진행 중이던 로그아웃·탈퇴 요청을 취소한다.
     case accountOperationInterrupted
@@ -120,6 +126,15 @@ extension SessionCoordinator {
       guard !state.isLoading else { return .none }
       state.message = nil
       return recheckProfile(state: &state)
+
+    case let .profileUpdated(user):
+      // 같은 계정의 결과만 받는다.
+      guard let previous = state.profile, previous.user.id == user.id else { return .none }
+      state.profile = AuthProfile(
+        user: user,
+        currentTermsVersion: previous.currentTermsVersion
+      )
+      return .none
 
     case .sessionExpired:
       guard state.hasSession else { return .none }
