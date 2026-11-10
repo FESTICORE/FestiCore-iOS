@@ -115,13 +115,7 @@ struct MainTabCoordinator {
     case session(SessionCoordinator.Action)
     case account(AccountCoordinator.Action)
     case authInputsChanged(previous: AuthInputs?, current: AuthInputs)
-    case delegate(Delegate)
     case completePendingBookmark(id: String, userID: String, shouldBeBooked: Bool)
-  }
-
-  enum Delegate {
-    case myProfileUpdated(AuthUser)
-    case myProfileRefreshRequested
   }
 
   var body: some ReducerOf<Self> {
@@ -233,7 +227,7 @@ struct MainTabCoordinator {
         return .send(.auth(.view(.loginRequested(.follow))))
 
       case .festival(.delegate(.termsAcceptanceRequested)):
-        return .send(.delegate(.myProfileRefreshRequested))
+        return .send(.session(.view(.retryProfile)))
 
       case let .festival(.delegate(.prepScheduleSaved(
         festivalID,
@@ -298,9 +292,9 @@ struct MainTabCoordinator {
         return .send(.auth(.view(.loginRequested(.follow))))
 
       case .flagCoordinator(.delegate(.termsAcceptanceRequested)):
-        return .send(.delegate(.myProfileRefreshRequested))
+        return .send(.session(.view(.retryProfile)))
 
-      case .flagCoordinator, .delegate:
+      case .flagCoordinator:
         return .none
 
       case let .session(.delegate(delegate)):
@@ -360,13 +354,13 @@ struct MainTabCoordinator {
         )
         return .none
       case .profileCoordinator(.profile(.delegate(.profileRefreshRequested))):
-        return .send(.delegate(.myProfileRefreshRequested))
+        return .send(.session(.view(.retryProfile)))
       case .profileCoordinator(.profile(.delegate(.logoutRequested))):
         return .send(.account(.view(.signOutRequested)))
       case .profileCoordinator(.profile(.delegate(.withdrawRequested))):
         return .send(.account(.view(.withdrawRequested)))
       case let .profileCoordinator(.profile(.delegate(.profileUpdated(user)))):
-        return .send(.delegate(.myProfileUpdated(user)))
+        return .send(.session(.view(.profileUpdated(user))))
       case .profileCoordinator(.profile(.destination(.presented(.packDetail(.delegate(.packDeleted)))))),
            .profileCoordinator(.profile(.destination(.presented(.packDetail(.delegate(.packChanged)))))):
         return .send(.festival(.reloadCachedPacks))
