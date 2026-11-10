@@ -15,33 +15,51 @@ import SwiftUI
 @ViewAction(for: FestivalFlagDetailFeature.self)
 public struct FestivalFlagDetailView: View {
   @Bindable public var store: StoreOf<FestivalFlagDetailFeature>
+  /// 사진이 Top Bar 뒤를 채우는 동안 Top Bar를 사진 위 스타일로 바꾼다(Figma S05 A-스크롤).
+  @State private var isTopBarOnImage = false
+  @State private var topBarHeight: CGFloat = .zero
+  @State private var heroHeight: CGFloat = .zero
 
   public init(store: StoreOf<FestivalFlagDetailFeature>) {
     self.store = store
   }
 
   public var body: some View {
-    VStack(spacing: .zero) {
-      topBar
+    // Figma S05: 사진이 Top Bar 아래까지 스크롤되도록 Top Bar를 위쪽 안전 영역으로 띄운다.
+    content()
+      .frame(
+        maxWidth: .infinity,
+        maxHeight: .infinity
+      )
+      .safeAreaInset(
+        edge: .top,
+        spacing: .zero
+      ) {
+        VStack(spacing: .zero) {
+          topBar
+            .onGeometryChange(for: CGFloat.self) { proxy in
+              return proxy.size.height
+            } action: { height in
+              topBarHeight = height
+            }
 
-      if let offlineText = store.offlineText {
-        FCOfflineBadge(offlineText)
+          if let offlineText = store.offlineText {
+            FCOfflineBadge(offlineText)
+          }
+        }
       }
-
-      content()
-    }
-    .background(FestiCoreSemanticColor.backgroundNormal.color)
-    .overlay(alignment: .bottom) {
-      toast()
-    }
-    .fcModal($store.scope(
-      state: \.destination?.report,
-      action: \.destination.report
-    )) { reportStore in
-      FestivalFlagReportView(store: reportStore)
-    }
-    .onAppear { send(.onAppear) }
-    .onDisappear { send(.onDisappear) }
+      .background(FestiCoreSemanticColor.backgroundNormal.color)
+      .overlay(alignment: .bottom) {
+        toast()
+      }
+      .fcModal($store.scope(
+        state: \.destination?.report,
+        action: \.destination.report
+      )) { reportStore in
+        FestivalFlagReportView(store: reportStore)
+      }
+      .onAppear { send(.onAppear) }
+      .onDisappear { send(.onDisappear) }
   }
 }
 
@@ -55,8 +73,9 @@ private extension FestivalFlagDetailView {
   /// 뒤로 가기·깃발 이름·공유. 상세를 받기 전에는 공유를 감춘다.
   @ViewBuilder
   var topBar: some View {
+    // 오프라인 안내가 Top Bar 아래를 가리면 사진 위 스타일을 쓰지 않는다.
     let bar = FCTopBar(
-      .back,
+      isTopBarOnImage && store.offlineText == nil ? .backOnImage : .back,
       title: store.detail?.name ?? ""
     )
     .onBack { send(.backTapped) }
@@ -97,6 +116,11 @@ private extension FestivalFlagDetailView {
         spacing: .zero
       ) {
         hero(detail)
+          .onGeometryChange(for: CGFloat.self) { proxy in
+            return proxy.size.height
+          } action: { height in
+            heroHeight = height
+          }
 
         // Figma S05 Contents: 간격 20
         VStack(
@@ -134,6 +158,13 @@ private extension FestivalFlagDetailView {
       }
     }
     .fcScrollBottomInset()
+    .onScrollGeometryChange(for: Bool.self) { geometry in
+      // 쉬는 위치에서 내린 거리. 사진이 Top Bar 전체를 덮는 동안만 사진 위 스타일이다.
+      let offset = geometry.contentOffset.y + geometry.contentInsets.top
+      return topBarHeight > .zero && offset >= topBarHeight && offset <= heroHeight
+    } action: { _, isOnImage in
+      isTopBarOnImage = isOnImage
+    }
   }
 
   /// 숨겨졌거나 공개하지 않는 깃발
