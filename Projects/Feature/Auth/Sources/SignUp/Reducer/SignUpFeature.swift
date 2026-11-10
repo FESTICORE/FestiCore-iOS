@@ -32,9 +32,7 @@ public struct SignUpFeature {
     public var acceptedPrivacyTerms = false
     /// 필수 약관을 체크할 때의 약관 버전. 새 버전 프로필이 오면 체크를 지운다.
     public var termsDraftVersion: String?
-    /// 시안 S14-2는 가입 화면에서 알림 동의를 받지 않는다. 가입 요청에는 기본값 false를 그대로 보낸다.
-    public var pushOptIn = false
-    /// 가입 초안(닉네임·약관·알림)을 만든 계정. 계정이 확인될 때 다르면 초안을 버린다.
+    /// 가입 초안(닉네임·약관)을 만든 계정. 계정이 확인될 때 다르면 초안을 버린다.
     public var draftOwnerID: String?
     /// 부모가 가입을 제출하거나 프로필을 확인하는 중인지. 부모가 `view(.flowChanged)`로 알린다.
     public var isSubmitting = false
@@ -80,7 +78,7 @@ public struct SignUpFeature {
     }
 
     var hasDraft: Bool {
-      return !nickname.isEmpty || nicknameEdited || acceptedServiceTerms || acceptedPrivacyTerms || pushOptIn
+      return !nickname.isEmpty || nicknameEdited || acceptedServiceTerms || acceptedPrivacyTerms
     }
 
     /// 계정이 확인될 때 다른 계정이 만들었거나 소유자를 모르는 초안은 버린다. 초안을 버렸으면 true다.
@@ -110,7 +108,6 @@ public struct SignUpFeature {
     public mutating func clearDraft() {
       nickname = ""
       nicknameEdited = false
-      pushOptIn = false
       draftOwnerID = nil
       clearRequiredTerms()
     }
@@ -247,7 +244,8 @@ extension SignUpFeature {
       let nickname = state.nickname.trimmingCharacters(in: .whitespacesAndNewlines)
       return .send(.delegate(.submitRequested(SignUpSubmission(
         nickname: nickname,
-        pushOptIn: state.pushOptIn,
+        // 가입하면 알림 수신에 자동으로 동의한다. 기기 알림 권한은 앱이 따로 요청한다.
+        pushOptIn: true,
         isNicknameValid: AuthNicknameRule.isValid(nickname)
       ))))
 
