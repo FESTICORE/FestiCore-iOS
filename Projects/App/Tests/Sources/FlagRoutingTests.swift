@@ -79,8 +79,12 @@ struct FlagRoutingTests {
     ))))
     await store.receive(\.flagCoordinator.delegate.followLoginRequested)
     await store.receive {
-      guard case .delegate(.myFollowLoginRequested) = $0 else { return false }
+      guard case .auth(.view(.loginRequested(.follow))) = $0 else { return false }
       return true
+    } assert: {
+      $0.authFlow.generation = 1
+      $0.authFlow.loginContextOverride = .follow
+      $0.authFlow.presentation = .login
     }
 
     await store.send(.flagCoordinator(.router(.routeAction(
@@ -89,8 +93,11 @@ struct FlagRoutingTests {
     ))))
     await store.receive(\.flagCoordinator.delegate.loginRequested)
     await store.receive {
-      guard case .delegate(.myLoginRequested) = $0 else { return false }
+      guard case .auth(.view(.loginRequested(.none))) = $0 else { return false }
       return true
+    } assert: {
+      $0.authFlow.generation = 2
+      $0.authFlow.loginContextOverride = nil
     }
 
     await store.send(.flagCoordinator(.router(.routeAction(

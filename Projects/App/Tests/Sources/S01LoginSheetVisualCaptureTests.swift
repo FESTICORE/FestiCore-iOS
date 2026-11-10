@@ -42,7 +42,7 @@ final class S01LoginSheetVisualCaptureTests: XCTestCase {
       )
       state.festivalState.routes.push(.liveBoard(board))
       state.authFlow.presentation = context == nil ? nil : .login
-      state.loginState.context = context ?? .crew
+      state.authFlow.login.context = context ?? .crew
       let store = Store(initialState: state) {
         EmptyReducer<MainTabCoordinator.State, MainTabCoordinator.Action>()
       } withDependencies: {

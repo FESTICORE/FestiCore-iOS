@@ -12,6 +12,7 @@ import Foundation
 
 extension SessionCoordinator {
   /// 홈 위에 뜨는 로그인·가입·이전 시트와 그 사이 대기 예약, 계정 확인 상태를 담는다.
+  @ObservableState
   struct State: Equatable {
     enum Presentation: Equatable {
       case login
@@ -32,6 +33,8 @@ extension SessionCoordinator {
     var verifiedUserID: String?
     var lastVerifiedUserID: String?
     var hasSession = false
+    /// 관찰 추적 접근자 대신 didSet을 유지하려고 추적에서 뺀다. 화면은 이 값을 직접 읽지 않는다.
+    @ObservationStateIgnored
     var profile: AuthProfile? {
       // 가입 초안 규칙이 현재 계정과 약관 버전을 따르도록 프로필이 바뀔 때마다 알린다.
       didSet {
@@ -41,8 +44,10 @@ extension SessionCoordinator {
     }
     var presentation: Presentation?
     var loginContextOverride: LoginFeature.State.Context?
+    /// 로그인 시트 화면 상태
+    var login = LoginFeature.State()
     /// 가입 정보 초안과 약관 상세 push 경로
-    var signUpFlow = SignUpFlowCoordinator.State()
+    var signUpFlow = AuthCoordinator.SignUpFlow()
     var signUp: SignUpFeature.State {
       get { signUpFlow.signUp }
       set { signUpFlow.signUp = newValue }

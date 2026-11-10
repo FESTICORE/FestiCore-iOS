@@ -227,7 +227,7 @@ private extension AccountCoordinator {
     }
   }
 
-  /// 계정 작업이 끝나면 인증 흐름을 비우되 세대는 되돌리지 않는다.
+  /// 계정 작업이 끝나면 인증 흐름을 비우되 세대와 로그인 시트 화면 상태는 되돌리지 않는다.
   func clearedAuthFlow(
     after flow: State,
     generation: Int
@@ -237,6 +237,7 @@ private extension AccountCoordinator {
       flow.generation,
       generation
     )
+    cleared.login = flow.login
     return cleared
   }
 }

@@ -103,8 +103,11 @@ struct ProfileRoutingTests {
     await store.receive(\.profileCoordinator.profile.view)
     await store.receive(\.profileCoordinator.profile.delegate.loginRequested)
     await store.receive {
-      guard case .delegate(.myLoginRequested) = $0 else { return false }
+      guard case .auth(.view(.loginRequested(.none))) = $0 else { return false }
       return true
+    } assert: {
+      $0.authFlow.generation = 1
+      $0.authFlow.presentation = .login
     }
     await store.finish()
   }

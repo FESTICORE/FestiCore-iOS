@@ -9,7 +9,6 @@ import AuthDomainInterface
 import ComposableArchitecture
 import CoreAssembly
 import FeatureAssembly
-import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreDeviceInterface
@@ -20,16 +19,10 @@ import OSLog
 
 @Reducer
 struct AppCoordinator {
-  @Dependency(\.authUseCase) var authUseCase
-  @Dependency(\.authService) var authService
   @Dependency(\.festivalWidgetClient) var festivalWidgetClient
   @Dependency(\.date) var date
-  @Dependency(\.festivalBookedStore) var bookedStore
   @Dependency(\.authSessionExpiryClient) var authSessionExpiryClient
-  @Dependency(\.analyticsUseCase) var analyticsUseCase
   @Dependency(\.firstInstallOnboardingStore) var firstInstallOnboardingStore
-
-  typealias AuthFlow = SessionCoordinator.State
 
   enum CancelID { case sessionExpiry, widgetSnapshot }
 
@@ -83,22 +76,12 @@ struct AppCoordinator {
     case openDeeplink(FestiCoreDeeplink)
     /// 대기 저장소에 새 딥링크가 들어왔다. 홈이면 바로 꺼내 연다.
     case deeplinkReceived
-    /// 로그인 시트의 로그인 요청(`LoginDelegate.signInRequested`)도 여기서 시트 상태를 확인한다.
-    case startLogin(OAuthProvider)
-    case dismissFlow
-    case resolveMigration(Bool)
   }
 
   @CasePathable
   enum InnerAction {
     case firstInstallStatus(Bool)
     case completeHomeTransition
-    case loginCommitted(
-      AuthLoginResult,
-      generation: Int,
-      committed: Bool
-    )
-    case staleLoginDiscarded
   }
 
   @CasePathable

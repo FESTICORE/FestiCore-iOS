@@ -111,8 +111,11 @@ struct BearerEntryRoutingTests {
 
     await store.send(.profileCoordinator(.profile(.delegate(.bearerRequested))))
     await store.receive { action in
-      guard case .delegate(.myLoginRequested) = action else { return false }
+      guard case .auth(.view(.loginRequested(.none))) = action else { return false }
       return true
+    } assert: {
+      $0.authFlow.generation = 1
+      $0.authFlow.presentation = .login
     }
   }
 
