@@ -15,6 +15,7 @@ struct FestivalLiveBoardView: View {
       if rows.isEmpty {
         Text("현재 진행 중이거나 예정된 공연 정보가 없습니다.")
           .festiCoreFont(.baseSubheadlineRegular)
+          .festiCoreLineBox(.baseSubheadlineRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(FestiCoreSpacing.paddingP20)
@@ -47,6 +48,7 @@ private extension FestivalLiveBoardView {
       HStack(spacing: FestiCoreSpacing.paddingP8) {
         Text(row.name)
           .festiCoreFont(.baseFootnoteBold)
+          .festiCoreLineBox(.baseFootnoteBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
           .frame(maxWidth: .infinity, alignment: .leading)
         if row.isMine {
@@ -92,6 +94,7 @@ private extension FestivalLiveBoardView {
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         Text(slot.time)
           .festiCoreFont(.baseCaption1Regular)
+          .festiCoreLineBox(.baseCaption1Regular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       }
       .lineLimit(1)

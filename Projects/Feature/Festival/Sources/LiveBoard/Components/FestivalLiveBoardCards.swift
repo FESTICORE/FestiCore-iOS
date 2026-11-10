@@ -16,10 +16,12 @@ struct FestivalLiveBoardCrewCard: View {
     VStack(spacing: .zero) {
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
         Text(crew.title)
-          .festiCoreFont(.baseBodyBold)
+          .festiCoreFont(.baseHeadlineBold)
+          .festiCoreLineBox(.baseHeadlineBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         Text(crew.subtitle)
           .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       }
       .lineLimit(1)
@@ -77,6 +79,7 @@ private extension FestivalLiveBoardCrewCard {
         HStack(spacing: FestiCoreSpacing.paddingP4) {
           Text(member.nickname)
             .festiCoreFont(.baseCalloutBold)
+            .festiCoreLineBox(.baseCalloutBold)
             .foregroundStyle(primary.color)
           if member.isMe {
             FCTag("나")
@@ -91,6 +94,7 @@ private extension FestivalLiveBoardCrewCard {
           if let status = member.status {
             Text(status)
               .festiCoreFont(.baseFootnoteBold)
+              .festiCoreLineBox(.baseFootnoteBold)
               .foregroundStyle(primary.color)
           }
         }
@@ -100,6 +104,7 @@ private extension FestivalLiveBoardCrewCard {
       if let time = member.time {
         Text(time)
           .festiCoreFont(.baseCaption1Regular)
+          .festiCoreLineBox(.baseCaption1Regular)
           .foregroundStyle(member.isLeaving
             ? FestiCoreSemanticColor.labelDisable.color
             : FestiCoreSemanticColor.labelAssistive.color)
@@ -128,6 +133,7 @@ struct FestivalLiveBoardFlagTile: View {
       HStack(spacing: FestiCoreSpacing.paddingP4) {
         Text(flag.name)
           .festiCoreFont(.baseCalloutBold)
+          .festiCoreLineBox(.baseCalloutBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .lineLimit(1)
           .frame(maxWidth: .infinity, alignment: .leading)
@@ -146,11 +152,13 @@ struct FestivalLiveBoardFlagTile: View {
       HStack(spacing: FestiCoreSpacing.paddingP8) {
         Text(flag.tags)
           .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
           .frame(maxWidth: .infinity, alignment: .leading)
         if let time = flag.time {
           Text(time)
             .festiCoreFont(.baseCaption1Regular)
+            .festiCoreLineBox(.baseCaption1Regular)
             .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         }
       }
@@ -176,10 +184,12 @@ struct FestivalLiveBoardActiveFlagRow: View {
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
         Text(flag.name)
           .festiCoreFont(.baseCalloutBold)
+          .festiCoreLineBox(.baseCalloutBold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         if !flag.meta.isEmpty {
           Text(flag.meta)
             .festiCoreFont(.baseFootnoteRegular)
+            .festiCoreLineBox(.baseFootnoteRegular)
             .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         }
       }
@@ -192,6 +202,7 @@ struct FestivalLiveBoardActiveFlagRow: View {
         if let time = flag.time {
           Text(time)
             .festiCoreFont(.baseCaption1Regular)
+            .festiCoreLineBox(.baseCaption1Regular)
             .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         }
       }

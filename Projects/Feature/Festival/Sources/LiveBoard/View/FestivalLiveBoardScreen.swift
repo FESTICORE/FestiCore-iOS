@@ -237,6 +237,7 @@ private extension FestivalLiveBoardScreen {
           HStack {
             Text(notification.title)
               .festiCoreFont(.baseCalloutBold)
+              .festiCoreLineBox(.baseCalloutBold)
               .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
               .frame(
                 maxWidth: .infinity,
@@ -247,10 +248,12 @@ private extension FestivalLiveBoardScreen {
               now: now
             ))
             .festiCoreFont(.baseCaption1Regular)
+            .festiCoreLineBox(.baseCaption1Regular)
             .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
           }
           Text(notification.body)
             .festiCoreFont(.baseFootnoteRegular)
+            .festiCoreLineBox(.baseFootnoteRegular)
             .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
             .lineLimit(2)
         }

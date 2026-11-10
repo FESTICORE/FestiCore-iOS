@@ -118,10 +118,12 @@ private extension FestivalCrewCreateView {
     ) {
       Text(title)
         .festiCoreFont(.baseTitle2Bold)
+        .festiCoreLineBox(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .accessibilityAddTraits(.isHeader)
       Text(message)
         .festiCoreFont(.baseSubheadlineRegular)
+        .festiCoreLineBox(.baseSubheadlineRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
   }
@@ -171,11 +173,13 @@ private extension FestivalCrewCreateView {
     return VStack(spacing: FestiCoreSpacing.paddingP4) {
       Text(code)
         .festiCoreFont(.baseTitle1Bold)
+        .festiCoreLineBox(.baseTitle1Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .accessibilityLabel("초대 코드 \(code.map(String.init).joined(separator: " "))")
       if let expiresAt {
         Text("\(expiresAt.formatted(.festivalDay)) \(expiresAt.formatted(.time))까지 쓸 수 있어요")
           .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       }
     }

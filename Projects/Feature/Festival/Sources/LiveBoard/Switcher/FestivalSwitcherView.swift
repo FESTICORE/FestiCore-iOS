@@ -57,10 +57,12 @@ private extension FestivalSwitcherView {
     ) {
       Text("페스티벌 바꾸기")
         .festiCoreFont(.baseHeadlineBold)
+        .festiCoreLineBox(.baseHeadlineBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .accessibilityAddTraits(.isHeader)
       Text("내가 예매한 페스티벌")
         .festiCoreFont(.baseCaption1Regular)
+        .festiCoreLineBox(.baseCaption1Regular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
     .frame(
@@ -96,10 +98,12 @@ private extension FestivalSwitcherView {
         ) {
           Text(festival.name)
             .festiCoreFont(.baseCalloutMedium)
+            .festiCoreLineBox(.baseCalloutMedium)
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
             .lineLimit(1)
           Text(festival.subtitle)
             .festiCoreFont(.baseCaption1Regular)
+            .festiCoreLineBox(.baseCaption1Regular)
             .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
             .lineLimit(1)
         }
@@ -132,6 +136,7 @@ private extension FestivalSwitcherView {
       HStack {
         Text("전체 페스티벌 보기")
           .festiCoreFont(.baseCalloutRegular)
+          .festiCoreLineBox(.baseCalloutRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         Spacer()
         Image(asset: .chevronRight16)
