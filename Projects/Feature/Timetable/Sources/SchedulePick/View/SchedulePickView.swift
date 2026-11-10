@@ -42,13 +42,16 @@ private extension SchedulePickView {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
       Text("Step 1. 내 일정 고르기")
         .festiCoreFont(.baseCaption1Medium)
+        .festiCoreLineBox(.baseCaption1Medium)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       Text("보고 싶은 무대를 골라 주세요")
         .festiCoreFont(.baseTitle2Bold)
+        .festiCoreLineBox(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .accessibilityAddTraits(.isHeader)
       Text("고른 무대는 시작 10분 전에 알려 드려요.\n나중에 타임테이블에서 언제든 바꿀 수 있어요.")
         .festiCoreFont(.baseSubheadlineRegular)
+        .festiCoreLineBox(.baseSubheadlineRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
   }
@@ -57,6 +60,7 @@ private extension SchedulePickView {
     VStack(alignment: .trailing, spacing: FestiCoreSpacing.paddingP8) {
       Text("\(store.selectedSetIDs.count)개 선택")
         .festiCoreFont(.baseFootnoteBold)
+        .festiCoreLineBox(.baseFootnoteBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       if let day = store.selectedDay, !day.sets.isEmpty {
         VStack(spacing: .zero) {

@@ -762,18 +762,13 @@ struct AppCoordinatorTests {
     guard case let .home(both) = store.state else { return }
     #expect(both.authFlow.signUp.acceptedTerms)
     #expect(both.authFlow.signUp.consentedVersion == "2026-10")
-    #expect(!both.authFlow.signUp.isAllConsented)
-
-    // 필수 2개만 켜진 일부 선택 상태에서 전체 동의를 누르면 선택 알림까지 모두 켠다.
-    await store.send(.scope(.home(.signUp(.view(.allConsentToggled)))))
-    await store.receive(\.scope.home.signUp.router)
-    guard case let .home(all) = store.state else { return }
-    #expect(all.authFlow.signUp.isAllConsented)
+    // 시안 S14-2는 필수 약관 2개만 받으므로 둘 다 켜지면 전체 동의다.
+    #expect(both.authFlow.signUp.isAllConsented)
 
     await store.send(.scope(.home(.signUp(.view(.allConsentToggled)))))
     await store.receive(\.scope.home.signUp.router)
     guard case let .home(none) = store.state else { return }
-    #expect(!none.authFlow.signUp.acceptedServiceTerms && !none.authFlow.signUp.acceptedPrivacyTerms && !none.authFlow.signUp.pushOptIn)
+    #expect(!none.authFlow.signUp.acceptedServiceTerms && !none.authFlow.signUp.acceptedPrivacyTerms)
     #expect(!none.authFlow.signUp.acceptedTerms)
     #expect(none.authFlow.signUp.consentedVersion == nil)
   }
@@ -784,7 +779,6 @@ struct AppCoordinatorTests {
     home.authFlow.isLoading = true
     home.authFlow.signUp.nickname = "A의 초안"
     home.authFlow.signUp.acceptedServiceTerms = true
-    home.authFlow.signUp.pushOptIn = true
     home.authFlow.signUp.draftOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
@@ -796,7 +790,6 @@ struct AppCoordinatorTests {
     guard case let .home(loaded) = store.state else { return }
     #expect(loaded.authFlow.signUp.nickname.isEmpty)
     #expect(!loaded.authFlow.signUp.acceptedServiceTerms)
-    #expect(!loaded.authFlow.signUp.pushOptIn)
     #expect(loaded.authFlow.signUp.draftOwnerID == nil)
   }
 
@@ -995,7 +988,6 @@ struct AppCoordinatorTests {
     home.authFlow.signUp.acceptedServiceTerms = true
     home.authFlow.signUp.acceptedPrivacyTerms = true
     home.authFlow.signUp.termsDraftVersion = "2026-10"
-    home.authFlow.signUp.pushOptIn = true
     home.authFlow.signUp.draftOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
@@ -1010,7 +1002,6 @@ struct AppCoordinatorTests {
     #expect(after.authFlow.signUp.nickname.isEmpty)
     #expect(!after.authFlow.signUp.nicknameEdited)
     #expect(!after.authFlow.signUp.acceptedTerms && !after.authFlow.signUp.acceptedServiceTerms && !after.authFlow.signUp.acceptedPrivacyTerms)
-    #expect(!after.authFlow.signUp.pushOptIn)
     #expect(after.authFlow.signUp.draftOwnerID == nil)
   }
 
@@ -2218,7 +2209,6 @@ struct AppCoordinatorTests {
     home.authFlow.signUp.acceptedServiceTerms = true
     home.authFlow.signUp.acceptedPrivacyTerms = true
     home.authFlow.signUp.termsDraftVersion = "2026-10"
-    home.authFlow.signUp.pushOptIn = true
     home.authFlow.message = "이전 안내"
     home.authFlow.hasRetriedTermsUpdate = true
     home.authFlow.termsUpdateExhausted = true
@@ -2263,7 +2253,6 @@ struct AppCoordinatorTests {
     #expect(expired.authFlow.signUp.nickname.isEmpty)
     #expect(!expired.authFlow.signUp.acceptedTerms)
     #expect(expired.authFlow.signUp.consentedVersion == nil)
-    #expect(!expired.authFlow.signUp.pushOptIn)
     #expect(expired.authFlow.message == nil)
     #expect(!expired.authFlow.hasRetriedTermsUpdate)
     #expect(!expired.authFlow.termsUpdateExhausted)

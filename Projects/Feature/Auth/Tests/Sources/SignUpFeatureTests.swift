@@ -86,9 +86,7 @@ struct SignUpFeatureTests {
   }
 
   @Test @MainActor func submitSendsTrimmedNicknameWithValidity() async {
-    var state = submittableState(nickname: "  테스터 ")
-    state.pushOptIn = true
-    let store = TestStore(initialState: state) { SignUpFeature() }
+    let store = TestStore(initialState: submittableState(nickname: "  테스터 ")) { SignUpFeature() }
 
     await store.send(.view(.submitTapped))
     await store.receive(.delegate(.submitRequested(SignUpSubmission(
@@ -103,7 +101,7 @@ struct SignUpFeatureTests {
     await store.send(.view(.submitTapped))
     await store.receive(.delegate(.submitRequested(SignUpSubmission(
       nickname: nickname,
-      pushOptIn: false,
+      pushOptIn: true,
       isNicknameValid: false
     ))))
   }
@@ -202,17 +200,15 @@ struct SignUpFeatureTests {
     #expect(state.nickname == "작성 중")
   }
 
-  @Test func dismissalKeepsNicknamePushAndOwner() {
+  @Test func dismissalKeepsNicknameAndOwner() {
     var state = SignUpFeature.State()
     state.nickname = "작성 중"
-    state.pushOptIn = true
     state.draftOwnerID = "user-a"
     state.acceptedServiceTerms = true
     state.termsDraftVersion = "2026-10"
 
     state.resetForDismissal()
     #expect(state.nickname == "작성 중")
-    #expect(state.pushOptIn)
     #expect(state.draftOwnerID == "user-a")
     #expect(!state.acceptedServiceTerms)
     #expect(state.termsDraftVersion == nil)

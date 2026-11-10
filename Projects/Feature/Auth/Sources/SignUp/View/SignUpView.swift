@@ -105,11 +105,6 @@ private extension SignUpView {
         }
         .tag("필수")
         .onDetail(legalLink(.privacy))
-        FCConsentRow("알림 받기", isChecked: store.pushOptIn) {
-          send(.pushOptInChanged(!store.pushOptIn))
-        }
-        .tag("선택")
-        .sub("공연 10분 전 · 팔로우한 깃발 · 크루 소식")
       }
       .padding(.vertical, FestiCoreSpacing.paddingP8)
     }

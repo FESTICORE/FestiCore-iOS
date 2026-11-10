@@ -50,10 +50,12 @@ private extension LoginView {
       VStack(spacing: FestiCoreSpacing.paddingP8) {
         Text(copy.title)
           .festiCoreFont(.baseTitle3Bold)
+          .festiCoreLineBox(.baseTitle3Bold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .accessibilityAddTraits(.isHeader)
         Text(copy.message)
           .festiCoreFont(.baseSubheadlineRegular)
+          .festiCoreLineBox(.baseSubheadlineRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
       }
       .multilineTextAlignment(.center)
@@ -67,6 +69,7 @@ private extension LoginView {
       .padding(.horizontal, FestiCoreSpacing.paddingP20)
       Button("나중에 할게요") { send(.closeTapped) }
         .festiCoreFont(.baseFootnoteMedium)
+        .festiCoreLineBox(.baseFootnoteMedium)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         .buttonStyle(.plain)
     }
