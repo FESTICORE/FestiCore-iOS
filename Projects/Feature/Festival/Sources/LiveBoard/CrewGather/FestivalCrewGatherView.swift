@@ -11,6 +11,7 @@ struct FestivalCrewGatherView: View {
     return VStack(spacing: FestiCoreSpacing.paddingP16) {
       Text("모일 존을 선택해 주세요")
         .festiCoreFont(.baseHeadlineBold)
+        .festiCoreLineBox(.baseHeadlineBold)
       if store.zones.isEmpty {
         FCEmptyCard(
           title: "공개된 존이 없어요",
