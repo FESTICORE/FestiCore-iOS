@@ -762,13 +762,8 @@ struct AppCoordinatorTests {
     guard case let .home(both) = store.state else { return }
     #expect(both.authFlow.signUp.acceptedTerms)
     #expect(both.authFlow.signUp.consentedVersion == "2026-10")
-    #expect(!both.authFlow.signUp.isAllConsented)
-
-    // 필수 2개만 켜진 일부 선택 상태에서 전체 동의를 누르면 선택 알림까지 모두 켠다.
-    await store.send(.scope(.home(.signUp(.view(.allConsentToggled)))))
-    await store.receive(\.scope.home.signUp.router)
-    guard case let .home(all) = store.state else { return }
-    #expect(all.authFlow.signUp.isAllConsented)
+    // 시안 S14-2는 필수 약관 2개만 받으므로 둘 다 켜지면 전체 동의다.
+    #expect(both.authFlow.signUp.isAllConsented)
 
     await store.send(.scope(.home(.signUp(.view(.allConsentToggled)))))
     await store.receive(\.scope.home.signUp.router)

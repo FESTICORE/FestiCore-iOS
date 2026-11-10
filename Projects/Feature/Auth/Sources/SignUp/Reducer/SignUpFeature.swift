@@ -32,6 +32,7 @@ public struct SignUpFeature {
     public var acceptedPrivacyTerms = false
     /// 필수 약관을 체크할 때의 약관 버전. 새 버전 프로필이 오면 체크를 지운다.
     public var termsDraftVersion: String?
+    /// 시안 S14-2는 가입 화면에서 알림 동의를 받지 않는다. 가입 요청에는 기본값 false를 그대로 보낸다.
     public var pushOptIn = false
     /// 가입 초안(닉네임·약관·알림)을 만든 계정. 계정이 확인될 때 다르면 초안을 버린다.
     public var draftOwnerID: String?
@@ -59,7 +60,7 @@ public struct SignUpFeature {
     }
 
     public var isAllConsented: Bool {
-      return acceptedServiceTerms && acceptedPrivacyTerms && pushOptIn
+      return acceptedServiceTerms && acceptedPrivacyTerms
     }
 
     /// 현재 약관 버전에 동의했고 닉네임이 있으며 제출할 수 있는 상태일 때만 true다.
@@ -156,7 +157,6 @@ public struct SignUpFeature {
     case serviceTermsChanged(Bool)
     case privacyTermsChanged(Bool)
     case allConsentToggled
-    case pushOptInChanged(Bool)
     case legalDocumentTapped(LegalDocument)
     case submitTapped
     case closeTapped
@@ -232,13 +232,7 @@ extension SignUpFeature {
       let accepted = !state.isAllConsented
       state.acceptedServiceTerms = accepted
       state.acceptedPrivacyTerms = accepted
-      state.pushOptIn = accepted
       state.syncRequiredTerms()
-      return .none
-
-    case let .pushOptInChanged(optedIn):
-      state.claimDraft()
-      state.pushOptIn = optedIn
       return .none
 
     case let .legalDocumentTapped(document):
