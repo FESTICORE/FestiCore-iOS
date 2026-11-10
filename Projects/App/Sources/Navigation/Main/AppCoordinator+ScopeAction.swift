@@ -39,21 +39,6 @@ extension AppCoordinator {
          .home(.delegate(.retryProfile)):
       return .send(.scope(.home(.session(.view(.retryProfile)))))
 
-    case .home(.delegate(.accountOperationInterrupted)):
-      return .cancel(id: CancelID.accountOperation)
-
-    case .home(.delegate(.myLogoutRequested)):
-      return myAccountOperation(
-        state: &state,
-        operation: .signOut
-      )
-
-    case .home(.delegate(.myWithdrawRequested)):
-      return myAccountOperation(
-        state: &state,
-        operation: .withdraw
-      )
-
     // MARK: 예약·가입·로그인
 
     case let .home(.festival(.delegate(.bookmarkRequested(id)))):

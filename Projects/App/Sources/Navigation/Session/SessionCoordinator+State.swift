@@ -25,7 +25,7 @@ extension SessionCoordinator {
     var pendingOwnerID: String?
     var generation = 0
     var accountOperationGeneration: Int?
-    var accountOperation: AppCoordinator.MyAccountOperation?
+    var accountOperation: AccountCoordinator.Operation?
     var loginAttemptGeneration: Int?
     /// 수락해 확정 중인 로그인 세션. 확정 전에 시트가 닫히면 이 세션을 버린다.
     var pendingCommitSessionID: UUID?

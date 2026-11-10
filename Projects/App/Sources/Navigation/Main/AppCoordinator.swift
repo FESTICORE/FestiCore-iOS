@@ -31,7 +31,7 @@ struct AppCoordinator {
 
   typealias AuthFlow = SessionCoordinator.State
 
-  enum CancelID { case sessionExpiry, accountOperation, widgetSnapshot }
+  enum CancelID { case sessionExpiry, widgetSnapshot }
 
   @ObservableState
   enum State: Equatable {
@@ -93,11 +93,6 @@ struct AppCoordinator {
   enum InnerAction {
     case firstInstallStatus(Bool)
     case completeHomeTransition
-    case myAccountFinished(
-      generation: Int,
-      operation: MyAccountOperation,
-      result: Result<Void, AuthDomainError>
-    )
     case loginCommitted(
       AuthLoginResult,
       generation: Int,
@@ -113,37 +108,25 @@ struct AppCoordinator {
     case home(MainTabCoordinator.Action)
   }
 
-  enum MyAccountOperation: Equatable, Sendable {
-    case signOut
-    case withdraw
-  }
-
   var body: some ReducerOf<Self> {
     Reduce { state, action in
-      let previousSession = session(in: state)
-      let effect: Effect<Action>
       switch action {
       case let .view(viewAction):
-        effect = handleViewAction(
+        return handleViewAction(
           state: &state,
           action: viewAction
         )
       case let .inner(innerAction):
-        effect = handleInnerAction(
+        return handleInnerAction(
           state: &state,
           action: innerAction
         )
       case let .scope(scopeAction):
-        effect = handleScopeAction(
+        return handleScopeAction(
           state: &state,
           action: scopeAction
         )
       }
-      reconcileAccountDisplayData(
-        previousSession: previousSession,
-        state: &state
-      )
-      return effect
     }
     .ifCaseLet(\.splash, action: \.scope.splash) { SplashFeature() }
     .ifCaseLet(\.onboarding, action: \.scope.onboarding) { OnboardingFeature() }
@@ -169,20 +152,6 @@ struct AppCoordinator {
 }
 
 private extension AppCoordinator {
-  func session(in state: State) -> MainTabCoordinator.AuthInputs.Session? {
-    guard case let .home(home) = state else { return nil }
-    return home.authInputs.session
-  }
-
-  func reconcileAccountDisplayData(
-    previousSession: MainTabCoordinator.AuthInputs.Session?,
-    state: inout State
-  ) {
-    guard let previousSession, case var .home(home) = state else { return }
-    home.reconcileAccountDisplayData(previousSession: previousSession)
-    state = .home(home)
-  }
-
   func authInputsChanged(
     previous: State,
     current: State

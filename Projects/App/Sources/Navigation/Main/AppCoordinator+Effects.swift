@@ -42,6 +42,9 @@ extension AppCoordinator {
     _ result: AuthLoginResult,
     home: inout MainTabCoordinator.State
   ) -> Effect<Action> {
+    let previousSession = home.authInputs.session
+    // 세션이 바뀐 같은 액션 안에서 이전 계정의 화면 데이터를 정리한다.
+    defer { home.reconcileAccountDisplayData(previousSession: previousSession) }
     if home.authFlow.isAccountChanged(to: result.user.id) { home.authFlow.clearPendingBookmark() }
     home.authFlow.dropPendingBookmark(notOwnedBy: result.user.id)
     home.authFlow.verifiedUserID = result.user.id
@@ -87,82 +90,5 @@ extension AppCoordinator {
   ) -> Bool {
     let board = festival.routes.last { $0.screen.festivalBoard != nil }?.screen.festivalBoard
     return board?.bookedFestivalIDs.contains(id) ?? false
-  }
-}
-
-// MARK: - 계정 데이터
-
-extension AppCoordinator {
-  /// 이전 계정의 라이브 보드·예약 목록을 바로 비운다.
-  func clearAccountData(_ home: inout MainTabCoordinator.State) -> Effect<Action> {
-    home.clearAccountDisplayData()
-    return notifyAccountChanged()
-  }
-
-  /// 축제 화면에 계정이 바뀌었다고 알려 예약 목록을 다시 정리하게 한다.
-  func notifyAccountChanged() -> Effect<Action> {
-    return .send(.scope(.home(.festival(.accountChanged))))
-  }
-}
-
-// MARK: - 로그아웃·탈퇴
-
-extension AppCoordinator {
-  func myAccountOperation(
-    state: inout State,
-    operation: MyAccountOperation
-  ) -> Effect<Action> {
-    return state.withHome { home in
-      guard home.authFlow.hasSession, !home.authFlow.isLoading else { return .none }
-      let generation = home.authFlow.beginRequest()
-      home.authFlow.accountOperationGeneration = generation
-      home.authFlow.accountOperation = operation
-      home.authFlow.message = nil
-      return runAccountOperation(
-        operation,
-        generation: generation
-      )
-    }
-  }
-
-  func runAccountOperation(
-    _ operation: MyAccountOperation,
-    generation: Int
-  ) -> Effect<Action> {
-    return .run { send in
-      do {
-        let device = AccountDeviceSync()
-        await device.unbindDeviceForAccountOperation()
-        try Task.checkCancellation()
-        await device.endLocalLiveActivities()
-        try Task.checkCancellation()
-        switch operation {
-        case .signOut: try await authUseCase.signOut()
-        case .withdraw: try await authUseCase.withdraw()
-        }
-        await send(.inner(.myAccountFinished(
-          generation: generation,
-          operation: operation,
-          result: .success(())
-        )))
-      } catch {
-        guard !Task.isCancelled else { return }
-        if !(await authService.isLoggedIn) {
-          await send(.scope(.home(.session(.async(.sessionExpired)))))
-          return
-        }
-        // 인증 요청은 실패했지만 계정이 유지되면 해제했던 기기 소유권을 복원한다.
-        await AccountDeviceSync().linkDeviceForCurrentUser()
-        await send(.inner(.myAccountFinished(
-          generation: generation,
-          operation: operation,
-          result: .failure(SessionCoordinator.authFailure(error))
-        )))
-      }
-    }
-    .cancellable(
-      id: CancelID.accountOperation,
-      cancelInFlight: true
-    )
   }
 }

@@ -516,11 +516,11 @@ struct AppCoordinatorTests {
   }
 
   @Test func signOutClearsPreviousAccountFlagsLiveBoardAndBookingsImmediately() async {
-    await expectAccountDataCleared(by: .inner(.myAccountFinished(
+    await expectAccountDataCleared(by: .scope(.home(.account(.inner(.finished(
       generation: 1,
       operation: .signOut,
       result: .success(())
-    )))
+    ))))))
   }
 
   @Test func profileLoad401ClearsPreviousAccountFlagsLiveBoardAndBookingsImmediately() async {
@@ -1715,7 +1715,7 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.delegate(.myLogoutRequested)))) {
+    await store.send(.scope(.home(.account(.view(.signOutRequested))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 1
       home.authFlow.accountOperationGeneration = 1
@@ -1725,7 +1725,7 @@ struct AppCoordinatorTests {
     }
     guard case let .home(loading) = store.state else { return }
     #expect(loading.authFlow.profile?.user.id == "user-a")
-    await store.receive(\.inner.myAccountFinished) {
+    await store.receive(\.scope.home.account.inner.finished) {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
       home.authFlow.generation = 1
@@ -1765,8 +1765,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.delegate(.myLogoutRequested))))
-    await store.receive(\.inner.myAccountFinished)
+    await store.send(.scope(.home(.account(.view(.signOutRequested)))))
+    await store.receive(\.scope.home.account.inner.finished)
 
     #expect(calls.value == ["unbind", "end:activity-a", "signOut"])
   }
@@ -1792,8 +1792,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.delegate(.myLogoutRequested))))
-    await store.receive(\.inner.myAccountFinished)
+    await store.send(.scope(.home(.account(.view(.signOutRequested)))))
+    await store.receive(\.scope.home.account.inner.finished)
 
     #expect(calls.value == ["unbind", "signOut"])
     guard case let .home(signedOut) = store.state else { return }
@@ -1821,8 +1821,8 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.delegate(.myWithdrawRequested))))
-    await store.receive(\.inner.myAccountFinished)
+    await store.send(.scope(.home(.account(.view(.withdrawRequested)))))
+    await store.receive(\.scope.home.account.inner.finished)
 
     #expect(calls.value == ["unbind", "withdraw"])
     guard case let .home(withdrawn) = store.state else { return }
@@ -1855,7 +1855,7 @@ struct AppCoordinatorTests {
       )
     }
 
-    let operation = store.send(.scope(.home(.delegate(.myWithdrawRequested))))
+    let operation = store.send(.scope(.home(.account(.view(.withdrawRequested)))))
     guard await iterator.next() != nil else {
       Issue.record("기기 바인딩 해제가 시작되지 않았어요")
       return
@@ -1885,11 +1885,11 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.myAccountFinished(
+    await store.send(.scope(.home(.account(.inner(.finished(
       generation: 1,
       operation: .signOut,
       result: .success(())
-    ))) {
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
       home.authFlow.generation = 1
@@ -1918,7 +1918,7 @@ struct AppCoordinatorTests {
       $0.authService = StubAuthService(loggedIn: true, userID: "user-a")
     }
 
-    await store.send(.scope(.home(.delegate(.myWithdrawRequested)))) {
+    await store.send(.scope(.home(.account(.view(.withdrawRequested))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 1
       home.authFlow.accountOperationGeneration = 1
@@ -1931,7 +1931,7 @@ struct AppCoordinatorTests {
     await store.receive(\.scope.home.profileCoordinator.profile.destination.presented.account.view.accountChanged) {
       syncAccountScreen(&$0)
     }
-    await store.receive(\.inner.myAccountFinished) {
+    await store.receive(\.scope.home.account.inner.finished) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.accountOperationGeneration = nil
       home.authFlow.accountOperation = nil
@@ -1972,7 +1972,7 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.scope(.home(.delegate(.myWithdrawRequested))))
+    await store.send(.scope(.home(.account(.view(.withdrawRequested)))))
     await store.receive(\.scope.home.session.async.sessionExpired)
     await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged)
     guard case let .home(cleared) = store.state else { return }
@@ -2004,11 +2004,11 @@ struct AppCoordinatorTests {
     }
     store.exhaustivity = .off
 
-    await store.send(.inner(.myAccountFinished(
+    await store.send(.scope(.home(.account(.inner(.finished(
       generation: 1,
       operation: .withdraw,
       result: .failure(.notAuthenticated)
-    ))) {
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
       home.authFlow.generation = 1
@@ -2089,7 +2089,7 @@ struct AppCoordinatorTests {
       generation: 1,
       .success(previous)
     ))))))
-    await store.send(.scope(.home(.delegate(.myLogoutRequested)))) {
+    await store.send(.scope(.home(.account(.view(.signOutRequested))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 3
       home.authFlow.accountOperationGeneration = 3
@@ -2123,7 +2123,7 @@ struct AppCoordinatorTests {
       $0 = .home(home)
     }
 
-    await store.send(.scope(.home(.delegate(.myLogoutRequested)))) {
+    await store.send(.scope(.home(.account(.view(.signOutRequested))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow.generation = 1
       home.authFlow.accountOperationGeneration = 1
@@ -2132,7 +2132,7 @@ struct AppCoordinatorTests {
       home.authFlow.message = nil
       $0 = .home(home)
     }
-    await store.receive(\.inner.myAccountFinished) {
+    await store.receive(\.scope.home.account.inner.finished) {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
       home.authFlow.generation = 1
@@ -2159,11 +2159,11 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
 
     await store.send(.scope(.home(.festival(.delegate(.bookmarkRequested("festival"))))))
-    await store.send(.inner(.myAccountFinished(
+    await store.send(.scope(.home(.account(.inner(.finished(
       generation: 1,
       operation: .signOut,
       result: .success(())
-    ))) {
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
       home.authFlow.generation = 1
@@ -2228,11 +2228,11 @@ struct AppCoordinatorTests {
       home.authFlow.presentation = nil
       $0 = .home(home)
     }
-    await store.send(.inner(.myAccountFinished(
+    await store.send(.scope(.home(.account(.inner(.finished(
       generation: 1,
       operation: .withdraw,
       result: .success(())
-    ))) {
+    )))))) {
       guard case var .home(home) = $0 else { return }
       home.authFlow = .init()
       home.authFlow.generation = 2
@@ -2494,7 +2494,11 @@ struct AppCoordinatorTests {
       userID: "user-b",
       isLoggedIn: true
     ))))))
-    store.send(.inner(.myAccountFinished(generation: 2, operation: .withdraw, result: .success(()))))
+    store.send(.scope(.home(.account(.inner(.finished(
+      generation: 2,
+      operation: .withdraw,
+      result: .success(())
+    ))))))
     guard case let .home(newAccount) = store.withState({ $0 }) else { return }
     #expect(newAccount.authFlow.hasSession)
     #expect(newAccount.authFlow.lastVerifiedUserID == "user-b")
@@ -2521,7 +2525,7 @@ struct AppCoordinatorTests {
       $0.festivalBookedStore = FestivalBookedStore(load: { _ in [] }, save: { _, _ in })
     }
 
-    let operation = store.send(.scope(.home(.delegate(.myWithdrawRequested))))
+    let operation = store.send(.scope(.home(.account(.view(.withdrawRequested)))))
     guard await iterator.next() != nil else {
       Issue.record("회원 탈퇴 요청이 시작되지 않았어요")
       return

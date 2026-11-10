@@ -115,6 +115,7 @@ struct MainTabCoordinator {
     case login(LoginFeature.Action)
     case signUp(SignUpFlowCoordinator.Action)
     case session(SessionCoordinator.Action)
+    case account(AccountCoordinator.Action)
     case authInputsChanged(previous: AuthInputs?, current: AuthInputs)
     case delegate(Delegate)
     case completePendingBookmark(id: String, userID: String, shouldBeBooked: Bool)
@@ -125,14 +126,10 @@ struct MainTabCoordinator {
     case myLoginRequested
     case myCrewLoginRequested
     case myFollowLoginRequested
-    case myLogoutRequested
-    case myWithdrawRequested
     case myProfileRefreshRequested
     case dismissAuthFlow
     case retryProfile
     case resolveMigration(Bool)
-    /// 세션이 끝나 진행 중이던 로그아웃·탈퇴를 취소해야 한다.
-    case accountOperationInterrupted
   }
 
   var body: some ReducerOf<Self> {
@@ -185,6 +182,12 @@ struct MainTabCoordinator {
       action: \.session
     ) {
       SessionCoordinator()
+    }
+    Scope(
+      state: \.authFlow,
+      action: \.account
+    ) {
+      AccountCoordinator()
     }
 
     Reduce { state, action in
@@ -314,6 +317,16 @@ struct MainTabCoordinator {
       case .session:
         return .none
 
+      case .account(.delegate(.accountDataCleared)):
+        state.clearAccountDisplayData()
+        return .send(.festival(.accountChanged))
+
+      case .account(.delegate(.sessionExpired)):
+        return .send(.session(.async(.sessionExpired)))
+
+      case .account:
+        return .none
+
       case let .authInputsChanged(
         previous,
         current
@@ -348,9 +361,9 @@ struct MainTabCoordinator {
       case .profileCoordinator(.profile(.delegate(.profileRefreshRequested))):
         return .send(.delegate(.myProfileRefreshRequested))
       case .profileCoordinator(.profile(.delegate(.logoutRequested))):
-        return .send(.delegate(.myLogoutRequested))
+        return .send(.account(.view(.signOutRequested)))
       case .profileCoordinator(.profile(.delegate(.withdrawRequested))):
-        return .send(.delegate(.myWithdrawRequested))
+        return .send(.account(.view(.withdrawRequested)))
       case let .profileCoordinator(.profile(.delegate(.profileUpdated(user)))):
         return .send(.delegate(.myProfileUpdated(user)))
       case .profileCoordinator(.profile(.destination(.presented(.packDetail(.delegate(.packDeleted)))))),
@@ -409,7 +422,8 @@ struct MainTabCoordinator {
         shouldBeBooked: shouldBeBooked
       ))
     case .accountOperationInterrupted:
-      return .send(.delegate(.accountOperationInterrupted))
+      // 계정 작업이 같은 홈 범위에 있어 그 효과를 바로 취소한다.
+      return .send(.account(.view(.cancelOperation)))
     }
   }
 

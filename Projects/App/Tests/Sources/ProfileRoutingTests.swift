@@ -136,7 +136,7 @@ struct ProfileRoutingTests {
       action: .account(.destination(.presented(.alert(.confirmTapped))))
     ))))
     await store.receive {
-      guard case .delegate(.myLogoutRequested) = $0 else { return false }
+      guard case .account(.view(.signOutRequested)) = $0 else { return false }
       return true
     }
   }
