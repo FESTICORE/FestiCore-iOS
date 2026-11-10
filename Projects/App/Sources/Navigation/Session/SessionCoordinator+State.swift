@@ -1,5 +1,5 @@
 //
-//  AppCoordinator+AuthFlow.swift
+//  SessionCoordinator+State.swift
 //  FestiCore
 //
 //  Created by FestiCore on 10/23/26.
@@ -10,9 +10,9 @@ import ComposableArchitecture
 import FeatureAssembly
 import Foundation
 
-extension AppCoordinator {
+extension SessionCoordinator {
   /// 홈 위에 뜨는 로그인·가입·이전 시트와 그 사이 대기 예약, 계정 확인 상태를 담는다.
-  struct AuthFlow: Equatable {
+  struct State: Equatable {
     enum Presentation: Equatable {
       case login
       case onboarding
@@ -25,7 +25,7 @@ extension AppCoordinator {
     var pendingOwnerID: String?
     var generation = 0
     var accountOperationGeneration: Int?
-    var accountOperation: MyAccountOperation?
+    var accountOperation: AppCoordinator.MyAccountOperation?
     var loginAttemptGeneration: Int?
     /// 수락해 확정 중인 로그인 세션. 확정 전에 시트가 닫히면 이 세션을 버린다.
     var pendingCommitSessionID: UUID?
@@ -56,7 +56,7 @@ extension AppCoordinator {
 
 // MARK: - 요청 세대
 
-extension AppCoordinator.AuthFlow {
+extension SessionCoordinator.State {
   /// 새 요청 세대를 열고 로딩을 표시한다. 이전 세대의 응답은 무시된다.
   mutating func beginRequest() -> Int {
     generation += 1
@@ -67,7 +67,7 @@ extension AppCoordinator.AuthFlow {
 
 // MARK: - 대기 예약
 
-extension AppCoordinator.AuthFlow {
+extension SessionCoordinator.State {
   struct PendingBookmark: Equatable {
     let id: String
     let shouldBeBooked: Bool
@@ -106,7 +106,7 @@ extension AppCoordinator.AuthFlow {
 
 // MARK: - 계정
 
-extension AppCoordinator.AuthFlow {
+extension SessionCoordinator.State {
   /// 이전에 확인한 계정이 있고 그 계정이 `userID`와 다르다.
   func isAccountChanged(to userID: String) -> Bool {
     return [verifiedUserID, lastVerifiedUserID].contains { $0 != nil && $0 != userID }
@@ -129,7 +129,7 @@ extension AppCoordinator.AuthFlow {
 
 // MARK: - 가입 초안
 
-extension AppCoordinator.AuthFlow {
+extension SessionCoordinator.State {
   /// 계정이 바뀌거나 로그인을 잃을 때 가입 초안과 이전 계정의 재시도 상태·문구를 함께 지운다.
   mutating func clearSignUpDraft() {
     signUp.clearDraft()
@@ -150,7 +150,7 @@ extension AppCoordinator.AuthFlow {
 
 // MARK: - 문구
 
-extension AppCoordinator.AuthFlow {
+extension SessionCoordinator.State {
   enum Message {
     static let sessionExpiredDuringWithdraw = "로그인이 만료되어 회원 탈퇴 결과를 확인할 수 없어요. 다시 로그인해 계정 상태를 확인해 주세요."
     static let termsChangedReconsent = "변경된 약관을 확인하고 다시 동의해 주세요."

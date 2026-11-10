@@ -22,14 +22,14 @@ import OSLog
 struct AppCoordinator {
   @Dependency(\.authUseCase) var authUseCase
   @Dependency(\.authService) var authService
-  @Dependency(\.deviceRegistrationService) var deviceRegistrationService
-  @Dependency(\.festivalLiveActivityUseCase) var festivalLiveActivityUseCase
   @Dependency(\.festivalWidgetClient) var festivalWidgetClient
   @Dependency(\.date) var date
   @Dependency(\.festivalBookedStore) var bookedStore
   @Dependency(\.authSessionExpiryClient) var authSessionExpiryClient
   @Dependency(\.analyticsUseCase) var analyticsUseCase
   @Dependency(\.firstInstallOnboardingStore) var firstInstallOnboardingStore
+
+  typealias AuthFlow = SessionCoordinator.State
 
   enum CancelID { case sessionExpiry, accountOperation, widgetSnapshot }
 
@@ -86,7 +86,6 @@ struct AppCoordinator {
     /// 로그인 시트의 로그인 요청(`LoginDelegate.signInRequested`)도 여기서 시트 상태를 확인한다.
     case startLogin(OAuthProvider)
     case dismissFlow
-    case retryProfile
     case resolveMigration(Bool)
   }
 
@@ -94,23 +93,6 @@ struct AppCoordinator {
   enum InnerAction {
     case firstInstallStatus(Bool)
     case completeHomeTransition
-    case sessionExpired
-
-    // MARK: 세션·프로필 결과
-
-    case sessionRestored(
-      generation: Int,
-      userID: String?,
-      isLoggedIn: Bool
-    )
-    case profileLoaded(
-      generation: Int,
-      Result<AuthProfile, AuthDomainError>
-    )
-    case profileUpdated(
-      generation: Int,
-      Result<AuthUser, AuthDomainError>
-    )
     case myAccountFinished(
       generation: Int,
       operation: MyAccountOperation,
@@ -197,12 +179,7 @@ private extension AppCoordinator {
     state: inout State
   ) {
     guard let previousSession, case var .home(home) = state else { return }
-    let currentSession = home.authInputs.session
-    if previousSession.userID != nil && previousSession.userID != currentSession.userID {
-      clearAccountDisplayData(&home)
-    } else if !previousSession.hasSession && currentSession.hasSession {
-      home.flagState.clearAccountData()
-    }
+    home.reconcileAccountDisplayData(previousSession: previousSession)
     state = .home(home)
   }
 

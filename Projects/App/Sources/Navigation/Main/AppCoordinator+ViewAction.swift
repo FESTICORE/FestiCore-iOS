@@ -33,15 +33,11 @@ extension AppCoordinator {
       }
 
     case .foregrounded:
-      return state.withHome { home in
-        let resumeFestival: Effect<Action> = .send(.scope(.home(.festival(.foregrounded))))
-        guard home.authFlow.presentation != .login, !home.authFlow.isLoading else { return resumeFestival }
-        home.authFlow.presentation = nil
-        return .merge(
-          resumeFestival,
-          recheckProfile(home: &home)
-        )
-      }
+      guard case .home = state else { return .none }
+      return .merge(
+        .send(.scope(.home(.festival(.foregrounded)))),
+        .send(.scope(.home(.session(.view(.foregrounded)))))
+      )
 
     case .backgrounded:
       guard case .home = state else { return .none }
@@ -88,13 +84,6 @@ extension AppCoordinator {
         // 확정 전이면 임시 세션을 버리고, 이미 확정됐다면 loginCommitted가 그 세션만 되돌린다.
         guard let pendingCommit else { return .none }
         return .run { _ in _ = await authService.discardSession(pendingCommit) }
-      }
-
-    case .retryProfile:
-      return state.withHome { home in
-        guard !home.authFlow.isLoading else { return .none }
-        home.authFlow.message = nil
-        return recheckProfile(home: &home)
       }
 
     case let .resolveMigration(accepted):

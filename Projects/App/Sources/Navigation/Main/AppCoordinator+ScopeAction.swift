@@ -35,8 +35,12 @@ extension AppCoordinator {
         await send(.inner(.completeHomeTransition))
       }
 
-    case .home(.delegate(.myProfileRefreshRequested)):
-      return .send(.view(.retryProfile))
+    case .home(.delegate(.myProfileRefreshRequested)),
+         .home(.delegate(.retryProfile)):
+      return .send(.scope(.home(.session(.view(.retryProfile)))))
+
+    case .home(.delegate(.accountOperationInterrupted)):
+      return .cancel(id: CancelID.accountOperation)
 
     case .home(.delegate(.myLogoutRequested)):
       return myAccountOperation(
@@ -157,15 +161,15 @@ private extension AppCoordinator {
           termsVersion: profile.currentTermsVersion,
           pushOptIn: pushOptIn
         )
-        await send(.inner(.profileUpdated(
+        await send(.scope(.home(.session(.inner(.profileUpdated(
           generation: generation,
           .success(user)
-        )))
+        ))))))
       } catch {
-        await send(.inner(.profileUpdated(
+        await send(.scope(.home(.session(.inner(.profileUpdated(
           generation: generation,
-          .failure(authFailure(error))
-        )))
+          .failure(SessionCoordinator.authFailure(error))
+        ))))))
       }
     }
   }
@@ -205,8 +209,6 @@ private extension AppCoordinator {
          .home(.login(.delegate(.closeRequested))),
          .home(.delegate(.dismissAuthFlow)):
       return .dismissFlow
-    case .home(.delegate(.retryProfile)):
-      return .retryProfile
     case let .home(.delegate(.resolveMigration(shouldRestore))):
       return .resolveMigration(shouldRestore)
     case let .home(.login(.delegate(.signInRequested(provider)))):

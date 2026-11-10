@@ -37,7 +37,7 @@ struct MainTabCoordinator {
     }
     var profileState = ProfileFeature.State()
     var loginState = LoginFeature.State()
-    var authFlow = AppCoordinator.AuthFlow()
+    var authFlow = SessionCoordinator.State()
     /// 마이 '기수이신가요?'로 여는 기수 등록 흐름(전체 화면)
     @Presents var bearerEntry: BearerEntryCoordinator.State?
 
@@ -114,6 +114,7 @@ struct MainTabCoordinator {
     case bearerEntry(PresentationAction<BearerEntryCoordinator.Action>)
     case login(LoginFeature.Action)
     case signUp(SignUpFlowCoordinator.Action)
+    case session(SessionCoordinator.Action)
     case authInputsChanged(previous: AuthInputs?, current: AuthInputs)
     case delegate(Delegate)
     case completePendingBookmark(id: String, userID: String, shouldBeBooked: Bool)
@@ -130,9 +131,25 @@ struct MainTabCoordinator {
     case dismissAuthFlow
     case retryProfile
     case resolveMigration(Bool)
+    /// 세션이 끝나 진행 중이던 로그아웃·탈퇴를 취소해야 한다.
+    case accountOperationInterrupted
   }
 
   var body: some ReducerOf<Self> {
+    Reduce { state, action in
+      // 자식 기능이 세션을 바꾸면 같은 액션 안에서 이전 계정의 화면 데이터를 비운다.
+      let previousSession = state.authInputs.session
+      let effect = features.reduce(
+        into: &state,
+        action: action
+      )
+      state.reconcileAccountDisplayData(previousSession: previousSession)
+      return effect
+    }
+  }
+
+  @ReducerBuilder<State, Action>
+  private var features: some ReducerOf<Self> {
     Scope(state: \.festivalState, action: \.festival) {
       FestivalCoordinator()
     }
@@ -162,6 +179,12 @@ struct MainTabCoordinator {
       action: \.signUp
     ) {
       SignUpFlowCoordinator()
+    }
+    Scope(
+      state: \.authFlow,
+      action: \.session
+    ) {
+      SessionCoordinator()
     }
 
     Reduce { state, action in
@@ -282,6 +305,15 @@ struct MainTabCoordinator {
       case .flagCoordinator, .delegate:
         return .none
 
+      case let .session(.delegate(delegate)):
+        return handleSessionDelegate(
+          state: &state,
+          delegate: delegate
+        )
+
+      case .session:
+        return .none
+
       case let .authInputsChanged(
         previous,
         current
@@ -355,6 +387,29 @@ struct MainTabCoordinator {
       action: \.bearerEntry
     ) {
       BearerEntryCoordinator()
+    }
+  }
+
+  private func handleSessionDelegate(
+    state: inout State,
+    delegate: SessionCoordinator.Delegate
+  ) -> Effect<Action> {
+    switch delegate {
+    case .accountDataCleared:
+      state.clearAccountDisplayData()
+      return .send(.festival(.accountChanged))
+    case .accountChanged:
+      return .send(.festival(.accountChanged))
+    case let .bookmarksReloadRequested(userID):
+      return .send(.festival(.reloadBookmarks(userID: userID)))
+    case let .pendingBookmarkCompleted(id, userID, shouldBeBooked):
+      return .send(.completePendingBookmark(
+        id: id,
+        userID: userID,
+        shouldBeBooked: shouldBeBooked
+      ))
+    case .accountOperationInterrupted:
+      return .send(.delegate(.accountOperationInterrupted))
     }
   }
 
@@ -579,5 +634,31 @@ extension MainTabCoordinator.Action {
       id: 0,
       action: .directory(action)
     )))
+  }
+}
+
+// MARK: - 계정 화면 데이터
+
+extension MainTabCoordinator.State {
+  /// 비동기 입력 액션 전에 개인 데이터가 화면에 남지 않도록 동기 정리한다.
+  mutating func clearAccountDisplayData() {
+    festivalState.clearAccountData()
+    flagState.clearAccountData()
+    timetableState.mySetIDs = []
+    timetableState.scheduleSync = .idle
+    timetableState.isScheduleLimitReached = false
+    timetableState.setDetail = nil
+    timetableState.destination = nil
+    profileState.destination = nil
+  }
+
+  /// 확인한 계정이 바뀌면 이전 계정 데이터를 모두 비우고, 새로 로그인하면 비로그인 깃발 목록만 비운다.
+  mutating func reconcileAccountDisplayData(previousSession: MainTabCoordinator.AuthInputs.Session) {
+    let currentSession = authInputs.session
+    if previousSession.userID != nil && previousSession.userID != currentSession.userID {
+      clearAccountDisplayData()
+    } else if !previousSession.hasSession && currentSession.hasSession {
+      flagState.clearAccountData()
+    }
   }
 }

@@ -11,7 +11,6 @@ import CoreAssembly
 import FestiCoreAnalyticsInterface
 import FestiCoreUtility
 import Foundation
-import OSLog
 
 // MARK: - 홈 상태 접근
 
@@ -29,51 +28,9 @@ extension AppCoordinator.State {
 // MARK: - 로그인·프로필
 
 extension AppCoordinator {
+  /// 세션 코디네이터에 새 세대의 프로필 조회를 맡긴다.
   func fetchProfile(generation: Int) -> Effect<Action> {
-    return .run { send in
-      let isLoggedIn = await authService.isLoggedIn
-      let userID = await authService.currentUserID
-      await send(.inner(.sessionRestored(
-        generation: generation,
-        userID: userID,
-        isLoggedIn: isLoggedIn
-      )))
-      guard isLoggedIn else {
-        await send(.inner(.profileLoaded(
-          generation: generation,
-          .failure(.notAuthenticated)
-        )))
-        return
-      }
-      do {
-        let profile = try await authUseCase.fetchProfile()
-        await send(.inner(.profileLoaded(
-          generation: generation,
-          .success(profile)
-        )))
-      } catch {
-        await send(.inner(.profileLoaded(
-          generation: generation,
-          .failure(authFailure(error))
-        )))
-      }
-    }
-  }
-
-  /// 도메인이 매핑하지 않은 오류는 계정 요청 실패로 본다.
-  func authFailure(_ error: any Error) -> AuthDomainError {
-    return error as? AuthDomainError ?? .unavailable
-  }
-
-  /// 확인한 계정을 비우고 새 세대로 프로필을 다시 읽는다. 예약 목록은 비로그인 기준으로 먼저 다시 읽는다.
-  func recheckProfile(home: inout MainTabCoordinator.State) -> Effect<Action> {
-    let generation = home.authFlow.beginRequest()
-    home.authFlow.profile = nil
-    home.authFlow.verifiedUserID = nil
-    return .merge(
-      fetchProfile(generation: generation),
-      reloadBookmarks(userID: nil)
-    )
+    return .send(.scope(.home(.session(.async(.fetchProfile(generation: generation))))))
   }
 
   /// 시트가 열려 있고 현재 세대의 로그인 시도일 때만 결과를 받아들인다.
@@ -101,27 +58,6 @@ extension AppCoordinator {
       analyticsUseCase.track(.signUp(method: provider))
     }
     return fetchProfile(generation: home.authFlow.beginRequest())
-  }
-
-  func finishEligible(home: inout MainTabCoordinator.State) -> Effect<Action> {
-    guard let profile = home.authFlow.profile, profile.isEligible else { return .none }
-    let userID = profile.user.id
-    bookedStore.setOfflineEligible(
-      userID,
-      true
-    )
-    home.authFlow.verifiedUserID = userID
-    home.authFlow.lastVerifiedUserID = userID
-    home.authFlow.resetSignUpRetryState()
-    if !bookedStore.legacyBookmarks().isEmpty {
-      home.authFlow.presentation = .migration
-      return .none
-    }
-    home.authFlow.presentation = nil
-    return completePendingBookmark(
-      home.authFlow.takePendingBookmark(),
-      userID: userID
-    )
   }
 }
 
@@ -159,25 +95,13 @@ extension AppCoordinator {
 extension AppCoordinator {
   /// 이전 계정의 라이브 보드·예약 목록을 바로 비운다.
   func clearAccountData(_ home: inout MainTabCoordinator.State) -> Effect<Action> {
-    clearAccountDisplayData(&home)
+    home.clearAccountDisplayData()
     return notifyAccountChanged()
   }
 
   /// 축제 화면에 계정이 바뀌었다고 알려 예약 목록을 다시 정리하게 한다.
   func notifyAccountChanged() -> Effect<Action> {
     return .send(.scope(.home(.festival(.accountChanged))))
-  }
-
-  /// 비동기 입력 액션 전에 개인 데이터가 화면에 남지 않도록 동기 정리한다.
-  func clearAccountDisplayData(_ home: inout MainTabCoordinator.State) {
-    home.festivalState.clearAccountData()
-    home.flagState.clearAccountData()
-    home.timetableState.mySetIDs = []
-    home.timetableState.scheduleSync = .idle
-    home.timetableState.isScheduleLimitReached = false
-    home.timetableState.setDetail = nil
-    home.timetableState.destination = nil
-    home.profileState.destination = nil
   }
 }
 
@@ -207,9 +131,10 @@ extension AppCoordinator {
   ) -> Effect<Action> {
     return .run { send in
       do {
-        await unbindDeviceForAccountOperation()
+        let device = AccountDeviceSync()
+        await device.unbindDeviceForAccountOperation()
         try Task.checkCancellation()
-        await endLocalLiveActivities()
+        await device.endLocalLiveActivities()
         try Task.checkCancellation()
         switch operation {
         case .signOut: try await authUseCase.signOut()
@@ -223,15 +148,15 @@ extension AppCoordinator {
       } catch {
         guard !Task.isCancelled else { return }
         if !(await authService.isLoggedIn) {
-          await send(.inner(.sessionExpired))
+          await send(.scope(.home(.session(.async(.sessionExpired)))))
           return
         }
         // 인증 요청은 실패했지만 계정이 유지되면 해제했던 기기 소유권을 복원한다.
-        await linkDeviceForCurrentUser()
+        await AccountDeviceSync().linkDeviceForCurrentUser()
         await send(.inner(.myAccountFinished(
           generation: generation,
           operation: operation,
-          result: .failure(authFailure(error))
+          result: .failure(SessionCoordinator.authFailure(error))
         )))
       }
     }
@@ -239,39 +164,5 @@ extension AppCoordinator {
       id: CancelID.accountOperation,
       cancelInFlight: true
     )
-  }
-}
-
-// MARK: - 기기·Live Activity
-
-extension AppCoordinator {
-  func unbindDeviceForAccountOperation() async {
-    do {
-      try await deviceRegistrationService.unbindCurrentUser()
-    } catch {
-      // 바인딩은 다음 실행에서 복구한다. 해제 실패로 계정 요청을 막지 않는다.
-      Logger(
-        subsystem: "io.festiCore.co",
-        category: "DeviceRegistration"
-      )
-        .error("계정 작업 중 기기 바인딩 해제 실패; 다음 실행에서 복구")
-    }
-  }
-
-  func linkDeviceForCurrentUser() async {
-    do {
-      try await deviceRegistrationService.linkDeviceToCurrentUser()
-    } catch {
-      FestiCoreLogger.error(
-        "계정 기기 연결 실패",
-        category: .app
-      )
-    }
-  }
-
-  func endLocalLiveActivities() async {
-    for activity in await festivalLiveActivityUseCase.activities() {
-      await festivalLiveActivityUseCase.end(activityID: activity.id)
-    }
   }
 }
