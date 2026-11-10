@@ -17,7 +17,6 @@ import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestiCoreAuthInterface
 import FestiCoreDeviceInterface
-import FestiCoreNetworkInterface
 import FestiCoreStorageInterface
 import FestiCoreSharedUI
 import TCAFlow

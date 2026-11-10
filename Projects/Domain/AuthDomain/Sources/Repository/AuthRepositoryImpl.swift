@@ -18,6 +18,7 @@ public struct AuthRepositoryImpl: AuthInterface {
 
   public init() {}
 
+  /// 로그인은 네트워크 오류를 `AuthDomainError`로 매핑하지 않고 그대로 던진다.
   public func signIn(with credential: AuthCredential) async throws -> AuthLoginResult {
     switch credential {
     case let .google(idToken, serverAuthCode):
@@ -82,6 +83,7 @@ public struct AuthRepositoryImpl: AuthInterface {
     }
   }
 
+  /// 닉네임 변경은 네트워크 오류를 `AuthDomainError`로 매핑하지 않고 그대로 던진다(호출 화면이 `AuthDomainError` 외 오류를 실패로 본다).
   public func updateNickname(_ nickname: String) async throws -> AuthUser {
     guard let sessionID = await authService.authenticatedSessionID else {
       throw AuthDomainError.notAuthenticated
@@ -203,5 +205,17 @@ public struct AuthRepositoryImpl: AuthInterface {
       throw AuthDomainError.mapping(error)
     }
     guard await authService.completeWithdrawal() else { throw AuthDomainError.localSessionClearFailed }
+  }
+
+  public func commitSession(_ id: UUID) async -> Bool {
+    return await authService.commitSession(id)
+  }
+
+  public func discardSession(_ id: UUID) async -> Bool {
+    return await authService.discardSession(id)
+  }
+
+  public func signOut(ifSession id: UUID) async -> Bool {
+    return await authService.signOut(ifSession: id)
   }
 }

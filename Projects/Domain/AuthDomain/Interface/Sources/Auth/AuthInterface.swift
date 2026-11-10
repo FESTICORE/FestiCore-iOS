@@ -6,6 +6,7 @@
 //
 
 import Dependencies
+import Foundation
 
 public protocol AuthInterface: Sendable {
   func signIn(with credential: AuthCredential) async throws -> AuthLoginResult
@@ -15,6 +16,12 @@ public protocol AuthInterface: Sendable {
   func updateNickname(_ nickname: String) async throws -> AuthUser
   func signOut() async throws
   func withdraw() async throws
+  /// 로그인 응답으로 받은 임시 세션을 확정한다. 확정했으면 `true`.
+  func commitSession(_ id: UUID) async -> Bool
+  /// 확정 전의 임시 세션을 버린다. 버렸으면 `true`.
+  func discardSession(_ id: UUID) async -> Bool
+  /// 확정된 세션이 `id`일 때만 로그아웃한다. 로그아웃했으면 `true`.
+  func signOut(ifSession id: UUID) async -> Bool
 }
 
 public enum AuthRepositoryDependency: TestDependencyKey {
