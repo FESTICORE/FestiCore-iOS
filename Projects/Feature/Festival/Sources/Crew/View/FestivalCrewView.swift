@@ -104,6 +104,7 @@ private extension FestivalCrewView {
     HStack(spacing: FestiCoreSpacing.paddingP8) {
       Text(presentation.summary)
         .festiCoreFont(.baseFootnoteMedium)
+        .festiCoreLineBox(.baseFootnoteMedium)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
         .lineLimit(1)
         .frame(
@@ -144,6 +145,7 @@ private extension FestivalCrewView {
         .accessibilityHidden(true)
       Text(notice)
         .festiCoreFont(.baseFootnoteBold)
+        .festiCoreLineBox(.baseFootnoteBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .lineLimit(1)
         .minimumScaleFactor(Metric.minimumScale)
@@ -221,6 +223,7 @@ private extension FestivalCrewView {
           if let status = member.status {
             Text(status)
               .festiCoreFont(.baseFootnoteBold)
+              .festiCoreLineBox(.baseFootnoteBold)
               .foregroundStyle(primary.color)
           }
         }
@@ -233,6 +236,7 @@ private extension FestivalCrewView {
       if let time = member.time {
         Text(time)
           .festiCoreFont(.baseCaption1Regular)
+          .festiCoreLineBox(.baseCaption1Regular)
           .foregroundStyle(member.isInactive
             ? FestiCoreSemanticColor.labelDisable.color
             : FestiCoreSemanticColor.labelAssistive.color)

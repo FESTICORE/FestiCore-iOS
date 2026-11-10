@@ -179,6 +179,7 @@ private extension FestivalCrewMenuView {
             FCAvatar(member.nickname)
             Text(member.nickname)
               .festiCoreFont(.baseBodyRegular)
+              .festiCoreLineBox(.baseBodyRegular)
               .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
               .frame(
                 maxWidth: .infinity,
