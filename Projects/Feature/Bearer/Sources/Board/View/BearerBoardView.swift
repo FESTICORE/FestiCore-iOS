@@ -114,6 +114,7 @@ private extension BearerBoardView {
       Spacer()
       Text("기수 모드")
         .festiCoreFont(.baseFootnoteMedium)
+        .festiCoreLineBox(.baseFootnoteMedium)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
     }
     .padding(

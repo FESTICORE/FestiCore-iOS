@@ -59,10 +59,12 @@ private extension BearerPlanPickView {
     ) {
       Text("오늘 갈 무대를 골라 주세요")
         .festiCoreFont(.baseTitle2Bold)
+        .festiCoreLineBox(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .accessibilityAddTraits(.isHeader)
       Text("고른 무대는 깃발의 오늘 계획으로 보여요.\n깃발 프로필을 저장하면 반영돼요.")
         .festiCoreFont(.baseSubheadlineRegular)
+        .festiCoreLineBox(.baseSubheadlineRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
   }
@@ -70,6 +72,7 @@ private extension BearerPlanPickView {
   var emptyMessage: some View {
     return Text("받아 둔 팩에 공연 시간이 아직 없어요.")
       .festiCoreFont(.baseSubheadlineRegular)
+      .festiCoreLineBox(.baseSubheadlineRegular)
       .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       .frame(
         maxWidth: .infinity,
@@ -88,6 +91,7 @@ private extension BearerPlanPickView {
     ) {
       Text("\(store.selectedSetIDs.count)개 선택")
         .festiCoreFont(.baseFootnoteBold)
+        .festiCoreLineBox(.baseFootnoteBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
       if let day = store.selectedDay {
         VStack(spacing: .zero) {
@@ -113,6 +117,7 @@ private extension BearerPlanPickView {
       if let message = store.limitMessage {
         Text(message)
           .festiCoreFont(.baseCaption1Regular)
+          .festiCoreLineBox(.baseCaption1Regular)
           .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
           .frame(
             maxWidth: .infinity,
