@@ -558,7 +558,7 @@ struct FestivalFlagDetailFeatureTests {
       zone: "리벳 스테이지 앞 왼쪽",
       activity: "쉬는 중",
       source: "기수가 12분 전에 알렸어요",
-      isMuted: true
+      isMuted: false
     ))
 
     state.content = .loaded(Self.detail(status: .ended))

@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-/// 깃발 상세의 "지금" 카드. muted는 쉬는 중이라 흐리게, ended는 오늘 활동 종료 문구만 보인다.
+/// 깃발 상세의 "지금" 카드. muted는 오래된 정보·오프라인이라 흐리게, ended는 오늘 활동 종료 문구만 보인다.
 public struct FCFlagNowCard: View {
   public enum State {
     case active(zone: String, activity: String, source: String)
