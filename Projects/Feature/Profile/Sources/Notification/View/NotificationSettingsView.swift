@@ -93,12 +93,9 @@ extension NotificationSettingsView {
           .top,
           FestiCoreSpacing.paddingP16
         )
-        .padding(
-          .bottom,
-          FestiCoreSpacing.paddingP24
-        )
       }
       .scrollIndicators(.hidden)
+      .fcScrollBottomInset()
     }
   }
 

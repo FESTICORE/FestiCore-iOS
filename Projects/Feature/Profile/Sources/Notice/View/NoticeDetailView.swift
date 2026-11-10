@@ -55,9 +55,17 @@ private extension NoticeDetailView {
               .frame(maxWidth: .infinity, alignment: .leading)
           }
           .frame(maxWidth: .infinity, alignment: .leading)
-          .padding(FestiCoreSpacing.paddingP20)
+          .padding(
+            .horizontal,
+            FestiCoreSpacing.paddingP20
+          )
+          .padding(
+            .top,
+            FestiCoreSpacing.paddingP20
+          )
         }
         .scrollIndicators(.hidden)
+        .fcScrollBottomInset()
       }
     }
   }
