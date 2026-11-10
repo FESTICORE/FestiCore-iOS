@@ -43,6 +43,7 @@ public struct AccountSettingsView: View {
         )
       }
       .scrollIndicators(.hidden)
+      .fcScrollBottomInset()
       logoutButton
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)

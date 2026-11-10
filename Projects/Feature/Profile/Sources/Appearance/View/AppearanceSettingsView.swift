@@ -27,9 +27,17 @@ public struct AppearanceSettingsView: View {
       .onBack { send(.backTapped) }
       ScrollView {
         group
-          .padding(FestiCoreSpacing.paddingP16)
+          .padding(
+            .horizontal,
+            FestiCoreSpacing.paddingP16
+          )
+          .padding(
+            .top,
+            FestiCoreSpacing.paddingP16
+          )
       }
       .scrollIndicators(.hidden)
+      .fcScrollBottomInset()
     }
     .frame(
       maxWidth: .infinity,
