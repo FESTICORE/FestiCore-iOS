@@ -502,12 +502,12 @@ extension FestivalS01VisualCaptureTests {
         TimetableLineupDay(
           id: "0807",
           title: "8/7 (금)",
-          artists: ["한로로", "터치드", "달담", "AKMU", "데이브레이크"]
+          artists: ["한로로", "터치드", "달담", "AKMU", "데이브레이크"].map { TimetableLineupArtist(name: $0) }
         ),
         TimetableLineupDay(
           id: "0808",
           title: "8/8 (토)",
-          artists: ["라임플래그스", "블루퓨즈", "터치드", "웨이브키즈"]
+          artists: ["라임플래그스", "블루퓨즈", "터치드", "웨이브키즈"].map { TimetableLineupArtist(name: $0) }
         ),
       ]
     }

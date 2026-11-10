@@ -11,15 +11,29 @@ import Foundation
 public struct TimetableLineupDay: Equatable, Identifiable, Sendable {
   public let id: String
   public var title: String
-  public var artists: [String]
+  public var artists: [TimetableLineupArtist]
 
   public init(
     id: String,
     title: String,
-    artists: [String]
+    artists: [TimetableLineupArtist]
   ) {
     self.id = id
     self.title = title
     self.artists = artists
+  }
+}
+
+/// 라인업에 보여 줄 아티스트 이름과 사진
+public struct TimetableLineupArtist: Equatable, Sendable {
+  public var name: String
+  public var imageURL: URL?
+
+  public init(
+    name: String,
+    imageURL: URL? = nil
+  ) {
+    self.name = name
+    self.imageURL = imageURL
   }
 }

@@ -68,13 +68,24 @@ enum FestivalPackTimetableMapper {
     }
   }
 
-  static func lineup(from pack: FestivalPackDocument) -> [TimetableLineupDay] {
-    let names = (pack.artists ?? []).map(\.name).filter { !$0.isEmpty }
-    guard !names.isEmpty else { return [] }
+  /// `imageURL`은 아티스트의 상대 사진 경로를 서버 주소로 바꾼다.
+  static func lineup(
+    from pack: FestivalPackDocument,
+    imageURL: (String?) -> URL? = { _ in nil }
+  ) -> [TimetableLineupDay] {
+    let artists = (pack.artists ?? [])
+      .filter { !$0.name.isEmpty }
+      .map {
+        TimetableLineupArtist(
+          name: $0.name,
+          imageURL: imageURL($0.imageUrl)
+        )
+      }
+    guard !artists.isEmpty else { return [] }
     return [TimetableLineupDay(
       id: pack.id,
       title: "공개된 라인업",
-      artists: names
+      artists: artists
     )]
   }
 

@@ -636,7 +636,12 @@ struct MainTabCoordinator {
     let selectedDayID = state.timetableState.selectedDay?.id
     state.timetableState.days = days
     state.timetableState.selectedDayIndex = days.firstIndex { $0.id == selectedDayID } ?? 0
-    state.timetableState.lineup = pack.map(FestivalPackTimetableMapper.lineup) ?? []
+    state.timetableState.lineup = pack.map {
+      FestivalPackTimetableMapper.lineup(
+        from: $0,
+        imageURL: { home?.imageURL(for: $0) }
+      )
+    } ?? []
     state.timetableState.source = FestivalPackTimetableMapper.source(pack?.source)
     if festivalID == nil {
       state.timetableState.contentStatus = .noFestival

@@ -4,6 +4,7 @@ import TCAFlow
 import Testing
 import FestivalDomainInterface
 import Foundation
+import TimetableDomainInterface
 
 @testable import FestiCore
 
@@ -39,7 +40,7 @@ struct TimetableRoutingTests {
     let store = Store(initialState: home) { MainTabCoordinator() }
     await store.send(.selectTab(.timetable)).finish()
     #expect(store.withState { $0.timetableState.contentStatus } == .unpublished)
-    #expect(store.withState { $0.timetableState.lineup.first?.artists } == ["아티스트"])
+    #expect(store.withState { $0.timetableState.lineup.first?.artists.map(\.name) } == ["아티스트"])
     #expect(store.withState { $0.timetableState.offlineMessage } == "오프라인 · 저장된 정보")
   }
 
@@ -83,6 +84,26 @@ struct TimetableRoutingTests {
     )
     #expect(FestivalPackTimetableMapper.lineup(from: pack).first?.title == "공개된 라인업")
     #expect(FestivalPackTimetableMapper.days(from: pack).first?.sets.isEmpty == true)
+  }
+
+  @Test func unpublishedLineupResolvesArtistImage() throws {
+    let data = Data(#"{"id":"festival","artists":[{"name":"아티스트","imageUrl":"/images/a.jpg"},{"name":"사진 없음"}]}"#.utf8)
+    let pack = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: data
+    )
+    let artists = FestivalPackTimetableMapper.lineup(
+      from: pack,
+      imageURL: { $0.flatMap { URL(string: "https://example.com\($0)") } }
+    ).first?.artists
+
+    #expect(artists == [
+      TimetableLineupArtist(
+        name: "아티스트",
+        imageURL: URL(string: "https://example.com/images/a.jpg")
+      ),
+      TimetableLineupArtist(name: "사진 없음"),
+    ])
   }
 
   private func pack(start: String) throws -> FestivalPackDocument {

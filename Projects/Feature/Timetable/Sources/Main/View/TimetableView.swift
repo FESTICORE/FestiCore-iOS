@@ -172,6 +172,7 @@ private extension TimetableView {
       } label: {
         Text(store.visibleOverlaps.isEmpty ? "내 일정 \(store.mySetCount)개" : "겹치는 일정 \(store.visibleOverlaps.count)개")
           .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(
             store.visibleOverlaps.isEmpty
               ? FestiCoreSemanticColor.labelAssistive.color

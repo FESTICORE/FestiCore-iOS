@@ -178,12 +178,12 @@
           TimetableLineupDay(
             id: "0807",
             title: "8/7 (금)",
-            artists: ["노이즈캔디", "스모킹구스", "크라잉버드", "앵콜밴드", "헤드라이너 X"]
+            artists: ["노이즈캔디", "스모킹구스", "크라잉버드", "앵콜밴드", "헤드라이너 X"].map { TimetableLineupArtist(name: $0) }
           ),
           TimetableLineupDay(
             id: "0808",
             title: "8/8 (토)",
-            artists: ["라임플래그스", "블루퓨즈", "터치드", "웨이브키즈"]
+            artists: ["라임플래그스", "블루퓨즈", "터치드", "웨이브키즈"].map { TimetableLineupArtist(name: $0) }
           ),
         ]
       }

@@ -159,6 +159,7 @@ private extension FCSetSheet {
         .accessibilityAddTraits(.isHeader)
       Text(isEnded ? endedTitle : relativeTime)
         .festiCoreFont(.baseFootnoteBold)
+        .festiCoreLineBox(.baseFootnoteBold)
         .foregroundStyle(
           isEnded
             ? FestiCoreSemanticColor.labelAssistive.color
@@ -266,9 +267,11 @@ private extension FCSetSheet {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
       Text("한 줄 메모")
         .festiCoreFont(.baseCaption1Regular)
+        .festiCoreLineBox(.baseCaption1Regular)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       Text(memo)
         .festiCoreFont(.baseCalloutRegular)
+        .festiCoreLineBox(.baseCalloutRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
     }
     .frame(maxWidth: .infinity, alignment: .leading)

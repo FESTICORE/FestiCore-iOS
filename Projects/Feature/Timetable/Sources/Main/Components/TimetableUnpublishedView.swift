@@ -6,6 +6,7 @@
 //
 
 import FestiCoreDesignKit
+import FestiCoreSharedUI
 import SwiftUI
 import TimetableDomainInterface
 
@@ -66,15 +67,20 @@ private extension TimetableUnpublishedView {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
       Text(day.title)
         .festiCoreFont(.baseFootnoteBold)
+        .festiCoreLineBox(.baseFootnoteBold)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
         .accessibilityAddTraits(.isHeader)
       VStack(spacing: .zero) {
         ForEach(Array(day.artists.enumerated()), id: \.offset) { index, artist in
           FCLineupRow(
             number: String(format: "%02d", index + 1),
-            artist: artist,
+            artist: artist.name,
             showsSeparator: index < day.artists.count - 1
           )
+          .thumbnail(artist.imageURL.map {
+            FCRemoteImage(url: $0)
+              .content(.fill)
+          })
         }
       }
       .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
