@@ -343,19 +343,21 @@ struct AppCoordinatorTests {
     // 루트가 보낸 포그라운드 뒤에 받은 액션을 받은 순서대로 기록한다.
     let received = LockIsolated<[String]>([])
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
-      AppCoordinator()
-      Reduce { _, action in
-        if action.is(\.view.foregrounded) { return .none }
-        let label: String
-        if action.is(\.scope.home.session.view.foregrounded) {
-          label = "session.foregrounded"
-        } else if action.is(\.scope.home.festival) {
-          label = "festival"
-        } else {
-          label = "other"
+      CombineReducers {
+        AppCoordinator()
+        Reduce<AppCoordinator.State, AppCoordinator.Action> { _, action in
+          if action.is(\.view.foregrounded) { return .none }
+          let label: String
+          if action.is(\.scope.home.session.view.foregrounded) {
+            label = "session.foregrounded"
+          } else if action.is(\.scope.home.festival) {
+            label = "festival"
+          } else {
+            label = "other"
+          }
+          received.withValue { $0.append(label) }
+          return .none
         }
-        received.withValue { $0.append(label) }
-        return .none
       }
     } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
@@ -2622,15 +2624,17 @@ struct AppCoordinatorTests {
     // 취소되지 않으면 탈퇴 효과가 완료나 세션 만료 위임을 보낸다. 그 결과 액션이 오는지 기록한다.
     let operationResults = LockIsolated<[String]>([])
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
-      AppCoordinator()
-      Reduce { _, action in
-        if action.is(\.scope.home.account.inner.finished) {
-          operationResults.withValue { $0.append("finished") }
+      CombineReducers {
+        AppCoordinator()
+        Reduce<AppCoordinator.State, AppCoordinator.Action> { _, action in
+          if action.is(\.scope.home.account.inner.finished) {
+            operationResults.withValue { $0.append("finished") }
+          }
+          if action.is(\.scope.home.account.delegate.sessionExpired) {
+            operationResults.withValue { $0.append("sessionExpired") }
+          }
+          return .none
         }
-        if action.is(\.scope.home.account.delegate.sessionExpired) {
-          operationResults.withValue { $0.append("sessionExpired") }
-        }
-        return .none
       }
     } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
