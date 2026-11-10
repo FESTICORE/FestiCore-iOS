@@ -35,7 +35,7 @@ struct LoginFeatureTests {
     }
   }
 
-  @Test(arguments: [LoginFeature.State.Context.crew, .follow])
+  @Test(arguments: [LoginFeature.State.Context.crew, .follow, .report])
   @MainActor func s01LoginContextSwitchesWithoutStartingAuthentication(
     _ context: LoginFeature.State.Context
   ) async {

@@ -36,7 +36,7 @@ struct FlagCoordinator {
       }
     }
 
-    /// 깃발 상세가 열려 있으면 탭바를 숨긴다.
+    /// 깃발 상세가 열려 있는지. 열린 상세에 팩·내 일정·계정 변경을 알릴 때 쓴다.
     var isDetailOpen: Bool {
       return routes.contains { $0.screen.is(\.detail) }
     }
@@ -64,6 +64,7 @@ struct FlagCoordinator {
     case detailRequested(flagID: String)
     case loginRequested
     case followLoginRequested
+    case reportLoginRequested
     case termsAcceptanceRequested
   }
 
@@ -134,7 +135,8 @@ extension FlagCoordinator {
       id: _,
       action: .detail(.delegate(.reportLoginRequested))
     ):
-      return .send(.delegate(.loginRequested))
+      // 신고 로그인은 깃발 탭 기본 문맥(팔로우 문구) 대신 신고 문구를 띄운다.
+      return .send(.delegate(.reportLoginRequested))
 
     case .routeAction(
       id: _,
