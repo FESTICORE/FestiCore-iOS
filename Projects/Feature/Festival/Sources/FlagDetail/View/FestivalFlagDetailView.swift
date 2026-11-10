@@ -98,9 +98,10 @@ private extension FestivalFlagDetailView {
       ) {
         hero(detail)
 
+        // Figma S05 Contents: 간격 20
         VStack(
           alignment: .leading,
-          spacing: FestiCoreSpacing.paddingP24
+          spacing: FestiCoreSpacing.paddingP20
         ) {
           VStack(spacing: Metric.nowSectionSpacing) {
             nowCard()
@@ -110,11 +111,21 @@ private extension FestivalFlagDetailView {
 
           planSection(detail)
 
+          // Figma 신고 줄은 위 패딩 8을 갖는다.
           reportButton
+            .padding(
+              .top,
+              FestiCoreSpacing.paddingP8
+            )
         }
         .padding(
           .top,
           FestiCoreSpacing.paddingP20
+        )
+        // Figma 아래 여백 24 = 스크롤 공통 아래 여백 20 + 4
+        .padding(
+          .bottom,
+          FestiCoreSpacing.paddingP4
         )
         .padding(
           .horizontal,
@@ -191,7 +202,8 @@ private extension FestivalFlagDetailView {
   var reportButton: some View {
     return Button { send(.reportTapped) } label: {
       Text("신고하기")
-        .festiCoreFont(.baseFootnoteRegular)
+        .festiCoreFont(.baseFootnoteMedium)
+        .festiCoreLineBox(.baseFootnoteMedium)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
@@ -245,11 +257,13 @@ private extension FestivalFlagDetailView {
   /// "오늘 계획" 머리글과 계획 목록 또는 비공개 안내
   @ViewBuilder
   func planSection(_ detail: FestivalFlagDetail) -> some View {
+    // Figma S05 오늘 계획: Section Header 다음 간격 8
     VStack(
       alignment: .leading,
-      spacing: FestiCoreSpacing.paddingP12
+      spacing: FestiCoreSpacing.paddingP8
     ) {
-      planHeader(isVisible: detail.isPlanVisible)
+      FCSectionHeader("오늘 계획")
+        .action(detail.isPlanVisible ? "기수가 정한 순서예요" : nil)
 
       if !detail.isPlanVisible {
         FCPlanPrivate()
@@ -266,23 +280,6 @@ private extension FestivalFlagDetailView {
         )
       } else {
         planList
-      }
-    }
-  }
-
-  /// 공개한 계획에만 "기수가 정한 순서예요"를 붙인다.
-  func planHeader(isVisible: Bool) -> some View {
-    return HStack {
-      Text("오늘 계획")
-        .festiCoreFont(.baseHeadlineBold)
-        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-
-      Spacer(minLength: FestiCoreSpacing.paddingP8)
-
-      if isVisible {
-        Text("기수가 정한 순서예요")
-          .festiCoreFont(.baseFootnoteRegular)
-          .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       }
     }
   }
