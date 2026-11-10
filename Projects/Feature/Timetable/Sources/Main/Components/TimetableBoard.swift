@@ -41,6 +41,8 @@ struct TimetableBoard: View {
         .frame(width: isWide ? wideWidth : nil)
       }
       .scrollIndicators(.hidden)
+      // 시간표 끝까지 스크롤해도 마지막 공연이 하단에서 20만큼 떨어져 보이게 한다.
+      .fcScrollBottomInset()
       .task(id: day.id) {
         guard let now = store.nowMinute else { return }
         await Task.yield()
