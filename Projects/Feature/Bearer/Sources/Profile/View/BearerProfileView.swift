@@ -334,6 +334,10 @@ extension BearerProfileView {
       image.resizable().scaledToFill()
     } else if let url = store.photoURL {
       FCRemoteImage(url: url)
+        .placeholderIcon(
+          .flag20,
+          size: 20
+        )
     } else {
       FCThumbnail(nil)
     }

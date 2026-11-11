@@ -103,20 +103,10 @@ struct FestivalZoneMapStageHeader: View {
         )
       // 지금 공연 아티스트는 자르지 않고, 좁으면 무대 이름을 줄인다.
       if let nowPlaying = header.nowPlaying {
-        Text("지금 \(nowPlaying)")
-          .festiCoreFont(.baseCaption2Medium)
-          .foregroundStyle(FestiCoreSemanticColor.inverseLabel.color)
-          .lineLimit(1)
+        // Figma S06 Live Tag tone=inverse
+        FCTag("지금 \(nowPlaying)")
+          .tone(.inverse)
           .fixedSize()
-          .padding(
-            .horizontal,
-            Metric.tagHorizontalPadding
-          )
-          .frame(height: Metric.tagHeight)
-          .background(
-            FestiCoreSemanticColor.inverseBackground.color,
-            in: RoundedRectangle(cornerRadius: FestiCoreRadius.r4)
-          )
       }
     }
     .padding(
@@ -139,8 +129,6 @@ private extension FestivalZoneMapStageHeader {
   enum Metric {
     static let height: CGFloat = 34
     static let nameMinimumScale: CGFloat = 0.85
-    static let tagHeight: CGFloat = 18
-    static let tagHorizontalPadding: CGFloat = 6
     static let trailingPadding: CGFloat = 10
   }
 }

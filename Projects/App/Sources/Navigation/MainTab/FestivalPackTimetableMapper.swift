@@ -43,7 +43,10 @@ enum FestivalPackTimetableMapper {
       let stages = entries.reduce(into: [TimetableStage]()) { result, entry in
         let stageID = entry.2.stageId ?? entry.2.stageName ?? "stage-unassigned"
         guard !result.contains(where: { $0.id == stageID }) else { return }
-        result.append(.init(id: stageID, name: entry.2.stageName ?? "무대 미정"))
+        result.append(.init(
+          id: stageID,
+          name: entry.2.stageName ?? "무대 미정"
+        ))
       }
       let sets = entries.map { start, end, performance in
         let previous = previousDays.first(where: { $0.date == dayStart })?.sets.first { $0.id == performance.id }
