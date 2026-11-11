@@ -16,10 +16,14 @@ struct BearerZoneButton: View {
 
   var body: some View {
     Button(action: action) {
-      HStack(spacing: FestiCoreSpacing.marginM8) {
+      // Figma S10 Choice Tile(zone): 아이콘 16, 간격 6
+      HStack(spacing: FestiCoreSpacing.marginM6) {
         Image(asset: .locationDot16)
           .resizable()
-          .frame(width: 14, height: 14)
+          .frame(
+            width: 16,
+            height: 16
+          )
           .accessibilityHidden(true)
         // Figma S10 존 버튼: 높이 44, 13pt(긴 존 이름도 한 줄에 다 보인다)
         Text(name)
