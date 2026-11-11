@@ -234,6 +234,10 @@ private struct FestivalLiveBoardFlagThumbnail: View {
   var body: some View {
     if url != nil {
       FCRemoteImage(url: url)
+        .placeholderIcon(
+          .flag20,
+          size: 20
+        )
     } else {
       Image(asset: .flag20)
         .resizable()

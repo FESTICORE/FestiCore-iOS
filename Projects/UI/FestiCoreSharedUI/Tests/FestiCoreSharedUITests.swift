@@ -21,6 +21,30 @@ struct FestiCoreSharedUITests {
     #expect(UIHostingController(rootView: fitted).view != nil)
   }
 
+  @Test @MainActor func remoteImageCopiesPlaceholderIconWithoutChangingOriginal() {
+    let original = FCRemoteImage(url: nil)
+    let withIcon = original.placeholderIcon(
+      .music24,
+      size: 36
+    )
+
+    #expect(original.placeholderIcon == nil)
+    #expect(withIcon.placeholderIcon == .music24)
+    #expect(withIcon.placeholderIconSize == 36)
+    // 사진이 없어도 빈 칸이 아니라 기본 모양(아이콘 포함)을 같은 크기로 그린다.
+    let controller = UIHostingController(rootView: withIcon.frame(
+      width: 56,
+      height: 56
+    ))
+    #expect(controller.sizeThatFits(in: CGSize(
+      width: 200,
+      height: 200
+    )) == CGSize(
+      width: 56,
+      height: 56
+    ))
+  }
+
   @Test @MainActor func missingImageKeepsRequestedFrame() {
     let image = FCRemoteImage(url: nil)
       .frame(width: 84, height: 50)
