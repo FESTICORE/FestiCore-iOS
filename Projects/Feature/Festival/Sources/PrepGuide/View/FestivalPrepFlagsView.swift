@@ -150,6 +150,10 @@ private extension FestivalPrepFlagsView {
     ) {
       if let url = row.thumbnailURL {
         FCRemoteImage(url: url)
+          .placeholderIcon(
+            .flag20,
+            size: 20
+          )
       } else {
         FCThumbnail(nil)
       }

@@ -248,6 +248,10 @@ private extension FestivalFlagDetailView {
     if let url = detail.photoURL ?? detail.thumbnailURL {
       FCRemoteImage(url: url)
         .content(.fill)
+        .placeholderIcon(
+          .flag,
+          size: 36
+        )
     } else {
       FestiCoreSemanticColor.backgroundElevated.color
     }
