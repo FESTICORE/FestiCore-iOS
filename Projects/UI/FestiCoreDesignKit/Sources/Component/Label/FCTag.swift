@@ -15,6 +15,8 @@ public struct FCTag: View {
     case lime
     case warning
     case onImage
+    /// Figma Live Tag tone=inverse(S06 지도 위 무대 표시)
+    case inverse
   }
 
   private var label: String
@@ -46,6 +48,7 @@ private extension FCTag {
     case .lime: return .staticLime
     case .warning: return .accentBackgroundOrange
     case .onImage: return .staticalphaWhite20
+    case .inverse: return .inverseBackground
     }
   }
 
@@ -56,6 +59,7 @@ private extension FCTag {
     case .lime: return .staticInk
     case .warning: return .accentForegroundOrange
     case .onImage: return .staticWhite
+    case .inverse: return .inverseLabel
     }
   }
 }
@@ -78,6 +82,7 @@ public extension FCTag {
     FCTag("슬램").tone(.lime)
     FCTag("슬램").tone(.warning)
     FCTag("슬램").tone(.onImage)
+    FCTag("슬램").tone(.inverse)
       .padding(FestiCoreSpacing.paddingP4)
       .background(FestiCoreSemanticColor.staticalphaBlack80.color)
   }
