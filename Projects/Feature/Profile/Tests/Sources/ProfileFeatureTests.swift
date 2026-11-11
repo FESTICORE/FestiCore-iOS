@@ -162,6 +162,16 @@ struct ProfileFeatureTests {
     await store.receive(\.delegate.loginRequested)
   }
 
+  @Test("로그인 카드의 Apple·Google 버튼은 고른 제공자로 로그인을 요청한다")
+  func guestSocialLoginRequestsProvider() async {
+    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
+
+    await store.send(.view(.socialLoginTapped(.apple)))
+    await store.receive(\.delegate.socialLoginRequested)
+    await store.send(.view(.socialLoginTapped(.google)))
+    await store.receive(\.delegate.socialLoginRequested)
+  }
+
   @Test func packTapOpensPackDetailAndDeletionReloadsPacks() async {
     var state = ProfileFeature.State()
     state.packs = [FestivalReceivedPack(id: "fst_a", name: "원더리벳 2026", packVersion: 12)]

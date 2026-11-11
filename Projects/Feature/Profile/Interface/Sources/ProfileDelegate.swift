@@ -14,6 +14,8 @@ public enum ProfileDelegate: Equatable, Sendable {
   case bearerRequested
   case searchRequested
   case loginRequested
+  /// 로그인 카드의 Apple·Google 버튼. 로그인 시트를 열고 그 제공자로 바로 로그인을 시작한다.
+  case socialLoginRequested(OAuthProvider)
   case profileRefreshRequested
   case logoutRequested
   case withdrawRequested
