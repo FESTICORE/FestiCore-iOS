@@ -255,13 +255,14 @@ private extension FestivalCrewView {
   }
 
   var statusPanel: some View {
+    // Figma S07 My Status: 위 12·아래 8·좌우 16, 간격 10, 안내 Caption1/Medium
     return VStack(
       alignment: .leading,
-      spacing: FestiCoreSpacing.paddingP8
+      spacing: Metric.panelSpacing
     ) {
-      Text("내 상태 · 탭 한 번이면 공유돼요")
-        .festiCoreFont(.baseCaption1Bold)
-        .festiCoreLineBox(.baseCaption1Bold)
+      Text("내 상태 · 탭 한 번이면 크루원에게 공유돼요")
+        .festiCoreFont(.baseCaption1Medium)
+        .festiCoreLineBox(.baseCaption1Medium)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       HStack(spacing: FestiCoreSpacing.paddingP8) {
         ForEach(
@@ -274,7 +275,7 @@ private extension FestivalCrewView {
     }
     .padding(
       .top,
-      Metric.panelTopPadding
+      FestiCoreSpacing.paddingP12
     )
     .padding(
       .horizontal,
@@ -282,7 +283,7 @@ private extension FestivalCrewView {
     )
     .padding(
       .bottom,
-      Metric.panelBottomPadding
+      FestiCoreSpacing.paddingP8
     )
     .frame(maxWidth: .infinity)
     .background(FestiCoreSemanticColor.backgroundElevated.color.ignoresSafeArea(edges: .bottom))
@@ -294,39 +295,17 @@ private extension FestivalCrewView {
   }
 
   func stateButton(_ crewState: FestivalCrewState) -> some View {
-    let isSelected = store.myState == crewState
-    let shape = RoundedRectangle(cornerRadius: FestiCoreRadius.r12)
-    return Button { send(.stateTapped(crewState)) } label: {
-      VStack(spacing: FestiCoreSpacing.paddingP4) {
-        Image(asset: icon(crewState))
-          .resizable()
-          .scaledToFit()
-          .frame(
-            width: Metric.stateIconSize,
-            height: Metric.stateIconSize
-          )
-          .accessibilityHidden(true)
-        Text(FestivalLiveBoardPresentation.crewStateText(crewState.rawValue) ?? "")
-          .festiCoreFont(.baseFootnoteBold)
-          .festiCoreLineBox(.baseFootnoteBold)
-          .lineLimit(1)
-      }
-      .foregroundStyle(isSelected
-        ? FestiCoreSemanticColor.inverseLabel.color
-        : FestiCoreSemanticColor.labelNormal.color)
-      .frame(
-        maxWidth: .infinity,
-        minHeight: Metric.stateHeight
-      )
-      .background(
-        isSelected ? FestiCoreSemanticColor.inverseBackground.color : FestiCoreSemanticColor.fillNormal.color,
-        in: shape
-      )
-      .contentShape(shape)
+    // Figma S07 Crew Status Button = Big Button small(80×64)
+    return FCBigButton(
+      FestivalLiveBoardPresentation.crewStateText(crewState.rawValue) ?? "",
+      sub: "",
+      icon: icon(crewState)
+    ) {
+      send(.stateTapped(crewState))
     }
-    .buttonStyle(.plain)
+    .size(.small)
+    .isSelected(store.myState == crewState)
     .disabled(store.crew?.archivedAt != nil)
-    .accessibilityAddTraits(isSelected ? .isSelected : [])
   }
 
   func icon(_ crewState: FestivalCrewState) -> ImageAsset {
@@ -390,10 +369,7 @@ private extension FestivalCrewView {
     static let skeletonHeight: CGFloat = 322
     static let borderWidth: CGFloat = 1
     static let inactiveOpacity: Double = 0.6
-    static let panelTopPadding: CGFloat = 13
-    static let panelBottomPadding: CGFloat = 1
-    static let stateHeight: CGFloat = 66
-    static let stateIconSize: CGFloat = 20
+    static let panelSpacing: CGFloat = 10
     static let toastTop: CGFloat = 30
     static let toastAnimation: Double = 0.25
   }
