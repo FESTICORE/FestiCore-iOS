@@ -18,68 +18,76 @@ struct MainTabView: View {
   @State private var isModalPresented = false
 
   var body: some View {
-    tabContent
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .safeAreaInset(edge: .bottom, spacing: .zero) {
-        if store.shouldReserveTabBarSpace {
-          FCTabBar(
-            selection: Binding(
-              get: { store.selectedTab },
-              set: { store.send(.tabTapped($0)) }
-            )
+    // 탭바는 safeAreaInset이 아니라 탭 화면 아래에 쌓는다. 탭 화면의 NavigationStack은 바깥 safeAreaInset을
+    // 안쪽 ScrollView에 전달하지 않아, 스크롤 끝 여백(fcScrollBottomInset 20)이 탭바 아래로 들어갔다.
+    VStack(spacing: .zero) {
+      tabContent
+        .frame(
+          maxWidth: .infinity,
+          maxHeight: .infinity
+        )
+      if store.shouldReserveTabBarSpace {
+        FCTabBar(
+          selection: Binding(
+            get: { store.selectedTab },
+            set: { store.send(.tabTapped($0)) }
           )
-          .opacity(isTabBarHidden ? 0 : 1)
-          .allowsHitTesting(!isTabBarHidden)
-          // 시트 이동 애니메이션과 별개로 탭바는 즉시 사라지고 나타난다.
-          .animation(
-            nil,
-            value: isTabBarHidden
-          )
-        }
-      }
-      .background(FestiCoreSemanticColor.backgroundNormal.color)
-      .overlay {
-        if store.selectedTab == .timetable, store.timetableState.setDetail != nil {
-          // 공연 상세 시트는 탭바까지 덮도록 탭을 그리는 이 화면에서 띄운다.
-          Color.clear.fcModal($store.scope(state: \.timetableState.setDetail, action: \.timetable.scope.setDetail)) { detailStore in
-            TimetableSetDetailView(store: detailStore)
-          } accessory: { detailStore in
-            TimetableScheduleToast(isVisible: detailStore.isScheduleToastVisible)
-          }
-        }
-      }
-      .overlay {
-        if store.selectedTab == .my {
-          Color.clear
-            .fcAlert(
-              $store.scope(
-                state: \.profileState.destination?.alert,
-                action: \.profileCoordinator.profile.destination.alert
-              ),
-              dismissesOnDimTap: true
-            )
-        }
-      }
-      .fcModal(
-        item: authSheet,
-        height: authSheet.wrappedValue == .onboarding ? .fraction(1) : .auto,
-        showsGrabber: authSheet.wrappedValue != .onboarding
-      ) { sheet in
-        AuthCoordinatorView(
-          store: store.scope(
-            state: \.authFlow,
-            action: \.auth
-          ),
-          sheet: sheet
+        )
+        .opacity(isTabBarHidden ? 0 : 1)
+        .allowsHitTesting(!isTabBarHidden)
+        // 시트 이동 애니메이션과 별개로 탭바는 즉시 사라지고 나타난다.
+        .animation(
+          nil,
+          value: isTabBarHidden
         )
       }
-      .fullScreenCover(item: $store.scope(
-        state: \.bearerEntry,
-        action: \.bearerEntry
-      )) { bearerStore in
-        BearerEntryCoordinatorView(store: bearerStore)
+    }
+    .background(FestiCoreSemanticColor.backgroundNormal.color)
+    .overlay {
+      if store.selectedTab == .timetable, store.timetableState.setDetail != nil {
+        // 공연 상세 시트는 탭바까지 덮도록 탭을 그리는 이 화면에서 띄운다.
+        Color.clear.fcModal($store.scope(
+          state: \.timetableState.setDetail,
+          action: \.timetable.scope.setDetail
+        )) { detailStore in
+          TimetableSetDetailView(store: detailStore)
+        } accessory: { detailStore in
+          TimetableScheduleToast(isVisible: detailStore.isScheduleToastVisible)
+        }
       }
-      .onPreferenceChange(FCModalPresentedKey.self) { isModalPresented = $0 }
+    }
+    .overlay {
+      if store.selectedTab == .my {
+        Color.clear
+          .fcAlert(
+            $store.scope(
+              state: \.profileState.destination?.alert,
+              action: \.profileCoordinator.profile.destination.alert
+            ),
+            dismissesOnDimTap: true
+          )
+      }
+    }
+    .fcModal(
+      item: authSheet,
+      height: authSheet.wrappedValue == .onboarding ? .fraction(1) : .auto,
+      showsGrabber: authSheet.wrappedValue != .onboarding
+    ) { sheet in
+      AuthCoordinatorView(
+        store: store.scope(
+          state: \.authFlow,
+          action: \.auth
+        ),
+        sheet: sheet
+      )
+    }
+    .fullScreenCover(item: $store.scope(
+      state: \.bearerEntry,
+      action: \.bearerEntry
+    )) { bearerStore in
+      BearerEntryCoordinatorView(store: bearerStore)
+    }
+    .onPreferenceChange(FCModalPresentedKey.self) { isModalPresented = $0 }
   }
 }
 
