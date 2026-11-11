@@ -29,7 +29,10 @@ public struct FCReportSheet: View {
 
   public var body: some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
-      VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
+      VStack(
+        alignment: .center,
+        spacing: FestiCoreSpacing.paddingP8
+      ) {
         Text(title)
           .festiCoreFont(.baseTitle3Bold)
           .festiCoreLineBox(.baseTitle3Bold)
@@ -40,6 +43,8 @@ public struct FCReportSheet: View {
           .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       }
+      .multilineTextAlignment(.center)
+      .frame(maxWidth: .infinity)
       VStack(spacing: 0) {
         ForEach(Array(options.enumerated()), id: \.offset) { index, option in
           Button {
