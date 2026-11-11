@@ -91,6 +91,7 @@ public struct ProfileFeature {
     case onAppear
     case packsRetryTapped
     case loginTapped
+    case socialLoginTapped(OAuthProvider)
     case bearerTapped
     case searchTapped
     case packTapped(String)
@@ -199,6 +200,9 @@ extension ProfileFeature {
 
     case .loginTapped:
       return .send(.delegate(.loginRequested))
+
+    case let .socialLoginTapped(provider):
+      return .send(.delegate(.socialLoginRequested(provider)))
 
     case .bearerTapped:
       return .send(.delegate(.bearerRequested))

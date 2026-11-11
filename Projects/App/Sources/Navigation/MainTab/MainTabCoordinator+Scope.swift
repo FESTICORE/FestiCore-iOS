@@ -204,6 +204,13 @@ extension MainTabCoordinator {
     case .profile(.delegate(.loginRequested)):
       return .send(.auth(.view(.loginRequested(nil))))
 
+    case let .profile(.delegate(.socialLoginRequested(provider))):
+      // 로그인 시트를 띄운 뒤 같은 흐름에서 고른 제공자로 로그인을 시작한다.
+      return .concatenate(
+        .send(.auth(.view(.loginRequested(nil)))),
+        .send(.auth(.view(.startLogin(provider))))
+      )
+
     case .profile(.delegate(.bearerRequested)):
       return handleBearerRequested(state: &state)
 

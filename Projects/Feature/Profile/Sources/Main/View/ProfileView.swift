@@ -101,9 +101,9 @@ private extension ProfileView {
           .festiCoreLineBox(.baseFootnoteRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
       }
-      FCButton("로그인") { send(.loginTapped) }
-        .size(.medium)
-        .isFullWidth(true)
+      // Figma More B: 카드 안 Apple·Google Login Button(329×52), 간격 12
+      FCLoginButton(.apple) { send(.socialLoginTapped(.apple)) }
+      FCLoginButton(.google) { send(.socialLoginTapped(.google)) }
     }
     .frame(
       maxWidth: .infinity,
@@ -144,10 +144,12 @@ private extension ProfileView {
         case .failed:
           packFailure
         case .loaded where store.packs.isEmpty:
-          Text("받은 팩이 없습니다")
-            .festiCoreFont(.baseBodyRegular)
-            .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-            .frame(maxWidth: .infinity, minHeight: 68)
+          // Figma More C: Empty Card(ticket 24). 앱에 ticket 아이콘 자산이 없어 music 24를 쓴다.
+          FCEmptyCard(
+            icon: .music24,
+            title: "아직 받은 팩이 없어요",
+            message: "페스티벌을 고르면 시간표 · 지도 · 가는 길을 오프라인으로 받아 둘 수 있어요."
+          )
         case .loaded:
           ForEach(store.packs) { pack in
             if pack.id != store.packs.first?.id {
