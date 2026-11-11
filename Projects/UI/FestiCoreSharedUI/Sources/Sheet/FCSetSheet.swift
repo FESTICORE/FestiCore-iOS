@@ -256,8 +256,13 @@ private extension FCSetSheet {
       .frame(maxWidth: .infinity)
       .frame(height: Metric.artistImageHeight)
       .overlay {
+        // 불러오지 못하면 빈 칸 대신 Figma image=empty 기본 모양(music)을 둔다.
         FCRemoteImage(url: url)
           .content(.fill)
+          .placeholderIcon(
+            .music24,
+            size: 36
+          )
       }
       .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
       .accessibilityHidden(true)

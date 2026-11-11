@@ -86,10 +86,15 @@ private extension TimetableUnpublishedView {
             artist: artist.name,
             showsSeparator: index < day.artists.count - 1
           )
-          .thumbnail(artist.imageURL.map {
-            FCRemoteImage(url: $0)
+          // 사진이 없거나 불러오지 못한 아티스트도 같은 자리에 기본 모양을 두어 줄이 어긋나지 않게 한다.
+          .thumbnail(
+            FCRemoteImage(url: artist.imageURL)
               .content(.fill)
-          })
+              .placeholderIcon(
+                .music20,
+                size: 20
+              )
+          )
         }
       }
       .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
