@@ -19,8 +19,14 @@ struct MainTabView: View {
 
   var body: some View {
     tabContent
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .safeAreaInset(edge: .bottom, spacing: .zero) {
+      .frame(
+        maxWidth: .infinity,
+        maxHeight: .infinity
+      )
+      .safeAreaInset(
+        edge: .bottom,
+        spacing: .zero
+      ) {
         if store.shouldReserveTabBarSpace {
           FCTabBar(
             selection: Binding(
@@ -41,11 +47,15 @@ struct MainTabView: View {
       .overlay {
         if store.selectedTab == .timetable, store.timetableState.setDetail != nil {
           // 공연 상세 시트는 탭바까지 덮도록 탭을 그리는 이 화면에서 띄운다.
-          Color.clear.fcModal($store.scope(state: \.timetableState.setDetail, action: \.timetable.scope.setDetail)) { detailStore in
-            TimetableSetDetailView(store: detailStore)
-          } accessory: { detailStore in
-            TimetableScheduleToast(isVisible: detailStore.isScheduleToastVisible)
-          }
+          Color.clear
+            .fcModal($store.scope(
+              state: \.timetableState.setDetail,
+              action: \.timetable.scope.setDetail
+            )) { detailStore in
+              TimetableSetDetailView(store: detailStore)
+            } accessory: { detailStore in
+              TimetableScheduleToast(isVisible: detailStore.isScheduleToastVisible)
+            }
         }
       }
       .overlay {
@@ -103,12 +113,10 @@ private extension MainTabView {
   var tabContent: some View {
     switch store.selectedTab {
     case .live:
-      FestivalCoordinatorView(
-        store: store.scope(
-          state: \.festivalState,
-          action: \.festival
-        )
-      )
+      FestivalCoordinatorView(store: store.scope(
+        state: \.festivalState,
+        action: \.festival
+      ))
 
     case .timetable:
       timetableView
