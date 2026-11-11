@@ -29,10 +29,13 @@ public struct FCReportSheet: View {
 
   public var body: some View {
     VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
-      VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
+      VStack(
+        alignment: .leading,
+        spacing: FestiCoreSpacing.paddingP8
+      ) {
         Text(title)
-          .festiCoreFont(.baseTitle3Bold)
-          .festiCoreLineBox(.baseTitle3Bold)
+          .festiCoreFont(.baseTitle2Bold)
+          .festiCoreLineBox(.baseTitle2Bold)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           .accessibilityAddTraits(.isHeader)
         Text(message)
