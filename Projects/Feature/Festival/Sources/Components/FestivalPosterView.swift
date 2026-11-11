@@ -7,8 +7,13 @@ struct FestivalPosterView: View {
 
   var body: some View {
     GeometryReader { geometry in
+      // Figma Festival Image image=empty: Fill/Strong + music 36
       FCRemoteImage(url: url)
         .content(.fill)
+        .placeholderIcon(
+          .music24,
+          size: 36
+        )
         .frame(width: geometry.size.width, height: geometry.size.height)
         .clipped()
         // clipped는 그리기만 자르고 터치 영역은 넘친 이미지 크기 그대로 남긴다.
