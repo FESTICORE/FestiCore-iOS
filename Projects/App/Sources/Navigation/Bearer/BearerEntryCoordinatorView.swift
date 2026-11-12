@@ -12,6 +12,18 @@ struct BearerEntryCoordinatorView: View {
       action: \.router
     )) { screen in
       switch screen.case {
+      case let .roleChoice(roleStore):
+        BearerRoleChoiceView(store: roleStore)
+          .toolbar(
+            .hidden,
+            for: .navigationBar
+          )
+      case let .register(registerStore):
+        BearerRegisterView(store: registerStore)
+          .toolbar(
+            .hidden,
+            for: .navigationBar
+          )
       case let .claim(claimStore):
         BearerClaimView(store: claimStore)
           .toolbar(

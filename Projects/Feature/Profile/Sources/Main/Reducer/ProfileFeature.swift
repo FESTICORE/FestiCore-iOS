@@ -6,6 +6,7 @@
 //
 
 import AuthDomainInterface
+import BearerDomainInterface
 import ComposableArchitecture
 import FestiCoreSharedUI
 import FestiCoreStorageInterface
@@ -31,6 +32,8 @@ public struct ProfileFeature {
     /// 새 버전이 있는 팩의 바뀐 공연 수(내 버전 기준). 읽지 못하면 비워 두고 버전만 보인다.
     public var packChangedSets: [String: Int] = [:]
     public var packLoad = PackLoad.idle
+    /// More D 내 깃발. 로그인했을 때만 읽는다.
+    public var bearerFlags = BearerFlagsLoad.idle
     /// 아직 연결되지 않은 이동은 누를 수 없게 둔다.
     public var isSearchAvailable = false
     /// 팝업과 마이 화면의 하위 목적지
@@ -42,8 +45,27 @@ public struct ProfileFeature {
     }
 
     /// Figma More B: 로그아웃 상태에서는 기수 카드를 숨기고 로그인 카드만 둔다.
+    /// Figma More D: 기수인 깃발이 있으면 기수 카드 대신 내 깃발 카드를 둔다.
     public var showsBearerPrompt: Bool {
-      return profile != nil || hasSession
+      return (profile != nil || hasSession) && myFlag == nil
+    }
+
+    /// More D 카드에 보일 깃발. 서버가 최근 등록순으로 주므로 첫 깃발이다.
+    public var myFlag: BearerOwnedFlag? {
+      guard hasSession || profile != nil, case let .loaded(flags) = bearerFlags else { return nil }
+      return flags.first
+    }
+
+    /// 예) `원더리벳 2026 · 팔로워 128 · 예정`. 받은 팩에 없는 페스티벌은 이름을 뺀다.
+    public var myFlagMeta: String? {
+      guard let flag = myFlag else { return nil }
+      let festivalName = packs.first { $0.id == flag.festivalID }?.name
+      let parts = [
+        festivalName,
+        "팔로워 \(flag.profile.followerCount)",
+        flag.lifecycle.map(ProfileFeature.lifecycleTitle),
+      ]
+      return parts.compactMap { $0 }.joined(separator: " · ")
     }
 
     public init() {}
@@ -57,7 +79,15 @@ public struct ProfileFeature {
     case failed
   }
 
-  private enum CancelID { case packs }
+  /// 내가 기수인 깃발을 읽는 상태. 실패하면 기수 카드를 그대로 보인다.
+  public enum BearerFlagsLoad: Equatable {
+    case idle
+    case loading
+    case loaded([BearerOwnedFlag])
+    case failed
+  }
+
+  private enum CancelID { case packs, bearerFlags }
 
   @Reducer
   public enum Destination {
@@ -92,6 +122,12 @@ public struct ProfileFeature {
     case settingsTapped
     /// 받은 팩이 없을 때 빈 카드의 '페스티벌 둘러보기'
     case browseFestivalsTapped
+    /// More D 내 깃발 줄
+    case myFlagTapped
+    case bearerBoardTapped
+    case otherFestivalFlagTapped
+    /// 기수 등록·수정을 마친 뒤 앱이 내 깃발을 다시 읽게 한다.
+    case bearerFlagsRefreshRequested
   }
 
   // MARK: - AsyncAction 비동기 처리 액션
@@ -99,6 +135,7 @@ public struct ProfileFeature {
   @CasePathable
   public enum AsyncAction: Equatable {
     case fetchPacks
+    case fetchBearerFlags
     case fetchPackChanges(
       festivalID: String,
       fromVersion: Int
@@ -109,6 +146,8 @@ public struct ProfileFeature {
 
   @CasePathable
   public enum InnerAction: Equatable {
+    case bearerFlagsLoaded([BearerOwnedFlag])
+    case bearerFlagsFailed
     case packsLoaded([FestivalReceivedPack])
     /// 서버 목록으로 새 버전 여부를 갱신한 결과
     case packsRefreshed([FestivalReceivedPack])
@@ -126,6 +165,7 @@ public struct ProfileFeature {
 
   @Dependency(\.festivalReceivedPackUseCase) private var receivedPackUseCase
   @Dependency(\.festivalPackDetailUseCase) private var packDetailUseCase
+  @Dependency(\.bearerUseCase) private var bearerUseCase
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -161,6 +201,7 @@ extension ProfileFeature {
     switch action {
     case let .accountChanged(profile, hasSession, isLoading, message):
       let lostSession = state.hasSession && !hasSession
+      if lostSession { state.bearerFlags = .idle }
       state.profile = profile
       state.hasSession = hasSession
       state.isLoading = isLoading
@@ -180,10 +221,34 @@ extension ProfileFeature {
       ))))))
 
     case .onAppear:
-      guard state.packLoad != .loading else { return .none }
+      let bearerFlags = refreshBearerFlags(state: &state)
+      guard state.packLoad != .loading else { return bearerFlags }
       // 이미 보여 준 목록은 다시 읽는 동안 그대로 둔다.
       if state.packLoad != .loaded { state.packLoad = .loading }
-      return .send(.async(.fetchPacks))
+      return .merge(
+        .send(.async(.fetchPacks)),
+        bearerFlags
+      )
+
+    case .bearerFlagsRefreshRequested:
+      return refreshBearerFlags(state: &state)
+
+    case .myFlagTapped:
+      guard let flag = state.myFlag else { return .none }
+      return .send(.delegate(.bearerProfileRequested(
+        festivalID: flag.festivalID,
+        flagID: flag.id
+      )))
+
+    case .bearerBoardTapped:
+      guard let flag = state.myFlag else { return .none }
+      return .send(.delegate(.bearerBoardRequested(
+        festivalID: flag.festivalID,
+        flagID: flag.id
+      )))
+
+    case .otherFestivalFlagTapped:
+      return .send(.delegate(.bearerRequested))
 
     case .packsRetryTapped:
       guard state.packLoad == .failed else { return .none }
@@ -236,6 +301,21 @@ extension ProfileFeature {
     action: AsyncAction
   ) -> Effect<Action> {
     switch action {
+    case .fetchBearerFlags:
+      return .run { send in
+        do {
+          await send(.inner(.bearerFlagsLoaded(try await bearerUseCase.fetchBearerFlags(festivalID: nil))))
+        } catch is CancellationError {
+          return
+        } catch {
+          await send(.inner(.bearerFlagsFailed))
+        }
+      }
+      .cancellable(
+        id: CancelID.bearerFlags,
+        cancelInFlight: true
+      )
+
     case .fetchPacks:
       return .run { send in
         do {
@@ -274,6 +354,17 @@ extension ProfileFeature {
     action: InnerAction
   ) -> Effect<Action> {
     switch action {
+    case .bearerFlagsLoaded(let flags):
+      // 숨긴 깃발은 마이 카드에 올리지 않는다.
+      state.bearerFlags = .loaded(flags.filter { !$0.isHidden })
+      return .none
+
+    case .bearerFlagsFailed:
+      // 이미 보여 준 깃발이 있으면 그대로 둔다.
+      if case .loaded = state.bearerFlags { return .none }
+      state.bearerFlags = .failed
+      return .none
+
     case .packsLoaded(let packs):
       state.packs = packs
       state.packLoad = .loaded
@@ -363,5 +454,21 @@ extension ProfileFeature {
     action: DelegateAction
   ) -> Effect<Action> {
     return .none
+  }
+
+  /// 로그인했을 때만 내 깃발을 읽는다. 이미 보여 준 카드는 다시 읽는 동안 그대로 둔다.
+  private func refreshBearerFlags(state: inout State) -> Effect<Action> {
+    guard state.hasSession else { return .none }
+    if case .loaded = state.bearerFlags {} else { state.bearerFlags = .loading }
+    return .send(.async(.fetchBearerFlags))
+  }
+
+  static func lifecycleTitle(_ lifecycle: BearerFlagLifecycle) -> String {
+    switch lifecycle {
+    case .scheduled: return "예정"
+    case .active: return "운영 중"
+    case .resting: return "쉬는 중"
+    case .ended: return "오늘 종료"
+    }
   }
 }

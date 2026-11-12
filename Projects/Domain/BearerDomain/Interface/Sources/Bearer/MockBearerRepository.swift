@@ -20,6 +20,18 @@ public struct MockBearerRepository: BearerRepositoryInterface {
     throw unregistered()
   }
 
+  public func register(_ request: BearerRegisterRequest) async throws -> BearerClaim {
+    throw unregistered()
+  }
+
+  public func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag] {
+    throw unregistered()
+  }
+
+  public func fetchPinnedFlag() async throws -> BearerPinnedFlag? {
+    throw unregistered()
+  }
+
   public func fetchBoard(flagID: String) async throws -> BearerBoard {
     throw unregistered()
   }

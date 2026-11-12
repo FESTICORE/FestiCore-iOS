@@ -254,6 +254,9 @@ private actor ScriptedRepository: BearerRepositoryInterface {
   }
   func inviteCoBearer(flagID: String) async throws -> BearerInvite { throw BearerError.unavailable }
   func removeCoBearer(flagID: String, userID: String) async throws { throw BearerError.unavailable }
+  func register(_ request: BearerRegisterRequest) async throws -> BearerClaim { throw BearerError.unavailable }
+  func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag] { throw BearerError.unavailable }
+  func fetchPinnedFlag() async throws -> BearerPinnedFlag? { throw BearerError.unavailable }
 }
 
 /// 기다리지 않고 요청한 대기 시간만 기록하는 시계
@@ -312,4 +315,7 @@ private actor GatedRepository: BearerRepositoryInterface {
   }
   func inviteCoBearer(flagID: String) async throws -> BearerInvite { throw BearerError.unavailable }
   func removeCoBearer(flagID: String, userID: String) async throws { throw BearerError.unavailable }
+  func register(_ request: BearerRegisterRequest) async throws -> BearerClaim { throw BearerError.unavailable }
+  func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag] { throw BearerError.unavailable }
+  func fetchPinnedFlag() async throws -> BearerPinnedFlag? { throw BearerError.unavailable }
 }

@@ -327,7 +327,7 @@ extension MainTabCoordinator {
     }
   }
 
-  private func select(
+  func select(
     _ tab: Tab,
     state: inout State
   ) {

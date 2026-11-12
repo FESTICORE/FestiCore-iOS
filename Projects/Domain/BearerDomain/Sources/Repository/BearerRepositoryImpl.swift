@@ -57,6 +57,40 @@ public struct BearerRepositoryImpl: BearerRepositoryInterface {
     return decoded.data.toDomain(baseURL: baseURL)
   }
 
+  public func register(_ request: BearerRegisterRequest) async throws -> BearerClaim {
+    let sessionID = try await authenticatedSessionID()
+    let response = try await send(
+      FlagRequest.register(
+        body: request.body,
+        idempotencyKey: request.idempotencyKey,
+        sessionID: sessionID
+      ),
+      as: BearerClaimResponseDTO.self
+    )
+    return response.data.toDomain(baseURL: baseURL)
+  }
+
+  public func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag] {
+    let sessionID = try await authenticatedSessionID()
+    let response = try await send(
+      FlagRequest.bearerFlags(
+        query: BearerFlagsQuery(festivalId: festivalID),
+        sessionID: sessionID
+      ),
+      as: BearerFlagsResponseDTO.self
+    )
+    return response.data.items.map { $0.toDomain(baseURL: baseURL) }
+  }
+
+  public func fetchPinnedFlag() async throws -> BearerPinnedFlag? {
+    let sessionID = try await authenticatedSessionID()
+    let response = try await send(
+      FlagRequest.pinnedFlag(sessionID: sessionID),
+      as: BearerPinnedFlagResponseDTO.self
+    )
+    return response.data.toDomain(baseURL: baseURL)
+  }
+
   public func fetchBoard(flagID: String) async throws -> BearerBoard {
     let sessionID = try await authenticatedSessionID()
     let response = try await send(FlagRequest.bearer(flagID: flagID, sessionID: sessionID), as: BearerBoardResponseDTO.self)

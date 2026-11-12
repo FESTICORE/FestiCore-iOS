@@ -63,7 +63,10 @@ private extension SignUpView {
         .padding(FestiCoreSpacing.paddingP16)
       }
       .scrollDismissesKeyboard(.interactively)
-      FCPrimaryButton("시작하기", isEnabled: store.canSubmit) {
+      FCPrimaryButton(
+        "다음",
+        isEnabled: store.canSubmit
+      ) {
         send(.submitTapped)
       }
       .padding(.horizontal, FestiCoreSpacing.paddingP16)

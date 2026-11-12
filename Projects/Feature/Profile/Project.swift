@@ -14,6 +14,10 @@ let project = Project.makeModule(
   name: "Profile",
   dependencies: [
     .domain(.auth, .interface),
+    .domain(
+      .bearer,
+      .interface
+    ),
     .domain(.festival, .interface),
     .domain(.notice, .interface),
     .core(
@@ -37,6 +41,10 @@ let project = Project.makeModule(
   hasDemo: true,
   demoDependencies: [
     .domain(.auth, .interface),
+    .domain(
+      .bearer,
+      .interface
+    ),
     .domain(.festival, .interface),
     .domain(.notice, .interface),
     .core(

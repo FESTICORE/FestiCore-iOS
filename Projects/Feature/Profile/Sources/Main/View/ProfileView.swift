@@ -45,8 +45,11 @@ extension ProfileView {
           if store.showsLoginPrompt {
             loginPrompt
           }
-          if store.showsBearerPrompt {
-            FCBearerPrompt { send(.bearerTapped) }
+          if store.myFlag != nil {
+            myFlagSection()
+          } else if store.showsBearerPrompt {
+            // Figma More 기수 카드: 코드 없이 깃발 프로필을 만드는 흐름(S14 D)으로 잇는다.
+            FCBearerPrompt(sub: "깃발 프로필을 만들면 바로 기수로 시작해요") { send(.bearerTapped) }
           }
 
           receivedPacks
@@ -135,6 +138,60 @@ private extension ProfileView {
     .background {
       RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
         .fill(FestiCoreSemanticColor.backgroundElevated.color)
+    }
+  }
+
+  /// Figma More D: '내 깃발'(오른쪽 '기수') 아래 깃발 줄·기수 보드 열기·다른 페스티벌 깃발 만들기
+  @ViewBuilder
+  func myFlagSection() -> some View {
+    VStack(spacing: FestiCoreSpacing.paddingP8) {
+      HStack {
+        sectionTitle("내 깃발")
+        Spacer()
+        Text("기수")
+          .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
+          .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+      }
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP4
+      )
+      VStack(spacing: .zero) {
+        if let flag = store.myFlag {
+          FCPackRow(
+            name: flag.profile.name,
+            meta: store.myFlagMeta ?? ""
+          ) {
+            send(.myFlagTapped)
+          }
+          .overlay(alignment: .leading) {
+            if let url = flag.profile.thumbnailURL ?? flag.profile.photoURL {
+              FCRemoteImage(url: url)
+                .frame(
+                  width: Metric.packThumbnailSize,
+                  height: Metric.packThumbnailSize
+                )
+                .clipShape(RoundedRectangle(cornerRadius: Metric.packThumbnailRadius))
+                .padding(
+                  .leading,
+                  FestiCoreSpacing.paddingP16
+                )
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+          }
+        }
+        rowDivider
+        FCListRow("기수 보드 열기") { send(.bearerBoardTapped) }
+        rowDivider
+        FCListRow("다른 페스티벌 깃발 만들기") { send(.otherFestivalFlagTapped) }
+      }
+      .background {
+        RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
+          .fill(FestiCoreSemanticColor.backgroundElevated.color)
+      }
+      .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
     }
   }
 

@@ -365,6 +365,9 @@ private actor PhotoRepository: BearerRepositoryInterface {
   func sendStatus(flagID: String, request: BearerStatusRequest) async throws -> BearerFlagStatus { throw BearerError.unavailable }
   func inviteCoBearer(flagID: String) async throws -> BearerInvite { throw BearerError.unavailable }
   func removeCoBearer(flagID: String, userID: String) async throws { throw BearerError.unavailable }
+  func register(_ request: BearerRegisterRequest) async throws -> BearerClaim { throw BearerError.unavailable }
+  func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag] { throw BearerError.unavailable }
+  func fetchPinnedFlag() async throws -> BearerPinnedFlag? { throw BearerError.unavailable }
 }
 
 @Suite("업로드 사진 규격")
@@ -432,4 +435,7 @@ private struct ClaimRecordingRepository: BearerRepositoryInterface {
   func sendStatus(flagID: String, request: BearerStatusRequest) async throws -> BearerFlagStatus { throw BearerError.unavailable }
   func inviteCoBearer(flagID: String) async throws -> BearerInvite { throw BearerError.unavailable }
   func removeCoBearer(flagID: String, userID: String) async throws { throw BearerError.unavailable }
+  func register(_ request: BearerRegisterRequest) async throws -> BearerClaim { throw BearerError.unavailable }
+  func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag] { throw BearerError.unavailable }
+  func fetchPinnedFlag() async throws -> BearerPinnedFlag? { throw BearerError.unavailable }
 }

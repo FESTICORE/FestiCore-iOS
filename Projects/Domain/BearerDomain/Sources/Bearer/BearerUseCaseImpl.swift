@@ -30,6 +30,29 @@ public struct BearerUseCaseImpl: BearerUseCaseInterface {
     return try await repository.claim(festivalID: festivalID, code: normalized)
   }
 
+  public func makeRegisterRequest(
+    festivalID: String,
+    change: BearerProfileChange
+  ) -> BearerRegisterRequest {
+    return BearerRegisterRequest(
+      festivalID: festivalID,
+      change: change,
+      idempotencyKey: "register-\(uuid().uuidString.lowercased())"
+    )
+  }
+
+  public func register(_ request: BearerRegisterRequest) async throws -> BearerClaim {
+    return try await repository.register(request)
+  }
+
+  public func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag] {
+    return try await repository.fetchBearerFlags(festivalID: festivalID)
+  }
+
+  public func fetchPinnedFlag() async throws -> BearerPinnedFlag? {
+    return try await repository.fetchPinnedFlag()
+  }
+
   public func fetchFestival(festivalID: String) async throws -> BearerFestival {
     guard let cached = try await packSyncService.cachedPack(for: festivalID),
           let pack = try? JSONDecoder().decode(BearerPackDTO.self, from: cached.pack) else {

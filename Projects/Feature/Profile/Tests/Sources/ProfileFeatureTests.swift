@@ -6,6 +6,7 @@
 //
 
 import AuthDomainInterface
+import BearerDomainInterface
 import ComposableArchitecture
 import FestiCoreSharedUI
 import FestivalDomainInterface
@@ -316,9 +317,184 @@ struct ProfileFeatureTests {
     #expect(sent.value == [[.crewStatus: false]])
   }
 
+  @Test("로그인했으면 기수 깃발을 읽고, 있으면 기수 카드 대신 내 깃발 카드(More D)를 보인다")
+  func loadsMyFlag() async {
+    var state = signedInState()
+    state.packLoad = .loading
+    state.packs = [FestivalReceivedPack(
+      id: "fst_1",
+      name: "원더리벳 2026",
+      packVersion: 1
+    )]
+    let flag = BearerOwnedFlag(
+      festivalID: "fst_1",
+      isOwner: true,
+      joinedAt: nil,
+      profile: BearerFlagProfile(
+        id: "flg_1",
+        name: "호락호락",
+        followerCount: 128
+      ),
+      lifecycle: .scheduled,
+      isHidden: false
+    )
+    let hidden = BearerOwnedFlag(
+      festivalID: "fst_2",
+      isOwner: false,
+      joinedAt: nil,
+      profile: BearerFlagProfile(
+        id: "flg_2",
+        name: "숨김"
+      ),
+      lifecycle: nil,
+      isHidden: true
+    )
+    let store = TestStore(initialState: state) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.bearerUseCase = ProfileBearerUseCase(flags: { festivalID in
+        #expect(festivalID == nil)
+        return [hidden, flag]
+      })
+    }
+    #expect(store.state.showsBearerPrompt)
+
+    await store.send(.view(.onAppear)) { $0.bearerFlags = .loading }
+    await store.receive(\.async.fetchBearerFlags)
+    await store.receive(\.inner.bearerFlagsLoaded) { $0.bearerFlags = .loaded([flag]) }
+    #expect(!store.state.showsBearerPrompt)
+    #expect(store.state.myFlagMeta == "원더리벳 2026 · 팔로워 128 · 예정")
+
+    await store.send(.view(.myFlagTapped))
+    await store.receive(\.delegate.bearerProfileRequested)
+    await store.send(.view(.bearerBoardTapped))
+    await store.receive(\.delegate.bearerBoardRequested)
+    await store.send(.view(.otherFestivalFlagTapped))
+    await store.receive(\.delegate.bearerRequested)
+  }
+
+  @Test("기수 깃발을 읽지 못하면 기수 카드를 그대로 두고, 로그아웃하면 지운다")
+  func myFlagFailureKeepsPrompt() async {
+    var state = signedInState()
+    state.packLoad = .loading
+    let store = TestStore(initialState: state) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.bearerUseCase = ProfileBearerUseCase(flags: { _ in throw BearerError.offline })
+    }
+
+    await store.send(.view(.bearerFlagsRefreshRequested)) { $0.bearerFlags = .loading }
+    await store.receive(\.async.fetchBearerFlags)
+    await store.receive(\.inner.bearerFlagsFailed) { $0.bearerFlags = .failed }
+    #expect(store.state.showsBearerPrompt)
+
+    await store.send(.view(.accountChanged(
+      profile: nil,
+      hasSession: false,
+      isLoading: false,
+      message: nil
+    ))) {
+      $0.hasSession = false
+      $0.bearerFlags = .idle
+    }
+  }
+
+  @Test("로그인하지 않았으면 기수 깃발을 읽지 않는다")
+  func guestSkipsMyFlag() async {
+    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
+    await store.send(.view(.bearerFlagsRefreshRequested))
+  }
+
   private func signedInState() -> ProfileFeature.State {
     var state = ProfileFeature.State()
     state.hasSession = true
     return state
+  }
+}
+
+/// 마이 화면이 쓰는 기수 깃발 조회만 채운 대역. 다른 호출은 기본 Mock처럼 테스트 이슈다.
+private struct ProfileBearerUseCase: BearerUseCaseInterface {
+  let flags: @Sendable (String?) async throws -> [BearerOwnedFlag]
+  private let unregistered = MockBearerUseCase()
+
+  func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag] {
+    return try await flags(festivalID)
+  }
+
+  func makeRegisterRequest(
+    festivalID: String,
+    change: BearerProfileChange
+  ) -> BearerRegisterRequest {
+    return unregistered.makeRegisterRequest(
+      festivalID: festivalID,
+      change: change
+    )
+  }
+  func register(_ request: BearerRegisterRequest) async throws -> BearerClaim { return try await unregistered.register(request) }
+  func fetchPinnedFlag() async throws -> BearerPinnedFlag? { return try await unregistered.fetchPinnedFlag() }
+  func claim(
+    festivalID: String,
+    code: String
+  ) async throws -> BearerClaim {
+    return try await unregistered.claim(
+      festivalID: festivalID,
+      code: code
+    )
+  }
+  func fetchFestival(festivalID: String) async throws -> BearerFestival {
+    return try await unregistered.fetchFestival(festivalID: festivalID)
+  }
+  func fetchBoard(flagID: String) async throws -> BearerBoard { return try await unregistered.fetchBoard(flagID: flagID) }
+  func updateProfile(
+    flagID: String,
+    change: BearerProfileChange
+  ) async throws -> BearerFlagProfile {
+    return try await unregistered.updateProfile(
+      flagID: flagID,
+      change: change
+    )
+  }
+  func uploadPhoto(
+    flagID: String,
+    imageData: Data
+  ) -> AsyncThrowingStream<BearerPhotoUploadEvent, Error> {
+    return unregistered.uploadPhoto(
+      flagID: flagID,
+      imageData: imageData
+    )
+  }
+  func makeStatusRequest(_ change: BearerStatusChange) -> BearerStatusRequest { return unregistered.makeStatusRequest(change) }
+  func sendStatus(
+    flagID: String,
+    request: BearerStatusRequest
+  ) async throws -> BearerFlagStatus {
+    return try await unregistered.sendStatus(
+      flagID: flagID,
+      request: request
+    )
+  }
+  func enqueueStatus(
+    flagID: String,
+    ownerUserID: String,
+    request: BearerStatusRequest
+  ) async {
+    await unregistered.enqueueStatus(
+      flagID: flagID,
+      ownerUserID: ownerUserID,
+      request: request
+    )
+  }
+  func pendingStatus(flagID: String) async -> [BearerStatusRequest] { return await unregistered.pendingStatus(flagID: flagID) }
+  func statusEvents(flagID: String) async -> AsyncStream<BearerOutboxEvent> { return await unregistered.statusEvents(flagID: flagID) }
+  func retryPendingStatus() async { await unregistered.retryPendingStatus() }
+  func inviteCoBearer(flagID: String) async throws -> BearerInvite { return try await unregistered.inviteCoBearer(flagID: flagID) }
+  func removeCoBearer(
+    flagID: String,
+    userID: String
+  ) async throws {
+    try await unregistered.removeCoBearer(
+      flagID: flagID,
+      userID: userID
+    )
   }
 }
