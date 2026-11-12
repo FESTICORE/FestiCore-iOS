@@ -232,7 +232,11 @@ extension FestivalWidgetEntry {
     } else {
       candidates = today
     }
-    let saved = candidates.filter { $0.isSaved && $0.endsAt > date }
+    // 공연 중 머리말은 NEXT라 이미 시작한 공연은 빼고 앞으로 볼 공연만 보인다.
+    let saved = candidates.filter { performance in
+      guard performance.isSaved else { return false }
+      return phase == .playing ? performance.startsAt > date : performance.endsAt > date
+    }
     return Array(saved.prefix(4))
   }
 
