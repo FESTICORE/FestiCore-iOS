@@ -78,11 +78,15 @@ extension FestivalS01VisualCaptureTests {
       ),
     ]
     switch scenario {
+    case .filled:
+      state.uploadedPhotoData = bearerProfilePhotoData
     case .duplicateName:
+      state.uploadedPhotoData = bearerProfilePhotoData
       state.nameError = "이미 있는 깃발 이름이에요. 다른 이름을 지어 주세요."
     case .uploading:
+      // Figma S10-D: 고른 사진 위에 진행률을 겹친다. 빈 Data는 사진으로 읽히지 않아 빈 칸으로 그려진다.
       state.photoUpload = .uploading(
-        data: Data(),
+        data: bearerProfilePhotoData,
         progress: 0.64
       )
     case .saved:
@@ -98,9 +102,27 @@ extension FestivalS01VisualCaptureTests {
         followerCount: 0,
         homeZoneID: "zone-1"
       )
-    case .empty, .filled:
+    case .empty:
       break
     }
     return state
+  }
+
+  /// Figma S10 B~D의 고른 깃발 사진 자리. 단색 사각형 PNG다.
+  var bearerProfilePhotoData: Data {
+    let renderer = UIGraphicsImageRenderer(size: CGSize(
+      width: 88,
+      height: 88
+    ))
+    let image = renderer.image { context in
+      UIColor.systemTeal.setFill()
+      context.fill(CGRect(
+        x: 0,
+        y: 0,
+        width: 88,
+        height: 88
+      ))
+    }
+    return image.pngData() ?? Data()
   }
 }
