@@ -124,12 +124,19 @@ private extension PrepChecklistView {
           send(.addItemTapped)
         }
       }
-      // 시안 Checklist 카드는 화면과 같은 바탕(#1C1C20)이라 줄 사이 구분선만 보인다.
+      // Figma S15-3 Checklist: 화면과 같은 바탕에 Line/Normal 1 테두리(r16)
       .background(
         FestiCoreSemanticColor.backgroundElevated.color,
         in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
       )
       .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
+      .overlay(
+        RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
+          .stroke(
+            FestiCoreSemanticColor.lineNormal.color,
+            lineWidth: Metric.divider
+          )
+      )
     }
   }
 
@@ -174,13 +181,10 @@ private extension PrepChecklistView {
     )
   }
 
+  /// Figma S15-3 Item: 줄 아래 Line/Normal 1 테두리(카드 폭 전체)
   var divider: some View {
     return FestiCoreSemanticColor.lineNormal.color
       .frame(height: Metric.divider)
-      .padding(
-        .leading,
-        FestiCoreSpacing.paddingP16
-      )
   }
 
   var bottomBar: some View {

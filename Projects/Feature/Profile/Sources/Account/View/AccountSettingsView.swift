@@ -129,24 +129,21 @@ private extension AccountSettingsView {
     }
   }
 
+  /// Figma S13-D Logout: Button ghost·M(85×40)
   var logoutButton: some View {
-    Button { send(.logoutTapped) } label: {
-      Text("로그아웃")
-        .festiCoreFont(.baseSubheadlineBold)
-        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
-        .frame(
-          width: 85,
-          height: 40
-        )
-    }
-    .buttonStyle(.plain)
-    .disabled(store.isLoading)
-    .frame(maxWidth: .infinity)
-    .padding(
-      .horizontal,
-      FestiCoreSpacing.paddingP16
-    )
-    .padding(.bottom, FestiCoreSpacing.paddingP16)
+    return FCButton("로그아웃") { send(.logoutTapped) }
+      .style(.ghost)
+      .size(.medium)
+      .isEnabled(!store.isLoading)
+      .frame(maxWidth: .infinity)
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP16
+      )
+      .padding(
+        .bottom,
+        FestiCoreSpacing.paddingP16
+      )
   }
 
   @ViewBuilder

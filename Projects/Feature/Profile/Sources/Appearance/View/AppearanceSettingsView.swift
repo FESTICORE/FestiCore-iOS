@@ -54,9 +54,10 @@ private extension AppearanceSettingsView {
       alignment: .leading,
       spacing: FestiCoreSpacing.paddingP8
     ) {
-      // Figma 그룹 제목: Pretendard Bold 13
+      // Figma 그룹 제목: Pretendard Bold 13, 줄 높이 18
       Text("화면 모드")
         .festiCoreFont(.baseFootnoteBold)
+        .festiCoreLineBox(.baseFootnoteBold)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         .padding(
           .horizontal,
@@ -88,7 +89,12 @@ private extension AppearanceSettingsView {
       .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
       Text("시스템 설정과 같게를 고르면 기기의 라이트·다크 설정을 따라 자동으로 바뀌어요.")
         .festiCoreFont(.baseFootnoteRegular)
+        .festiCoreLineBox(.baseFootnoteRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+        .fixedSize(
+          horizontal: false,
+          vertical: true
+        )
         .padding(
           .horizontal,
           FestiCoreSpacing.paddingP4
