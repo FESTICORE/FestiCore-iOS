@@ -274,6 +274,7 @@ private struct StubPackRepository: FestivalPackSyncRepositoryInterface {
       $0.finish()
     }
   }
+  func deletePack(for _: String) async throws {}
 }
 
 private struct StubPackService: PackSyncService {

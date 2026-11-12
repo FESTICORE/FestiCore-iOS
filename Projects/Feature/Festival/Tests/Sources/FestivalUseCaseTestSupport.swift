@@ -44,6 +44,10 @@ private struct ServiceBackedPackUseCase: FestivalPackUseCaseInterface {
   func downloadPack(for festivalID: String) -> AsyncThrowingStream<PackDownloadEvent, Error> {
     return packService.download(for: festivalID)
   }
+  func deleteExpiredPacks() async throws -> [String] {
+    reportIssue("festivalPackUseCase.deleteExpiredPacks 미등록")
+    return []
+  }
 }
 
 private struct ServiceBackedLibraryUseCase: FestivalLibraryUseCaseInterface {

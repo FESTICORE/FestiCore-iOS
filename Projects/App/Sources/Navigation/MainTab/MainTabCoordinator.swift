@@ -95,10 +95,9 @@ struct MainTabCoordinator {
           || timetableState.setDetail != nil
           || timetableCoordinatorState.setList != nil
       case .my:
-        // 마이의 설정·정보 화면은 탭바 없이 표시한다.
-        return profileState.destination?.alert != nil
+        // 마이의 공지·약관·팩 상세와 팝업·바텀시트가 떠 있는 동안은 탭바 없이 표시한다.
+        return profileState.isProfileOverlayPresented
           || profileCoordinatorState.hidesTabBarForRoute
-          || profileState.destination?.settings?.destination?.account?.destination != nil
       case .flag:
         // Figma S05: 깃발 상세에서도 탭바(깃발 탭 선택)를 보인다.
         return false

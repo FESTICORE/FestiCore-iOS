@@ -70,7 +70,7 @@ private extension BearerZonePickerView {
         spacing: FestiCoreSpacing.marginM12
       ) {
         ForEach(store.zones) { zone in
-          BearerChoiceTile(
+          FCChoiceTile(
             zone.name,
             icon: .locationDot16
           ) {

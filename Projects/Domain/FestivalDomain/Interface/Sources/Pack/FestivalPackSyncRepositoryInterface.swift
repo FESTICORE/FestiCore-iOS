@@ -9,6 +9,8 @@ public protocol FestivalPackSyncRepositoryInterface: Sendable {
   func packUpdates(for festivalID: String) -> AsyncThrowingStream<PackSyncResult, Error>
   /// 요청한 팩의 다운로드 진행과 저장 결과를 전한다.
   func downloadPack(for festivalID: String) -> AsyncThrowingStream<PackDownloadEvent, Error>
+  /// 기기에 저장한 팩 문서와 오프라인 파일을 지운다. 내 일정·준비물 기록은 건드리지 않는다.
+  func deletePack(for festivalID: String) async throws
 }
 
 public enum FestivalPackSyncRepositoryDependency: TestDependencyKey {
@@ -44,5 +46,10 @@ private struct UnregisteredFestivalPackSyncRepository: FestivalPackSyncRepositor
       reportIssue("festivalPackSyncRepository.downloadPack 미등록")
       $0.finish(throwing: FestivalPackError.notRegistered)
     }
+  }
+
+  func deletePack(for _: String) async throws {
+    reportIssue("festivalPackSyncRepository.deletePack 미등록")
+    throw FestivalPackError.notRegistered
   }
 }

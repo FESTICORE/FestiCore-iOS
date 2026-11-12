@@ -1,16 +1,16 @@
 //
-//  BearerChoiceTile.swift
-//  Bearer
+//  FCChoiceTile.swift
+//  FestiCoreDesignKit
 //
 //  Created by FestiCore on 11/8/26.
 //
 
-import FestiCoreDesignKit
 import SwiftUI
 
-/// Figma S09 B·C Choice Tile. 존은 가로 한 줄(44pt), 활동은 아이콘 위 큰 글자(96pt)로 그린다.
-struct BearerChoiceTile: View {
-  enum Size: Equatable {
+/// Figma Choice Tile(290:484·290:488). 기수 존·활동 시트(S09 B·C)와 크루 "모여!" 존 시트(S07 E)가 함께 쓴다.
+/// 존은 가로 한 줄(44pt), 활동은 아이콘 위 큰 글자(96pt)로 그린다.
+public struct FCChoiceTile: View {
+  public enum Size: Equatable, Sendable {
     case zone
     case activity
   }
@@ -21,7 +21,7 @@ struct BearerChoiceTile: View {
   private var size: Size = .zone
   private var isSelected = false
 
-  init(
+  public init(
     _ title: String,
     icon: ImageAsset,
     action: @escaping () -> Void
@@ -31,7 +31,7 @@ struct BearerChoiceTile: View {
     self.action = action
   }
 
-  var body: some View {
+  public var body: some View {
     Button(action: action) {
       content
         .foregroundStyle(foreground)
@@ -54,7 +54,7 @@ struct BearerChoiceTile: View {
   }
 }
 
-private extension BearerChoiceTile {
+private extension FCChoiceTile {
   @ViewBuilder
   var content: some View {
     switch size {
@@ -122,7 +122,7 @@ private extension BearerChoiceTile {
 
 // MARK: - 체이닝 설정
 
-extension BearerChoiceTile {
+public extension FCChoiceTile {
   /// 존·활동 크기를 바꾼 사본을 돌려준다.
   func size(_ size: Size) -> Self {
     var copy = self
@@ -140,12 +140,12 @@ extension BearerChoiceTile {
 
 #Preview {
   VStack(spacing: FestiCoreSpacing.marginM12) {
-    BearerChoiceTile(
+    FCChoiceTile(
       "리벳 스테이지 앞 왼쪽",
       icon: .locationDot16
     ) {}
       .isSelected(true)
-    BearerChoiceTile(
+    FCChoiceTile(
       "슬램",
       icon: .users24
     ) {}

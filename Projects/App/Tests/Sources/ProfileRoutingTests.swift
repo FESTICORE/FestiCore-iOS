@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import FeatureAssembly
+import FestiCoreSharedUI
 import Foundation
 import Testing
 import TCAFlow
@@ -299,12 +300,24 @@ struct ProfileRoutingTests {
     #expect(!state.shouldHideTabBar)
     #expect(state.shouldReserveTabBarSpace)
 
-    let baseURL = URL(string: "https://festicore-dev.up.railway.app/api/v1/legal")!
-    let children: [SettingsHomeFeature.Destination.State] = [
+    // Figma S13-A~D·J: 알림·잠금화면·계정·화면 모드에도 마이 탭이 선택된 탭바가 있다.
+    let tabBarChildren: [SettingsHomeFeature.Destination.State] = [
       .account(.init(profile: nil)),
       .notifications(.init()),
       .lockScreen(.init()),
       .appearance(.init()),
+    ]
+    for child in tabBarChildren {
+      state.profileState.destination = .settings(settings(child))
+      #expect(state.profileState.profileRoutes.count == 3)
+      #expect(state.profileState.profileRoutes.last?.screen.is(\.settings) == false)
+      #expect(!state.shouldHideTabBar)
+      #expect(state.shouldReserveTabBarSpace)
+    }
+
+    // 공지·약관 웹은 시안에 탭바가 없어 숨긴다.
+    let baseURL = URL(string: "https://festicore-dev.up.railway.app/api/v1/legal")!
+    let children: [SettingsHomeFeature.Destination.State] = [
       .noticeList(.init()),
       .legalDocument(.init(
         url: baseURL.appending(path: "terms"),
@@ -328,8 +341,16 @@ struct ProfileRoutingTests {
       title: "축제 팩"
     ))
     #expect(state.profileState.profileRoutes.last?.screen.is(\.packDetail) == true)
+    // Figma Pack A~H: 팩 상세는 탭바를 보이고, 삭제 확인 팝업이 뜨면 숨긴다.
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+    var packDetail = PackDetailFeature.State(
+      festivalID: "festival",
+      title: "축제 팩"
+    )
+    packDetail.destination = .alert(.deletePack(name: "축제 팩"))
+    state.profileState.destination = .packDetail(packDetail)
     #expect(state.shouldHideTabBar)
-    #expect(!state.shouldReserveTabBarSpace)
 
     state.profileState.destination = nil
     #expect(!state.shouldHideTabBar)

@@ -24,8 +24,9 @@ struct AppCoordinator {
   @Dependency(\.authSessionExpiryClient) var authSessionExpiryClient
   @Dependency(\.firstInstallOnboardingStore) var firstInstallOnboardingStore
   @Dependency(\.authService) var authService
+  @Dependency(\.festivalPackUseCase) var festivalPackUseCase
 
-  enum CancelID { case sessionExpiry, widgetSnapshot }
+  enum CancelID { case sessionExpiry, widgetSnapshot, expiredPackCleanup }
 
   @ObservableState
   enum State: Equatable {
@@ -190,6 +191,26 @@ private extension AppCoordinator {
         cancelInFlight: true
       )
   }
+
+  /// 페스티벌이 끝나고 30일이 지난 팩의 문서·오프라인 파일을 지운다. 내 일정과 준비물 체크는 남는다.
+  func deleteExpiredPacks() -> Effect<Action> {
+    return .run { _ in
+      do {
+        _ = try await festivalPackUseCase.deleteExpiredPacks()
+      } catch is CancellationError {
+        return
+      } catch {
+        FestiCoreLogger.error(
+          "만료된 팩을 지우지 못함: \(error.localizedDescription)",
+          category: .app
+        )
+      }
+    }
+    .cancellable(
+      id: CancelID.expiredPackCleanup,
+      cancelInFlight: true
+    )
+  }
 }
 
 // MARK: - 앱 생명주기·딥링크
@@ -222,7 +243,8 @@ extension AppCoordinator {
       // 축제 화면이 다시 읽기 전에 세션이 확인한 계정을 비우고 새 세대를 연다.
       return .merge(
         .send(.scope(.home(.session(.view(.foregrounded))))),
-        .send(.scope(.home(.festival(.foregrounded))))
+        .send(.scope(.home(.festival(.foregrounded)))),
+        deleteExpiredPacks()
       )
 
     case .backgrounded:

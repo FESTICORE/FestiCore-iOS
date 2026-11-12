@@ -13,6 +13,7 @@ public struct MockFestivalPackUseCase: FestivalPackUseCaseInterface {
   private let cachedPacksHandler: @Sendable () async throws -> [CachedFestivalPack]
   private let packUpdatesHandler: @Sendable (String) -> AsyncThrowingStream<PackSyncResult, Error>
   private let downloadPackHandler: @Sendable (String) -> AsyncThrowingStream<PackDownloadEvent, Error>
+  private let deleteExpiredPacksHandler: @Sendable () async throws -> [String]
 
   public init(
     cachedPacks: @escaping @Sendable () async throws -> [CachedFestivalPack] = {
@@ -26,11 +27,16 @@ public struct MockFestivalPackUseCase: FestivalPackUseCaseInterface {
     downloadPack: @escaping @Sendable (String) -> AsyncThrowingStream<PackDownloadEvent, Error> = { _ in
       reportIssue("festivalPackUseCase.downloadPack 미등록")
       return AsyncThrowingStream { $0.finish(throwing: FestivalUseCaseNotRegistered()) }
+    },
+    deleteExpiredPacks: @escaping @Sendable () async throws -> [String] = {
+      reportIssue("festivalPackUseCase.deleteExpiredPacks 미등록")
+      throw FestivalUseCaseNotRegistered()
     }
   ) {
     self.cachedPacksHandler = cachedPacks
     self.packUpdatesHandler = packUpdates
     self.downloadPackHandler = downloadPack
+    self.deleteExpiredPacksHandler = deleteExpiredPacks
   }
 
   public func cachedPacks() async throws -> [CachedFestivalPack] {
@@ -43,5 +49,9 @@ public struct MockFestivalPackUseCase: FestivalPackUseCaseInterface {
 
   public func downloadPack(for festivalID: String) -> AsyncThrowingStream<PackDownloadEvent, Error> {
     downloadPackHandler(festivalID)
+  }
+
+  public func deleteExpiredPacks() async throws -> [String] {
+    return try await deleteExpiredPacksHandler()
   }
 }
