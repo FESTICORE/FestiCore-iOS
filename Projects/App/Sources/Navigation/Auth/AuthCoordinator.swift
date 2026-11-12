@@ -44,6 +44,8 @@ struct AuthCoordinator {
     case dismissFlow
     case resolveMigration(Bool)
     case retryTapped
+    /// 가입을 마쳤다. 같은 가입 스택에 기수 여부(S14 C)를 push한다.
+    case bearerSetupRequested(preferredFestivalID: String?)
   }
 
   // MARK: - Inner
@@ -78,6 +80,9 @@ struct AuthCoordinator {
   @CasePathable
   enum SignUpAction {
     case router(IndexedRouterActionOf<SignUpScreen>)
+    /// 가입 경로와 그 위 기수 흐름을 함께 그리는 라우터의 액션. 화면에 따라 `router`·`bearer`로 나눈다.
+    case stack(IndexedRouterActionOf<SignUpScreen>)
+    case bearer(BearerEntryCoordinator.Action)
     case view(SignUpFeature.View)
   }
 
@@ -98,6 +103,12 @@ struct AuthCoordinator {
       \.signUpFlow.routes,
       action: \.signUp.router
     )
+    .ifLet(
+      \.signUpFlow.bearer,
+      action: \.signUp.bearer
+    ) {
+      BearerEntryCoordinator()
+    }
   }
 
   func handleRoute(
@@ -177,6 +188,7 @@ extension AuthCoordinator {
       state.presentation = nil
       state.signUp.resetForDismissal()
       state.signUpFlow.resetNavigation()
+      state.signUpFlow.bearer = nil
       state.resetSignUpRetryState()
       let pendingCommit = state.pendingCommitSessionID
       state.pendingCommitSessionID = nil
@@ -195,6 +207,23 @@ extension AuthCoordinator {
 
     case .retryTapped:
       return .send(.delegate(.retryProfileRequested))
+
+    case let .bearerSetupRequested(preferredFestivalID):
+      guard state.presentation == nil
+        || (state.presentation == .bearerSetup && state.signUpFlow.bearer == nil) else { return .none }
+      state.presentation = .bearerSetup
+      state.signUpFlow.bearerPreferredFestivalID = preferredFestivalID
+      state.signUpFlow.bearer = BearerEntryCoordinator.State(
+        registerPreferredFestivalID: preferredFestivalID,
+        viewerUserID: state.verifiedUserID,
+        asksRole: true
+      )
+      // 가입 정보로 돌아오면 다시 누를 수 있게 제출 중 표시를 끈다.
+      return .send(.signUp(.view(.flowChanged(
+        isSubmitting: false,
+        message: nil,
+        termsUpdateExhausted: state.termsUpdateExhausted
+      ))))
     }
   }
 
@@ -294,6 +323,38 @@ extension AuthCoordinator {
         action: .signUp(.view(view))
       ))))
 
+    case let .stack(.routeAction(
+      id: id,
+      action: .bearer(bearerAction)
+    )):
+      return .send(.signUp(.bearer(.router(.routeAction(
+        id: id - state.signUpFlow.routes.count,
+        action: bearerAction
+      )))))
+
+    case let .stack(.routeAction(
+      id: id,
+      action: screenAction
+    )):
+      return .send(.signUp(.router(.routeAction(
+        id: id,
+        action: screenAction
+      ))))
+
+    case let .stack(.updateRoutes(routes)):
+      guard state.signUpFlow.bearer != nil else { return .send(.signUp(.router(.updateRoutes(routes)))) }
+      // 기수 화면을 뒤로 밀면 남은 화면만 두고, 모두 사라지면 가입 정보(B)로 돌아간다.
+      let remaining = routes.count - state.signUpFlow.routes.count
+      if remaining > 0 {
+        state.signUpFlow.bearer?.keepRoutes(remaining)
+      } else {
+        state.signUpFlow.bearer = nil
+      }
+      return .none
+
+    case .bearer:
+      return .none
+
     case let .router(.routeAction(
       id: _,
       action: .signUp(.delegate(.legalDocumentRequested(
@@ -312,6 +373,13 @@ extension AuthCoordinator {
       id: _,
       action: .signUp(.delegate(.submitRequested(submission)))
     )):
+      // 가입을 마치고 가입 정보로 돌아왔다면 다시 제출하지 않고 기수 여부를 다시 연다.
+      if state.presentation == .bearerSetup {
+        return handleViewAction(
+          state: &state,
+          action: .bearerSetupRequested(preferredFestivalID: state.signUpFlow.bearerPreferredFestivalID)
+        )
+      }
       return submitSignUp(
         submission,
         state: &state
@@ -453,6 +521,10 @@ extension AuthCoordinator {
   @ObservableState
   struct SignUpFlow: Equatable {
     var routes: [Route<SignUpScreen.State>]
+    /// 가입을 마친 뒤 같은 스택에 이어 push하는 기수 여부·깃발 등록·저장 완료(S14 C~E)
+    var bearer: BearerEntryCoordinator.State?
+    /// 기수 여부를 다시 열 때 등록 화면이 먼저 고를 페스티벌
+    var bearerPreferredFestivalID: String?
 
     init(signUp: SignUpFeature.State = .init()) {
       routes = [.root(
@@ -476,6 +548,13 @@ extension AuthCoordinator {
       }
     }
 
+    /// 가입 경로 위에 기수 흐름을 이어 붙인 화면 경로
+    var stackRoutes: [Route<SignUpScreen.State>] {
+      let bearerRoutes = bearer?.pushedRoutes { SignUpScreen.State.bearer($0) } ?? []
+      return routes + bearerRoutes
+    }
+
+    /// 약관 상세만 걷어 낸다. 기수 흐름은 시트를 닫을 때(`dismissFlow`) 함께 지운다.
     mutating func resetNavigation() {
       routes.removeAll { !$0.screen.is(\.signUp) }
     }
@@ -485,6 +564,8 @@ extension AuthCoordinator {
   enum SignUpScreen {
     case signUp(SignUpFeature)
     case legalDocument(WebFeature)
+    /// 가입 뒤 기수 화면. 상태는 `SignUpFlow.bearer`가 가진다.
+    case bearer(BearerEntryStep)
   }
 }
 

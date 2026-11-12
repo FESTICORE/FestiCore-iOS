@@ -95,12 +95,6 @@ struct MainTabView: View {
         sheet: sheet
       )
     }
-    .fullScreenCover(item: $store.scope(
-      state: \.bearerEntry,
-      action: \.bearerEntry
-    )) { bearerStore in
-      BearerEntryCoordinatorView(store: bearerStore)
-    }
     .onPreferenceChange(FCModalPresentedKey.self) { isModalPresented = $0 }
   }
 }
@@ -152,7 +146,7 @@ private extension MainTabView {
 
   var profileView: some View {
     ProfileCoordinatorView(store: store.scope(
-      state: \.profileState,
+      state: \.profileCoordinatorState,
       action: \.profileCoordinator
     ))
   }

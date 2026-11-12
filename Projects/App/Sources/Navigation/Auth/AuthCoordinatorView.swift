@@ -39,7 +39,7 @@ extension AuthCoordinatorView {
     init?(_ presentation: AuthCoordinator.State.Presentation?) {
       switch presentation {
       case .login: self = .login
-      case .onboarding: self = .onboarding
+      case .onboarding, .bearerSetup: self = .onboarding
       case .migration: self = .migration
       case .retry: self = .retry
       // 첫 진입 화면은 시트가 아니라 MainTabView가 전체 화면으로 덮는다.
@@ -53,8 +53,8 @@ extension AuthCoordinatorView {
 private extension AuthCoordinatorView {
   var signUpFlow: some View {
     TCAFlowRouter(store.scope(
-      \.signUpFlow.routes,
-      action: \.signUp.router
+      state: \.signUpFlow.stackRoutes,
+      action: \.signUp.stack
     )) { screen in
       switch screen.case {
       case let .signUp(signUpStore):
@@ -66,6 +66,8 @@ private extension AuthCoordinatorView {
             .hidden,
             for: .navigationBar
           )
+      case let .bearer(bearerStore):
+        BearerEntryStep.screen(bearerStore)
       }
     }
   }

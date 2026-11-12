@@ -4,19 +4,37 @@ import Foundation
 import TCAFlow
 
 /// 마이 화면과 상세 목적지의 상태 변경을 소유하며 라우터 액션을 Feature에 전달한다.
+/// 기수 설정 흐름은 마이 경로 위에 이어 push하고, 그 화면 액션은 `BearerEntryCoordinator`로 넘긴다.
 @Reducer
 struct ProfileCoordinator {
-  typealias State = ProfileFeature.State
+  @ObservableState
+  @dynamicMemberLookup
+  struct State: Equatable {
+    /// 스택 루트인 마이 화면과 그 상세 목적지
+    var root = ProfileFeature.State()
+    /// 마이에서 연 기수 설정 흐름. 마이 경로 위에 push로 보인다.
+    var bearer: BearerEntryCoordinator.State?
+
+    subscript<Value>(dynamicMember keyPath: WritableKeyPath<ProfileFeature.State, Value>) -> Value {
+      get { return root[keyPath: keyPath] }
+      set { root[keyPath: keyPath] = newValue }
+    }
+
+    subscript<Value>(dynamicMember keyPath: KeyPath<ProfileFeature.State, Value>) -> Value {
+      return root[keyPath: keyPath]
+    }
+  }
 
   @CasePathable
   enum Action {
     case router(IndexedRouterActionOf<ProfileScreen>)
     case profile(ProfileFeature.Action)
+    case bearer(BearerEntryCoordinator.Action)
   }
 
   var body: some ReducerOf<Self> {
     Scope(
-      state: \.self,
+      state: \.root,
       action: \.profile
     ) {
       ProfileFeature()
@@ -24,6 +42,15 @@ struct ProfileCoordinator {
 
     Reduce { state, action in
       switch action {
+      case let .router(.routeAction(
+        id: id,
+        action: .bearer(childAction)
+      )):
+        return .send(.bearer(.router(.routeAction(
+          id: id - state.root.profileRoutes.count,
+          action: childAction
+        ))))
+
       case let .router(.routeAction(
         id: id,
         action: .profile(childAction)
@@ -88,14 +115,26 @@ struct ProfileCoordinator {
         return sendToSettings(.destination(.presented(.notifications(childAction))))
 
       case let .router(.updateRoutes(routes)):
+        guard state.bearer == nil else {
+          return handleBearerUpdatedRoutes(
+            state: &state,
+            routes: routes
+          )
+        }
         return handleUpdatedRoutes(
           state: state,
           routes: routes
         )
 
-      case .router, .profile:
+      case .router, .profile, .bearer:
         return .none
       }
+    }
+    .ifLet(
+      \.bearer,
+      action: \.bearer
+    ) {
+      BearerEntryCoordinator()
     }
   }
 }
@@ -104,6 +143,20 @@ extension ProfileCoordinator {
   /// 설정 홈 아래 화면의 입력을 설정 홈 Feature로 보낸다.
   private func sendToSettings(_ action: SettingsHomeFeature.Action) -> Effect<Action> {
     return .send(.profile(.destination(.presented(.settings(action)))))
+  }
+
+  /// 기수 화면을 뒤로 밀면 남은 화면만 두고, 모두 사라지면 흐름을 닫고 내 깃발을 다시 읽는다.
+  private func handleBearerUpdatedRoutes(
+    state: inout State,
+    routes: [Route<ProfileScreen.State>]
+  ) -> Effect<Action> {
+    let remaining = routes.count - state.root.profileRoutes.count
+    guard remaining > 0 else {
+      state.bearer = nil
+      return .send(.profile(.view(.bearerFlagsRefreshRequested)))
+    }
+    state.bearer?.keepRoutes(remaining)
+    return .none
   }
 
   /// 뒤로 밀어 줄어든 경로에 맞춰 가장 위에서 사라진 목적지만 닫는다.

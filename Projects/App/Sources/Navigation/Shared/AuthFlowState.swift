@@ -21,6 +21,8 @@ struct AuthFlowState: Equatable {
     /// 마이 로그인 카드처럼 화면에서 제공자를 이미 고른 로그인. 시트 없이 Apple·Google 로그인 창만 띄운다.
     case directLogin
     case onboarding
+    /// 가입을 마친 뒤 같은 가입 스택에서 이어 가는 기수 여부·깃발 등록·저장 완료(S14 C~E)
+    case bearerSetup
     case migration
     case retry
 

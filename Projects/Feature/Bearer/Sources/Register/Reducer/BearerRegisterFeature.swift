@@ -353,10 +353,16 @@ extension BearerRegisterFeature {
       guard let festivalID = state.selectedFestivalID else { return .none }
       return .send(.delegate(.claimRequested(festivalID: festivalID)))
 
-    case .laterTapped, .backTapped:
+    case .laterTapped:
       return .merge(
         .cancel(id: CancelID.register),
         .send(.delegate(.closeRequested))
+      )
+
+    case .backTapped:
+      return .merge(
+        .cancel(id: CancelID.register),
+        .send(.delegate(.backRequested))
       )
 
     case .primaryDoneTapped:

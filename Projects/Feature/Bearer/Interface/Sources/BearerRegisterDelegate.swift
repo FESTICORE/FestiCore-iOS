@@ -21,6 +21,8 @@ public enum BearerRegisterDelegate: Equatable, Sendable {
   case finished(festivalID: String)
   /// '초대 코드가 있어요'. 공동 기수는 원래 기수가 준 코드로 기존 코드 인증(S13 F~I)에서 등록한다.
   case claimRequested(festivalID: String)
-  /// 뒤로·'나중에 할게요'. 깃발을 만들지 않고 닫는다.
+  /// 뒤로. 부모가 한 단계 앞 화면(가입 직후면 기수 여부)으로 돌아간다.
+  case backRequested
+  /// '나중에 할게요'. 깃발을 만들지 않고 닫는다.
   case closeRequested
 }

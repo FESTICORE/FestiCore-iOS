@@ -120,7 +120,10 @@ extension SessionCoordinator {
   ) -> Effect<Action> {
     switch action {
     case .foregrounded:
-      guard state.presentation?.acceptsLogin != true, !state.isLoading else { return .none }
+      // 가입 직후 기수 설정(S14 C~E) 중에는 그 스택을 유지한다.
+      guard state.presentation?.acceptsLogin != true,
+            state.presentation != .bearerSetup,
+            !state.isLoading else { return .none }
       state.presentation = nil
       return recheckProfile(state: &state)
 

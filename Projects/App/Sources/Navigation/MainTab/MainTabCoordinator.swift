@@ -35,10 +35,13 @@ struct MainTabCoordinator {
       get { return flagCoordinatorState.directory }
       set { flagCoordinatorState.directory = newValue }
     }
-    var profileState = ProfileFeature.State()
+    /// 마이 탭 스택. 마이 화면과 그 위에 push한 기수 설정 흐름을 가진다.
+    var profileCoordinatorState = ProfileCoordinator.State()
+    var profileState: ProfileFeature.State {
+      get { return profileCoordinatorState.root }
+      set { profileCoordinatorState.root = newValue }
+    }
     var authFlow = AuthFlowState()
-    /// 마이 '기수이신가요?'로 여는 기수 등록 흐름(전체 화면)
-    @Presents var bearerEntry: BearerEntryCoordinator.State?
 
     /// 기수 코드를 넣을 페스티벌. 라이브 탭에서 연 페스티벌, 없으면 받은 팩이 하나일 때 그 팩이다.
     var bearerFestivalID: String? {
@@ -56,7 +59,7 @@ struct MainTabCoordinator {
          timetableState.destination?.schedulePick != nil || timetableCoordinatorState.setList != nil {
         return false
       }
-      if selectedTab == .my, profileState.hidesTabBarForProfileRoute {
+      if selectedTab == .my, profileCoordinatorState.hidesTabBarForRoute {
         return false
       }
       return selectedTab != .live
@@ -94,7 +97,7 @@ struct MainTabCoordinator {
       case .my:
         // 마이의 설정·정보 화면은 탭바 없이 표시한다.
         return profileState.destination?.alert != nil
-          || profileState.hidesTabBarForProfileRoute
+          || profileCoordinatorState.hidesTabBarForRoute
           || profileState.destination?.settings?.destination?.account?.destination != nil
       case .flag:
         // Figma S05: 깃발 상세에서도 탭바(깃발 탭 선택)를 보인다.
@@ -119,7 +122,6 @@ struct MainTabCoordinator {
     case timetableCoordinator(TimetableCoordinator.Action)
     case flagCoordinator(FlagCoordinator.Action)
     case profileCoordinator(ProfileCoordinator.Action)
-    case bearerEntry(PresentationAction<BearerEntryCoordinator.Action>)
     case auth(AuthCoordinator.Action)
     case session(SessionCoordinator.Action)
     case account(AccountCoordinator.Action)
@@ -161,7 +163,7 @@ struct MainTabCoordinator {
       FlagCoordinator()
     }
     Scope(
-      state: \.profileState,
+      state: \.profileCoordinatorState,
       action: \.profileCoordinator
     ) {
       ProfileCoordinator()
@@ -190,12 +192,6 @@ struct MainTabCoordinator {
         state: &state,
         action: action
       )
-    }
-    .ifLet(
-      \.$bearerEntry,
-      action: \.bearerEntry
-    ) {
-      BearerEntryCoordinator()
     }
   }
 
@@ -227,7 +223,6 @@ struct MainTabCoordinator {
          .timetableCoordinator,
          .flagCoordinator,
          .profileCoordinator,
-         .bearerEntry,
          .auth,
          .session,
          .account:
@@ -344,9 +339,13 @@ extension MainTabCoordinator {
     previous: AuthInputs?,
     current: AuthInputs
   ) -> Effect<Action> {
-    // 기수 등록은 로그인한 사용자의 흐름이라 세션이 바뀌면 닫는다.
+    // 기수 등록은 로그인한 사용자의 흐름이라 세션이 바뀌면 마이·가입 스택에서 걷어 낸다.
     if previous?.session != current.session {
-      state.bearerEntry = nil
+      state.profileCoordinatorState.bearer = nil
+      state.authFlow.signUpFlow.bearer = nil
+      if state.authFlow.presentation == .bearerSetup {
+        state.authFlow.presentation = nil
+      }
     }
     return synchronizeAuthInputs(
       previous: previous,

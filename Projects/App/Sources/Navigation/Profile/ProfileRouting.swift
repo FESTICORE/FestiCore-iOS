@@ -8,7 +8,7 @@ extension ProfileFeature.State {
     switch screen {
     case .account, .appearance, .legalDocument, .lockScreen, .noticeList, .noticeDetail, .notifications, .packDetail, .settings:
       return true
-    case .profile:
+    case .profile, .bearer:
       return false
     }
   }
@@ -35,6 +35,19 @@ extension ProfileFeature.State {
     }
 
     return routes
+  }
+}
+
+extension ProfileCoordinator.State {
+  /// 마이 경로 위에 기수 설정 흐름을 이어 push한 화면 경로
+  var routes: [Route<ProfileScreen.State>] {
+    let bearerRoutes = bearer?.pushedRoutes { ProfileScreen.State.bearer($0) } ?? []
+    return root.profileRoutes + bearerRoutes
+  }
+
+  /// 기수 설정 화면도 다른 마이 하위 화면처럼 탭바 없이 표시한다.
+  var hidesTabBarForRoute: Bool {
+    return bearer != nil || root.hidesTabBarForProfileRoute
   }
 }
 

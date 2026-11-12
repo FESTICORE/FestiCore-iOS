@@ -8,10 +8,12 @@ struct ProfileCoordinatorView: View {
 
   var body: some View {
     TCAFlowRouter(store.scope(
-      state: \.profileRoutes,
+      state: \.routes,
       action: \.router
     )) { screen in
       switch screen.case {
+      case let .bearer(bearerStore):
+        BearerEntryStep.screen(bearerStore)
       case let .profile(profileStore):
         ProfileView(store: profileStore)
           .toolbar(
