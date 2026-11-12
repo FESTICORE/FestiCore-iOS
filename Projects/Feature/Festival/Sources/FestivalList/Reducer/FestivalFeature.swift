@@ -916,7 +916,8 @@ extension FestivalFeature {
       state.crewGather = FestivalCrewGatherFeature.State(
         crewID: crew.id,
         zones: state.displayDocument?.zones ?? [],
-        availableAt: crew.gatherAvailableAt
+        availableAt: crew.gatherAvailableAt,
+        recipientCount: crew.members.filter { $0.id != state.sessionUserID }.count
       )
       return .none
 

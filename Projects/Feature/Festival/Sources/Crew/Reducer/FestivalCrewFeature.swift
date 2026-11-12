@@ -267,7 +267,10 @@ private extension FestivalCrewFeature {
       state.destination = .gather(FestivalCrewGatherFeature.State(
         crewID: state.crewID,
         zones: state.zones,
-        availableAt: state.live?.gatherAvailableAt
+        availableAt: state.live?.gatherAvailableAt,
+        recipientCount: state.live.map { live in
+          return live.members.filter { $0.id != state.sessionUserID }.count
+        }
       ))
       return .none
     case let .stateTapped(newState):

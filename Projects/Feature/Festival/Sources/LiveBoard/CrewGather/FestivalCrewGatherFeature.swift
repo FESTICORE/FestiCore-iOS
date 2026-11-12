@@ -14,6 +14,8 @@ public struct FestivalCrewGatherFeature {
     var selectedZoneID: String?
     var isSubmitting = false
     var availableAt: Date?
+    /// 소리 알림을 받을 크루원 수(나 제외). 모르면 숫자 없이 안내한다.
+    var recipientCount: Int?
     @Presents var alert: FCAlertState<FCAlertAction>?
   }
 
@@ -27,8 +29,8 @@ public struct FestivalCrewGatherFeature {
   }
   @CasePathable
   public enum View: Equatable {
+    /// Figma S07 E: 존 타일을 누르면 바로 집결을 요청한다.
     case zoneTapped(String)
-    case submitTapped
   }
   @CasePathable
   public enum AsyncAction: Equatable {
@@ -80,13 +82,8 @@ private extension FestivalCrewGatherFeature {
     action: View
   ) -> Effect<Action> {
     switch action {
-    case let .zoneTapped(id):
-      guard !state.isSubmitting, state.zones.contains(where: { $0.id == id }) else { return .none }
-      state.selectedZoneID = id
-      return .none
-    case .submitTapped:
-      guard !state.isSubmitting, let zoneID = state.selectedZoneID,
-            state.zones.contains(where: { $0.id == zoneID }) else { return .none }
+    case let .zoneTapped(zoneID):
+      guard !state.isSubmitting, state.zones.contains(where: { $0.id == zoneID }) else { return .none }
       if let availableAt = state.availableAt, availableAt > date.now {
         state.alert = .alert(
           title: "잠시 후 다시 모일 수 있어요",
@@ -94,6 +91,7 @@ private extension FestivalCrewGatherFeature {
         )
         return .none
       }
+      state.selectedZoneID = zoneID
       state.isSubmitting = true
       return .send(.async(.gather(
         crewID: state.crewID,

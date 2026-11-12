@@ -33,7 +33,7 @@ public struct BearerActivityPickerView: View {
           BearerActivity.allCases,
           id: \.self
         ) { activity in
-          BearerChoiceTile(
+          FCChoiceTile(
             activity.title,
             icon: icon(for: activity)
           ) {
