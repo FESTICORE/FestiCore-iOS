@@ -87,6 +87,8 @@ public struct SettingsHomeFeature {
     case appearanceTapped
     case accountTapped
     case noticeTapped
+    /// Figma S13-0 '정보 출처': 축제 정보의 수집 출처 공개 문서를 연다.
+    case sourcesTapped
     case termsTapped
     case privacyTapped
   }
@@ -188,6 +190,13 @@ extension SettingsHomeFeature {
     case .noticeTapped:
       state.destination = .noticeList(.init())
       return .none
+
+    case .sourcesTapped:
+      return showLegalDocument(
+        path: "sources",
+        title: "정보 출처",
+        state: &state
+      )
 
     case .termsTapped:
       return showLegalDocument(

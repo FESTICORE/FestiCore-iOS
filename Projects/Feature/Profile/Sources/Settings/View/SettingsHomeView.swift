@@ -90,6 +90,8 @@ private extension SettingsHomeView {
     return section("정보") {
       FCListRow("공지사항") { send(.noticeTapped) }
       rowDivider
+      FCListRow("정보 출처") { send(.sourcesTapped) }
+      rowDivider
       FCListRow("이용약관") { send(.termsTapped) }
       rowDivider
       FCListRow("개인정보 처리방침") { send(.privacyTapped) }
