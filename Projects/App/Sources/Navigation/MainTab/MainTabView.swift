@@ -43,6 +43,10 @@ struct MainTabView: View {
       }
     }
     .background(FestiCoreSemanticColor.backgroundNormal.color)
+    // 첫 진입 흐름이 덮는 동안 메인은 화면 오른쪽 밖에 두고, 가입·관객 선택을 마치면 push처럼 오른쪽에서 들어온다.
+    .visualEffect { [coversMainTab = store.authFlow.coversMainTab] content, proxy in
+      content.offset(x: coversMainTab ? proxy.size.width : 0)
+    }
     .overlay {
       if store.selectedTab == .timetable, store.timetableState.setDetail != nil {
         // 공연 상세 시트는 탭바까지 덮도록 탭을 그리는 이 화면에서 띄운다.
@@ -73,11 +77,15 @@ struct MainTabView: View {
       // 그 화면에서 로그인하면 계정 확인·가입 정보·기수 설정을 마칠 때까지 메인 탭을 보이지 않는다.
       if store.authFlow.coversMainTab {
         launchFlow()
-          .transition(.opacity)
+          // 앱을 켤 때는 서서히 보이고, 흐름을 마치면 메인에 밀려 왼쪽으로 나간다.
+          .transition(.asymmetric(
+            insertion: .opacity,
+            removal: .move(edge: .leading)
+          ))
       }
     }
     .animation(
-      .easeOut(duration: 0.2),
+      .easeInOut(duration: 0.35),
       value: store.authFlow.coversMainTab
     )
     .fcModal(
