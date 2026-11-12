@@ -37,7 +37,7 @@ public struct FestivalCrewMenuView: View {
 private extension FestivalCrewMenuView {
   var title: String {
     switch store.step {
-    case .menu: return "크루장 메뉴"
+    case .menu: return "크루 관리"
     case .rename: return "크루 이름 바꾸기"
     case .transfer: return "누구에게 크루장을 넘길까요?"
     case .remove: return "누구를 내보낼까요?"
@@ -67,7 +67,7 @@ private extension FestivalCrewMenuView {
         icon: Image(systemName: "checklist")
       ) { send(.renameTapped) }
       menuRow(
-        "초대 링크 다시 만들기 (이전 링크 무효)",
+        "초대 링크 다시 만들기",
         icon: Image(asset: .shareNodes)
       ) { send(.rotateInviteTapped) }
       menuRow(
@@ -87,7 +87,7 @@ private extension FestivalCrewMenuView {
         tint: .labelNeutral,
         iconTint: .labelAssistive
       ) { send(.dissolveTapped) }
-      Text("크루장은 넘기거나 해산해야 나갈 수 있어요.")
+      Text("초대 링크를 다시 만들면 이전 링크는 바로 막혀요. 크루장은 넘기거나 해산해야 나갈 수 있어요.")
         .festiCoreFont(.baseCaption1Regular)
         .festiCoreLineBox(.baseCaption1Regular)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)

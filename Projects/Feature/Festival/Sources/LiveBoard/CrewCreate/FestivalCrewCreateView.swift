@@ -20,9 +20,10 @@ public struct FestivalCrewCreateView: View {
       topBar
       ScrollView {
         content
+          // Figma S07 B Contents: 좌우 16·위아래 24
           .padding(
             .horizontal,
-            FestiCoreSpacing.paddingP20
+            FestiCoreSpacing.paddingP16
           )
           .padding(
             .vertical,
@@ -77,21 +78,49 @@ private extension FestivalCrewCreateView {
   @ViewBuilder
   var naming: some View {
     header(
-      title: "크루 만들기",
-      message: "함께 페스티벌을 즐길 크루의 이름을 정해 주세요."
+      title: "크루 이름을 정해 주세요",
+      message: "같이 온 친구들끼리만 서로 어느 존에 있는지 볼 수 있어요"
     )
     FCTextField(
       text: Binding(
         get: { store.name },
         set: { send(.nameChanged($0)) }
       ),
-      placeholder: "크루 이름을 입력해 주세요"
+      placeholder: "예: 락린이들"
     )
     .label("크루 이름")
     .maxLength(20)
-    .helper("1~20자로 입력해 주세요")
+    .helper("단톡방 이름처럼 다들 알아보는 이름이 좋아요")
     .error(store.errorMessage)
     .disabled(store.isSubmitting)
+    rules
+  }
+
+  /// Figma S07 B Info: Fill/Normal 상자 안 안내 세 줄(Footnote/Regular · Label/Neutral)
+  var rules: some View {
+    return VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP8
+    ) {
+      ForEach(
+        Metric.rules,
+        id: \.self
+      ) { rule in
+        Text(rule)
+          .festiCoreFont(.baseFootnoteRegular)
+          .festiCoreLineBox(.baseFootnoteRegular)
+          .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+      }
+    }
+    .frame(
+      maxWidth: .infinity,
+      alignment: .leading
+    )
+    .padding(FestiCoreSpacing.paddingP16)
+    .background(
+      FestiCoreSemanticColor.fillNormal.color,
+      in: RoundedRectangle(cornerRadius: FestiCoreRadius.r12)
+    )
   }
 
   @ViewBuilder
@@ -133,7 +162,7 @@ private extension FestivalCrewCreateView {
     return VStack(spacing: FestiCoreSpacing.paddingP12) {
       switch store.step {
       case .naming:
-        FCButton(store.isSubmitting ? "만드는 중" : "크루 만들기") { send(.submitTapped) }
+        FCButton(store.isSubmitting ? "만드는 중" : "만들고 초대 링크 받기") { send(.submitTapped) }
           .isFullWidth(true)
           .isEnabled(store.canSubmit)
       case .created:
@@ -216,5 +245,10 @@ private extension FestivalCrewCreateView {
     static let footerTopPadding: CGFloat = 13
     static let footerBottomPadding: CGFloat = 1
     static let divider: CGFloat = 1
+    static let rules = [
+      "· 최대 \(FestivalCrew.maxMembers)명 · 페스티벌마다 크루 1개",
+      "· 초대 링크는 48시간 동안 쓸 수 있어요",
+      "· 페스티벌이 끝나면 기록만 남아요",
+    ]
   }
 }

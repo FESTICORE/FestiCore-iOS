@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import FestiCoreSharedUI
+import FestiCoreUtility
 import FestivalDomainInterface
 import Foundation
 import Testing
@@ -173,7 +174,31 @@ struct FestivalCrewFeatureTests {
     )
     #expect(presentation.gatherNotice == "민지님이 \"슬램 존으로 모여\"를 보냈어요 · 2분 전")
     #expect(presentation.members.first?.isInactive == true)
-    #expect(presentation.summary == "1명 · 1/2(금) 09:00까지")
+    #expect(presentation.summary == "1명 · 1/2(금) 09:00까지 유지")
+  }
+
+  /// Figma S07 I: 끝난 크루는 끝난 날과 마지막 시각을 보이고, 내 줄에는 "나" 태그를 붙인다.
+  @Test func presentationShowsArchivedCrewAndMe() {
+    var initial = state(memberState: "here")
+    initial.crew = FestivalCrew(
+      id: "crew_a",
+      festivalID: "fst_a",
+      name: "펜타 크루",
+      ownerID: "user_a",
+      members: [],
+      inviteCode: nil,
+      inviteExpiresAt: nil,
+      archivedAt: now
+    )
+    let presentation = FestivalCrewPresentation(
+      crew: initial,
+      now: now
+    )
+    #expect(presentation.isArchived)
+    #expect(presentation.memberCount == "1 / \(FestivalCrew.maxMembers)")
+    #expect(presentation.summary == "1명 · \(now.formatted(.festivalDay))에 끝남")
+    #expect(presentation.members.first?.time == now.addingTimeInterval(-60).formatted(.monthDayTime))
+    #expect(presentation.members.first?.isMe == true)
   }
 
   private func state(memberState: String) -> FestivalCrewFeature.State {

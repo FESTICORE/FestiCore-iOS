@@ -6,6 +6,7 @@
 //
 
 import ComposableArchitecture
+import FestiCoreLocationInterface
 import FestiCoreSharedUI
 import FestivalDomainInterface
 import Foundation
@@ -326,6 +327,25 @@ struct PackDetailFeatureTests {
     await store.send(.view(.autoDownloadToggled(false))) { $0.autoDownloadOnWiFi = false }
     await store.finish()
     #expect(stored.value == false)
+  }
+
+  /// Figma S11 G: 가는 길 탭이 보이면 지도 앱 설치 여부를 확인해 없는 앱을 웹 버튼으로 바꾼다.
+  @Test func directionsChecksInstalledMapApps() async {
+    let initial = PackDetailFeature.State(
+      festivalID: "fst_a",
+      title: "팩"
+    )
+    let store = TestStore(initialState: initial) {
+      PackDetailFeature()
+    } withDependencies: {
+      $0.mapAppClient = MockMapAppClient { app in
+        return app == .naver
+      }
+    }
+
+    await store.send(.view(.directionsAppeared))
+    await store.receive(\.async.checkMapApps)
+    await store.receive(\.inner.mapAppsChecked) { $0.installedMapApps = [.naver] }
   }
 
   private func sampleDetail(version: Int, latest: Int) -> FestivalPackDetail {

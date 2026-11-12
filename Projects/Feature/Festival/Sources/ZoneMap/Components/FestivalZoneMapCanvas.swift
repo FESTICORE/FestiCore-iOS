@@ -461,7 +461,8 @@ private extension FestivalZoneMapMarker {
     static let labelHeight: CGFloat = 22
     static let labelHorizontalPadding: CGFloat = 6
     static let labelShadowRadius: CGFloat = 2
-    static let shadowRadius: CGFloat = 4
+    // Figma Map Marker 그림자 blur 6. SwiftUI radius는 Figma blur의 절반이다.
+    static let shadowRadius: CGFloat = 3
     static let shadowY: CGFloat = 2
     static let staleOpacity: Double = 0.4
   }
@@ -504,7 +505,8 @@ private extension FestivalZoneMapCluster {
     static let size: CGFloat = 32
     static let box: CGFloat = 40
     static let border: CGFloat = 2
-    static let shadowRadius: CGFloat = 4
+    // Figma Map Marker 그림자 blur 6. SwiftUI radius는 Figma blur의 절반이다.
+    static let shadowRadius: CGFloat = 3
     static let shadowY: CGFloat = 2
   }
 }

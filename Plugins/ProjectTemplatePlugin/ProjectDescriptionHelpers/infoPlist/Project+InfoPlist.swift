@@ -37,6 +37,14 @@ public extension InfoPlist {
           ])
         ])
       )
+      // 가는 길의 지도 앱 설치 확인(canOpenURL). FestiCoreLocation `MapApp`의 스킴과 같게 둔다.
+      .set(
+        "LSApplicationQueriesSchemes",
+        .array([
+          .string("nmap"),
+          .string("kakaomap")
+        ])
+      )
       .setFestiCoreMixpanelToken("$(FESTICORE_MIXPANEL_TOKEN)")
       .setFestiCoreSentryDSN("$(FESTICORE_SENTRY_DSN)")
       .set(

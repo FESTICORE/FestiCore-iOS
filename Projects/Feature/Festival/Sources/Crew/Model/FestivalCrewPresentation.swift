@@ -10,11 +10,17 @@ struct FestivalCrewPresentation: Equatable {
     let zone: String?
     let status: String?
     let time: String?
+    /// 내 줄이면 이름 옆에 "나" 태그를 붙인다.
+    let isMe: Bool
     /// 귀가 중이거나 60분 넘게 바뀌지 않은 크루원은 흐리게 그린다.
     let isInactive: Bool
   }
 
   let summary: String
+  /// 카드 머리의 "4 / 12"
+  let memberCount: String
+  /// 크루가 끝나 기록만 보는 상태(S07 I). 모여!·초대·내 상태를 숨긴다.
+  let isArchived: Bool
   let members: [Member]
   let gatherNotice: String?
   let gatherTitle: String
@@ -26,20 +32,31 @@ struct FestivalCrewPresentation: Equatable {
   ) {
     let live = crew.live
     let count = live?.members.count ?? crew.crew?.members.count ?? 0
-    let until = crew.archivesAt.map {
-      " · \($0.formatted(.festivalDay)) \($0.formatted(.time))까지"
-    } ?? ""
-    summary = "\(count)명\(until)"
+    let archivedAt = crew.crew?.archivedAt
+    isArchived = archivedAt != nil
+    memberCount = "\(count) / \(FestivalCrew.maxMembers)"
+    if let archivedAt {
+      summary = "\(count)명 · \(archivedAt.formatted(.festivalDay))에 끝남"
+    } else {
+      let until = crew.archivesAt.map {
+        " · \($0.formatted(.festivalDay)) \($0.formatted(.time))까지 유지"
+      } ?? ""
+      summary = "\(count)명\(until)"
+    }
     members = (live?.members ?? []).map { member in
       return Member(
         id: member.id,
         nickname: member.nickname,
         zone: crew.zoneName(member.zoneID),
         status: member.state.flatMap(FestivalLiveBoardPresentation.crewStateText),
-        time: FestivalLiveBoardPresentation.relativeTime(
-          member.updatedAt,
-          now: now
-        ),
+        // 끝난 크루는 상대 시간 대신 마지막으로 바뀐 시각을 보여 준다.
+        time: archivedAt == nil
+          ? FestivalLiveBoardPresentation.relativeTime(
+            member.updatedAt,
+            now: now
+          )
+          : member.updatedAt?.formatted(.monthDayTime),
+        isMe: member.id == crew.sessionUserID,
         isInactive: member.state == FestivalCrewState.leaving.rawValue
           || member.updatedAt.map { now.timeIntervalSince($0) >= Self.inactiveInterval } ?? false
       )
