@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestivalDomainInterface
 import Foundation
 
 /// Figma S07 크루장 메뉴 바텀시트. 고른 항목을 부모에게 알리고, 이름·크루원 선택 단계만 시트 안에서 바꾼다.
@@ -129,9 +130,9 @@ private extension FestivalCrewMenuFeature {
 }
 
 extension FestivalCrewMenuFeature.State {
-  /// 크루 이름은 1~20자이고 지금 이름과 달라야 저장한다.
+  /// 크루 이름은 1~12자이고 지금 이름과 달라야 저장한다. 이전에 만든 13~20자 이름은 줄여야 저장된다.
   var canSaveName: Bool {
     let name = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-    return (1 ... 20).contains(name.count) && name != crewName
+    return (1 ... FestivalCrew.maxNameLength).contains(name.count) && name != crewName
   }
 }

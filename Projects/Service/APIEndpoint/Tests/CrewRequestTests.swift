@@ -39,4 +39,38 @@ struct CrewRequestTests {
     let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: String])
     #expect(body["nickname"] == "로이")
   }
+
+  @Test func gatherResponsePostsResponseWithoutRetry() throws {
+    let sessionID = UUID()
+    let endpoint = CrewGatherResponseRequest(
+      crewID: "crw_1",
+      gatherID: "gth_1",
+      body: CrewGatherResponseBody(response: "going"),
+      sessionID: sessionID
+    )
+    let request = try endpoint.asURLRequest(baseURL: URL(string: "https://festicore.test")!)
+    let data = try #require(request.httpBody)
+    let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: String])
+
+    #expect(request.url?.path == "/api/v1/crews/crw_1/gather/gth_1/response")
+    #expect(request.httpMethod == "POST")
+    #expect(endpoint.authorization == .sessionBound(sessionID))
+    #expect(endpoint.maxRetryAttempts == 0)
+    #expect(body == ["response": "going"])
+  }
+
+  @Test func leaveDeletesMyMembershipWithoutBody() throws {
+    let sessionID = UUID()
+    let endpoint = CrewRequest.removeMember(
+      crewID: "crw_1",
+      userID: "usr_me",
+      sessionID: sessionID
+    )
+    let request = try endpoint.asURLRequest(baseURL: URL(string: "https://festicore.test")!)
+
+    #expect(request.url?.path == "/api/v1/crews/crw_1/members/usr_me")
+    #expect(request.httpMethod == "DELETE")
+    #expect(endpoint.authorization == .sessionBound(sessionID))
+    #expect(request.httpBody == nil)
+  }
 }

@@ -222,7 +222,11 @@ struct FestivalCoordinator {
       action: .liveBoard(.delegate(.crewCreateRequested(festivalID)))
     )):
       guard !state.routes.contains(where: { $0.screen.is(\.crewCreate) }) else { return .none }
-      state.routes.push(.crewCreate(FestivalCrewCreateFeature.State(festivalID: festivalID)))
+      let board = state.routes.last(where: { $0.screen.is(\.liveBoard) })?.screen.liveBoard
+      state.routes.push(.crewCreate(FestivalCrewCreateFeature.State(
+        festivalID: festivalID,
+        festivalName: board?.selectedFestivalID == festivalID ? board?.displayDocument?.name : nil
+      )))
       return .none
 
     case .router(.routeAction(

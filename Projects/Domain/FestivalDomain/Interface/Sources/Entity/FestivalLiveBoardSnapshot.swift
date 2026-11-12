@@ -56,15 +56,76 @@ public struct FestivalLiveBoardSnapshot: Equatable, Sendable {
     }
 
     public struct GatherRequest: Equatable, Sendable {
+      /// 크루원 한 명의 응답. 응답한 순서대로 온다.
+      public struct Response: Equatable, Sendable {
+        public let userID: String
+        public let nickname: String
+        public let response: FestivalCrewGatherResponse
+        public let respondedAt: Date
+
+        public init(
+          userID: String,
+          nickname: String,
+          response: FestivalCrewGatherResponse,
+          respondedAt: Date
+        ) {
+          self.userID = userID
+          self.nickname = nickname
+          self.response = response
+          self.respondedAt = respondedAt
+        }
+      }
+
+      /// 응답 API에 쓰는 모여 ID. 이전 서버 응답에는 없다.
+      public let id: String?
       public let zoneID: String?
       public let byUserID: String
       public let at: Date
+      /// 응답을 받을 수 있는 마지막 시각(보낸 뒤 10분). 이전 서버 응답에는 없다.
+      public let expiresAt: Date?
+      public let responses: [Response]
 
-      public init(zoneID: String?, byUserID: String, at: Date) {
+      public init(
+        id: String? = nil,
+        zoneID: String?,
+        byUserID: String,
+        at: Date,
+        expiresAt: Date? = nil,
+        responses: [Response] = [],
+        summary: Summary? = nil
+      ) {
+        self.serverSummary = summary
+        self.id = id
         self.zoneID = zoneID
         self.byUserID = byUserID
         self.at = at
+        self.expiresAt = expiresAt
+        self.responses = responses
       }
+
+      /// 응답별 인원
+      public struct Summary: Equatable, Sendable {
+        public let going: Int
+        public let ack: Int
+
+        public init(
+          going: Int,
+          ack: Int
+        ) {
+          self.going = going
+          self.ack = ack
+        }
+      }
+
+      /// 서버 요약. 요약이 없던 이전 응답이면 응답 목록으로 센다.
+      public var summary: Summary {
+        return serverSummary ?? Summary(
+          going: responses.filter { $0.response == .going }.count,
+          ack: responses.filter { $0.response == .ack }.count
+        )
+      }
+
+      private let serverSummary: Summary?
     }
 
     public let id: String

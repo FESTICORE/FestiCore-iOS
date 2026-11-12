@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import FestiCoreDesignKit
+import FestivalDomainInterface
 import SwiftUI
 
 /// Figma S07 크루장 메뉴 바텀시트(65-4009). 이름 바꾸기와 크루원 고르기는 같은 시트 안에서 이어진다.
@@ -211,6 +212,6 @@ private extension FestivalCrewMenuView {
     static let iconSize: CGFloat = 20
     /// 시트 아래 안전 영역 여백이 시안(65-4009)보다 3pt 커서 그만큼 당긴다.
     static let footnoteBottom: CGFloat = -3
-    static let nameLimit = 20
+    static let nameLimit = FestivalCrew.maxNameLength
   }
 }

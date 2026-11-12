@@ -31,6 +31,8 @@ public struct FestivalCrew: Equatable, Sendable {
 
   /// 서버가 받는 크루 최대 인원
   public static let maxMembers = 12
+  /// 크루 이름 최대 글자 수. 이전에 만든 13~20자 이름은 조회만 된다.
+  public static let maxNameLength = 12
 
   public init(
     id: String,
@@ -69,4 +71,6 @@ public enum FestivalCrewError: Error, Equatable, Sendable {
   case notFound
   /// 정원이 찬 크루
   case full
+  /// 응답 시간(10분)이 지난 모여
+  case gatherExpired
 }

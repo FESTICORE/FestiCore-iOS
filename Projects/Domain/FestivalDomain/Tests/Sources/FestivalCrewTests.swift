@@ -50,6 +50,40 @@ struct FestivalCrewTests {
     #expect(await repository.input == nil)
   }
 
+  /// 크루 이름은 12자까지다. 13자 이름은 보내지 않는다.
+  @Test func limitsCrewNameToTwelveCharacters() async throws {
+    let twelve = String(
+      repeating: "가",
+      count: 12
+    )
+    let thirteen = twelve + "가"
+    let repository = RecordingCrewRepository()
+    let useCase = withDependencies {
+      $0.festivalCrewRepository = repository
+    } operation: {
+      FestivalCrewUseCaseImpl()
+    }
+    _ = try await useCase.create(
+      festivalID: "fst_1",
+      name: twelve,
+      nickname: nil
+    )
+    #expect(await repository.input?.name.count == 12)
+    await #expect(throws: FestivalCrewError.invalidInput) {
+      try await useCase.create(
+        festivalID: "fst_1",
+        name: thirteen,
+        nickname: nil
+      )
+    }
+    await #expect(throws: FestivalCrewError.invalidInput) {
+      try await useCase.rename(
+        crewID: "crw_1",
+        name: thirteen
+      )
+    }
+  }
+
   @Test func mapsValidServerResponseAndRejectsMalformedDate() throws {
     let valid = Data(#"{"id":"flg_1","festivalId":"fst_1","name":"친구들","ownerId":"usr_1","members":[{"userId":"usr_1","nickname":"로이","joinedAt":"2026-10-21T01:00:00.000Z"}],"inviteCode":"K7P2QX","inviteExpiresAt":"2026-10-23T01:00:00.000Z"}"#.utf8)
     let dto = try JSONDecoder().decode(

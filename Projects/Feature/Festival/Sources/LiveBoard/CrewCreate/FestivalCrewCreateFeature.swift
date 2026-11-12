@@ -16,6 +16,8 @@ public struct FestivalCrewCreateFeature {
     }
 
     public let festivalID: String
+    /// S07 B 안내 "원더리벳 2026이 끝나면 기록만 남아요"에 넣는 페스티벌 이름
+    public let festivalName: String?
     public var name = ""
     public var isSubmitting = false
     public var step: Step = .naming
@@ -23,13 +25,17 @@ public struct FestivalCrewCreateFeature {
     public var errorMessage: String?
     @Presents public var alert: FCAlertState<FCAlertAction>?
 
-    public init(festivalID: String) {
+    public init(
+      festivalID: String,
+      festivalName: String? = nil
+    ) {
       self.festivalID = festivalID
+      self.festivalName = festivalName
     }
 
     public var canSubmit: Bool {
       let count = name.trimmingCharacters(in: .whitespacesAndNewlines).count
-      return (1 ... 20).contains(count) && !isSubmitting
+      return (1 ... FestivalCrew.maxNameLength).contains(count) && !isSubmitting
     }
 
     /// 크루장 전용 초대 링크(`festicore://crew/<코드>`). S08 참여 확인 경로와 같다.
@@ -128,7 +134,7 @@ private extension FestivalCrewCreateFeature {
   ) -> Effect<Action> {
     switch action {
     case let .nameChanged(name):
-      state.name = String(name.prefix(20))
+      state.name = String(name.prefix(FestivalCrew.maxNameLength))
       state.errorMessage = nil
       return .none
     case .submitTapped:
@@ -211,10 +217,10 @@ private extension FestivalCrewCreateFeature {
     case .festivalEnded:
       return "끝난 페스티벌에는 크루를 만들 수 없어요."
     case .invalidInput:
-      return "크루 이름을 1~20자로 입력해 주세요."
+      return "크루 이름을 1~\(FestivalCrew.maxNameLength)자로 입력해 주세요."
     case .termsRequired:
       return "최신 이용약관에 동의한 뒤 다시 시도해 주세요."
-    case .unauthenticated, .invalidResponse, .forbidden, .cooldown, .unavailable, .notFound, .full:
+    case .unauthenticated, .invalidResponse, .forbidden, .cooldown, .unavailable, .notFound, .full, .gatherExpired:
       return nil
     }
   }

@@ -59,7 +59,15 @@ extension FestivalCrewInviteDataDTO {
       festivalName: festivalName,
       inviterNickname: ownerNickname,
       memberCount: memberCount,
-      expiresAt: expiresAt
+      expiresAt: expiresAt,
+      // 이름이 빈 줄은 그리지 않고, 주소가 틀리면 기본 아바타로 둔다.
+      memberPreview: (memberPreview ?? []).compactMap { member in
+        guard !member.nickname.isEmpty else { return nil }
+        return FestivalCrewInvite.Member(
+          nickname: member.nickname,
+          avatarURL: member.avatarUrl.flatMap(URL.init(string:))
+        )
+      }
     )
   }
 }
@@ -72,6 +80,23 @@ extension FestivalCrewInviteCodeDataDTO {
     return FestivalCrewInviteCode(
       code: inviteCode,
       expiresAt: expiresAt
+    )
+  }
+}
+
+extension FestivalCrewGatherReplyDataDTO {
+  func toDomain() throws -> FestivalCrewGatherReply {
+    guard !gatherId.isEmpty, !userId.isEmpty,
+          let value = FestivalCrewGatherResponse(rawValue: response),
+          let respondedAt = FestivalCrewDataDTO.parseDate(respondedAt) else {
+      throw FestivalCrewError.invalidResponse
+    }
+    return FestivalCrewGatherReply(
+      gatherID: gatherId,
+      userID: userId,
+      nickname: nickname,
+      response: value,
+      respondedAt: respondedAt
     )
   }
 }

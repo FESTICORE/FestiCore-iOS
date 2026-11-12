@@ -78,4 +78,18 @@ public struct MockFestivalCrewUseCase: FestivalCrewUseCaseInterface {
     reportIssue("festivalCrewUseCase.join 미등록")
     throw FestivalCrewError.unavailable
   }
+
+  public func respondToGather(
+    crewID _: String,
+    gatherID _: String,
+    response _: FestivalCrewGatherResponse
+  ) async throws -> FestivalCrewGatherReply {
+    reportIssue("festivalCrewUseCase.respondToGather 미등록")
+    throw FestivalCrewError.unavailable
+  }
+
+  public func leave(crewID _: String) async throws {
+    reportIssue("festivalCrewUseCase.leave 미등록")
+    throw FestivalCrewError.unavailable
+  }
 }

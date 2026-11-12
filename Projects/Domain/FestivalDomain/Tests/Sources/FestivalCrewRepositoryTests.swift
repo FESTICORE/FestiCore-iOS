@@ -251,13 +251,150 @@ struct FestivalCrewRepositoryTests {
     }
   }
 
+  @Test func detailMapsGatherResponsesAndKeepsOldPayload() async throws {
+    let client = CrewRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"id":"crw_1","festivalId":"fst_1","name":"펜타 크루","ownerId":"usr_1","members":[],"inviteCode":null,"inviteExpiresAt":null,"archivedAt":null,"live":{"id":"crw_1","name":"펜타 크루","ownerId":"usr_1","members":[],"gatherRequest":{"id":"gth_1","zoneId":"zone_a","byUserId":"usr_1","at":"2026-10-21T01:03:00.000Z","expiresAt":"2026-10-21T01:13:00.000Z","responses":[{"userId":"usr_2","nickname":"준호","response":"going","respondedAt":"2026-10-21T01:04:00.000Z"},{"userId":"usr_3","nickname":"한솔","response":"later","respondedAt":"2026-10-21T01:05:00.000Z"}],"responseSummary":{"going":1,"ack":2}},"gatherAvailableAt":null}}}"#)
+    let crew = try await makeRepository(
+      client: client,
+      sessionID: sessionID
+    ).detail(crewID: "crw_1")
+    let gather = try #require(crew.live?.gatherRequest)
+    #expect(gather.id == "gth_1")
+    #expect(gather.expiresAt != nil)
+    // 모르는 응답 값(later)은 그 줄만 버린다.
+    #expect(gather.responses.map(\.userID) == ["usr_2"])
+    #expect(gather.responses.first?.response == .going)
+    #expect(gather.summary == .init(
+      going: 1,
+      ack: 2
+    ))
+
+    // 새 필드가 없던 이전 응답도 그대로 읽는다.
+    let old = CrewRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"id":"crw_1","festivalId":"fst_1","name":"펜타 크루","ownerId":"usr_1","members":[],"inviteCode":null,"inviteExpiresAt":null,"archivedAt":null,"live":{"id":"crw_1","name":"펜타 크루","ownerId":"usr_1","members":[],"gatherRequest":{"zoneId":"zone_a","byUserId":"usr_1","at":"2026-10-21T01:03:00.000Z"}}}}"#)
+    let oldGather = try #require(try await makeRepository(
+      client: old,
+      sessionID: sessionID
+    ).detail(crewID: "crw_1").live?.gatherRequest)
+    #expect(oldGather.id == nil)
+    #expect(oldGather.expiresAt == nil)
+    #expect(oldGather.responses.isEmpty)
+    #expect(oldGather.summary == .init(
+      going: 0,
+      ack: 0
+    ))
+  }
+
+  @Test func respondToGatherSendsResponseAndMapsReply() async throws {
+    let client = CrewRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"gatherId":"gth_1","userId":"usr_2","nickname":"준호","response":"ack","respondedAt":"2026-10-21T01:04:00.000Z"}}"#)
+    let reply = try await makeRepository(
+      client: client,
+      sessionID: sessionID
+    ).respondToGather(
+      crewID: "crw_1",
+      gatherID: "gth_1",
+      response: .ack
+    )
+    #expect(reply.gatherID == "gth_1")
+    #expect(reply.response == .ack)
+    let sent = try #require(await client.sent)
+    #expect(sent.path == "api/v1/crews/crw_1/gather/gth_1/response")
+    #expect(sent.method == "POST")
+    #expect(sent.authorization == .sessionBound(sessionID))
+    let body = try #require(sent.body)
+    #expect(try JSONSerialization.jsonObject(with: body) as? [String: String] == ["response": "ack"])
+  }
+
+  @Test(arguments: [
+    (409, "GATHER_EXPIRED", FestivalCrewError.gatherExpired),
+    (403, "GATHER_SENDER", FestivalCrewError.forbidden),
+    (403, "CREW_NOT_MEMBER", FestivalCrewError.forbidden),
+    (404, "NOT_FOUND", FestivalCrewError.notFound),
+    (410, "CREW_ARCHIVED", FestivalCrewError.festivalEnded)
+  ])
+  func respondToGatherMapsRejection(
+    status: Int,
+    code: String,
+    expected: FestivalCrewError
+  ) async {
+    let client = CrewRecordingClient(error: .response(.init(
+      httpStatus: status,
+      code: code
+    )))
+    let repository = makeRepository(
+      client: client,
+      sessionID: sessionID
+    )
+    await #expect(throws: expected) {
+      try await repository.respondToGather(
+        crewID: "crw_1",
+        gatherID: "gth_1",
+        response: .going
+      )
+    }
+  }
+
+  @Test func invitePreviewMapsMemberPreview() async throws {
+    let client = CrewRecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"crewName":"락린이들","festivalId":"fst_1","festivalName":"원더리벳 2026","ownerNickname":"민지","memberCount":4,"expiresAt":"2026-08-08T14:59:00.000Z","memberPreview":[{"nickname":"민지","avatarUrl":"https://cdn.festicore.test/a.png"},{"nickname":"로이","avatarUrl":null}]}}"#)
+    let invite = try await makeRepository(
+      client: client,
+      sessionID: nil
+    ).invite(code: "K7P2QX")
+    #expect(invite.memberPreview == [
+      .init(
+        nickname: "민지",
+        avatarURL: URL(string: "https://cdn.festicore.test/a.png")
+      ),
+      .init(
+        nickname: "로이",
+        avatarURL: nil
+      ),
+    ])
+    #expect(invite.memberCount == 4)
+  }
+
+  @Test func leaveDeletesMyMembership() async throws {
+    let client = CrewRecordingClient(json: "{}")
+    try await makeRepository(
+      client: client,
+      sessionID: sessionID,
+      userID: "usr_me"
+    ).leave(crewID: "crw_1")
+    #expect(await client.sent?.path == "api/v1/crews/crw_1/members/usr_me")
+    #expect(await client.sent?.method == "DELETE")
+  }
+
+  @Test func leaveMapsOwnerRejectionAndMissingUser() async {
+    let owner = CrewRecordingClient(error: .response(.init(
+      httpStatus: 409,
+      code: "OWNER_CANNOT_LEAVE"
+    )))
+    await #expect(throws: FestivalCrewError.forbidden) {
+      try await makeRepository(
+        client: owner,
+        sessionID: sessionID,
+        userID: "usr_me"
+      ).leave(crewID: "crw_1")
+    }
+    let noUser = CrewRecordingClient(json: "{}")
+    await #expect(throws: FestivalCrewError.unauthenticated) {
+      try await makeRepository(
+        client: noUser,
+        sessionID: sessionID
+      ).leave(crewID: "crw_1")
+    }
+    #expect(await noUser.sent == nil)
+  }
+
   private func makeRepository(
     client: CrewRecordingClient,
-    sessionID: UUID?
+    sessionID: UUID?,
+    userID: String? = nil
   ) -> FestivalCrewRepositoryImpl {
     return withDependencies {
       $0.networkClient = client
-      $0.authService = CrewAuthService(sessionID: sessionID)
+      $0.authService = CrewAuthService(
+        sessionID: sessionID,
+        userID: userID
+      )
       $0.uuid = .incrementing
     } operation: {
       FestivalCrewRepositoryImpl()
@@ -334,11 +471,18 @@ private actor CrewRecordingClient: FestiCoreNetworkClient {
 
 private struct CrewAuthService: AuthService {
   let sessionIDValue: UUID?
-  init(sessionID: UUID?) { sessionIDValue = sessionID }
+  let userIDValue: String?
+  init(
+    sessionID: UUID?,
+    userID: String? = nil
+  ) {
+    sessionIDValue = sessionID
+    userIDValue = userID
+  }
 
   var isLoggedIn: Bool { get async { return sessionIDValue != nil } }
   var refreshToken: String? { get async { return nil } }
-  var currentUserID: String? { get async { return nil } }
+  var currentUserID: String? { get async { return userIDValue } }
   var sessionID: UUID { get async { return sessionIDValue ?? UUID() } }
   var authenticatedSessionID: UUID? { get async { return sessionIDValue } }
   var hasPendingLocalClear: Bool { get async { return false } }

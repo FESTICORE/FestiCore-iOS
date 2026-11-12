@@ -35,9 +35,26 @@ public struct FestivalLiveBoardCrewDTO: Decodable, Sendable {
   public let gatherAvailableAt: String?
 
   public struct GatherRequest: Decodable, Sendable {
+    /// 진행 중인 모여에만 오는 응답 값. 이전 서버 응답에는 없다.
+    public let id: String?
     public let zoneId: String?
     public let byUserId: String
     public let at: String
+    public let expiresAt: String?
+    public let responses: [Response]?
+    public let responseSummary: ResponseSummary?
+
+    public struct Response: Decodable, Sendable {
+      public let userId: String
+      public let nickname: String
+      public let response: String
+      public let respondedAt: String
+    }
+
+    public struct ResponseSummary: Decodable, Sendable {
+      public let going: Int
+      public let ack: Int
+    }
   }
 }
 

@@ -53,6 +53,16 @@ public protocol FestivalCrewRepositoryInterface: Sendable {
 
   /// 초대 코드로 크루에 들어간다.
   func join(inviteCode: String) async throws -> FestivalCrew
+
+  /// 받은 모여 요청에 '가는 중'·'확인'으로 응답한다. 다시 응답하면 서버가 덮어쓰고, 보낸 사람은 응답할 수 없다.
+  func respondToGather(
+    crewID: String,
+    gatherID: String,
+    response: FestivalCrewGatherResponse
+  ) async throws -> FestivalCrewGatherReply
+
+  /// 내가 크루에서 나간다. 크루장은 넘기거나 해산해야 나갈 수 있다.
+  func leave(crewID: String) async throws
 }
 
 public enum FestivalCrewRepositoryDependency: TestDependencyKey {
@@ -141,6 +151,20 @@ private struct UnregisteredFestivalCrewRepository: FestivalCrewRepositoryInterfa
 
   func join(inviteCode _: String) async throws -> FestivalCrew {
     reportIssue("festivalCrewRepository.join 미등록")
+    throw FestivalCrewError.unavailable
+  }
+
+  func respondToGather(
+    crewID _: String,
+    gatherID _: String,
+    response _: FestivalCrewGatherResponse
+  ) async throws -> FestivalCrewGatherReply {
+    reportIssue("festivalCrewRepository.respondToGather 미등록")
+    throw FestivalCrewError.unavailable
+  }
+
+  func leave(crewID _: String) async throws {
+    reportIssue("festivalCrewRepository.leave 미등록")
     throw FestivalCrewError.unavailable
   }
 }

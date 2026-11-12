@@ -43,7 +43,7 @@ extension FestivalS01VisualCaptureTests {
         view = AnyView(FestivalCrewCreateView(store: Store(initialState: state) {
           EmptyReducer<FestivalCrewCreateFeature.State, FestivalCrewCreateFeature.Action>()
         }))
-      case .crew, .cooldown, .menu:
+      case .crew, .cooldown, .menu, .gather:
         let state = try crewState(scenario)
         view = AnyView(FestivalCrewView(store: Store(initialState: state) {
           EmptyReducer<FestivalCrewFeature.State, FestivalCrewFeature.Action>()
@@ -77,6 +77,7 @@ extension FestivalS01VisualCaptureTests {
     case crew = "S07-A-crew"
     case cooldown = "S07-B-cooldown"
     case menu = "S07-C-menu"
+    case gather = "S07-F-gather"
     case join = "S08-A-join"
     case createName = "S07-D-create-name"
     case createInvite = "S07-D-create-invite"
@@ -91,7 +92,21 @@ extension FestivalS01VisualCaptureTests {
       inviterNickname: "민지",
       memberCount: 4,
       // 시안의 8/8(토) 23:59 KST
-      expiresAt: Date(timeIntervalSince1970: 1_786_201_140)
+      expiresAt: Date(timeIntervalSince1970: 1_786_201_140),
+      memberPreview: [
+        .init(
+          nickname: "민지",
+          avatarURL: nil
+        ),
+        .init(
+          nickname: "로이",
+          avatarURL: nil
+        ),
+        .init(
+          nickname: "준",
+          avatarURL: nil
+        ),
+      ]
     )
   }
 
@@ -133,16 +148,18 @@ extension FestivalS01VisualCaptureTests {
       )
     ]
     let isCooldown = scenario == .cooldown
+    let isGather = scenario == .gather
     let live = FestivalLiveBoardSnapshot.Crew(
       id: "crew_penta",
       name: "펜타 크루",
       members: members,
       ownerID: "user-minji",
-      gatherRequest: isCooldown
+      gatherRequest: isCooldown || isGather
         ? .init(
+          id: "gth_penta",
           zoneID: "zone_slam",
           byUserID: "user-minji",
-          at: now.addingTimeInterval(-2 * 60 - 5)
+          at: now.addingTimeInterval(isGather ? -5 : -2 * 60 - 5)
         )
         : nil,
       gatherAvailableAt: isCooldown ? now.addingTimeInterval(7 * 60 + 40) : nil
@@ -150,7 +167,8 @@ extension FestivalS01VisualCaptureTests {
     var state = FestivalCrewFeature.State(
       crewID: "crew_penta",
       festival: festival,
-      sessionUserID: "user-minji",
+      // Figma S07 F는 받은 크루원(로이)의 화면이다.
+      sessionUserID: isGather ? "user-roy" : "user-minji",
       live: live
     )
     state.crew = FestivalCrew(

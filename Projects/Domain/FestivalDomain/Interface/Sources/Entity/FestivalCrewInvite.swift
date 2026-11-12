@@ -2,6 +2,20 @@ import Foundation
 
 /// 초대 코드로 미리 본 크루. 로그인 없이 받는 공개 정보만 담는다.
 public struct FestivalCrewInvite: Equatable, Sendable {
+  /// 먼저 들어온 크루원. 식별 정보 없이 닉네임과 프로필 이미지만 받는다.
+  public struct Member: Equatable, Sendable {
+    public let nickname: String
+    public let avatarURL: URL?
+
+    public init(
+      nickname: String,
+      avatarURL: URL?
+    ) {
+      self.nickname = nickname
+      self.avatarURL = avatarURL
+    }
+  }
+
   public let code: String
   public let crewName: String
   public let festivalID: String
@@ -9,6 +23,8 @@ public struct FestivalCrewInvite: Equatable, Sendable {
   public let inviterNickname: String?
   public let memberCount: Int
   public let expiresAt: Date
+  /// 서버가 주는 최대 3명. 이전 서버 응답이면 비어 있다.
+  public let memberPreview: [Member]
 
   public init(
     code: String,
@@ -17,7 +33,8 @@ public struct FestivalCrewInvite: Equatable, Sendable {
     festivalName: String?,
     inviterNickname: String?,
     memberCount: Int,
-    expiresAt: Date
+    expiresAt: Date,
+    memberPreview: [Member] = []
   ) {
     self.code = code
     self.crewName = crewName
@@ -26,6 +43,7 @@ public struct FestivalCrewInvite: Equatable, Sendable {
     self.inviterNickname = inviterNickname
     self.memberCount = memberCount
     self.expiresAt = expiresAt
+    self.memberPreview = memberPreview
   }
 }
 

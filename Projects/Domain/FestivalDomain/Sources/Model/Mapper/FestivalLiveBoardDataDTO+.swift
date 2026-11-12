@@ -95,9 +95,28 @@ extension FestivalLiveBoardCrewDTO {
       gatherRequest: gatherRequest.flatMap { request in
         request.at.isoDate.map {
           .init(
+            id: request.id,
             zoneID: request.zoneId,
             byUserID: request.byUserId,
-            at: $0
+            at: $0,
+            expiresAt: request.expiresAt?.isoDate,
+            // 모르는 응답 값이나 날짜가 틀린 응답은 그 줄만 버린다.
+            responses: (request.responses ?? []).compactMap { response in
+              guard let value = FestivalCrewGatherResponse(rawValue: response.response),
+                    let respondedAt = response.respondedAt.isoDate else { return nil }
+              return .init(
+                userID: response.userId,
+                nickname: response.nickname,
+                response: value,
+                respondedAt: respondedAt
+              )
+            },
+            summary: request.responseSummary.map {
+              .init(
+                going: $0.going,
+                ack: $0.ack
+              )
+            }
           )
         }
       },
