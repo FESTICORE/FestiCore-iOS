@@ -26,7 +26,7 @@ public struct FCModalPresentedKey: PreferenceKey {
   public static func reduce(
     value: inout Bool,
     nextValue: () -> Bool
-  ) -> Void {
+  ) {
     value = value || nextValue()
   }
 }
@@ -58,6 +58,30 @@ extension EnvironmentValues {
   }
 }
 
+/// 탭 화면 안에서 띄운 시트·팝업이 그 아래 숨긴 탭바 자리까지 덮도록 상위 화면이 알려 주는 값.
+/// `height`는 탭 화면 아래 끝에서 화면 아래 끝까지(탭바 + 하단 안전 영역), `safeAreaBottom`은 그중 하단 안전 영역이다.
+public struct FCModalBottomExtension: Equatable, Sendable {
+  public var height: CGFloat
+  public var safeAreaBottom: CGFloat
+
+  public init(
+    height: CGFloat,
+    safeAreaBottom: CGFloat
+  ) {
+    self.height = height
+    self.safeAreaBottom = safeAreaBottom
+  }
+
+  public static let zero = FCModalBottomExtension(
+    height: 0,
+    safeAreaBottom: 0
+  )
+}
+
+public extension EnvironmentValues {
+  @Entry var fcModalBottomExtension: FCModalBottomExtension = .zero
+}
+
 /// 바텀시트 높이.
 public enum FCSheetHeight: Sendable {
   case fraction(CGFloat)
@@ -76,6 +100,7 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
   let accessory: (Item) -> Accessory
 
   @Environment(\.fcSheetDismissalDelay) private var dismissalDelay
+  @Environment(\.fcModalBottomExtension) private var bottomExtension
   @State private var dragOffset: CGFloat = 0
   @State private var dismissOffset: CGFloat = 0
   @State private var isDragging = false
@@ -126,6 +151,11 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
           }
           .animation(.easeOut(duration: Metric.longDuration), value: item != nil)
         }
+        // 탭 화면 안에서 띄워도 숨긴 탭바 자리까지 딤과 시트가 화면 아래 끝에 닿게 한다.
+        .padding(
+          .bottom,
+          -bottomExtension.height
+        )
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .allowsHitTesting(item != nil)
       }
@@ -157,7 +187,10 @@ extension FCSheetModifier {
           .environment(\.fcSheetDismiss, dismiss)
           .onPreferenceChange(FCSheetDismissDisabledKey.self) { isDismissDisabled = $0 }
       }
-      .padding(.bottom, geometry.safeAreaInsets.bottom)
+      .padding(
+        .bottom,
+        bottomInset(geometry)
+      )
       .background(FestiCoreSemanticColor.backgroundElevated.color)
       .clipShape(UnevenRoundedRectangle(topLeadingRadius: FestiCoreRadius.r24, topTrailingRadius: FestiCoreRadius.r24))
       .overlay(alignment: .top) {
@@ -239,8 +272,16 @@ extension FCSheetModifier {
     item.wrappedValue = nil
   }
 
+  /// 시트 아래 여백. 탭바 자리까지 늘린 경우 그 안의 하단 안전 영역을 쓴다.
+  private func bottomInset(_ geometry: GeometryProxy) -> CGFloat {
+    return max(
+      geometry.safeAreaInsets.bottom,
+      bottomExtension.safeAreaBottom
+    )
+  }
+
   private func heightValue(for geometry: GeometryProxy) -> CGFloat? {
-    let available = geometry.size.height - geometry.safeAreaInsets.bottom
+    let available = geometry.size.height - bottomInset(geometry)
     switch height {
     case let .fraction(fraction): return min(available * fraction, available)
     case let .fixed(points): return min(points, available)

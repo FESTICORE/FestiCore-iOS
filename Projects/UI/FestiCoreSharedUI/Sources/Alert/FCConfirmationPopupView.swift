@@ -13,6 +13,7 @@ import SwiftUI
 /// 카드·문구·버튼은 한 레이어로 묶어 함께 움직이고 함께 투명해진다.
 public struct FCDialogOverlay: View {
   @State private var isContentVisible = false
+  @Environment(\.fcModalBottomExtension) private var bottomExtension
   /// 첫 입력을 처리했는지. 닫히는 동안 늦게 들어온 탭이 동작을 다시 실행하지 않게 한다.
   @State private var isHandled = false
   private let item: FCDialogItem
@@ -70,6 +71,11 @@ public struct FCDialogOverlay: View {
       .opacity(isContentVisible ? 1 : 0)
     }
     // Figma: 다이얼로그는 상태 막대·탭바를 포함한 전체 화면의 가운데에 둔다.
+    // 탭 화면 안에서 띄워도 숨긴 탭바 자리까지 딤이 덮게 한다.
+    .padding(
+      .bottom,
+      -bottomExtension.height
+    )
     .ignoresSafeArea()
     .allowsHitTesting(!isHandled)
     .transition(.opacity.animation(.fcModal))

@@ -16,6 +16,9 @@ struct MainTabView: View {
   @Bindable var store: StoreOf<MainTabCoordinator>
   /// 어느 탭에서든 fcModal 시트가 뜨면 탭바를 먼저 숨긴 채 시트를 올린다.
   @State private var isModalPresented = false
+  /// 탭바 높이와 하단 안전 영역. 탭 화면 안의 시트·팝업이 숨긴 탭바 자리까지 덮는 데 쓴다.
+  @State private var tabBarHeight: CGFloat = 0
+  @State private var safeAreaBottom: CGFloat = 0
 
   var body: some View {
     // 탭바는 safeAreaInset이 아니라 탭 화면 아래에 쌓는다. 탭 화면의 NavigationStack은 바깥 safeAreaInset을
@@ -26,6 +29,10 @@ struct MainTabView: View {
           maxWidth: .infinity,
           maxHeight: .infinity
         )
+        .environment(
+          \.fcModalBottomExtension,
+          modalBottomExtension
+        )
       if store.shouldReserveTabBarSpace {
         FCTabBar(
           selection: Binding(
@@ -33,6 +40,11 @@ struct MainTabView: View {
             set: { store.send(.tabTapped($0)) }
           )
         )
+        .onGeometryChange(for: CGFloat.self) { proxy in
+          return proxy.size.height
+        } action: { height in
+          tabBarHeight = height
+        }
         .opacity(isTabBarHidden ? 0 : 1)
         .allowsHitTesting(!isTabBarHidden)
         // 시트 이동 애니메이션과 별개로 탭바는 즉시 사라지고 나타난다.
@@ -43,6 +55,11 @@ struct MainTabView: View {
       }
     }
     .background(FestiCoreSemanticColor.backgroundNormal.color)
+    .onGeometryChange(for: CGFloat.self) { proxy in
+      return proxy.safeAreaInsets.bottom
+    } action: { inset in
+      safeAreaBottom = inset
+    }
     // 첫 진입 흐름이 덮는 동안 메인은 화면 오른쪽 밖에 두고, 가입·관객 선택을 마치면 push처럼 오른쪽에서 들어온다.
     .visualEffect { [coversMainTab = store.authFlow.coversMainTab] content, proxy in
       content.offset(x: coversMainTab ? proxy.size.width : 0)
@@ -108,6 +125,15 @@ struct MainTabView: View {
 private extension MainTabView {
   var isTabBarHidden: Bool {
     return store.shouldHideTabBar || isModalPresented
+  }
+
+  /// 탭바 자리를 남겨 둔 동안 탭 화면 안의 시트·팝업이 그 자리와 하단 안전 영역까지 덮게 한다.
+  var modalBottomExtension: FCModalBottomExtension {
+    guard store.shouldReserveTabBarSpace else { return .zero }
+    return FCModalBottomExtension(
+      height: tabBarHeight + safeAreaBottom,
+      safeAreaBottom: safeAreaBottom
+    )
   }
 
   /// 첫 진입 화면 위로 가입 정보(S14 B)를 push처럼 오른쪽에서 밀어 넣고, 그 뒤 C~E는 가입 스택 안에서 push한다.
