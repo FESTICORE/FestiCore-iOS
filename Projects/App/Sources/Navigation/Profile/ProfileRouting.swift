@@ -6,12 +6,22 @@ extension ProfileFeature.State {
   var hidesTabBarForProfileRoute: Bool {
     guard let screen = profileRoutes.last?.screen else { return false }
     switch screen {
-    case .account, .appearance, .legalDocument, .lockScreen, .noticeList, .noticeDetail, .notifications, .packDetail:
+    case .legalDocument, .noticeList, .noticeDetail, .packDetail:
       return true
-    // Figma S13-0: 설정 홈은 마이 탭이 선택된 탭바를 그대로 보인다. 그 아래 하위 화면은 탭바를 숨긴다.
-    case .profile, .bearer, .settings:
+    // Figma S13-0·A~E·J: 설정 홈과 알림·잠금화면·계정·화면 모드는 마이 탭이 선택된 탭바를 그대로 보인다.
+    case .profile, .bearer, .settings, .account, .appearance, .lockScreen, .notifications:
       return false
     }
+  }
+
+  /// 마이·설정 화면의 확인 팝업(fcAlert)이나 바텀시트(fcModal)가 떠 있는지 나타낸다.
+  /// 딤이 탭바를 덮지 못하므로 떠 있는 동안 탭바를 숨긴다.
+  var isProfileOverlayPresented: Bool {
+    if destination?.alert != nil { return true }
+    guard let settingsDestination = destination?.settings?.destination else { return false }
+    return settingsDestination.alert != nil
+      || settingsDestination.account?.destination != nil
+      || settingsDestination.lockScreen?.destination != nil
   }
 
   /// ProfileFeature의 목적지 하나를 push 경로로 보여 준다. 설정 홈 아래 화면은 그 위에 이어 push한다.
@@ -46,7 +56,7 @@ extension ProfileCoordinator.State {
     return root.profileRoutes + bearerRoutes
   }
 
-  /// 기수 설정 화면도 다른 마이 하위 화면처럼 탭바 없이 표시한다.
+  /// 기수 설정 화면은 탭바 없이 표시한다.
   var hidesTabBarForRoute: Bool {
     return bearer != nil || root.hidesTabBarForProfileRoute
   }

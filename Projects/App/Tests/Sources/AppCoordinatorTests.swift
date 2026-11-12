@@ -1628,7 +1628,7 @@ struct AppCoordinatorTests {
     ))))) {
       $0.profileState.hasSession = true
     }
-    // Figma S13-0: 설정 홈은 탭바를 보이고, 그 아래 계정 화면은 다른 마이 설정 화면처럼 탭바 없이 표시한다.
+    // Figma S13-0·D·E: 설정 홈과 계정 화면은 탭바를 보이고, 로그아웃 확인 팝업이 떠 있는 동안만 숨긴다.
     await store.send(.profileCoordinator(.profile(.view(.settingsTapped)))) {
       $0.profileState.destination = .settings(.init(hasSession: true))
     }
@@ -1637,8 +1637,8 @@ struct AppCoordinatorTests {
     await store.send(.profileCoordinator(.profile(.destination(.presented(.settings(.view(.accountTapped))))))) {
       $0.profileState.destination = .settings(settingsWithAccount(AccountSettingsFeature.State(profile: nil)))
     }
-    #expect(store.state.shouldHideTabBar)
-    #expect(!store.state.shouldReserveTabBarSpace)
+    #expect(!store.state.shouldHideTabBar)
+    #expect(store.state.shouldReserveTabBarSpace)
     await store.send(.profileCoordinator(.profile(.destination(.presented(.settings(.destination(.presented(
       .account(.view(.logoutTapped))
     )))))))) {
@@ -1650,13 +1650,14 @@ struct AppCoordinatorTests {
       }()))
     }
     #expect(store.state.shouldHideTabBar)
+    #expect(store.state.shouldReserveTabBarSpace)
     await store.send(.profileCoordinator(.profile(.destination(.presented(.settings(.destination(.presented(
       .account(.destination(.presented(.alert(.cancelTapped))))
     )))))))) {
       $0.profileState.destination = .settings(settingsWithAccount(AccountSettingsFeature.State(profile: nil)))
     }
-    // 팝업을 닫아도 계정 화면에 머무는 동안은 탭바를 숨긴다.
-    #expect(store.state.shouldHideTabBar)
+    // 팝업을 닫으면 계정 화면의 탭바가 다시 보인다.
+    #expect(!store.state.shouldHideTabBar)
 
     state.authFlow.presentation = .login
     #expect(state.shouldHideTabBar)
@@ -1671,14 +1672,13 @@ struct AppCoordinatorTests {
     }
   }
 
-  @Test func myPushedLegalLockScreenAndNoticeHideBottomTabs() {
+  @Test func myPushedLegalAndNoticeHideBottomTabs() {
     var state = MainTabCoordinator.State(selectedTab: .my)
     let children: [SettingsHomeFeature.Destination.State] = [
       .legalDocument(.init(
         url: URL(string: "https://example.com/api/v1/legal/terms")!,
         title: "이용약관"
       )),
-      .lockScreen(.init()),
       .noticeList(.init()),
     ]
     for child in children {
@@ -1691,6 +1691,43 @@ struct AppCoordinatorTests {
     state.profileState.destination = nil
     #expect(!state.shouldHideTabBar)
     #expect(state.shouldReserveTabBarSpace)
+  }
+
+  @Test func myLockScreenShowsBottomTabsUntilSheetOrAlert() {
+    var state = MainTabCoordinator.State(selectedTab: .my)
+    // Figma S13-C: 잠금화면 설정에는 마이 탭이 선택된 탭바가 있다.
+    var lockScreen = LockScreenSettingsFeature.State()
+    var settings = SettingsHomeFeature.State()
+    settings.destination = .lockScreen(lockScreen)
+    state.profileState.destination = .settings(settings)
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+
+    // 깃발 고르기 바텀시트와 확인 팝업의 딤은 탭바를 덮지 못하므로 떠 있는 동안 탭바를 숨긴다.
+    let overlays: [LockScreenSettingsFeature.Destination.State] = [
+      .flagPicker(.init(selectedFlagID: nil)),
+      .alert(.legalLinkUnavailable()),
+    ]
+    for overlay in overlays {
+      lockScreen.destination = overlay
+      settings.destination = .lockScreen(lockScreen)
+      state.profileState.destination = .settings(settings)
+      #expect(state.shouldHideTabBar)
+      #expect(state.shouldReserveTabBarSpace)
+    }
+
+    lockScreen.destination = nil
+    settings.destination = .lockScreen(lockScreen)
+    state.profileState.destination = .settings(settings)
+    #expect(!state.shouldHideTabBar)
+
+    // 설정 홈의 확인 팝업도 같은 이유로 탭바를 숨긴다.
+    state.profileState.destination = .settings({
+      var home = SettingsHomeFeature.State()
+      home.destination = .alert(.legalLinkUnavailable())
+      return home
+    }())
+    #expect(state.shouldHideTabBar)
   }
 
   @Test func changedNicknameUpdatesSessionDisplayName() async {
