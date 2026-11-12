@@ -71,8 +71,9 @@ private extension AppearanceSettingsView {
           if index > 0 {
             FestiCoreSemanticColor.lineNormal.color
               .frame(height: Metric.divider)
+              // Figma S13-J Divider: 좌우 16 안쪽(345)
               .padding(
-                .leading,
+                .horizontal,
                 FestiCoreSpacing.paddingP16
               )
           }
