@@ -563,8 +563,9 @@ private extension FestivalLiveBoardScreen {
           )
           .action(FCCardAction("다시 시도") { send(.retryLiveBoard) })
         } else if model.showsFollowGuide {
+          // Figma S01 D: 팔로우 안내 Empty Card 아이콘은 flag 24다.
           FCEmptyCard(
-            icon: .flag20,
+            icon: .flag,
             title: "만나보고 싶은 깃발이 있나요?",
             message: "팔로우하면 깃발이 움직일 때 조용히 알려 드려요."
           )

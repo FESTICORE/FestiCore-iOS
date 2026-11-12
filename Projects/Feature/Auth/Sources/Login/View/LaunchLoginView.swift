@@ -215,8 +215,29 @@ private extension LaunchLoginView {
     }
   }
 
+  /// 시안 Logo 3D(623:24653) 이미지. 라이트·다크가 같은 이미지다.
+  var logo: some View {
+    return Image(asset: AuthAsset.logo3d)
+      .resizable()
+      .scaledToFit()
+      .frame(
+        width: 280,
+        height: 42.44
+      )
+      .accessibilityLabel(Text("FestiCore"))
+  }
+
+  /// 시안 Contents: 로고 아래 20 간격으로 제목과 설명을 둔다.
   @ViewBuilder
   func introduction() -> some View {
+    VStack(spacing: FestiCoreSpacing.paddingP20) {
+      logo
+      introductionText()
+    }
+  }
+
+  @ViewBuilder
+  func introductionText() -> some View {
     VStack(spacing: FestiCoreSpacing.paddingP16) {
       Text("가장 뜨거운 현장 속으로")
         .festiCoreFont(.baseTitle2Bold)
