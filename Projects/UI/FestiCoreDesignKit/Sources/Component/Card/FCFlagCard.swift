@@ -20,6 +20,7 @@ public struct FCFlagCard<Thumbnail: View>: View {
   private var context: Context
   private var thumbnail: Thumbnail
   private(set) var isFollowEnabled = true
+  private(set) var showsFollow = true
   private(set) var showsZone = true
   private(set) var onZoneTap: () -> Void = {}
   private(set) var onTap: (() -> Void)?
@@ -98,13 +99,15 @@ public struct FCFlagCard<Thumbnail: View>: View {
       }
       .frame(maxWidth: .infinity, alignment: .leading)
       if case let .directory(_, _, isFollowing, onFollow) = context {
-        FCButton(
-          isFollowing ? "팔로잉" : "팔로우",
-          action: onFollow
-        )
-        .style(Self.followStyle(isFollowing: isFollowing))
-        .size(.medium)
-        .isEnabled(isFollowEnabled)
+        if showsFollow {
+          FCButton(
+            isFollowing ? "팔로잉" : "팔로우",
+            action: onFollow
+          )
+          .style(Self.followStyle(isFollowing: isFollowing))
+          .size(.medium)
+          .isEnabled(isFollowEnabled)
+        }
       }
     }
     .padding(FestiCoreSpacing.paddingP16)
@@ -185,6 +188,13 @@ public extension FCFlagCard {
   func followEnabled(_ isEnabled: Bool) -> Self {
     var copy = self
     copy.isFollowEnabled = isEnabled
+    return copy
+  }
+
+  /// 디렉토리 카드의 팔로우 버튼 표시 여부를 바꾼 사본을 돌려준다. Figma S10-E 미리보기는 버튼을 숨긴다.
+  func showsFollow(_ isVisible: Bool) -> Self {
+    var copy = self
+    copy.showsFollow = isVisible
     return copy
   }
 

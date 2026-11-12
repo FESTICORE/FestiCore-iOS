@@ -325,6 +325,8 @@ extension BearerProfileView {
       previewThumbnail
     }
     .showsZone(zone != nil)
+    // Figma S10-E 미리보기 Flag Card는 팔로우 버튼을 숨긴다(내 깃발이라 팔로우할 수 없다).
+    .showsFollow(false)
     .allowsHitTesting(false)
   }
 
