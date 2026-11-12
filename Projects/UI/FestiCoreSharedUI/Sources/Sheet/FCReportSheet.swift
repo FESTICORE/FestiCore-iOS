@@ -72,6 +72,11 @@ public struct FCReportSheet: View {
       .isEnabled(selection != nil)
     }
     .padding(.horizontal, FestiCoreSpacing.paddingP20)
+    // Figma 11-12 Report Sheet: 본문 아래 16을 두고 안전 영역을 따로 붙인다(안전 영역 0 기기에서도 버튼이 바닥에 붙지 않는다).
+    .padding(
+      .bottom,
+      FestiCoreSpacing.paddingP16
+    )
   }
 }
 
