@@ -57,6 +57,8 @@ struct FestivalCoordinator {
     case reloadCachedPacks
     case bookmarkSaved(id: String, booked: Bool)
     case showFestivalList
+    /// 기수 등록에서 고른 페스티벌을 핀(선택 저장)한다. 화면 경로는 바꾸지 않는다.
+    case pinFestival(String)
     case openWidgetFestival(String)
     case widgetPackValidated(id: String, available: Bool)
     case widgetPackLookupFailed
@@ -489,6 +491,12 @@ struct FestivalCoordinator {
     case .showFestivalList:
       state.routes.removeAll { !$0.screen.is(\.festivalList) }
       return .cancel(id: CancelID.widgetLink)
+
+    case let .pinFestival(id):
+      return .send(.router(.routeAction(
+        id: 0,
+        action: .festivalList(.view(.selectFestival(id)))
+      )))
 
     case let .openWidgetFestival(id):
       return .run { send in
