@@ -256,7 +256,7 @@ private extension FestivalCrewView {
   }
 
   var statusPanel: some View {
-    // Figma S07 My Status(65-3992): 위 12·좌우 16, 간격 8, 안내 Caption1/Bold
+    // Figma S07 My Status(65-3992): 위 12·아래 8·좌우 16, 간격 8, 안내 Caption1/Bold
     return VStack(
       alignment: .leading,
       spacing: FestiCoreSpacing.marginM8
@@ -282,10 +282,10 @@ private extension FestivalCrewView {
       .horizontal,
       FestiCoreSpacing.paddingP16
     )
-    // 시안은 패널 안에 홈 인디케이터 영역(아래 35)을 그린다. 하단 안전 영역 34 위에 1만 더해 버튼 위치를 맞춘다.
+    // 하단 안전 영역이 없는 기기에서도 버튼이 바닥에 붙지 않도록 아래 8을 둔다.
     .padding(
       .bottom,
-      Metric.panelBottomPadding
+      FestiCoreSpacing.paddingP8
     )
     .frame(maxWidth: .infinity)
     .background(FestiCoreSemanticColor.backgroundElevated.color.ignoresSafeArea(edges: .bottom))
@@ -371,7 +371,6 @@ private extension FestivalCrewView {
     static let skeletonHeight: CGFloat = 322
     static let borderWidth: CGFloat = 1
     static let inactiveOpacity: Double = 0.6
-    static let panelBottomPadding: CGFloat = 1
     static let toastTop: CGFloat = 30
     static let toastAnimation: Double = 0.25
   }
