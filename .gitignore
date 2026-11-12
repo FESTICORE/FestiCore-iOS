@@ -83,6 +83,7 @@ Tuist/.build/
 .claude/scheduled_tasks.lock
 .claude/app-harness.config.json
 .claude/worktrees/
+.claude/state/
 .omc/
 .omx/
 

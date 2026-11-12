@@ -9,6 +9,15 @@
             "command": "cd \"$CLAUDE_PROJECT_DIR\" && python3 .claude/hooks/check-swift-conventions.py --hook"
           }
         ]
+      },
+      {
+        "matcher": "Read|Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -S \"$CLAUDE_PROJECT_DIR/.claude/hooks/usage_log.py\""
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -17,7 +26,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre-commit-check.sh\""
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-git-rules.sh\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -S \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop_guard.py\""
           }
         ]
       }

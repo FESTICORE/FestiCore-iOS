@@ -1,12 +1,8 @@
 #!/bin/bash
-# Claude PreToolUse 검사 흐름.
-# git commit 명령 앞에서 staged Swift 파일에 SwiftFormat/SwiftLint를 적용한다.
+# 스테이징된 Swift 파일 검사. git commit 앞에서 check_git_rules.py가 저장소 루트를 작업 폴더로 두고 부른다.
+# staged Swift 파일에 SwiftFormat/SwiftLint를 적용하고 check-swift-conventions.py --staged로 규칙을 본다.
+# 직접 실행: 저장소 루트에서 bash .claude/hooks/pre-commit-check.sh
 
-input=$(cat)
-cmd=$(printf '%s' "$input" | /usr/bin/jq -r '.tool_input.command // empty' 2>/dev/null)
-printf '%s' "$cmd" | grep -qE '\bgit\b.+\bcommit\b' || exit 0
-
-cd "${CLAUDE_PROJECT_DIR:-.}" || exit 0
 files=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep -E '\.swift$' | grep -vE '/\.build/|/Derived/|/DerivedData/')
 [ -n "$files" ] || exit 0
 
