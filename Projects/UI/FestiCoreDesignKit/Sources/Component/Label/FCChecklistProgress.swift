@@ -22,7 +22,7 @@ public struct FCChecklistProgress: View {
 
   public var body: some View {
     VStack(alignment: .leading, spacing: Metric.spacing) {
-      Text("\(total)개 중 \(checked)개 챙겼어요")
+      Text(title)
         // Figma Checklist Progress: Base/Headline/Bold(17/24)
         .festiCoreFont(.baseHeadlineBold)
         .festiCoreLineBox(.baseHeadlineBold)
@@ -47,6 +47,14 @@ public struct FCChecklistProgress: View {
 }
 
 private extension FCChecklistProgress {
+  /// Figma S12 H: 모두 챙기면 "준비 끝!" 문구로 바꾼다.
+  var title: String {
+    if total > 0 && checked >= total {
+      return "\(total)개 모두 챙겼어요 · 준비 끝!"
+    }
+    return "\(total)개 중 \(checked)개 챙겼어요"
+  }
+
   var ratio: CGFloat {
     guard total > 0 else { return 0 }
     return CGFloat(min(max(checked, 0), total)) / CGFloat(total)
