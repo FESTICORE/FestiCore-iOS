@@ -124,18 +124,18 @@ public extension FCNextSetCard {
   }
 }
 
-/// 귀가 카드. 막차까지 남은 시간과 셔틀·막차 정보, 가는 길·같이 귀가 버튼을 보인다.
+/// 귀가 카드. 막차까지 남은 시간과 셔틀·막차 정보, 가는 길·같이 귀가 버튼을 보인다. 셔틀·막차가 nil이면 그 줄을 숨긴다.
 public struct FCHomeCard: View {
   private var remain: String
-  private var shuttle: String
-  private var train: String
+  private var shuttle: String?
+  private var train: String?
   private var actions: [FCCardAction]
   private(set) var label = "귀가"
 
   public init(
     remain: String,
-    shuttle: String,
-    train: String,
+    shuttle: String?,
+    train: String?,
     actions: [FCCardAction]
   ) {
     self.remain = remain
@@ -163,8 +163,8 @@ public struct FCHomeCard: View {
         alignment: .leading,
         spacing: Metric.rideLineSpacing
       ) {
-        Text(shuttle)
-        Text(train)
+        if let shuttle { Text(shuttle) }
+        if let train { Text(train) }
       }
       .festiCoreFont(.baseCalloutMedium)
       FCCardActionRow(actions: cardActions)

@@ -5,8 +5,9 @@ import Foundation
 struct FestivalLiveBoardScreenModel {
   struct HomeRide {
     let remain: String
-    let shuttle: String
-    let train: String
+    /// 셔틀·막차 시각이 없거나 읽을 수 없으면 nil이고 해당 줄을 숨긴다.
+    let shuttle: String?
+    let train: String?
   }
 
   struct DoneSummary {
@@ -69,16 +70,16 @@ struct FestivalLiveBoardScreenModel {
             walkMinutes: homeWalkMinutes,
             now: now
           ) else { return nil }
-    let shuttleAt = nonempty(directions.lastShuttleAt)
-    let trainAt = nonempty(directions.lastTrainAt)
+    let shuttleAt = validTime(directions.lastShuttleAt)
+    let trainAt = validTime(directions.lastTrainAt)
     let shuttleStation = directions.shuttleStopName.map { " · \($0)" } ?? ""
     let trainStation = directions.transit?.stationName.map { " · \($0)" } ?? ""
     let shuttleWalk = walkText(homeWalkMinutes.shuttleStop)
     let trainWalk = walkText(homeWalkMinutes.station)
     return HomeRide(
       remain: "\(departure.name)까지 \(departure.remainingMinutes(now: now))분",
-      shuttle: shuttleAt.map { "마지막 셔틀 \(timeText($0))\(shuttleStation)\(shuttleWalk)" } ?? "셔틀 시간 미공개",
-      train: trainAt.map { "막차 \(timeText($0))\(trainStation)\(trainWalk)" } ?? "막차 시간 미공개"
+      shuttle: shuttleAt.map { "마지막 셔틀 \(timeText($0))\(shuttleStation)\(shuttleWalk)" },
+      train: trainAt.map { "막차 \(timeText($0))\(trainStation)\(trainWalk)" }
     )
   }
 
@@ -119,6 +120,11 @@ struct FestivalLiveBoardScreenModel {
 
   private func walkText(_ minutes: Int?) -> String {
     return minutes.map { " (도보 \($0)분)" } ?? ""
+  }
+
+  private func validTime(_ value: String?) -> String? {
+    guard let value = nonempty(value), FestivalLiveBoardSchedule.parse(value) != nil else { return nil }
+    return value
   }
 
   private func nonempty(_ value: String?) -> String? {

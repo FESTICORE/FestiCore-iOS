@@ -261,15 +261,21 @@ public enum FestiCoreFestivalLiveActivity {
     guard let activity = Activity<FestiCoreFestivalActivityAttributes>.activities.first(where: { $0.id == id }) else {
       return
     }
+    let endDate = activity.content.state.endDate
     await activity.end(
       content(
         phase: .finished,
         startDate: startDate,
-        endDate: activity.content.state.endDate,
+        endDate: endDate,
         previousState: activity.content.state
       ),
-      dismissalPolicy: .default
+      dismissalPolicy: finishedDismissalDate(endDate: endDate).map { .after($0) } ?? .default
     )
+  }
+
+  /// 종료한 활동을 공연 종료 3시간 뒤에 내린다. 종료 시각을 모르면 nil을 돌려 시스템 기본 정책을 쓴다.
+  static func finishedDismissalDate(endDate: Date?) -> Date? {
+    return endDate?.addingTimeInterval(3 * 3_600)
   }
 
   static func content(
