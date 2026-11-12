@@ -18,6 +18,7 @@ struct PackRuleTags: View {
         FCTag(tag)
       }
     }
-    .spacing(FestiCoreSpacing.paddingP4)
+    // Figma Pack B Tags 간격 6
+    .spacing(FestiCoreSpacing.marginM6)
   }
 }

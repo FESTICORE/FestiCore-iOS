@@ -136,7 +136,8 @@ private extension FestivalZoneMapCard {
     static let icon: CGFloat = 20
     static let iconWrap: CGFloat = 36
     static let infoIcon: CGFloat = 16
-    static let titleSpacing: CGFloat = 4
+    // Figma Zone Header Text 간격 2
+    static let titleSpacing: CGFloat = 2
     static let stackSpacing: CGFloat = 4
     static let headerGap: CGFloat = 4
     static let infoBottomGap: CGFloat = 8

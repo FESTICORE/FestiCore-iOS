@@ -99,6 +99,9 @@ extension MainTabCoordinator {
     case .delegate(.crewLoginRequested):
       return .send(.auth(.view(.loginRequested(.crew))))
 
+    case let .delegate(.crewJoinLoginRequested(crewName)):
+      return .send(.auth(.view(.loginRequested(.crewJoin(crewName: crewName)))))
+
     case .delegate(.followLoginRequested):
       return .send(.auth(.view(.loginRequested(.follow))))
 

@@ -322,15 +322,16 @@ struct FestivalZoneMapMarker: View {
       if hasLabel {
         Text(marker.name)
           .festiCoreFont(.baseCaption2Bold)
-          .foregroundStyle(FestiCoreSemanticColor.staticInk.color)
+          .foregroundStyle(labelColor)
           .lineLimit(1)
           .padding(
             .horizontal,
             Metric.labelHorizontalPadding
           )
           .frame(height: Metric.labelHeight)
+          // Figma Map Marker 이름표: Background/Elevated(다크에서 어두운 면)
           .background(
-            FestiCoreSemanticColor.staticWhite.color,
+            FestiCoreSemanticColor.backgroundElevated.color,
             in: RoundedRectangle(cornerRadius: FestiCoreRadius.r4)
           )
           .shadow(
@@ -370,13 +371,22 @@ private extension FestivalZoneMapMarker {
     }
   }
 
+  /// Figma Map Marker 이름표 글자: 깃발 Primary/Normal(다크 라임), 크루 Label/Normal
+  var labelColor: Color {
+    switch marker.kind {
+    case .followedFlag: return FestiCoreSemanticColor.primaryNormal.color
+    case .crew, .otherFlag: return FestiCoreSemanticColor.labelNormal.color
+    }
+  }
+
   @ViewBuilder
   var circle: some View {
     switch marker.kind {
     case .followedFlag:
       bubble(
         size: Metric.followedSize,
-        fill: FestiCoreSemanticColor.staticLime.color
+        fill: FestiCoreSemanticColor.staticLime.color,
+        stroke: FestiCoreSemanticColor.staticWhite.color
       ) {
         Image(asset: .flag16)
           .resizable()
@@ -407,9 +417,11 @@ private extension FestivalZoneMapMarker {
           y: Metric.shadowY
         )
     case .otherFlag:
+      // Figma Map Marker flag-small: Label/Assistive 원, Background/Normal 테두리·아이콘
       bubble(
         size: Metric.otherSize,
-        fill: FestiCoreSemanticColor.labelAssistive.color
+        fill: FestiCoreSemanticColor.labelAssistive.color,
+        stroke: FestiCoreSemanticColor.backgroundNormal.color
       ) {
         Image(asset: .flag16)
           .resizable()
@@ -417,7 +429,7 @@ private extension FestivalZoneMapMarker {
             width: Metric.otherIcon,
             height: Metric.otherIcon
           )
-          .foregroundStyle(FestiCoreSemanticColor.staticWhite.color)
+          .foregroundStyle(FestiCoreSemanticColor.backgroundNormal.color)
       }
     }
   }
@@ -425,6 +437,7 @@ private extension FestivalZoneMapMarker {
   func bubble(
     size: CGFloat,
     fill: Color,
+    stroke: Color,
     @ViewBuilder content: () -> some View
   ) -> some View {
     return content()
@@ -438,7 +451,7 @@ private extension FestivalZoneMapMarker {
       )
       .overlay {
         Circle().strokeBorder(
-          FestiCoreSemanticColor.staticWhite.color,
+          stroke,
           lineWidth: Metric.border
         )
       }
@@ -452,12 +465,13 @@ private extension FestivalZoneMapMarker {
   enum Metric {
     static let box: CGFloat = 40
     static let labeledWidth: CGFloat = 52
-    static let followedSize: CGFloat = 40
+    // Figma Map Marker: flag 36·flag-small 24, 원과 이름표 사이 8
+    static let followedSize: CGFloat = 36
     static let followedIcon: CGFloat = 16
-    static let otherSize: CGFloat = 28
+    static let otherSize: CGFloat = 24
     static let otherIcon: CGFloat = 12
     static let border: CGFloat = 2
-    static let labelSpacing: CGFloat = 6
+    static let labelSpacing: CGFloat = 8
     static let labelHeight: CGFloat = 22
     static let labelHorizontalPadding: CGFloat = 6
     static let labelShadowRadius: CGFloat = 2
@@ -473,20 +487,21 @@ struct FestivalZoneMapCluster: View {
   let count: Int
 
   var body: some View {
+    // Figma Map Marker count: Inverse/Background 원, Inverse/Label 글자, Background/Elevated 테두리
     Text("+\(count)")
       .festiCoreFont(.baseCaption1Bold)
-      .foregroundStyle(FestiCoreSemanticColor.staticWhite.color)
+      .foregroundStyle(FestiCoreSemanticColor.inverseLabel.color)
       .frame(
         width: Metric.size,
         height: Metric.size
       )
       .background(
-        FestiCoreSemanticColor.staticInk.color,
+        FestiCoreSemanticColor.inverseBackground.color,
         in: Circle()
       )
       .overlay {
         Circle().strokeBorder(
-          FestiCoreSemanticColor.staticWhite.color,
+          FestiCoreSemanticColor.backgroundElevated.color,
           lineWidth: Metric.border
         )
       }
@@ -502,7 +517,7 @@ struct FestivalZoneMapCluster: View {
 
 private extension FestivalZoneMapCluster {
   enum Metric {
-    static let size: CGFloat = 32
+    static let size: CGFloat = 28
     static let box: CGFloat = 40
     static let border: CGFloat = 2
     // Figma Map Marker 그림자 blur 6. SwiftUI radius는 Figma blur의 절반이다.
@@ -541,9 +556,10 @@ struct FestivalZoneMapLegend: View {
         )
       }
     }
+    // Figma Map Legend: 좌우 10
     .padding(
       .horizontal,
-      FestiCoreSpacing.paddingP12
+      Metric.horizontalPadding
     )
     .frame(height: Metric.height)
     .background(
@@ -580,13 +596,14 @@ private extension FestivalZoneMapLegend {
           height: Metric.dot
         )
       Text(title)
-        .festiCoreFont(.baseCaption1Medium)
+        .festiCoreFont(.baseCaption1Regular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
     }
   }
 
   enum Metric {
     static let height: CGFloat = 28
+    static let horizontalPadding: CGFloat = 10
     static let dot: CGFloat = 8
     static let shadowRadius: CGFloat = 4
     static let shadowY: CGFloat = 2
