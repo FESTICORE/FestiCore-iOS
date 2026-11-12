@@ -55,12 +55,15 @@ jobs:
         with:
           plist-base64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
       - name: Verify Tuist authentication
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' }}
         run: test -n "$TUIST_TOKEN"
       - name: Setup Tuist cache
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' }}
         continue-on-error: true
         timeout-minutes: 3
         run: bash Scripts/setup-tuist-cache.sh
       - name: Setup Tuist insights
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' }}
         continue-on-error: true
         timeout-minutes: 3
         run: mise exec -- tuist setup insights
@@ -82,6 +85,7 @@ jobs:
             ${FESTICORE_MIXPANEL_TOKEN:+"FESTICORE_MIXPANEL_TOKEN=$FESTICORE_MIXPANEL_TOKEN"} \
             COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
       - name: Share private Tuist preview
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' }}
         run: |
           APP_PATH="$CI_DERIVED_DATA/Build/Products/Stage-iphonesimulator/FestiCore.app"
           test -d "$APP_PATH"

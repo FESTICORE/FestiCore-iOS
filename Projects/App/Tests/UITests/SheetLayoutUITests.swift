@@ -24,6 +24,12 @@ final class SheetLayoutUITests: XCTestCase {
       notificationDeny.tap()
     }
 
+    // 로그아웃 상태로 켜면 S14 A 첫 진입 화면이 홈을 덮는다. 건너뛰고 홈에서 로그인 시트를 연다.
+    let launchLoginSkip = app.buttons["launchLogin.skip"]
+    if launchLoginSkip.waitForExistence(timeout: 8) {
+      launchLoginSkip.tap()
+    }
+
     let listTitle = app.staticTexts["페스티벌"].firstMatch
     XCTAssertTrue(listTitle.waitForExistence(timeout: 20))
     let titleY = listTitle.frame.minY

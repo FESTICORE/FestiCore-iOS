@@ -92,7 +92,7 @@ jobs:
           plist-base64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
 
       - name: Setup Tuist cache
-        if: steps.source.outputs.already_current != 'true'
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' && (steps.source.outputs.already_current != 'true') }}
         continue-on-error: true
         timeout-minutes: 3
         run: bash Scripts/setup-tuist-cache.sh

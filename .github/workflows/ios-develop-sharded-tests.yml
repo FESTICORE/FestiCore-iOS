@@ -44,12 +44,14 @@ jobs:
           plist-base64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
 
       - name: Setup Tuist cache
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' }}
         continue-on-error: true
         timeout-minutes: 3
         run: bash Scripts/setup-tuist-cache.sh
 
       # Build Insights가 빌드 중 CPU/메모리 같은 러너 메트릭도 함께 수집하게 한다.
       - name: Setup Tuist insights
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' }}
         continue-on-error: true
         timeout-minutes: 3
         run: mise exec -- tuist setup insights
@@ -125,6 +127,7 @@ jobs:
             COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
 
       - name: Inspect bundle size
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' }}
         run: |
           mise exec -- tuist inspect bundle FestiCore \
             --platforms ios \
@@ -288,6 +291,7 @@ jobs:
           mise exec -- tuist install
 
       - name: Setup Tuist cache
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' }}
         id: tuist-cache
         continue-on-error: true
         timeout-minutes: 3
