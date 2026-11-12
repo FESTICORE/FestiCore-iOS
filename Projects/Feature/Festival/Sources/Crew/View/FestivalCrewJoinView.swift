@@ -65,14 +65,46 @@ private extension FestivalCrewJoinView {
       .action(FCCardAction("다시 시도") { send(.retryTapped) })
     case .loaded:
       if let invite = store.invite {
-        invitation(invite)
+        invitation(
+          invite,
+          blocker: store.state.blocker(now: .now)
+        )
       }
     }
   }
 
+  /// Figma S08 Contents: 간격 24, Hero 간격 12
   @ViewBuilder
-  func invitation(_ invite: FestivalCrewInvite) -> some View {
-    VStack(spacing: FestiCoreSpacing.paddingP16) {
+  func invitation(
+    _ invite: FestivalCrewInvite,
+    blocker: FestivalCrewJoinFeature.Blocker?
+  ) -> some View {
+    VStack(spacing: FestiCoreSpacing.paddingP24) {
+      hero(
+        invite,
+        isBlocked: blocker != nil
+      )
+      if let blocker {
+        inlineMessage(
+          blocker,
+          inviter: invite.inviterNickname
+        )
+      }
+      detailCard(
+        invite,
+        isExpired: blocker == .expired
+      )
+      if blocker == nil {
+        notice
+      }
+    }
+  }
+
+  func hero(
+    _ invite: FestivalCrewInvite,
+    isBlocked: Bool
+  ) -> some View {
+    return VStack(spacing: FestiCoreSpacing.marginM12) {
       Image(asset: .users24)
         .resizable()
         .frame(
@@ -90,20 +122,64 @@ private extension FestivalCrewJoinView {
         )
         .accessibilityHidden(true)
       Text(invite.inviterNickname.map { "\($0)님이 크루에 초대했어요" } ?? "크루에 초대받았어요")
-        .festiCoreFont(.baseFootnoteMedium)
-        .festiCoreLineBox(.baseFootnoteMedium)
+        .festiCoreFont(.baseSubheadlineRegular)
+        .festiCoreLineBox(.baseSubheadlineRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+      // Figma S08 크루 이름: Point/Title. 참여할 수 없으면 Label/Assistive로 흐리게 둔다.
       Text(invite.crewName)
-        .festiCoreFont(.baseLargeTitleBold)
-        .festiCoreLineBox(.baseLargeTitleBold)
-        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+        .festiCoreFont(.pointTitle)
+        .festiCoreLineBox(.pointTitle)
+        .foregroundStyle(isBlocked
+          ? FestiCoreSemanticColor.labelAssistive.color
+          : FestiCoreSemanticColor.labelNormal.color)
         .multilineTextAlignment(.center)
-      detailCard(invite)
-      notice
     }
   }
 
-  func detailCard(_ invite: FestivalCrewInvite) -> some View {
+  /// Figma S08 Inline Message: 아이콘 16 + 간격 6, Footnote/Regular · Status/Negative
+  func inlineMessage(
+    _ blocker: FestivalCrewJoinFeature.Blocker,
+    inviter: String?
+  ) -> some View {
+    let text: String
+    switch blocker {
+    case .expired:
+      text = "초대 링크가 만료됐어요 · \(inviter.map { "\($0)님" } ?? "크루장")에게 새 링크를 받아 주세요"
+    case .full:
+      text = "크루가 가득 찼어요 · 최대 \(FestivalCrew.maxMembers)명까지 들어갈 수 있어요"
+    }
+    return HStack(
+      alignment: .top,
+      spacing: Metric.inlineSpacing
+    ) {
+      Image(asset: .triangleExclamation16)
+        .resizable()
+        .frame(
+          width: Metric.noticeIconSize,
+          height: Metric.noticeIconSize
+        )
+        .padding(
+          .top,
+          Metric.inlineIconTop
+        )
+        .accessibilityHidden(true)
+      Text(text)
+        .festiCoreFont(.baseFootnoteRegular)
+        .festiCoreLineBox(.baseFootnoteRegular)
+        .frame(
+          maxWidth: .infinity,
+          alignment: .leading
+        )
+    }
+    .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
+  }
+
+  /// Figma S08 Info Card: 테두리 없이 Background/Elevated, 줄마다 위아래 16
+  func detailCard(
+    _ invite: FestivalCrewInvite,
+    isExpired: Bool
+  ) -> some View {
+    let expiry = "\(invite.expiresAt.formatted(.festivalDay)) \(invite.expiresAt.formatted(.time))"
     return VStack(spacing: .zero) {
       detailRow(
         "페스티벌",
@@ -117,7 +193,7 @@ private extension FestivalCrewJoinView {
       )
       detailRow(
         "초대 만료",
-        value: "\(invite.expiresAt.formatted(.festivalDay)) \(invite.expiresAt.formatted(.time))",
+        value: isExpired ? "\(expiry) · 만료" : expiry,
         showsDivider: false
       )
     }
@@ -125,21 +201,10 @@ private extension FestivalCrewJoinView {
       .horizontal,
       FestiCoreSpacing.paddingP16
     )
-    .padding(
-      .vertical,
-      Metric.cardBorder
-    )
     .background(
       FestiCoreSemanticColor.backgroundElevated.color,
       in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
     )
-    .overlay {
-      RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
-        .strokeBorder(
-          FestiCoreSemanticColor.lineNormal.color,
-          lineWidth: Metric.cardBorder
-        )
-    }
   }
 
   func detailRow(
@@ -189,27 +254,27 @@ private extension FestivalCrewJoinView {
           alignment: .leading
         )
     }
-    .padding(
-      .horizontal,
-      FestiCoreSpacing.paddingP16
-    )
-    .padding(
-      .vertical,
-      FestiCoreSpacing.paddingP12
-    )
+    // Figma S08 Notice: 사방 12, Fill/Strong
+    .padding(FestiCoreSpacing.paddingP12)
     .background(
-      FestiCoreSemanticColor.fillNormal.color,
+      FestiCoreSemanticColor.fillStrong.color,
       in: RoundedRectangle(cornerRadius: FestiCoreRadius.r12)
     )
   }
 
+  /// 참여할 수 없는 초대(S08 B·C)는 닫기 하나만 둔다.
   var footer: some View {
     return HStack(spacing: FestiCoreSpacing.paddingP8) {
-      FCButton("취소") { send(.cancelTapped) }
-        .style(.ghost)
-      FCButton(store.isJoining ? "참여하는 중" : "참여하기") { send(.joinTapped) }
-        .isFullWidth(true)
-        .isEnabled(store.load == .loaded && !store.isJoining)
+      if store.load == .loaded, store.state.blocker(now: .now) != nil {
+        FCButton("닫기") { send(.cancelTapped) }
+          .isFullWidth(true)
+      } else {
+        FCButton("취소") { send(.cancelTapped) }
+          .style(.ghost)
+        FCButton(store.isJoining ? "참여하는 중" : "참여하기") { send(.joinTapped) }
+          .isFullWidth(true)
+          .isEnabled(store.load == .loaded && !store.isJoining)
+      }
     }
     .padding(
       .top,
@@ -232,12 +297,14 @@ private extension FestivalCrewJoinView {
   }
 
   enum Metric {
-    static let horizontalPadding: CGFloat = 24
-    static let topPadding: CGFloat = 48
+    static let horizontalPadding: CGFloat = 20
+    static let topPadding: CGFloat = 40
     static let badgeSize: CGFloat = 72
     static let iconSize: CGFloat = 24
-    static let rowHeight: CGFloat = 51
-    static let lastRowHeight: CGFloat = 50
+    static let rowHeight: CGFloat = 55
+    static let lastRowHeight: CGFloat = 54
+    static let inlineSpacing: CGFloat = 6
+    static let inlineIconTop: CGFloat = 1
     static let cardBorder: CGFloat = 1
     static let noticeIconSize: CGFloat = 16
     static let skeletonHeight: CGFloat = 154

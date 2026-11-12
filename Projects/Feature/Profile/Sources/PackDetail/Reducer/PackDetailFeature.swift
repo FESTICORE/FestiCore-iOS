@@ -6,6 +6,7 @@
 //
 
 import ComposableArchitecture
+import FestiCoreLocationInterface
 import FestiCoreSharedUI
 import FestivalDomainInterface
 import Foundation
@@ -33,6 +34,8 @@ public struct PackDetailFeature {
     /// 팩 관리 탭 아래에 잠깐 보이는 결과 문구
     public var manageMessage: String?
     public var autoDownloadOnWiFi = true
+    /// 설치된 지도 앱. 확인 전(nil)에는 앱 이름으로 두고, 없는 앱은 "웹 ↗" 버튼으로 바꾼다(Figma S11 G).
+    public var installedMapApps: Set<MapApp>?
     @Presents public var destination: Destination.State?
 
     public init(festivalID: String, title: String) {
@@ -85,6 +88,8 @@ public struct PackDetailFeature {
   @CasePathable
   public enum View: Equatable {
     case onAppear
+    /// 가는 길 탭이 보일 때 지도 앱 설치 여부를 다시 확인한다.
+    case directionsAppeared
     case backTapped
     case tabSelected(Tab)
     case linkTapped(URL)
@@ -105,6 +110,7 @@ public struct PackDetailFeature {
   @CasePathable
   public enum AsyncAction: Equatable {
     case load
+    case checkMapApps
     case fetchChanges(fromVersion: Int)
     case update
     case delete
@@ -116,6 +122,7 @@ public struct PackDetailFeature {
   public enum InnerAction: Equatable {
     case loaded(FestivalPackDetail?, FestivalChecklist, autoDownloadOnWiFi: Bool)
     case loadFailed
+    case mapAppsChecked(Set<MapApp>)
     case changesLoaded(FestivalPackChanges)
     case updateFinished(FestivalPackDetail?)
     case updateFailed(UpdateFailure)
@@ -138,6 +145,7 @@ public struct PackDetailFeature {
   @Dependency(\.festivalPackDetailUseCase) private var packDetailUseCase
   @Dependency(\.uuid) private var uuid
   @Dependency(\.openURL) private var openURL
+  @Dependency(\.mapAppClient) private var mapAppClient
 
   public var body: some ReducerOf<Self> {
     BindingReducer()
@@ -206,6 +214,9 @@ extension PackDetailFeature {
       guard state.detail == nil else { return .none }
       state.load = .loading
       return .send(.async(.load))
+
+    case .directionsAppeared:
+      return .send(.async(.checkMapApps))
 
     case .backTapped:
       return .send(.delegate(.backRequested))
@@ -296,6 +307,15 @@ extension PackDetailFeature {
       }
       .cancellable(id: CancelID.load, cancelInFlight: true)
 
+    case .checkMapApps:
+      return .run { send in
+        var installed = Set<MapApp>()
+        for app in MapApp.allCases where await mapAppClient.isInstalled(app) {
+          installed.insert(app)
+        }
+        await send(.inner(.mapAppsChecked(installed)))
+      }
+
     case .fetchChanges(let fromVersion):
       return .run { send in
         // 변경 요약을 받지 못해도 업데이트 받기는 할 수 있다.
@@ -347,6 +367,10 @@ extension PackDetailFeature {
       state.title = detail.pack.name
       state.load = .loaded
       return fetchChangesIfNeeded(state)
+
+    case let .mapAppsChecked(installed):
+      state.installedMapApps = installed
+      return .none
 
     case .loadFailed:
       state.load = .failed

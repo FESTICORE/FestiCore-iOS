@@ -26,6 +26,12 @@ public struct FestivalCrewJoinFeature {
     }
   }
 
+  /// 불러온 초대로는 참여할 수 없는 까닭(Figma S08 B 만료·C 정원 초과). 참여 대신 닫기만 둔다.
+  public enum Blocker: Equatable, Sendable {
+    case expired
+    case full
+  }
+
   public enum Load: Equatable, Sendable {
     case loading
     case loaded
@@ -197,5 +203,14 @@ private extension FestivalCrewJoinFeature {
     case .termsRequired: return "최신 이용약관에 동의한 뒤 다시 시도해 주세요."
     default: return "연결을 확인한 뒤 다시 시도해 주세요."
     }
+  }
+}
+
+extension FestivalCrewJoinFeature.State {
+  func blocker(now: Date) -> FestivalCrewJoinFeature.Blocker? {
+    guard let invite else { return nil }
+    if invite.expiresAt <= now { return .expired }
+    if invite.memberCount >= FestivalCrew.maxMembers { return .full }
+    return nil
   }
 }

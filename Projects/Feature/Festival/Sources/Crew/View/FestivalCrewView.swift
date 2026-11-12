@@ -31,7 +31,9 @@ public struct FestivalCrewView: View {
         edge: .bottom,
         spacing: .zero
       ) {
-        statusPanel
+        if !presentation.isArchived {
+          statusPanel
+        }
       }
     }
     .overlay(alignment: .top) { toast }
@@ -81,16 +83,26 @@ private extension FestivalCrewView {
   @ViewBuilder
   func content(_ presentation: FestivalCrewPresentation) -> some View {
     ScrollView {
+      // Figma S07 Contents: 간격 16
       VStack(
         alignment: .leading,
-        spacing: FestiCoreSpacing.marginM12
+        spacing: FestiCoreSpacing.paddingP16
       ) {
-        summaryRow(presentation)
-        FCButton(presentation.gatherTitle) { send(.gatherTapped) }
-          .isFullWidth(true)
-          .isEnabled(presentation.canGather)
-        if let notice = presentation.gatherNotice {
-          gatherNotice(notice)
+        if presentation.isArchived {
+          // Figma S07 I: 끝난 크루는 안내 띠와 기록만 둔다.
+          FCBanner("페스티벌이 끝났어요 · 기록만 볼 수 있어요") {}
+            .icon(.circleInfo16)
+            .showsChevron(false)
+            .allowsHitTesting(false)
+          summaryText(presentation)
+        } else {
+          summaryRow(presentation)
+          FCButton(presentation.gatherTitle) { send(.gatherTapped) }
+            .isFullWidth(true)
+            .isEnabled(presentation.canGather)
+          if let notice = presentation.gatherNotice {
+            FCSourceLine(notice)
+          }
         }
         members(presentation)
       }
@@ -101,16 +113,8 @@ private extension FestivalCrewView {
 
   @ViewBuilder
   func summaryRow(_ presentation: FestivalCrewPresentation) -> some View {
-    HStack(spacing: FestiCoreSpacing.paddingP8) {
-      Text(presentation.summary)
-        .festiCoreFont(.baseFootnoteMedium)
-        .festiCoreLineBox(.baseFootnoteMedium)
-        .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
-        .lineLimit(1)
-        .frame(
-          maxWidth: .infinity,
-          alignment: .leading
-        )
+    HStack(spacing: FestiCoreSpacing.marginM12) {
+      summaryText(presentation)
       if let url = store.inviteURL {
         inviteButton(url)
       }
@@ -118,9 +122,25 @@ private extension FestivalCrewView {
     .frame(height: Metric.summaryHeight)
   }
 
+  /// Figma S07 Summary 글자: Footnote/Regular · Label/Neutral
+  func summaryText(_ presentation: FestivalCrewPresentation) -> some View {
+    return Text(presentation.summary)
+      .festiCoreFont(.baseFootnoteRegular)
+      .festiCoreLineBox(.baseFootnoteRegular)
+      .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+      .lineLimit(1)
+      .frame(
+        maxWidth: .infinity,
+        alignment: .leading
+      )
+  }
+
   /// 초대 링크는 시스템 공유 시트로 보낸다. 모양은 보조 버튼과 같다.
-  func inviteButton(_ url: URL) -> some View {
-    return FCButton("초대 링크") {}
+  func inviteButton(
+    _ url: URL,
+    title: String = "초대 링크"
+  ) -> some View {
+    return FCButton(title) {}
       .style(.secondary)
       .size(.medium)
       .allowsHitTesting(false)
@@ -131,38 +151,6 @@ private extension FestivalCrewView {
         }
         .accessibilityLabel("초대 링크 공유")
       }
-  }
-
-  func gatherNotice(_ notice: String) -> some View {
-    return HStack(spacing: Metric.noticeSpacing) {
-      Image(asset: .circleCheck16)
-        .resizable()
-        .frame(
-          width: Metric.noticeIconSize,
-          height: Metric.noticeIconSize
-        )
-        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-        .accessibilityHidden(true)
-      Text(notice)
-        .festiCoreFont(.baseFootnoteBold)
-        .festiCoreLineBox(.baseFootnoteBold)
-        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-        .lineLimit(1)
-        .minimumScaleFactor(Metric.minimumScale)
-    }
-    .padding(
-      .horizontal,
-      FestiCoreSpacing.paddingP12
-    )
-    .frame(
-      maxWidth: .infinity,
-      minHeight: Metric.noticeHeight,
-      alignment: .leading
-    )
-    .background(
-      FestiCoreSemanticColor.fillNormal.color,
-      in: RoundedRectangle(cornerRadius: FestiCoreRadius.r12)
-    )
   }
 
   @ViewBuilder
@@ -178,44 +166,117 @@ private extension FestivalCrewView {
       )
       .action(FCCardAction("다시 시도") { send(.retryTapped) })
     } else {
+      // Figma S07 Crew Card: 머리(크루원 · 4 / 12) 아래 크루원 줄. 테두리 없이 Background/Elevated
       VStack(spacing: .zero) {
+        cardHeader(presentation)
         ForEach(presentation.members) { member in
           memberRow(member)
         }
+        if presentation.members.count == 1, !presentation.isArchived {
+          aloneEmpty
+        }
       }
-      .padding(
-        .vertical,
-        FestiCoreSpacing.paddingP4
-      )
       .background(
         FestiCoreSemanticColor.backgroundElevated.color,
         in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
       )
-      .overlay {
-        RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
-          .strokeBorder(
-            FestiCoreSemanticColor.lineNormal.color,
-            lineWidth: Metric.borderWidth
-          )
+    }
+  }
+
+  /// Figma S07 Crew Card Header: 위 16·아래 4·좌우 16
+  func cardHeader(_ presentation: FestivalCrewPresentation) -> some View {
+    return HStack(spacing: FestiCoreSpacing.paddingP8) {
+      Text("크루원")
+        .festiCoreFont(.baseHeadlineBold)
+        .festiCoreLineBox(.baseHeadlineBold)
+        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+        .accessibilityAddTraits(.isHeader)
+      Spacer(minLength: .zero)
+      Text(presentation.memberCount)
+        .festiCoreFont(.baseFootnoteMedium)
+        .festiCoreLineBox(.baseFootnoteMedium)
+        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+    }
+    .padding(
+      .top,
+      FestiCoreSpacing.paddingP16
+    )
+    .padding(
+      .bottom,
+      FestiCoreSpacing.paddingP4
+    )
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP16
+    )
+  }
+
+  /// Figma S07 C 혼자만 있음: 아이콘 원 48, 제목, 안내, 초대 링크 보내기
+  var aloneEmpty: some View {
+    return VStack(spacing: FestiCoreSpacing.marginM12) {
+      Image(asset: .users24)
+        .resizable()
+        .frame(
+          width: Metric.emptyIconSize,
+          height: Metric.emptyIconSize
+        )
+        .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+        .frame(
+          width: Metric.emptyBadgeSize,
+          height: Metric.emptyBadgeSize
+        )
+        .background(
+          FestiCoreSemanticColor.fillNormal.color,
+          in: Circle()
+        )
+        .accessibilityHidden(true)
+      Text("아직 아무도 안 들어왔어요")
+        .festiCoreFont(.baseHeadlineBold)
+        .festiCoreLineBox(.baseHeadlineBold)
+        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+      Text("초대 링크를 단톡방에 보내 보세요 · 48시간 유효")
+        .festiCoreFont(.baseFootnoteRegular)
+        .festiCoreLineBox(.baseFootnoteRegular)
+        .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+        .multilineTextAlignment(.center)
+      if let url = store.inviteURL {
+        inviteButton(
+          url,
+          title: "초대 링크 보내기"
+        )
       }
     }
+    .frame(maxWidth: .infinity)
+    .padding(
+      .vertical,
+      FestiCoreSpacing.paddingP24
+    )
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP16
+    )
   }
 
   /// `FCCrewRow`와 같은 구성. 존이 없으면 칩을 그리지 않는다.
   func memberRow(_ member: FestivalCrewPresentation.Member) -> some View {
     let primary = member.isInactive ? FestiCoreSemanticColor.labelAssistive : .labelNormal
-    // Figma S07 Crew Row: 아바타와 이름 사이 간격 12
-    return HStack(spacing: FestiCoreSpacing.marginM12) {
+    // Figma S07 Crew Row(DesignKit FCCrewRow): 아바타와 이름 사이 간격 16
+    return HStack(spacing: FestiCoreSpacing.paddingP16) {
       FCAvatar(member.nickname)
-      // Figma S07 Crew Row(높이 78): 이름 줄 상자 24 + 간격 4 + 존 칩 26
+      // Figma S07 Crew Row(높이 82): 이름 줄 상자 24 + 간격 8 + 존 칩 26
       VStack(
         alignment: .leading,
-        spacing: FestiCoreSpacing.paddingP4
+        spacing: FestiCoreSpacing.paddingP8
       ) {
-        Text(member.nickname)
-          .festiCoreFont(.baseCalloutBold)
-          .festiCoreLineBox(.baseCalloutBold)
-          .foregroundStyle(primary.color)
+        HStack(spacing: FestiCoreSpacing.paddingP4) {
+          Text(member.nickname)
+            .festiCoreFont(.baseCalloutBold)
+            .festiCoreLineBox(.baseCalloutBold)
+            .foregroundStyle(primary.color)
+          if member.isMe {
+            FCTag("나")
+          }
+        }
         HStack(spacing: FestiCoreSpacing.paddingP8) {
           if let zone = member.zone {
             FCZoneChip(zone) {}
@@ -256,14 +317,14 @@ private extension FestivalCrewView {
   }
 
   var statusPanel: some View {
-    // Figma S07 My Status(65-3992): 위 12·아래 8·좌우 16, 간격 8, 안내 Caption1/Bold
+    // Figma S07 My Status(457-20938): 위 12·아래 8·좌우 16, 간격 10, 안내 Caption1/Medium
     return VStack(
       alignment: .leading,
-      spacing: FestiCoreSpacing.marginM8
+      spacing: Metric.statusSpacing
     ) {
-      Text("내 상태 · 탭 한 번이면 공유돼요")
-        .festiCoreFont(.baseCaption1Bold)
-        .festiCoreLineBox(.baseCaption1Bold)
+      Text("내 상태 · 탭 한 번이면 크루원에게 공유돼요")
+        .festiCoreFont(.baseCaption1Medium)
+        .festiCoreLineBox(.baseCaption1Medium)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       HStack(spacing: FestiCoreSpacing.paddingP8) {
         ForEach(
@@ -364,10 +425,9 @@ private extension FestivalCrewView {
   enum Metric {
     static let refreshInterval: TimeInterval = 30
     static let summaryHeight: CGFloat = 40
-    static let noticeHeight: CGFloat = 42
-    static let noticeIconSize: CGFloat = 16
-    static let noticeSpacing: CGFloat = 6
-    static let minimumScale: CGFloat = 0.8
+    static let statusSpacing: CGFloat = 10
+    static let emptyBadgeSize: CGFloat = 48
+    static let emptyIconSize: CGFloat = 24
     static let skeletonHeight: CGFloat = 322
     static let borderWidth: CGFloat = 1
     static let inactiveOpacity: Double = 0.6

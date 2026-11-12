@@ -19,3 +19,9 @@ extension AppleMapsClientDependency: DependencyKey {
     return MapKitAppleMapsClient()
   }
 }
+
+extension MapAppClientDependency: DependencyKey {
+  public static var liveValue: any MapAppClient {
+    return UIKitMapAppClient()
+  }
+}

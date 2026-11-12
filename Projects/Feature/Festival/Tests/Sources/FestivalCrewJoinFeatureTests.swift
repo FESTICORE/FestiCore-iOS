@@ -101,4 +101,26 @@ struct FestivalCrewJoinFeatureTests {
     await store.receive(\.async.load)
     await store.receive(\.inner.loadFailed) { $0.load = .unavailable }
   }
+
+  /// Figma S08 B·C: 만료된 초대와 정원이 찬 크루는 참여 대신 닫기만 둔다.
+  @Test func blockerFollowsExpiryAndCapacity() {
+    var state = FestivalCrewJoinFeature.State(
+      code: "K7P2QX",
+      hasSession: true
+    )
+    #expect(state.blocker(now: Date(timeIntervalSince1970: 0)) == nil)
+    state.invite = invite
+    #expect(state.blocker(now: Date(timeIntervalSince1970: -60)) == nil)
+    #expect(state.blocker(now: Date(timeIntervalSince1970: 0)) == .expired)
+    state.invite = FestivalCrewInvite(
+      code: "K7P2QX",
+      crewName: "펜타 크루",
+      festivalID: "fst_a",
+      festivalName: "펜타포트",
+      inviterNickname: "민지",
+      memberCount: FestivalCrew.maxMembers,
+      expiresAt: Date(timeIntervalSince1970: 0)
+    )
+    #expect(state.blocker(now: Date(timeIntervalSince1970: -60)) == .full)
+  }
 }

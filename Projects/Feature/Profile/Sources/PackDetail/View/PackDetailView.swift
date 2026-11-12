@@ -7,6 +7,7 @@
 
 import ComposableArchitecture
 import FestiCoreDesignKit
+import FestiCoreLocationInterface
 import FestiCoreSharedUI
 import FestiCoreUtility
 import FestivalDomainInterface
@@ -214,13 +215,35 @@ extension PackDetailView {
     if directions.naverMapURL != nil || directions.kakaoMapURL != nil {
       HStack(spacing: FestiCoreSpacing.paddingP8) {
         if let url = directions.naverMapURL {
-          linkButton("네이버 지도", url: url)
+          linkButton(
+            mapTitle(
+              "네이버 지도",
+              app: .naver
+            ),
+            url: url
+          )
         }
         if let url = directions.kakaoMapURL {
-          linkButton("카카오맵", url: url)
+          linkButton(
+            mapTitle(
+              "카카오맵",
+              app: .kakao
+            ),
+            url: url
+          )
         }
       }
+      .task { send(.directionsAppeared) }
     }
+  }
+
+  /// Figma S11 G: 지도 앱이 없으면 같은 https 링크를 웹으로 연다고 알린다.
+  private func mapTitle(
+    _ title: String,
+    app: MapApp
+  ) -> String {
+    guard let installed = store.installedMapApps, !installed.contains(app) else { return title }
+    return "\(title) 웹 ↗"
   }
 
   private func linkButton(_ title: String, url: URL) -> some View {
