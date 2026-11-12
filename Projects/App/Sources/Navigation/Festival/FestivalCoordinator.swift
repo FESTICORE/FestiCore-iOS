@@ -83,6 +83,8 @@ struct FestivalCoordinator {
     case loginRequested
     case flagTabRequested
     case crewLoginRequested
+    /// 초대 링크 참여 중 로그인 요청(Figma S08 E). 시트 문구에 크루 이름을 넣는다.
+    case crewJoinLoginRequested(crewName: String?)
     case followLoginRequested
     case flagDirectoryRequested
     case packDirectionsRequested(festivalID: String, title: String)
@@ -429,7 +431,8 @@ struct FestivalCoordinator {
       id: _,
       action: .crewJoin(.delegate(.loginRequested))
     )):
-      return .send(.delegate(.crewLoginRequested))
+      let crewName = state.routes.last(where: { $0.screen.is(\.crewJoin) })?.screen.crewJoin?.crewName
+      return .send(.delegate(.crewJoinLoginRequested(crewName: crewName)))
 
     case let .router(.routeAction(id: _,action: .crewJoin(.delegate(.joined(crewID, festivalID))))):
       state.routes.removeAll { $0.screen.is(\.crewJoin) }

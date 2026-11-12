@@ -31,7 +31,8 @@ public struct BearerProfileView: View {
         formContent
       }
     }
-    .background(FestiCoreSemanticColor.backgroundNormal.color)
+    // Figma S10 A~E 화면 배경은 Background/Elevated다.
+    .background(FestiCoreSemanticColor.backgroundElevated.color)
     .photosPicker(isPresented: $isPhotoPickerPresented, selection: $pickedItem, matching: .images)
     .onChange(of: pickedItem) { _, item in
       guard let item else { return }

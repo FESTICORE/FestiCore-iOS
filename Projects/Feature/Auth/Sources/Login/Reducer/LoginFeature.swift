@@ -21,6 +21,8 @@ public struct LoginFeature {
       case profile
       case flag
       case crew
+      /// 초대 링크로 크루에 들어가기(Figma S08 E). 시트 문구에 크루 이름을 넣는다.
+      case crewJoin(crewName: String?)
       case follow
       /// 깃발 상세의 신고하기
       case report

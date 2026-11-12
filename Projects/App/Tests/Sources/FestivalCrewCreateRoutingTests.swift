@@ -149,6 +149,25 @@ struct FestivalCrewCreateRoutingTests {
     }
   }
 
+  @Test("초대 링크 참여 화면의 로그인 요청은 크루 참여 문맥으로 올린다")
+  func crewJoinLoginRequestUsesJoinContext() async {
+    var state = FestivalCoordinator.State()
+    state.routes.push(.crewJoin(.init(
+      code: "K7P2QX",
+      hasSession: false
+    )))
+    let store = TestStore(initialState: state) { FestivalCoordinator() }
+
+    await store.send(.router(.routeAction(
+      id: 1,
+      action: .crewJoin(.delegate(.loginRequested))
+    )))
+    await store.receive { action in
+      guard case .delegate(.crewJoinLoginRequested(crewName: nil)) = action else { return false }
+      return true
+    }
+  }
+
   @Test("계정이 바뀌면 열린 만들기 화면을 닫는다")
   func accountChangeClosesCreateScreen() {
     var state = FestivalCoordinator.State()

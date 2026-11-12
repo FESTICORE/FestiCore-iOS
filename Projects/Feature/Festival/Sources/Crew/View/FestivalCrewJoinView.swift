@@ -377,7 +377,8 @@ private extension FestivalCrewJoinView {
       .bottom,
       Metric.footerBottomPadding
     )
-    .background(FestiCoreSemanticColor.backgroundElevated.color.ignoresSafeArea(edges: .bottom))
+    // Figma S08 Footer는 채우기 없이 화면 배경(Background/Normal) 위에 위 테두리만 둔다.
+    .background(FestiCoreSemanticColor.backgroundNormal.color.ignoresSafeArea(edges: .bottom))
     .overlay(alignment: .top) {
       Rectangle()
         .fill(FestiCoreSemanticColor.lineNormal.color)

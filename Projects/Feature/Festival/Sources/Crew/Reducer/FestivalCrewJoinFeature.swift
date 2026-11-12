@@ -20,6 +20,11 @@ public struct FestivalCrewJoinFeature {
     var pendingLeave: PendingLeave?
     @Presents var alert: FCAlertState<FCAlertAction>?
 
+    /// 로그인 시트 문구(Figma S08 E)에 넣을 초대받은 크루 이름
+    public var crewName: String? {
+      return invite?.crewName
+    }
+
     public init(
       code: String,
       hasSession: Bool

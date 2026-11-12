@@ -125,6 +125,11 @@ private extension LoginModalView {
         "크루와 함께 보려면 로그인이 필요해요",
         "크루원끼리 지금 어느 존에 있는지 서로 볼 수 있어요.\n공연과 타임테이블은 로그인 없이 그대로 쓸 수 있어요."
       )
+    case let .crewJoin(crewName):
+      return (
+        "크루에 들어가려면 로그인이 필요해요",
+        "로그인하면 바로 \(crewName ?? "크루")에 들어가요.\n크루원끼리만 서로의 존과 상태를 볼 수 있어요."
+      )
     case .bookmark:
       return (
         "축제를 저장하려면 로그인이 필요해요",
