@@ -281,6 +281,31 @@ def signed_ipa(scheme, configuration, version, build_number, api_key)
   end
 end
 
+# App Store Connect 업로드가 서버 5xx로 끊기면 잠시 뒤 같은 ipa를 다시 올린다.
+# 재시도에서 같은 빌드 번호가 이미 있다고 하면 앞선 업로드가 끝까지 들어간 것이므로 성공으로 본다.
+def upload_stage_build(api_key:, ipa:)
+  attempts = 0
+  begin
+    attempts += 1
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: ipa,
+      skip_waiting_for_build_processing: true
+    )
+  rescue => e
+    message = e.message.to_s
+    if attempts > 1 && message.match?(/already been used|already exists|DUPLICATE|redundant binary/i)
+      UI.important("앞선 업로드가 이미 등록돼 있어 성공으로 처리한다: #{message.lines.first}")
+      return
+    end
+    transient = message.match?(/status code 5\d\d|Could not download\/upload from App Store Connect|timed out|Connection reset/i)
+    raise e unless transient && attempts < 3
+    UI.important("TestFlight 업로드 일시 실패 (#{attempts}/3) — 60초 뒤 다시 올린다")
+    sleep(60)
+    retry
+  end
+end
+
 platform :ios do
   before_all do
     Dir.chdir(File.expand_path("..", __dir__))
@@ -358,10 +383,9 @@ platform :ios do
     build_number = next_build_number(api_key, version)
     ipa = signed_ipa(STAGE_SCHEME, "Stage", version, build_number, api_key)
     # changelog를 넘기면 pilot이 제한 없이 빌드 등록을 기다리므로 업로드만 한다.
-    upload_to_testflight(
+    upload_stage_build(
       api_key: api_key,
-      ipa: ipa,
-      skip_waiting_for_build_processing: true
+      ipa: ipa
     )
     # 처리 대기·테스트 안내·그룹 배포는 CI의 다음 단계(distribute_internal)가 별도 제한 시간으로 맡는다.
     File.open(ENV["GITHUB_OUTPUT"], "a") { |file| file.puts("build_number=#{build_number}") } if ENV["GITHUB_OUTPUT"]
