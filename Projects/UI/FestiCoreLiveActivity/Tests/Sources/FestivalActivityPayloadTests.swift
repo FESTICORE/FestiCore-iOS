@@ -379,6 +379,13 @@ struct FestivalActivityPayloadTests {
       updatedAt: updatedAt
     ) == nil)
   }
+
+  @Test func finishedActivityDismissesThreeHoursAfterEnd() {
+    let end = Date(timeIntervalSince1970: 10_000)
+
+    #expect(FestiCoreFestivalLiveActivity.finishedDismissalDate(endDate: end) == end.addingTimeInterval(10_800))
+    #expect(FestiCoreFestivalLiveActivity.finishedDismissalDate(endDate: nil) == nil)
+  }
 }
 
 struct FestivalActivityCompanionTextTests {

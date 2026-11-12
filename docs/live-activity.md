@@ -6,6 +6,10 @@
 
 `YYYY-MM-DD` 일정은 서울 시간 그날 00:00부터 다음 날 00:00 전까지로 해석합니다. 오프셋을 포함한 ISO 8601 타임스탬프는 적힌 정확한 시각으로 해석하며 `lastDate`도 종료 시각입니다. 앱이 백그라운드에 있는 동안 그 시각을 지나면 잠금 화면 콘텐츠는 stale로 표시됩니다.
 
-`Projects/Service/FestiCoreDevice`는 기기 등록과 `PUT/DELETE /api/v1/devices/live-activity` 요청을 제공합니다. 앱 시작 시 일반 기기 등록을 시도합니다. ActivityKit push token을 서버에 보내는 제품 연결은 아직 없습니다.
+`Projects/Service/FestiCoreDevice`는 기기 등록과 `PUT/DELETE /api/v1/devices/live-activity` 요청을 제공합니다. 앱 시작 시 일반 기기 등록을 시도하고, 이 요청 body의 `liveActivityPushToStartToken`에 push-to-start 토큰을 함께 보냅니다(`AppDelegate+DeviceRegistration.swift`의 `observeLiveActivityStartToken`이 토큰 변경 시 다시 등록). 활동별 갱신 토큰은 `LiveActivityTokenSync`가 기기당 현재 활동 하나를 골라 `PUT /api/v1/devices/live-activity`로 등록하고, 활동이 없어지면 `DELETE`로 해제합니다. 서버가 이 토큰으로 APNs 갱신을 보내는 구현은 [Backend #152](https://github.com/FESTICORE/FestiCore-Backend/issues/152)에서 진행 중입니다.
 
-현재 확인 범위와 남은 기기 검증은 #105에 기록합니다. 이전에 사용자가 iPhone Duo 잠금 화면 표시를 확인했다고 알려주었지만, 축제 라이브 보드에서 켜기 → 갱신 → 끄기와 접힘·펼침 표시를 제품 흐름으로 재검증해야 합니다. 실기기 원격 갱신은 #58의 별도 완료 조건입니다.
+현재 확인 범위와 남은 기기 검증은 #105에 기록합니다.
+
+- 시작·갱신·종료 경로: 라이브 보드 켜기 → `FestivalLiveActivityClient.start`, 경계·카탈로그 변경 → `update`, 축제 종료 → `finish`(`endFinished`), 끄기 → `end`. `endFinished`는 완료 상태로 바꾸고 공연 종료 3시간 뒤(`dismissalPolicy: .after(end + 3h)`)에 내립니다. 종료 시각이 없으면 시스템 기본 정책을 씁니다.
+- 자동 테스트: `FestiCoreLiveActivityTests`의 `FestivalActivityPayloadTests`(content-state 디코딩·stale 시각·종료 3시간 뒤 해제 시각)와 `FestivalLiveActivityDedupTests`, App 테스트의 `LiveActivityIntegrationTests`(시작·종료·완료 종료)와 `LiveActivityTokenSyncTests`(토큰 등록·교체·해제·재시도)가 시뮬레이터에서 실행됩니다.
+- 실기기 미확인: 축제 라이브 보드에서 켜기 → 갱신 → 끄기를 거친 iPhone Duo 잠금 화면 표시, 접힘·펼침 표시, 종료 3시간 뒤 자동 해제는 실기기로 확인하지 않았습니다. 실기기 원격 시작·갱신은 #58의 별도 완료 조건입니다.

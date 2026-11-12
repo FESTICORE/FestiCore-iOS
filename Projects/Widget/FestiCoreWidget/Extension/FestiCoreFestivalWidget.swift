@@ -119,7 +119,8 @@ extension FestivalWidgetEntry {
     var components = URLComponents()
     components.scheme = "festicore"
     components.host = "festival"
-    if let snapshot, snapshot.hasPack,
+    // 마지막 날 종료 후는 다음 페스티벌을 고르도록 축제 목록(S00)을 연다.
+    if let snapshot, snapshot.hasPack, !isFestivalOver,
        let identifier = snapshot.festivalID.addingPercentEncoding(
          withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))
        ) {
@@ -160,12 +161,19 @@ extension FestivalWidgetEntry {
     return .before
   }
 
+  /// 마지막 날 공연까지 끝났으면 true. 남은 공연이 없을 때의 종료 후 상태다.
+  var isFestivalOver: Bool {
+    return phase == .finished && !performances.contains { $0.startsAt > date }
+  }
+
   var headline: String {
     switch phase {
     case .unavailable: return "정보를 불러오지 못했어요"
     case .noPack: return "페스티벌 고르기"
     case .goingHome: return "귀가 준비!"
-    case .finished: return "오늘 끝!"
+    case .finished:
+      guard isFestivalOver, let snapshot else { return "오늘 끝!" }
+      return "\(snapshot.festivalName) 끝"
     case .playing: return current?.artist ?? "다음 공연 준비 중"
     case .before:
       guard let first = performances.first(where: { $0.startsAt > date }) else { return "공연을 기다려요" }
@@ -193,7 +201,9 @@ extension FestivalWidgetEntry {
     case .unavailable: return "앱에서 다시 확인해 주세요"
     case .noPack: return "팩을 받으면 시작돼요"
     case .goingHome: return snapshot?.leaveAt == nil ? "공연 종료" : "귀가 시간"
-    case .finished: return next == nil ? "다음 페스티벌에서 만나요" : "다음 내 일정"
+    case .finished:
+      if isFestivalOver { return "다음 페스티벌 보기" }
+      return next == nil ? "다음 페스티벌에서 만나요" : "다음 내 일정"
     case .before, .playing: return next == nil ? "내 일정이 없어요" : "다음 내 일정"
     }
   }

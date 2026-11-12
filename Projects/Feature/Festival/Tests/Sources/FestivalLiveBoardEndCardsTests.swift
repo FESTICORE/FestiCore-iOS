@@ -14,11 +14,11 @@ import Testing
 /// 라이브 보드 종료 직전 귀가 카드(E)와 종료 후 요약 카드(F)의 부분·잘못된 데이터 처리(#338)
 @MainActor
 struct FestivalLiveBoardEndCardsTests {
-  @Test("귀가 카드는 빠졌거나 잘못된 시각을 출발편으로 고르지 않고, 탈 수 있는 편이 없으면 숨긴다")
+  @Test("귀가 카드는 빠졌거나 잘못된 시각의 줄을 숨기고 출발편으로 고르지 않으며, 탈 수 있는 편이 없으면 숨긴다")
   func homeRideSkipsMissingOrInvalidTimes() throws {
     let trainOnly = try #require(model(directions: .init(lastTrainAt: "2026-11-08T23:52:00+09:00")).homeRide(now: at("23:00")))
     #expect(trainOnly.remain == "막차까지 52분")
-    #expect(trainOnly.shuttle == "셔틀 시간 미공개")
+    #expect(trainOnly.shuttle == nil)
     #expect(trainOnly.train == "막차 23:52")
 
     let invalidTrain = try #require(model(directions: .init(
@@ -27,6 +27,7 @@ struct FestivalLiveBoardEndCardsTests {
     )).homeRide(now: at("23:00")))
     #expect(invalidTrain.remain == "셔틀까지 40분")
     #expect(invalidTrain.shuttle == "마지막 셔틀 23:40")
+    #expect(invalidTrain.train == nil)
 
     #expect(model(directions: .init(lastShuttleAt: "잘못된 시각")).homeRide(now: at("23:00")) == nil)
     #expect(model(directions: .init()).homeRide(now: at("23:00")) == nil)
