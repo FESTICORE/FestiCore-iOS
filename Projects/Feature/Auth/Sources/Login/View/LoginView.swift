@@ -2,102 +2,297 @@
 //  LoginView.swift
 //  Login
 //
-//  Created by FestiCore on 11/2/26.
+//  Created by FestiCore on 11/12/26.
 //
 
 import ComposableArchitecture
 import FestiCoreDesignKit
 import SwiftUI
 
-/// 로그인이 필요할 때 `presentFCSheet`로 띄우는 소셜 로그인 시트
+/// 로그아웃 상태로 앱을 켰을 때 홈 위를 덮는 S14 A 로그인 첫 진입 화면. 로그인 시트와 같은 `LoginFeature`를 쓴다.
 @ViewAction(for: LoginFeature.self)
 public struct LoginView: View {
   @Bindable public var store: StoreOf<LoginFeature>
+  @Environment(\.colorScheme) private var colorScheme
 
   public init(store: StoreOf<LoginFeature>) {
     self.store = store
   }
 
   public var body: some View {
-    VStack {
-      sheetContent()
-      if let message = store.visibleMessage {
-        Text(message)
-          .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
-          .padding(.bottom, 16)
-      }
+    VStack(spacing: .zero) {
+      introduction()
+        .frame(
+          maxWidth: .infinity,
+          maxHeight: .infinity
+        )
+      actions()
     }
+    .overlay { decorations }
+    .background(FestiCoreSemanticColor.backgroundNormal.color.ignoresSafeArea())
   }
 }
 
 private extension LoginView {
-  enum Metric {
-    static let markSize: CGFloat = 56
-    static let iconSize: CGFloat = 24
+  /// 시안 기준 프레임(393×852). 장식 별 위치는 이 크기에 대한 비율로 놓는다.
+  static let designSize = CGSize(
+    width: 393,
+    height: 852
+  )
+
+  /// 시안 Sparkles(623:24655)의 별 모양. 8각 별과 4각 반짝이 두 가지다.
+  enum DecorationShape {
+    case star8
+    case star4
+
+    var asset: AuthImages {
+      switch self {
+      case .star8: return AuthAsset.sparkleStar8
+      case .star4: return AuthAsset.sparkleStar4
+      }
+    }
   }
 
-  /// 문맥별 마크와 문구, 소셜 로그인 버튼, 나중에 하기 버튼
+  /// 시안 별 색 변수. `secondary`는 라이트에서 Secondary/Normal, 다크 프레임에서 Static/White다.
+  enum DecorationTone {
+    case lime
+    case pink
+    case purple
+    case secondary
+  }
+
+  /// 시안 393×852 기준 장식 별 중심·크기·회전(도)과 색
+  struct Decoration {
+    let shape: DecorationShape
+    let centerX: CGFloat
+    let centerY: CGFloat
+    let size: CGFloat
+    let rotation: Double
+    let tone: DecorationTone
+  }
+
+  static let decorations: [Decoration] = [
+    Decoration(
+      shape: .star8,
+      centerX: 48,
+      centerY: 96,
+      size: 22,
+      rotation: -100,
+      tone: .lime
+    ),
+    Decoration(
+      shape: .star4,
+      centerX: 170,
+      centerY: 64,
+      size: 14,
+      rotation: 40,
+      tone: .secondary
+    ),
+    Decoration(
+      shape: .star8,
+      centerX: 300,
+      centerY: 108,
+      size: 26,
+      rotation: 20,
+      tone: .pink
+    ),
+    Decoration(
+      shape: .star4,
+      centerX: 362,
+      centerY: 196,
+      size: 16,
+      rotation: 100,
+      tone: .lime
+    ),
+    Decoration(
+      shape: .star4,
+      centerX: 34,
+      centerY: 214,
+      size: 16,
+      rotation: -40,
+      tone: .purple
+    ),
+    Decoration(
+      shape: .star8,
+      centerX: 112,
+      centerY: 170,
+      size: 20,
+      rotation: -20,
+      tone: .secondary
+    ),
+    Decoration(
+      shape: .star4,
+      centerX: 252,
+      centerY: 184,
+      size: 12,
+      rotation: -100,
+      tone: .purple
+    ),
+    Decoration(
+      shape: .star8,
+      centerX: 16,
+      centerY: 336,
+      size: 14,
+      rotation: 40,
+      tone: .lime
+    ),
+    Decoration(
+      shape: .star8,
+      centerX: 376,
+      centerY: 318,
+      size: 20,
+      rotation: 20,
+      tone: .purple
+    ),
+    Decoration(
+      shape: .star8,
+      centerX: 22,
+      centerY: 470,
+      size: 22,
+      rotation: 100,
+      tone: .pink
+    ),
+    Decoration(
+      shape: .star4,
+      centerX: 372,
+      centerY: 532,
+      size: 14,
+      rotation: -40,
+      tone: .secondary
+    ),
+    Decoration(
+      shape: .star4,
+      centerX: 70,
+      centerY: 592,
+      size: 18,
+      rotation: -20,
+      tone: .lime
+    ),
+    Decoration(
+      shape: .star4,
+      centerX: 322,
+      centerY: 600,
+      size: 16,
+      rotation: 40,
+      tone: .pink
+    ),
+  ]
+
+  /// 화면 전체에 시안 비율대로 흩뿌린 장식 별. 터치와 읽기 도구에서는 숨긴다.
+  var decorations: some View {
+    GeometryReader { proxy in
+      ForEach(
+        Self.decorations.indices,
+        id: \.self
+      ) { index in
+        let item = Self.decorations[index]
+        Image(asset: item.shape.asset)
+          .renderingMode(.template)
+          .resizable()
+          .frame(
+            width: item.size,
+            height: item.size
+          )
+          .foregroundStyle(color(for: item.tone))
+          .rotationEffect(.degrees(item.rotation))
+          .position(
+            x: proxy.size.width * item.centerX / Self.designSize.width,
+            y: proxy.size.height * item.centerY / Self.designSize.height
+          )
+      }
+    }
+    .ignoresSafeArea()
+    .allowsHitTesting(false)
+    .accessibilityHidden(true)
+  }
+
+  func color(for tone: DecorationTone) -> Color {
+    switch tone {
+    case .lime: return .staticLime
+    case .pink: return .accentPointPink
+    case .purple: return .accentPointPurple
+    case .secondary: return colorScheme == .dark ? .staticWhite : .secondaryNormal
+    }
+  }
+
+  /// 시안 Logo 3D(623:24653) 이미지. 라이트·다크가 같은 이미지다.
+  var logo: some View {
+    return Image(asset: AuthAsset.logo3d)
+      .resizable()
+      .scaledToFit()
+      .frame(
+        width: 280,
+        height: 42.44
+      )
+      .accessibilityLabel(Text("FestiCore"))
+  }
+
+  /// 시안 Contents: 로고 아래 20 간격으로 제목과 설명을 둔다.
   @ViewBuilder
-  func sheetContent() -> some View {
+  func introduction() -> some View {
+    VStack(spacing: FestiCoreSpacing.paddingP20) {
+      logo
+      introductionText()
+    }
+  }
+
+  @ViewBuilder
+  func introductionText() -> some View {
     VStack(spacing: FestiCoreSpacing.paddingP16) {
-      Image(asset: store.context == .crew ? .users24 : .flag)
-        .resizable()
-        .frame(width: Metric.iconSize, height: Metric.iconSize)
-        .foregroundStyle(FestiCoreSemanticColor.staticInk.color)
-        .frame(width: Metric.markSize, height: Metric.markSize)
-        .background(FestiCoreSemanticColor.staticLime.color, in: Circle())
-        .accessibilityHidden(true)
-      VStack(spacing: FestiCoreSpacing.paddingP8) {
-        Text(copy.title)
-          .festiCoreFont(.baseTitle3Bold)
-          .festiCoreLineBox(.baseTitle3Bold)
-          .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-          .accessibilityAddTraits(.isHeader)
-        Text(copy.message)
-          .festiCoreFont(.baseSubheadlineRegular)
-          .festiCoreLineBox(.baseSubheadlineRegular)
-          .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+      Text("가장 뜨거운 현장 속으로")
+        .festiCoreFont(.baseTitle2Bold)
+        .festiCoreLineBox(.baseTitle2Bold)
+        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+        .accessibilityAddTraits(.isHeader)
+      Text("로그인하면 깃발을 팔로우하고 크루를 만들 수 있어요.\n타임테이블과 라이브 보드는 로그인 없이도 볼 수 있어요.")
+        .festiCoreFont(.baseFootnoteRegular)
+        .festiCoreLineBox(.baseFootnoteRegular)
+        .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+    }
+    .multilineTextAlignment(.center)
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP20
+    )
+  }
+
+  /// 소셜 로그인 버튼과 건너뛰기. 건너뛰기는 로그인 시트의 닫기와 같은 동작이다.
+  @ViewBuilder
+  func actions() -> some View {
+    VStack(spacing: FestiCoreSpacing.paddingP12) {
+      if let message = store.visibleMessage {
+        Text(message)
+          .festiCoreFont(.baseFootnoteMedium)
+          .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
+          .multilineTextAlignment(.center)
       }
-      .multilineTextAlignment(.center)
-      .frame(maxWidth: .infinity)
-      .padding(.horizontal, FestiCoreSpacing.paddingP20)
-      VStack(spacing: FestiCoreSpacing.paddingP16) {
-        FCLoginButton(.apple) { send(.signInTapped(.apple)) }
-        FCLoginButton(.google) { send(.signInTapped(.google)) }
-      }
-      .padding(.vertical, FestiCoreSpacing.paddingP8)
-      .padding(.horizontal, FestiCoreSpacing.paddingP20)
-      Button("나중에 할게요") { send(.closeTapped) }
+      LoginProviderButtons(
+        spacing: FestiCoreSpacing.paddingP12
+      ) { send(.signInTapped($0)) }
+      Button("지금은 건너뛸게요") { send(.closeTapped) }
         .festiCoreFont(.baseFootnoteMedium)
         .festiCoreLineBox(.baseFootnoteMedium)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         .buttonStyle(.plain)
+        .padding(
+          .top,
+          FestiCoreSpacing.paddingP4
+        )
+        .accessibilityIdentifier("launchLogin.skip")
     }
-    .padding(.top, FestiCoreSpacing.paddingP8)
-    .padding(.bottom, FestiCoreSpacing.paddingP20)
-    .fixedSize(horizontal: false, vertical: true)
-  }
-
-  /// 로그인을 요청한 문맥에 맞춘 시트 문구
-  var copy: (title: String, message: String) {
-    switch store.context {
-    case .profile:
-      return ("계정 정보를 보려면 로그인이 필요해요", "로그인 후 프로필을 확인할 수 있어요.")
-    case .flag, .follow:
-      return ("깃발을 팔로우 하려면 로그인이 필요해요", "내 취향의 깃발을 팔로우하고,\n함께 페스티벌을 즐길 사람들과 크루를 만들어봐요.")
-    case .crew:
-      return (
-        "크루와 함께 보려면 로그인이 필요해요",
-        "크루원끼리 지금 어느 존에 있는지 서로 볼 수 있어요.\n공연과 타임테이블은 로그인 없이 그대로 쓸 수 있어요."
-      )
-    case .bookmark:
-      return ("축제를 저장하려면 로그인이 필요해요", "로그인 후 선택한 축제를 저장할 수 있어요.")
-    case .report:
-      return (
-        "깃발을 신고하려면 로그인이 필요해요",
-        "로그인 후 문제가 있는 깃발을 신고할 수 있어요."
-      )
-    }
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP16
+    )
+    .padding(
+      .top,
+      FestiCoreSpacing.paddingP12
+    )
+    .padding(
+      .bottom,
+      FestiCoreSpacing.paddingP20
+    )
+    .disabled(store.isSigningIn)
   }
 }
 

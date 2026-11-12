@@ -266,8 +266,8 @@ private extension FestivalLiveBoardScreen {
     .accessibilityHint("알림함으로 이동합니다")
   }
 
-  @ViewBuilder
   /// 목록에서 받기 시작한 팩을 라이브 보드에서도 같은 진행 바·퍼센트로 보인다.
+  @ViewBuilder
   func packDownloadCard(_ download: FestivalPackDownloadDisplay) -> some View {
     return FCPackDownloadProgress(download.text)
       .progress(download.progress)
@@ -298,11 +298,14 @@ private extension FestivalLiveBoardScreen {
               horizontal: false,
               vertical: true
             )
-          Image(systemName: "chevron.down")
-            .font(.system(
-              size: 14,
-              weight: .semibold
-            ))
+          // Figma S01 Festival Title: Chevron Down은 chevron-right 20을 90도 돌린 것이다.
+          Image(asset: .chevronRight20)
+            .resizable()
+            .frame(
+              width: 20,
+              height: 20
+            )
+            .rotationEffect(.degrees(90))
         }
         .festiCoreFont(.baseTitle2Bold)
         // Figma S01 헤더는 줄 높이 박스 기준으로 배치된다.
@@ -560,8 +563,9 @@ private extension FestivalLiveBoardScreen {
           )
           .action(FCCardAction("다시 시도") { send(.retryLiveBoard) })
         } else if model.showsFollowGuide {
+          // Figma S01 D: 팔로우 안내 Empty Card 아이콘은 flag 24다.
           FCEmptyCard(
-            icon: .flag20,
+            icon: .flag,
             title: "만나보고 싶은 깃발이 있나요?",
             message: "팔로우하면 깃발이 움직일 때 조용히 알려 드려요."
           )
@@ -571,11 +575,13 @@ private extension FestivalLiveBoardScreen {
           ) { send(.findFlagTapped) })
           .overlay(alignment: .topTrailing) {
             Button { send(.hideFollowGuideTapped) } label: {
-              Image(systemName: "xmark")
-                .font(.system(
-                  size: 12,
-                  weight: .medium
-                ))
+              // Figma Empty Card Close: xmark 16(Label/Assistive)
+              Image(asset: .xmark16)
+                .resizable()
+                .frame(
+                  width: 16,
+                  height: 16
+                )
                 .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
                 .frame(
                   width: 44,

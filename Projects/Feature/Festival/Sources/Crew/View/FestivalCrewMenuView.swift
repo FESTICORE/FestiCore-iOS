@@ -64,7 +64,7 @@ private extension FestivalCrewMenuView {
     ) {
       menuRow(
         "크루 이름 바꾸기",
-        icon: Image(systemName: "checklist")
+        icon: Image(asset: .listCheck20)
       ) { send(.renameTapped) }
       menuRow(
         "초대 링크 다시 만들기",

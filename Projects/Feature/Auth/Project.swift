@@ -20,6 +20,7 @@ let project = Project.makeModule(
     .SPM.composableArchitecture,
     .SPM.dependencies
   ],
+  resources: ["Resources/**"],
   hasTests: true,
   hasInterface: true,
   interfaceDependencies: [

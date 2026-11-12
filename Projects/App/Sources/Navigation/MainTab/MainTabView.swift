@@ -71,7 +71,7 @@ struct MainTabView: View {
     .overlay {
       // 로그아웃 상태로 켠 앱은 홈을 그리기 전부터 S14 A 첫 진입 화면으로 덮는다.
       if isLaunchLoginPresented {
-        LaunchLoginView(store: store.scope(
+        LoginView(store: store.scope(
           state: \.authFlow.login,
           action: \.auth.login
         ))

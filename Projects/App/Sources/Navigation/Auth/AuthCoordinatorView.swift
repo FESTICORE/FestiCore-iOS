@@ -17,7 +17,7 @@ struct AuthCoordinatorView: View {
   var body: some View {
     switch sheet {
     case .login:
-      LoginView(store: store.scope(
+      LoginModalView(store: store.scope(
         state: \.login,
         action: \.login
       ))
