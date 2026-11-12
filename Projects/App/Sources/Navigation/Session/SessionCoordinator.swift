@@ -208,6 +208,11 @@ private extension SessionCoordinator {
     } else if state.presentation?.acceptsLogin != true {
       state.presentation = nil
     }
+    // 첫 진입 화면에서 이어진 가입 중에 로그인을 잃으면 메인 대신 첫 진입 화면으로 돌아간다.
+    if state.isLaunchFlow, state.presentation == nil {
+      state.presentation = .launchLogin
+    }
+    state.isLaunchFlow = false
     state.clearSignUpDraft()
     if interruptedOperation == .withdraw {
       state.message = State.Message.sessionExpiredDuringWithdraw
@@ -316,7 +321,11 @@ private extension SessionCoordinator {
       state.verifiedUserID = profile.user.id
       state.lastVerifiedUserID = profile.user.id
       state.hasSession = true
-      if profile.isEligible { return finishEligible(state: &state) }
+      if profile.isEligible {
+        // 가입을 마친 계정은 첫 진입 화면에서 바로 메인으로 간다.
+        state.isLaunchFlow = false
+        return finishEligible(state: &state)
+      }
       state.presentation = .onboarding
       // 서버 닉네임을 채우고, 약관 버전이 바뀌면 이전 버전에 체크한 필수 항목을 모두 지운다.
       state.signUp.apply(
@@ -329,6 +338,7 @@ private extension SessionCoordinator {
 
     case .failure(.notAuthenticated):
       let hadSession = state.hasSession
+      state.isLaunchFlow = false
       state.forgetVerifiedAccount()
       // 로그인을 잃으면 다른 계정이 이어받지 않도록 가입 초안과 소유자 없는 대기 예약을 지운다.
       // 처음부터 로그인하지 않은 사용자의 예약은 잃은 계정이 없으므로 유지하고 로그인 시트를 띄운다.
@@ -339,6 +349,7 @@ private extension SessionCoordinator {
       return .send(.delegate(hadSession ? .accountDataCleared : .accountChanged))
 
     case .failure(.offline):
+      state.isLaunchFlow = false
       state.profile = nil
       if let userID = state.verifiedUserID,
          bookedStore.offlineEligible(userID),
@@ -355,6 +366,7 @@ private extension SessionCoordinator {
       return .none
 
     case .failure:
+      state.isLaunchFlow = false
       state.profile = nil
       state.verifiedUserID = nil
       state.presentation = state.pendingFestivalID == nil ? nil : .retry
@@ -388,9 +400,12 @@ private extension SessionCoordinator {
       if profile.isEligible {
         let finished = finishEligible(state: &state)
         // 예약 이전 확인처럼 다른 시트가 이어지면 그 시트를 먼저 끝내고 기수 여부는 묻지 않는다.
-        guard state.presentation == nil else { return finished }
         // 약관에 처음 동의한 신규 가입만 묻는다. 새 약관에 다시 동의한 기존 계정에는 묻지 않는다.
-        guard previous.user.termsAcceptedAt == nil else { return finished }
+        guard state.presentation == nil, previous.user.termsAcceptedAt == nil else {
+          // 기수 설정으로 이어지지 않으면 첫 진입 흐름도 여기서 끝난다.
+          state.isLaunchFlow = false
+          return finished
+        }
         return .merge(
           finished,
           .send(.delegate(.signUpCompleted))

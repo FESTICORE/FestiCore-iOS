@@ -318,11 +318,82 @@ struct AppCoordinatorTests {
     await store.receive(\.scope.home.auth.login.delegate.signInRequested)
     await store.receive(\.scope.home.auth.login.delegate.signedIn)
     #expect(!store.state.isLaunchLoginPresented)
+    guard case let .home(checking) = store.state else { return }
+    // 계정을 확인하는 동안에도 메인 탭을 덮어 홈이 잠깐 보이지 않는다.
+    #expect(checking.authFlow.coversMainTab)
+    #expect(store.state.isMainTabCovered)
     await store.receive(\.scope.home.session.inner.profileLoaded)
     guard case let .home(home) = store.state else { return }
-    // 가입이 필요한 계정이면 기존 가입 시트(S14 B)로 이어진다.
+    // 가입이 필요한 계정이면 메인 대신 첫 진입 화면 위에 가입 정보(S14 B)를 잇는다.
     #expect(home.authFlow.hasSession)
     #expect(home.authFlow.presentation == .onboarding)
+    #expect(home.authFlow.showsLaunchSignUp)
+    #expect(store.state.isMainTabCovered)
+    // 가입 정보에서 뒤로 가면 메인이 아니라 첫 진입 화면으로 돌아간다.
+    await store.send(.scope(.home(.auth(.signUp(.router(.routeAction(
+      id: 0,
+      action: .signUp(.delegate(.closeRequested))
+    )))))))
+    #expect(store.state.isLaunchLoginPresented)
+    guard case let .home(back) = store.state else { return }
+    #expect(!back.authFlow.isLaunchFlow)
+  }
+
+  @Test func launchLoginForEligibleAccountOpensMainAfterProfileCheck() async {
+    let user = AuthUser(
+      id: "user-a",
+      provider: "apple",
+      email: nil,
+      nickname: "로이",
+      nicknameConfirmed: true,
+      termsAcceptedAt: "2026-10-01T00:00:00.000Z",
+      termsVersion: "2026-10",
+      pushOptIn: false,
+      profileImageURL: nil
+    )
+    let store = TestStore(initialState: AppCoordinator.State.home(launchLoginHome())) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useAppCoordinatorFestivalUseCases()
+      $0.festivalCatalogService = EmptyFestivalCatalogService()
+      $0.analyticsUseCase = .recording()
+      $0.oauthUseCase = SucceedingOAuthUseCase(result: AuthLoginResult(
+        newUser: false,
+        user: user
+      ))
+      $0.authUseCase = ReturningProfileAuthUseCase(profile: AuthProfile(
+        user: user,
+        currentTermsVersion: "2026-10"
+      ))
+      $0.authService = StubAuthService(
+        loggedIn: true,
+        userID: "user-a"
+      )
+    }
+    store.exhaustivity = .off
+    await store.send(.scope(.home(.auth(.login(.view(.signInTapped(.apple)))))))
+    await store.receive(\.scope.home.auth.login.delegate.signedIn)
+    #expect(store.state.isMainTabCovered)
+    await store.receive(\.scope.home.session.inner.profileLoaded)
+    guard case let .home(home) = store.state else { return }
+    // 가입을 마친 계정은 가입 화면 없이 바로 메인이 보인다.
+    #expect(home.authFlow.presentation == nil)
+    #expect(!home.authFlow.isLaunchFlow)
+    #expect(!store.state.isMainTabCovered)
+  }
+
+  @Test func launchSignUpCoverEndsWhenBearerFlowCloses() {
+    var flow = AuthFlowState()
+    flow.isLaunchFlow = true
+    flow.presentation = .bearerSetup
+    // 가입을 마치고 기수 설정 중이면 계속 메인 탭을 덮는다.
+    #expect(flow.coversMainTab)
+    #expect(flow.showsLaunchSignUp)
+    // 메인 안 로그인 시트에서 시작한 가입은 시트로 그린다.
+    flow.isLaunchFlow = false
+    flow.presentation = .onboarding
+    #expect(!flow.coversMainTab)
+    #expect(!flow.showsLaunchSignUp)
   }
 
   @Test func launchLoginFailureKeepsScreen() async {

@@ -65,6 +65,12 @@ struct AppCoordinator {
       return home.authFlow.presentation == .launchLogin
     }
 
+    /// 첫 진입 화면이나 그 화면에서 이어진 가입·기수 설정이 메인 탭을 덮고 있다. 걷힐 때까지 대기 딥링크를 미룬다.
+    var isMainTabCovered: Bool {
+      guard case let .home(home) = self else { return false }
+      return home.authFlow.coversMainTab
+    }
+
   }
 
   enum Action: ViewAction {
@@ -141,6 +147,11 @@ struct AppCoordinator {
         .send(.scope(.home(.session(.view(.foregrounded))))),
         .send(.view(.deeplinkReceived))
       )
+    }
+    .onChange(of: \.isMainTabCovered) { wasCovered, state in
+      // 가입·기수 설정을 마쳐 메인 탭이 보이면 그때 대기 딥링크를 꺼낸다.
+      guard wasCovered, !state.isMainTabCovered else { return .none }
+      return .send(.view(.deeplinkReceived))
     }
     .onChange(of: \.activeWidgetSnapshotContent) { _, state in
       // 계정이 없어지면 공개 팩만 남기고 홈을 이탈하면 공유 파일을 비운다.
@@ -230,7 +241,7 @@ extension AppCoordinator {
       // 홈 전환 전이면 대기 값을 남겨 두고, 홈에 들어갈 때 다시 꺼낸다.
       // 로그인 첫 진입 화면이 떠 있으면 닫은 뒤에 꺼낸다.
       guard case .home = state,
-            !state.isLaunchLoginPresented,
+            !state.isMainTabCovered,
             let deeplink = AppDeeplinkBridge.consumePending() else { return .none }
       return .send(.view(.openDeeplink(deeplink)))
     }
