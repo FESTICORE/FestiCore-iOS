@@ -113,6 +113,9 @@ AGENTS.md의 의존 방향을 import 문으로 확인한다. 규칙을 더하면
 - `cd 경로 && git commit`의 경로에 변수(`$DIR`)가 있으면 훅은 해석하지 못하고 훅 입력의 cwd를 본다.
 - `./make test -only-testing:`은 바뀐 모듈의 테스트만 돌린다. 그 모듈에 의존하는 다른 모듈의 테스트는 CI의 전체 실행이 맡는다. 필요하면 `--all`을 쓴다.
 - Codex에는 Claude 훅이 걸리지 않는다. Codex는 커밋 전에 위 직접 검사와 verify를 실행한다.
+- 훅은 실수를 막는 장치이지 보안 경계가 아니다. `env git commit`·`sudo git commit`·`/usr/bin/git commit`처럼 `git`으로 시작하지 않는 명령, 셸 변수·편집기·파일로 준 커밋 메시지는 검사하지 않는다. 이런 형태로 검사를 피하지 않는다.
+- `gh pr merge --squash`의 제목·본문은 훅이 검사하지 않는다. 스쿼시 머지 때 [Git/PR](git-workflow.md) 규칙대로 직접 지정하고 머지 후 커밋 메시지를 확인한다.
+- 따옴표 안의 `; git commit` 같은 문자열도 커밋으로 볼 수 있다(오탐). feature 브랜치에서 올바른 검증 기록이 있으면 통과한다.
 
 ## 하네스 관리
 
