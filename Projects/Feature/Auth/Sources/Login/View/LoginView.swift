@@ -227,24 +227,29 @@ private extension LoginView {
       .accessibilityLabel(Text("FestiCore"))
   }
 
-  /// 시안 Contents: 로고 아래 20 간격으로 제목과 설명을 둔다.
+  /// 시안 Contents: 좌우 16 안에서 로고 아래 20 간격으로 제목과 설명을 둔다.
   @ViewBuilder
   func introduction() -> some View {
     VStack(spacing: FestiCoreSpacing.paddingP20) {
       logo
       introductionText()
     }
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP16
+    )
   }
 
+  /// 시안 601:23373·601:23374: 폭 329(Contents 안쪽에서 좌우 16 더), 제목과 설명 사이 20
   @ViewBuilder
   func introductionText() -> some View {
-    VStack(spacing: FestiCoreSpacing.paddingP16) {
+    VStack(spacing: FestiCoreSpacing.paddingP20) {
       Text("가장 뜨거운 현장 속으로")
         .festiCoreFont(.baseTitle2Bold)
         .festiCoreLineBox(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .accessibilityAddTraits(.isHeader)
-      Text("로그인하면 깃발을 팔로우하고 크루를 만들 수 있어요.\n타임테이블과 라이브 보드는 로그인 없이도 볼 수 있어요.")
+      Text("로그인하면 깃발을 팔로우하고 크루를 만들 수 있어요.\n타임테이블과 라이브 보드는 로그인 없이도 볼 수 있어요")
         .festiCoreFont(.baseFootnoteRegular)
         .festiCoreLineBox(.baseFootnoteRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
@@ -252,11 +257,12 @@ private extension LoginView {
     .multilineTextAlignment(.center)
     .padding(
       .horizontal,
-      FestiCoreSpacing.paddingP20
+      FestiCoreSpacing.paddingP16
     )
   }
 
   /// 소셜 로그인 버튼과 건너뛰기. 건너뛰기는 로그인 시트의 닫기와 같은 동작이다.
+  /// 시안 Actions(601:23341): 위 12·아래 8(그 아래 홈 표시 영역), 버튼·건너뛰기 간격 12
   @ViewBuilder
   func actions() -> some View {
     VStack(spacing: FestiCoreSpacing.paddingP12) {
@@ -274,10 +280,6 @@ private extension LoginView {
         .festiCoreLineBox(.baseFootnoteMedium)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         .buttonStyle(.plain)
-        .padding(
-          .top,
-          FestiCoreSpacing.paddingP4
-        )
         .accessibilityIdentifier("launchLogin.skip")
     }
     .padding(
@@ -290,7 +292,7 @@ private extension LoginView {
     )
     .padding(
       .bottom,
-      FestiCoreSpacing.paddingP20
+      FestiCoreSpacing.paddingP8
     )
     .disabled(store.isSigningIn)
   }

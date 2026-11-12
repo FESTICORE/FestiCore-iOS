@@ -76,6 +76,21 @@ struct FigmaHeightCase: Sendable, CustomTestStringConvertible {
   }
 
   static let all: [FigmaHeightCase] = [
+    // Figma Set Select Row(129:180) 69 = 위아래 12 + 시간 열 44 + 아래 구분선 1. 구분선은 화면이 줄 사이에 그린다.
+    FigmaHeightCase(
+      name: "Set Select Row",
+      figmaHeight: 68,
+      width: 343,
+      makeView: {
+        AnyView(FCSetSelectRow(
+          artist: "coldrain",
+          stage: "WONDER STAGE",
+          start: "16:40",
+          end: "17:30",
+          isSelected: false
+        ) {})
+      }
+    ),
     FigmaHeightCase(
       name: "Tag",
       figmaHeight: 18,
