@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import FeatureAssembly
+import FestiCoreSharedUI
 import Foundation
 import Testing
 import TCAFlow
@@ -340,8 +341,16 @@ struct ProfileRoutingTests {
       title: "축제 팩"
     ))
     #expect(state.profileState.profileRoutes.last?.screen.is(\.packDetail) == true)
+    // Figma Pack A~H: 팩 상세는 탭바를 보이고, 삭제 확인 팝업이 뜨면 숨긴다.
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
+    var packDetail = PackDetailFeature.State(
+      festivalID: "festival",
+      title: "축제 팩"
+    )
+    packDetail.destination = .alert(.deletePack(name: "축제 팩"))
+    state.profileState.destination = .packDetail(packDetail)
     #expect(state.shouldHideTabBar)
-    #expect(!state.shouldReserveTabBarSpace)
 
     state.profileState.destination = nil
     #expect(!state.shouldHideTabBar)

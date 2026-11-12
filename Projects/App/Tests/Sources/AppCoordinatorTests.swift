@@ -1523,23 +1523,26 @@ struct AppCoordinatorTests {
     await store.finish()
   }
 
-  @Test func packDetailHidesBottomTabsWithOrWithoutConfirmation() {
+  @Test func packDetailShowsBottomTabsUntilConfirmation() {
     var state = MainTabCoordinator.State(selectedTab: .my)
     var packDetail = PackDetailFeature.State(
       festivalID: "festival",
       title: "축제"
     )
+    state.profileState.destination = .packDetail(packDetail)
+    // Figma Pack A~H(11-12): 팩 상세·관리는 마이 탭바를 보인다. 탭바는 화면 아래에 쌓여 마지막 카드까지 스크롤된다.
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
 
     for confirmation in [
-      nil,
       FCAlertState<FCAlertAction>.alert(title: "새 팩을 받을까요?"),
       .deletePack(name: "축제")
     ] {
-      packDetail.destination = confirmation.map { .alert($0) }
+      packDetail.destination = .alert(confirmation)
       state.profileState.destination = .packDetail(packDetail)
-      // 팩 상세는 마지막 카드까지 스크롤되도록 탭바 없이 표시하고, 확인 팝업이 떠도 그대로 숨긴다.
+      // 확인 팝업이 떠 있는 동안만 탭바를 숨긴다. 탭바 자리는 남겨 뒤 화면이 움직이지 않는다.
       #expect(state.shouldHideTabBar)
-      #expect(!state.shouldReserveTabBarSpace)
+      #expect(state.shouldReserveTabBarSpace)
     }
   }
 

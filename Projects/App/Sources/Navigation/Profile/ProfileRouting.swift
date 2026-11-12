@@ -6,10 +6,11 @@ extension ProfileFeature.State {
   var hidesTabBarForProfileRoute: Bool {
     guard let screen = profileRoutes.last?.screen else { return false }
     switch screen {
-    case .legalDocument, .noticeList, .noticeDetail, .packDetail:
+    case .legalDocument, .noticeList, .noticeDetail:
       return true
     // Figma S13-0·A~E·J: 설정 홈과 알림·잠금화면·계정·화면 모드는 마이 탭이 선택된 탭바를 그대로 보인다.
-    case .profile, .bearer, .settings, .account, .appearance, .lockScreen, .notifications:
+    // Figma Pack A~H(11-12): 팩 상세·관리도 탭바를 보인다.
+    case .profile, .bearer, .settings, .account, .appearance, .lockScreen, .notifications, .packDetail:
       return false
     }
   }
@@ -18,6 +19,8 @@ extension ProfileFeature.State {
   /// 딤이 탭바를 덮지 못하므로 떠 있는 동안 탭바를 숨긴다.
   var isProfileOverlayPresented: Bool {
     if destination?.alert != nil { return true }
+    // 팩 삭제 확인 팝업(Pack F)
+    if destination?.packDetail?.destination != nil { return true }
     guard let settingsDestination = destination?.settings?.destination else { return false }
     return settingsDestination.alert != nil
       || settingsDestination.account?.destination != nil
