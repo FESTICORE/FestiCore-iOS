@@ -23,6 +23,7 @@ struct AppCoordinator {
   @Dependency(\.date) var date
   @Dependency(\.authSessionExpiryClient) var authSessionExpiryClient
   @Dependency(\.firstInstallOnboardingStore) var firstInstallOnboardingStore
+  @Dependency(\.authService) var authService
 
   enum CancelID { case sessionExpiry, widgetSnapshot }
 
@@ -58,6 +59,12 @@ struct AppCoordinator {
       return festival.widgetSnapshotContent
     }
 
+    /// 홈 위에 S14 A 로그인 첫 진입 화면이 떠 있다. 닫힐 때까지 세션 재확인과 대기 딥링크를 미룬다.
+    var isLaunchLoginPresented: Bool {
+      guard case let .home(home) = self else { return false }
+      return home.authFlow.presentation == .launchLogin
+    }
+
   }
 
   enum Action: ViewAction {
@@ -81,6 +88,8 @@ struct AppCoordinator {
   @CasePathable
   enum InnerAction {
     case firstInstallStatus(Bool)
+    /// 세션을 복원한 결과. 로그아웃 상태면 홈 위에 로그인 첫 진입 화면을 띄운다.
+    case sessionChecked(isLoggedIn: Bool)
     case completeHomeTransition
   }
 
@@ -123,6 +132,14 @@ struct AppCoordinator {
       return authInputsChanged(
         previous: previous,
         current: state
+      )
+    }
+    .onChange(of: \.isLaunchLoginPresented) { wasPresented, state in
+      // 건너뛰거나 로그인해 첫 진입 화면이 닫히면 홈에서 세션을 확인하고 대기 딥링크를 꺼낸다.
+      guard wasPresented, !state.isLaunchLoginPresented else { return .none }
+      return .merge(
+        .send(.scope(.home(.session(.view(.foregrounded))))),
+        .send(.view(.deeplinkReceived))
       )
     }
     .onChange(of: \.activeWidgetSnapshotContent) { _, state in
@@ -211,7 +228,10 @@ extension AppCoordinator {
 
     case .deeplinkReceived:
       // 홈 전환 전이면 대기 값을 남겨 두고, 홈에 들어갈 때 다시 꺼낸다.
-      guard case .home = state, let deeplink = AppDeeplinkBridge.consumePending() else { return .none }
+      // 로그인 첫 진입 화면이 떠 있으면 닫은 뒤에 꺼낸다.
+      guard case .home = state,
+            !state.isLaunchLoginPresented,
+            let deeplink = AppDeeplinkBridge.consumePending() else { return .none }
       return .send(.view(.openDeeplink(deeplink)))
     }
   }

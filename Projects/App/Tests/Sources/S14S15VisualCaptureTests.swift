@@ -24,6 +24,22 @@ extension FestivalS01VisualCaptureTests {
     )
   }
 
+  /// Figma S14 A 로그인 첫 진입(601:23327, 라이트)
+  func testCaptureLaunchLogin() async throws {
+    let store = Store(initialState: LoginFeature.State()) {
+      EmptyReducer<LoginFeature.State, LoginFeature.Action>()
+    }
+    try await capture(
+      LaunchLoginView(store: store),
+      name: "S14-A-launch-login",
+      size: CGSize(
+        width: 393,
+        height: 852
+      ),
+      colorScheme: .light
+    )
+  }
+
   /// Figma S15-1 내 일정 고르기: 11/20 금 다섯 무대 중 coldrain·SPYAIR를 골라 20분 겹친 상태
   func testCaptureSchedulePick() async throws {
     let day = TimetableDay(

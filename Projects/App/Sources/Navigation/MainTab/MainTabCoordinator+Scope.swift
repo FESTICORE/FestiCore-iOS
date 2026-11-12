@@ -205,11 +205,8 @@ extension MainTabCoordinator {
       return .send(.auth(.view(.loginRequested(nil))))
 
     case let .profile(.delegate(.socialLoginRequested(provider))):
-      // 로그인 시트를 띄운 뒤 같은 흐름에서 고른 제공자로 로그인을 시작한다.
-      return .concatenate(
-        .send(.auth(.view(.loginRequested(nil)))),
-        .send(.auth(.view(.startLogin(provider))))
-      )
+      // 카드에서 제공자를 이미 골랐으니 로그인 시트 없이 바로 Apple·Google 로그인을 시작한다.
+      return .send(.auth(.view(.startDirectLogin(provider))))
 
     case .profile(.delegate(.bearerRequested)):
       return handleBearerRequested(state: &state)

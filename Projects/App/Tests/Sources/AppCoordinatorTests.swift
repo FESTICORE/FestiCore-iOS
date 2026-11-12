@@ -19,6 +19,7 @@ import FestiCoreAuthInterface
 import FestiCoreDeviceInterface
 import FestiCoreStorageInterface
 import FestiCoreSharedUI
+import FestiCoreUtility
 import TCAFlow
 import TimetableDomainInterface
 @testable import FestiCore
@@ -56,7 +57,7 @@ struct AppCoordinatorTests {
     #expect(results == [.newData])
   }
 
-  @Test func splashCompletionShowsHome() async {
+  @Test func loggedOutLaunchShowsLaunchLoginOverHome() async {
     let store = TestStore(initialState: AppCoordinator.State()) {
       AppCoordinator()
     } withDependencies: {
@@ -73,12 +74,15 @@ struct AppCoordinatorTests {
     await store.send(.scope(.splash(.delegate(.presentHome))))
     await store.receive(\.view.presentHome)
     await store.receive(\.inner.firstInstallStatus)
-    await store.receive(\.inner.completeHomeTransition) {
-      $0 = .home(.init())
+    await store.receive(\.inner.sessionChecked) {
+      $0 = .home(launchLoginHome())
     }
+    // 첫 진입 화면이 떠 있는 동안에는 세션 재확인이 화면을 닫지 않는다.
+    await store.receive(\.view.foregrounded)
+    #expect(store.state.isLaunchLoginPresented)
   }
 
-  @Test func firstInstallShowsOnboardingAfterSplashAndSkipOpensHome() async {
+  @Test func firstInstallShowsOnboardingThenLaunchLogin() async {
     let saves = Mutex(0)
     let store = TestStore(initialState: AppCoordinator.State()) {
       AppCoordinator()
@@ -100,8 +104,8 @@ struct AppCoordinatorTests {
     }
     await store.send(.scope(.onboarding(.view(.skipTapped))))
     await store.receive(\.scope.onboarding.delegate.completed)
-    await store.receive(\.inner.completeHomeTransition) {
-      $0 = .home(.init())
+    await store.receive(\.inner.sessionChecked) {
+      $0 = .home(launchLoginHome())
     }
     #expect(saves.withLock { $0 } == 1)
   }
@@ -121,7 +125,7 @@ struct AppCoordinatorTests {
     await store.send(.scope(.splash(.delegate(.presentHome))))
     await store.receive(\.view.presentHome)
     await store.receive(\.inner.firstInstallStatus)
-    await store.receive(\.inner.completeHomeTransition) { $0 = .home(.init()) }
+    await store.receive(\.inner.sessionChecked) { $0 = .home(launchLoginHome()) }
   }
 
   @Test func failedReceiptWriteOpensHomeButRelaunchShowsOnboarding() async {
@@ -145,7 +149,7 @@ struct AppCoordinatorTests {
     first.exhaustivity = .off
     await first.send(.scope(.onboarding(.view(.skipTapped))))
     await first.receive(\.scope.onboarding.delegate.completed)
-    await first.receive(\.inner.completeHomeTransition) { $0 = .home(.init()) }
+    await first.receive(\.inner.sessionChecked) { $0 = .home(launchLoginHome()) }
     #expect(saves.withLock { $0 } == 1)
 
     let relaunched = TestStore(initialState: AppCoordinator.State()) {
@@ -181,7 +185,7 @@ struct AppCoordinatorTests {
     store.exhaustivity = .off
     await store.send(.scope(.onboarding(.view(.nextTapped))))
     await store.receive(\.scope.onboarding.delegate.completed)
-    await store.receive(\.inner.completeHomeTransition) { $0 = .home(.init()) }
+    await store.receive(\.inner.sessionChecked) { $0 = .home(launchLoginHome()) }
     #expect(saves.withLock { $0 } == 1)
   }
 
@@ -193,6 +197,223 @@ struct AppCoordinatorTests {
       $0.festivalCatalogService = EmptyFestivalCatalogService()
     }
     await store.send(.inner(.completeHomeTransition))
+  }
+
+  @Test func loggedInLaunchShowsHomeWithoutLaunchLogin() async {
+    let store = TestStore(initialState: AppCoordinator.State()) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useAppCoordinatorFestivalUseCases()
+      $0.festivalCatalogService = EmptyFestivalCatalogService()
+      $0.authUseCase = ReturningProfileAuthUseCase(profile: eligibleProfile(id: "user-a"))
+      $0.authService = StubAuthService(
+        loggedIn: true,
+        userID: "user-a"
+      )
+      $0.authSessionExpiryClient = AuthSessionExpiryClient(events: { AsyncStream { $0.finish() } })
+      $0.firstInstallOnboardingStore = FirstInstallOnboardingStore(
+        hasCompleted: { true },
+        markCompleted: {}
+      )
+    }
+    store.exhaustivity = .off
+    await store.send(.scope(.splash(.delegate(.presentHome))))
+    await store.receive(\.view.presentHome)
+    await store.receive(\.inner.firstInstallStatus)
+    await store.receive(\.inner.sessionChecked) {
+      $0 = .home(.init())
+    }
+    await store.receive(\.scope.home.session.inner.profileLoaded)
+    #expect(!store.state.isLaunchLoginPresented)
+    guard case let .home(home) = store.state else { return }
+    #expect(home.authFlow.hasSession)
+  }
+
+  @Test func skippingLaunchLoginOpensHomeOnlyForThisLaunch() async {
+    let store = TestStore(initialState: AppCoordinator.State.home(launchLoginHome())) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useAppCoordinatorFestivalUseCases()
+      $0.festivalCatalogService = EmptyFestivalCatalogService()
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.authService = StubAuthService(
+        loggedIn: false,
+        userID: nil
+      )
+    }
+    store.exhaustivity = .off
+    // 건너뛰기는 로그인 시트의 닫기와 같은 경로로 첫 진입 화면을 닫고, 홈에서 세션을 확인한다.
+    await store.send(.scope(.home(.auth(.login(.view(.closeTapped))))))
+    await store.receive(\.scope.home.auth.login.delegate.closeRequested) {
+      guard case var .home(home) = $0 else { return }
+      home.authFlow.presentation = nil
+      home.authFlow.generation = 1
+      $0 = .home(home)
+    }
+    await store.receive(\.scope.home.session.view.foregrounded)
+    await store.receive(\.view.deeplinkReceived)
+    await store.receive(\.scope.home.session.inner.profileLoaded)
+    #expect(!store.state.isLaunchLoginPresented)
+
+    // 건너뛰기를 저장하지 않으므로 다음 실행에서도 로그아웃 상태면 다시 첫 진입 화면이 뜬다.
+    let relaunched = TestStore(initialState: AppCoordinator.State()) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useAppCoordinatorFestivalUseCases()
+      $0.festivalCatalogService = EmptyFestivalCatalogService()
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.authService = StubAuthService(
+        loggedIn: false,
+        userID: nil
+      )
+      $0.authSessionExpiryClient = AuthSessionExpiryClient(events: { AsyncStream { $0.finish() } })
+      $0.firstInstallOnboardingStore = FirstInstallOnboardingStore(
+        hasCompleted: { true },
+        markCompleted: {}
+      )
+    }
+    relaunched.exhaustivity = .off
+    await relaunched.send(.scope(.splash(.delegate(.presentHome))))
+    await relaunched.receive(\.view.presentHome)
+    await relaunched.receive(\.inner.firstInstallStatus)
+    await relaunched.receive(\.inner.sessionChecked) {
+      $0 = .home(launchLoginHome())
+    }
+  }
+
+  @Test func launchLoginSuccessClosesScreenAndOpensSignUpForNewAccount() async {
+    let newUser = AuthUser(
+      id: "user-a",
+      provider: "apple",
+      email: nil,
+      nickname: nil,
+      nicknameConfirmed: false,
+      termsAcceptedAt: nil,
+      termsVersion: nil,
+      pushOptIn: false,
+      profileImageURL: nil
+    )
+    let store = TestStore(initialState: AppCoordinator.State.home(launchLoginHome())) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useAppCoordinatorFestivalUseCases()
+      $0.festivalCatalogService = EmptyFestivalCatalogService()
+      $0.analyticsUseCase = .recording()
+      $0.oauthUseCase = SucceedingOAuthUseCase(result: AuthLoginResult(
+        newUser: true,
+        user: newUser
+      ))
+      $0.authUseCase = ReturningProfileAuthUseCase(profile: AuthProfile(
+        user: newUser,
+        currentTermsVersion: "2026-10"
+      ))
+      $0.authService = StubAuthService(
+        loggedIn: true,
+        userID: "user-a"
+      )
+    }
+    store.exhaustivity = .off
+    // 첫 진입 화면의 Apple 버튼은 로그인 시트와 같은 OAuth 경로를 탄다.
+    await store.send(.scope(.home(.auth(.login(.view(.signInTapped(.apple)))))))
+    await store.receive(\.scope.home.auth.login.delegate.signInRequested)
+    await store.receive(\.scope.home.auth.login.delegate.signedIn)
+    #expect(!store.state.isLaunchLoginPresented)
+    await store.receive(\.scope.home.session.inner.profileLoaded)
+    guard case let .home(home) = store.state else { return }
+    // 가입이 필요한 계정이면 기존 가입 시트(S14 B)로 이어진다.
+    #expect(home.authFlow.hasSession)
+    #expect(home.authFlow.presentation == .onboarding)
+  }
+
+  @Test func launchLoginFailureKeepsScreen() async {
+    let store = TestStore(initialState: AppCoordinator.State.home(launchLoginHome())) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.oauthUseCase = CancelledOAuthUseCase()
+    }
+    store.exhaustivity = .off
+    await store.send(.scope(.home(.auth(.login(.view(.signInTapped(.google)))))))
+    await store.receive(\.scope.home.auth.login.inner.signInFailed)
+    #expect(store.state.isLaunchLoginPresented)
+  }
+
+  @Test func profileCardLoginStartsProviderWithoutLoginSheet() async {
+    let store = TestStore(initialState: AppCoordinator.State.home(MainTabCoordinator.State())) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.oauthUseCase = CancelledOAuthUseCase()
+    }
+    store.exhaustivity = .off
+    // 마이 로그인 카드에서 Apple을 고르면 앱 로그인 시트 없이 Apple 로그인 창만 띄운다.
+    await store.send(.scope(.home(.profileCoordinator(.profile(.delegate(.socialLoginRequested(.apple)))))))
+    await store.receive(\.scope.home.auth.view.startDirectLogin)
+    guard case let .home(started) = store.state else {
+      Issue.record("홈이어야 한다")
+      return
+    }
+    #expect(started.authFlow.presentation == .directLogin)
+    // 사용자가 Apple 창을 닫으면 아무 화면도 남기지 않는다.
+    await store.receive(\.scope.home.auth.login.inner.signInFailed)
+    guard case let .home(cancelled) = store.state else {
+      Issue.record("홈이어야 한다")
+      return
+    }
+    #expect(cancelled.authFlow.presentation == nil)
+  }
+
+  @Test func profileCardLoginFailureShowsLoginSheetWithError() async {
+    let store = TestStore(initialState: AppCoordinator.State.home(MainTabCoordinator.State())) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.oauthUseCase = FailingOAuthUseCase()
+    }
+    store.exhaustivity = .off
+    await store.send(.scope(.home(.profileCoordinator(.profile(.delegate(.socialLoginRequested(.google)))))))
+    await store.receive(\.scope.home.auth.login.inner.signInFailed)
+    guard case let .home(failed) = store.state else {
+      Issue.record("홈이어야 한다")
+      return
+    }
+    // 취소가 아닌 실패는 오류 문구가 보이도록 로그인 시트를 연다.
+    #expect(failed.authFlow.presentation == .login)
+    #expect(failed.authFlow.login.errorMessage != nil)
+  }
+
+  @Test func pendingDeeplinkOpensAfterLaunchLoginCloses() async {
+    let storage = InMemoryStorage()
+    let store = TestStore(initialState: AppCoordinator.State()) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.defaultInMemoryStorage = storage
+      $0.useAppCoordinatorFestivalUseCases()
+      $0.festivalCatalogService = EmptyFestivalCatalogService()
+      $0.authUseCase = UnauthenticatedAuthUseCase()
+      $0.authService = StubAuthService(
+        loggedIn: false,
+        userID: nil
+      )
+      $0.authSessionExpiryClient = AuthSessionExpiryClient(events: { AsyncStream { $0.finish() } })
+    }
+    store.exhaustivity = .off
+    withDependencies {
+      $0.defaultInMemoryStorage = storage
+    } operation: {
+      PendingDeeplinkStore().save(.festivalList)
+    }
+    await store.send(.inner(.sessionChecked(isLoggedIn: false))) {
+      $0 = .home(launchLoginHome())
+    }
+    // 첫 진입 화면이 떠 있으면 대기 딥링크를 꺼내지 않는다.
+    await store.receive(\.view.deeplinkReceived)
+    #expect(store.state.isLaunchLoginPresented)
+    await store.send(.scope(.home(.auth(.login(.view(.closeTapped))))))
+    await store.receive(\.scope.home.auth.login.delegate.closeRequested)
+    await store.receive(\.view.deeplinkReceived)
+    await store.receive(
+      \.view.openDeeplink,
+      .festivalList
+    )
+    await store.receive(\.scope.home.openDeeplink)
   }
 
   @Test func unauthenticatedBookmarkOpensLoginBeforeProfileFetch() async {
@@ -3421,6 +3642,12 @@ struct AppCoordinatorTests {
     #expect(!reread.authFlow.hasSession)
   }
 
+  private func launchLoginHome() -> MainTabCoordinator.State {
+    var home = MainTabCoordinator.State()
+    home.authFlow.presentation = .launchLogin
+    return home
+  }
+
   private func loginSheetHome() -> MainTabCoordinator.State {
     var home = MainTabCoordinator.State()
     home.authFlow.generation = 1
@@ -3821,6 +4048,20 @@ private struct EmptyFestivalCatalogService: FestivalCatalogService {
 private func signUpState(_ state: AppCoordinator.State) -> SignUpFeature.State? {
   guard case let .home(home) = state else { return nil }
   return home.authFlow.signUp
+}
+
+private struct SucceedingOAuthUseCase: OAuthUseCaseInterface {
+  let result: AuthLoginResult
+
+  func signIn(provider: OAuthProvider) async throws -> AuthLoginResult {
+    return result
+  }
+}
+
+private struct FailingOAuthUseCase: OAuthUseCaseInterface {
+  func signIn(provider: OAuthProvider) async throws -> AuthLoginResult {
+    throw AuthDomainError.providerFailure
+  }
 }
 
 private struct CancelledOAuthUseCase: OAuthUseCaseInterface {

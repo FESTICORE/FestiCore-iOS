@@ -39,6 +39,8 @@ struct AuthCoordinator {
     case loginRequested(LoginFeature.State.Context?)
     /// 로그인 시트의 로그인 요청(`LoginDelegate.signInRequested`)도 여기서 시트 상태를 확인한다.
     case startLogin(OAuthProvider)
+    /// 화면에서 제공자를 이미 고른 로그인. 로그인 시트를 띄우지 않는다.
+    case startDirectLogin(OAuthProvider)
     case dismissFlow
     case resolveMigration(Bool)
     case retryTapped
@@ -144,9 +146,21 @@ extension AuthCoordinator {
       state.presentation = .login
       return .none
 
+    case let .startDirectLogin(provider):
+      guard !state.isLoading, state.presentation == nil else { return .none }
+      state.generation += 1
+      state.clearPendingBookmark()
+      state.message = nil
+      state.loginContextOverride = nil
+      state.presentation = .directLogin
+      return handleViewAction(
+        state: &state,
+        action: .startLogin(provider)
+      )
+
     case let .startLogin(provider):
       // 수락한 로그인을 확정하는 동안 새 로그인을 시작하면 두 결과가 서로의 임시 세션을 무효로 만든다.
-      guard state.presentation == .login, state.pendingCommitSessionID == nil else { return .none }
+      guard state.presentation?.acceptsLogin == true, state.pendingCommitSessionID == nil else { return .none }
       state.loginAttemptGeneration = state.generation
       state.message = nil
       // 닫았던 시트에서 시작한 로그인이 아직 진행 중이면 새로 시작하지 않고 그 결과를 이번 시도로 받는다.
@@ -244,6 +258,19 @@ extension AuthCoordinator {
         state: &state,
         action: .dismissFlow
       )
+    case let .inner(.signInFailed(error)):
+      // 바로 로그인을 취소하면 아무 화면 없이 끝내고, 실패하면 오류 문구가 보이도록 로그인 시트를 연다.
+      guard state.presentation == .directLogin else { return .none }
+      switch error {
+      case .userCancelled, .requestInProgress:
+        return handleViewAction(
+          state: &state,
+          action: .dismissFlow
+        )
+      default:
+        state.presentation = .login
+        return .none
+      }
     case .view, .async, .inner:
       return .none
     }
@@ -317,7 +344,7 @@ extension AuthCoordinator {
 private extension AuthCoordinator {
   /// 시트가 열려 있고 현재 세대의 로그인 시도일 때만 결과를 받아들인다.
   func isActiveLoginAttempt(_ state: State) -> Bool {
-    return state.presentation == .login && state.loginAttemptGeneration == state.generation
+    return state.presentation?.acceptsLogin == true && state.loginAttemptGeneration == state.generation
   }
 
   func receiveSignedIn(

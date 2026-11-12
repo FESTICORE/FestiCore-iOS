@@ -120,7 +120,7 @@ extension SessionCoordinator {
   ) -> Effect<Action> {
     switch action {
     case .foregrounded:
-      guard state.presentation != .login, !state.isLoading else { return .none }
+      guard state.presentation?.acceptsLogin != true, !state.isLoading else { return .none }
       state.presentation = nil
       return recheckProfile(state: &state)
 
@@ -202,7 +202,7 @@ private extension SessionCoordinator {
     state.dropUnownedPendingBookmark()
     if state.pendingFestivalID != nil {
       state.presentation = .login
-    } else if state.presentation != .login {
+    } else if state.presentation?.acceptsLogin != true {
       state.presentation = nil
     }
     state.clearSignUpDraft()
