@@ -232,14 +232,116 @@ extension FestivalWidgetEntry {
     } else {
       candidates = today
     }
-    let saved = candidates.filter { $0.isSaved && $0.endsAt > date }
+    // 공연 중 머리말은 NEXT라 이미 시작한 공연은 빼고 앞으로 볼 공연만 보인다.
+    let saved = candidates.filter { performance in
+      guard performance.isSaved else { return false }
+      return phase == .playing ? performance.startsAt > date : performance.endsAt > date
+    }
     return Array(saved.prefix(4))
   }
 
+
   var scheduleHeading: String {
     if phase == .unavailable { return "정보 확인 필요" }
+    // Figma Widget Large: 공연 중은 NEXT, 다음 날 일정은 TOMORROW로 묶는다.
+    if phase == .playing { return "NEXT" }
     guard phase == .finished, let next else { return "TODAY · 내 일정" }
+    if let tomorrow = AppDateFormat.calendar.date(
+      byAdding: .day,
+      value: 1,
+      to: date
+    ), AppDateFormat.calendar.isDate(
+      next.startsAt,
+      inSameDayAs: tomorrow
+    ) {
+      return "TOMORROW · 내 일정"
+    }
     return "\(next.startsAt.formatted(.festivalDay)) · 내 일정"
+  }
+
+  /// Figma Widget Small 칩: 공연 중은 `NOW · 무대`, 그 밖은 상태 머리말.
+  var chipTitle: String {
+    if phase == .playing, let current { return "NOW · \(current.stageName)" }
+    return eyebrow
+  }
+
+  /// Figma Widget Medium·Large 상단 줄.
+  var topLine: String {
+    switch phase {
+    case .unavailable, .noPack: return "FESTICORE"
+    case .playing:
+      guard let current else { return eyebrow }
+      return "\(eyebrow) · \(current.stageName) · \(current.startsAt.formatted(.time))"
+    case .goingHome: return "\(eyebrow) · 종료 1시간 전"
+    case .before, .finished: return snapshot?.festivalName ?? "FESTICORE"
+    }
+  }
+
+  /// Figma Widget Medium 서브 줄(Bagel 14).
+  var subline: String? {
+    switch phase {
+    case .noPack: return "팩을 받으면 여기에 무대가 떠요"
+    case .playing:
+      guard let current else { return nil }
+      guard let following = performances.first(where: {
+        $0.stageName == current.stageName && $0.startsAt >= current.endsAt
+      }) else {
+        return "@\(current.stageName)"
+      }
+      return "@\(current.stageName)  \(following.artist)"
+    case .before:
+      guard let first = performances.first(where: { $0.startsAt > date }) else { return nil }
+      return "@\(first.stageName)  첫 공연 \(first.artist) \(first.startsAt.formatted(.time))"
+    case .goingHome:
+      guard let last = today.max(by: { $0.endsAt < $1.endsAt }) else { return nil }
+      return "@\(last.stageName)  마지막 무대 \(last.artist)"
+    case .unavailable, .finished: return nil
+    }
+  }
+
+  /// Figma Widget 하단 바 왼쪽 글자. Medium은 라벨과 내용을 한 줄에 둔다.
+  func footerText(for family: WidgetFamily) -> String {
+    switch family {
+    case .systemSmall:
+      if phase == .noPack { return "탭해서 페스티벌 고르기" }
+      if phase == .before || phase == .playing, let next { return next.artist }
+      return footerTitle
+    case .systemLarge:
+      switch phase {
+      case .noPack: return "탭하면 페스티벌 목록으로 가요"
+      case .finished where !isFestivalOver: return "조심히 들어가요 · 팩은 오프라인으로도 볼 수 있어요"
+      case .before where next == nil, .playing where next == nil: return "내 일정을 넣으면 남은 시간을 알려 드려요"
+      case .unavailable: return footerTitle
+      default: return "\(footerTitle)  \(footerDetail)"
+      }
+    default:
+      if phase == .noPack { return "탭해서 시작하기" }
+      if phase == .unavailable { return footerTitle }
+      return "\(footerTitle)  \(footerDetail)"
+    }
+  }
+
+  /// Figma Widget Large 하단 바 아이콘.
+  var largeFooterIcon: ImageAsset? {
+    switch phase {
+    case .noPack: return .chevronRight16
+    case .finished: return isFestivalOver ? nil : .circleCheck16
+    case .goingHome: return .route16
+    case .before, .playing: return next == nil ? .plus16 : nil
+    case .unavailable: return nil
+    }
+  }
+
+  var rectangularLabel: String {
+    if phase == .noPack { return "FESTICORE" }
+    if phase == .playing, next == nil, let current { return "지금 \(current.stageName)" }
+    return footerTitle
+  }
+
+  var inlineText: String {
+    if phase == .noPack { return "FESTICORE · 팩을 받아 주세요" }
+    if phase == .playing, let current { return "\(current.stageName) · \(current.artist) 공연 중" }
+    return headline
   }
 }
 
@@ -257,7 +359,7 @@ struct FestivalWidgetView: View {
           style: .relative
         ) + Text(" 후")
       } else {
-        Text(entry.headline)
+        Text(entry.inlineText)
       }
     case .accessoryCircular:
       circular()
@@ -270,9 +372,72 @@ struct FestivalWidgetView: View {
 }
 
 private extension FestivalWidgetView {
+  /// Figma Widget · Components의 반짝이 별 크기와 위젯 오른쪽 위 기준 여백.
+  struct SparkleSpec {
+    let size: CGFloat
+    let top: CGFloat
+    let trailing: CGFloat
+  }
+
   var isSmall: Bool { return family == .systemSmall }
   var isLarge: Bool { return family == .systemLarge }
   var foreground: Color { return renderingMode == .fullColor ? WidgetPalette.black : .primary }
+  /// Figma `Static Alpha/Black 60`. 틴트 모드에서는 primary 60%로 낮춘다.
+  var assistive: Color {
+    return renderingMode == .fullColor ? FestiCoreSemanticColor.staticalphaBlack60.color : Color.primary.opacity(0.6)
+  }
+  var barTint: Color {
+    return renderingMode == .fullColor ? FestiCoreSemanticColor.staticLime.color : .primary
+  }
+
+  var sparkles: [SparkleSpec] {
+    switch family {
+    case .systemSmall:
+      return [
+        SparkleSpec(
+          size: 22,
+          top: 12,
+          trailing: 14
+        ),
+        SparkleSpec(
+          size: 10,
+          top: 40,
+          trailing: 40
+        )
+      ]
+    case .systemLarge:
+      return [
+        SparkleSpec(
+          size: 34,
+          top: 26,
+          trailing: 22
+        ),
+        SparkleSpec(
+          size: 14,
+          top: 76,
+          trailing: 32
+        )
+      ]
+    default:
+      return [
+        SparkleSpec(
+          size: 26,
+          top: 22,
+          trailing: 16
+        ),
+        SparkleSpec(
+          size: 12,
+          top: 66,
+          trailing: 44
+        ),
+        SparkleSpec(
+          size: 9,
+          top: 86,
+          trailing: 21
+        )
+      ]
+    }
+  }
 
   @ViewBuilder
   func poster() -> some View {
@@ -289,14 +454,43 @@ private extension FestivalWidgetView {
           )
         footer()
       }
+      .overlay(alignment: .topTrailing) {
+        sparkleLayer
+      }
     }
+  }
+
+  var sparkleLayer: some View {
+    return ZStack(alignment: .topTrailing) {
+      ForEach(
+        Array(sparkles.enumerated()),
+        id: \.offset
+      ) { _, spec in
+        WidgetSparkle()
+          .fill(foreground)
+          .frame(
+            width: spec.size,
+            height: spec.size
+          )
+          .padding(
+            .top,
+            spec.top
+          )
+          .padding(
+            .trailing,
+            spec.trailing
+          )
+      }
+    }
+    .accessibilityHidden(true)
   }
 
   @ViewBuilder
   func posterBody() -> some View {
+    // Figma: Small 패딩 12/14/12/4·간격 6, Medium 14/12/14/4·간격 2, Large 16/16/16/8·간격 6
     VStack(
       alignment: .leading,
-      spacing: isSmall ? FestiCoreSpacing.marginM8 : FestiCoreSpacing.marginM6
+      spacing: isSmall || isLarge ? FestiCoreSpacing.marginM6 : FestiCoreSpacing.marginM2
     ) {
       posterHeader()
       Text(isSmall && entry.phase == .noPack ? "팩을\n받아요" : entry.headline)
@@ -310,31 +504,27 @@ private extension FestivalWidgetView {
           maxHeight: isSmall ? 72 : isLarge ? 60 : 44,
           alignment: .leading
         )
-      if !isSmall {
-        if let stage = entry.current?.stageName {
-          Text("\(entry.eyebrow) · \(stage)")
-            .font(WidgetFont.bagel(14))
-            .rotationEffect(.degrees(-4))
-            .lineLimit(1)
-        } else if entry.phase == .noPack, !isLarge {
-          Text("선택하고 이 위젯에 담아보세요")
-            .font(.pretendardFontFamily(
-              family: .Medium,
-              size: 11
-            ))
-            .lineLimit(1)
-        }
+      if !isSmall, !isLarge, let subline = entry.subline {
+        Text(subline)
+          .font(WidgetFont.bagel(14))
+          .rotationEffect(.degrees(-4))
+          .lineLimit(1)
       }
       if isLarge {
         if entry.phase == .noPack {
-          Text("팩을 받으면 지금 무대 · 다음 내 일정이 보여요.\n오프라인에서도 그대로 보여요.")
+          Text("팩을 받으면 지금 무대 · 다음 내 일정 ·\n크루가 여기에 떠요.\n오프라인에서도 그대로 보여요.")
             .font(.pretendardFontFamily(
               family: .Medium,
               size: 12
             ))
+            .foregroundStyle(assistive)
             .padding(
-              .top,
-              FestiCoreSpacing.paddingP8
+              .vertical,
+              FestiCoreSpacing.paddingP12 + FestiCoreSpacing.marginM2
+            )
+            .padding(
+              .horizontal,
+              FestiCoreSpacing.marginM2
             )
         } else {
           schedule()
@@ -342,44 +532,51 @@ private extension FestivalWidgetView {
       }
       Spacer(minLength: 0)
     }
-    .overlay(alignment: .topTrailing) {
-      Image(systemName: "sparkle")
-        .font(.system(size: isSmall ? 20 : 28))
-        .accessibilityHidden(true)
-    }
     .padding(
       .horizontal,
-      isLarge ? FestiCoreSpacing.paddingP16 : FestiCoreSpacing.paddingP12 + FestiCoreSpacing.marginM2
+      isLarge ? FestiCoreSpacing.paddingP16 : isSmall ? FestiCoreSpacing.paddingP12 : FestiCoreSpacing.paddingP12 + FestiCoreSpacing.marginM2
     )
     .padding(
-      .vertical,
-      isLarge ? FestiCoreSpacing.paddingP16 : FestiCoreSpacing.paddingP12
+      .top,
+      isLarge ? FestiCoreSpacing.paddingP16 : isSmall ? FestiCoreSpacing.paddingP12 + FestiCoreSpacing.marginM2 : FestiCoreSpacing.paddingP12
+    )
+    .padding(
+      .bottom,
+      isLarge ? FestiCoreSpacing.paddingP8 : FestiCoreSpacing.paddingP4
     )
     .foregroundStyle(foreground)
   }
 
   @ViewBuilder
   func posterHeader() -> some View {
-    if isSmall, entry.phase == .noPack {
-      Text("FESTICORE")
+    if isSmall {
+      // Figma Widget Small Chip: Static/Ink r4, 패딩 8/3, Pretendard Bold 10 자간 4%
+      Text(entry.chipTitle)
         .font(.pretendardFontFamily(
           family: .Bold,
-          size: 9
+          size: 10
         ))
-        .tracking(1)
+        .tracking(0.4)
+        .lineLimit(1)
         .padding(
           .horizontal,
-          FestiCoreSpacing.paddingP4
+          FestiCoreSpacing.paddingP8
         )
         .padding(
           .vertical,
-          FestiCoreSpacing.marginM2
+          3
         )
-        .foregroundStyle(renderingMode == .fullColor ? FestiCoreSemanticColor.staticLime.color : .primary)
-        .background(renderingMode == .fullColor ? WidgetPalette.black : .clear)
-        .rotationEffect(.degrees(-6))
+        .foregroundStyle(renderingMode == .fullColor ? FestiCoreSemanticColor.staticWhite.color : .primary)
+        .background(
+          renderingMode == .fullColor ? WidgetPalette.black : .clear,
+          in: RoundedRectangle(cornerRadius: FestiCoreRadius.r4)
+        )
+        .padding(
+          .trailing,
+          FestiCoreSpacing.paddingP24
+        )
     } else {
-      Text(isSmall ? entry.eyebrow : entry.snapshot?.festivalName ?? "FESTICORE")
+      Text(entry.topLine)
         .font(.pretendardFontFamily(
           family: .Bold,
           size: isLarge ? 10 : 9
@@ -388,87 +585,125 @@ private extension FestivalWidgetView {
         .lineLimit(1)
         .padding(
           .trailing,
-          FestiCoreSpacing.paddingP24
+          FestiCoreSpacing.paddingP24 + FestiCoreSpacing.paddingP24
         )
     }
   }
 
   @ViewBuilder
   func schedule() -> some View {
+    // Figma Widget Large List: 패딩 2/14/2/14, 행 간격 10
     VStack(
       alignment: .leading,
       spacing: FestiCoreSpacing.marginM8 + FestiCoreSpacing.marginM2
     ) {
       Text(entry.scheduleHeading)
         .font(.pretendardFontFamily(
-          family: .Medium,
-          size: 9
+          family: .Bold,
+          size: 10
         ))
-        .tracking(1)
+        .tracking(1.2)
+        .foregroundStyle(assistive)
       if entry.rows.isEmpty {
-        Text(entry.phase == .unavailable ? entry.footerDetail : entry.phase == .noPack ? "팩을 받으면 지금 무대 · 다음 내 일정이 보여요" : "내 일정을 담으면 남은 시간을 알려드려요")
+        Text(entry.phase == .unavailable ? entry.footerDetail : "내 일정을 담으면 남은 시간을 알려드려요")
           .font(.pretendardFontFamily(
             family: .Medium,
             size: 12
           ))
+          .foregroundStyle(assistive)
       } else {
         ForEach(
           entry.rows,
           id: \.id
         ) { performance in
-          HStack(
-            alignment: .firstTextBaseline,
-            spacing: FestiCoreSpacing.marginM8
-          ) {
-            Text(performance.startsAt.formatted(.time))
-              .font(.pretendardFontFamily(
-                family: .Medium,
-                size: 10
-              ))
-            Text(performance.artist)
-              .font(WidgetFont.bagel(performance.id == entry.rows.first?.id ? 24 : 18))
-              .lineLimit(1)
-              .minimumScaleFactor(0.7)
-            Text(performance.stageName)
-              .font(.pretendardFontFamily(
-                family: .Medium,
-                size: 9
-              ))
-              .lineLimit(1)
-            Spacer(minLength: 0)
-          }
+          scheduleRow(performance)
         }
       }
     }
     .padding(
-      .top,
-      FestiCoreSpacing.paddingP8 + FestiCoreSpacing.marginM2
+      .vertical,
+      FestiCoreSpacing.paddingP12 + FestiCoreSpacing.marginM2
     )
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.marginM2
+    )
+  }
+
+  func scheduleRow(_ performance: FestivalWidgetSnapshot.Performance) -> some View {
+    let isFirst = performance.id == entry.rows.first?.id
+    let showsPill = isFirst && performance.id == entry.next?.id && entry.phase != .finished
+    return HStack(spacing: FestiCoreSpacing.marginM8) {
+      Text(performance.startsAt.formatted(.time))
+        .font(.pretendardFontFamily(
+          family: .Black,
+          size: 11
+        ))
+        .foregroundStyle(assistive)
+        .frame(
+          width: 36,
+          alignment: .leading
+        )
+      Text(performance.artist)
+        .font(WidgetFont.bagel(isFirst ? 24 : 18))
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+      if showsPill {
+        Spacer(minLength: 0)
+        (Text(
+          performance.startsAt,
+          style: .relative
+        ) + Text(" 후"))
+          .font(WidgetFont.bagel(12))
+          .foregroundStyle(barTint)
+          .lineLimit(1)
+          .fixedSize()
+          .padding(
+            .horizontal,
+            FestiCoreSpacing.paddingP12
+          )
+          .padding(
+            .vertical,
+            5
+          )
+          .background(
+            renderingMode == .fullColor ? WidgetPalette.black : .clear,
+            in: Capsule()
+          )
+      } else {
+        Text(performance.stageName)
+          .font(.pretendardFontFamily(
+            family: .Bold,
+            size: 10
+          ))
+          .foregroundStyle(assistive)
+          .lineLimit(1)
+        Spacer(minLength: 0)
+      }
+    }
   }
 
   @ViewBuilder
   func footer() -> some View {
-    HStack(spacing: FestiCoreSpacing.marginM8) {
-      VStack(
-        alignment: .leading,
-        spacing: FestiCoreSpacing.marginM2
-      ) {
-        Text(entry.phase == .noPack ? (isSmall ? "탭해서 페스티벌 고르기" : isLarge ? "탭하면 페스티벌 목록으로 가요" : "탭해서 시작하기") : entry.footerTitle)
-          .font(.pretendardFontFamily(
-            family: .Bold,
-            size: isLarge ? 12 : 11
-          ))
-          .lineLimit(1)
-          .minimumScaleFactor(0.8)
-        if !isSmall, entry.phase != .noPack {
-          Text(entry.footerDetail)
-            .font(.pretendardFontFamily(
-              family: .Bold,
-              size: 11
-            ))
-            .lineLimit(1)
-        }
+    // Figma Widget Bar: Small 패딩 12, Medium 14, Large 16·간격 6·아이콘 13
+    HStack(spacing: isLarge ? FestiCoreSpacing.marginM6 : FestiCoreSpacing.marginM8) {
+      if isLarge, let icon = entry.largeFooterIcon {
+        Image(asset: icon)
+          .renderingMode(.template)
+          .resizable()
+          .frame(
+            width: 13,
+            height: 13
+          )
+          .accessibilityHidden(true)
       }
+      Text(entry.footerText(for: family))
+        .font(.pretendardFontFamily(
+          family: .Bold,
+          size: isLarge ? 12 : 11
+        ))
+        .lineLimit(1)
+        .truncationMode(.tail)
       Spacer(minLength: 0)
       if let target = entry.target, !isLarge {
         (Text(
@@ -476,7 +711,7 @@ private extension FestivalWidgetView {
           style: .relative
         ) + Text(" 후"))
           .font(WidgetFont.bagel(isSmall ? 15 : 16))
-          .foregroundStyle(renderingMode == .fullColor ? FestiCoreSemanticColor.staticLime.color : .primary)
+          .foregroundStyle(barTint)
           .lineLimit(1)
           .fixedSize()
       }
@@ -484,7 +719,7 @@ private extension FestivalWidgetView {
     .foregroundStyle(renderingMode == .fullColor ? FestiCoreSemanticColor.staticWhite.color : .primary)
     .padding(
       .horizontal,
-      isSmall ? FestiCoreSpacing.paddingP8 + FestiCoreSpacing.marginM2 : FestiCoreSpacing.paddingP12 + FestiCoreSpacing.marginM2
+      isLarge ? FestiCoreSpacing.paddingP16 : isSmall ? FestiCoreSpacing.paddingP12 : FestiCoreSpacing.paddingP12 + FestiCoreSpacing.marginM2
     )
     .frame(height: isLarge ? 44 : 34)
     .fixedSize(
@@ -496,33 +731,45 @@ private extension FestivalWidgetView {
 
   @ViewBuilder
   func circular() -> some View {
+    // Figma Lock Screen Circular: 숫자 Bagel 26 + 단위 Pretendard Bold 9, 간격 2
     ZStack {
       AccessoryWidgetBackground()
-      VStack(spacing: 0) {
+      VStack(spacing: FestiCoreSpacing.marginM2) {
         if let target = entry.target {
           Text(
             target,
             style: .relative
           )
-            .font(WidgetFont.bagel(22))
+            .font(WidgetFont.bagel(26))
             .minimumScaleFactor(0.5)
             .lineLimit(1)
-          Text("후")
-            .font(.pretendardFontFamily(
-              family: .Medium,
-              size: 9
-            ))
+          circularUnit("후")
+        } else if entry.phase == .playing, let current = entry.current {
+          Text("NOW")
+            .font(WidgetFont.bagel(17))
+          circularUnit(current.stageName)
         } else {
           Text(entry.phase == .unavailable ? "!" : entry.phase == .finished ? "끝" : "F")
-            .font(WidgetFont.bagel(25))
-          Text("FESTICORE")
-            .font(.pretendardFontFamily(
-              family: .Medium,
-              size: 8
-            ))
+            .font(WidgetFont.bagel(26))
+          circularUnit(entry.phase == .noPack ? "팩 없음" : "FESTICORE")
         }
       }
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP4
+      )
     }
+  }
+
+  func circularUnit(_ text: String) -> some View {
+    return Text(text)
+      .font(.pretendardFontFamily(
+        family: .Bold,
+        size: 9
+      ))
+      .lineLimit(1)
+      .minimumScaleFactor(0.7)
+      .foregroundStyle(.secondary)
   }
 
   @ViewBuilder
@@ -532,6 +779,8 @@ private extension FestivalWidgetView {
         target,
         style: .relative
       ) + Text(" 후")
+    } else if entry.phase == .noPack {
+      Text("팩 없음")
     } else {
       Text(entry.headline)
     }
@@ -539,15 +788,18 @@ private extension FestivalWidgetView {
 
   @ViewBuilder
   func rectangular() -> some View {
+    // Figma Lock Screen Rectangular: 배경 20% r14, 패딩 12/8, 간격 2
     VStack(
-        alignment: .leading,
-        spacing: FestiCoreSpacing.marginM2
-      ) {
-      Text(entry.footerTitle)
+      alignment: .leading,
+      spacing: FestiCoreSpacing.marginM2
+    ) {
+      Text(entry.rectangularLabel)
         .font(.pretendardFontFamily(
-          family: .Medium,
-          size: 10
+          family: .SemiBold,
+          size: 11
         ))
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
       countdownLabel()
         .font(WidgetFont.bagel(20))
         .lineLimit(1)
@@ -555,13 +807,58 @@ private extension FestivalWidgetView {
       Text(entry.footerDetail)
         .font(.pretendardFontFamily(
           family: .Medium,
-          size: 10
+          size: 11
         ))
+        .foregroundStyle(.secondary)
         .lineLimit(1)
     }
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP12
+    )
+    .padding(
+      .vertical,
+      FestiCoreSpacing.paddingP8
+    )
     .frame(
       maxWidth: .infinity,
+      maxHeight: .infinity,
       alignment: .leading
     )
+    .background(
+      AccessoryWidgetBackground()
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    )
+  }
+}
+
+/// Figma Widget `Sparkle`(STAR, 꼭짓점 4개, 안쪽 비율 0.28)을 그대로 그린 장식 별.
+struct WidgetSparkle: Shape {
+  func path(in rect: CGRect) -> Path {
+    let center = CGPoint(
+      x: rect.midX,
+      y: rect.midY
+    )
+    let outer = min(
+      rect.width,
+      rect.height
+    ) / 2
+    let inner = outer * 0.28
+    var path = Path()
+    for index in 0..<8 {
+      let radius = index.isMultiple(of: 2) ? outer : inner
+      let angle = -CGFloat.pi / 2 + CGFloat(index) * .pi / 4
+      let point = CGPoint(
+        x: center.x + cos(angle) * radius,
+        y: center.y + sin(angle) * radius
+      )
+      if index == 0 {
+        path.move(to: point)
+      } else {
+        path.addLine(to: point)
+      }
+    }
+    path.closeSubpath()
+    return path
   }
 }

@@ -288,13 +288,13 @@ private extension FestiCoreFestivalActivityWidget {
         if let flag {
           companionLabel(
             flag,
-            systemImage: "flag.fill"
+            icon: .flag16
           )
         }
         if let crew {
           companionLabel(
             crew,
-            systemImage: "person.2.fill"
+            icon: .users24
           )
         }
       }
@@ -303,11 +303,18 @@ private extension FestiCoreFestivalActivityWidget {
 
   func companionLabel(
     _ text: String,
-    systemImage: String
+    icon: ImageAsset
   ) -> some View {
     return HStack(spacing: FestiCoreSpacing.marginM4) {
-      Image(systemName: systemImage)
-        .font(.system(size: 9))
+      // Figma Lock Live Activity: 아이콘 세트 flag·users 14pt
+      Image(asset: icon)
+        .renderingMode(.template)
+        .resizable()
+        .frame(
+          width: 14,
+          height: 14
+        )
+        .accessibilityHidden(true)
       Text(text)
         .font(.pretendardFontFamily(
           family: .Medium,
