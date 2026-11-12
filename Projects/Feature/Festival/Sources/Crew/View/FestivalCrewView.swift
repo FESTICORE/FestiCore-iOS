@@ -204,7 +204,8 @@ private extension FestivalCrewView {
   /// `FCCrewRow`와 같은 구성. 존이 없으면 칩을 그리지 않는다.
   func memberRow(_ member: FestivalCrewPresentation.Member) -> some View {
     let primary = member.isInactive ? FestiCoreSemanticColor.labelAssistive : .labelNormal
-    return HStack(spacing: FestiCoreSpacing.paddingP16) {
+    // Figma S07 Crew Row: 아바타와 이름 사이 간격 12
+    return HStack(spacing: FestiCoreSpacing.marginM12) {
       FCAvatar(member.nickname)
       // Figma S07 Crew Row(높이 78): 이름 줄 상자 24 + 간격 4 + 존 칩 26
       VStack(
@@ -255,14 +256,14 @@ private extension FestivalCrewView {
   }
 
   var statusPanel: some View {
-    // Figma S07 My Status: 위 12·아래 8·좌우 16, 간격 10, 안내 Caption1/Medium
+    // Figma S07 My Status(65-3992): 위 12·좌우 16, 간격 8, 안내 Caption1/Bold
     return VStack(
       alignment: .leading,
-      spacing: Metric.panelSpacing
+      spacing: FestiCoreSpacing.marginM8
     ) {
-      Text("내 상태 · 탭 한 번이면 크루원에게 공유돼요")
-        .festiCoreFont(.baseCaption1Medium)
-        .festiCoreLineBox(.baseCaption1Medium)
+      Text("내 상태 · 탭 한 번이면 공유돼요")
+        .festiCoreFont(.baseCaption1Bold)
+        .festiCoreLineBox(.baseCaption1Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
       HStack(spacing: FestiCoreSpacing.paddingP8) {
         ForEach(
@@ -281,9 +282,10 @@ private extension FestivalCrewView {
       .horizontal,
       FestiCoreSpacing.paddingP16
     )
+    // 시안은 패널 안에 홈 인디케이터 영역(아래 35)을 그린다. 하단 안전 영역 34 위에 1만 더해 버튼 위치를 맞춘다.
     .padding(
       .bottom,
-      FestiCoreSpacing.paddingP8
+      Metric.panelBottomPadding
     )
     .frame(maxWidth: .infinity)
     .background(FestiCoreSemanticColor.backgroundElevated.color.ignoresSafeArea(edges: .bottom))
@@ -369,7 +371,7 @@ private extension FestivalCrewView {
     static let skeletonHeight: CGFloat = 322
     static let borderWidth: CGFloat = 1
     static let inactiveOpacity: Double = 0.6
-    static let panelSpacing: CGFloat = 10
+    static let panelBottomPadding: CGFloat = 1
     static let toastTop: CGFloat = 30
     static let toastAnimation: Double = 0.25
   }
