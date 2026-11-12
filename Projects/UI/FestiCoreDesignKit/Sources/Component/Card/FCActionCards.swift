@@ -131,6 +131,7 @@ public struct FCHomeCard: View {
   private var train: String?
   private var actions: [FCCardAction]
   private(set) var label = "귀가"
+  @Environment(\.colorScheme) private var colorScheme
 
   public init(
     remain: String,
@@ -169,11 +170,11 @@ public struct FCHomeCard: View {
       .festiCoreFont(.baseCalloutMedium)
       FCCardActionRow(actions: cardActions)
     }
-    .foregroundStyle(FestiCoreSemanticColor.staticInk.color)
+    .foregroundStyle(FestiCoreSemanticColor.inverseLabel.color)
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(FestiCoreSpacing.paddingP20)
     .background(
-      FestiCoreSemanticColor.staticWhite.color,
+      FestiCoreSemanticColor.inverseBackground.color,
       in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
     )
   }
@@ -185,14 +186,16 @@ private extension FCHomeCard {
     static let rideLineSpacing: CGFloat = 10
   }
 
+  /// Figma S01 E·F Home Card: 라이트는 Inverse 카드 위 accent·secondary 버튼, 다크는 흰 카드 위 Static/Ink·Static/White 버튼.
   var cardActions: [FCCardAction] {
+    let isDark = colorScheme == .dark
     return actions.map { item in
       var action = item
       switch item.style {
       case .secondary, .ghost, .inkOutline:
-        action.style = .inkOutline
+        action.style = isDark ? .inkOutline : .secondary
       case .primary, .accent, .inverse, .ink:
-        action.style = .ink
+        action.style = isDark ? .ink : .accent
       }
       return action
     }

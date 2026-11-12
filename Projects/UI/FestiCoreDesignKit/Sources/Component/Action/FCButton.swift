@@ -55,8 +55,9 @@ public struct FCButton: View {
         .background(backgroundColor, in: shape)
         .overlay {
           if style == .secondary || style == .inkOutline {
+            // Figma S01 E (Dark) Home Card: 흰 버튼 테두리도 Line/Strong이다.
             shape.stroke(
-              style == .inkOutline ? FestiCoreSemanticColor.staticInk.color : FestiCoreSemanticColor.lineStrong.color,
+              FestiCoreSemanticColor.lineStrong.color,
               lineWidth: Metric.borderWidth
             )
           }
