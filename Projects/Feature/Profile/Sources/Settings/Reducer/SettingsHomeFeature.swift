@@ -169,7 +169,7 @@ extension SettingsHomeFeature {
       return .none
 
     case .lockScreenTapped:
-      state.destination = .lockScreen(.init())
+      state.destination = .lockScreen(.init(hasSession: state.showsAccount))
       return .none
 
     case .appearanceTapped:

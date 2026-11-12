@@ -141,6 +141,15 @@ public struct BearerFlagsQuery: Encodable, Sendable, Equatable {
   }
 }
 
+/// `GET me/follows` 쿼리. 페스티벌이 없으면 키를 보내지 않는다.
+public struct FlagFollowsQuery: Encodable, Sendable, Equatable {
+  public let festivalId: String?
+
+  public init(festivalId: String? = nil) {
+    self.festivalId = festivalId
+  }
+}
+
 /// `POST flags/:flagId/report` 본문. 메모가 없으면 키를 보내지 않는다.
 public struct FlagReportBody: Encodable, Sendable, Equatable {
   public let reason: String

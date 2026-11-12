@@ -73,6 +73,32 @@ public struct BearerPinnedFlag: Sendable, Equatable {
   }
 }
 
+/// 내가 팔로우한 깃발(최근 팔로우순). 잠금화면에 보일 대표 깃발 후보다.
+public struct BearerFollowedFlag: Sendable, Equatable, Identifiable {
+  public let flagID: String
+  public let festivalID: String
+  public let name: String
+  public let thumbnailURL: URL?
+  /// 팔로우 시각. 형식을 읽지 못하면 nil이다.
+  public let followedAt: Date?
+
+  public var id: String { return flagID }
+
+  public init(
+    flagID: String,
+    festivalID: String,
+    name: String,
+    thumbnailURL: URL?,
+    followedAt: Date?
+  ) {
+    self.flagID = flagID
+    self.festivalID = festivalID
+    self.name = name
+    self.thumbnailURL = thumbnailURL
+    self.followedAt = followedAt
+  }
+}
+
 /// 깃발을 만들 페스티벌 후보(S14 D). 받은 팩이 있으면 존과 팩 받기 권유가 달라진다.
 public struct BearerFestivalOption: Sendable, Equatable, Identifiable {
   public let id: String

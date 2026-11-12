@@ -125,6 +125,24 @@ extension BearerPinnedFlagDataDTO {
   }
 }
 
+extension BearerFollowsDataDTO.Item {
+  func toDomain(
+    detail: BearerFollowedFlagDetailDTO,
+    baseURL: URL?
+  ) -> BearerFollowedFlag {
+    return BearerFollowedFlag(
+      flagID: flagId,
+      festivalID: festivalId,
+      name: detail.name,
+      thumbnailURL: BearerImageURL.resolve(
+        detail.thumbUrl,
+        baseURL: baseURL
+      ),
+      followedAt: followedAt.flatMap(BearerDateFormat.date(from:))
+    )
+  }
+}
+
 extension BearerInviteDataDTO {
   func toDomain() throws -> BearerInvite {
     guard let expires = BearerDateFormat.date(from: expiresAt) else { throw BearerError.invalidResponse }

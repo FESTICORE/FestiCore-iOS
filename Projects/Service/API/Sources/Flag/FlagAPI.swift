@@ -20,6 +20,8 @@ public enum FlagAPI: Sendable, Equatable {
   case register
   /// 내가 기수인 깃발 목록
   case bearerFlags
+  /// 내가 팔로우한 깃발 목록
+  case follows
 
   public var path: String {
     switch self {
@@ -34,6 +36,7 @@ public enum FlagAPI: Sendable, Equatable {
     case .claim: return "\(FestiCoreDomain.bearer.path)/claim"
     case .register: return "\(FestiCoreDomain.bearer.path)/register"
     case .bearerFlags: return "\(FestiCoreDomain.me.path)/bearer-flags"
+    case .follows: return "\(FestiCoreDomain.me.path)/follows"
     }
   }
 }

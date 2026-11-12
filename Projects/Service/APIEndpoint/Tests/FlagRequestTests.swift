@@ -251,6 +251,27 @@ struct FlagRequestTests {
     #expect(endpoint.authorization == .sessionBound(sessionID))
   }
 
+  @Test("팔로우 목록은 페스티벌을 쿼리로 붙이는 본문 없는 세션 GET이다")
+  func follows() throws {
+    let filtered = FlagRequest.follows(
+      query: FlagFollowsQuery(festivalId: "fst_1"),
+      sessionID: sessionID
+    )
+    let request = try filtered.asURLRequest(baseURL: baseURL)
+    #expect(request.url?.absoluteString == "https://festicore-dev.up.railway.app/api/v1/me/follows?festivalId=fst_1")
+    #expect(request.httpMethod == "GET")
+    #expect(request.httpBody == nil)
+    #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
+    #expect(filtered.authorization == .sessionBound(sessionID))
+    #expect(filtered.maxRetryAttempts == 0)
+
+    let all = try FlagRequest.follows(
+      query: FlagFollowsQuery(),
+      sessionID: sessionID
+    ).asURLRequest(baseURL: baseURL)
+    #expect(all.url?.absoluteString == "https://festicore-dev.up.railway.app/api/v1/me/follows")
+  }
+
   private func jsonBody(_ request: URLRequest) throws -> [String: Any] {
     let data = try #require(request.httpBody)
     return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])

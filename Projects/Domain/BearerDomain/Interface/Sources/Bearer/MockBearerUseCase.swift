@@ -46,6 +46,10 @@ public struct MockBearerUseCase: BearerUseCaseInterface {
     return try await repository.fetchPinnedFlag()
   }
 
+  public func fetchFollowedFlags(festivalID: String?) async throws -> [BearerFollowedFlag] {
+    return try await repository.fetchFollowedFlags(festivalID: festivalID)
+  }
+
   public func fetchFestival(festivalID: String) async throws -> BearerFestival {
     reportIssue("\(dependencyName) 미등록")
     throw BearerError.unavailable

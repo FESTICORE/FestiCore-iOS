@@ -166,6 +166,58 @@ struct BearerRegistrationTests {
     ))
   }
 
+  @Test("팔로우 목록은 세션 GET으로 받고 공개 상세 이름을 붙이며 404 깃발은 뺀다")
+  func followedFlags() async throws {
+    let auth = StubAuthService()
+    let client = RecordingClient(routes: [
+      "api/v1/me/follows": (200, #"{"code":"SUCCESS","message":"OK","data":{"items":[{"flagId":"flg_2","festivalId":"fst_1","followedAt":"2026-10-21T00:00:00.000Z"},{"flagId":"flg_gone","festivalId":"fst_1","followedAt":null},{"flagId":"flg_1","festivalId":"fst_2","followedAt":"bad"}]}}"#),
+      "api/v1/flags/flg_2": (200, #"{"code":"SUCCESS","message":"OK","data":{"id":"flg_2","name":"둘째","thumbUrl":"/api/v1/flags/flg_2/thumbnail","hidden":false}}"#),
+      "api/v1/flags/flg_gone": (404, #"{"code":"FLAG_NOT_FOUND","message":"없음","data":null}"#),
+      "api/v1/flags/flg_1": (200, #"{"code":"SUCCESS","message":"OK","data":{"id":"flg_1","name":"첫째","thumbUrl":null}}"#)
+    ])
+    let repository = makeRepository(
+      client: client,
+      auth: auth
+    )
+
+    let flags = try await repository.fetchFollowedFlags(festivalID: nil)
+
+    let follows = try #require(await client.sent.first)
+    #expect(follows.path == "api/v1/me/follows")
+    #expect(follows.method == "GET")
+    #expect(follows.body == nil)
+    #expect(follows.authorization == .sessionBound(await auth.sessionID))
+    #expect(flags.map(\.flagID) == ["flg_2", "flg_1"])
+    #expect(flags.first?.name == "둘째")
+    #expect(flags.first?.festivalID == "fst_1")
+    #expect(flags.first?.followedAt != nil)
+    #expect(flags.first?.thumbnailURL?.absoluteString == "https://festicore.test/api/v1/flags/flg_2/thumbnail")
+    #expect(flags.last?.thumbnailURL == nil)
+    #expect(flags.last?.followedAt == nil)
+  }
+
+  @Test("팔로우한 깃발이 없으면 상세를 읽지 않고 빈 목록을 돌려준다")
+  func emptyFollowedFlags() async throws {
+    let client = RecordingClient(json: #"{"code":"SUCCESS","message":"OK","data":{"items":[]}}"#)
+
+    let flags = try await makeRepository(client: client).fetchFollowedFlags(festivalID: "fst_1")
+
+    #expect(flags.isEmpty)
+    #expect(await client.sent.count == 1)
+  }
+
+  @Test("깃발 상세가 서버 오류로 실패하면 목록 조회도 실패한다")
+  func followedFlagDetailFailurePropagates() async throws {
+    let client = RecordingClient(routes: [
+      "api/v1/me/follows": (200, #"{"code":"SUCCESS","message":"OK","data":{"items":[{"flagId":"flg_1","festivalId":"fst_1","followedAt":null}]}}"#),
+      "api/v1/flags/flg_1": (500, #"{"code":"INTERNAL","message":"오류","data":null}"#)
+    ])
+
+    await #expect(throws: BearerError.self) {
+      try await makeRepository(client: client).fetchFollowedFlags(festivalID: nil)
+    }
+  }
+
   private func makeRepository(
     client: RecordingClient,
     auth: StubAuthService = StubAuthService()

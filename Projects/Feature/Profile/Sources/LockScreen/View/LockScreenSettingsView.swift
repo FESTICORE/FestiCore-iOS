@@ -5,12 +5,13 @@
 
 import ComposableArchitecture
 import FestiCoreDesignKit
+import FestiCoreSharedUI
 import SwiftUI
 
 @ViewAction(for: LockScreenSettingsFeature.self)
 public struct LockScreenSettingsView: View {
   @Environment(\.scenePhase) private var scenePhase
-  public let store: StoreOf<LockScreenSettingsFeature>
+  @Bindable public var store: StoreOf<LockScreenSettingsFeature>
 
   public init(store: StoreOf<LockScreenSettingsFeature>) {
     self.store = store
@@ -24,6 +25,9 @@ public struct LockScreenSettingsView: View {
       ScrollView {
         VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
           autoStartGroup
+          if store.hasSession {
+            pinnedFlagGroup
+          }
           activityStatus
           if !store.activities.isEmpty {
             activeActivities()
@@ -56,6 +60,26 @@ public struct LockScreenSettingsView: View {
     .onAppear { send(.onAppear) }
     .onChange(of: scenePhase) { _, phase in
       if phase == .active { send(.onAppear) }
+    }
+    .fcModal(
+      $store.scope(
+        state: \.destination?.flagPicker,
+        action: \.destination.flagPicker
+      ),
+      height: .fraction(0.6)
+    ) { pickerStore in
+      PinnedFlagPickerView(store: pickerStore)
+    }
+    .overlay {
+      Color.clear
+        .fcAlert(
+          $store.scope(
+            state: \.destination?.alert,
+            action: \.destination.alert
+          ),
+          dismissesOnDimTap: true,
+          textAlignment: .center
+        )
     }
   }
 }
@@ -95,6 +119,54 @@ private extension LockScreenSettingsView {
           .horizontal,
           FestiCoreSpacing.paddingP4
         )
+    }
+  }
+
+  /// Figma S13-C 깃발 그룹: Live Activity 그룹과 같은 제목·카드·각주 스타일
+  var pinnedFlagGroup: some View {
+    return VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP8
+    ) {
+      Text("깃발")
+        .festiCoreFont(.baseFootnoteBold)
+        .festiCoreLineBox(.baseFootnoteBold)
+        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+        .padding(
+          .horizontal,
+          FestiCoreSpacing.paddingP4
+        )
+      FCListRow("잠금화면에 보일 깃발") { send(.pinnedFlagTapped) }
+        .value(pinnedFlagValue)
+        .background(
+          FestiCoreSemanticColor.backgroundElevated.color,
+          in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
+        .disabled(store.isSavingPinnedFlag)
+      Text("팔로우한 깃발 중 1개만 보여요. 고르지 않으면 가장 최근에 팔로우한 깃발이 보여요.")
+        .festiCoreFont(.baseFootnoteRegular)
+        .festiCoreLineBox(.baseFootnoteRegular)
+        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+        .fixedSize(
+          horizontal: false,
+          vertical: true
+        )
+        .padding(
+          .horizontal,
+          FestiCoreSpacing.paddingP4
+        )
+    }
+  }
+
+  /// 줄 오른쪽 현재 값. 읽는 중이면 비워 둔다.
+  var pinnedFlagValue: String? {
+    if store.isSavingPinnedFlag { return "저장하는 중" }
+    switch store.pinnedFlag {
+    case .loading: return nil
+    case .failed: return "불러오지 못했어요"
+    case .loaded(nil): return "고르지 않음"
+    case let .loaded(flag?): return flag.name
     }
   }
 

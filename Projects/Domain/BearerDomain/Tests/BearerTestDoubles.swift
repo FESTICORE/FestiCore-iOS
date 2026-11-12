@@ -24,6 +24,8 @@ actor RecordingClient: FestiCoreNetworkClient {
   }
 
   private let result: Result<FestiCoreHTTPResponse, FestiCoreNetworkError>
+  /// 경로별 응답. 비어 있으면 모든 요청에 `result`를 돌려준다.
+  private var routes: [String: FestiCoreHTTPResponse] = [:]
   private(set) var sent: [Sent] = []
 
   init(status: Int = 200, json: String) {
@@ -32,6 +34,17 @@ actor RecordingClient: FestiCoreNetworkClient {
 
   init(error: FestiCoreNetworkError) {
     result = .failure(error)
+  }
+
+  /// 경로마다 다른 응답을 준다. 등록하지 않은 경로는 요청 오류다.
+  init(routes: [String: (status: Int, json: String)]) {
+    result = .failure(.request(.invalidURL))
+    self.routes = routes.mapValues {
+      FestiCoreHTTPResponse(
+        statusCode: $0.status,
+        data: Data($0.json.utf8)
+      )
+    }
   }
 
   var last: Sent? { sent.last }
@@ -88,6 +101,7 @@ actor RecordingClient: FestiCoreNetworkClient {
       body: urlRequest?.httpBody,
       parts: []
     ))
+    if let routed = routes[request.path] { return routed }
     return try result.get()
   }
 
