@@ -7,7 +7,7 @@ import XCTest
 @testable import Bearer
 @testable import Profile
 
-/// Figma S13 F~I 기수 인증 코드와 More 마이 A(Design 393 다크)를 고정 상태로 렌더한다. 시각 자료 생성용이다.
+/// Figma S13 F~I 기수 인증 코드, More 마이 A~C, S13-0 설정 홈을 고정 상태로 렌더한다. 시각 자료 생성용이다.
 extension FestivalS01VisualCaptureTests {
   func testCaptureBearerClaimStates() async throws {
     for scenario in BearerClaimScenario.allCases {
@@ -25,10 +25,55 @@ extension FestivalS01VisualCaptureTests {
     }
   }
 
+  /// More 마이 A 기본·B 로그아웃·C 받은 팩 없음과 S13-0 설정 홈을 라이트·다크로 렌더한다.
   func testCaptureMoreProfile() async throws {
-    var state = ProfileFeature.State()
-    state.hasSession = true
-    state.profile = AuthProfile(
+    for colorScheme in [ColorScheme.light, .dark] {
+      let suffix = colorScheme == .light ? "light" : "dark"
+      let scenarios: [(name: String, signedIn: Bool, packs: [FestivalReceivedPack])] = [
+        ("More-A-profile", true, moreSamplePacks),
+        ("More-B-guest", false, moreSamplePacks),
+        ("More-C-empty", true, []),
+      ]
+      for scenario in scenarios {
+        let name = scenario.name
+        let state = moreState(
+          signedIn: scenario.signedIn,
+          packs: scenario.packs
+        )
+        let store = Store(initialState: state) {
+          EmptyReducer<ProfileFeature.State, ProfileFeature.Action>()
+        }
+        try await capture(
+          ProfileView(store: store),
+          name: "\(name)-\(suffix)",
+          size: CGSize(
+            width: 393,
+            height: 852
+          ),
+          colorScheme: colorScheme
+        )
+      }
+
+      let settings = SettingsHomeFeature.State(
+        profile: moreMinjiProfile,
+        hasSession: true
+      )
+      try await capture(
+        SettingsHomeView(store: Store(initialState: settings) {
+          EmptyReducer<SettingsHomeFeature.State, SettingsHomeFeature.Action>()
+        }),
+        name: "S13-0-settings-home-\(suffix)",
+        size: CGSize(
+          width: 393,
+          height: 852
+        ),
+        colorScheme: colorScheme
+      )
+    }
+  }
+
+  var moreMinjiProfile: AuthProfile {
+    return AuthProfile(
       user: AuthUser(
         id: "user-minji",
         provider: "apple",
@@ -42,8 +87,10 @@ extension FestivalS01VisualCaptureTests {
       ),
       currentTermsVersion: "2026-10"
     )
-    state.packLoad = .loaded
-    state.packs = [
+  }
+
+  var moreSamplePacks: [FestivalReceivedPack] {
+    return [
       FestivalReceivedPack(
         id: "fst_wonder",
         name: "원더리벳 2026",
@@ -57,44 +104,24 @@ extension FestivalS01VisualCaptureTests {
         latestPackVersion: 3
       ),
     ]
-    // 시안 More A: "새 버전이 있어요 · 시간표 2개 변경"
-    state.packChangedSets["fst_busan"] = 2
-    let store = Store(initialState: state) {
-      EmptyReducer<ProfileFeature.State, ProfileFeature.Action>()
-    }
-    try await capture(
-      ProfileView(store: store),
-      name: "More-A-profile",
-      size: CGSize(
-        width: 393,
-        height: 940
-      )
-    )
   }
 
-  /// 로그아웃 상태의 마이. 받은 팩·설정은 그대로 보이고 로그인 유도 카드가 맨 위에 온다.
-  func testCaptureMoreGuest() async throws {
+  func moreState(
+    signedIn: Bool,
+    packs: [FestivalReceivedPack]
+  ) -> ProfileFeature.State {
     var state = ProfileFeature.State()
-    state.packLoad = .loaded
-    state.packs = [
-      FestivalReceivedPack(
-        id: "fst_wonder",
-        name: "원더리벳 2026",
-        packVersion: 3,
-        checkedAt: Date(timeIntervalSince1970: 1_792_134_000)
-      ),
-    ]
-    let store = Store(initialState: state) {
-      EmptyReducer<ProfileFeature.State, ProfileFeature.Action>()
+    if signedIn {
+      state.hasSession = true
+      state.profile = moreMinjiProfile
     }
-    try await capture(
-      ProfileView(store: store),
-      name: "More-A-guest",
-      size: CGSize(
-        width: 393,
-        height: 940
-      )
-    )
+    state.packLoad = .loaded
+    state.packs = packs
+    // 시안 More A·B: "새 버전이 있어요 · 시간표 2개 변경"
+    if packs.contains(where: { $0.id == "fst_busan" }) {
+      state.packChangedSets["fst_busan"] = 2
+    }
+    return state
   }
 }
 
