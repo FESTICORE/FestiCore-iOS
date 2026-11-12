@@ -154,6 +154,7 @@ extension AuthCoordinator {
       state.clearPendingBookmark()
       state.message = nil
       state.loginContextOverride = context
+      state.isLaunchFlow = false
       state.presentation = .login
       return .none
 
@@ -163,6 +164,7 @@ extension AuthCoordinator {
       state.clearPendingBookmark()
       state.message = nil
       state.loginContextOverride = nil
+      state.isLaunchFlow = false
       state.presentation = .directLogin
       return handleViewAction(
         state: &state,
@@ -179,13 +181,18 @@ extension AuthCoordinator {
       return .send(.login(.view(.signIn(provider))))
 
     case .dismissFlow:
+      // 첫 진입 화면에서 이어진 가입 정보(S14 B)를 뒤로 닫으면 메인 대신 첫 진입 화면으로 돌아간다.
+      let returnsToLaunchLogin = state.isLaunchFlow
+        && state.presentation == .onboarding
+        && state.signUpFlow.bearer == nil
+      state.isLaunchFlow = false
       state.clearPendingBookmark()
       state.generation += 1
       if state.accountOperationGeneration == nil {
         state.isLoading = false
       }
       state.loginAttemptGeneration = nil
-      state.presentation = nil
+      state.presentation = returnsToLaunchLogin ? .launchLogin : nil
       state.signUp.resetForDismissal()
       state.signUpFlow.resetNavigation()
       state.signUpFlow.bearer = nil
@@ -203,6 +210,7 @@ extension AuthCoordinator {
         for: userID
       )
       state.presentation = nil
+      state.isLaunchFlow = false
       return .send(.delegate(.pendingBookmarkResolved(state.resolvePendingBookmark(userID: userID))))
 
     case .retryTapped:
@@ -453,6 +461,8 @@ private extension AuthCoordinator {
     state.verifiedUserID = result.user.id
     state.hasSession = true
     state.profile = nil
+    // 첫 진입 화면의 로그인이면 계정 확인·가입을 마칠 때까지 메인 탭을 덮는다.
+    state.isLaunchFlow = state.presentation == .launchLogin
     state.presentation = nil
     state.loginAttemptGeneration = nil
     // 로그인이 확정된 직후 사용자 ID를 분석 도구에 연결하고, 신규 계정이면 sign_up을 남긴다.

@@ -70,17 +70,15 @@ struct MainTabView: View {
     }
     .overlay {
       // 로그아웃 상태로 켠 앱은 홈을 그리기 전부터 S14 A 첫 진입 화면으로 덮는다.
-      if isLaunchLoginPresented {
-        LoginView(store: store.scope(
-          state: \.authFlow.login,
-          action: \.auth.login
-        ))
-        .transition(.opacity)
+      // 그 화면에서 로그인하면 계정 확인·가입 정보·기수 설정을 마칠 때까지 메인 탭을 보이지 않는다.
+      if store.authFlow.coversMainTab {
+        launchFlow()
+          .transition(.opacity)
       }
     }
     .animation(
       .easeOut(duration: 0.2),
-      value: isLaunchLoginPresented
+      value: store.authFlow.coversMainTab
     )
     .fcModal(
       item: authSheet,
@@ -104,14 +102,40 @@ private extension MainTabView {
     return store.shouldHideTabBar || isModalPresented
   }
 
-  var isLaunchLoginPresented: Bool {
-    return store.authFlow.presentation == .launchLogin
+  /// 첫 진입 화면 위로 가입 정보(S14 B)를 push처럼 오른쪽에서 밀어 넣고, 그 뒤 C~E는 가입 스택 안에서 push한다.
+  @ViewBuilder
+  func launchFlow() -> some View {
+    ZStack {
+      LoginView(store: store.scope(
+        state: \.authFlow.login,
+        action: \.auth.login
+      ))
+      if store.authFlow.showsLaunchSignUp {
+        AuthCoordinatorView(
+          store: store.scope(
+            state: \.authFlow,
+            action: \.auth
+          ),
+          sheet: .onboarding
+        )
+        .background(FestiCoreSemanticColor.backgroundNormal.color)
+        .transition(.move(edge: .trailing))
+      }
+    }
+    .animation(
+      .easeInOut(duration: 0.3),
+      value: store.authFlow.showsLaunchSignUp
+    )
   }
 
   /// 인증 흐름의 표시 상태를 시트 바인딩으로 바꾼다. 시트를 내리면 흐름을 닫는다.
   var authSheet: Binding<AuthCoordinatorView.Sheet?> {
     return Binding(
-      get: { AuthCoordinatorView.Sheet(store.authFlow.presentation) },
+      get: {
+        // 첫 진입 흐름의 가입은 시트가 아니라 메인 탭을 덮는 화면에서 그린다.
+        guard !store.authFlow.showsLaunchSignUp else { return nil }
+        return AuthCoordinatorView.Sheet(store.authFlow.presentation)
+      },
       set: { value in
         if value == nil { store.send(.auth(.view(.dismissFlow))) }
       }

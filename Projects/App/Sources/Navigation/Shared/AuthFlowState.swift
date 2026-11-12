@@ -54,6 +54,8 @@ struct AuthFlowState: Equatable {
     }
   }
   var presentation: Presentation?
+  /// 첫 진입 화면(S14 A)에서 로그인했다. 가입 정보·기수 설정을 마칠 때까지 메인 탭 대신 첫 진입 화면 위에 이어 그린다.
+  var isLaunchFlow = false
   var loginContextOverride: LoginFeature.State.Context?
   var login = LoginFeature.State()
   /// 가입 정보 초안과 약관 상세 push 경로
@@ -66,6 +68,30 @@ struct AuthFlowState: Equatable {
   var hasRetriedTermsUpdate = false
   var termsUpdateExhausted = false
   var message: String?
+}
+
+// MARK: - 첫 진입 흐름
+
+extension AuthFlowState {
+  /// 첫 진입 화면이나 그 화면에서 이어진 계정 확인·가입·기수 설정이 메인 탭을 덮는다.
+  /// 로그인 직후 계정을 확인하는 동안에도 덮어 홈이 잠깐 보이지 않게 한다.
+  var coversMainTab: Bool {
+    if presentation == .launchLogin { return true }
+    guard isLaunchFlow else { return false }
+    switch presentation {
+    case .onboarding, .bearerSetup:
+      return true
+    case nil:
+      return isLoading
+    case .login, .launchLogin, .directLogin, .migration, .retry:
+      return false
+    }
+  }
+
+  /// 첫 진입 화면 위에 가입 정보(S14 B)부터 기수 설정(S14 C~E)까지 push 흐름을 그린다.
+  var showsLaunchSignUp: Bool {
+    return isLaunchFlow && (presentation == .onboarding || presentation == .bearerSetup)
+  }
 }
 
 // MARK: - 요청 세대
