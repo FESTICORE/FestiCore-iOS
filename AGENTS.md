@@ -76,5 +76,6 @@
 | SwiftUI·팝업·디자인 | [SwiftUI](docs/agent/swiftui-patterns.md), [팝업·모달](docs/agent/popup-modal-system.md), [Figma 대조](docs/agent/figma-design.md) |
 | 성능 | [성능 점검](docs/agent/ios-performance-optimization.md), [성능 개선](docs/agent/ios-performance-optimizer.md), [PFW 관점](docs/agent/ios-performance-pfw.md), [통합 흐름](docs/agent/performance-integration-guide.md) |
 | 테스트 자동화 | [테스트·PR 에이전트](docs/agent/test-auto-pr-agent.md) |
+| 하네스·훅·검증 게이트 | [하네스](docs/agent/harness.md) |
 
-Claude Code의 공유 설정은 `.claude/settings.json`, 커밋 전 검사 훅은 `.claude/hooks/pre-commit-check.sh`에 있다. 개인 권한·기억 파일은 커밋하지 않는다. CLI에 연결된 공유 iOS 스킬은 현재 환경과 작업 범위에 맞을 때만 사용한다.
+Claude Code의 공유 설정은 `.claude/settings.json`에 있다. 커밋·푸시 검사 훅 `.claude/hooks/check-git-rules.sh`가 브랜치·커밋 메시지·`.DS_Store`·스테이징된 Swift(`pre-commit-check.sh`)·검증 기록을 확인하고, 코드 변경은 `.claude/scripts/verify`를 통과해야 커밋된다. 경로별 규칙은 `.claude/rules/`에 있다. 개인 권한·기억 파일은 커밋하지 않는다. CLI에 연결된 공유 iOS 스킬은 현재 환경과 작업 범위에 맞을 때만 사용한다.
