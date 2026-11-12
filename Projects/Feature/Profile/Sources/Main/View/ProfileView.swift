@@ -45,18 +45,11 @@ extension ProfileView {
           if store.showsLoginPrompt {
             loginPrompt
           }
-          FCBearerPrompt { send(.bearerTapped) }
+          if store.showsBearerPrompt {
+            FCBearerPrompt { send(.bearerTapped) }
+          }
 
           receivedPacks
-          settings
-          information
-
-          if let appVersion {
-            Text("FESTICORE v\(appVersion)")
-              .festiCoreFont(.baseCaption1Regular)
-              .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
-              .frame(maxWidth: .infinity)
-          }
         }
         .padding(.horizontal, FestiCoreSpacing.paddingP16)
         .padding(.top, FestiCoreSpacing.paddingP8)
@@ -71,13 +64,35 @@ extension ProfileView {
 }
 
 private extension ProfileView {
-  @ViewBuilder
+  /// Figma More: 오른쪽 위 Settings Button(gear 24)이 S13-0 설정 홈을 연다.
+  /// DesignKit에 gear 자산이 없어 SF Symbol을 같은 자리·크기로 둔다.
   var topBar: some View {
-    if store.isSearchAvailable {
-      FCTopBar(.large, title: "마이")
-        .trailingAction { send(.searchTapped) }
-    } else {
-      FCTopBar(.large, title: "마이")
+    return FCTopBar(
+      .large,
+      title: "마이"
+    )
+    .overlay(alignment: .trailing) {
+      Button { send(.settingsTapped) } label: {
+        Image(systemName: "gearshape.fill")
+          .resizable()
+          .scaledToFit()
+          .frame(
+            width: Metric.settingsIconSize,
+            height: Metric.settingsIconSize
+          )
+          .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+          .frame(
+            width: Metric.settingsButtonSize,
+            height: Metric.settingsButtonSize
+          )
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("설정")
+      .padding(
+        .trailing,
+        FestiCoreSpacing.paddingP8
+      )
     }
   }
 
@@ -145,11 +160,18 @@ private extension ProfileView {
           packFailure
         case .loaded where store.packs.isEmpty:
           // Figma More C: Empty Card(ticket 24). 앱에 ticket 아이콘 자산이 없어 music 24를 쓴다.
+          // Figma More C: 빈 카드의 '페스티벌 둘러보기'(Button primary·M)가 S00 페스티벌 목록을 연다.
           FCEmptyCard(
             icon: .music24,
             title: "아직 받은 팩이 없어요",
             message: "페스티벌을 고르면 시간표 · 지도 · 가는 길을 오프라인으로 받아 둘 수 있어요."
           )
+          .action(FCCardAction(
+            "페스티벌 둘러보기",
+            style: .primary
+          ) {
+            send(.browseFestivalsTapped)
+          })
         case .loaded:
           ForEach(store.packs) { pack in
             if pack.id != store.packs.first?.id {
@@ -232,32 +254,8 @@ private extension ProfileView {
   enum Metric {
     static let packThumbnailSize: CGFloat = 44
     static let packThumbnailRadius: CGFloat = 12 * 44 / 56
-  }
-
-  var settings: some View {
-    section("설정") {
-      FCListRow("알림") { send(.notificationsTapped) }
-      rowDivider
-      FCListRow("잠금화면") { send(.lockScreenTapped) }
-      rowDivider
-      FCListRow("화면 모드") { send(.appearanceTapped) }
-        .value(store.appearanceMode.summary)
-      rowDivider
-      FCListRow("계정") {
-        send(.accountTapped)
-      }
-      .value(store.profile?.user.nickname ?? (store.hasSession ? nil : "로그인"))
-    }
-  }
-
-  var information: some View {
-    section("정보") {
-      FCListRow("공지사항") { send(.noticeTapped) }
-      rowDivider
-      FCListRow("이용약관") { send(.termsTapped) }
-      rowDivider
-      FCListRow("개인정보 처리방침") { send(.privacyTapped) }
-    }
+    static let settingsIconSize: CGFloat = 24
+    static let settingsButtonSize: CGFloat = 44
   }
 
   /// Figma More 그룹 제목: Pretendard Bold 13, 줄 높이 18
@@ -268,29 +266,9 @@ private extension ProfileView {
       .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
   }
 
-  func section<Content: View>(
-    _ title: String,
-    @ViewBuilder content: () -> Content
-  ) -> some View {
-    VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
-      sectionTitle(title)
-        .padding(.horizontal, FestiCoreSpacing.paddingP4)
-      VStack(spacing: .zero, content: content)
-        .background {
-          RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
-            .fill(FestiCoreSemanticColor.backgroundElevated.color)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
-    }
-  }
-
   var rowDivider: some View {
     FestiCoreSemanticColor.lineNormal.color
       .frame(height: 1)
       .padding(.leading, FestiCoreSpacing.paddingP16)
-  }
-
-  var appVersion: String? {
-    Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
   }
 }

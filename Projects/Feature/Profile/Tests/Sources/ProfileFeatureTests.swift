@@ -137,11 +137,18 @@ struct ProfileFeatureTests {
     await store.receive(\.inner.packsFailed)
   }
 
-  @Test func guestAccountRequestsLogin() async {
+  @Test("로그아웃 상태의 마이(More B)는 로그인 카드만 두고 기수 카드를 숨긴다")
+  func guestHidesBearerPrompt() {
+    #expect(!ProfileFeature.State().showsBearerPrompt)
+    #expect(signedInState().showsBearerPrompt)
+  }
+
+  @Test("받은 팩이 없을 때 '페스티벌 둘러보기'는 페스티벌 목록을 요청한다")
+  func browseFestivalsRequestsFestivalList() async {
     let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
 
-    await store.send(.view(.accountTapped))
-    await store.receive(\.delegate.loginRequested)
+    await store.send(.view(.browseFestivalsTapped))
+    await store.receive(\.delegate.festivalListRequested)
   }
 
   @Test("로그인 유도 카드는 로그인하지 않았을 때만 보이고 계정 상태를 확인하는 동안에는 숨긴다")
@@ -197,141 +204,116 @@ struct ProfileFeatureTests {
     await store.receive(\.inner.packsRefreshed)
   }
 
-  @Test func accountTapOpensAccountScreenAndForwardsAccountChanges() async {
+  @Test("설정 버튼은 현재 계정 상태로 설정 홈을 열고 뒤로 가면 마이로 돌아온다")
+  func settingsTapOpensSettingsHome() async {
     let store = TestStore(initialState: signedInState()) { ProfileFeature() }
 
-    await store.send(.view(.accountTapped)) {
-      $0.destination = .account(.init(profile: nil))
+    await store.send(.view(.settingsTapped)) {
+      $0.destination = .settings(.init(hasSession: true))
     }
-    await store.send(.view(.accountChanged(profile: nil, hasSession: true, isLoading: true, message: nil))) {
-      $0.isLoading = true
-    }
-    await store.receive(\.destination.presented.account.view.accountChanged) {
-      $0.destination = .account(.init(profile: nil, isLoading: true))
+    await store.send(.destination(.presented(.settings(.delegate(.backRequested))))) {
+      $0.destination = nil
     }
   }
 
-  @Test func losingSessionClosesAccountScreen() async {
+  @Test("설정 홈이 열려 있으면 계정 상태 변경을 설정 홈으로 전달한다")
+  func accountChangesAreForwardedToSettingsHome() async {
     var state = signedInState()
-    state.destination = .account(.init(profile: nil))
+    state.destination = .settings(.init(hasSession: true))
     let store = TestStore(initialState: state) { ProfileFeature() }
 
-    await store.send(.view(.accountChanged(profile: nil, hasSession: false, isLoading: false, message: nil))) {
+    await store.send(.view(.accountChanged(
+      profile: nil,
+      hasSession: true,
+      isLoading: true,
+      message: nil
+    ))) {
+      $0.isLoading = true
+    }
+    await store.receive(\.destination.presented.settings.view.accountChanged) {
+      $0.destination = .settings(.init(
+        hasSession: true,
+        isLoading: true
+      ))
+    }
+  }
+
+  @Test("계정 화면에서 로그아웃되면 설정 홈째로 닫고 마이로 돌아온다")
+  func losingSessionOnAccountScreenClosesSettingsHome() async {
+    var settings = SettingsHomeFeature.State(hasSession: true)
+    settings.destination = .account(.init(profile: nil))
+    var state = signedInState()
+    state.destination = .settings(settings)
+    let store = TestStore(initialState: state) { ProfileFeature() }
+
+    await store.send(.view(.accountChanged(
+      profile: nil,
+      hasSession: false,
+      isLoading: false,
+      message: nil
+    ))) {
       $0.hasSession = false
       $0.destination = nil
     }
   }
 
-  @Test func accountScreenRequestsAreForwardedToApp() async {
+  @Test("설정 홈의 계정 요청은 마이 delegate로 앱에 전달한다")
+  func settingsAccountRequestsAreForwardedToApp() async {
     let user = AuthUser(
-      id: "user-a", provider: "apple", email: nil, nickname: "새이름", nicknameConfirmed: true,
-      termsAcceptedAt: "2026-10-01", termsVersion: "2026-10", pushOptIn: false, profileImageURL: nil
+      id: "user-a",
+      provider: "apple",
+      email: nil,
+      nickname: "새이름",
+      nicknameConfirmed: true,
+      termsAcceptedAt: "2026-10-01",
+      termsVersion: "2026-10",
+      pushOptIn: false,
+      profileImageURL: nil
     )
     var state = signedInState()
-    state.destination = .account(.init(profile: nil))
+    state.destination = .settings(.init(hasSession: true))
     let store = TestStore(initialState: state) { ProfileFeature() }
 
-    await store.send(.destination(.presented(.account(.delegate(.logoutRequested)))))
+    await store.send(.destination(.presented(.settings(.delegate(.logoutRequested)))))
     await store.receive(\.delegate.logoutRequested)
-    await store.send(.destination(.presented(.account(.delegate(.withdrawRequested)))))
+    await store.send(.destination(.presented(.settings(.delegate(.withdrawRequested)))))
     await store.receive(\.delegate.withdrawRequested)
-    await store.send(.destination(.presented(.account(.delegate(.nicknameUpdated(user))))))
+    await store.send(.destination(.presented(.settings(.delegate(.profileRefreshRequested)))))
+    await store.receive(\.delegate.profileRefreshRequested)
+    await store.send(.destination(.presented(.settings(.delegate(.profileUpdated(user))))))
     await store.receive(\.delegate.profileUpdated)
-    await store.send(.destination(.presented(.account(.delegate(.backRequested))))) {
-      $0.destination = nil
-    }
   }
 
-  @Test func notificationsTapOpensNotificationSettings() async {
-    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
-
-    await store.send(.view(.notificationsTapped)) {
-      $0.destination = .notifications(.init())
-    }
-    await store.send(.destination(.presented(.notifications(.delegate(.backRequested))))) {
-      $0.destination = nil
-    }
-  }
-
-  @Test(arguments: [true, false])
-  func closingNotificationSettingsStillSendsUnsavedChanges(viaBackButton: Bool) async {
+  @Test("알림 설정이 열린 채 설정 홈째로 닫혀도 남은 변경을 보낸다")
+  func dismissingSettingsHomeStillSendsUnsavedNotificationChanges() async {
     let sent = LockIsolated<[[NotificationSettingsFeature.Kind: Bool]]>([])
     var notifications = NotificationSettingsFeature.State()
-    notifications.settings = FestivalNotificationSettings(flagStatus: false, crewStatus: false)
-    notifications.isSaving = true
-    notifications.savingChanges = [.flagStatus: false]
+    notifications.settings = FestivalNotificationSettings(
+      flagStatus: false,
+      crewStatus: false
+    )
     notifications.pendingChanges = [.crewStatus: false]
+    var settings = SettingsHomeFeature.State()
+    settings.destination = .notifications(notifications)
     var state = ProfileFeature.State()
-    state.destination = .notifications(notifications)
+    state.destination = .settings(settings)
     let store = TestStore(initialState: state) {
       ProfileFeature()
     } withDependencies: {
       $0.festivalNotificationSettingsUseCase = MockFestivalNotificationSettingsUseCase(
         updateSettings: { changes in
           sent.withValue { $0.append(changes) }
-          return FestivalNotificationSettings(flagStatus: false, crewStatus: false)
+          return FestivalNotificationSettings(
+            flagStatus: false,
+            crewStatus: false
+          )
         }
       )
     }
 
-    if viaBackButton {
-      await store.send(.destination(.presented(.notifications(.delegate(.backRequested))))) {
-        $0.destination = nil
-      }
-    } else {
-      // 뒤로 밀어 닫으면 내비게이션이 dismiss를 보낸다.
-      await store.send(.destination(.dismiss)) { $0.destination = nil }
-    }
+    await store.send(.destination(.dismiss)) { $0.destination = nil }
     await store.finish()
-    #expect(sent.value == [[.flagStatus: false, .crewStatus: false]])
-  }
-
-  @Test func missingLegalConfigurationShowsDismissibleError() async {
-    let store = TestStore(initialState: ProfileFeature.State()) {
-      ProfileFeature()
-    }
-
-    await store.send(.view(.termsTapped)) {
-      $0.destination = .alert(.legalLinkUnavailable())
-    }
-    // 이미 떠 있는 팝업에 같은 동작이 다시 와도 새로 띄우지 않는다.
-    await store.send(.view(.privacyTapped))
-    await store.send(.destination(.presented(.alert(.confirmTapped)))) {
-      $0.destination = nil
-    }
-  }
-
-  @Test func lockScreenRowOpensScreenAndBackReturnsToProfile() async {
-    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
-
-    await store.send(.view(.lockScreenTapped)) {
-      $0.destination = .lockScreen(.init())
-    }
-    await store.send(.destination(.presented(.lockScreen(.delegate(.backRequested))))) {
-      $0.destination = nil
-    }
-  }
-
-  @Test func appearanceRowOpensScreenAndBackReturnsToProfile() async {
-    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
-
-    await store.send(.view(.appearanceTapped)) {
-      $0.destination = .appearance(.init())
-    }
-    await store.send(.destination(.presented(.appearance(.delegate(.backRequested))))) {
-      $0.destination = nil
-    }
-  }
-
-  @Test func noticeRowOpensListAndBackReturnsToProfile() async {
-    let store = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
-
-    await store.send(.view(.noticeTapped)) {
-      $0.destination = .noticeList(.init())
-    }
-    await store.send(.destination(.presented(.noticeList(.delegate(.backRequested))))) {
-      $0.destination = nil
-    }
+    #expect(sent.value == [[.crewStatus: false]])
   }
 
   private func signedInState() -> ProfileFeature.State {
