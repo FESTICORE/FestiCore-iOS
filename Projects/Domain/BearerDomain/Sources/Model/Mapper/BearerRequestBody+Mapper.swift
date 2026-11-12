@@ -30,6 +30,22 @@ extension BearerStatusRequest {
   }
 }
 
+extension BearerRegisterRequest {
+  /// 프로필 본문과 같은 규칙으로 다듬고, 비운 소개·존·고르지 않은 계획은 보내지 않는다.
+  var body: BearerRegisterBody {
+    let profile = change.body
+    return BearerRegisterBody(
+      festivalId: festivalID,
+      name: profile.name,
+      bio: profile.bio,
+      tags: profile.tags,
+      planVisible: profile.planVisible,
+      homeZoneId: profile.homeZoneId,
+      plan: profile.plan
+    )
+  }
+}
+
 extension BearerProfileChange {
   /// 앞뒤 공백을 지우고, 비운 소개·존은 null로 보낸다.
   var body: FlagProfileBody {

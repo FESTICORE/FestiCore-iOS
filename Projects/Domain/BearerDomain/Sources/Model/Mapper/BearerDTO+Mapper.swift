@@ -96,6 +96,35 @@ extension BearerClaimDataDTO {
   }
 }
 
+extension BearerFlagsDataDTO.Item {
+  /// 모르는 상태 값은 버리지 않고 nil로 두어 목록에서 깃발을 잃지 않는다.
+  func toDomain(baseURL: URL?) -> BearerOwnedFlag {
+    return BearerOwnedFlag(
+      festivalID: festivalId,
+      isOwner: isOwner ?? false,
+      joinedAt: joinedAt.flatMap(BearerDateFormat.date(from:)),
+      profile: flag.toDomain(baseURL: baseURL),
+      lifecycle: status.flatMap { BearerFlagLifecycle(rawValue: $0.status) },
+      isHidden: hidden ?? false
+    )
+  }
+}
+
+extension BearerPinnedFlagDataDTO {
+  func toDomain(baseURL: URL?) -> BearerPinnedFlag? {
+    guard let flag else { return nil }
+    return BearerPinnedFlag(
+      flagID: pinnedFlagId ?? flag.id,
+      name: flag.name,
+      festivalID: flag.festivalId,
+      thumbnailURL: BearerImageURL.resolve(
+        flag.thumbUrl,
+        baseURL: baseURL
+      )
+    )
+  }
+}
+
 extension BearerInviteDataDTO {
   func toDomain() throws -> BearerInvite {
     guard let expires = BearerDateFormat.date(from: expiresAt) else { throw BearerError.invalidResponse }

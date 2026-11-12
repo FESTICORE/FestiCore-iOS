@@ -192,6 +192,65 @@ struct FlagRequestTests {
     #expect(unpinBody["flagId"] is NSNull)
   }
 
+  @Test("코드 없는 등록은 멱등키 헤더를 붙인 세션 POST이며 값이 없는 키는 보내지 않는다")
+  func register() throws {
+    let endpoint = FlagRequest.register(
+      body: BearerRegisterBody(
+        festivalId: "fst_1",
+        name: "호락호락",
+        bio: nil,
+        tags: ["slam", "sing"],
+        planVisible: true,
+        homeZoneId: nil
+      ),
+      idempotencyKey: "register-1",
+      sessionID: sessionID
+    )
+    let request = try endpoint.asURLRequest(baseURL: baseURL)
+
+    #expect(request.url?.absoluteString == "https://festicore-dev.up.railway.app/api/v1/bearer/register")
+    #expect(request.httpMethod == "POST")
+    #expect(request.value(forHTTPHeaderField: "Idempotency-Key") == "register-1")
+    #expect(endpoint.authorization == .sessionBound(sessionID))
+    #expect(endpoint.maxRetryAttempts == 0)
+    let body = try jsonBody(request)
+    #expect(body.keys.sorted() == ["festivalId", "name", "planVisible", "tags"])
+    #expect(body["festivalId"] as? String == "fst_1")
+    #expect(body["tags"] as? [String] == ["slam", "sing"])
+  }
+
+  @Test("기수 깃발 목록은 페스티벌을 쿼리로 붙이는 세션 GET이다")
+  func bearerFlags() throws {
+    let filtered = FlagRequest.bearerFlags(
+      query: BearerFlagsQuery(festivalId: "fst_1"),
+      sessionID: sessionID
+    )
+    let request = try filtered.asURLRequest(baseURL: baseURL)
+    #expect(request.url?.absoluteString == "https://festicore-dev.up.railway.app/api/v1/me/bearer-flags?festivalId=fst_1")
+    #expect(request.httpMethod == "GET")
+    #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
+    #expect(filtered.authorization == .sessionBound(sessionID))
+    #expect(filtered.maxRetryAttempts == 0)
+
+    let all = try FlagRequest.bearerFlags(
+      query: BearerFlagsQuery(),
+      sessionID: sessionID
+    ).asURLRequest(baseURL: baseURL)
+    #expect(all.url?.absoluteString == "https://festicore-dev.up.railway.app/api/v1/me/bearer-flags")
+  }
+
+  @Test("대표 깃발 조회는 본문 없는 세션 GET이다")
+  func pinnedFlagLookup() throws {
+    let endpoint = FlagRequest.pinnedFlag(sessionID: sessionID)
+    let request = try endpoint.asURLRequest(baseURL: baseURL)
+
+    #expect(request.url?.absoluteString == "https://festicore-dev.up.railway.app/api/v1/me/pinned-flag")
+    #expect(request.httpMethod == "GET")
+    #expect(request.httpBody == nil)
+    #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
+    #expect(endpoint.authorization == .sessionBound(sessionID))
+  }
+
   private func jsonBody(_ request: URLRequest) throws -> [String: Any] {
     let data = try #require(request.httpBody)
     return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])

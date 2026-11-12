@@ -11,6 +11,14 @@ import Foundation
 /// 기수 화면(코드 등록·깃발 프로필·기수 보드)이 하는 일
 public protocol BearerUseCaseInterface: Sendable {
   func claim(festivalID: String, code: String) async throws -> BearerClaim
+  /// 새 멱등키로 등록 한 건을 만든다. 같은 내용을 다시 보낼 때는 만든 값을 그대로 쓴다.
+  func makeRegisterRequest(
+    festivalID: String,
+    change: BearerProfileChange
+  ) -> BearerRegisterRequest
+  func register(_ request: BearerRegisterRequest) async throws -> BearerClaim
+  func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag]
+  func fetchPinnedFlag() async throws -> BearerPinnedFlag?
   /// 기기에 받아 둔 팩에서 축제 이름과 존을 읽는다. 팩이 없으면 빈 존 목록이다.
   func fetchFestival(festivalID: String) async throws -> BearerFestival
   func fetchBoard(flagID: String) async throws -> BearerBoard

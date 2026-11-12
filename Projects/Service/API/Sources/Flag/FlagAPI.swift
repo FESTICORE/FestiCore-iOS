@@ -16,6 +16,10 @@ public enum FlagAPI: Sendable, Equatable {
   case inviteCoBearer(flagID: String)
   case coBearer(flagID: String, userID: String)
   case claim
+  /// 코드 없는 기수 등록
+  case register
+  /// 내가 기수인 깃발 목록
+  case bearerFlags
 
   public var path: String {
     switch self {
@@ -28,6 +32,8 @@ public enum FlagAPI: Sendable, Equatable {
     case let .inviteCoBearer(flagID): return "\(FestiCoreDomain.flags.path)/\(flagID)/co-bearers/invite"
     case let .coBearer(flagID, userID): return "\(FestiCoreDomain.flags.path)/\(flagID)/co-bearers/\(userID)"
     case .claim: return "\(FestiCoreDomain.bearer.path)/claim"
+    case .register: return "\(FestiCoreDomain.bearer.path)/register"
+    case .bearerFlags: return "\(FestiCoreDomain.me.path)/bearer-flags"
     }
   }
 }

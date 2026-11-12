@@ -14,6 +14,36 @@ typealias BearerProfileResponseDTO = BaseResponseDTO<BearerFlagProfileDTO>
 typealias BearerStatusResponseDTO = BaseResponseDTO<BearerFlagStatusDTO>
 typealias BearerPhotoResponseDTO = BaseResponseDTO<BearerPhotoDataDTO>
 typealias BearerInviteResponseDTO = BaseResponseDTO<BearerInviteDataDTO>
+typealias BearerFlagsResponseDTO = BaseResponseDTO<BearerFlagsDataDTO>
+typealias BearerPinnedFlagResponseDTO = BaseResponseDTO<BearerPinnedFlagDataDTO>
+
+/// `GET me/bearer-flags` data
+struct BearerFlagsDataDTO: Decodable, Sendable, Equatable {
+  struct Item: Decodable, Sendable, Equatable {
+    let flagId: String
+    let festivalId: String
+    let isOwner: Bool?
+    let joinedAt: String?
+    let flag: BearerFlagProfileDTO
+    let status: BearerFlagStatusDTO?
+    let hidden: Bool?
+  }
+
+  let items: [Item]
+}
+
+/// `GET me/pinned-flag` data. 대표 깃발이 없으면 둘 다 null이다.
+struct BearerPinnedFlagDataDTO: Decodable, Sendable, Equatable {
+  struct Flag: Decodable, Sendable, Equatable {
+    let id: String
+    let name: String
+    let thumbUrl: String?
+    let festivalId: String?
+  }
+
+  let pinnedFlagId: String?
+  let flag: Flag?
+}
 
 struct BearerFlagProfileDTO: Decodable, Sendable, Equatable {
   let id: String

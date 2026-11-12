@@ -22,6 +22,30 @@ public struct MockBearerUseCase: BearerUseCaseInterface {
     try await repository.claim(festivalID: festivalID, code: code)
   }
 
+  public func makeRegisterRequest(
+    festivalID: String,
+    change: BearerProfileChange
+  ) -> BearerRegisterRequest {
+    reportIssue("\(dependencyName) 미등록")
+    return BearerRegisterRequest(
+      festivalID: festivalID,
+      change: change,
+      idempotencyKey: ""
+    )
+  }
+
+  public func register(_ request: BearerRegisterRequest) async throws -> BearerClaim {
+    return try await repository.register(request)
+  }
+
+  public func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag] {
+    return try await repository.fetchBearerFlags(festivalID: festivalID)
+  }
+
+  public func fetchPinnedFlag() async throws -> BearerPinnedFlag? {
+    return try await repository.fetchPinnedFlag()
+  }
+
   public func fetchFestival(festivalID: String) async throws -> BearerFestival {
     reportIssue("\(dependencyName) 미등록")
     throw BearerError.unavailable

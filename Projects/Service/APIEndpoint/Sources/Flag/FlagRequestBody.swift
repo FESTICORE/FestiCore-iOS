@@ -103,6 +103,44 @@ public struct BearerClaimBody: Encodable, Sendable, Equatable {
   }
 }
 
+/// `POST bearer/register` 본문. 값이 없는 키(소개·존·계획)는 보내지 않는다.
+public struct BearerRegisterBody: Encodable, Sendable, Equatable {
+  public let festivalId: String
+  public let name: String
+  public let bio: String?
+  public let tags: [String]
+  public let planVisible: Bool
+  public let homeZoneId: String?
+  public let plan: [String]?
+
+  public init(
+    festivalId: String,
+    name: String,
+    bio: String?,
+    tags: [String],
+    planVisible: Bool,
+    homeZoneId: String?,
+    plan: [String]? = nil
+  ) {
+    self.festivalId = festivalId
+    self.name = name
+    self.bio = bio
+    self.tags = tags
+    self.planVisible = planVisible
+    self.homeZoneId = homeZoneId
+    self.plan = plan
+  }
+}
+
+/// `GET me/bearer-flags` 쿼리. 페스티벌이 없으면 키를 보내지 않는다.
+public struct BearerFlagsQuery: Encodable, Sendable, Equatable {
+  public let festivalId: String?
+
+  public init(festivalId: String? = nil) {
+    self.festivalId = festivalId
+  }
+}
+
 /// `POST flags/:flagId/report` 본문. 메모가 없으면 키를 보내지 않는다.
 public struct FlagReportBody: Encodable, Sendable, Equatable {
   public let reason: String
