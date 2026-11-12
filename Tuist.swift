@@ -7,10 +7,11 @@
 
 import ProjectDescription
 
-// Tuist 서버(원격 캐시·Insights·Previews)는 플랜 사용량과 요금이 생기지 않도록 기본으로 끈다(#536).
-// fullHandle과 xcodeCache를 두지 않아 로컬·CI 빌드는 로컬 캐시만 쓰고 서버에 올리지 않는다.
-// 다시 켜려면 플랜을 확인한 뒤 fullHandle: "FestiCore/festicore"와 xcodeCache를 되돌리고 저장소 변수 TUIST_SERVER_ENABLED를 true로 둔다.
+// 원격 컴파일 캐시(xcodeCache)는 무료 Air 플랜 한도에 걸려 거부되며 빌드만 늦추므로 쓰지 않는다(#536).
+// fullHandle은 CI의 테스트 분할(shard plan)과 테스트 리포트에 필요해 남긴다.
+// 캐시·프리뷰·분석 업로드 같은 부가 서버 단계는 저장소 변수 TUIST_SERVER_ENABLED가 true일 때만 CI에서 돈다.
 let tuist = Tuist(
+  fullHandle: "FestiCore/festicore",
   project: .tuist(
     compatibleXcodeVersions: .all,
     swiftVersion: .some("6.4.0"),
