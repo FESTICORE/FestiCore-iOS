@@ -116,7 +116,11 @@ extension NotificationSettingsView {
           if index > 0 {
             FestiCoreSemanticColor.lineNormal.color
               .frame(height: 1)
-              .padding(.leading, FestiCoreSpacing.paddingP16)
+              // Figma S13-A Divider: 좌우 16 안쪽(345)
+              .padding(
+                .horizontal,
+                FestiCoreSpacing.paddingP16
+              )
           }
           FCListRow(row.0, isOn: toggleBinding(row.1))
             .disabled(store.isDeviceNotificationOff)

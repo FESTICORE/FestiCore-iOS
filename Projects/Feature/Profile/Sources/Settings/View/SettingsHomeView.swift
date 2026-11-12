@@ -144,8 +144,9 @@ private extension SettingsHomeView {
   var rowDivider: some View {
     return FestiCoreSemanticColor.lineNormal.color
       .frame(height: 1)
+      // Figma S13-0 Divider: 좌우 16 안쪽(345)
       .padding(
-        .leading,
+        .horizontal,
         FestiCoreSpacing.paddingP16
       )
   }

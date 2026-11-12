@@ -158,9 +158,10 @@ private extension FestiCoreFestivalActivityWidget {
       companionLines(for: state)
     }
     .foregroundStyle(WidgetPalette.black)
+    // Figma Lock Live Activity: 글자·카운트다운 좌우 16
     .padding(
       .horizontal,
-      FestiCoreSpacing.paddingP12 + FestiCoreSpacing.marginM2
+      FestiCoreSpacing.paddingP16
     )
     .frame(
       maxWidth: .infinity,
@@ -182,12 +183,13 @@ private extension FestiCoreFestivalActivityWidget {
         alignment: .leading,
         spacing: FestiCoreSpacing.marginM2
       ) {
+        // Figma Lock Live Activity: '다음 내 일정'은 Static Alpha/White 60
         Text("다음 내 일정")
           .font(.pretendardFontFamily(
             family: .Medium,
             size: 10
           ))
-          .foregroundStyle(FestiCoreSemanticColor.staticWhite.color.opacity(0.7))
+          .foregroundStyle(FestiCoreSemanticColor.staticalphaWhite60.color)
         nextSchedule(
           for: state,
           festivalID: festivalID
@@ -200,9 +202,10 @@ private extension FestiCoreFestivalActivityWidget {
         size: 24
       )
     }
+    // Figma Lock Live Activity: 글자·카운트다운 좌우 16
     .padding(
       .horizontal,
-      FestiCoreSpacing.paddingP12 + FestiCoreSpacing.marginM2
+      FestiCoreSpacing.paddingP16
     )
   }
 
@@ -312,6 +315,8 @@ private extension FestiCoreFestivalActivityWidget {
         ))
         .lineLimit(1)
     }
+    // Figma Lock Live Activity: 깃발·크루 줄의 아이콘과 글자는 Static Alpha/Black 60
+    .foregroundStyle(FestiCoreSemanticColor.staticalphaBlack60.color)
   }
 
   @ViewBuilder
