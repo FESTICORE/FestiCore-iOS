@@ -70,7 +70,7 @@ struct FestivalFollowGuideFeatureTests {
     await store.send(.view(.hideFollowGuideTapped)) {
       $0.followGuideAlert = .alert(
         title: "이 안내를 숨길까요?",
-        message: "이번 페스티벌 동안 라이브 보드에서 보이지 않아요. 다시 보고 싶으면 마이 > 설정 > 라이브 보드에서 켜거나, 깃발 탭에서 언제든 깃발을 찾을 수 있어요.",
+        message: "이번 페스티벌 동안 라이브 보드에서 보이지 않아요.\n다시 보고 싶으면 마이 > 설정 > 라이브 보드에서 켜거나, 깃발 탭에서 언제든 깃발을 찾을 수 있어요.",
         confirmTitle: "숨기기"
       )
     }

@@ -116,7 +116,7 @@ extension FCSetBlock {
           .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         Text(time)
           .festiCoreFont(.baseCaption1Bold)
-          .foregroundStyle(FestiCoreSemanticColor.accentPointOrange.color)
+          .foregroundStyle(FestiCoreSemanticColor.accentForegroundOrange.color)
       }
       .lineLimit(1)
     } else {

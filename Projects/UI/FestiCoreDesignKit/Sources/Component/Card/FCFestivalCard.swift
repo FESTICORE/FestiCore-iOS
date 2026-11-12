@@ -188,11 +188,11 @@ private extension FCFestivalCard {
     .buttonStyle(.plain)
   }
 
-  /// Figma S00: 마감은 이미지 위에 Static/Black 60% 레이어
+  /// Figma S00 Festival Card status=ended: 마감은 이미지 위에 Static Alpha/Black 40 레이어
   @ViewBuilder
   private var mediaDim: some View {
     if case .ended = status {
-      FestiCoreSemanticColor.staticalphaBlack60.color
+      FestiCoreSemanticColor.staticalphaBlack40.color
         .allowsHitTesting(false)
     }
   }
