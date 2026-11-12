@@ -48,6 +48,23 @@ struct ProfileRoutingTests {
     }
     #expect(store.state.profileRoutes.count == 2)
 
+    // Figma S13-0 '정보 출처' 줄은 수집 출처 공개 문서를 같은 법적 문서 화면으로 연다.
+    await store.send(.router(.routeAction(
+      id: 1,
+      action: .settings(.view(.sourcesTapped))
+    )))
+    await store.receive(\.profile.destination.presented.settings.view) {
+      $0.destination = .settings(settings(.legalDocument(.init(
+        url: baseURL.appending(path: "sources"),
+        title: "정보 출처"
+      ))))
+    }
+    #expect(store.state.profileRoutes[2].screen.legalDocument?.url == baseURL.appending(path: "sources"))
+    await store.send(.router(.updateRoutes(Array(store.state.profileRoutes.prefix(2)))))
+    await store.receive(\.profile.destination.presented.settings.destination.dismiss) {
+      $0.destination = .settings(.init())
+    }
+
     // 설정 홈에서 뒤로 밀면 마이로 돌아온다.
     await store.send(.router(.updateRoutes(Array(store.state.profileRoutes.prefix(1)))))
     await store.receive(\.profile.destination.dismiss) {
@@ -270,16 +287,17 @@ struct ProfileRoutingTests {
     #expect(store.state.profileRoutes.count == 3)
   }
 
-  @Test("마이 설정 홈과 그 아래 계정·설정·정보 화면에서 탭바를 숨기고 복귀하면 표시한다")
+  @Test("마이 설정 홈은 탭바를 보이고 그 아래 계정·설정·정보 화면에서 탭바를 숨기며 복귀하면 표시한다")
   func profileInformationRoutesHideTabBarUntilDismissed() {
     var state = MainTabCoordinator.State(selectedTab: .my)
     #expect(!state.shouldHideTabBar)
     #expect(state.shouldReserveTabBarSpace)
 
+    // Figma S13-0: 설정 홈에는 마이 탭이 선택된 탭바가 있다.
     state.profileState.destination = .settings(.init())
     #expect(state.profileState.profileRoutes.last?.screen.is(\.settings) == true)
-    #expect(state.shouldHideTabBar)
-    #expect(!state.shouldReserveTabBarSpace)
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
 
     let baseURL = URL(string: "https://festicore-dev.up.railway.app/api/v1/legal")!
     let children: [SettingsHomeFeature.Destination.State] = [

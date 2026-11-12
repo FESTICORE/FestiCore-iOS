@@ -1628,12 +1628,12 @@ struct AppCoordinatorTests {
     ))))) {
       $0.profileState.hasSession = true
     }
-    // 설정 홈과 그 아래 계정 화면은 다른 마이 설정 화면처럼 탭바 없이 표시한다.
+    // Figma S13-0: 설정 홈은 탭바를 보이고, 그 아래 계정 화면은 다른 마이 설정 화면처럼 탭바 없이 표시한다.
     await store.send(.profileCoordinator(.profile(.view(.settingsTapped)))) {
       $0.profileState.destination = .settings(.init(hasSession: true))
     }
-    #expect(store.state.shouldHideTabBar)
-    #expect(!store.state.shouldReserveTabBarSpace)
+    #expect(!store.state.shouldHideTabBar)
+    #expect(store.state.shouldReserveTabBarSpace)
     await store.send(.profileCoordinator(.profile(.destination(.presented(.settings(.view(.accountTapped))))))) {
       $0.profileState.destination = .settings(settingsWithAccount(AccountSettingsFeature.State(profile: nil)))
     }

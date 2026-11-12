@@ -6,9 +6,10 @@ extension ProfileFeature.State {
   var hidesTabBarForProfileRoute: Bool {
     guard let screen = profileRoutes.last?.screen else { return false }
     switch screen {
-    case .account, .appearance, .legalDocument, .lockScreen, .noticeList, .noticeDetail, .notifications, .packDetail, .settings:
+    case .account, .appearance, .legalDocument, .lockScreen, .noticeList, .noticeDetail, .notifications, .packDetail:
       return true
-    case .profile, .bearer:
+    // Figma S13-0: 설정 홈은 마이 탭이 선택된 탭바를 그대로 보인다. 그 아래 하위 화면은 탭바를 숨긴다.
+    case .profile, .bearer, .settings:
       return false
     }
   }
