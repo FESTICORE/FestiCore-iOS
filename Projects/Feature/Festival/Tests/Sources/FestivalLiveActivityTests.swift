@@ -1,11 +1,52 @@
 import Clocks
 import ComposableArchitecture
+import FestiCoreStorageInterface
 import FestivalDomainInterface
 import Foundation
 import Testing
 @testable import Festival
 
 struct HomeLiveActivityTests {
+  @Test @MainActor func autoStartOffDoesNotStartLiveActivity() async {
+    @Shared(.liveActivityAutoStart) var isAutoStartOn
+    $isAutoStartOn.withLock { $0 = false }
+    let now = ISO8601DateFormatter().date(from: "2026-10-29T08:00:00Z")!
+    let starts = LockIsolated(0)
+    var state = FestivalFeature.State(selectedFestivalID: "festival")
+    state.catalog = [festival(id: "festival")]
+    state.selectedPack = savedPerformancePack()
+    state.hasSession = true
+    state.mySchedule = .init(
+      festivalID: "festival",
+      setIDs: ["saved-set"]
+    )
+    state.liveActivity.isReady = true
+    state.liveActivity.now = now
+    state.hasStarted = true
+    let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.date.now = now
+      $0.continuousClock = TestClock()
+      $0.festivalLiveActivityClient = .init(
+        activities: { [] },
+        changes: { AsyncStream { $0.finish() } },
+        start: { _, _, _, _, _ in
+          starts.withValue { $0 += 1 }
+          return "automatic-activity"
+        },
+        update: { _, _, _, _, _, _ in },
+        finish: { _, _ in },
+        end: { _ in }
+      )
+    }
+
+    // 마이 > 잠금화면에서 '당일 자동 시작'을 끄면 2시간 전 창 안이어도 자동으로 켜지 않는다.
+    store.exhaustivity = .off
+    await store.send(.inner(.liveActivityBoundary))
+    #expect(starts.value == 0)
+    await store.skipInFlightEffects()
+  }
+
   @Test @MainActor func savedPerformanceStartsAutomaticallyAtTwoHourWindowOnce() async {
     let now = ISO8601DateFormatter().date(from: "2026-10-29T08:00:00Z")!
     let start = ISO8601DateFormatter().date(from: "2026-10-29T09:00:00Z")!
