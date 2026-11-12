@@ -43,7 +43,8 @@ extension AuthCoordinatorView {
       case .migration: self = .migration
       case .retry: self = .retry
       // 첫 진입 화면은 시트가 아니라 MainTabView가 전체 화면으로 덮는다.
-      case .launchLogin, nil: return nil
+      // 바로 로그인은 시트 없이 Apple·Google 창만 띄운다.
+      case .launchLogin, .directLogin, nil: return nil
       }
     }
   }

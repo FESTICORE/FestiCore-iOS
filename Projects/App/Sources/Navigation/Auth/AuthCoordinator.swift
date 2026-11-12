@@ -39,6 +39,8 @@ struct AuthCoordinator {
     case loginRequested(LoginFeature.State.Context?)
     /// 로그인 시트의 로그인 요청(`LoginDelegate.signInRequested`)도 여기서 시트 상태를 확인한다.
     case startLogin(OAuthProvider)
+    /// 화면에서 제공자를 이미 고른 로그인. 로그인 시트를 띄우지 않는다.
+    case startDirectLogin(OAuthProvider)
     case dismissFlow
     case resolveMigration(Bool)
     case retryTapped
@@ -144,6 +146,18 @@ extension AuthCoordinator {
       state.presentation = .login
       return .none
 
+    case let .startDirectLogin(provider):
+      guard !state.isLoading, state.presentation == nil else { return .none }
+      state.generation += 1
+      state.clearPendingBookmark()
+      state.message = nil
+      state.loginContextOverride = nil
+      state.presentation = .directLogin
+      return handleViewAction(
+        state: &state,
+        action: .startLogin(provider)
+      )
+
     case let .startLogin(provider):
       // 수락한 로그인을 확정하는 동안 새 로그인을 시작하면 두 결과가 서로의 임시 세션을 무효로 만든다.
       guard state.presentation?.acceptsLogin == true, state.pendingCommitSessionID == nil else { return .none }
@@ -244,6 +258,19 @@ extension AuthCoordinator {
         state: &state,
         action: .dismissFlow
       )
+    case let .inner(.signInFailed(error)):
+      // 바로 로그인을 취소하면 아무 화면 없이 끝내고, 실패하면 오류 문구가 보이도록 로그인 시트를 연다.
+      guard state.presentation == .directLogin else { return .none }
+      switch error {
+      case .userCancelled, .requestInProgress:
+        return handleViewAction(
+          state: &state,
+          action: .dismissFlow
+        )
+      default:
+        state.presentation = .login
+        return .none
+      }
     case .view, .async, .inner:
       return .none
     }

@@ -337,6 +337,48 @@ struct AppCoordinatorTests {
     #expect(store.state.isLaunchLoginPresented)
   }
 
+  @Test func profileCardLoginStartsProviderWithoutLoginSheet() async {
+    let store = TestStore(initialState: AppCoordinator.State.home(MainTabCoordinator.State())) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.oauthUseCase = CancelledOAuthUseCase()
+    }
+    store.exhaustivity = .off
+    // 마이 로그인 카드에서 Apple을 고르면 앱 로그인 시트 없이 Apple 로그인 창만 띄운다.
+    await store.send(.scope(.home(.profileCoordinator(.profile(.delegate(.socialLoginRequested(.apple)))))))
+    await store.receive(\.scope.home.auth.view.startDirectLogin)
+    guard case let .home(started) = store.state else {
+      Issue.record("홈이어야 한다")
+      return
+    }
+    #expect(started.authFlow.presentation == .directLogin)
+    // 사용자가 Apple 창을 닫으면 아무 화면도 남기지 않는다.
+    await store.receive(\.scope.home.auth.login.inner.signInFailed)
+    guard case let .home(cancelled) = store.state else {
+      Issue.record("홈이어야 한다")
+      return
+    }
+    #expect(cancelled.authFlow.presentation == nil)
+  }
+
+  @Test func profileCardLoginFailureShowsLoginSheetWithError() async {
+    let store = TestStore(initialState: AppCoordinator.State.home(MainTabCoordinator.State())) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.oauthUseCase = FailingOAuthUseCase()
+    }
+    store.exhaustivity = .off
+    await store.send(.scope(.home(.profileCoordinator(.profile(.delegate(.socialLoginRequested(.google)))))))
+    await store.receive(\.scope.home.auth.login.inner.signInFailed)
+    guard case let .home(failed) = store.state else {
+      Issue.record("홈이어야 한다")
+      return
+    }
+    // 취소가 아닌 실패는 오류 문구가 보이도록 로그인 시트를 연다.
+    #expect(failed.authFlow.presentation == .login)
+    #expect(failed.authFlow.login.errorMessage != nil)
+  }
+
   @Test func pendingDeeplinkOpensAfterLaunchLoginCloses() async {
     let storage = InMemoryStorage()
     let store = TestStore(initialState: AppCoordinator.State()) {
@@ -4013,6 +4055,12 @@ private struct SucceedingOAuthUseCase: OAuthUseCaseInterface {
 
   func signIn(provider: OAuthProvider) async throws -> AuthLoginResult {
     return result
+  }
+}
+
+private struct FailingOAuthUseCase: OAuthUseCaseInterface {
+  func signIn(provider: OAuthProvider) async throws -> AuthLoginResult {
+    throw AuthDomainError.providerFailure
   }
 }
 
