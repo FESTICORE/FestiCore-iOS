@@ -30,7 +30,7 @@ extension FestivalS01VisualCaptureTests {
       EmptyReducer<LoginFeature.State, LoginFeature.Action>()
     }
     try await capture(
-      LaunchLoginView(store: store),
+      LoginView(store: store),
       name: "S14-A-launch-login",
       size: CGSize(
         width: 393,
