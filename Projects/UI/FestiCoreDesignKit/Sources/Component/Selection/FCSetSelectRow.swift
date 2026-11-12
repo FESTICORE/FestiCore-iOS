@@ -35,13 +35,16 @@ public struct FCSetSelectRow: View {
 
   public var body: some View {
     Button(action: action) {
+      // Figma Set Select Row: 위아래 12 + 시간 열(24 + 4 + 16) = 68, 줄 사이 구분선 1을 더해 69 간격.
       HStack(spacing: FestiCoreSpacing.paddingP12) {
         VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
           Text(start)
             .festiCoreFont(.baseCalloutBold)
+            .festiCoreLineBox(.baseCalloutBold)
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           Text(end)
             .festiCoreFont(.baseCaption1Regular)
+            .festiCoreLineBox(.baseCaption1Regular)
             .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
         }
         .monospacedDigit()
@@ -50,9 +53,11 @@ public struct FCSetSelectRow: View {
           Text(artist)
             // Figma Set Select Row 아티스트: Base/Headline/Bold
             .festiCoreFont(.baseHeadlineBold)
+            .festiCoreLineBox(.baseHeadlineBold)
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
           Text(stage)
             .festiCoreFont(.baseCaption2Medium)
+            .festiCoreLineBox(.baseCaption2Medium)
             .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
           if let overlapText {
             HStack(spacing: FestiCoreSpacing.paddingP4) {

@@ -38,6 +38,12 @@ public struct FCPackRow: View {
           Text(meta)
             .festiCoreFont(.baseFootnoteRegular)
             .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+            // Figma Pack Row 메타는 한 줄 폭 맞춤(잘림 없음)이라 글자 열(181)보다 조금 긴 문구(182)가
+            // 오른쪽 간격 12 안으로 넘친다. 같은 간격만큼만 넘치게 두고 그보다 길면 끝을 줄인다.
+            .padding(
+              .trailing,
+              -FestiCoreSpacing.paddingP12
+            )
         }
         .lineLimit(1)
         .frame(maxWidth: .infinity, alignment: .leading)

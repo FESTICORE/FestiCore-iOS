@@ -91,9 +91,10 @@ private extension ProfileView {
       }
       .buttonStyle(.plain)
       .accessibilityLabel("설정")
+      // Figma More Settings Button(24)은 오른쪽 끝에서 16 안쪽이다. 누르는 영역 44의 남는 10을 빼 6을 둔다.
       .padding(
         .trailing,
-        FestiCoreSpacing.paddingP8
+        FestiCoreSpacing.marginM6
       )
     }
   }
