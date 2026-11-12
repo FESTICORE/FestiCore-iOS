@@ -5,6 +5,7 @@ import TCAFlow
 /// 기수 등록 흐름. 코드 없는 등록은 (가입 직후면 기수 여부 S14 C →) 깃발 프로필 등록(S14 D) → 저장 완료(S14 E),
 /// 코드 인증은 인증(S13 F~I) → 깃발 프로필(S10, 오늘 계획 고르기) → 기수 보드다.
 /// 코드 화면은 `BearerClaimDelegate.claimed`만 알리면 된다. 코드 입력을 QR 스캔으로 바꿔도 그 화면만 갈아 끼우면 된다.
+/// 경로는 따로 띄우지 않고 마이(`ProfileCoordinator`)·가입(`AuthCoordinator.SignUpFlow`) 스택 위에 이어 push한다.
 @FlowCoordinator(
   screen: "BearerEntryScreen",
   navigation: true
@@ -83,7 +84,9 @@ struct BearerEntryCoordinator {
 
   @CasePathable
   enum Delegate: Equatable {
-    /// 흐름을 닫는다(인증 화면 뒤로, 프로필 뒤로, 보드의 '관객 화면으로').
+    /// 흐름 첫 화면에서 뒤로 갔다. 부모 스택은 기수 흐름만 걷어 내고 그 아래 화면(마이·가입 정보)으로 돌아간다.
+    case backRequested
+    /// 흐름을 닫는다(관객 선택, '나중에 할게요', 저장 완료, 프로필 뒤로, 보드의 '관객 화면으로').
     case closeRequested
     /// 코드 없이 깃발을 만들었다. 부모가 그 페스티벌을 핀(선택 저장)한다.
     case festivalPinRequested(String)
@@ -197,16 +200,30 @@ struct BearerEntryCoordinator {
         state.routes.goBack()
         return .none
       }
-      return .send(.delegate(.closeRequested))
+      return .send(.delegate(.backRequested))
+
+    case .router(.routeAction(
+      id: _,
+      action: .register(.delegate(.backRequested))
+    )):
+      // Figma S14 D: 기수 여부(C)에서 연 깃발 등록은 뒤로 가면 기수 여부로 돌아간다.
+      if state.routes.count > 1, state.routes.last?.screen.is(\.register) == true {
+        state.routes.goBack()
+        return .none
+      }
+      return .send(.delegate(.backRequested))
+
+    case .router(.routeAction(
+      id: _,
+      action: .roleChoice(.delegate(.closeRequested))
+    )):
+      // Figma S14 C: 기수 여부의 뒤로는 가입 정보(B)로 돌아간다.
+      return .send(.delegate(.backRequested))
 
     case .router(.routeAction(
       id: _,
       action: .roleChoice(.delegate(.audienceChosen))
     )),
-      .router(.routeAction(
-        id: _,
-        action: .roleChoice(.delegate(.closeRequested))
-      )),
       .router(.routeAction(
         id: _,
         action: .register(.delegate(.finished))
@@ -245,3 +262,27 @@ extension BearerEntryCoordinator {
 }
 
 extension BearerEntryCoordinator.BearerEntryScreen.State: Equatable {}
+
+extension BearerEntryCoordinator.State {
+  /// 부모 스택 위에 이어 붙일 기수 화면 경로. 흐름의 첫 화면도 push로 보인다.
+  func pushedRoutes<Screen>(_ embed: (BearerEntryCoordinator.BearerEntryScreen.State) -> Screen) -> [Route<Screen>] {
+    return routes.map { .push(embed($0.screen)) }
+  }
+
+  /// 부모 스택에서 뒤로 밀어 남은 기수 화면 수만 남긴다.
+  mutating func keepRoutes(_ count: Int) {
+    guard count < routes.count else { return }
+    routes.removeLast(routes.count - count)
+  }
+}
+
+/// 마이·가입 스택이 기수 화면을 한 case로 담는다. 화면 액션은 부모가 `BearerEntryCoordinator`로 넘겨 그 리듀서가 실행한다.
+@Reducer
+struct BearerEntryStep {
+  typealias State = BearerEntryCoordinator.BearerEntryScreen.State
+  typealias Action = BearerEntryCoordinator.BearerEntryScreen.Action
+
+  var body: some ReducerOf<Self> {
+    BearerEntryCoordinator.BearerEntryScreen.body
+  }
+}

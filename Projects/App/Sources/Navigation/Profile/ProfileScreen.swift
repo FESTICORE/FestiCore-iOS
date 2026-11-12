@@ -14,6 +14,8 @@ enum ProfileScreen {
   case noticeList(NoticeListFeature)
   case noticeDetail(NoticeDetailFeature)
   case notifications(NotificationSettingsFeature)
+  /// 마이에서 연 기수 설정(S14 D·S13 F~I·S10·S09). 화면 상태는 `ProfileCoordinator.State.bearer`가 가진다.
+  case bearer(BearerEntryStep)
 }
 
 extension ProfileScreen.State: Equatable {}

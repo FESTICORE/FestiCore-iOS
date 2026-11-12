@@ -44,10 +44,11 @@ extension MainTabCoordinator {
         action: profileAction
       )
 
-    case let .bearerEntry(bearerAction):
-      return handleBearerEntryScope(
+    case let .auth(.signUp(.bearer(.delegate(delegate)))):
+      return handleBearerDelegate(
         state: &state,
-        action: bearerAction
+        host: .signUp,
+        delegate: delegate
       )
 
     case let .auth(authAction):
@@ -215,7 +216,7 @@ extension MainTabCoordinator {
       festivalID,
       flagID
     ))):
-      state.bearerEntry = BearerEntryCoordinator.State(
+      state.profileCoordinatorState.bearer = BearerEntryCoordinator.State(
         festivalID: festivalID,
         flagID: flagID,
         viewerUserID: state.authFlow.verifiedUserID,
@@ -227,7 +228,7 @@ extension MainTabCoordinator {
       festivalID,
       flagID
     ))):
-      state.bearerEntry = BearerEntryCoordinator.State(
+      state.profileCoordinatorState.bearer = BearerEntryCoordinator.State(
         festivalID: festivalID,
         flagID: flagID,
         viewerUserID: state.authFlow.verifiedUserID,
@@ -257,42 +258,88 @@ extension MainTabCoordinator {
          .profile(.destination(.presented(.packDetail(.delegate(.packChanged))))):
       return .send(.festival(.reloadCachedPacks))
 
+    case let .bearer(.delegate(delegate)):
+      return handleBearerDelegate(
+        state: &state,
+        host: .my,
+        delegate: delegate
+      )
+
     default:
       return .none
     }
   }
 
-  func handleBearerEntryScope(
-    state: inout State,
-    action: PresentationAction<BearerEntryCoordinator.Action>
-  ) -> Effect<Action> {
-    switch action {
-    case .presented(.delegate(.closeRequested)):
-      state.bearerEntry = nil
-      // 등록·수정한 깃발이 마이 내 깃발 카드에 바로 보이게 다시 읽는다.
-      return .send(.profileCoordinator(.profile(.view(.bearerFlagsRefreshRequested))))
+  /// 기수 흐름을 이어 push한 스택. 마이는 기수 화면만 걷어 내고, 가입은 가입 시트까지 닫는다.
+  enum BearerHost {
+    case my
+    case signUp
+  }
 
-    case let .presented(.delegate(.festivalPinRequested(festivalID))):
+  func handleBearerDelegate(
+    state: inout State,
+    host: BearerHost,
+    delegate: BearerEntryCoordinator.Delegate
+  ) -> Effect<Action> {
+    // 등록·수정한 깃발이 마이 내 깃발 카드에 바로 보이게 다시 읽는다.
+    let refreshFlags: Effect<Action> = .send(.profileCoordinator(.profile(.view(.bearerFlagsRefreshRequested))))
+    switch delegate {
+    case .backRequested:
+      // Figma S14 C: 가입 스택은 기수 여부를 걷어 내고 가입 정보(B)로 돌아간다.
+      switch host {
+      case .my:
+        state.profileCoordinatorState.bearer = nil
+        return refreshFlags
+      case .signUp:
+        state.authFlow.signUpFlow.bearer = nil
+        return .none
+      }
+
+    case .closeRequested:
+      return .merge(
+        closeBearerFlow(
+          state: &state,
+          host: host
+        ),
+        refreshFlags
+      )
+
+    case let .festivalPinRequested(festivalID):
       // Figma S14 E: 깃발을 만든 페스티벌을 자동으로 핀해 라이브 탭이 그 페스티벌로 열린다.
       return .merge(
         .send(.festival(.pinFestival(festivalID))),
-        .send(.profileCoordinator(.profile(.view(.bearerFlagsRefreshRequested))))
+        refreshFlags
       )
 
-    case let .presented(.delegate(.packRequested(festivalID))):
+    case let .packRequested(festivalID):
       // 팩 받기 카드는 그 페스티벌 라이브 보드 맨 위에 있다.
-      state.bearerEntry = nil
+      let close = closeBearerFlow(
+        state: &state,
+        host: host
+      )
       select(
         .live,
         state: &state
       )
       return .concatenate(
+        close,
         .send(.festival(.showFestivalList)),
         .send(.festival(.pinFestival(festivalID)))
       )
+    }
+  }
 
-    default:
+  /// 마이 스택은 기수 화면만 걷어 내고, 가입 스택은 가입 시트를 닫아 경로를 정리한다.
+  private func closeBearerFlow(
+    state: inout State,
+    host: BearerHost
+  ) -> Effect<Action> {
+    switch host {
+    case .my:
+      state.profileCoordinatorState.bearer = nil
       return .none
+    case .signUp:
+      return .send(.auth(.view(.dismissFlow)))
     }
   }
 
@@ -300,7 +347,7 @@ extension MainTabCoordinator {
   /// 페스티벌은 등록 화면에서 고르고, 라이브 탭에서 연 페스티벌을 먼저 골라 둔다.
   private func handleBearerRequested(state: inout State) -> Effect<Action> {
     guard state.authFlow.hasSession else { return .send(.auth(.view(.loginRequested(nil)))) }
-    state.bearerEntry = BearerEntryCoordinator.State(
+    state.profileCoordinatorState.bearer = BearerEntryCoordinator.State(
       registerPreferredFestivalID: state.bearerFestivalID,
       viewerUserID: state.authFlow.verifiedUserID,
       asksRole: false
@@ -356,14 +403,8 @@ extension MainTabCoordinator {
       return .send(.account(.view(.cancelOperation)))
 
     case .signUpCompleted:
-      // Figma S14 C·C2: 가입 직후 기수 여부를 묻고, 기수면 코드 없는 깃발 등록(D)으로 잇는다.
-      guard state.bearerEntry == nil else { return .none }
-      state.bearerEntry = BearerEntryCoordinator.State(
-        registerPreferredFestivalID: state.bearerFestivalID,
-        viewerUserID: state.authFlow.verifiedUserID,
-        asksRole: true
-      )
-      return .none
+      // Figma S14 C·C2: 가입 직후 같은 가입 스택에 기수 여부를 push하고, 기수면 코드 없는 깃발 등록(D)으로 잇는다.
+      return .send(.auth(.view(.bearerSetupRequested(preferredFestivalID: state.bearerFestivalID))))
     }
   }
 
