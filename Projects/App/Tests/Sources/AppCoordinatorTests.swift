@@ -1336,23 +1336,32 @@ struct AppCoordinatorTests {
     ))))) {
       $0.profileState.hasSession = true
     }
-    // 계정 화면은 다른 마이 설정 화면처럼 탭바 없이 표시한다.
-    await store.send(.profileCoordinator(.profile(.view(.accountTapped)))) {
-      $0.profileState.destination = .account(.init(profile: nil))
+    // 설정 홈과 그 아래 계정 화면은 다른 마이 설정 화면처럼 탭바 없이 표시한다.
+    await store.send(.profileCoordinator(.profile(.view(.settingsTapped)))) {
+      $0.profileState.destination = .settings(.init(hasSession: true))
     }
     #expect(store.state.shouldHideTabBar)
     #expect(!store.state.shouldReserveTabBarSpace)
-    await store.send(.profileCoordinator(.profile(.destination(.presented(.account(.view(.logoutTapped))))))) {
-      $0.profileState.destination = .account({
+    await store.send(.profileCoordinator(.profile(.destination(.presented(.settings(.view(.accountTapped))))))) {
+      $0.profileState.destination = .settings(settingsWithAccount(AccountSettingsFeature.State(profile: nil)))
+    }
+    #expect(store.state.shouldHideTabBar)
+    #expect(!store.state.shouldReserveTabBarSpace)
+    await store.send(.profileCoordinator(.profile(.destination(.presented(.settings(.destination(.presented(
+      .account(.view(.logoutTapped))
+    )))))))) {
+      $0.profileState.destination = .settings(settingsWithAccount({
         var account = AccountSettingsFeature.State(profile: nil)
         account.destination = .alert(.logout())
         account.confirmation = .logout
         return account
-      }())
+      }()))
     }
     #expect(store.state.shouldHideTabBar)
-    await store.send(.profileCoordinator(.profile(.destination(.presented(.account(.destination(.presented(.alert(.cancelTapped))))))))) {
-      $0.profileState.destination = .account(.init(profile: nil))
+    await store.send(.profileCoordinator(.profile(.destination(.presented(.settings(.destination(.presented(
+      .account(.destination(.presented(.alert(.cancelTapped))))
+    )))))))) {
+      $0.profileState.destination = .settings(settingsWithAccount(AccountSettingsFeature.State(profile: nil)))
     }
     // 팝업을 닫아도 계정 화면에 머무는 동안은 탭바를 숨긴다.
     #expect(store.state.shouldHideTabBar)
@@ -1372,17 +1381,24 @@ struct AppCoordinatorTests {
 
   @Test func myPushedLegalLockScreenAndNoticeHideBottomTabs() {
     var state = MainTabCoordinator.State(selectedTab: .my)
-    state.profileState.destination = .legalDocument(.init(
-      url: URL(string: "https://example.com/api/v1/legal/terms")!, title: "이용약관"
-    ))
-    #expect(state.shouldHideTabBar)
-    #expect(!state.shouldReserveTabBarSpace)
-    state.profileState.destination = .lockScreen(.init())
-    #expect(state.shouldHideTabBar)
-    #expect(!state.shouldReserveTabBarSpace)
-    state.profileState.destination = .noticeList(.init())
-    #expect(state.shouldHideTabBar)
-    #expect(!state.shouldReserveTabBarSpace)
+    let children: [SettingsHomeFeature.Destination.State] = [
+      .legalDocument(.init(
+        url: URL(string: "https://example.com/api/v1/legal/terms")!,
+        title: "이용약관"
+      )),
+      .lockScreen(.init()),
+      .noticeList(.init()),
+    ]
+    for child in children {
+      var settings = SettingsHomeFeature.State()
+      settings.destination = child
+      state.profileState.destination = .settings(settings)
+      #expect(state.shouldHideTabBar)
+      #expect(!state.shouldReserveTabBarSpace)
+    }
+    state.profileState.destination = nil
+    #expect(!state.shouldHideTabBar)
+    #expect(state.shouldReserveTabBarSpace)
   }
 
   @Test func changedNicknameUpdatesSessionDisplayName() async {
@@ -1419,7 +1435,7 @@ struct AppCoordinatorTests {
     var home = MainTabCoordinator.State(selectedTab: .my)
     home.authFlow.hasSession = true
     home.profileState.hasSession = true
-    home.profileState.destination = .account(.init(profile: nil))
+    home.profileState.destination = .settings(settingsWithAccount(AccountSettingsFeature.State(profile: nil)))
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
@@ -1942,7 +1958,7 @@ struct AppCoordinatorTests {
     home.authFlow.accountOperationGeneration = 1
     home.authFlow.hasSession = true
     home.profileState.hasSession = true
-    home.profileState.destination = .account(.init(profile: nil))
+    home.profileState.destination = .settings(settingsWithAccount(AccountSettingsFeature.State(profile: nil)))
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
@@ -1974,7 +1990,7 @@ struct AppCoordinatorTests {
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.hasSession = true
     home.profileState.hasSession = true
-    home.profileState.destination = .account(.init(profile: nil))
+    home.profileState.destination = .settings(settingsWithAccount(AccountSettingsFeature.State(profile: nil)))
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
@@ -1995,7 +2011,12 @@ struct AppCoordinatorTests {
     }
     await store.receive(\.scope.home.authInputsChanged)
     await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged) { syncProfileAccount(&$0) }
-    await store.receive(\.scope.home.profileCoordinator.profile.destination.presented.account.view.accountChanged) {
+    await store.receive(\.scope.home.profileCoordinator.profile.destination.presented.settings.view.accountChanged) {
+      syncSettingsScreen(&$0)
+    }
+    await store.receive(
+      \.scope.home.profileCoordinator.profile.destination.presented.settings.destination.presented.account.view.accountChanged
+    ) {
       syncAccountScreen(&$0)
     }
     await store.receive(\.scope.home.account.inner.finished) {
@@ -2008,12 +2029,17 @@ struct AppCoordinatorTests {
     }
     await store.receive(\.scope.home.authInputsChanged)
     await store.receive(\.scope.home.profileCoordinator.profile.view.accountChanged) { syncProfileAccount(&$0) }
-    await store.receive(\.scope.home.profileCoordinator.profile.destination.presented.account.view.accountChanged) {
+    await store.receive(\.scope.home.profileCoordinator.profile.destination.presented.settings.view.accountChanged) {
+      syncSettingsScreen(&$0)
+    }
+    await store.receive(
+      \.scope.home.profileCoordinator.profile.destination.presented.settings.destination.presented.account.view.accountChanged
+    ) {
       syncAccountScreen(&$0)
     }
     guard case let .home(unchanged) = store.state else { return }
     #expect(unchanged.authFlow.profile?.user.id == "user-a")
-    #expect(unchanged.profileState.destination?.account != nil)
+    #expect(unchanged.profileState.destination?.settings?.destination?.account != nil)
   }
 
   @Test func withdrawalRefreshFailureClearsPreviousAccountWithoutExpiryEvent() async {
@@ -2022,7 +2048,7 @@ struct AppCoordinatorTests {
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.verifiedUserID = "user-a"
     home.profileState.hasSession = true
-    home.profileState.destination = .account(.init(profile: nil))
+    home.profileState.destination = .settings(settingsWithAccount(AccountSettingsFeature.State(profile: nil)))
     var board = FestivalFeature.State(selectedFestivalID: "festival")
     board.bookedUserID = "user-a"
     board.bookedFestivalIDs = ["festival"]
@@ -2061,7 +2087,7 @@ struct AppCoordinatorTests {
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.verifiedUserID = "user-a"
     home.profileState.hasSession = true
-    home.profileState.destination = .account(.init(profile: nil))
+    home.profileState.destination = .settings(settingsWithAccount(AccountSettingsFeature.State(profile: nil)))
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
@@ -2532,7 +2558,7 @@ struct AppCoordinatorTests {
     home.authFlow.accountOperation = .withdraw
     home.authFlow.isLoading = true
     home.profileState.hasSession = true
-    home.profileState.destination = .account(.init(profile: nil))
+    home.profileState.destination = .settings(settingsWithAccount(AccountSettingsFeature.State(profile: nil)))
     home.timetableState.mySetIDs = ["set-a"]
     home.flagState.snapshot = FestivalLiveBoardSnapshot(
       festivalID: "festival", activeFlags: [], followedFlags: [], crew: nil
@@ -2581,7 +2607,7 @@ struct AppCoordinatorTests {
     home.authFlow.profile = eligibleProfile(id: "user-a")
     home.authFlow.verifiedUserID = "user-a"
     home.profileState.hasSession = true
-    home.profileState.destination = .account(.init(profile: nil))
+    home.profileState.destination = .settings(settingsWithAccount(AccountSettingsFeature.State(profile: nil)))
     let store = Store(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
     } withDependencies: {
@@ -4011,13 +4037,34 @@ private func syncProfileAccount(_ state: inout AppCoordinator.State) {
   state = .home(home)
 }
 
-/// 마이 화면이 계정 화면에 넘긴 계정 상태를 기대 상태에 반영한다.
+/// 설정 홈과 그 아래 계정 화면을 연 마이 목적지
+private func settingsWithAccount(_ account: AccountSettingsFeature.State) -> SettingsHomeFeature.State {
+  var settings = SettingsHomeFeature.State(hasSession: true)
+  settings.destination = .account(account)
+  return settings
+}
+
+/// 마이 화면이 설정 홈에 넘긴 계정 상태를 기대 상태에 반영한다.
+private func syncSettingsScreen(_ state: inout AppCoordinator.State) {
+  guard case var .home(home) = state, case var .settings(settings) = home.profileState.destination else { return }
+  settings.profile = home.profileState.profile
+  settings.hasSession = home.profileState.hasSession
+  settings.isLoading = home.profileState.isLoading
+  settings.message = home.profileState.message
+  home.profileState.destination = .settings(settings)
+  state = .home(home)
+}
+
+/// 설정 홈이 계정 화면에 넘긴 계정 상태를 기대 상태에 반영한다.
 private func syncAccountScreen(_ state: inout AppCoordinator.State) {
-  guard case var .home(home) = state, case var .account(account) = home.profileState.destination else { return }
+  guard case var .home(home) = state,
+        case var .settings(settings) = home.profileState.destination,
+        case var .account(account) = settings.destination else { return }
   account.profile = home.authFlow.profile
   account.isLoading = home.authFlow.isLoading
   account.message = home.authFlow.message
-  home.profileState.destination = .account(account)
+  settings.destination = .account(account)
+  home.profileState.destination = .settings(settings)
   state = .home(home)
 }
 

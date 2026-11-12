@@ -33,19 +33,17 @@ public struct ProfileFeature {
     public var packLoad = PackLoad.idle
     /// 아직 연결되지 않은 이동은 누를 수 없게 둔다.
     public var isSearchAvailable = false
-    /// 영속 저장소의 화면 모드 원시 값
-    @SharedReader(.appearanceMode) public var storedAppearanceMode
-    /// 설정의 '화면 모드' 줄에 보이는 값
-    public var appearanceMode: AppearanceMode {
-      return AppearanceMode(storedValue: storedAppearanceMode)
-    }
-
     /// 팝업과 마이 화면의 하위 목적지
     @Presents public var destination: Destination.State?
 
     /// 로그인하지 않았으면 맨 위에 로그인 유도 카드를 보인다. 계정 상태를 확인하는 동안에는 숨긴다.
     public var showsLoginPrompt: Bool {
       return profile == nil && !hasSession && !isLoading
+    }
+
+    /// Figma More B: 로그아웃 상태에서는 기수 카드를 숨기고 로그인 카드만 둔다.
+    public var showsBearerPrompt: Bool {
+      return profile != nil || hasSession
     }
 
     public init() {}
@@ -64,13 +62,8 @@ public struct ProfileFeature {
   @Reducer
   public enum Destination {
     case alert(FCConfirmAlert)
-    case account(AccountSettingsFeature)
-    case appearance(AppearanceSettingsFeature)
-    case legalDocument(WebFeature)
-    case lockScreen(LockScreenSettingsFeature)
-    case noticeList(NoticeListFeature)
-    case notifications(NotificationSettingsFeature)
     case packDetail(PackDetailFeature)
+    case settings(SettingsHomeFeature)
   }
 
   @CasePathable
@@ -96,13 +89,9 @@ public struct ProfileFeature {
     case searchTapped
     case packTapped(String)
     case openPackDirections(festivalID: String, title: String)
-    case notificationsTapped
-    case lockScreenTapped
-    case appearanceTapped
-    case accountTapped
-    case noticeTapped
-    case termsTapped
-    case privacyTapped
+    case settingsTapped
+    /// 받은 팩이 없을 때 빈 카드의 '페스티벌 둘러보기'
+    case browseFestivalsTapped
   }
 
   // MARK: - AsyncAction 비동기 처리 액션
@@ -137,7 +126,6 @@ public struct ProfileFeature {
 
   @Dependency(\.festivalReceivedPackUseCase) private var receivedPackUseCase
   @Dependency(\.festivalPackDetailUseCase) private var packDetailUseCase
-  @Dependency(\.festivalNotificationSettingsUseCase) private var notificationSettingsUseCase
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -177,14 +165,18 @@ extension ProfileFeature {
       state.hasSession = hasSession
       state.isLoading = isLoading
       state.message = message
-      guard state.destination?.account != nil else { return .none }
-      // 로그아웃되면 열려 있던 계정 화면과 확인 팝업을 닫는다.
-      if lostSession {
+      guard let settings = state.destination?.settings else { return .none }
+      // 계정 화면에서 로그아웃되면 설정 홈째로 닫고 마이로 돌아온다.
+      if lostSession, settings.destination?.account != nil {
         state.destination = nil
         return .none
       }
-      return .send(.destination(.presented(.account(.view(.accountChanged(
-        profile: profile, isLoading: isLoading, message: message
+      // 설정 홈이 열려 있으면 계정 줄과 계정 화면이 같은 값을 보이게 전달한다.
+      return .send(.destination(.presented(.settings(.view(.accountChanged(
+        profile: profile,
+        hasSession: hasSession,
+        isLoading: isLoading,
+        message: message
       ))))))
 
     case .onAppear:
@@ -225,34 +217,17 @@ extension ProfileFeature {
       ))
       return .none
 
-    case .notificationsTapped:
-      state.destination = .notifications(.init())
+    case .settingsTapped:
+      state.destination = .settings(.init(
+        profile: state.profile,
+        hasSession: state.hasSession,
+        isLoading: state.isLoading,
+        message: state.message
+      ))
       return .none
 
-    case .lockScreenTapped:
-      state.destination = .lockScreen(.init())
-      return .none
-
-    case .appearanceTapped:
-      state.destination = .appearance(.init())
-      return .none
-
-    case .accountTapped:
-      guard state.profile != nil || state.hasSession else {
-        return .send(.delegate(.loginRequested))
-      }
-      state.destination = .account(.init(profile: state.profile, isLoading: state.isLoading, message: state.message))
-      return .none
-
-    case .noticeTapped:
-      state.destination = .noticeList(.init())
-      return .none
-
-    case .termsTapped:
-      return showLegalDocument(path: "terms", title: "이용약관", state: &state)
-
-    case .privacyTapped:
-      return showLegalDocument(path: "privacy", title: "개인정보 처리방침", state: &state)
+    case .browseFestivalsTapped:
+      return .send(.delegate(.festivalListRequested))
     }
   }
 
@@ -342,7 +317,7 @@ extension ProfileFeature {
       state.destination = nil
       return .none
 
-    case .presented(.account(.delegate(let delegateAction))):
+    case .presented(.settings(.delegate(let delegateAction))):
       switch delegateAction {
       case .backRequested:
         state.destination = nil
@@ -351,49 +326,13 @@ extension ProfileFeature {
         return .send(.delegate(.logoutRequested))
       case .withdrawRequested:
         return .send(.delegate(.withdrawRequested))
-      case .refreshRequested:
+      case .profileRefreshRequested:
         return .send(.delegate(.profileRefreshRequested))
-      case .nicknameUpdated(let user):
+      case .profileUpdated(let user):
         return .send(.delegate(.profileUpdated(user)))
       }
 
-    case .presented(.account):
-      return .none
-
-    case .presented(.appearance(.delegate(.backRequested))):
-      state.destination = nil
-      return .none
-
-    case .presented(.appearance):
-      return .none
-
-    case .presented(.legalDocument(.delegate(.backToRoot))):
-      state.destination = nil
-      return .none
-
-    case .presented(.legalDocument):
-      return .none
-
-    case .presented(.lockScreen(.delegate(.backRequested))):
-      state.destination = nil
-      return .none
-
-    case .presented(.lockScreen):
-      return .none
-
-    case .presented(.noticeList(.delegate(.backRequested))):
-      state.destination = nil
-      return .none
-
-    case .presented(.noticeList):
-      return .none
-
-    case .presented(.notifications(.delegate(.backRequested))):
-      let flush = flushNotificationChanges(state)
-      state.destination = nil
-      return flush
-
-    case .presented(.notifications):
+    case .presented(.settings):
       return .none
 
     case .presented(.packDetail(.delegate(.backRequested))):
@@ -411,33 +350,18 @@ extension ProfileFeature {
       return .none
 
     case .dismiss:
-      // 뒤로 밀어 닫으면 자식 저장 효과가 취소되므로 남은 변경을 마이 화면 수명에서 보낸다.
-      return flushNotificationChanges(state)
+      // 설정 홈째로 닫히면 알림 설정의 저장 효과가 취소되므로 남은 변경을 마이 화면 수명에서 보낸다.
+      guard case let .settings(settings) = state.destination else { return .none }
+      return SettingsHomeFeature()
+        .flushNotificationChanges(settings)
+        .map { .destination(.presented(.settings($0))) }
     }
-  }
-
-  /// 알림 설정 화면에 남은 변경을 화면과 상관없이 끝까지 보낸다.
-  private func flushNotificationChanges(_ state: State) -> Effect<Action> {
-    guard case let .notifications(notifications) = state.destination,
-          !notifications.unsavedChanges.isEmpty else { return .none }
-    let changes = notifications.unsavedChanges
-    return .run { _ in _ = try? await notificationSettingsUseCase.updateSettings(changes) }
   }
 
   private func handleDelegateAction(
     state: inout State,
     action: DelegateAction
   ) -> Effect<Action> {
-    return .none
-  }
-
-  private func showLegalDocument(path: String, title: String, state: inout State) -> Effect<Action> {
-    guard let legalBaseURL = LegalDocumentURL.baseURL else {
-      // 이미 떠 있으면 다시 띄우지 않는다.
-      if state.destination?.alert == nil { state.destination = .alert(.legalLinkUnavailable()) }
-      return .none
-    }
-    state.destination = .legalDocument(.init(url: legalBaseURL.appending(path: path), title: title))
     return .none
   }
 }

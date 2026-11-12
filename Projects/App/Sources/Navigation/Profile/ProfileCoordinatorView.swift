@@ -25,6 +25,13 @@ struct ProfileCoordinatorView: View {
             .hidden,
             for: .navigationBar
           )
+      case let .settings(settingsStore):
+        SettingsHomeView(store: settingsStore)
+          .swipeBackButtonHidden()
+          .toolbar(
+            .hidden,
+            for: .navigationBar
+          )
       case let .account(accountStore):
         AccountSettingsView(store: accountStore)
           .swipeBackButtonHidden()

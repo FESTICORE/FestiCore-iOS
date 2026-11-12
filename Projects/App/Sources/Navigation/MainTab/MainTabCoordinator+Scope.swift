@@ -214,6 +214,12 @@ extension MainTabCoordinator {
     case .profile(.delegate(.bearerRequested)):
       return handleBearerRequested(state: &state)
 
+    case .profile(.delegate(.festivalListRequested)):
+      return handleDeeplink(
+        state: &state,
+        deeplink: .festivalList
+      )
+
     case .profile(.delegate(.profileRefreshRequested)):
       return .send(.session(.view(.retryProfile)))
 
