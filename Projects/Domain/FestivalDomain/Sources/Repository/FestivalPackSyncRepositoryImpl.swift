@@ -23,4 +23,9 @@ public struct FestivalPackSyncRepositoryImpl: FestivalPackSyncRepositoryInterfac
   {
     return packService.download(for: festivalID)
   }
+
+  /// 기기에 저장한 팩 문서와 오프라인 파일을 지운다.
+  public func deletePack(for festivalID: String) async throws {
+    try await packService.deletePack(for: festivalID)
+  }
 }

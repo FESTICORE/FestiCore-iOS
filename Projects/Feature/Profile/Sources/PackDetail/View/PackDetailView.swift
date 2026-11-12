@@ -410,7 +410,18 @@ extension PackDetailView {
     }
     .buttonStyle(.plain)
     .disabled(store.isDeleting || store.isUpdating)
-    footnote("팩을 지워도 내 일정과 체크한 준비물은 남아 있어요.")
+    // Figma Pack D·E·F(313:16293): 자동 삭제 안내는 Caption1/Regular 12pt
+    Text("페스티벌이 끝나고 30일 뒤에 자동으로 삭제돼요. 내 일정과 체크한 준비물은 남아 있어요.")
+      .festiCoreFont(.baseCaption1Regular)
+      .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+      .fixedSize(
+        horizontal: false,
+        vertical: true
+      )
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP4
+      )
   }
 
   private var autoDownloadBinding: Binding<Bool> {

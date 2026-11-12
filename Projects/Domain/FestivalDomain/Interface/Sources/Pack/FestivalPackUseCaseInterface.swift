@@ -16,6 +16,14 @@ public protocol FestivalPackUseCaseInterface: Sendable {
   func packUpdates(for festivalID: String) -> AsyncThrowingStream<PackSyncResult, Error>
   /// 사용자가 요청한 단발 팩 다운로드. 청크 바이트와 캐시 저장 완료를 순서대로 보낸다.
   func downloadPack(for festivalID: String) -> AsyncThrowingStream<PackDownloadEvent, Error>
+  /// 페스티벌 마지막 날 종료 후 30일이 지난 팩의 문서·오프라인 파일만 지우고 지운 축제 ID를 돌려준다.
+  /// 종료 시각을 모르는 팩은 남기고, 내 일정과 체크한 준비물은 지우지 않는다.
+  func deleteExpiredPacks() async throws -> [String]
+}
+
+/// 받은 팩을 페스티벌 종료 뒤 자동으로 지우기까지 남겨 두는 기간
+public enum FestivalPackRetention {
+  public static let days = 30
 }
 
 public enum FestivalPackUseCaseDependency: TestDependencyKey {

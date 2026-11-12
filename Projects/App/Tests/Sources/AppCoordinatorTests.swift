@@ -4423,7 +4423,10 @@ extension DependencyValues {
     useServiceBackedFestivalUseCases()
     date = .constant(Date(timeIntervalSince1970: 0))
     festivalCatalogUseCase = AppCoordinatorCatalogUseCase()
-    festivalPackUseCase = MockFestivalPackUseCase(cachedPacks: { [] })
+    festivalPackUseCase = MockFestivalPackUseCase(
+      cachedPacks: { [] },
+      deleteExpiredPacks: { [] }
+    )
     festivalImageUseCase = MockFestivalImageUseCase(
       imageURL: { value in return value.flatMap(URL.init(string:)) },
       startPrefetch: { _ in },
