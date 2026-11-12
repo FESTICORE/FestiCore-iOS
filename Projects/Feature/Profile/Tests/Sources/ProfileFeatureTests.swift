@@ -412,10 +412,14 @@ struct ProfileFeatureTests {
   }
 }
 
-/// 마이 화면이 쓰는 기수 깃발 조회만 채운 대역. 다른 호출은 기본 Mock처럼 테스트 이슈다.
-private struct ProfileBearerUseCase: BearerUseCaseInterface {
-  let flags: @Sendable (String?) async throws -> [BearerOwnedFlag]
-  private let unregistered = MockBearerUseCase()
+/// 마이·잠금화면 설정이 쓰는 기수 깃발·대표 깃발·팔로우 조회만 채운 대역. 다른 호출은 기본 Mock처럼 테스트 이슈다.
+struct ProfileBearerUseCase: BearerUseCaseInterface {
+  var flags: @Sendable (String?) async throws -> [BearerOwnedFlag] = { try await MockBearerUseCase().fetchBearerFlags(festivalID: $0) }
+  var pinnedFlag: @Sendable () async throws -> BearerPinnedFlag? = { try await MockBearerUseCase().fetchPinnedFlag() }
+  var followedFlags: @Sendable (String?) async throws -> [BearerFollowedFlag] = {
+    try await MockBearerUseCase().fetchFollowedFlags(festivalID: $0)
+  }
+  let unregistered = MockBearerUseCase()
 
   func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag] {
     return try await flags(festivalID)
@@ -431,7 +435,8 @@ private struct ProfileBearerUseCase: BearerUseCaseInterface {
     )
   }
   func register(_ request: BearerRegisterRequest) async throws -> BearerClaim { return try await unregistered.register(request) }
-  func fetchPinnedFlag() async throws -> BearerPinnedFlag? { return try await unregistered.fetchPinnedFlag() }
+  func fetchPinnedFlag() async throws -> BearerPinnedFlag? { return try await pinnedFlag() }
+  func fetchFollowedFlags(festivalID: String?) async throws -> [BearerFollowedFlag] { return try await followedFlags(festivalID) }
   func claim(
     festivalID: String,
     code: String
