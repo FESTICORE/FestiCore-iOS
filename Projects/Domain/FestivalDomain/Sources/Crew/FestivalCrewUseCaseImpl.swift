@@ -16,7 +16,7 @@ public struct FestivalCrewUseCaseImpl: FestivalCrewUseCaseInterface {
     let festivalID = festivalID.trimmingCharacters(in: .whitespacesAndNewlines)
     let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
     let nickname = nickname?.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard (1 ... 32).contains(festivalID.count), (1 ... 20).contains(name.count),
+    guard (1 ... 32).contains(festivalID.count), (1 ... FestivalCrew.maxNameLength).contains(name.count),
           nickname.map({ (1 ... 12).contains($0.count) }) ?? true else {
       throw FestivalCrewError.invalidInput
     }
@@ -71,7 +71,7 @@ public struct FestivalCrewUseCaseImpl: FestivalCrewUseCaseInterface {
   ) async throws -> FestivalCrew {
     try Self.validate(id: crewID)
     let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard (1 ... 20).contains(name.count) else { throw FestivalCrewError.invalidInput }
+    guard (1 ... FestivalCrew.maxNameLength).contains(name.count) else { throw FestivalCrewError.invalidInput }
     return try await repository.rename(
       crewID: crewID,
       name: name
@@ -113,6 +113,29 @@ public struct FestivalCrewUseCaseImpl: FestivalCrewUseCaseInterface {
 
   public func join(inviteCode: String) async throws -> FestivalCrew {
     return try await repository.join(inviteCode: try Self.inviteCode(inviteCode))
+  }
+
+  public func respondToGather(
+    crewID: String,
+    gatherID: String,
+    response: FestivalCrewGatherResponse
+  ) async throws -> FestivalCrewGatherReply {
+    try Self.validate(id: crewID)
+    try Self.validate(id: gatherID)
+    let reply = try await repository.respondToGather(
+      crewID: crewID,
+      gatherID: gatherID,
+      response: response
+    )
+    guard reply.gatherID == gatherID, reply.response == response else {
+      throw FestivalCrewError.invalidResponse
+    }
+    return reply
+  }
+
+  public func leave(crewID: String) async throws {
+    try Self.validate(id: crewID)
+    try await repository.leave(crewID: crewID)
   }
 }
 

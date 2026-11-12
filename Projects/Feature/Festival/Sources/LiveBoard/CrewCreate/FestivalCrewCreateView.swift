@@ -89,7 +89,8 @@ private extension FestivalCrewCreateView {
       placeholder: "예: 락린이들"
     )
     .label("크루 이름")
-    .maxLength(20)
+    .maxLength(FestivalCrew.maxNameLength)
+    .counter("\(store.name.count)/\(FestivalCrew.maxNameLength)")
     .helper("단톡방 이름처럼 다들 알아보는 이름이 좋아요")
     .error(store.errorMessage)
     .disabled(store.isSubmitting)
@@ -103,7 +104,7 @@ private extension FestivalCrewCreateView {
       spacing: FestiCoreSpacing.paddingP8
     ) {
       ForEach(
-        Metric.rules,
+        rulesText,
         id: \.self
       ) { rule in
         Text(rule)
@@ -245,10 +246,15 @@ private extension FestivalCrewCreateView {
     static let footerTopPadding: CGFloat = 13
     static let footerBottomPadding: CGFloat = 1
     static let divider: CGFloat = 1
-    static let rules = [
+  }
+
+  /// Figma S07 B: 마지막 줄에 페스티벌 이름을 넣는다("· 원더리벳 2026이 끝나면 기록만 남아요").
+  var rulesText: [String] {
+    let festival = store.festivalName.map { $0.withIGa } ?? "페스티벌이"
+    return [
       "· 최대 \(FestivalCrew.maxMembers)명 · 페스티벌마다 크루 1개",
       "· 초대 링크는 48시간 동안 쓸 수 있어요",
-      "· 페스티벌이 끝나면 기록만 남아요",
+      "· \(festival) 끝나면 기록만 남아요",
     ]
   }
 }

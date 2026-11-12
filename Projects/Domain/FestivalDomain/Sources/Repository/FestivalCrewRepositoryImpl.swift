@@ -86,7 +86,8 @@ public struct FestivalCrewRepositoryImpl: FestivalCrewRepositoryInterface {
         ),
         as: BaseResponseDTO<FestivalCrewGatherDataDTO>.self
       )
-      guard response.code == "SUCCESS", response.data.zoneId == zoneID else {
+      guard response.code == "SUCCESS", response.data.zoneId == zoneID,
+            response.data.id.map({ !$0.isEmpty }) ?? true else {
         throw FestivalCrewError.invalidResponse
       }
     } catch let error as FestiCoreNetworkError {
@@ -221,6 +222,57 @@ public struct FestivalCrewRepositoryImpl: FestivalCrewRepositoryInterface {
       body: CrewJoinBody(inviteCode: inviteCode),
       sessionID: sessionID
     ))
+  }
+
+  public func respondToGather(
+    crewID: String,
+    gatherID: String,
+    response: FestivalCrewGatherResponse
+  ) async throws -> FestivalCrewGatherReply {
+    let sessionID = try await authenticatedSessionID()
+    let request = CrewGatherResponseRequest(
+      crewID: crewID,
+      gatherID: gatherID,
+      body: CrewGatherResponseBody(response: response.rawValue),
+      sessionID: sessionID
+    )
+    do {
+      let result = try await client.send(
+        request,
+        as: BaseResponseDTO<FestivalCrewGatherReplyDataDTO>.self
+      )
+      guard result.code == "SUCCESS" else { throw FestivalCrewError.invalidResponse }
+      return try result.data.toDomain()
+    } catch let error as FestiCoreNetworkError {
+      // 10분이 지난 모여는 409 `GATHER_EXPIRED`로 온다. 보낸 사람(403 `GATHER_SENDER`)은 공통 403과 같다.
+      if case let .response(response) = error, response.httpStatus == 409 {
+        throw FestivalCrewError.gatherExpired
+      }
+      throw Self.map(error)
+    }
+  }
+
+  public func leave(crewID: String) async throws {
+    let sessionID = try await authenticatedSessionID()
+    guard let userID = await authService.currentUserID, !userID.isEmpty else {
+      throw FestivalCrewError.unauthenticated
+    }
+    do {
+      _ = try await client.send(
+        CrewRequest.removeMember(
+          crewID: crewID,
+          userID: userID,
+          sessionID: sessionID
+        ),
+        as: FestiCoreEmptyResponse.self
+      )
+    } catch {
+      // 크루장은 409 `OWNER_CANNOT_LEAVE`로 막힌다. 넘기거나 해산해야 나갈 수 있다.
+      if case let .response(response) = error, response.httpStatus == 409 {
+        throw FestivalCrewError.forbidden
+      }
+      throw Self.map(error)
+    }
   }
 }
 

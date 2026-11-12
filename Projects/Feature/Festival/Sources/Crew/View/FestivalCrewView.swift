@@ -91,25 +91,135 @@ private extension FestivalCrewView {
       ) {
         if presentation.isArchived {
           // Figma S07 I: 끝난 크루는 안내 띠와 기록만 둔다.
-          FCBanner("페스티벌이 끝났어요 · 기록만 볼 수 있어요") {}
+          FCBanner(archivedNotice) {}
             .icon(.circleInfo16)
             .showsChevron(false)
             .allowsHitTesting(false)
           summaryText(presentation)
         } else {
+          // Figma S07 F: 받은 모여 요청은 화면 맨 위 라임 배너로 띄운다.
+          if let gather = presentation.gather {
+            gatherBanner(gather)
+          }
           summaryRow(presentation)
           FCButton(presentation.gatherTitle) { send(.gatherTapped) }
             .isFullWidth(true)
             .isEnabled(presentation.canGather)
-          if let notice = presentation.gatherNotice {
-            FCSourceLine(notice)
-          }
         }
         members(presentation)
       }
       .padding(FestiCoreSpacing.paddingP16)
     }
     .scrollBounceBehavior(.basedOnSize)
+  }
+
+  /// Figma S07 I Banner: "원더리벳 2026이 끝났어요 · 기록만 볼 수 있어요"
+  var archivedNotice: String {
+    let festival = store.festivalName.map { "\($0.withIGa) " } ?? "페스티벌이 "
+    return "\(festival)끝났어요 · 기록만 볼 수 있어요"
+  }
+
+  /// Figma S07 F Gather Banner: Static/Lime, 사방 16, 간격 12, 모서리 16
+  func gatherBanner(_ gather: FestivalCrewPresentation.Gather) -> some View {
+    return VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.marginM12
+    ) {
+      // Figma S07 F Top: users 20 + 간격 8, Headline/Bold · Static/Ink
+      HStack(spacing: FestiCoreSpacing.paddingP8) {
+        Image(asset: .users24)
+          .resizable()
+          .frame(
+            width: Metric.gatherIconSize,
+            height: Metric.gatherIconSize
+          )
+          .accessibilityHidden(true)
+        Text(gather.title)
+          .festiCoreFont(.baseHeadlineBold)
+          .festiCoreLineBox(.baseHeadlineBold)
+          .lineLimit(1)
+      }
+      .foregroundStyle(FestiCoreSemanticColor.staticInk.color)
+      Text(gather.detail)
+        .festiCoreFont(.baseFootnoteRegular)
+        .festiCoreLineBox(.baseFootnoteRegular)
+        .foregroundStyle(FestiCoreSemanticColor.staticalphaBlack60.color)
+      if let actions = gather.actions {
+        gatherActions(actions)
+      } else if let summary = gather.summary {
+        gatherPill(
+          summary,
+          isSelected: false,
+          fillsWidth: true
+        )
+        .accessibilityLabel("응답 \(summary)")
+      }
+    }
+    .padding(FestiCoreSpacing.paddingP16)
+    .frame(
+      maxWidth: .infinity,
+      alignment: .leading
+    )
+    .background(
+      FestiCoreSemanticColor.staticLime.color,
+      in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
+    )
+  }
+
+  /// Figma S07 F Actions: 가는 중(남은 너비)·확인, 간격 8. 고른 응답을 Static/Ink로 칠한다.
+  func gatherActions(_ actions: FestivalCrewPresentation.Actions) -> some View {
+    let goingSelected = actions.selected != .ack
+    return HStack(spacing: FestiCoreSpacing.paddingP8) {
+      Button { send(.gatherResponseTapped(.going)) } label: {
+        gatherPill(
+          actions.goingTitle,
+          isSelected: goingSelected,
+          fillsWidth: true
+        )
+      }
+      .accessibilityAddTraits(actions.selected == .going ? .isSelected : [])
+      Button { send(.gatherResponseTapped(.ack)) } label: {
+        gatherPill(
+          "확인",
+          isSelected: !goingSelected,
+          fillsWidth: false
+        )
+      }
+      .accessibilityAddTraits(actions.selected == .ack ? .isSelected : [])
+    }
+    .buttonStyle(.plain)
+    .disabled(actions.isResponding)
+  }
+
+  /// Figma S07 F 응답 버튼: 위아래 10·좌우 16, 모서리 10, Subheadline/Bold
+  func gatherPill(
+    _ title: String,
+    isSelected: Bool,
+    fillsWidth: Bool
+  ) -> some View {
+    return Text(title)
+      .festiCoreFont(.baseSubheadlineBold)
+      .festiCoreLineBox(.baseSubheadlineBold)
+      .lineLimit(1)
+      .foregroundStyle(isSelected
+        ? FestiCoreSemanticColor.staticWhite.color
+        : FestiCoreSemanticColor.staticInk.color)
+      .padding(
+        .vertical,
+        Metric.gatherActionVertical
+      )
+      .padding(
+        .horizontal,
+        FestiCoreSpacing.paddingP16
+      )
+      .frame(maxWidth: fillsWidth ? .infinity : nil)
+      .background(
+        isSelected
+          ? FestiCoreSemanticColor.staticInk.color
+          : FestiCoreSemanticColor.staticalphaBlack20.color,
+        in: RoundedRectangle(cornerRadius: Metric.gatherActionRadius)
+      )
+      .contentShape(Rectangle())
   }
 
   @ViewBuilder
@@ -420,6 +530,11 @@ private extension FestivalCrewView {
         icon: .circleInfo16,
         message: "상태를 보내지 못했어요. 다시 눌러 주세요"
       )
+    case .gatherExpired:
+      return FCToast.Item(
+        icon: .circleInfo16,
+        message: "모여 요청이 끝나서 응답하지 못했어요"
+      )
     }
   }
 
@@ -434,5 +549,9 @@ private extension FestivalCrewView {
     static let inactiveOpacity: Double = 0.6
     static let toastTop: CGFloat = 30
     static let toastAnimation: Double = 0.25
+    static let gatherIconSize: CGFloat = 20
+    /// Figma S07 F 응답 버튼 모서리 10. 같은 값의 Radius 토큰이 없어 화면 값으로 둔다.
+    static let gatherActionRadius: CGFloat = 10
+    static let gatherActionVertical: CGFloat = 10
   }
 }

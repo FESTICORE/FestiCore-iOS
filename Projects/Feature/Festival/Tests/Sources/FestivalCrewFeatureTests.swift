@@ -155,7 +155,8 @@ struct FestivalCrewFeatureTests {
     #expect(!presentation.canGather)
   }
 
-  @Test func presentationShowsGatherNoticeAndInactiveMember() {
+  /// Figma S07 F: 보낸 사람은 응답 버튼 대신 응답 요약을 본다.
+  @Test func presentationShowsSenderGatherSummaryAndInactiveMember() {
     var initial = state(memberState: "leaving")
     initial.live = FestivalLiveBoardSnapshot.Crew(
       id: "crew_a",
@@ -163,18 +164,141 @@ struct FestivalCrewFeatureTests {
       members: initial.live?.members ?? [],
       ownerID: "user_a",
       gatherRequest: .init(
+        id: "gth_1",
         zoneID: "zone_a",
         byUserID: "user_a",
-        at: now.addingTimeInterval(-120)
+        at: now.addingTimeInterval(-120),
+        summary: .init(
+          going: 2,
+          ack: 1
+        )
       )
     )
     let presentation = FestivalCrewPresentation(
       crew: initial,
       now: now
     )
-    #expect(presentation.gatherNotice == "민지님이 \"슬램 존으로 모여\"를 보냈어요 · 2분 전")
+    #expect(presentation.gather == .init(
+      title: "민지: 슬램 존으로 모여!",
+      detail: "2분 전 · 크루원 모두에게 소리 알림을 보냈어요",
+      actions: nil,
+      summary: "가는 중 2명 · 확인 1명"
+    ))
     #expect(presentation.members.first?.isInactive == true)
     #expect(presentation.summary == "1명 · 1/2(금) 09:00까지 유지")
+  }
+
+  /// Figma S07 F: 받은 크루원은 '가는 중'·'확인' 버튼을 보고, 10분이 지나면 배너가 내려간다.
+  @Test func presentationShowsReceiverActionsUntilExpiry() {
+    let initial = gatherState(byUserID: "user_b")
+    let presentation = FestivalCrewPresentation(
+      crew: initial,
+      now: now
+    )
+    #expect(presentation.gather == .init(
+      title: "준호: 슬램 존으로 모여!",
+      detail: "방금 · 크루원 모두에게 소리 알림을 보냈어요",
+      actions: .init(
+        goingTitle: "슬램 존으로 가는 중",
+        selected: nil,
+        isResponding: false
+      ),
+      summary: nil
+    ))
+    let expired = FestivalCrewPresentation(
+      crew: initial,
+      now: now.addingTimeInterval(10 * 60)
+    )
+    #expect(expired.gather == nil)
+  }
+
+  @Test func respondToGatherIgnoresDuplicateTapAndKeepsReply() async {
+    let calls = LockIsolated(0)
+    let reply = FestivalCrewGatherReply(
+      gatherID: "gth_1",
+      userID: "user_a",
+      nickname: "민지",
+      response: .going,
+      respondedAt: now
+    )
+    let store = TestStore(initialState: gatherState(byUserID: "user_b")) {
+      FestivalCrewFeature()
+    } withDependencies: {
+      $0.festivalCrewUseCase = CrewSpy(respond: { gatherID, response in
+        calls.withValue { $0 += 1 }
+        #expect(gatherID == "gth_1")
+        #expect(response == .going)
+        return reply
+      })
+    }
+    await store.send(.view(.gatherResponseTapped(.going))) { $0.isRespondingGather = true }
+    await store.receive(\.async.respondToGather)
+    await store.receive(\.inner.gatherResponded) {
+      $0.isRespondingGather = false
+      $0.gatherReply = reply
+    }
+    // 이미 고른 응답을 다시 눌러도 보내지 않는다.
+    await store.send(.view(.gatherResponseTapped(.going)))
+    #expect(calls.value == 1)
+  }
+
+  /// 응답을 기다리는 동안 다시 눌러도 보내지 않는다. 기본 Mock은 호출되면 테스트 이슈를 남긴다.
+  @Test func respondingGatherIgnoresAnotherTap() async {
+    var initial = gatherState(byUserID: "user_b")
+    initial.isRespondingGather = true
+    let store = TestStore(initialState: initial) {
+      FestivalCrewFeature()
+    }
+    await store.send(.view(.gatherResponseTapped(.ack)))
+  }
+
+  @Test func senderCannotRespondToOwnGather() async {
+    let store = TestStore(initialState: gatherState(byUserID: "user_a")) {
+      FestivalCrewFeature()
+    }
+    await store.send(.view(.gatherResponseTapped(.going)))
+  }
+
+  @Test func expiredGatherDismissesBannerAndShowsToast() async {
+    let clock = TestClock()
+    let serverCrew = crew(state: "here")
+    let initial = gatherState(byUserID: "user_b")
+    let store = TestStore(initialState: initial) {
+      FestivalCrewFeature()
+    } withDependencies: {
+      $0.continuousClock = clock
+      $0.festivalCrewUseCase = CrewSpy(
+        detail: serverCrew,
+        respond: { _, _ in throw FestivalCrewError.gatherExpired }
+      )
+    }
+    await store.send(.view(.gatherResponseTapped(.ack))) { $0.isRespondingGather = true }
+    await store.receive(\.async.respondToGather)
+    await store.receive(\.inner.gatherResponseFailed) {
+      $0.isRespondingGather = false
+      $0.expiredGatherID = "gth_1"
+      $0.toast = .gatherExpired
+    }
+    #expect(FestivalCrewPresentation(
+      crew: store.state,
+      now: now
+    ).gather == nil)
+    await store.receive(\.async.load)
+    await store.receive(\.inner.loaded) {
+      $0.crew = serverCrew
+      $0.live = serverCrew.live
+      $0.load = .loaded
+    }
+    await clock.advance(by: FestivalCrewFeature.toastDuration)
+    await store.receive(\.inner.toastExpired) { $0.toast = nil }
+  }
+
+  /// Figma S07 I: 끝난 크루 안내 띠에 페스티벌 이름을 넣는다.
+  @Test func festivalNameJosaFollowsLastSound() {
+    #expect("원더리벳 2026".withIGa == "원더리벳 2026이")
+    #expect("펜타포트".withIGa == "펜타포트가")
+    #expect("락 페스티벌".withIGa == "락 페스티벌이")
+    #expect("Fest 2025".withIGa == "Fest 2025가")
   }
 
   /// Figma S07 I: 끝난 크루는 끝난 날과 마지막 시각을 보이고, 내 줄에는 "나" 태그를 붙인다.
@@ -216,6 +340,40 @@ struct FestivalCrewFeatureTests {
         updatedAt: now.addingTimeInterval(-60)
       )
     )
+  }
+
+  /// 민지(나)와 준호가 있는 크루에 `byUserID`가 보낸 진행 중 모여
+  private func gatherState(byUserID: String) -> FestivalCrewFeature.State {
+    var initial = state(memberState: "here")
+    initial.live = FestivalLiveBoardSnapshot.Crew(
+      id: "crew_a",
+      name: "펜타 크루",
+      members: [
+        .init(
+          id: "user_a",
+          nickname: "민지",
+          state: "here",
+          zoneID: "zone_a",
+          updatedAt: now
+        ),
+        .init(
+          id: "user_b",
+          nickname: "준호",
+          state: "here",
+          zoneID: "zone_a",
+          updatedAt: now
+        ),
+      ],
+      ownerID: "user_a",
+      gatherRequest: .init(
+        id: "gth_1",
+        zoneID: "zone_a",
+        byUserID: byUserID,
+        at: now,
+        expiresAt: now.addingTimeInterval(10 * 60)
+      )
+    )
+    return initial
   }
 
   private func live(
@@ -281,6 +439,11 @@ struct CrewSpy: FestivalCrewUseCaseInterface {
   var inviteError: FestivalCrewError?
   var join: FestivalCrew?
   var joinError: FestivalCrewError?
+  var respond: (@Sendable (
+    String,
+    FestivalCrewGatherResponse
+  ) throws -> FestivalCrewGatherReply)?
+  var leave: (@Sendable (String) throws -> Void)?
 
   func gather(
     crewID _: String,
@@ -345,5 +508,28 @@ struct CrewSpy: FestivalCrewUseCaseInterface {
       throw FestivalCrewError.unavailable
     }
     return join
+  }
+
+  func respondToGather(
+    crewID _: String,
+    gatherID: String,
+    response: FestivalCrewGatherResponse
+  ) async throws -> FestivalCrewGatherReply {
+    guard let respond else {
+      Issue.record("respondToGather 동작을 정하지 않았다")
+      throw FestivalCrewError.unavailable
+    }
+    return try respond(
+      gatherID,
+      response
+    )
+  }
+
+  func leave(crewID: String) async throws {
+    guard let leave else {
+      Issue.record("leave 동작을 정하지 않았다")
+      throw FestivalCrewError.unavailable
+    }
+    try leave(crewID)
   }
 }

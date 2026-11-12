@@ -53,6 +53,16 @@ public protocol FestivalCrewUseCaseInterface: Sendable {
 
   /// 초대 코드로 크루에 들어간다.
   func join(inviteCode: String) async throws -> FestivalCrew
+
+  /// 받은 모여 요청에 '가는 중'·'확인'으로 응답한다. 다시 응답하면 서버가 덮어쓰고, 보낸 사람은 응답할 수 없다.
+  func respondToGather(
+    crewID: String,
+    gatherID: String,
+    response: FestivalCrewGatherResponse
+  ) async throws -> FestivalCrewGatherReply
+
+  /// 내가 크루에서 나간다. 크루장은 넘기거나 해산해야 나갈 수 있다.
+  func leave(crewID: String) async throws
 }
 
 public enum FestivalCrewUseCaseDependency: TestDependencyKey {

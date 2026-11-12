@@ -15,12 +15,20 @@ public struct FestivalCrewFeature {
     let zones: [FestivalPackDocument.Zone]
     /// 크루가 보관되는 시각. 서버와 같게 축제 마지막 날 종료 24시간 뒤로 잡는다.
     let archivesAt: Date?
+    /// S07 I 안내 띠에 넣는 페스티벌 이름
+    let festivalName: String?
     let sessionUserID: String?
     var crew: FestivalCrew?
     /// 크루원 존·상태. 라이브 보드 값으로 먼저 그리고 상세 응답으로 바꾼다.
     var live: FestivalLiveBoardSnapshot.Crew?
     var load: Load = .loading
     var isSendingStatus = false
+    /// 모여 응답을 보내는 중. 응답이 올 때까지 다시 누르지 못한다.
+    var isRespondingGather = false
+    /// 서버가 확정한 내 모여 응답. 다음 상세 응답 전까지 버튼에 반영한다.
+    var gatherReply: FestivalCrewGatherReply?
+    /// 응답하려다 만료(409)를 받은 모여. 배너를 내린다.
+    var expiredGatherID: String?
     var toast: Toast?
     /// 확인 팝업에서 확인을 누르면 실행할 크루장 동작
     var pendingConfirm: Confirm?
@@ -35,6 +43,7 @@ public struct FestivalCrewFeature {
       self.crewID = crewID
       zones = festival?.zones ?? []
       archivesAt = Self.archiveTime(festival)
+      festivalName = festival?.name
       self.sessionUserID = sessionUserID
       self.live = live?.id == crewID ? live : nil
     }
@@ -52,6 +61,7 @@ public struct FestivalCrewFeature {
     case transferred(String)
     case removed(String)
     case statusFailed
+    case gatherExpired
   }
 
   public enum Confirm: Equatable, Sendable {
@@ -87,6 +97,7 @@ public struct FestivalCrewFeature {
     case menuTapped
     case gatherTapped
     case stateTapped(FestivalCrewState)
+    case gatherResponseTapped(FestivalCrewGatherResponse)
     case retryTapped
   }
 
@@ -96,6 +107,10 @@ public struct FestivalCrewFeature {
     case updateStatus(
       FestivalCrewState,
       zoneID: String?
+    )
+    case respondToGather(
+      gatherID: String,
+      response: FestivalCrewGatherResponse
     )
     case rotateInvite
     case rename(String)
@@ -110,6 +125,8 @@ public struct FestivalCrewFeature {
     case loadFailed(FestivalCrewError)
     case statusUpdated
     case statusFailed
+    case gatherResponded(FestivalCrewGatherReply)
+    case gatherResponseFailed(FestivalCrewError)
     case inviteRotated(FestivalCrewInviteCode)
     case crewChanged(FestivalCrew, Toast)
     case memberRemoved(userID: String, nickname: String)
@@ -194,6 +211,13 @@ extension FestivalCrewFeature.State {
     return member?.state.flatMap(FestivalCrewState.init(rawValue:))
   }
 
+  /// 내가 이 모여에 고른 응답. 방금 보낸 응답을 서버 목록보다 먼저 본다.
+  func myGatherResponse(_ request: FestivalLiveBoardSnapshot.Crew.GatherRequest) -> FestivalCrewGatherResponse? {
+    if let gatherReply, gatherReply.gatherID == request.id { return gatherReply.response }
+    guard let sessionUserID else { return nil }
+    return request.responses.first { $0.userID == sessionUserID }?.response
+  }
+
   func zoneName(_ id: String?) -> String? {
     guard let id else { return nil }
     return zones.first { $0.id == id }?.name
@@ -251,7 +275,29 @@ private extension FestivalCrewFeature {
         state: &state,
         newState: newState
       )
+    case let .gatherResponseTapped(response):
+      return respondToGather(
+        state: &state,
+        response: response
+      )
     }
+  }
+
+  /// 받은 크루원만 응답한다. 보낸 사람·끝난 크루·응답 중에는 보내지 않는다.
+  func respondToGather(
+    state: inout State,
+    response: FestivalCrewGatherResponse
+  ) -> Effect<Action> {
+    guard !state.isRespondingGather, state.crew?.archivedAt == nil,
+          let sessionUserID = state.sessionUserID,
+          let request = state.live?.gatherRequest, let gatherID = request.id,
+          gatherID != state.expiredGatherID, request.byUserID != sessionUserID,
+          state.myGatherResponse(request) != response else { return .none }
+    state.isRespondingGather = true
+    return .send(.async(.respondToGather(
+      gatherID: gatherID,
+      response: response
+    )))
   }
 
   /// 누르면 바로 내 줄에 반영하고, 보내지 못하면 서버 값으로 다시 받는다.
@@ -313,6 +359,22 @@ private extension FestivalCrewFeature {
         }
       }
       .cancellable(id: CancelID.status)
+    case let .respondToGather(
+      gatherID,
+      response
+    ):
+      return .run { send in
+        do {
+          let reply = try await useCase.respondToGather(
+            crewID: crewID,
+            gatherID: gatherID,
+            response: response
+          )
+          await send(.inner(.gatherResponded(reply)))
+        } catch {
+          await send(.inner(.gatherResponseFailed(Self.crewError(error))))
+        }
+      }
     case .rotateInvite:
       return perform { .inviteRotated(try await useCase.rotateInvite(crewID: crewID)) }
     case let .rename(name):
@@ -400,6 +462,29 @@ private extension FestivalCrewFeature {
         ),
         .send(.async(.load))
       )
+    case let .gatherResponded(reply):
+      state.isRespondingGather = false
+      state.gatherReply = reply
+      return .none
+    case let .gatherResponseFailed(error):
+      state.isRespondingGather = false
+      if error == .gatherExpired {
+        state.expiredGatherID = state.live?.gatherRequest?.id
+        return .merge(
+          show(
+            .gatherExpired,
+            state: &state
+          ),
+          .send(.async(.load))
+        )
+      }
+      state.destination = .alert(.alert(
+        title: "모여에 응답하지 못했어요",
+        message: Self.gatherMessage(error),
+        confirmTitle: "확인",
+        cancelTitle: "닫기"
+      ))
+      return .none
     case let .inviteRotated(code):
       state.crew = state.crew?.replacing(invite: code)
       return show(
@@ -577,7 +662,18 @@ private extension FestivalCrewFeature {
     case .festivalEnded: return "끝난 페스티벌의 크루는 바꿀 수 없어요."
     case .unauthenticated: return "로그인 상태를 확인해 주세요."
     case .termsRequired: return "최신 이용약관에 동의한 뒤 다시 시도해 주세요."
-    case .invalidInput: return "크루 이름은 1~20자로 입력해 주세요."
+    case .invalidInput: return "크루 이름은 1~\(FestivalCrew.maxNameLength)자로 입력해 주세요."
+    default: return "연결을 확인한 뒤 다시 시도해 주세요."
+    }
+  }
+
+  static func gatherMessage(_ error: FestivalCrewError) -> String {
+    switch error {
+    case .forbidden: return "이 모여에는 응답할 수 없어요."
+    case .festivalEnded: return "끝난 페스티벌의 크루는 바꿀 수 없어요."
+    case .unauthenticated: return "로그인 상태를 확인해 주세요."
+    case .termsRequired: return "최신 이용약관에 동의한 뒤 다시 시도해 주세요."
+    case .notFound: return "모여 요청을 찾지 못했어요."
     default: return "연결을 확인한 뒤 다시 시도해 주세요."
     }
   }

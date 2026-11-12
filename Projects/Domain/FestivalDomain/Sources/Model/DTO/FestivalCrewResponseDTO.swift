@@ -32,6 +32,13 @@ public struct FestivalCrewInviteDataDTO: Decodable, Sendable {
   public let ownerNickname: String?
   public let memberCount: Int
   public let expiresAt: String
+  /// 먼저 들어온 크루원 최대 3명. 이전 서버 응답에는 없다.
+  public let memberPreview: [MemberPreview]?
+
+  public struct MemberPreview: Decodable, Sendable {
+    public let nickname: String
+    public let avatarUrl: String?
+  }
 }
 
 public typealias FestivalCrewInviteCodeResponseDTO = BaseResponseDTO<FestivalCrewInviteCodeDataDTO>
@@ -46,4 +53,13 @@ public struct FestivalCrewInviteCodeDataDTO: Decodable, Sendable {
 struct FestivalCrewStatusDataDTO: Decodable, Sendable {
   let userId: String
   let state: String?
+}
+
+/// 모여 응답에서 서버가 확정한 내 응답
+struct FestivalCrewGatherReplyDataDTO: Decodable, Sendable {
+  let gatherId: String
+  let userId: String
+  let nickname: String
+  let response: String
+  let respondedAt: String
 }

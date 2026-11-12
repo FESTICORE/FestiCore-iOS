@@ -2,6 +2,10 @@
 public enum CrewAPI: Sendable, Equatable {
   case create
   case gather(String)
+  case gatherResponse(
+    crewID: String,
+    gatherID: String
+  )
   case crew(String)
   case status(String)
   case rotateInvite(String)
@@ -16,6 +20,10 @@ public enum CrewAPI: Sendable, Equatable {
   public var path: String {
     switch self {
     case let .gather(id): return "api/v1/crews/\(id)/gather"
+    case let .gatherResponse(
+      crewID,
+      gatherID
+    ): return "api/v1/crews/\(crewID)/gather/\(gatherID)/response"
     case .create: return "api/v1/crews"
     case let .crew(id): return "api/v1/crews/\(id)"
     case let .status(id): return "api/v1/crews/\(id)/status"

@@ -105,22 +105,27 @@ private extension FestivalCrewJoinView {
     isBlocked: Bool
   ) -> some View {
     return VStack(spacing: FestiCoreSpacing.marginM12) {
-      Image(asset: .users24)
-        .resizable()
-        .frame(
-          width: Metric.iconSize,
-          height: Metric.iconSize
-        )
-        .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-        .frame(
-          width: Metric.badgeSize,
-          height: Metric.badgeSize
-        )
-        .background(
-          FestiCoreSemanticColor.fillNormal.color,
-          in: Circle()
-        )
-        .accessibilityHidden(true)
+      if invite.memberPreview.isEmpty {
+        // 크루원 미리보기가 없던 이전 서버 응답은 아이콘 원으로 둔다.
+        Image(asset: .users24)
+          .resizable()
+          .frame(
+            width: Metric.iconSize,
+            height: Metric.iconSize
+          )
+          .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
+          .frame(
+            width: Metric.badgeSize,
+            height: Metric.badgeSize
+          )
+          .background(
+            FestiCoreSemanticColor.fillNormal.color,
+            in: Circle()
+          )
+          .accessibilityHidden(true)
+      } else {
+        avatarStack(invite)
+      }
       Text(invite.inviterNickname.map { "\($0)님이 크루에 초대했어요" } ?? "크루에 초대받았어요")
         .festiCoreFont(.baseSubheadlineRegular)
         .festiCoreLineBox(.baseSubheadlineRegular)
@@ -134,6 +139,90 @@ private extension FestivalCrewJoinView {
           : FestiCoreSemanticColor.labelNormal.color)
         .multilineTextAlignment(.center)
     }
+  }
+
+  /// Figma S08 A Avatar Stack: 52 원을 14씩 겹치고 Background/Normal 3 테두리로 나눈다.
+  /// 서버는 먼저 들어온 3명만 주므로 나머지 인원은 "+N" 원으로 둔다.
+  func avatarStack(_ invite: FestivalCrewInvite) -> some View {
+    let extra = invite.memberCount - invite.memberPreview.count
+    return HStack(spacing: -Metric.avatarOverlap) {
+      ForEach(
+        Array(invite.memberPreview.enumerated()),
+        id: \.offset
+      ) { index, member in
+        avatar(
+          member,
+          tint: Metric.avatarTints[index % Metric.avatarTints.count]
+        )
+      }
+      if extra > 0 {
+        avatarCircle(
+          Text("+\(extra)"),
+          colors: (
+            FestiCoreSemanticColor.fillStrong,
+            FestiCoreSemanticColor.labelNeutral
+          )
+        )
+      }
+    }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("크루원 \(invite.memberCount)명")
+  }
+
+  @ViewBuilder
+  func avatar(
+    _ member: FestivalCrewInvite.Member,
+    tint: (FestiCoreSemanticColor, FestiCoreSemanticColor)
+  ) -> some View {
+    if let url = member.avatarURL {
+      FCRemoteImage(url: url)
+        .placeholderIcon(
+          .users24,
+          size: Metric.iconSize
+        )
+        .frame(
+          width: Metric.avatarSize,
+          height: Metric.avatarSize
+        )
+        .clipShape(Circle())
+        .overlay {
+          Circle()
+            .stroke(
+              FestiCoreSemanticColor.backgroundNormal.color,
+              lineWidth: Metric.avatarBorder
+            )
+        }
+    } else {
+      avatarCircle(
+        Text(member.nickname.prefix(1)),
+        colors: tint
+      )
+    }
+  }
+
+  /// Figma Avatar(40 원 Subheadline/Bold)를 52로 키운 S08 인스턴스
+  func avatarCircle(
+    _ text: Text,
+    colors: (FestiCoreSemanticColor, FestiCoreSemanticColor)
+  ) -> some View {
+    return text
+      .festiCoreFont(.baseSubheadlineBold)
+      .foregroundStyle(colors.1.color)
+      .frame(
+        width: Metric.avatarSize,
+        height: Metric.avatarSize
+      )
+      .background(
+        colors.0.color,
+        in: Circle()
+      )
+      .overlay {
+        Circle()
+          .stroke(
+            FestiCoreSemanticColor.backgroundNormal.color,
+            lineWidth: Metric.avatarBorder
+          )
+      }
   }
 
   /// Figma S08 Inline Message: 아이콘 16 + 간격 6, Footnote/Regular · Status/Negative
@@ -310,5 +399,15 @@ private extension FestivalCrewJoinView {
     static let skeletonHeight: CGFloat = 154
     static let footerTopPadding: CGFloat = 13
     static let footerBottomPadding: CGFloat = 1
+    static let avatarSize: CGFloat = 52
+    static let avatarOverlap: CGFloat = 14
+    static let avatarBorder: CGFloat = 3
+    /// Figma S08 A Avatar Stack 색 순서(pink·blue·orange·green)
+    static let avatarTints: [(FestiCoreSemanticColor, FestiCoreSemanticColor)] = [
+      (.accentBackgroundPink, .accentForegroundPink),
+      (.accentBackgroundBlue, .accentForegroundBlue),
+      (.accentBackgroundOrange, .accentForegroundOrange),
+      (.accentBackgroundGreen, .accentForegroundGreen),
+    ]
   }
 }

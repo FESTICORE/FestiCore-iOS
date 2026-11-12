@@ -16,13 +16,33 @@ struct FestivalCrewPresentation: Equatable {
     let isInactive: Bool
   }
 
+  /// Figma S07 F 모여 요청 배너. 응답 시간(10분) 안에만 그린다.
+  struct Gather: Equatable {
+    /// "민지: 슬램 존으로 모여!"
+    let title: String
+    /// "방금 · 크루원 모두에게 소리 알림을 보냈어요"
+    let detail: String
+    /// 응답 버튼 모양. 보낸 사람이거나 응답할 수 없는 모여면 nil이고 `summary`를 그린다.
+    let actions: Actions?
+    /// 보낸 사람이 보는 응답 요약. "가는 중 2명 · 확인 1명"
+    let summary: String?
+  }
+
+  struct Actions: Equatable {
+    /// "슬램 존으로 가는 중"
+    let goingTitle: String
+    /// 내가 고른 응답. 고른 버튼을 진하게 그린다.
+    let selected: FestivalCrewGatherResponse?
+    let isResponding: Bool
+  }
+
   let summary: String
   /// 카드 머리의 "4 / 12"
   let memberCount: String
   /// 크루가 끝나 기록만 보는 상태(S07 I). 모여!·초대·내 상태를 숨긴다.
   let isArchived: Bool
   let members: [Member]
-  let gatherNotice: String?
+  let gather: Gather?
   let gatherTitle: String
   let canGather: Bool
 
@@ -61,11 +81,12 @@ struct FestivalCrewPresentation: Equatable {
           || member.updatedAt.map { now.timeIntervalSince($0) >= Self.inactiveInterval } ?? false
       )
     }
-    gatherNotice = live?.gatherRequest.flatMap { request in
-      return Self.gatherNotice(
+    gather = live?.gatherRequest.flatMap { request in
+      guard archivedAt == nil, request.id == nil || request.id != crew.expiredGatherID,
+            now < request.expiresAt ?? request.at.addingTimeInterval(Self.gatherLifetime) else { return nil }
+      return Self.gather(
         request,
-        members: live?.members ?? [],
-        zoneName: crew.zoneName(request.zoneID),
+        crew: crew,
         now: now
       )
     }
@@ -83,20 +104,40 @@ struct FestivalCrewPresentation: Equatable {
 
 private extension FestivalCrewPresentation {
   static let inactiveInterval: TimeInterval = 60 * 60
+  /// 서버가 `expiresAt`을 주지 않던 이전 응답에서 쓰는 모여 응답 시간
+  static let gatherLifetime: TimeInterval = 10 * 60
 
-  static func gatherNotice(
+  static func gather(
     _ request: FestivalLiveBoardSnapshot.Crew.GatherRequest,
-    members: [FestivalLiveBoardSnapshot.Crew.Member],
-    zoneName: String?,
+    crew: FestivalCrewFeature.State,
     now: Date
-  ) -> String? {
-    guard let sender = members.first(where: { $0.id == request.byUserID })?.nickname else { return nil }
-    let place = zoneName.map { "\($0.withEuro) 모여" } ?? "모여"
+  ) -> Gather {
+    let sender = crew.live?.members.first { $0.id == request.byUserID }?.nickname ?? "크루원"
+    let zoneName = crew.zoneName(request.zoneID)
+    let place = zoneName.map { "\($0.withEuro) " } ?? ""
     let time = FestivalLiveBoardPresentation.relativeTime(
       request.at,
       now: now
-    ).map { " · \($0)" } ?? ""
-    return "\(sender)님이 \"\(place)\"를 보냈어요\(time)"
+    ).map { "\($0) · " } ?? ""
+    let isSender = request.byUserID == crew.sessionUserID
+    let canRespond = !isSender && request.id != nil && crew.sessionUserID != nil
+    let summary = request.summary
+    return Gather(
+      title: "\(sender): \(place)모여!",
+      detail: "\(time)크루원 모두에게 소리 알림을 보냈어요",
+      actions: canRespond
+        ? Actions(
+          goingTitle: "\(place)가는 중",
+          selected: crew.myGatherResponse(request),
+          isResponding: crew.isRespondingGather
+        )
+        : nil,
+      summary: isSender
+        ? (summary.going + summary.ack == 0
+          ? "아직 응답한 크루원이 없어요"
+          : "가는 중 \(summary.going)명 · 확인 \(summary.ack)명")
+        : nil
+    )
   }
 }
 
@@ -108,5 +149,17 @@ extension String {
     }
     let jongseong = (scalar.value - 0xAC00) % 28
     return self + (jongseong == 0 || jongseong == 8 ? "로" : "으로")
+  }
+
+  /// "…이/가". 숫자로 끝나면 읽는 소리(영·일·삼·육·칠·팔은 받침)로 고른다. 한글·숫자가 아니면 "이"를 쓴다.
+  var withIGa: String {
+    guard let last = last else { return self }
+    if let digit = last.wholeNumberValue, last.isASCII {
+      return self + ([2, 4, 5, 9].contains(digit) ? "가" : "이")
+    }
+    guard let scalar = unicodeScalars.last, (0xAC00 ... 0xD7A3).contains(scalar.value) else {
+      return self + "이"
+    }
+    return self + ((scalar.value - 0xAC00) % 28 == 0 ? "가" : "이")
   }
 }

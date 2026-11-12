@@ -60,4 +60,18 @@ extension FestivalCrewRepositoryInterface {
     reportIssue("테스트 대역에 join이 없습니다")
     throw FestivalCrewError.unavailable
   }
+
+  func respondToGather(
+    crewID _: String,
+    gatherID _: String,
+    response _: FestivalCrewGatherResponse
+  ) async throws -> FestivalCrewGatherReply {
+    reportIssue("테스트 대역에 respondToGather가 없습니다")
+    throw FestivalCrewError.unavailable
+  }
+
+  func leave(crewID _: String) async throws {
+    reportIssue("테스트 대역에 leave가 없습니다")
+    throw FestivalCrewError.unavailable
+  }
 }
