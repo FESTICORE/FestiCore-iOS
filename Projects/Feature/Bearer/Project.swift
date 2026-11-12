@@ -14,6 +14,10 @@ let project = Project.makeModule(
   name: "Bearer",
   dependencies: [
     .domain(.bearer, .interface),
+    .domain(
+      .festival,
+      .interface
+    ),
     .core(.utility),
     .ui(.designSystem),
     .ui(.sharedUI),

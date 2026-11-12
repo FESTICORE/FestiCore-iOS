@@ -24,6 +24,26 @@ extension FCAlertState where Action == FCAlertAction {
     .alert(title: "초대하지 못했어요", message: message, confirmTitle: "확인", cancelTitle: "닫기")
   }
 
+  /// 코드 없는 등록에서 같은 페스티벌에 같은 깃발 이름이 있을 때(409 FLAG_NAME_TAKEN)
+  static func bearerNameTaken() -> FCAlertState<FCAlertAction> {
+    return .alert(
+      title: "이미 있는 깃발 이름이에요",
+      message: "이 페스티벌에서 하나뿐인 이름이어야 해요. 다른 이름을 지어 주세요.",
+      confirmTitle: "확인",
+      cancelTitle: "닫기"
+    )
+  }
+
+  /// 이 페스티벌에 이미 내 깃발이 있을 때(409 BEARER_LIMIT)
+  static func bearerLimit(festivalName: String?) -> FCAlertState<FCAlertAction> {
+    return .alert(
+      title: "이미 이 페스티벌의 기수예요",
+      message: "\(festivalName ?? "이 페스티벌")에는 깃발을 하나만 만들 수 있어요. 마이의 내 깃발에서 확인해 주세요.",
+      confirmTitle: "확인",
+      cancelTitle: "닫기"
+    )
+  }
+
   /// 기수 보드 오늘 종료 확인
   static func bearerEndToday() -> FCAlertState<FCAlertAction> {
     return .alert(
