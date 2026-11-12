@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-/// 시간표 공개 전 라인업 한 줄(Figma Lineup Row: 번호·아티스트·40 썸네일).
+/// 시간표 공개 전 라인업 한 줄(Figma Lineup Row: 번호·40 썸네일·아티스트).
 public struct FCLineupRow: View {
   private var number: String
   private var artist: String
@@ -36,6 +36,8 @@ public struct FCLineupRow: View {
             width: Metric.numberWidth,
             alignment: .leading
           )
+        // Figma 11-12: 썸네일은 번호와 아티스트 사이(x48)에 둔다.
+        thumbnailView
         Text(artist)
           .festiCoreFont(.baseCalloutMedium)
           .festiCoreLineBox(.baseCalloutMedium)
@@ -44,7 +46,6 @@ public struct FCLineupRow: View {
             maxWidth: .infinity,
             alignment: .leading
           )
-        thumbnailView
       }
       .lineLimit(1)
       .padding(
