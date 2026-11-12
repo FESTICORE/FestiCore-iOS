@@ -68,7 +68,6 @@ extension ProfileView {
 
 private extension ProfileView {
   /// Figma More: 오른쪽 위 Settings Button(gear 24)이 S13-0 설정 홈을 연다.
-  /// DesignKit에 gear 자산이 없어 SF Symbol을 같은 자리·크기로 둔다.
   var topBar: some View {
     return FCTopBar(
       .large,
@@ -76,7 +75,7 @@ private extension ProfileView {
     )
     .overlay(alignment: .trailing) {
       Button { send(.settingsTapped) } label: {
-        Image(systemName: "gearshape.fill")
+        Image(asset: .gear24)
           .resizable()
           .scaledToFit()
           .frame(
@@ -216,10 +215,10 @@ private extension ProfileView {
         case .failed:
           packFailure
         case .loaded where store.packs.isEmpty:
-          // Figma More C: Empty Card(ticket 24). 앱에 ticket 아이콘 자산이 없어 music 24를 쓴다.
+          // Figma More C: Empty Card(ticket 24).
           // Figma More C: 빈 카드의 '페스티벌 둘러보기'(Button primary·M)가 S00 페스티벌 목록을 연다.
           FCEmptyCard(
-            icon: .music24,
+            icon: .ticket24,
             title: "아직 받은 팩이 없어요",
             message: "페스티벌을 고르면 시간표 · 지도 · 가는 길을 오프라인으로 받아 둘 수 있어요."
           )

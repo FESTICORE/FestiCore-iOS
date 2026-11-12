@@ -13,6 +13,7 @@ import SwiftUI
 @ViewAction(for: LoginFeature.self)
 public struct LaunchLoginView: View {
   @Bindable public var store: StoreOf<LoginFeature>
+  @Environment(\.colorScheme) private var colorScheme
 
   public init(store: StoreOf<LoginFeature>) {
     self.store = store
@@ -20,125 +21,164 @@ public struct LaunchLoginView: View {
 
   public var body: some View {
     VStack(spacing: .zero) {
-      ZStack {
-        decorations
-        introduction()
-      }
-      .frame(
-        maxWidth: .infinity,
-        maxHeight: .infinity
-      )
+      introduction()
+        .frame(
+          maxWidth: .infinity,
+          maxHeight: .infinity
+        )
       actions()
     }
+    .overlay { decorations }
     .background(FestiCoreSemanticColor.backgroundNormal.color.ignoresSafeArea())
   }
 }
 
 private extension LaunchLoginView {
-  /// 시안 393×852 기준 장식 별 위치(비율)와 색
+  /// 시안 기준 프레임(393×852). 장식 별 위치는 이 크기에 대한 비율로 놓는다.
+  static let designSize = CGSize(
+    width: 393,
+    height: 852
+  )
+
+  /// 시안 Sparkles(623:24655)의 별 모양. 8각 별과 4각 반짝이 두 가지다.
+  enum DecorationShape {
+    case star8
+    case star4
+
+    var asset: AuthImages {
+      switch self {
+      case .star8: return AuthAsset.sparkleStar8
+      case .star4: return AuthAsset.sparkleStar4
+      }
+    }
+  }
+
+  /// 시안 별 색 변수. `secondary`는 라이트에서 Secondary/Normal, 다크 프레임에서 Static/White다.
+  enum DecorationTone {
+    case lime
+    case pink
+    case purple
+    case secondary
+  }
+
+  /// 시안 393×852 기준 장식 별 중심·크기·회전(도)과 색
   struct Decoration {
-    let x: CGFloat
-    let y: CGFloat
+    let shape: DecorationShape
+    let centerX: CGFloat
+    let centerY: CGFloat
     let size: CGFloat
-    let isBurst: Bool
-    let color: Color
+    let rotation: Double
+    let tone: DecorationTone
   }
 
   static let decorations: [Decoration] = [
     Decoration(
-      x: 0.43,
-      y: 0.075,
-      size: 12,
-      isBurst: false,
-      color: .accentPointPurple
-    ),
-    Decoration(
-      x: 0.12,
-      y: 0.112,
-      size: 20,
-      isBurst: true,
-      color: .accentPointLime
-    ),
-    Decoration(
-      x: 0.76,
-      y: 0.126,
-      size: 24,
-      isBurst: true,
-      color: .accentPointPink
-    ),
-    Decoration(
-      x: 0.28,
-      y: 0.199,
-      size: 20,
-      isBurst: true,
-      color: .accentPointPurple
-    ),
-    Decoration(
-      x: 0.64,
-      y: 0.216,
-      size: 12,
-      isBurst: false,
-      color: .accentPointPurple
-    ),
-    Decoration(
-      x: 0.92,
-      y: 0.23,
-      size: 14,
-      isBurst: false,
-      color: .accentPointLime
-    ),
-    Decoration(
-      x: 0.09,
-      y: 0.25,
-      size: 14,
-      isBurst: false,
-      color: .accentPointPurple
-    ),
-    Decoration(
-      x: 0.04,
-      y: 0.394,
-      size: 14,
-      isBurst: true,
-      color: .accentPointLime
-    ),
-    Decoration(
-      x: 0.96,
-      y: 0.373,
-      size: 20,
-      isBurst: true,
-      color: .accentPointPurple
-    ),
-    Decoration(
-      x: 0.06,
-      y: 0.551,
+      shape: .star8,
+      centerX: 48,
+      centerY: 96,
       size: 22,
-      isBurst: true,
-      color: .accentPointPink
+      rotation: -100,
+      tone: .lime
     ),
     Decoration(
-      x: 0.95,
-      y: 0.624,
-      size: 12,
-      isBurst: false,
-      color: .accentPointPurple
-    ),
-    Decoration(
-      x: 0.18,
-      y: 0.695,
-      size: 16,
-      isBurst: false,
-      color: .accentPointLime
-    ),
-    Decoration(
-      x: 0.82,
-      y: 0.704,
+      shape: .star4,
+      centerX: 170,
+      centerY: 64,
       size: 14,
-      isBurst: false,
-      color: .accentPointPink
+      rotation: 40,
+      tone: .secondary
+    ),
+    Decoration(
+      shape: .star8,
+      centerX: 300,
+      centerY: 108,
+      size: 26,
+      rotation: 20,
+      tone: .pink
+    ),
+    Decoration(
+      shape: .star4,
+      centerX: 362,
+      centerY: 196,
+      size: 16,
+      rotation: 100,
+      tone: .lime
+    ),
+    Decoration(
+      shape: .star4,
+      centerX: 34,
+      centerY: 214,
+      size: 16,
+      rotation: -40,
+      tone: .purple
+    ),
+    Decoration(
+      shape: .star8,
+      centerX: 112,
+      centerY: 170,
+      size: 20,
+      rotation: -20,
+      tone: .secondary
+    ),
+    Decoration(
+      shape: .star4,
+      centerX: 252,
+      centerY: 184,
+      size: 12,
+      rotation: -100,
+      tone: .purple
+    ),
+    Decoration(
+      shape: .star8,
+      centerX: 16,
+      centerY: 336,
+      size: 14,
+      rotation: 40,
+      tone: .lime
+    ),
+    Decoration(
+      shape: .star8,
+      centerX: 376,
+      centerY: 318,
+      size: 20,
+      rotation: 20,
+      tone: .purple
+    ),
+    Decoration(
+      shape: .star8,
+      centerX: 22,
+      centerY: 470,
+      size: 22,
+      rotation: 100,
+      tone: .pink
+    ),
+    Decoration(
+      shape: .star4,
+      centerX: 372,
+      centerY: 532,
+      size: 14,
+      rotation: -40,
+      tone: .secondary
+    ),
+    Decoration(
+      shape: .star4,
+      centerX: 70,
+      centerY: 592,
+      size: 18,
+      rotation: -20,
+      tone: .lime
+    ),
+    Decoration(
+      shape: .star4,
+      centerX: 322,
+      centerY: 600,
+      size: 16,
+      rotation: 40,
+      tone: .pink
     ),
   ]
 
-  /// 화면 크기에 맞춰 흩뿌린 장식 별. 읽기 도구에서는 숨긴다.
+  /// 화면 전체에 시안 비율대로 흩뿌린 장식 별. 터치와 읽기 도구에서는 숨긴다.
   var decorations: some View {
     GeometryReader { proxy in
       ForEach(
@@ -146,21 +186,33 @@ private extension LaunchLoginView {
         id: \.self
       ) { index in
         let item = Self.decorations[index]
-        Image(systemName: item.isBurst ? "seal.fill" : "sparkle")
+        Image(asset: item.shape.asset)
+          .renderingMode(.template)
           .resizable()
-          .scaledToFit()
           .frame(
             width: item.size,
             height: item.size
           )
-          .foregroundStyle(item.color)
+          .foregroundStyle(color(for: item.tone))
+          .rotationEffect(.degrees(item.rotation))
           .position(
-            x: proxy.size.width * item.x,
-            y: proxy.size.height * item.y
+            x: proxy.size.width * item.centerX / Self.designSize.width,
+            y: proxy.size.height * item.centerY / Self.designSize.height
           )
       }
     }
+    .ignoresSafeArea()
+    .allowsHitTesting(false)
     .accessibilityHidden(true)
+  }
+
+  func color(for tone: DecorationTone) -> Color {
+    switch tone {
+    case .lime: return .staticLime
+    case .pink: return .accentPointPink
+    case .purple: return .accentPointPurple
+    case .secondary: return colorScheme == .dark ? .staticWhite : .secondaryNormal
+    }
   }
 
   @ViewBuilder

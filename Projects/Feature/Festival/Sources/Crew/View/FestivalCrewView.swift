@@ -74,8 +74,9 @@ private extension FestivalCrewView {
     .onBack { send(.backTapped) }
     .backgroundColor(.backgroundNavigation)
     guard store.isLeader else { return bar }
+    // Figma S07 A: Top Bar 오른쪽 Action은 gear 24(Label/Neutral)다.
     return bar.trailingAction(
-      icon: .magnifyingGlass,
+      icon: .gear24,
       accessibilityLabel: "크루장 메뉴"
     ) { send(.menuTapped) }
   }
