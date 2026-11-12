@@ -23,6 +23,7 @@ public struct LockScreenSettingsView: View {
 
       ScrollView {
         VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP24) {
+          autoStartGroup
           activityStatus
           if !store.activities.isEmpty {
             activeActivities()
@@ -60,6 +61,50 @@ public struct LockScreenSettingsView: View {
 }
 
 private extension LockScreenSettingsView {
+  /// Figma S13-C Live Activity 그룹: 제목 Footnote/Bold, 카드 r16, 각주 Footnote/Regular
+  var autoStartGroup: some View {
+    return VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP8
+    ) {
+      Text("Live Activity")
+        .festiCoreFont(.baseFootnoteBold)
+        .festiCoreLineBox(.baseFootnoteBold)
+        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+        .padding(
+          .horizontal,
+          FestiCoreSpacing.paddingP4
+        )
+      FCListRow(
+        "당일 자동 시작",
+        isOn: autoStartBinding
+      )
+      .background(
+        FestiCoreSemanticColor.backgroundElevated.color,
+        in: RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
+      )
+      Text("페스티벌 당일 라이브 보드를 처음 열면 잠금화면에 지금 무대와 다음 일정이 떠요. 끄면 보드 오른쪽 위 버튼으로 직접 켤 수 있어요.")
+        .festiCoreFont(.baseFootnoteRegular)
+        .festiCoreLineBox(.baseFootnoteRegular)
+        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+        .fixedSize(
+          horizontal: false,
+          vertical: true
+        )
+        .padding(
+          .horizontal,
+          FestiCoreSpacing.paddingP4
+        )
+    }
+  }
+
+  var autoStartBinding: Binding<Bool> {
+    return Binding(
+      get: { store.isAutoStartOn },
+      set: { send(.autoStartToggled($0)) }
+    )
+  }
+
   @ViewBuilder
   func activeActivities() -> some View {
     VStack(

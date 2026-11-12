@@ -4,6 +4,7 @@
 //
 
 import ComposableArchitecture
+import FestiCoreStorageInterface
 import FestivalDomainInterface
 import Foundation
 import UIKit
@@ -18,6 +19,8 @@ public struct LockScreenSettingsFeature {
     public var hasLoaded = false
     public var activities: [FestivalLiveActivityRecord] = []
     public var isStopping = false
+    /// Figma S13-C '당일 자동 시작'. 라이브 보드의 자동 시작이 같은 값을 읽는다.
+    @Shared(.liveActivityAutoStart) public var isAutoStartOn
     public var activityCount: Int { activities.count }
 
     public init() {}
@@ -37,6 +40,7 @@ public struct LockScreenSettingsFeature {
     case backTapped
     case openSystemSettingsTapped
     case stopAllTapped
+    case autoStartToggled(Bool)
   }
 
   @CasePathable
@@ -81,6 +85,10 @@ public struct LockScreenSettingsFeature {
           .cancel(id: CancelID.load),
           .send(.async(.stopActivities(state.activities.map(\.id))))
         )
+
+      case let .view(.autoStartToggled(isOn)):
+        state.$isAutoStartOn.withLock { $0 = isOn }
+        return .none
 
       case .async(.loadActivities):
         return .run { send in

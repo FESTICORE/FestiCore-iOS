@@ -3,6 +3,7 @@ import FestiCoreLocationInterface
 import FestivalDomainInterface
 import FestiCorePackInterface
 import FestiCoreSharedUI
+import FestiCoreStorageInterface
 import FestivalInterface
 import Foundation
 import UserNotificationDomainInterface
@@ -116,6 +117,8 @@ public struct FestivalFeature {
     public var packCacheReadFailed = false
     var liveActivity = LiveActivityRuntimeState()
     var autoActivityHandledStarts: [String: Date] = [:]
+    /// 마이 > 잠금화면의 '당일 자동 시작'(Figma S13-C). 끄면 라이브 활동을 자동으로 시작하지 않는다.
+    @SharedReader(.liveActivityAutoStart) var isLiveActivityAutoStartOn
 
     public var cacheReadFailed: Bool {
       catalogCacheReadFailed || packCacheReadFailed
@@ -1972,7 +1975,8 @@ extension FestivalFeature {
       )
     }
     let automaticStart: Effect<Action>
-    if let id = state.selectedFestivalID,
+    if state.isLiveActivityAutoStartOn,
+       let id = state.selectedFestivalID,
        state.hasSession,
        state.mySchedule?.festivalID == id,
        state.liveActivity.activities[id] == nil,

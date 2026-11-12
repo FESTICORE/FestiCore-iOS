@@ -4,6 +4,7 @@
 //
 
 import ComposableArchitecture
+import FestiCoreStorageInterface
 import FestivalDomainInterface
 import Foundation
 import Testing
@@ -12,6 +13,19 @@ import UIKit
 
 @MainActor
 struct LockScreenSettingsFeatureTests {
+  @Test func autoStartToggleSavesSharedValue() async {
+    let store = TestStore(initialState: LockScreenSettingsFeature.State()) {
+      LockScreenSettingsFeature()
+    }
+
+    #expect(store.state.isAutoStartOn)
+    await store.send(.view(.autoStartToggled(false))) {
+      $0.$isAutoStartOn.withLock { $0 = false }
+    }
+    @Shared(.liveActivityAutoStart) var isAutoStartOn
+    #expect(!isAutoStartOn)
+  }
+
   @Test func appearLoadsActiveActivities() async {
     let now = Date(timeIntervalSince1970: 1_700_000_000)
     let activity = FestivalLiveActivityRecord(
