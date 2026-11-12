@@ -284,7 +284,8 @@ extension BearerRegisterFeature {
       return .send(.async(.loadFestivals))
 
     case .festivalTapped(let festivalID):
-      guard state.selectedFestivalID != festivalID else { return .none }
+      // 저장 중에는 등록 요청의 페스티벌이 바뀌지 않게 고르기를 막는다.
+      guard !state.isSaving, state.selectedFestivalID != festivalID else { return .none }
       return select(
         festivalID,
         state: &state
@@ -519,9 +520,11 @@ extension BearerRegisterFeature {
       return .none
 
     case .registered(let claim):
+      // 완료·핀은 화면의 현재 선택이 아니라 실제로 보낸 요청의 페스티벌을 기준으로 한다.
+      let requestedFestivalID = state.pendingRequest?.festivalID ?? state.selectedFestivalID
       state.isSaving = false
       state.pendingRequest = nil
-      guard let festival = state.selectedFestival else { return .none }
+      guard let festival = state.festivals.option(requestedFestivalID) else { return .none }
       var completion = Completion(
         claim: claim,
         festival: festival

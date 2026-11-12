@@ -17,7 +17,7 @@ import Testing
 struct BearerRegisterFeatureTests {
   private static let now = Date(timeIntervalSince1970: 1_794_528_000) // 2026-11-13 00:00 UTC
 
-  nonisolated private static let catalog = [
+  private nonisolated static let catalog = [
     FestivalCatalogItem(
       id: "fst_past",
       name: "지난 페스티벌",
@@ -326,6 +326,55 @@ struct BearerRegisterFeatureTests {
     await store.send(.view(.roleTapped(.audience))) { $0.role = .audience }
     await store.send(.view(.nextTapped))
     await store.receive(\.delegate.audienceChosen)
+  }
+
+  @Test("저장 중에는 페스티벌을 바꿀 수 없고, 완료는 보낸 요청의 페스티벌로 만든다")
+  func savingKeepsRequestedFestival() async {
+    let other = BearerFestivalOption(
+      id: "fst_other",
+      name: "다른 페스티벌",
+      dateText: "12/01",
+      hasPack: false
+    )
+    let request = BearerRegisterRequest(
+      festivalID: "fst_wonder",
+      change: Self.change,
+      idempotencyKey: "register-1"
+    )
+    let claim = BearerClaim(
+      flagID: "flg_9",
+      profile: BearerFlagProfile(
+        id: "flg_9",
+        name: "호락호락",
+        tags: [.newbie]
+      ),
+      isNew: true,
+      coBearerIDs: []
+    )
+    var state = loadedState()
+    state.festivals.upcoming = [
+      Self.wonder,
+      other
+    ]
+    state.isSaving = true
+    state.pendingRequest = request
+    let store = TestStore(initialState: state) {
+      BearerRegisterFeature()
+    }
+
+    await store.send(.view(.festivalTapped("fst_other")))
+
+    // 선택이 어떤 이유로든 바뀌어 있어도 완료는 요청의 페스티벌을 쓴다.
+    store.exhaustivity = .off
+    await store.send(.inner(.registered(claim))) {
+      $0.isSaving = false
+      $0.pendingRequest = nil
+      $0.completion = BearerRegisterFeature.Completion(
+        claim: claim,
+        festival: Self.wonder
+      )
+    }
+    await store.receive(\.delegate.registered)
   }
 
   private func loadedState() -> BearerRegisterFeature.State {

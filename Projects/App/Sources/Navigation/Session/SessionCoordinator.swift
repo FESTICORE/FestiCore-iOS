@@ -386,6 +386,8 @@ private extension SessionCoordinator {
         let finished = finishEligible(state: &state)
         // 예약 이전 확인처럼 다른 시트가 이어지면 그 시트를 먼저 끝내고 기수 여부는 묻지 않는다.
         guard state.presentation == nil else { return finished }
+        // 약관에 처음 동의한 신규 가입만 묻는다. 새 약관에 다시 동의한 기존 계정에는 묻지 않는다.
+        guard previous.user.termsAcceptedAt == nil else { return finished }
         return .merge(
           finished,
           .send(.delegate(.signUpCompleted))
