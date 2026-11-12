@@ -53,6 +53,10 @@ public struct BearerUseCaseImpl: BearerUseCaseInterface {
     return try await repository.fetchPinnedFlag()
   }
 
+  public func fetchFollowedFlags(festivalID: String?) async throws -> [BearerFollowedFlag] {
+    return try await repository.fetchFollowedFlags(festivalID: festivalID)
+  }
+
   public func fetchFestival(festivalID: String) async throws -> BearerFestival {
     guard let cached = try await packSyncService.cachedPack(for: festivalID),
           let pack = try? JSONDecoder().decode(BearerPackDTO.self, from: cached.pack) else {

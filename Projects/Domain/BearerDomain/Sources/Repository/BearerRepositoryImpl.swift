@@ -91,6 +91,49 @@ public struct BearerRepositoryImpl: BearerRepositoryInterface {
     return response.data.toDomain(baseURL: baseURL)
   }
 
+  public func fetchFollowedFlags(festivalID: String?) async throws -> [BearerFollowedFlag] {
+    let sessionID = try await authenticatedSessionID()
+    let response = try await send(
+      FlagRequest.follows(
+        query: FlagFollowsQuery(festivalId: festivalID),
+        sessionID: sessionID
+      ),
+      as: BearerFollowsResponseDTO.self
+    )
+    let follows = response.data.items
+    // 팔로우 목록에는 이름이 없어 깃발 공개 상세를 함께 읽고, 순서는 팔로우 목록을 따른다.
+    let details = try await withThrowingTaskGroup(of: (Int, BearerFollowedFlagDetailDTO?).self) { group in
+      for index in follows.indices {
+        let flagID = follows[index].flagId
+        group.addTask {
+          return (
+            index,
+            try await followedFlagDetail(flagID: flagID)
+          )
+        }
+      }
+      var details = [BearerFollowedFlagDetailDTO?](
+        repeating: nil,
+        count: follows.count
+      )
+      for try await result in group {
+        details[result.0] = result.1
+      }
+      return details
+    }
+    return zip(
+      follows,
+      details
+    ).compactMap { follow, detail in
+      return detail.map {
+        follow.toDomain(
+          detail: $0,
+          baseURL: baseURL
+        )
+      }
+    }
+  }
+
   public func fetchBoard(flagID: String) async throws -> BearerBoard {
     let sessionID = try await authenticatedSessionID()
     let response = try await send(FlagRequest.bearer(flagID: flagID, sessionID: sessionID), as: BearerBoardResponseDTO.self)
@@ -157,6 +200,20 @@ private extension BearerRepositoryImpl {
       throw BearerError.notAuthenticated
     }
     return sessionID
+  }
+
+  /// 숨김·비공개로 바뀌어 공개 조회할 수 없는(404) 깃발은 고를 수 없으므로 nil로 뺀다.
+  func followedFlagDetail(flagID: String) async throws -> BearerFollowedFlagDetailDTO? {
+    do {
+      return try await client.send(
+        PublicFlagRequest.detail(flagID: flagID),
+        as: BearerFollowedFlagDetailResponseDTO.self
+      ).data
+    } catch {
+      let mapped = Self.map(error)
+      if (mapped as? BearerError) == .notFound { return nil }
+      throw mapped
+    }
   }
 
   func send<T: Decodable & Sendable>(_ request: FlagRequest, as type: T.Type) async throws -> T {

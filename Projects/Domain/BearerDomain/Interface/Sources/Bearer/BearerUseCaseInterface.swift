@@ -19,6 +19,8 @@ public protocol BearerUseCaseInterface: Sendable {
   func register(_ request: BearerRegisterRequest) async throws -> BearerClaim
   func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag]
   func fetchPinnedFlag() async throws -> BearerPinnedFlag?
+  /// 잠금화면 대표 깃발로 고를 수 있는 팔로우한 깃발(최근 팔로우순)
+  func fetchFollowedFlags(festivalID: String?) async throws -> [BearerFollowedFlag]
   /// 기기에 받아 둔 팩에서 축제 이름과 존을 읽는다. 팩이 없으면 빈 존 목록이다.
   func fetchFestival(festivalID: String) async throws -> BearerFestival
   func fetchBoard(flagID: String) async throws -> BearerBoard

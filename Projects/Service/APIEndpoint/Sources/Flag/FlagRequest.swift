@@ -31,12 +31,17 @@ public enum FlagRequest: FestiCoreDataRequest, Sendable {
   )
   /// 내 대표 깃발. 없으면 `flag`가 null이다.
   case pinnedFlag(sessionID: UUID)
+  /// 내가 팔로우한 깃발 목록(최근 팔로우순). 페스티벌을 주면 그 페스티벌 것만 받는다.
+  case follows(
+    query: FlagFollowsQuery,
+    sessionID: UUID
+  )
 
   public var path: String { return api.path }
 
   public var method: HTTPMethod {
     switch self {
-    case .bearer, .bearerFlags, .pinnedFlag: return .get
+    case .bearer, .bearerFlags, .pinnedFlag, .follows: return .get
     case .updateProfile: return .patch
     case .status, .inviteCoBearer, .claim, .register: return .post
     case .removeCoBearer: return .delete
@@ -49,14 +54,14 @@ public enum FlagRequest: FestiCoreDataRequest, Sendable {
     case let .claim(_, deviceID, _): return ["X-Device-Id": deviceID]
     case let .register(_, idempotencyKey, _):
       return ["Idempotency-Key": idempotencyKey]
-    case .bearer, .updateProfile, .inviteCoBearer, .removeCoBearer, .bearerFlags, .pinnedFlag: return [:]
+    case .bearer, .updateProfile, .inviteCoBearer, .removeCoBearer, .bearerFlags, .pinnedFlag, .follows: return [:]
     }
   }
 
-  /// 기수 상세·기수 깃발·대표 깃발은 서버가 `no-store`로 내려 준다. 로컬 캐시도 쓰지 않는다.
+  /// 기수 상세·기수 깃발·대표 깃발·팔로우 목록은 개인 응답이라 로컬 캐시를 쓰지 않는다.
   public var cachePolicy: URLRequest.CachePolicy? {
     switch self {
-    case .bearer, .bearerFlags, .pinnedFlag: return .reloadIgnoringLocalCacheData
+    case .bearer, .bearerFlags, .pinnedFlag, .follows: return .reloadIgnoringLocalCacheData
     default: return nil
     }
   }
@@ -76,6 +81,8 @@ public enum FlagRequest: FestiCoreDataRequest, Sendable {
       return .sessionBound(sessionID)
     case let .pinnedFlag(sessionID):
       return .sessionBound(sessionID)
+    case let .follows(_, sessionID):
+      return .sessionBound(sessionID)
     }
   }
 
@@ -89,6 +96,8 @@ public enum FlagRequest: FestiCoreDataRequest, Sendable {
     case let .register(body, _, _):
       return body
     case let .bearerFlags(query, _):
+      return query
+    case let .follows(query, _):
       return query
     case .bearer, .inviteCoBearer, .removeCoBearer, .pinnedFlag: return nil
     }
@@ -105,6 +114,7 @@ public enum FlagRequest: FestiCoreDataRequest, Sendable {
     case .register: return .register
     case .bearerFlags: return .bearerFlags
     case .pinnedFlag: return .pinnedFlag
+    case .follows: return .follows
     }
   }
 }

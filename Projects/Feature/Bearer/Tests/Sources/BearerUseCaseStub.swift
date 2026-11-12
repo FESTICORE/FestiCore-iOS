@@ -27,6 +27,7 @@ struct BearerUseCaseStub: BearerUseCaseInterface {
   var registerHandler: @Sendable (BearerRegisterRequest) async throws -> BearerClaim = { _ in try unexpected() }
   var fetchBearerFlagsHandler: @Sendable (String?) async throws -> [BearerOwnedFlag] = { _ in try unexpected() }
   var fetchPinnedFlagHandler: @Sendable () async throws -> BearerPinnedFlag? = { try unexpected() }
+  var fetchFollowedFlagsHandler: @Sendable (String?) async throws -> [BearerFollowedFlag] = { _ in try unexpected() }
   var fetchBoard: @Sendable (String) async throws -> BearerBoard = { _ in try unexpected() }
   var updateProfile: @Sendable (String, BearerProfileChange) async throws -> BearerFlagProfile = { _, _ in try unexpected() }
   var uploadPhoto: @Sendable (String, Data) -> AsyncThrowingStream<BearerPhotoUploadEvent, Error> = { _, _ in
@@ -67,6 +68,7 @@ struct BearerUseCaseStub: BearerUseCaseInterface {
   func register(_ request: BearerRegisterRequest) async throws -> BearerClaim { return try await registerHandler(request) }
   func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag] { return try await fetchBearerFlagsHandler(festivalID) }
   func fetchPinnedFlag() async throws -> BearerPinnedFlag? { return try await fetchPinnedFlagHandler() }
+  func fetchFollowedFlags(festivalID: String?) async throws -> [BearerFollowedFlag] { return try await fetchFollowedFlagsHandler(festivalID) }
   func fetchBoard(flagID: String) async throws -> BearerBoard { try await fetchBoard(flagID) }
   func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile {
     try await updateProfile(flagID, change)

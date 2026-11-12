@@ -16,6 +16,8 @@ typealias BearerPhotoResponseDTO = BaseResponseDTO<BearerPhotoDataDTO>
 typealias BearerInviteResponseDTO = BaseResponseDTO<BearerInviteDataDTO>
 typealias BearerFlagsResponseDTO = BaseResponseDTO<BearerFlagsDataDTO>
 typealias BearerPinnedFlagResponseDTO = BaseResponseDTO<BearerPinnedFlagDataDTO>
+typealias BearerFollowsResponseDTO = BaseResponseDTO<BearerFollowsDataDTO>
+typealias BearerFollowedFlagDetailResponseDTO = BaseResponseDTO<BearerFollowedFlagDetailDTO>
 
 /// `GET me/bearer-flags` data
 struct BearerFlagsDataDTO: Decodable, Sendable, Equatable {
@@ -43,6 +45,24 @@ struct BearerPinnedFlagDataDTO: Decodable, Sendable, Equatable {
 
   let pinnedFlagId: String?
   let flag: Flag?
+}
+
+/// `GET me/follows` data. 최근 팔로우순이다.
+struct BearerFollowsDataDTO: Decodable, Sendable, Equatable {
+  struct Item: Decodable, Sendable, Equatable {
+    let flagId: String
+    let festivalId: String
+    let followedAt: String?
+  }
+
+  let items: [Item]
+}
+
+/// 팔로우 목록에 이름을 붙이려고 `GET flags/:flagId`에서 읽는 값
+struct BearerFollowedFlagDetailDTO: Decodable, Sendable, Equatable {
+  let id: String
+  let name: String
+  let thumbUrl: String?
 }
 
 struct BearerFlagProfileDTO: Decodable, Sendable, Equatable {

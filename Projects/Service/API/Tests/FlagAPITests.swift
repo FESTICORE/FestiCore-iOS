@@ -28,5 +28,6 @@ struct FlagAPITests {
   func followerPaths() {
     #expect(FlagAPI.report(flagID: "flg_1").path == "api/v1/flags/flg_1/report")
     #expect(FlagAPI.pinnedFlag.path == "api/v1/me/pinned-flag")
+    #expect(FlagAPI.follows.path == "api/v1/me/follows")
   }
 }

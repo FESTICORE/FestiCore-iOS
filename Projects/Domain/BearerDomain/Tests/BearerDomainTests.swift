@@ -368,6 +368,7 @@ private actor PhotoRepository: BearerRepositoryInterface {
   func register(_ request: BearerRegisterRequest) async throws -> BearerClaim { throw BearerError.unavailable }
   func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag] { throw BearerError.unavailable }
   func fetchPinnedFlag() async throws -> BearerPinnedFlag? { throw BearerError.unavailable }
+  func fetchFollowedFlags(festivalID: String?) async throws -> [BearerFollowedFlag] { throw BearerError.unavailable }
 }
 
 @Suite("업로드 사진 규격")
@@ -438,4 +439,5 @@ private struct ClaimRecordingRepository: BearerRepositoryInterface {
   func register(_ request: BearerRegisterRequest) async throws -> BearerClaim { throw BearerError.unavailable }
   func fetchBearerFlags(festivalID: String?) async throws -> [BearerOwnedFlag] { throw BearerError.unavailable }
   func fetchPinnedFlag() async throws -> BearerPinnedFlag? { throw BearerError.unavailable }
+  func fetchFollowedFlags(festivalID: String?) async throws -> [BearerFollowedFlag] { throw BearerError.unavailable }
 }
