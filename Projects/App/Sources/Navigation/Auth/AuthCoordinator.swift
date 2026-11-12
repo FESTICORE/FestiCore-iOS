@@ -146,7 +146,7 @@ extension AuthCoordinator {
 
     case let .startLogin(provider):
       // 수락한 로그인을 확정하는 동안 새 로그인을 시작하면 두 결과가 서로의 임시 세션을 무효로 만든다.
-      guard state.presentation == .login, state.pendingCommitSessionID == nil else { return .none }
+      guard state.presentation?.acceptsLogin == true, state.pendingCommitSessionID == nil else { return .none }
       state.loginAttemptGeneration = state.generation
       state.message = nil
       // 닫았던 시트에서 시작한 로그인이 아직 진행 중이면 새로 시작하지 않고 그 결과를 이번 시도로 받는다.
@@ -317,7 +317,7 @@ extension AuthCoordinator {
 private extension AuthCoordinator {
   /// 시트가 열려 있고 현재 세대의 로그인 시도일 때만 결과를 받아들인다.
   func isActiveLoginAttempt(_ state: State) -> Bool {
-    return state.presentation == .login && state.loginAttemptGeneration == state.generation
+    return state.presentation?.acceptsLogin == true && state.loginAttemptGeneration == state.generation
   }
 
   func receiveSignedIn(

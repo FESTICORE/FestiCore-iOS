@@ -43,7 +43,7 @@ extension MainTabCoordinator.State {
   var authInputs: MainTabCoordinator.AuthInputs {
     let flow = authFlow
     let login: MainTabCoordinator.AuthInputs.Login?
-    if flow.presentation == .login {
+    if flow.presentation?.acceptsLogin == true {
       let context: LoginFeature.State.Context = switch selectedTab {
       case .my: .profile
       case .flag: .flag

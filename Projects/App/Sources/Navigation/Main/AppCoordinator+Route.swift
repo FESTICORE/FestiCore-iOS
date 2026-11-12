@@ -32,7 +32,7 @@ extension AppCoordinator {
             category: .app
           )
         }
-        await send(.inner(.completeHomeTransition))
+        await send(.inner(.sessionChecked(isLoggedIn: await authService.isLoggedIn)))
       }
 
     default:
@@ -40,7 +40,7 @@ extension AppCoordinator {
     }
   }
 
-  /// 첫 설치 여부에 따라 온보딩이나 홈으로 바꾸고, 홈에 들어가면 세션 만료 구독과 대기 딥링크를 시작한다.
+  /// 첫 설치 여부에 따라 온보딩으로 보내거나 세션을 확인해 홈(로그아웃이면 첫 진입 화면)으로 바꾼다.
   func handleInnerAction(
     state: inout State,
     action: InnerAction
@@ -49,29 +49,53 @@ extension AppCoordinator {
     case let .firstInstallStatus(hasCompleted):
       guard case .splash = state else { return .none }
       if hasCompleted {
-        return .send(.inner(.completeHomeTransition))
+        return .run { send in
+          // 세션을 복원하는 동안 스플래시를 유지해 홈이 먼저 보였다가 가려지지 않게 한다.
+          await send(.inner(.sessionChecked(isLoggedIn: await authService.isLoggedIn)))
+        }
       }
       state = .onboarding(.init())
       return .none
 
+    case let .sessionChecked(isLoggedIn):
+      return enterHome(
+        state: &state,
+        presentsLaunchLogin: !isLoggedIn
+      )
+
     case .completeHomeTransition:
-      if case .home = state {
-        return .none
-      }
-      state = .home(.init())
-      return .merge(
-        .send(.view(.foregrounded)),
-        .send(.view(.deeplinkReceived)),
-        .run { send in
-          for await _ in authSessionExpiryClient.events() {
-            await send(.scope(.home(.session(.view(.sessionExpired)))))
-          }
-        }
-        .cancellable(
-          id: CancelID.sessionExpiry,
-          cancelInFlight: true
-        )
+      return enterHome(
+        state: &state,
+        presentsLaunchLogin: false
       )
     }
+  }
+
+  /// 홈으로 바꾸고 세션 만료 구독과 대기 딥링크를 시작한다. 첫 진입 화면은 건너뛰기 상태를 저장하지 않아 실행마다 다시 뜬다.
+  func enterHome(
+    state: inout State,
+    presentsLaunchLogin: Bool
+  ) -> Effect<Action> {
+    if case .home = state {
+      return .none
+    }
+    var home = MainTabCoordinator.State()
+    if presentsLaunchLogin {
+      home.authFlow.presentation = .launchLogin
+    }
+    state = .home(home)
+    return .merge(
+      .send(.view(.foregrounded)),
+      .send(.view(.deeplinkReceived)),
+      .run { send in
+        for await _ in authSessionExpiryClient.events() {
+          await send(.scope(.home(.session(.view(.sessionExpired)))))
+        }
+      }
+      .cancellable(
+        id: CancelID.sessionExpiry,
+        cancelInFlight: true
+      )
+    )
   }
 }

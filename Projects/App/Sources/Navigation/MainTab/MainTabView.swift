@@ -68,6 +68,20 @@ struct MainTabView: View {
           )
       }
     }
+    .overlay {
+      // 로그아웃 상태로 켠 앱은 홈을 그리기 전부터 S14 A 첫 진입 화면으로 덮는다.
+      if isLaunchLoginPresented {
+        LaunchLoginView(store: store.scope(
+          state: \.authFlow.login,
+          action: \.auth.login
+        ))
+        .transition(.opacity)
+      }
+    }
+    .animation(
+      .easeOut(duration: 0.2),
+      value: isLaunchLoginPresented
+    )
     .fcModal(
       item: authSheet,
       height: authSheet.wrappedValue == .onboarding ? .fraction(1) : .auto,
@@ -94,6 +108,10 @@ struct MainTabView: View {
 private extension MainTabView {
   var isTabBarHidden: Bool {
     return store.shouldHideTabBar || isModalPresented
+  }
+
+  var isLaunchLoginPresented: Bool {
+    return store.authFlow.presentation == .launchLogin
   }
 
   /// 인증 흐름의 표시 상태를 시트 바인딩으로 바꾼다. 시트를 내리면 흐름을 닫는다.

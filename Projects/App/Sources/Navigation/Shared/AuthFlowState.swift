@@ -16,9 +16,16 @@ import Foundation
 struct AuthFlowState: Equatable {
   enum Presentation: Equatable {
     case login
+    /// 로그아웃 상태로 앱을 켰을 때 홈 위를 덮는 S14 A 로그인 첫 진입 화면
+    case launchLogin
     case onboarding
     case migration
     case retry
+
+    /// 로그인 시트나 첫 진입 화면이 떠 있어 로그인을 받을 수 있다.
+    var acceptsLogin: Bool {
+      return self == .login || self == .launchLogin
+    }
   }
 
   var pendingFestivalID: String?
