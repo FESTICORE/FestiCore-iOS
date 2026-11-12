@@ -215,6 +215,8 @@ public struct LockScreenSettingsFeature {
 
       case let .destination(.presented(.flagPicker(.delegate(.selected(flag))))):
         state.destination = nil
+        // 저장 중에 다시 고른 신호는 무시해 같은 저장을 두 번 보내지 않는다.
+        guard !state.isSavingPinnedFlag else { return .none }
         let currentFlagID: String?
         if case let .loaded(current) = state.pinnedFlag {
           currentFlagID = current?.flagID
