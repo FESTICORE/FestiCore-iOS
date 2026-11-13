@@ -393,6 +393,8 @@ jobs:
       - name: Build app for bundle insights
         id: app-build
         continue-on-error: true
+        env:
+          TUIST_SERVER_ENABLED: ${{ vars.TUIST_SERVER_ENABLED }}
         run: |
           TUIST_RUN_REPORT_PATH="$BUILD_RUN_REPORT_PATH" \
             mise exec -- tuist xcodebuild build \
@@ -407,7 +409,8 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
 
-          if [[ ! -s "$BUILD_RUN_REPORT_PATH" ]]; then
+          # 빌드 리포트는 Tuist insights 설정이 켜진 경우(TUIST_SERVER_ENABLED=true)에만 만들어진다.
+          if [[ "${TUIST_SERVER_ENABLED:-}" == "true" && ! -s "$BUILD_RUN_REPORT_PATH" ]]; then
             echo "Tuist build run이 서버 dashboard URL을 기록하지 못했습니다: $BUILD_RUN_REPORT_PATH" >&2
             exit 1
           fi
