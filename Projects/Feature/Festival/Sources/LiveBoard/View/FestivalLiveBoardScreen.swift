@@ -175,7 +175,14 @@ private extension FestivalLiveBoardScreen {
                   now: now,
                   festivalEnded: phase == .ended
                 )
-                activeSection(now: now)
+                FestivalLiveBoardActiveFlagSection(
+                  store: store.scope(
+                    state: \.liveBoardState,
+                    action: \.liveBoard
+                  ),
+                  pack: store.displayDocument,
+                  now: now
+                )
               }
             }
           }
@@ -594,57 +601,6 @@ private extension FestivalLiveBoardScreen {
         }
       }
     }
-  }
-
-  @ViewBuilder
-  func activeSection(now: Date) -> some View {
-    VStack(
-      alignment: .leading,
-      spacing: FestiCoreSpacing.paddingP16
-    ) {
-      FCSectionHeader("활성 깃발")
-        .action("최근 업데이트 순")
-      if let active = model.liveBoard?.activeFlags, !active.isEmpty {
-        VStack(spacing: .zero) {
-          ForEach(FestivalLiveBoardPresentation.sortedActiveFlags(active)) { flag in
-            FestivalLiveBoardActiveFlagRow(flag: presentation(
-              flag,
-              now: now
-            ))
-          }
-        }
-        .background(FestiCoreSemanticColor.backgroundElevated.color)
-        .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
-      } else if model.liveBoard == nil, !model.liveBoardUnavailable {
-        FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r16))
-          .frame(height: 228)
-          .accessibilityLabel("활성 깃발을 불러오는 중")
-      } else if model.liveBoard == nil {
-        FCEmptyCard(
-          icon: .flag20,
-          title: "활성 깃발을 불러오지 못했어요",
-          message: loadingMessage
-        )
-        .action(FCCardAction("다시 시도") { send(.retryLiveBoard) })
-      } else {
-        FCEmptyCard(
-          icon: .flag20,
-          title: "활동 중인 깃발이 없어요",
-          message: "깃발이 움직이면 여기에서 바로 보여 드려요."
-        )
-      }
-    }
-  }
-
-  func presentation(
-    _ flag: FestivalLiveBoardSnapshot.Flag,
-    now: Date
-  ) -> FestivalLiveBoardPresentation.Flag {
-    return FestivalLiveBoardPresentation.flag(
-      flag,
-      zoneName: { model.pack?.zoneName(for: $0) },
-      now: now
-    )
   }
 
   var loadingMessage: String {

@@ -28,6 +28,7 @@ public struct FestivalLiveBoardFeature {
   public enum Action: ViewAction, Equatable {
     case view(View)
     case inner(InnerAction)
+    case delegate(DelegateAction)
   }
 
   // MARK: - ViewAction
@@ -46,6 +47,8 @@ public struct FestivalLiveBoardFeature {
     case stopped
     case retried
     case cleared
+    /// 라이브 보드 화면의 `다시 시도` 탭. 재조회 조건은 부모가 판단한다.
+    case retryTapped
   }
 
   // MARK: - InnerAction
@@ -55,6 +58,13 @@ public struct FestivalLiveBoardFeature {
     case liveBoardLoaded(String, generation: Int, FestivalLiveBoardSnapshot)
     case liveBoardFailed(String, generation: Int)
     case liveBoardUnpublished(String, generation: Int)
+  }
+
+  // MARK: - DelegateAction
+
+  @CasePathable
+  public enum DelegateAction: Equatable {
+    case retryRequested
   }
 
   enum CancelID {
@@ -79,6 +89,9 @@ public struct FestivalLiveBoardFeature {
           state: &state,
           action: innerAction
         )
+
+      case .delegate:
+        return .none
       }
     }
   }
@@ -120,6 +133,9 @@ extension FestivalLiveBoardFeature {
     case .cleared:
       state = State()
       return .none
+
+    case .retryTapped:
+      return .send(.delegate(.retryRequested))
     }
   }
 
