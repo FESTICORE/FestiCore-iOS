@@ -96,13 +96,22 @@ struct FestivalFlagDirectoryTests {
       $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
     }
 
-    await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: 10))) {
+    await store.send(.directory(.view(.followTapped(
+      id: "a",
+      follow: true,
+      baseCount: 10
+    )))) {
       $0.directory.pendingFollows["a"] = .some(10)
     }
+    await store.receive(\.directory.async.setFollowing)
     // 응답 전에 다시 누르면 요청을 보내지 않는다.
-    await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: 10)))
+    await store.send(.directory(.view(.followTapped(
+      id: "a",
+      follow: true,
+      baseCount: 10
+    ))))
     await clock.advance(by: .seconds(60))
-    await store.receive(\.directory.followResponse) {
+    await store.receive(\.directory.inner.followResponse) {
       $0.directory.pendingFollows = [:]
       $0.directory.followOverrides["a"] = .init(isFollowing: true, followerCount: 11, baseCount: 10)
     }
@@ -122,7 +131,7 @@ struct FestivalFlagDirectoryTests {
       FestivalFlagFeature()
     }
 
-    await store.send(.directory(.cardTapped("a")))
+    await store.send(.directory(.view(.cardTapped("a"))))
     await store.receive(\.directory.delegate.detailRequested)
   }
 
@@ -136,14 +145,14 @@ struct FestivalFlagDirectoryTests {
       FestivalFlagFeature()
     }
 
-    await store.send(.directory(.followChangedElsewhere(
+    await store.send(.directory(.view(.followChangedElsewhere(
       FestivalFlagFollowResult(
         flagID: "a",
         isFollowing: true,
         followerCount: 11
       ),
       baseCount: 10
-    ))) {
+    )))) {
       $0.directory.followOverrides["a"] = .init(
         isFollowing: true,
         followerCount: 11,
@@ -165,10 +174,15 @@ struct FestivalFlagDirectoryTests {
       $0.festivalFlagFollowService = StubFollowService(result: .failure(.loginRequired))
     }
 
-    await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: nil))) {
+    await store.send(.directory(.view(.followTapped(
+      id: "a",
+      follow: true,
+      baseCount: nil
+    )))) {
       $0.directory.pendingFollows["a"] = .some(nil)
     }
-    await store.receive(\.directory.followResponse) { $0.directory.pendingFollows = [:] }
+    await store.receive(\.directory.async.setFollowing)
+    await store.receive(\.directory.inner.followResponse) { $0.directory.pendingFollows = [:] }
     await store.receive(\.directory.delegate.loginRequested)
   }
 
@@ -179,10 +193,15 @@ struct FestivalFlagDirectoryTests {
       $0.festivalFlagFollowService = StubFollowService(result: .failure(.termsRequired))
     }
 
-    await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: nil))) {
+    await store.send(.directory(.view(.followTapped(
+      id: "a",
+      follow: true,
+      baseCount: nil
+    )))) {
       $0.directory.pendingFollows["a"] = .some(nil)
     }
-    await store.receive(\.directory.followResponse) { $0.directory.pendingFollows = [:] }
+    await store.receive(\.directory.async.setFollowing)
+    await store.receive(\.directory.inner.followResponse) { $0.directory.pendingFollows = [:] }
     await store.receive(\.directory.delegate.termsAcceptanceRequested)
   }
 
@@ -199,15 +218,21 @@ struct FestivalFlagDirectoryTests {
       $0.continuousClock = clock
     }
 
-    await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: nil))) {
+    await store.send(.directory(.view(.followTapped(
+      id: "a",
+      follow: true,
+      baseCount: nil
+    )))) {
       $0.directory.pendingFollows["a"] = .some(nil)
     }
-    await store.receive(\.directory.followResponse) {
+    await store.receive(\.directory.async.setFollowing)
+    await store.receive(\.directory.inner.followResponse) {
       $0.directory.pendingFollows = [:]
       $0.directory.toast = message
     }
+    await store.receive(\.directory.async.expireToast)
     await clock.advance(by: .seconds(2))
-    await store.receive(\.directory.toastExpired) { $0.directory.toast = nil }
+    await store.receive(\.directory.inner.toastExpired) { $0.directory.toast = nil }
   }
 
   // MARK: - 새 조회와 덮어쓰기 값
@@ -226,31 +251,42 @@ struct FestivalFlagDirectoryTests {
       $0.analyticsUseCase.track = { _ in }
     }
 
-    await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: 10))) {
+    await store.send(.directory(.view(.followTapped(
+      id: "a",
+      follow: true,
+      baseCount: 10
+    )))) {
       $0.directory.pendingFollows["a"] = .some(10)
     }
-    await store.receive(\.directory.followResponse) {
+    await store.receive(\.directory.async.setFollowing)
+    await store.receive(\.directory.inner.followResponse) {
       $0.directory.pendingFollows = [:]
       $0.directory.followOverrides["a"] = .init(isFollowing: true, followerCount: 11, baseCount: 10, skipsNextLoad: true)
     }
     // 팔로우 전에 출발한 조회 결과는 성공값을 지우지 않는다.
-    await store.send(.loaded("festival", generation: 0, before)) {
+    await store.send(.inner(.loaded(
+      "festival",
+      generation: 0,
+      before
+    ))) {
       $0.viewState = .loaded
       $0.directory.followOverrides["a"]?.skipsNextLoad = false
     }
     #expect(store.state.directory.rows(in: before, isFailed: false).first?.isFollowing == true)
 
     // 팔로우 뒤 조회: 팔로우 여부는 서버를 따르고, 공개 캐시가 그대로인 팔로워 수는 유지한다.
-    await store.send(.refresh) { $0.viewState = .loading }
-    await store.receive(\.loaded) {
+    await store.send(.view(.refresh))
+    await store.receive(\.async.load) { $0.viewState = .loading }
+    await store.receive(\.inner.loaded) {
       $0.snapshot = followedButCached
       $0.viewState = .loaded
       $0.directory.followOverrides["a"] = .init(isFollowing: nil, followerCount: 11, baseCount: 10)
     }
     #expect(store.state.directory.rows(in: followedButCached, isFailed: false).first?.followersText == "팔로워 11")
 
-    await store.send(.refresh) { $0.viewState = .loading }
-    await store.receive(\.loaded) {
+    await store.send(.view(.refresh))
+    await store.receive(\.async.load) { $0.viewState = .loading }
+    await store.receive(\.inner.loaded) {
       $0.snapshot = fresh
       $0.viewState = .loaded
       $0.directory.followOverrides = [:]
@@ -263,7 +299,11 @@ struct FestivalFlagDirectoryTests {
     initial.directory.followOverrides["a"] = .init(isFollowing: true, followerCount: 1, baseCount: 0)
     let store = TestStore(initialState: initial) { FestivalFlagFeature() }
 
-    await store.send(.loaded("another-festival", generation: 0, board([flag("a")])))
+    await store.send(.inner(.loaded(
+      "another-festival",
+      generation: 0,
+      board([flag("a")])
+    )))
   }
 
   @Test(arguments: [true, false])
@@ -285,15 +325,17 @@ struct FestivalFlagDirectoryTests {
       $0.festivalLiveBoardService = SequenceLiveBoardService([stale, confirmed])
     }
 
-    await store.send(.refresh) { $0.viewState = .loading }
-    await store.receive(\.loaded) {
+    await store.send(.view(.refresh))
+    await store.receive(\.async.load) { $0.viewState = .loading }
+    await store.receive(\.inner.loaded) {
       $0.snapshot = stale
       $0.viewState = .loaded
     }
     #expect(store.state.directory.rows(in: stale, isFailed: false).first?.isFollowing == isFollowing)
 
-    await store.send(.refresh) { $0.viewState = .loading }
-    await store.receive(\.loaded) {
+    await store.send(.view(.refresh))
+    await store.receive(\.async.load) { $0.viewState = .loading }
+    await store.receive(\.inner.loaded) {
       $0.snapshot = confirmed
       $0.viewState = .loaded
       $0.directory.followOverrides = [:]
@@ -313,32 +355,44 @@ struct FestivalFlagDirectoryTests {
       $0.analyticsUseCase.track = { _ in }
     }
 
-    await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: 10))) {
+    await store.send(.directory(.view(.followTapped(
+      id: "a",
+      follow: true,
+      baseCount: 10
+    )))) {
       $0.directory.pendingFollows["a"] = .some(10)
     }
-    await store.receive(\.directory.followResponse) {
+    await store.receive(\.directory.async.setFollowing)
+    await store.receive(\.directory.inner.followResponse) {
       $0.directory.pendingFollows = [:]
       $0.directory.followOverrides["a"] = .init(isFollowing: true, followerCount: 11, baseCount: 10)
     }
     // 화면이 가진 원본 스냅샷은 여전히 10명이다.
-    await store.send(.directory(.followTapped(id: "a", follow: false, baseCount: 10))) {
+    await store.send(.directory(.view(.followTapped(
+      id: "a",
+      follow: false,
+      baseCount: 10
+    )))) {
       $0.directory.pendingFollows["a"] = .some(11)
     }
-    await store.receive(\.directory.followResponse) {
+    await store.receive(\.directory.async.setFollowing)
+    await store.receive(\.directory.inner.followResponse) {
       $0.directory.pendingFollows = [:]
       $0.directory.followOverrides["a"] = .init(isFollowing: false, followerCount: 10, baseCount: 11)
     }
 
-    await store.send(.refresh) { $0.viewState = .loading }
-    await store.receive(\.loaded) {
+    await store.send(.view(.refresh))
+    await store.receive(\.async.load) { $0.viewState = .loading }
+    await store.receive(\.inner.loaded) {
       $0.snapshot = intermediate
       $0.viewState = .loaded
       $0.directory.followOverrides["a"] = .init(isFollowing: nil, followerCount: 10, baseCount: 11)
     }
     #expect(store.state.directory.rows(in: intermediate, isFailed: false).first?.followersText == "팔로워 10")
 
-    await store.send(.refresh) { $0.viewState = .loading }
-    await store.receive(\.loaded) {
+    await store.send(.view(.refresh))
+    await store.receive(\.async.load) { $0.viewState = .loading }
+    await store.receive(\.inner.loaded) {
       $0.snapshot = confirmed
       $0.viewState = .loaded
       $0.directory.followOverrides = [:]
@@ -359,21 +413,28 @@ struct FestivalFlagDirectoryTests {
       $0.analyticsUseCase.track = { _ in }
     }
 
-    await store.send(.directory(.followTapped(id: "b", follow: true, baseCount: nil))) {
+    await store.send(.directory(.view(.followTapped(
+      id: "b",
+      follow: true,
+      baseCount: nil
+    )))) {
       $0.directory.pendingFollows["b"] = .some(nil)
     }
-    await store.send(.disappeared) {
+    await store.receive(\.directory.async.setFollowing)
+    await store.send(.view(.disappeared)) {
       $0.isVisible = false
       $0.directory.pendingFollows = [:]
     }
     await clock.run()
 
     // 다시 들어와 조회가 실패하면 이전 스냅샷과 함께 성공값을 계속 보인다.
-    await store.send(.appeared) {
+    await store.send(.view(.appeared)) {
       $0.isVisible = true
+    }
+    await store.receive(\.async.load) {
       $0.viewState = .loading
     }
-    await store.receive(\.failed) { $0.viewState = .invalidResponse }
+    await store.receive(\.inner.failed) { $0.viewState = .invalidResponse }
     let row = store.state.directory.rows(in: snapshot, isFailed: true).first
     #expect(row?.isFollowing == true)
     #expect(row?.isFollowEnabled == false)
@@ -386,7 +447,7 @@ struct FestivalFlagDirectoryTests {
     initial.directory.toast = "팔로우를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요"
     let store = TestStore(initialState: initial) { FestivalFlagFeature() }
 
-    await store.send(.accountChanged) {
+    await store.send(.view(.accountChanged)) {
       $0.snapshot = nil
       $0.viewState = .idle
       $0.generation = 1
@@ -398,7 +459,7 @@ struct FestivalFlagDirectoryTests {
     other.isVisible = false
     other.directory.followOverrides["a"] = .init(isFollowing: false, followerCount: 1, baseCount: 2)
     let festivalStore = TestStore(initialState: other) { FestivalFlagFeature() }
-    await festivalStore.send(.festivalChanged("another")) {
+    await festivalStore.send(.view(.festivalChanged("another"))) {
       $0.festivalID = "another"
       $0.snapshot = nil
       $0.viewState = .idle
@@ -422,12 +483,13 @@ struct FestivalFlagDirectoryTests {
       )
     }
 
-    await store.send(.refresh) { $0.viewState = .loading }
+    await store.send(.view(.refresh))
+    await store.receive(\.async.load) { $0.viewState = .loading }
     await clock.advance(by: .seconds(29))
     #expect(store.state.snapshot == previous)
     await clock.advance(by: .seconds(1))
-    await store.receive(\.refresh)
-    await store.receive(\.loaded) {
+    await store.receive(\.async.load)
+    await store.receive(\.inner.loaded) {
       $0.snapshot = next
       $0.viewState = .loaded
     }

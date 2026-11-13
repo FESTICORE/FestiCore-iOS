@@ -22,7 +22,7 @@ struct FestivalNotificationInboxRoutingTests {
     ))))
     await store.receive(\.festival)
     await store.receive(\.selectTab) { $0.selectedTab = .flag }
-    await store.receive({ $0.flagDirectoryAction == .festivalChanged("festival-a") }) {
+    await store.receive({ $0.flagDirectoryAction == .view(.festivalChanged("festival-a")) }) {
       $0.flagState.festivalID = "festival-a"
       $0.flagState.generation = 1
     }

@@ -77,13 +77,23 @@ public struct FestivalFlagDirectory {
     }
   }
 
-  public enum Action: Equatable {
+  @CasePathable
+  public enum Action: ViewAction, Equatable {
+    case view(View)
+    case async(AsyncAction)
+    case inner(InnerAction)
+    case delegate(Delegate)
+  }
+
+  // MARK: - ViewAction
+
+  @CasePathable
+  public enum View: Equatable {
     case tagSelected(Tag?)
     case sortTapped
     case sortSelected(Sort)
     case sortMenuDismissed
     case followTapped(id: String, follow: Bool, baseCount: Int?)
-    case followResponse(id: String, Result<FestivalFlagFollowResult, FestivalFlagFollowError>)
     /// 카드를 눌러 깃발 상세를 연다.
     case cardTapped(String)
     /// 깃발 상세에서 바꾼 팔로우 결과. 디렉토리 팔로우 성공과 같은 규칙으로 카드에 반영한다.
@@ -91,110 +101,187 @@ public struct FestivalFlagDirectory {
       FestivalFlagFollowResult,
       baseCount: Int?
     )
-    case toastExpired
-    case delegate(Delegate)
+  }
 
-    @CasePathable
-    public enum Delegate: Equatable {
-      case loginRequested
-      case termsAcceptanceRequested
-      case detailRequested(flagID: String)
-    }
+  // MARK: - AsyncAction
+
+  @CasePathable
+  public enum AsyncAction: Equatable {
+    case setFollowing(
+      id: String,
+      follow: Bool
+    )
+    case expireToast
+  }
+
+  // MARK: - InnerAction
+
+  @CasePathable
+  public enum InnerAction: Equatable {
+    case followResponse(id: String, Result<FestivalFlagFollowResult, FestivalFlagFollowError>)
+    case toastExpired
+  }
+
+  // MARK: - DelegateAction
+
+  @CasePathable
+  public enum Delegate: Equatable {
+    case loginRequested
+    case termsAcceptanceRequested
+    case detailRequested(flagID: String)
   }
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
       switch action {
-      case let .tagSelected(tag):
-        state.tag = tag
-        state.isSortMenuPresented = false
-        return .none
-
-      case .sortTapped:
-        state.isSortMenuPresented.toggle()
-        return .none
-
-      case let .sortSelected(sort):
-        state.sort = sort
-        state.isSortMenuPresented = false
-        return .none
-
-      case .sortMenuDismissed:
-        state.isSortMenuPresented = false
-        return .none
-
-      case let .followTapped(id, follow, baseCount):
-        guard !state.isPending(id) else { return .none }
-        // 빠르게 다시 누르면 스냅샷보다 직전 성공 응답의 팔로워 수가 기준이다.
-        state.pendingFollows[id] = .some(state.followOverrides[id]?.followerCount ?? baseCount)
-        return .run { [followService] send in
-          do {
-            let result = try await followService.setFollowing(follow, flagID: id)
-            await send(.followResponse(id: id, .success(result)))
-          } catch let error as FestivalFlagFollowError {
-            await send(.followResponse(id: id, .failure(error)))
-          } catch {
-            await send(.followResponse(id: id, .failure(.unavailable)))
-          }
-        }
-        .cancellable(id: FlagDirectoryCancelID.follow(id))
-
-      case let .followResponse(id, result):
-        // 탭 이탈·축제·계정 변경으로 비운 요청의 늦은 응답은 버린다.
-        guard let baseCount = state.pendingFollows.removeValue(forKey: id) else { return .none }
-        switch result {
-        case let .success(response):
-          state.followOverrides[id] = FollowOverride(
-            isFollowing: response.isFollowing,
-            followerCount: response.followerCount,
-            baseCount: baseCount
-          )
-          analyticsUseCase.track(.flagFollow(FlagFollowData(
-            flagID: id,
-            isFollowing: response.isFollowing
-          )))
-          return .none
-        case .failure(.loginRequired):
-          return .send(.delegate(.loginRequested))
-        case .failure(.termsRequired):
-          return .send(.delegate(.termsAcceptanceRequested))
-        case .failure(.limitReached):
-          return showToast("팔로우는 100개까지 할 수 있어요", state: &state)
-        case .failure:
-          return showToast("팔로우를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요", state: &state)
-        }
-
-      case let .cardTapped(id):
-        return .send(.delegate(.detailRequested(flagID: id)))
-
-      case let .followChangedElsewhere(
-        result,
-        baseCount
-      ):
-        state.followOverrides[result.flagID] = FollowOverride(
-          isFollowing: result.isFollowing,
-          followerCount: result.followerCount,
-          baseCount: baseCount
+      case let .view(viewAction):
+        return handleViewAction(
+          state: &state,
+          action: viewAction
         )
-        return .none
 
-      case .toastExpired:
-        state.toast = nil
-        return .none
+      case let .async(asyncAction):
+        return handleAsyncAction(action: asyncAction)
+
+      case let .inner(innerAction):
+        return handleInnerAction(
+          state: &state,
+          action: innerAction
+        )
 
       case .delegate:
         return .none
       }
     }
   }
+}
 
-  private func showToast(_ message: String, state: inout State) -> Effect<Action> {
-    state.toast = message
-    return .run { send in
-      try await clock.sleep(for: .seconds(2))
-      await send(.toastExpired)
+// MARK: - 액션 처리
+
+extension FestivalFlagDirectory {
+  private func handleViewAction(
+    state: inout State,
+    action: View
+  ) -> Effect<Action> {
+    switch action {
+    case let .tagSelected(tag):
+      state.tag = tag
+      state.isSortMenuPresented = false
+      return .none
+
+    case .sortTapped:
+      state.isSortMenuPresented.toggle()
+      return .none
+
+    case let .sortSelected(sort):
+      state.sort = sort
+      state.isSortMenuPresented = false
+      return .none
+
+    case .sortMenuDismissed:
+      state.isSortMenuPresented = false
+      return .none
+
+    case let .followTapped(id, follow, baseCount):
+      guard !state.isPending(id) else { return .none }
+      // 빠르게 다시 누르면 스냅샷보다 직전 성공 응답의 팔로워 수가 기준이다.
+      state.pendingFollows[id] = .some(state.followOverrides[id]?.followerCount ?? baseCount)
+      return .send(.async(.setFollowing(
+        id: id,
+        follow: follow
+      )))
+
+    case let .cardTapped(id):
+      return .send(.delegate(.detailRequested(flagID: id)))
+
+    case let .followChangedElsewhere(
+      result,
+      baseCount
+    ):
+      state.followOverrides[result.flagID] = FollowOverride(
+        isFollowing: result.isFollowing,
+        followerCount: result.followerCount,
+        baseCount: baseCount
+      )
+      return .none
     }
-    .cancellable(id: FlagDirectoryCancelID.toast, cancelInFlight: true)
+  }
+
+  private func handleAsyncAction(action: AsyncAction) -> Effect<Action> {
+    switch action {
+    case let .setFollowing(id, follow):
+      return .run { [followService] send in
+        do {
+          let result = try await followService.setFollowing(
+            follow,
+            flagID: id
+          )
+          await send(.inner(.followResponse(
+            id: id,
+            .success(result)
+          )))
+        } catch let error as FestivalFlagFollowError {
+          await send(.inner(.followResponse(
+            id: id,
+            .failure(error)
+          )))
+        } catch {
+          await send(.inner(.followResponse(
+            id: id,
+            .failure(.unavailable)
+          )))
+        }
+      }
+      .cancellable(id: FlagDirectoryCancelID.follow(id))
+
+    case .expireToast:
+      return .run { send in
+        try await clock.sleep(for: .seconds(2))
+        await send(.inner(.toastExpired))
+      }
+      .cancellable(
+        id: FlagDirectoryCancelID.toast,
+        cancelInFlight: true
+      )
+    }
+  }
+
+  private func handleInnerAction(
+    state: inout State,
+    action: InnerAction
+  ) -> Effect<Action> {
+    switch action {
+    case let .followResponse(id, result):
+      // 탭 이탈·축제·계정 변경으로 비운 요청의 늦은 응답은 버린다.
+      guard let baseCount = state.pendingFollows.removeValue(forKey: id) else { return .none }
+      switch result {
+      case let .success(response):
+        state.followOverrides[id] = FollowOverride(
+          isFollowing: response.isFollowing,
+          followerCount: response.followerCount,
+          baseCount: baseCount
+        )
+        analyticsUseCase.track(.flagFollow(FlagFollowData(
+          flagID: id,
+          isFollowing: response.isFollowing
+        )))
+        return .none
+      case .failure(.loginRequired):
+        return .send(.delegate(.loginRequested))
+      case .failure(.termsRequired):
+        return .send(.delegate(.termsAcceptanceRequested))
+      case .failure(.limitReached):
+        state.toast = "팔로우는 100개까지 할 수 있어요"
+        return .send(.async(.expireToast))
+      case .failure:
+        state.toast = "팔로우를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요"
+        return .send(.async(.expireToast))
+      }
+
+    case .toastExpired:
+      state.toast = nil
+      return .none
+    }
   }
 }
 
@@ -387,20 +474,20 @@ private struct FlagDirectorySync<Base: Reducer>: Reducer
     let wasLoading = state.viewState == .loading
     let effect = base.reduce(into: &state, action: action)
     switch action {
-    case .appeared, .refresh:
+    case .async(.load):
       state.directory.clearLoadSkips()
-    case .loaded:
+    case .inner(.loaded):
       // 거부된 응답은 viewState를 바꾸지 않는다.
       if wasLoading, state.viewState == .loaded, let snapshot = state.snapshot {
         state.directory.reconcile(with: snapshot)
       }
-    case let .directory(.followResponse(id, .success)):
+    case let .directory(.inner(.followResponse(id, .success))):
       if state.viewState == .loading {
         state.directory.followOverrides[id]?.skipsNextLoad = true
       }
-    case .disappeared:
+    case .view(.disappeared):
       return .merge(effect, cancel(state.directory.leaveTab()))
-    case .festivalChanged, .accountChanged:
+    case .view(.festivalChanged), .view(.accountChanged):
       return .merge(effect, cancel(state.directory.resetContext()))
     default:
       break

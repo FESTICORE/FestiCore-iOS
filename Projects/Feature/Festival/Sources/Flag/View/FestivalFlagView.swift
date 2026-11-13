@@ -11,8 +11,9 @@ import FestiCoreSharedUI
 import FestivalDomainInterface
 import SwiftUI
 
+@ViewAction(for: FestivalFlagFeature.self)
 public struct FestivalFlagView: View {
-  @Bindable private var store: StoreOf<FestivalFlagFeature>
+  @Bindable public var store: StoreOf<FestivalFlagFeature>
 
   public init(store: StoreOf<FestivalFlagFeature>) {
     self.store = store
@@ -44,16 +45,16 @@ public struct FestivalFlagView: View {
       }
       .scrollIndicators(.hidden)
       .fcScrollBottomInset()
-      .refreshable { store.send(.refresh) }
+      .refreshable { send(.refresh) }
       .simultaneousGesture(
-        TapGesture().onEnded { store.send(.directory(.sortMenuDismissed)) },
+        TapGesture().onEnded { send(.sortMenuDismissed) },
         isEnabled: store.directory.isSortMenuPresented
       )
     }
     .background(FestiCoreSemanticColor.backgroundNormal.color)
     .overlay(alignment: .bottom) { toast }
-    .onAppear { store.send(.appeared) }
-    .onDisappear { store.send(.disappeared) }
+    .onAppear { send(.appeared) }
+    .onDisappear { send(.disappeared) }
   }
 }
 
@@ -84,10 +85,10 @@ private extension FestivalFlagView {
   var filterChips: some View {
     ScrollView(.horizontal) {
       HStack(spacing: FestiCoreSpacing.paddingP8) {
-        FCChip("전체") { store.send(.directory(.tagSelected(nil))) }
+        FCChip("전체") { send(.tagSelected(nil)) }
           .isSelected(store.directory.tag == nil)
         ForEach(FestivalFlagDirectory.Tag.allCases, id: \.self) { tag in
-          FCChip(tag.title) { store.send(.directory(.tagSelected(tag))) }
+          FCChip(tag.title) { send(.tagSelected(tag)) }
             .isSelected(store.directory.tag == tag)
         }
       }
@@ -142,7 +143,7 @@ private extension FestivalFlagView {
     return VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP16) {
       HStack {
         Spacer(minLength: 0)
-        FCSortButton(store.directory.sort.title) { store.send(.directory(.sortTapped)) }
+        FCSortButton(store.directory.sort.title) { send(.sortTapped) }
       }
       .overlay(alignment: .topTrailing) { sortMenu }
       .zIndex(1)
@@ -170,7 +171,7 @@ private extension FestivalFlagView {
       FCSortMenu(
         selection: Binding(
           get: { FestivalFlagDirectory.Sort.allCases.firstIndex(of: store.directory.sort) ?? 0 },
-          set: { store.send(.directory(.sortSelected(FestivalFlagDirectory.Sort.allCases[$0]))) }
+          set: { send(.sortSelected(FestivalFlagDirectory.Sort.allCases[$0])) }
         ),
         items: FestivalFlagDirectory.Sort.allCases.map(\.title)
       )
@@ -186,7 +187,11 @@ private extension FestivalFlagView {
       status: isOffline ? nil : row.status.map(chipStatus),
       zone: row.zone,
       context: .directory(followers: row.followersText, tags: row.tags, isFollowing: row.isFollowing) {
-        store.send(.directory(.followTapped(id: row.id, follow: !row.isFollowing, baseCount: row.serverFollowerCount)))
+        send(.followTapped(
+          id: row.id,
+          follow: !row.isFollowing,
+          baseCount: row.serverFollowerCount
+        ))
       }
     ) {
       if let url = row.thumbnailURL {
@@ -201,7 +206,7 @@ private extension FestivalFlagView {
     }
     .followEnabled(row.isFollowEnabled)
     .showsZone(!isOffline)
-    .onTap { store.send(.directory(.cardTapped(row.id))) }
+    .onTap { send(.cardTapped(row.id)) }
   }
 
   func chipStatus(_ status: FestivalFlagDirectory.Status) -> FCStatusChip.Status {

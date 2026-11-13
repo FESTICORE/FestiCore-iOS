@@ -850,7 +850,7 @@ struct AppCoordinatorTests {
       }
       return true
     }
-    await store.receive({ $0.homeFlagDirectoryAction == .accountChanged }) {
+    await store.receive({ $0.homeFlagDirectoryAction == .view(.accountChanged) }) {
       guard case var .home(home) = $0 else { return }
       home.flagState.generation = 1
       $0 = .home(home)
@@ -942,7 +942,7 @@ struct AppCoordinatorTests {
       Issue.record("홈 상태가 아니에요")
       return
     }
-    await store.receive { $0.homeFlagDirectoryAction == .accountChanged }
+    await store.receive { $0.homeFlagDirectoryAction == .view(.accountChanged) }
     guard case let .home(flagCleared) = store.state else { return }
     #expect(flagCleared.flagState.snapshot == nil)
     #expect(flagCleared.flagState.viewState == .idle)
@@ -2056,7 +2056,7 @@ struct AppCoordinatorTests {
 
     await store.send(.tabTapped(.flag))
     await store.receive(\.selectTab) { $0.selectedTab = .flag }
-    await store.receive({ $0.flagDirectoryAction == .festivalChanged("festival-a") }) {
+    await store.receive({ $0.flagDirectoryAction == .view(.festivalChanged("festival-a")) }) {
       $0.flagState.festivalID = "festival-a"
       $0.flagState.generation = 1
     }
@@ -2077,7 +2077,7 @@ struct AppCoordinatorTests {
       $0.selectedTab = .flag
       $0.flagState.directory.zoneNames = ["zone_a": "리벳 스테이지 앞 왼쪽"]
     }
-    await store.receive({ $0.flagDirectoryAction == .festivalChanged("festival-a") }) {
+    await store.receive({ $0.flagDirectoryAction == .view(.festivalChanged("festival-a")) }) {
       $0.flagState.festivalID = "festival-a"
       $0.flagState.generation = 1
     }
@@ -2737,7 +2737,7 @@ struct AppCoordinatorTests {
     }
     await store.receive {
       guard case let .scope(.home(action)) = $0 else { return false }
-      return action.flagDirectoryAction == .accountChanged
+      return action.flagDirectoryAction == .view(.accountChanged)
     }
     await store.receive {
       guard case .scope(.home(.timetable(.view(.accountChanged)))) = $0 else { return false }
@@ -3140,7 +3140,7 @@ struct AppCoordinatorTests {
     }
     await store.receive {
       guard case let .scope(.home(action)) = $0 else { return false }
-      return action.flagDirectoryAction == .accountChanged
+      return action.flagDirectoryAction == .view(.accountChanged)
     }
     guard case let .home(switched) = store.state else { return }
     #expect(switched.flagState.snapshot == nil)
@@ -3259,7 +3259,7 @@ struct AppCoordinatorTests {
       userID: nil,
       isLoggedIn: true
     ))))))
-    await store.receive { $0.homeFlagDirectoryAction == .accountChanged }
+    await store.receive { $0.homeFlagDirectoryAction == .view(.accountChanged) }
     await store.receive(\.scope.home.timetable.view.accountChanged)
     await store.receive(\.scope.home.timetableCoordinator.timetable)
     guard case let .home(cleared) = store.state else { return }
@@ -3323,7 +3323,7 @@ struct AppCoordinatorTests {
       generation: 1,
       .success(other)
     ))))))
-    await store.receive { $0.homeFlagDirectoryAction == .accountChanged }
+    await store.receive { $0.homeFlagDirectoryAction == .view(.accountChanged) }
     await store.receive(\.scope.home.timetable.view.accountChanged)
     await store.receive(\.scope.home.timetableCoordinator.timetable)
     guard case let .home(cleared) = store.state else { return }
