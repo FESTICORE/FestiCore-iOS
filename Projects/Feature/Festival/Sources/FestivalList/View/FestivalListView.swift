@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import FestiCoreDesignKit
 import FestiCoreUtility
+import FestivalDomainInterface
 import SwiftUI
 
 /// Figma S00 페스티벌 목록. 전체·예매 완료 탭과 검색(최근 검색·결과·결과 없음)을 보여 준다.
