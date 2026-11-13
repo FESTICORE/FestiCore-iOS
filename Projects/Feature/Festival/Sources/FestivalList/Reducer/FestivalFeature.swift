@@ -596,6 +596,24 @@ public struct FestivalFeature {
           action: .retryLiveBoard
         )
 
+      case .liveBoard(.delegate(.followLoginRequested)):
+        return handleViewAction(
+          state: &state,
+          action: .followLoginTapped
+        )
+
+      case .liveBoard(.delegate(.findFlagRequested)):
+        return handleViewAction(
+          state: &state,
+          action: .findFlagTapped
+        )
+
+      case .liveBoard(.delegate(.hideFollowGuideRequested)):
+        return handleViewAction(
+          state: &state,
+          action: .hideFollowGuideTapped
+        )
+
       case .liveBoard:
         return .none
 
