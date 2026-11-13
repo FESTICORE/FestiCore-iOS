@@ -2075,11 +2075,14 @@ struct AppCoordinatorTests {
     await store.send(.tabTapped(.flag))
     await store.receive(\.selectTab) {
       $0.selectedTab = .flag
-      $0.flagState.directory.zoneNames = ["zone_a": "리벳 스테이지 앞 왼쪽"]
     }
+    await store.receive { $0.flagDirectoryAction == .view(.zoneNamesChanged(["zone_a": "리벳 스테이지 앞 왼쪽"])) }
     await store.receive({ $0.flagDirectoryAction == .view(.festivalChanged("festival-a")) }) {
       $0.flagState.festivalID = "festival-a"
       $0.flagState.generation = 1
+    }
+    await store.receive({ $0.flagDirectoryAction == .directory(.view(.zoneNamesChanged(["zone_a": "리벳 스테이지 앞 왼쪽"]))) }) {
+      $0.flagState.directory.zoneNames = ["zone_a": "리벳 스테이지 앞 왼쪽"]
     }
   }
 
@@ -3800,6 +3803,24 @@ struct AppCoordinatorTests {
     }
     guard case let .home(updated) = store.state else { return }
     #expect(updated.festivalState.routes.last?.screen.liveBoard?.mySchedule?.setIDs == ["set-a"])
+  }
+
+  @Test func prepScheduleSaveUpdatesSameFestivalTimetableThroughChildAction() async {
+    var home = MainTabCoordinator.State()
+    home.timetableState.festivalID = "festival"
+    let store = TestStore(initialState: home) { MainTabCoordinator() } withDependencies: {
+      $0.useAppCoordinatorFestivalUseCases()
+    }
+    store.exhaustivity = .off
+
+    await store.send(.festival(.delegate(.prepScheduleSaved(
+      festivalID: "festival",
+      setIDs: ["set-a"]
+    ))))
+    await store.receive(\.timetable.view.mySetIDsChanged)
+    await store.receive(\.timetableCoordinator.timetable.view.mySetIDsChanged) {
+      $0.timetableState.mySetIDs = ["set-a"]
+    }
   }
 }
 

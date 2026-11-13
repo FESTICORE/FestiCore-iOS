@@ -354,6 +354,79 @@ struct TimetableFeatureTests {
     #expect(!state.isPublished)
     #expect(state.lineup.map(\.artists.count) == [5, 4])
   }
+
+  @Test func packSyncReplacesPackValuesAndKeepsSelectedDayByID() async {
+    var initial = TimetableFeature.State.sample()
+    initial.selectedDayIndex = 1
+    let days = Array(initial.days.reversed())
+    let lineup = TimetableFeature.State.sample(variant: .unpublished).lineup
+    let store = TestStore(initialState: initial) {
+      TimetableFeature()
+    }
+
+    await store.send(.view(.packSynced(
+      days: days,
+      lineup: lineup,
+      source: "출처: 새 팩",
+      contentStatus: .unpublished,
+      offlineMessage: "오프라인 · 저장된 정보"
+    ))) {
+      $0.days = days
+      // 0808은 뒤집은 목록에서도 가운데라 인덱스가 1로 남는다.
+      $0.selectedDayIndex = 1
+      $0.lineup = lineup
+      $0.source = "출처: 새 팩"
+      $0.contentStatus = .unpublished
+      $0.offlineMessage = "오프라인 · 저장된 정보"
+    }
+    await store.send(.view(.daySelected(0))) {
+      $0.selectedDayIndex = 0
+    }
+    // 고른 날짜(0809)가 원래 순서에서는 마지막이라 인덱스를 따라 옮긴다.
+    await store.send(.view(.packSynced(
+      days: initial.days,
+      lineup: [],
+      source: "",
+      contentStatus: .noFestival,
+      offlineMessage: nil
+    ))) {
+      $0.days = initial.days
+      $0.selectedDayIndex = 2
+      $0.lineup = []
+      $0.source = ""
+      $0.contentStatus = .noFestival
+      $0.offlineMessage = nil
+    }
+  }
+
+  @Test func packSyncWithoutSelectedDayFallsBackToFirstDay() async {
+    let store = TestStore(initialState: TimetableFeature.State.sample()) {
+      TimetableFeature()
+    }
+
+    await store.send(.view(.packSynced(
+      days: [],
+      lineup: [],
+      source: "",
+      contentStatus: .noFestival,
+      offlineMessage: nil
+    ))) {
+      $0.days = []
+      $0.selectedDayIndex = 0
+      $0.source = ""
+      $0.contentStatus = .noFestival
+    }
+  }
+
+  @Test func parentScheduleChangeReplacesMySets() async {
+    let store = TestStore(initialState: TimetableFeature.State.sample()) {
+      TimetableFeature()
+    }
+
+    await store.send(.view(.mySetIDsChanged(["lime"]))) {
+      $0.mySetIDs = ["lime"]
+    }
+  }
 }
 
 private extension TimetableSetDetailFeature.Content {

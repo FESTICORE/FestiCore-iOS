@@ -36,6 +36,21 @@ struct FestivalFlagFeatureTests {
     }
   }
 
+  @Test func parentZoneNamesReachDirectoryZoneChips() async {
+    let store = TestStore(initialState: FestivalFlagFeature.State(festivalID: "festival-a")) {
+      FestivalFlagFeature()
+    }
+
+    await store.send(.view(.zoneNamesChanged(["zone_a": "리벳 스테이지 앞 왼쪽"])))
+    await store.receive(\.directory.view.zoneNamesChanged) {
+      $0.directory.zoneNames = ["zone_a": "리벳 스테이지 앞 왼쪽"]
+    }
+    await store.send(.view(.zoneNamesChanged([:])))
+    await store.receive(\.directory.view.zoneNamesChanged) {
+      $0.directory.zoneNames = [:]
+    }
+  }
+
   @Test func festivalChangeClearsPreviousFlagsBeforeLoadingNewFestival() async {
     let old = FestivalLiveBoardSnapshot(festivalID: "old", activeFlags: [], followedFlags: [], crew: nil)
     let store = TestStore(initialState: {

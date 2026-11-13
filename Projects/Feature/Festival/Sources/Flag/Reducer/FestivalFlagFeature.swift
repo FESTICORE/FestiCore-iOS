@@ -61,6 +61,8 @@ public struct FestivalFlagFeature {
     case festivalChanged(String?)
     /// 부모가 로그인 계정이 바뀌었음을 알린다.
     case accountChanged
+    /// 부모가 선택 축제 팩의 구역 이름이 바뀌었음을 알린다.
+    case zoneNamesChanged([String: String])
     case tagSelected(FestivalFlagDirectory.Tag?)
     case sortTapped
     case sortSelected(FestivalFlagDirectory.Sort)
@@ -164,6 +166,9 @@ extension FestivalFlagFeature {
       state.clearAccountData()
       state.generation += 1
       return state.isVisible ? .send(.async(.load)) : .cancel(id: CancelID.refresh)
+
+    case let .zoneNamesChanged(zoneNames):
+      return .send(.directory(.view(.zoneNamesChanged(zoneNames))))
 
     case let .tagSelected(tag):
       return .send(.directory(.view(.tagSelected(tag))))

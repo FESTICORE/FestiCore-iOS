@@ -179,6 +179,8 @@ struct FlagRoutingTests {
 
     await store.send(.selectTab(.flag))
     await store.receive(\.flagCoordinator.navigation.updateDetailContext)
+    // 선택 축제 팩의 구역 이름은 디렉토리 액션으로 먼저 도착한다.
+    await store.receive { $0.flagDirectoryAction == .directory(.view(.zoneNamesChanged(["zone_a": "리벳 스테이지 앞 왼쪽"]))) }
     await store.receive(\.flagCoordinator.router.routeAction)
     let detail = try #require(store.state.flagCoordinatorState.routes.last?.screen.detail)
     #expect(detail.context.accountID == "user-b")

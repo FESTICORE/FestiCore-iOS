@@ -110,13 +110,16 @@ extension MainTabCoordinator {
 
     case let .delegate(.prepScheduleSaved(festivalID, setIDs)):
       // 준비 안내에서 저장한 내 일정을 같은 페스티벌의 타임테이블과 라이브 보드에 반영한다.
-      if state.timetableState.festivalID == festivalID {
-        state.timetableState.mySetIDs = setIDs
-      }
-      return .send(.festival(.myScheduleSaved(
-        festivalID: festivalID,
-        setIDs: setIDs
-      )))
+      let timetableEffect: Effect<Action> = state.timetableState.festivalID == festivalID
+        ? .send(.timetable(.view(.mySetIDsChanged(setIDs))))
+        : .none
+      return .merge(
+        timetableEffect,
+        .send(.festival(.myScheduleSaved(
+          festivalID: festivalID,
+          setIDs: setIDs
+        )))
+      )
 
     case .delegate(.flagDirectoryRequested):
       return .send(.selectTab(.flag))
