@@ -138,6 +138,11 @@ final class PackDownloadDeviceUITests: XCTestCase {
     if notificationLater.waitForExistence(timeout: 8) {
       notificationLater.tap()
     }
+    // 로그아웃 상태로 켜면 S14 A 첫 진입 화면이 홈을 덮는다.
+    let launchLoginSkip = app.buttons["launchLogin.skip"]
+    if launchLoginSkip.waitForExistence(timeout: 8) {
+      launchLoginSkip.tap()
+    }
     return app
   }
 

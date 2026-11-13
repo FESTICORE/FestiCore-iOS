@@ -62,12 +62,14 @@ jobs:
 
       # 원격 토큰 발급과 프록시를 확인하고, 실패하면 컴파일 캐시만 끈다.
       - name: Setup Tuist cache
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' }}
         continue-on-error: true
         timeout-minutes: 3
         run: bash Scripts/setup-tuist-cache.sh
 
       # 토큰 권한이 정상일 때만 러너 메트릭 수집을 활성화한다.
       - name: Setup Tuist insights
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' }}
         continue-on-error: true
         timeout-minutes: 3
         run: mise exec -- tuist setup insights
@@ -159,7 +161,7 @@ jobs:
       # tuist test 실패 시 Test Insights만 업로드될 수 있으므로, 남은 xcactivitylog를
       # 명시적으로 분석해 Builds 표에도 실패한 Stage 빌드를 기록한다.
       - name: Report failed build to Tuist
-        if: steps.build.outcome == 'failure'
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' && (steps.build.outcome == 'failure') }}
         continue-on-error: true
         run: |
           mise exec -- tuist inspect build \
@@ -358,11 +360,13 @@ jobs:
           plist-base64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
 
       - name: Setup Tuist cache
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' }}
         continue-on-error: true
         timeout-minutes: 3
         run: bash Scripts/setup-tuist-cache.sh
 
       - name: Setup Tuist insights
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' }}
         continue-on-error: true
         timeout-minutes: 3
         run: mise exec -- tuist setup insights
@@ -389,6 +393,8 @@ jobs:
       - name: Build app for bundle insights
         id: app-build
         continue-on-error: true
+        env:
+          TUIST_SERVER_ENABLED: ${{ vars.TUIST_SERVER_ENABLED }}
         run: |
           TUIST_RUN_REPORT_PATH="$BUILD_RUN_REPORT_PATH" \
             mise exec -- tuist xcodebuild build \
@@ -403,14 +409,15 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             COMPILATION_CACHE_ENABLE_CACHING="$XCODE_COMPILATION_CACHE_ENABLED"
 
-          if [[ ! -s "$BUILD_RUN_REPORT_PATH" ]]; then
+          # 빌드 리포트는 Tuist insights 설정이 켜진 경우(TUIST_SERVER_ENABLED=true)에만 만들어진다.
+          if [[ "${TUIST_SERVER_ENABLED:-}" == "true" && ! -s "$BUILD_RUN_REPORT_PATH" ]]; then
             echo "Tuist build run이 서버 dashboard URL을 기록하지 못했습니다: $BUILD_RUN_REPORT_PATH" >&2
             exit 1
           fi
 
       - name: Inspect bundle size
         id: bundle-inspect
-        if: steps.app-build.outcome == 'success'
+        if: ${{ vars.TUIST_SERVER_ENABLED == 'true' && (steps.app-build.outcome == 'success') }}
         continue-on-error: true
         timeout-minutes: 5
         run: |
