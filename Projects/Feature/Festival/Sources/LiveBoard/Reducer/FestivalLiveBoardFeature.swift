@@ -49,6 +49,12 @@ public struct FestivalLiveBoardFeature {
     case cleared
     /// 라이브 보드 화면의 `다시 시도` 탭. 재조회 조건은 부모가 판단한다.
     case retryTapped
+    /// 팔로우한 깃발 섹션의 로그인 탭. 처리는 부모가 한다.
+    case followLoginTapped
+    /// 팔로우 안내의 `깃발 찾기` 탭. 처리는 부모가 한다.
+    case findFlagTapped
+    /// 팔로우 안내의 닫기 탭. 숨김 확인은 부모가 띄운다.
+    case hideFollowGuideTapped
   }
 
   // MARK: - InnerAction
@@ -65,6 +71,9 @@ public struct FestivalLiveBoardFeature {
   @CasePathable
   public enum DelegateAction: Equatable {
     case retryRequested
+    case followLoginRequested
+    case findFlagRequested
+    case hideFollowGuideRequested
   }
 
   enum CancelID {
@@ -136,6 +145,15 @@ extension FestivalLiveBoardFeature {
 
     case .retryTapped:
       return .send(.delegate(.retryRequested))
+
+    case .followLoginTapped:
+      return .send(.delegate(.followLoginRequested))
+
+    case .findFlagTapped:
+      return .send(.delegate(.findFlagRequested))
+
+    case .hideFollowGuideTapped:
+      return .send(.delegate(.hideFollowGuideRequested))
     }
   }
 

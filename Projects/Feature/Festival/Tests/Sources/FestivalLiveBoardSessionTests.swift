@@ -727,6 +727,44 @@ struct FestivalLiveBoardSessionTests {
     }
     await store.receive(\.async.startLiveBoard)
   }
+
+  @Test("팔로우한 깃발 섹션의 로그인 탭은 자식 delegate를 거쳐 부모의 로그인 요청을 그대로 보낸다")
+  func followLoginTappedRunsParentLoginThroughDelegate() async {
+    let store = TestStore(initialState: FestivalFeature.State(selectedFestivalID: "fst")) {
+      FestivalFeature()
+    }
+
+    await store.send(.liveBoard(.view(.followLoginTapped)))
+    await store.receive(\.liveBoard.delegate.followLoginRequested)
+    await store.receive(\.delegate.followLoginRequested)
+  }
+
+  @Test("팔로우 안내의 깃발 찾기 탭은 자식 delegate를 거쳐 부모의 깃발 목록 요청을 그대로 보낸다")
+  func findFlagTappedRunsParentFlagDirectoryThroughDelegate() async {
+    let store = TestStore(initialState: FestivalFeature.State(selectedFestivalID: "fst")) {
+      FestivalFeature()
+    }
+
+    await store.send(.liveBoard(.view(.findFlagTapped)))
+    await store.receive(\.liveBoard.delegate.findFlagRequested)
+    await store.receive(\.delegate.flagDirectoryRequested)
+  }
+
+  @Test("팔로우 안내의 닫기 탭은 자식 delegate를 거쳐 부모의 숨김 확인을 그대로 띄운다")
+  func hideFollowGuideTappedRunsParentConfirmationThroughDelegate() async {
+    let store = TestStore(initialState: FestivalFeature.State(selectedFestivalID: "fst")) {
+      FestivalFeature()
+    }
+
+    await store.send(.liveBoard(.view(.hideFollowGuideTapped)))
+    await store.receive(\.liveBoard.delegate.hideFollowGuideRequested) {
+      $0.followGuideAlert = .alert(
+        title: "이 안내를 숨길까요?",
+        message: "이번 페스티벌 동안 라이브 보드에서 보이지 않아요.\n다시 보고 싶으면 마이 > 설정 > 라이브 보드에서 켜거나, 깃발 탭에서 언제든 깃발을 찾을 수 있어요.",
+        confirmTitle: "숨기기"
+      )
+    }
+  }
 }
 
 private let emptyBoard = FestivalLiveBoardSnapshot(

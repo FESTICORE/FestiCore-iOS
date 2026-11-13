@@ -114,7 +114,14 @@ private extension FestivalLiveBoardScreen {
               homeCard(now: now)
               crewSection(now: now)
               if model.pack?.flagsEnabled != false {
-                followedSection(
+                FestivalLiveBoardFollowedFlagSection(
+                  store: store.scope(
+                    state: \.liveBoardState,
+                    action: \.liveBoard
+                  ),
+                  pack: store.displayDocument,
+                  hasSession: store.hasSession,
+                  showsFollowGuide: store.showsFollowGuide,
                   now: now,
                   festivalEnded: phase == .ended
                 )
@@ -171,7 +178,14 @@ private extension FestivalLiveBoardScreen {
               }
               crewSection(now: now)
               if model.pack?.flagsEnabled != false {
-                followedSection(
+                FestivalLiveBoardFollowedFlagSection(
+                  store: store.scope(
+                    state: \.liveBoardState,
+                    action: \.liveBoard
+                  ),
+                  pack: store.displayDocument,
+                  hasSession: store.hasSession,
+                  showsFollowGuide: store.showsFollowGuide,
                   now: now,
                   festivalEnded: phase == .ended
                 )
@@ -519,87 +533,6 @@ private extension FestivalLiveBoardScreen {
         "크루 만들기",
         style: .primary
       ) { send(.createCrewTapped) })
-    }
-  }
-
-  @ViewBuilder
-  func followedSection(
-    now: Date,
-    festivalEnded: Bool
-  ) -> some View {
-    if !(model.hasSession && model.liveBoard != nil &&
-      (model.liveBoard?.followedFlags.isEmpty ?? true) && !model.showsFollowGuide) {
-      VStack(
-        alignment: .leading,
-        spacing: FestiCoreSpacing.paddingP16
-      ) {
-        FCSectionHeader("팔로우한 깃발")
-        if !model.hasSession {
-          FestivalLiveBoardLoginCard(title: "깃발을 팔로우하려면 로그인") { send(.followLoginTapped) }
-        } else if let followed = model.liveBoard?.followedFlags, !followed.isEmpty {
-          ScrollView(.horizontal) {
-            HStack(
-              alignment: .top,
-              spacing: FestiCoreSpacing.paddingP12
-            ) {
-              ForEach(followed) { flag in
-                FestivalLiveBoardFlagTile(flag: FestivalLiveBoardPresentation.flag(
-                  flag,
-                  zoneName: { model.pack?.zoneName(for: $0) },
-                  now: now,
-                  festivalEnded: festivalEnded
-                ))
-              }
-            }
-            .padding(
-              .trailing,
-              FestiCoreSpacing.paddingP16
-            )
-          }
-          .scrollIndicators(.hidden)
-          .scrollClipDisabled()
-        } else if model.liveBoard == nil, !model.liveBoardUnavailable {
-          FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r16))
-            .frame(height: 204)
-            .accessibilityLabel("팔로우한 깃발을 불러오는 중")
-        } else if model.liveBoard == nil {
-          FCEmptyCard(
-            icon: .flag20,
-            title: "팔로우한 깃발을 불러오지 못했어요",
-            message: loadingMessage
-          )
-          .action(FCCardAction("다시 시도") { send(.retryLiveBoard) })
-        } else if model.showsFollowGuide {
-          // Figma S01 D: 팔로우 안내 Empty Card 아이콘은 flag 24다.
-          FCEmptyCard(
-            icon: .flag,
-            title: "만나보고 싶은 깃발이 있나요?",
-            message: "팔로우하면 깃발이 움직일 때 조용히 알려 드려요."
-          )
-          .action(FCCardAction(
-            "깃발 찾기",
-            style: .primary
-          ) { send(.findFlagTapped) })
-          .overlay(alignment: .topTrailing) {
-            Button { send(.hideFollowGuideTapped) } label: {
-              // Figma Empty Card Close: xmark 16(Label/Assistive)
-              Image(asset: .xmark16)
-                .resizable()
-                .frame(
-                  width: 16,
-                  height: 16
-                )
-                .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
-                .frame(
-                  width: 44,
-                  height: 44
-                )
-                .contentShape(Rectangle())
-            }
-            .accessibilityLabel("깃발 안내 숨기기")
-          }
-        }
-      }
     }
   }
 
