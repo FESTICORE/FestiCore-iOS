@@ -486,58 +486,25 @@ private extension FestivalLiveBoardScreen {
     }
   }
 
-  @ViewBuilder
   func crewSection(now: Date) -> some View {
-    if !model.hasSession {
-      FestivalLiveBoardLoginCard(title: "크루와 함께 보려면 로그인") { send(.crewLoginTapped) }
-    } else if let crew = model.liveBoard?.crew {
-      FestivalLiveBoardCrewCard(
-        crew: FestivalLiveBoardPresentation.crew(
-          crew,
-          sessionUserID: model.sessionUserID,
-          zoneName: { model.pack?.zoneName(for: $0) },
+    return FestivalLiveBoardCrewSection(
+      store: store.scope(
+        state: \.liveBoardState,
+        action: \.liveBoard
+      ),
+      pack: model.pack,
+      hasSession: model.hasSession,
+      sessionUserID: model.sessionUserID,
+      showsGather: store.selectedFestival.map {
+        FestivalLiveBoardPresentation.phase(
+          pack: model.pack,
+          festival: $0,
           now: now
-        ),
-        showsGather: store.selectedFestival.map {
-          FestivalLiveBoardPresentation.phase(
-            pack: model.pack,
-            festival: $0,
-            now: now
-          ) != .ended
-        } ?? false,
-        canGather: !model.showsOfflineStatus && (crew.gatherAvailableAt.map { $0 <= now } ?? true),
-        onGather: {
-          send(.gatherCrewTapped)
-        },
-        onZoneTap: { send(.zoneChipTapped($0)) },
-        onOpen: {
-          send(.crewTapped)
-        }
-      )
-    } else if model.liveBoard == nil, !model.liveBoardUnavailable {
-      FCSkeletonView(.round(cornerRadius: FestiCoreRadius.r16))
-        .frame(height: 228)
-        .accessibilityLabel("내 크루를 불러오는 중")
-    } else if model.liveBoard == nil {
-      FCEmptyCard(
-        title: "내 크루를 불러오지 못했어요",
-        message: loadingMessage
-      )
-      .action(FCCardAction("다시 시도") { send(.retryLiveBoard) })
-    } else {
-      FCEmptyCard(
-        title: "아직 크루가 없어요",
-        message: "친구를 초대하면 서로 어느 존에 있는지 바로 볼 수 있어요."
-      )
-      .action(FCCardAction(
-        "크루 만들기",
-        style: .primary
-      ) { send(.createCrewTapped) })
-    }
-  }
-
-  var loadingMessage: String {
-    return model.liveBoardUnavailable ? "실시간 정보를 불러올 수 없습니다. 잠시 후 다시 시도합니다." : "실시간 정보를 불러오는 중입니다."
+        ) != .ended
+      } ?? false,
+      showsOfflineStatus: model.showsOfflineStatus,
+      now: now
+    )
   }
 
 }

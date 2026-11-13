@@ -55,6 +55,16 @@ public struct FestivalLiveBoardFeature {
     case findFlagTapped
     /// 팔로우 안내의 닫기 탭. 숨김 확인은 부모가 띄운다.
     case hideFollowGuideTapped
+    /// 크루 섹션의 로그인 탭. 처리는 부모가 한다.
+    case crewLoginTapped
+    /// 크루 카드의 `모여!` 탭. 처리는 부모가 한다.
+    case gatherCrewTapped
+    /// 크루 카드의 구역 칩 탭. 처리는 부모가 한다.
+    case crewZoneTapped(String)
+    /// 빈 크루의 `크루 만들기` 탭. 처리는 부모가 한다.
+    case createCrewTapped
+    /// 크루 카드 열기 탭. 처리는 부모가 한다.
+    case crewTapped
   }
 
   // MARK: - InnerAction
@@ -74,6 +84,11 @@ public struct FestivalLiveBoardFeature {
     case followLoginRequested
     case findFlagRequested
     case hideFollowGuideRequested
+    case crewLoginRequested
+    case gatherCrewRequested
+    case crewZoneRequested(String)
+    case createCrewRequested
+    case crewOpenRequested
   }
 
   enum CancelID {
@@ -154,6 +169,21 @@ extension FestivalLiveBoardFeature {
 
     case .hideFollowGuideTapped:
       return .send(.delegate(.hideFollowGuideRequested))
+
+    case .crewLoginTapped:
+      return .send(.delegate(.crewLoginRequested))
+
+    case .gatherCrewTapped:
+      return .send(.delegate(.gatherCrewRequested))
+
+    case let .crewZoneTapped(zoneID):
+      return .send(.delegate(.crewZoneRequested(zoneID)))
+
+    case .createCrewTapped:
+      return .send(.delegate(.createCrewRequested))
+
+    case .crewTapped:
+      return .send(.delegate(.crewOpenRequested))
     }
   }
 
