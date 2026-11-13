@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import Foundation
 import Testing
@@ -471,6 +472,30 @@ extension TimetableScheduleTests {
     await clock.run()
   }
 
+  @Test func togglingScheduleTracksAnalyticsEvent() async {
+    let clock = TestClock()
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
+    let store = makeStore(
+      localOnlyState(selected: "lime"),
+      service: ScheduleServiceSpy(),
+      clock: clock,
+      analytics: analytics
+    )
+
+    await addLime(store)
+    await clock.advance(by: .seconds(2))
+    await store.receive(\.scope.setDetail.presented.inner.scheduleToastExpired) {
+      $0.setDetail?.isScheduleToastVisible = false
+    }
+    #expect(analytics.value == [
+      .timetableAction(TimetableActionData(
+        action: .scheduleToggle,
+        festivalID: "fst",
+        setID: "lime"
+      ))
+    ])
+  }
+
   @Test func dismissingSheetHidesToast() async {
     let clock = TestClock()
     let store = makeStore(localOnlyState(selected: "lime"), service: ScheduleServiceSpy(), clock: clock)
@@ -642,11 +667,13 @@ private extension TimetableScheduleTests {
   func makeStore(
     _ state: TimetableFeature.State,
     service: some FestivalScheduleService,
-    clock: TestClock<Duration> = TestClock()
+    clock: TestClock<Duration> = TestClock(),
+    analytics: LockIsolated<[AnalyticsEvent]> = LockIsolated([])
   ) -> TestStoreOf<TimetableFeature> {
-    TestStore(initialState: state) {
+    return TestStore(initialState: state) {
       TimetableFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
       $0.festivalScheduleUseCase = MockFestivalScheduleUseCase(
         mySchedule: { festivalID throws(FestivalScheduleError) in
           try await service.fetch(festivalID: festivalID)

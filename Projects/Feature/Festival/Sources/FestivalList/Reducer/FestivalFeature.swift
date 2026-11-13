@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCoreLocationInterface
 import FestivalDomainInterface
 import FestiCorePackInterface
@@ -404,6 +405,8 @@ public struct FestivalFeature {
     case searchQueryChanged(String)
     case listFilterChanged(FestivalListInteractionState.Filter)
     case loadMoreFestivals
+    /// 축제 목록 화면이 보일 때. 라이브 보드와 함께 쓰는 `onAppear`와 달리 목록 화면만 보낸다.
+    case festivalListOnAppear
     case liveActivityOnAppear
     case liveBoardOnAppear
     case onlineDetailOnAppear
@@ -529,6 +532,7 @@ public struct FestivalFeature {
   @Dependency(\.festivalGuideVisibilityUseCase) private var guideVisibilityUseCase
   @Dependency(\.locationClient) var locationClient
   @Dependency(\.appleMapsClient) var appleMapsClient
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -795,6 +799,13 @@ extension FestivalFeature {
       return filter == .booked && state.catalogNextCursor != nil
         ? refreshFullCatalog() : .none
 
+    case .festivalListOnAppear:
+      analyticsUseCase.track(.screenView(
+        screen: .festivalList,
+        referrer: nil
+      ))
+      return .none
+
     case .liveActivityOnAppear:
       return .merge(
         .send(.async(.startLiveActivities)),
@@ -802,6 +813,10 @@ extension FestivalFeature {
       )
 
     case .liveBoardOnAppear:
+      analyticsUseCase.track(.screenView(
+        screen: .liveBoard,
+        referrer: nil
+      ))
       state.isLiveBoardVisible = true
       state.isFollowedFlagGuideHidden = state.selectedFestivalID.map { guideVisibilityUseCase.isHidden(for: $0) } ?? false
       return .merge(
@@ -1572,6 +1587,15 @@ extension FestivalFeature {
     ):
       guard generation == state.accountGeneration, state.packDownloads.keys.contains(id) else { return .none }
       state.packDownloads.removeValue(forKey: id)
+      let syncResult: AnalyticsPackSyncResult = switch result {
+      case .updated: .updated
+      case .notModified: .notModified
+      case .retryAfter, .reconnecting: .failed
+      }
+      analyticsUseCase.track(.packSync(PackSyncData(
+        festivalID: id,
+        result: syncResult
+      )))
       switch result {
       case let .updated(pack), let .notModified(pack):
         // 처음 받은 팩이면 준비 안내를 연다(Figma Row A 준비 흐름: S00 → S15). 저장에는 계정이 필요하다.
@@ -1606,6 +1630,10 @@ extension FestivalFeature {
     ):
       guard generation == state.accountGeneration, state.packDownloads.keys.contains(id) else { return .none }
       state.packDownloads.removeValue(forKey: id)
+      analyticsUseCase.track(.packSync(PackSyncData(
+        festivalID: id,
+        result: .failed
+      )))
       state.toast = .packDownloadFailed
       state.toastRevision += 1
       return .send(.async(.expireToast))

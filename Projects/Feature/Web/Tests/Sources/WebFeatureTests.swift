@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import Foundation
 import Testing
 @testable import Web
@@ -8,15 +9,34 @@ struct WebFeatureTests {
   private let url = URL(string: "https://festicore.app/terms")!
 
   @Test func firstAppearStartsOneLoadAndFinishes() async {
-    let store = TestStore(initialState: WebFeature.State(url: url, title: "서비스 이용약관")) { WebFeature() }
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
+    let store = TestStore(initialState: WebFeature.State(
+      url: url,
+      title: "서비스 이용약관"
+    )) {
+      WebFeature()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
+    }
 
     await store.send(.view(.onAppear)) { $0.loadID = 1 }
     await store.send(.view(.onAppear))
     await store.send(.view(.loadFinished(loadID: 1))) { $0.phase = .loaded }
+    #expect(analytics.value == [.screenView(
+      screen: .web,
+      referrer: nil
+    )])
   }
 
   @Test func retryStartsNewLoadAndIgnoresStaleCallbacks() async {
-    let store = TestStore(initialState: WebFeature.State(url: url, title: "약관")) { WebFeature() }
+    let store = TestStore(initialState: WebFeature.State(
+      url: url,
+      title: "약관"
+    )) {
+      WebFeature()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
+    }
 
     await store.send(.view(.onAppear)) { $0.loadID = 1 }
     await store.send(.view(.loadFailed(loadID: 1))) { $0.phase = .failed }
@@ -37,7 +57,14 @@ struct WebFeatureTests {
   }
 
   @Test func failureWithoutRetryKeepsFailedUntilRetried() async {
-    let store = TestStore(initialState: WebFeature.State(url: url, title: "약관")) { WebFeature() }
+    let store = TestStore(initialState: WebFeature.State(
+      url: url,
+      title: "약관"
+    )) {
+      WebFeature()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
+    }
 
     await store.send(.view(.onAppear)) { $0.loadID = 1 }
     await store.send(.view(.loadFailed(loadID: 1))) { $0.phase = .failed }

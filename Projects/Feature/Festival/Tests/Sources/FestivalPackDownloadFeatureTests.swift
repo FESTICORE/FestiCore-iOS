@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCorePackInterface
 import FestivalDomainInterface
 import Foundation
@@ -143,6 +144,7 @@ struct FestivalPackDownloadFeatureTests {
     initial.connection = .cached
     let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
       $0.date = .constant(Date(timeIntervalSince1970: 1_800_000_000))
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalPackUseCase = MockFestivalPackUseCase(
         cachedPacks: { [] },
         packUpdates: { _ in
@@ -223,8 +225,10 @@ struct FestivalPackDownloadFeatureTests {
     )
     var initial = FestivalFeature.State()
     initial.catalog = [festival]
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
     let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
       $0.date = .constant(Date(timeIntervalSince1970: 1_800_000_000))
       $0.festivalPackUseCase = MockFestivalPackUseCase(downloadPack: { _ in
         AsyncThrowingStream { continuation in
@@ -266,6 +270,10 @@ struct FestivalPackDownloadFeatureTests {
       $0.packDownloads = [:]
       $0.cachedPacks["festival"] = pack
     }
+    #expect(analytics.value == [.packSync(PackSyncData(
+      festivalID: "festival",
+      result: .updated
+    ))])
   }
 
   @Test(
@@ -294,6 +302,7 @@ struct FestivalPackDownloadFeatureTests {
     initial.bookedFestivalIDs = isBooked ? ["festival"] : []
     let store = TestStore(initialState: initial) { FestivalFeature() } withDependencies: {
       $0.date = .constant(Date(timeIntervalSince1970: 1_800_000_000))
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalPackUseCase = MockFestivalPackUseCase(downloadPack: { id in
         #expect(id == "festival")
         return AsyncThrowingStream { continuation in

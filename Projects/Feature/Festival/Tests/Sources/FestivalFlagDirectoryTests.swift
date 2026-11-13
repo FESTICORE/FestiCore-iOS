@@ -1,5 +1,6 @@
 import ComposableArchitecture
 @testable import Festival
+import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import Foundation
 import Testing
@@ -87,10 +88,12 @@ struct FestivalFlagDirectoryTests {
   @Test func followSuccessOverridesSnapshotAndIgnoresRepeatedTap() async {
     let clock = TestClock()
     let snapshot = board([flag("a", count: 10)])
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
     let store = TestStore(initialState: loadedState(snapshot)) {
       FestivalFlagFeature()
     } withDependencies: {
       $0.festivalFlagFollowService = SuspendedFollowService(clock: clock, followerCount: 11)
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
     }
 
     await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: 10))) {
@@ -107,6 +110,10 @@ struct FestivalFlagDirectoryTests {
     let row = store.state.directory.rows(in: snapshot, isFailed: false).first
     #expect(row?.isFollowing == true)
     #expect(row?.followersText == "팔로워 11")
+    #expect(analytics.value == [.flagFollow(FlagFollowData(
+      flagID: "a",
+      isFollowing: true
+    ))])
   }
 
   @Test("카드를 누르면 부모에 깃발 상세를 요청한다")
@@ -216,6 +223,7 @@ struct FestivalFlagDirectoryTests {
     } withDependencies: {
       $0.festivalFlagFollowService = StubFollowService(result: .success(.init(flagID: "a", isFollowing: true, followerCount: 11)))
       $0.festivalLiveBoardService = SequenceLiveBoardService([followedButCached, fresh])
+      $0.analyticsUseCase.track = { _ in }
     }
 
     await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: 10))) {
@@ -302,6 +310,7 @@ struct FestivalFlagDirectoryTests {
     } withDependencies: {
       $0.festivalFlagFollowService = ToggleFollowService()
       $0.festivalLiveBoardService = SequenceLiveBoardService([intermediate, confirmed])
+      $0.analyticsUseCase.track = { _ in }
     }
 
     await store.send(.directory(.followTapped(id: "a", follow: true, baseCount: 10))) {
@@ -347,6 +356,7 @@ struct FestivalFlagDirectoryTests {
     } withDependencies: {
       $0.festivalFlagFollowService = SuspendedFollowService(clock: clock)
       $0.festivalLiveBoardService = StubLiveBoardService(result: .failure(.invalidResponse))
+      $0.analyticsUseCase.track = { _ in }
     }
 
     await store.send(.directory(.followTapped(id: "b", follow: true, baseCount: nil))) {

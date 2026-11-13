@@ -7,6 +7,7 @@
 
 import AuthDomainInterface
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCoreSharedUI
 import Foundation
 import ProfileInterface
@@ -72,6 +73,8 @@ public struct AccountSettingsFeature {
   /// 이동 계약은 ProfileInterface에 있다.
   public typealias DelegateAction = AccountSettingsDelegate
 
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
+
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
       switch action {
@@ -116,10 +119,18 @@ extension AccountSettingsFeature {
       return .send(.delegate(.refreshRequested))
 
     case .withdrawTapped:
+      analyticsUseCase.track(.uiAction(
+        action: .profileWithdraw,
+        screen: .profile
+      ))
       presentConfirmation(.withdraw, state: &state)
       return .none
 
     case .logoutTapped:
+      analyticsUseCase.track(.uiAction(
+        action: .profileLogout,
+        screen: .profile
+      ))
       presentConfirmation(.logout, state: &state)
       return .none
     }

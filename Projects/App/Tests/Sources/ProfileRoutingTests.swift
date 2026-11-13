@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import FeatureAssembly
+import FestiCoreAnalyticsInterface
 import FestiCoreSharedUI
 import Foundation
 import Testing
@@ -197,6 +198,8 @@ struct ProfileRoutingTests {
     state.profileState.destination = .settings(settingsState)
     let store = TestStore(initialState: state) {
       MainTabCoordinator()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
     }
     store.exhaustivity = .off
 

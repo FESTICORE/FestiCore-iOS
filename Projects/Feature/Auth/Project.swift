@@ -14,6 +14,10 @@ let project = Project.makeModule(
   name: "Auth",
   dependencies: [
     .domain(.auth, .interface),
+    .service(
+      .analytics,
+      .interface
+    ),
     .feature(.web),
     .feature(.web, .interface),
     .ui(.designSystem),

@@ -6,6 +6,7 @@
 //
 
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import Foundation
 
@@ -14,6 +15,7 @@ import Foundation
 public struct FestivalFlagDirectory {
   @Dependency(\.festivalFlagFollowService) private var followService
   @Dependency(\.continuousClock) private var clock
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
 
   public init() {}
 
@@ -147,6 +149,10 @@ public struct FestivalFlagDirectory {
             followerCount: response.followerCount,
             baseCount: baseCount
           )
+          analyticsUseCase.track(.flagFollow(FlagFollowData(
+            flagID: id,
+            isFollowing: response.isFollowing
+          )))
           return .none
         case .failure(.loginRequired):
           return .send(.delegate(.loginRequested))

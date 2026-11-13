@@ -8,6 +8,7 @@
 import AuthDomainInterface
 import BearerDomainInterface
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCoreSharedUI
 import FestiCoreStorageInterface
 import FestivalDomainInterface
@@ -166,6 +167,7 @@ public struct ProfileFeature {
   @Dependency(\.festivalReceivedPackUseCase) private var receivedPackUseCase
   @Dependency(\.festivalPackDetailUseCase) private var packDetailUseCase
   @Dependency(\.bearerUseCase) private var bearerUseCase
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -221,6 +223,10 @@ extension ProfileFeature {
       ))))))
 
     case .onAppear:
+      analyticsUseCase.track(.screenView(
+        screen: .profile,
+        referrer: nil
+      ))
       let bearerFlags = refreshBearerFlags(state: &state)
       guard state.packLoad != .loading else { return bearerFlags }
       // 이미 보여 준 목록은 다시 읽는 동안 그대로 둔다.

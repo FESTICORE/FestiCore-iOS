@@ -6,6 +6,10 @@ import ProjectTemplatePlugin
 let project = Project.makeModule(
   name: "Web",
   dependencies: [
+    .service(
+      .analytics,
+      .interface
+    ),
     .ui(.designSystem),
     .SPM.composableArchitecture
   ],

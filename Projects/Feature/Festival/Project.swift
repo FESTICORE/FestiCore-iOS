@@ -24,6 +24,10 @@ let project = Project.makeModule(
     .core(.utility),
     .domain(.festival, .interface),
     .domain(.userNotification, .interface),
+    .service(
+      .analytics,
+      .interface
+    ),
     .service(.pack, .interface),
     .feature(.web),
     .feature(

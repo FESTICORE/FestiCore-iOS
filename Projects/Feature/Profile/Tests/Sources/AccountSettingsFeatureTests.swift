@@ -7,6 +7,7 @@
 
 import AuthDomainInterface
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCoreSharedUI
 import Foundation
 import Testing
@@ -15,8 +16,11 @@ import Testing
 @MainActor
 struct AccountSettingsFeatureTests {
   @Test func logoutAndWithdrawRequireConfirmation() async {
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
     let store = TestStore(initialState: AccountSettingsFeature.State(profile: profile(nickname: "로이"))) {
       AccountSettingsFeature()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
     }
 
     await store.send(.view(.logoutTapped)) {
@@ -47,6 +51,20 @@ struct AccountSettingsFeatureTests {
       $0.confirmation = nil
     }
     await store.receive(\.delegate.logoutRequested)
+    let logout = AnalyticsEvent.uiAction(
+      action: .profileLogout,
+      screen: .profile
+    )
+    let withdraw = AnalyticsEvent.uiAction(
+      action: .profileWithdraw,
+      screen: .profile
+    )
+    #expect(analytics.value == [
+      logout,
+      logout,
+      withdraw,
+      logout
+    ])
   }
 
   @Test func busyAccountDoesNotOpenConfirmationOrNickname() async {
@@ -54,6 +72,8 @@ struct AccountSettingsFeatureTests {
       initialState: AccountSettingsFeature.State(profile: profile(nickname: "로이"), isLoading: true)
     ) {
       AccountSettingsFeature()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
     }
 
     await store.send(.view(.logoutTapped))

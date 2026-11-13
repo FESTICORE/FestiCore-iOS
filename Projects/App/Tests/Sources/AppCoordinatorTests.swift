@@ -401,6 +401,7 @@ struct AppCoordinatorTests {
       AppCoordinator()
     } withDependencies: {
       $0.oauthUseCase = CancelledOAuthUseCase()
+      $0.analyticsUseCase = .recording()
     }
     store.exhaustivity = .off
     await store.send(.scope(.home(.auth(.login(.view(.signInTapped(.google)))))))
@@ -1622,6 +1623,7 @@ struct AppCoordinatorTests {
 
     let store = TestStore(initialState: state) { MainTabCoordinator() } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
+      $0.analyticsUseCase = .recording()
     }
     await store.send(.profileCoordinator(.profile(.view(.accountChanged(
       profile: nil,
@@ -3545,6 +3547,7 @@ struct AppCoordinatorTests {
     home.authFlow.presentation = .login
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
       $0.oauthUseCase = CancelledOAuthUseCase()
+      $0.analyticsUseCase = .recording()
     }
 
     // 로그인 시트 탭은 부모에게 요청하고, 부모가 시트 상태를 확인한 뒤 로그인을 시작한다.
@@ -3568,7 +3571,9 @@ struct AppCoordinatorTests {
   }
 
   @Test func loginSheetTapWithoutLoginSheetDoesNotStartLogin() async {
-    let store = TestStore(initialState: AppCoordinator.State.home(.init())) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(.init())) { AppCoordinator() } withDependencies: {
+      $0.analyticsUseCase = .recording()
+    }
 
     // 로그인 시트가 아니면 부모가 요청을 무시한다(상태·효과 없음).
     await store.send(.scope(.home(.auth(.login(.view(.signInTapped(.google)))))))
@@ -3578,7 +3583,9 @@ struct AppCoordinatorTests {
   @Test func loginSheetTapWhileCommittingDoesNotStartAnotherLogin() async {
     var home = loginSheetHome()
     home.authFlow.pendingCommitSessionID = UUID()
-    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() }
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.analyticsUseCase = .recording()
+    }
 
     await store.send(.scope(.home(.auth(.login(.view(.signInTapped(.google)))))))
     await store.receive(\.scope.home.auth.login.delegate.signInRequested)

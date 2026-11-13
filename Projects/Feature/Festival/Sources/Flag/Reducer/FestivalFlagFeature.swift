@@ -1,10 +1,12 @@
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 
 @Reducer
 public struct FestivalFlagFeature {
   @Dependency(\.festivalLiveBoardService) private var liveBoardService
   @Dependency(\.continuousClock) private var clock
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
 
   public init() {}
 
@@ -64,6 +66,10 @@ public struct FestivalFlagFeature {
     Reduce { state, action in
       switch action {
       case .appeared:
+        analyticsUseCase.track(.screenView(
+          screen: .festivalFlag,
+          referrer: nil
+        ))
         state.isVisible = true
         return load(&state)
 

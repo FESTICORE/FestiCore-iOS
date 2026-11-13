@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import Foundation
 import Testing
@@ -128,6 +129,7 @@ struct FestivalFlagDetailFeatureTests {
       isFollowing: true,
       isPinned: true
     )
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
     let store = makeStore(
       state: state,
       clock: clock,
@@ -139,7 +141,8 @@ struct FestivalFlagDetailFeatureTests {
           isFollowing: true,
           followerCount: 1_285
         )
-      }
+      },
+      analytics: analytics
     )
 
     await store.send(.view(.followTapped)) {
@@ -157,6 +160,10 @@ struct FestivalFlagDetailFeatureTests {
     #expect(calls.value == [true])
     #expect(store.state.isFollowing)
     #expect(store.state.followerCount == 1_285)
+    #expect(analytics.value == [.flagFollow(FlagFollowData(
+      flagID: store.state.flagID,
+      isFollowing: true
+    ))])
     await store.receive(\.delegate.followChanged)
     await store.receive(\.async.load)
     await store.receive(\.async.showToast) {
@@ -624,11 +631,13 @@ struct FestivalFlagDetailFeatureTests {
     setPinnedFlag: @escaping @Sendable (String?) async throws(FestivalFlagPinError) -> String? = {
       _ throws(FestivalFlagPinError) in
       throw .unavailable
-    }
+    },
+    analytics: LockIsolated<[AnalyticsEvent]> = LockIsolated([])
   ) -> TestStoreOf<FestivalFlagDetailFeature> {
     return TestStore(initialState: state) {
       FestivalFlagDetailFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
       $0.date.now = Self.now
       $0.continuousClock = clock
       $0.festivalFlagDetailUseCase = MockFestivalFlagDetailUseCase(

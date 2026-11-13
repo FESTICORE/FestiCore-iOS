@@ -6,6 +6,7 @@
 //
 
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCorePackInterface
 import FestivalDomainInterface
 import Foundation
@@ -42,6 +43,8 @@ struct FestivalPrepGuideTests {
       cached: false
     )) {
       FestivalFeature()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
     }
 
     await store.send(.inner(.packDownloadFinished(
@@ -62,6 +65,8 @@ struct FestivalPrepGuideTests {
       cached: true
     )) {
       FestivalFeature()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
     }
     await update.send(.inner(.packDownloadFinished(
       "festival",
@@ -76,6 +81,8 @@ struct FestivalPrepGuideTests {
       cached: false
     )) {
       FestivalFeature()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
     }
     await guest.send(.inner(.packDownloadFinished(
       "festival",

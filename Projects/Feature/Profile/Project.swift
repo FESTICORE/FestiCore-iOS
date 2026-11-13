@@ -20,6 +20,10 @@ let project = Project.makeModule(
     ),
     .domain(.festival, .interface),
     .domain(.notice, .interface),
+    .service(
+      .analytics,
+      .interface
+    ),
     .core(
       .location,
       .interface

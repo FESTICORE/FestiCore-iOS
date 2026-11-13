@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import Testing
 @testable import Festival
@@ -11,16 +12,22 @@ struct FestivalFlagFeatureTests {
       activeFlags: [.init(id: "flag", name: "깃발", status: "active", zoneID: "A", activity: nil, thumbnailURL: nil)],
       followedFlags: [], crew: nil
     )
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
     let store = TestStore(initialState: FestivalFlagFeature.State(festivalID: "festival-a")) {
       FestivalFlagFeature()
     } withDependencies: {
       $0.festivalLiveBoardService = StubLiveBoardService(result: .success(snapshot))
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
     }
 
     await store.send(.appeared) {
       $0.isVisible = true
       $0.viewState = .loading
     }
+    #expect(analytics.value == [.screenView(
+      screen: .festivalFlag,
+      referrer: nil
+    )])
     await store.receive(\.loaded) {
       $0.snapshot = snapshot
       $0.viewState = .loaded
@@ -68,6 +75,7 @@ struct FestivalFlagFeatureTests {
       FestivalFlagFeature()
     } withDependencies: {
       $0.festivalLiveBoardService = StubLiveBoardService(result: .failure(.deviceNotRegistered))
+      $0.analyticsUseCase.track = { _ in }
     }
 
     await store.send(.appeared) {
@@ -83,6 +91,7 @@ struct FestivalFlagFeatureTests {
       FestivalFlagFeature()
     } withDependencies: {
       $0.festivalLiveBoardService = StubLiveBoardService(result: .failure(error))
+      $0.analyticsUseCase.track = { _ in }
     }
 
     await store.send(.appeared) {
@@ -164,6 +173,7 @@ struct FestivalFlagFeatureTests {
       FestivalFlagFeature()
     } withDependencies: {
       $0.festivalLiveBoardService = StubLiveBoardService(result: .success(current))
+      $0.analyticsUseCase.track = { _ in }
     }
 
     await store.send(.festivalChanged("other")) {

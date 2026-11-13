@@ -6,6 +6,7 @@
 //
 
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import FestivalInterface
 import Foundation
@@ -168,6 +169,7 @@ public struct FestivalFlagDetailFeature {
   @Dependency(\.festivalFlagUseCase) private var flagUseCase
   @Dependency(\.date) private var date
   @Dependency(\.continuousClock) private var clock
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -523,6 +525,10 @@ extension FestivalFlagDetailFeature {
         isFollowing: response.isFollowing,
         followerCount: response.followerCount
       )
+      analyticsUseCase.track(.flagFollow(FlagFollowData(
+        flagID: response.flagID,
+        isFollowing: response.isFollowing
+      )))
       // 첫 팔로우는 서버가 대표 깃발로 정하고, 해제하면 다른 깃발로 옮긴다. 다시 불러와 서버 값을 받는다.
       state.pin = State.PinState()
       state.loadGeneration += 1

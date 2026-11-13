@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 @testable import Festival
 import FestivalDomainInterface
 import Foundation
@@ -47,6 +48,7 @@ struct FestivalAccountChangeTests {
       $0.useServiceBackedFestivalUseCases()
       $0.continuousClock = clock
       $0.date = .constant(receivedAt)
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalLiveBoardService = AccountLiveBoardService { _ in
         guard signedIn.value else { return current }
         started.setValue(true)
