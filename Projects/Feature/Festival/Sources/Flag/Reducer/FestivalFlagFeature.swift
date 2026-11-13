@@ -28,6 +28,8 @@ public struct FestivalFlagFeature {
     public var viewState: ViewState = .idle
     public var isVisible = false
     public var generation = 0
+    /// 독립 깃발 화면만 screen_view를 보낸다. 준비 가이드에 넣은 깃발 단계는 끈다.
+    public var tracksScreenView = true
 
     public init(festivalID: String? = nil) {
       self.festivalID = festivalID
@@ -66,10 +68,12 @@ public struct FestivalFlagFeature {
     Reduce { state, action in
       switch action {
       case .appeared:
-        analyticsUseCase.track(.screenView(
-          screen: .festivalFlag,
-          referrer: nil
-        ))
+        if state.tracksScreenView {
+          analyticsUseCase.track(.screenView(
+            screen: .festivalFlag,
+            referrer: nil
+          ))
+        }
         state.isVisible = true
         return load(&state)
 
