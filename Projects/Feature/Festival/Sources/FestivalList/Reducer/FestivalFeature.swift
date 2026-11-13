@@ -590,6 +590,12 @@ public struct FestivalFeature {
         case .seeAllFestivals: return .send(.view(.backToFestivalList))
         }
 
+      case .liveBoard(.delegate(.retryRequested)):
+        return handleViewAction(
+          state: &state,
+          action: .retryLiveBoard
+        )
+
       case .liveBoard:
         return .none
 

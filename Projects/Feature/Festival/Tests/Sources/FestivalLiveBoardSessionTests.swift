@@ -710,6 +710,23 @@ struct FestivalLiveBoardSessionTests {
       $0.isLiveBoardVisible = false
     }
   }
+
+  @Test("활성 깃발 섹션의 다시 시도는 자식 delegate를 거쳐 부모의 재조회 처리를 그대로 탄다")
+  func retryTappedRunsParentRetryThroughDelegate() async {
+    var state = FestivalFeature.State(selectedFestivalID: "fst")
+    state.isLiveBoardVisible = true
+    state.isForeground = false
+    state.liveBoardUnavailable = true
+    let store = TestStore(initialState: state) {
+      FestivalFeature()
+    }
+
+    await store.send(.liveBoard(.view(.retryTapped)))
+    await store.receive(\.liveBoard.delegate.retryRequested) {
+      $0.liveBoardUnavailable = false
+    }
+    await store.receive(\.async.startLiveBoard)
+  }
 }
 
 private let emptyBoard = FestivalLiveBoardSnapshot(
