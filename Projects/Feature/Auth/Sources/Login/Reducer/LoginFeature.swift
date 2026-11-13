@@ -8,6 +8,7 @@
 import AuthDomainInterface
 import ComposableArchitecture
 import AuthInterface
+import FestiCoreAnalyticsInterface
 
 @Reducer
 public struct LoginFeature {
@@ -83,6 +84,7 @@ public struct LoginFeature {
   public typealias DelegateAction = LoginDelegate
 
   @Dependency(\.oauthUseCase) private var oauthUseCase
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -110,6 +112,14 @@ extension LoginFeature {
   ) -> Effect<Action> {
     switch action {
     case .signInTapped(let provider):
+      let button: AnalyticsButton = switch provider {
+      case .google: .loginGoogle
+      case .apple: .loginApple
+      }
+      analyticsUseCase.track(.uiAction(
+        action: button,
+        screen: .login
+      ))
       return .send(.delegate(.signInRequested(provider)))
 
     case .signIn(let provider):

@@ -1,3 +1,5 @@
+import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCoreUtility
 import FestiCorePackInterface
 import FestivalDomainInterface
@@ -6,6 +8,21 @@ import Testing
 @testable import Festival
 
 struct FestivalListPresentationTests {
+  @Test @MainActor func listAppearanceTracksScreenView() async {
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
+    let store = TestStore(initialState: FestivalFeature.State()) {
+      FestivalFeature()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
+    }
+
+    await store.send(.view(.festivalListOnAppear))
+    #expect(analytics.value == [.screenView(
+      screen: .festivalList,
+      referrer: nil
+    )])
+  }
+
   @Test func searchAndBookedFilterUseActualCatalogFields() {
     let festivals = [
       festival(

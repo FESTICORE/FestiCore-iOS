@@ -8,6 +8,7 @@
 import AuthDomainInterface
 import BearerDomainInterface
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCoreSharedUI
 import FestivalDomainInterface
 import Foundation
@@ -19,9 +20,11 @@ struct ProfileFeatureTests {
   @Test func appearLoadsLocalPacksThenRefreshesUpdates() async {
     let local = [FestivalReceivedPack(id: "fst_a", name: "원더리벳 2026", packVersion: 12, latestPackVersion: 12)]
     let refreshed = [FestivalReceivedPack(id: "fst_a", name: "원더리벳 2026", packVersion: 12, latestPackVersion: 13)]
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
     let store = TestStore(initialState: ProfileFeature.State()) {
       ProfileFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
       $0.festivalReceivedPackUseCase = MockFestivalReceivedPackUseCase(
         receivedPacks: { local },
         refreshReceivedPacks: { refreshed }
@@ -39,6 +42,10 @@ struct ProfileFeatureTests {
     }
 
     await store.send(.view(.onAppear)) { $0.packLoad = .loading }
+    #expect(analytics.value == [.screenView(
+      screen: .profile,
+      referrer: nil
+    )])
     await store.receive(\.async.fetchPacks)
     await store.receive(\.inner.packsLoaded) {
       $0.packs = local
@@ -82,6 +89,7 @@ struct ProfileFeatureTests {
     let store = TestStore(initialState: ProfileFeature.State()) {
       ProfileFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalReceivedPackUseCase = MockFestivalReceivedPackUseCase(
         receivedPacks: { local },
         refreshReceivedPacks: { throw URLError(.notConnectedToInternet) }
@@ -101,6 +109,7 @@ struct ProfileFeatureTests {
     let store = TestStore(initialState: ProfileFeature.State()) {
       ProfileFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalReceivedPackUseCase = MockFestivalReceivedPackUseCase(
         receivedPacks: {
           attempts.withValue { $0 += 1 }
@@ -127,6 +136,7 @@ struct ProfileFeatureTests {
     let store = TestStore(initialState: state) {
       ProfileFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalReceivedPackUseCase = MockFestivalReceivedPackUseCase(
         receivedPacks: { throw URLError(.cannotOpenFile) },
         refreshReceivedPacks: { [] }
@@ -352,6 +362,7 @@ struct ProfileFeatureTests {
     let store = TestStore(initialState: state) {
       ProfileFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.bearerUseCase = ProfileBearerUseCase(flags: { festivalID in
         #expect(festivalID == nil)
         return [hidden, flag]

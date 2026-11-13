@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import Foundation
 import FestivalDomainInterface
 import Testing
@@ -66,16 +67,22 @@ struct TimetableFeatureTests {
     let clock = TestClock()
     let initial = TimetableFeature.State.sample()
     let date = LockIsolated(initial.days[0].date.addingTimeInterval(928 * 60))
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
     let store = TestStore(initialState: initial) {
       TimetableFeature()
     } withDependencies: {
       $0.continuousClock = clock
       $0.date = DateGenerator { date.value }
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
     }
 
     await store.send(.view(.clockStarted)) {
       $0.clockDate = date.value
     }
+    #expect(analytics.value == [.screenView(
+      screen: .timetable,
+      referrer: nil
+    )])
     await store.receive(\.async.observeClock)
     date.withValue { $0 = $0.addingTimeInterval(60) }
     await clock.advance(by: .seconds(1))
@@ -223,6 +230,35 @@ struct TimetableFeatureTests {
     #expect(TimetableBoard.dayOffset(forSwipe: CGSize(width: -80, height: 0)) == nil)
     #expect(TimetableBoard.dayOffset(forSwipe: CGSize(width: -120, height: 80)) == nil)
     #expect(TimetableBoard.dayOffset(forSwipe: CGSize(width: 20, height: 200)) == nil)
+  }
+
+  @Test func mineOnlyAndDayChangesTrackAnalyticsEvents() async {
+    var state = TimetableFeature.State.sample()
+    state.festivalID = "fst"
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
+    let store = TestStore(initialState: state) {
+      TimetableFeature()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
+    }
+
+    await store.send(.view(.mineOnlyToggled)) {
+      $0.showsMineOnly.toggle()
+    }
+    await store.send(.view(.daySelected(0)))
+    await store.send(.view(.daySelected(1))) {
+      $0.selectedDayIndex = 1
+    }
+    #expect(analytics.value == [
+      .timetableAction(TimetableActionData(
+        action: .mineOnlyToggle,
+        festivalID: "fst"
+      )),
+      .timetableAction(TimetableActionData(
+        action: .daySelect,
+        festivalID: "fst"
+      ))
+    ])
   }
 
   @Test func pinchZoomIsKeptAcrossDayChanges() async {

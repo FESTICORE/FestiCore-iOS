@@ -6,6 +6,7 @@
 //
 
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import Foundation
 import WebInterface
 
@@ -59,6 +60,7 @@ public struct WebFeature {
   }
 
   @Dependency(\.openURL) private var openURL
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -67,6 +69,10 @@ public struct WebFeature {
         guard state.loadID == 0 else { return .none }
         state.loadID = 1
         state.phase = .loading
+        analyticsUseCase.track(.screenView(
+          screen: .web,
+          referrer: nil
+        ))
         return .none
 
       case .view(.retryTapped):

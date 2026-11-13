@@ -6,6 +6,7 @@
 //
 
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCorePackInterface
 import FestivalDomainInterface
 import Foundation
@@ -42,6 +43,8 @@ struct FestivalPrepGuideTests {
       cached: false
     )) {
       FestivalFeature()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
     }
 
     await store.send(.inner(.packDownloadFinished(
@@ -62,6 +65,8 @@ struct FestivalPrepGuideTests {
       cached: true
     )) {
       FestivalFeature()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
     }
     await update.send(.inner(.packDownloadFinished(
       "festival",
@@ -76,6 +81,8 @@ struct FestivalPrepGuideTests {
       cached: false
     )) {
       FestivalFeature()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
     }
     await guest.send(.inner(.packDownloadFinished(
       "festival",
@@ -99,6 +106,29 @@ struct FestivalPrepGuideTests {
     await store.receive(.delegate(.finished))
     await store.send(.view(.laterTapped))
     await store.receive(.delegate(.later))
+  }
+
+  @Test("준비 가이드의 깃발 단계는 festival_flag 화면 조회를 보내지 않는다")
+  func flagsStepSkipsScreenView() async {
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
+    let snapshot = FestivalLiveBoardSnapshot(
+      festivalID: "festival",
+      activeFlags: [],
+      followedFlags: [],
+      crew: nil
+    )
+    let store = TestStore(initialState: FestivalPrepFlagsFeature.State(festivalID: "festival")) {
+      FestivalPrepFlagsFeature()
+    } withDependencies: {
+      $0.festivalLiveBoardService = PrepLiveBoardService(snapshot: snapshot)
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
+    }
+    store.exhaustivity = .off
+
+    await store.send(.view(.onAppear))
+    await store.receive(\.flag.appeared)
+    await store.receive(\.flag.loaded)
+    #expect(analytics.value.isEmpty)
   }
 
   @Test("깃발 팔로우에 로그인이 필요하면 부모에게 로그인을 요청한다")
@@ -151,5 +181,13 @@ struct FestivalPrepGuideTests {
     )
     state.flag.directory.tag = .sing
     #expect(state.followingCount == 1)
+  }
+}
+
+private struct PrepLiveBoardService: FestivalLiveBoardService {
+  let snapshot: FestivalLiveBoardSnapshot
+
+  func refresh(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
+    return snapshot
   }
 }

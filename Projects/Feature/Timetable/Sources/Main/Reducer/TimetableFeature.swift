@@ -6,6 +6,7 @@
 //
 
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import Foundation
 import TimetableDomainInterface
@@ -279,6 +280,7 @@ public struct TimetableFeature {
   @Dependency(\.festivalNotificationSettingsUseCase) var notificationSettingsUseCase
   @Dependency(\.date) var date
   @Dependency(\.continuousClock) var clock
+  @Dependency(\.analyticsUseCase) var analyticsUseCase
 
   var now: Date { return date.now }
 
@@ -336,6 +338,10 @@ extension TimetableFeature {
   ) -> Effect<Action> {
     switch action {
     case .clockStarted:
+      analyticsUseCase.track(.screenView(
+        screen: .timetable,
+        referrer: nil
+      ))
       updateClock(
         state: &state,
         date: now
@@ -352,6 +358,12 @@ extension TimetableFeature {
       guard state.days.indices.contains(index) else { return .none }
       if index != state.selectedDayIndex {
         state.shouldShowOverlapWarning = false
+        if let festivalID = state.festivalID {
+          analyticsUseCase.track(.timetableAction(TimetableActionData(
+            action: .daySelect,
+            festivalID: festivalID
+          )))
+        }
       }
       state.selectedDayIndex = index
       if let date = state.clockDate {
@@ -364,6 +376,12 @@ extension TimetableFeature {
 
     case .mineOnlyToggled:
       state.showsMineOnly.toggle()
+      if let festivalID = state.festivalID {
+        analyticsUseCase.track(.timetableAction(TimetableActionData(
+          action: .mineOnlyToggle,
+          festivalID: festivalID
+        )))
+      }
       return .none
 
     case let .setTapped(id):

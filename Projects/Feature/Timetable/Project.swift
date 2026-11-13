@@ -15,6 +15,10 @@ let project = Project.makeModule(
   dependencies: [
     .domain(.festival, .interface),
     .domain(.timetable, .interface),
+    .service(
+      .analytics,
+      .interface
+    ),
     .ui(.designSystem),
     .ui(.sharedUI),
     .SPM.composableArchitecture

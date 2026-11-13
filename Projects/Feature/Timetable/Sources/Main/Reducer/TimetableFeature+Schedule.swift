@@ -6,6 +6,7 @@
 //
 
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
 import Foundation
 
@@ -67,6 +68,13 @@ extension TimetableFeature {
       }
       state.mySetIDs.insert(id)
       toast = .send(.scope(.setDetail(.presented(.async(.showScheduleToast)))))
+    }
+    if let festivalID = state.festivalID {
+      analyticsUseCase.track(.timetableAction(TimetableActionData(
+        action: .scheduleToggle,
+        festivalID: festivalID,
+        setID: id
+      )))
     }
     state.shouldShowOverlapWarning = !state.overlaps.isEmpty
     guard state.scheduleSync == .ready else { return toast }

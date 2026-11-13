@@ -23,6 +23,7 @@ public struct FestivalPrepFlagsFeature {
       zoneNames: [String: String] = [:]
     ) {
       flag = FestivalFlagFeature.State(festivalID: festivalID)
+      flag.tracksScreenView = false
       flag.directory.zoneNames = zoneNames
     }
 

@@ -7,16 +7,34 @@
 
 import AuthDomainInterface
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import Testing
 @testable import Auth
 
 struct LoginFeatureTests {
   @Test @MainActor func signInTapAsksParentWithoutStartingLogin() async {
-    let store = TestStore(initialState: LoginFeature.State()) { LoginFeature() }
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
+    let store = TestStore(initialState: LoginFeature.State()) {
+      LoginFeature()
+    } withDependencies: {
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
+    }
 
     // 부모가 시트 상태를 확인한 뒤 `view(.signIn)`을 보낼 때까지 로그인을 시작하지 않는다.
     await store.send(.view(.signInTapped(.apple)))
     await store.receive(.delegate(.signInRequested(.apple)))
+    await store.send(.view(.signInTapped(.google)))
+    await store.receive(.delegate(.signInRequested(.google)))
+    #expect(analytics.value == [
+      .uiAction(
+        action: .loginApple,
+        screen: .login
+      ),
+      .uiAction(
+        action: .loginGoogle,
+        screen: .login
+      )
+    ])
   }
 
   @Test @MainActor func closeTapAsksParentToDismissSheet() async {

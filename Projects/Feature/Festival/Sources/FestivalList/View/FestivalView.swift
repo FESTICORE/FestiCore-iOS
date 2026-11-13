@@ -28,6 +28,7 @@ public struct FestivalView: View {
     )
     .task {
       send(.onAppear)
+      send(.festivalListOnAppear)
       send(.liveActivityOnAppear)
     }
     .onChange(of: scenePhase) { _, phase in

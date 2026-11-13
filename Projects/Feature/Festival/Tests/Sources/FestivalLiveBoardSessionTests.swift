@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCorePackInterface
 import FestivalDomainInterface
 import Foundation
@@ -122,6 +123,7 @@ struct FestivalLiveBoardSessionTests {
       $0.useServiceBackedFestivalUseCases()
       $0.continuousClock = clock
       $0.date = .constant(receivedAt)
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalLiveBoardService = SessionLiveBoardService { _ in
         let attempt = calls.withValue { count in
           count += 1
@@ -167,6 +169,7 @@ struct FestivalLiveBoardSessionTests {
       $0.useServiceBackedFestivalUseCases()
       $0.continuousClock = clock
       $0.date = .constant(receivedAt)
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalLiveBoardService = SessionLiveBoardService { _ in
         let attempt = calls.withValue { count in
           count += 1
@@ -203,6 +206,7 @@ struct FestivalLiveBoardSessionTests {
       FestivalFeature()
     } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
+      $0.analyticsUseCase.track = { _ in }
       $0.continuousClock = clock
       $0.festivalLiveBoardService = SessionLiveBoardService { _ in
         try await clock.sleep(for: .seconds(60))
@@ -245,10 +249,12 @@ struct FestivalLiveBoardSessionTests {
   func loggedOutDoesNotLoadMySchedule() async {
     let clock = TestClock()
     let fetched = LockIsolated(0)
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
     let store = TestStore(initialState: FestivalFeature.State(selectedFestivalID: "fst")) {
       FestivalFeature()
     } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
       $0.continuousClock = clock
       $0.festivalLiveBoardService = SessionLiveBoardService { _ in
         try await clock.sleep(for: .seconds(60))
@@ -266,6 +272,10 @@ struct FestivalLiveBoardSessionTests {
       $0.isLiveBoardVisible = false
     }
     #expect(fetched.value == 0)
+    #expect(analytics.value == [.screenView(
+      screen: .liveBoard,
+      referrer: nil
+    )])
   }
 
   @Test("다른 축제·이전 요청·이전 세대의 내 일정 응답은 버리고 화면을 닫아도 일정을 유지한다")
@@ -657,6 +667,7 @@ struct FestivalLiveBoardSessionTests {
       return state
     }()) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
+      $0.analyticsUseCase.track = { _ in }
       $0.continuousClock = clock
       $0.festivalLiveBoardService = SessionLiveBoardService { _ in
         try await clock.sleep(for: .seconds(60))
