@@ -61,7 +61,7 @@ public struct FestivalFeature {
     public var onlineDetailLoading = false
     public var onlineDetailFailed = false
     public var displayDocument: FestivalPackDocument? { onlineDetail ?? selectedPack }
-    var liveBoardState = FestivalLiveBoardState()
+    var liveBoardState = FestivalLiveBoardFeature.State()
     public var liveBoard: FestivalLiveBoardSnapshot? {
       get { liveBoardState.snapshot }
       set { liveBoardState.snapshot = newValue }
@@ -374,6 +374,7 @@ public struct FestivalFeature {
     case view(View)
     case async(AsyncAction)
     case inner(InnerAction)
+    case liveBoard(FestivalLiveBoardFeature.Action)
     case festivalSwitcher(PresentationAction<FestivalSwitcherFeature.Action>)
     case crewGather(PresentationAction<FestivalCrewGatherFeature.Action>)
     case followGuideAlert(PresentationAction<FCAlertAction>)
@@ -535,6 +536,10 @@ public struct FestivalFeature {
   @Dependency(\.analyticsUseCase) private var analyticsUseCase
 
   public var body: some ReducerOf<Self> {
+    Scope(
+      state: \.liveBoardState,
+      action: \.liveBoard
+    ) { FestivalLiveBoardFeature() }
     Reduce { state, action in
       switch action {
       case let .view(viewAction):
@@ -573,6 +578,9 @@ public struct FestivalFeature {
         case let .festivalSelected(id): return .send(.view(.selectFestival(id)))
         case .seeAllFestivals: return .send(.view(.backToFestivalList))
         }
+
+      case .liveBoard:
+        return .none
 
       case .festivalSwitcher:
         return .none
@@ -719,11 +727,10 @@ extension FestivalFeature {
       state.onlineDetail = nil
       state.onlineDetailLoading = state.isLiveBoardVisible
       state.onlineDetailFailed = false
-      state.liveBoard = nil
-      state.liveBoardUnavailable = false
-      state.liveBoardUnpublished = false
-      state.liveBoardClockAnchorAt = nil
-      state.liveBoardReceivedAt = nil
+      let clearBoard = reduceLiveBoard(
+        state: &state,
+        action: .cleared
+      )
       state.mySchedule = nil
       state.myScheduleUnavailable = false
       state.liveActivity.error = nil
@@ -731,7 +738,10 @@ extension FestivalFeature {
       state.packWatchFailed = false
       showCachedPack(in: &state)
       resolveImageURLs(in: &state)
-      return .send(.async(.selectedFestivalChanged(id)))
+      return .merge(
+        clearBoard,
+        .send(.async(.selectedFestivalChanged(id)))
+      )
 
     case .backToFestivalList:
       return .none
@@ -848,8 +858,13 @@ extension FestivalFeature {
 
     case .retryLiveBoard:
       guard state.isLiveBoardVisible else { return .none }
-      state.liveBoardUnavailable = false
-      return .send(.async(.startLiveBoard))
+      return .merge(
+        reduceLiveBoard(
+          state: &state,
+          action: .retried
+        ),
+        .send(.async(.startLiveBoard))
+      )
 
     case .liveActivityTapped:
       guard state.liveActivity.isReady,
@@ -1081,15 +1096,15 @@ extension FestivalFeature {
       state.notificationBanner = nil
       state.crewGather = nil
       state.accountGeneration += 1
-      state.liveBoard = nil
-      state.liveBoardUnavailable = false
-      state.liveBoardUnpublished = false
-      state.liveBoardClockAnchorAt = nil
-      state.liveBoardReceivedAt = nil
+      let clearBoard = reduceLiveBoard(
+        state: &state,
+        action: .cleared
+      )
       state.mySchedule = nil
       state.myScheduleUnavailable = false
       state.autoActivityHandledStarts = [:]
       return .merge(downloadIDs.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) } + [
+        clearBoard,
         state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
         state.liveActivity.isReady || state.isLiveBoardVisible ? loadMySchedule(&state) : .none,
         hasSession && state.isLiveBoardVisible
@@ -1644,34 +1659,30 @@ extension FestivalFeature {
       snapshot
     ):
       guard state.selectedFestivalID == id, state.accountGeneration == generation else { return .none }
-      if state.liveBoard?.serverAt != snapshot.serverAt || state.liveBoardClockAnchorAt == nil {
-        state.liveBoardClockAnchorAt = date.now
-      }
-      state.liveBoard = snapshot
-      state.liveBoardUnavailable = false
-      state.liveBoardUnpublished = false
-      state.liveBoardReceivedAt = date.now
-      return .none
+      return reduceLiveBoard(
+        state: &state,
+        action: .snapshotLoaded(snapshot)
+      )
 
     case let .liveBoardUnpublished(
       id,
       generation
     ):
       guard state.selectedFestivalID == id, state.accountGeneration == generation else { return .none }
-      state.liveBoard = nil
-      state.liveBoardUnavailable = false
-      state.liveBoardUnpublished = true
-      state.liveBoardClockAnchorAt = nil
-      state.liveBoardReceivedAt = nil
-      return .none
+      return reduceLiveBoard(
+        state: &state,
+        action: .unpublished
+      )
 
     case let .liveBoardFailed(
       id,
       generation
     ):
       guard state.selectedFestivalID == id, state.accountGeneration == generation else { return .none }
-      state.liveBoardUnavailable = true
-      return .none
+      return reduceLiveBoard(
+        state: &state,
+        action: .failed
+      )
 
     case let .myScheduleLoaded(
       festivalID,
@@ -2099,6 +2110,20 @@ extension FestivalFeature {
       urls[value] = imageUseCase.imageURL(for: value)
     }
     state.imageURLs = urls
+  }
+
+  /// 라이브 보드 자식 상태를 같은 실행 안에서 바꾼다.
+  /// 효과로 보내면 같은 실행에서 이어지는 조회 시작·코디네이터 읽기가 이전 보드 상태를 본다.
+  private func reduceLiveBoard(
+    state: inout State,
+    action: FestivalLiveBoardFeature.View
+  ) -> Effect<Action> {
+    return FestivalLiveBoardFeature()
+      .reduce(
+        into: &state.liveBoardState,
+        action: .view(action)
+      )
+      .map(Action.liveBoard)
   }
 
   private func watchLiveBoard(_ state: State) -> Effect<Action> {
