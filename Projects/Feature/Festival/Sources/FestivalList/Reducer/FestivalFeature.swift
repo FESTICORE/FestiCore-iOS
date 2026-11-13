@@ -61,7 +61,22 @@ public struct FestivalFeature {
     public var onlineDetailLoading = false
     public var onlineDetailFailed = false
     public var displayDocument: FestivalPackDocument? { onlineDetail ?? selectedPack }
-    var liveBoardState = FestivalLiveBoardFeature.State()
+    var liveBoardStorage = FestivalLiveBoardFeature.State()
+    /// 라이브 보드 자식 상태. 응답 확인에 쓰는 현재 선택 축제·계정 세대는 읽을 때 채우고 저장할 때 비운다.
+    var liveBoardState: FestivalLiveBoardFeature.State {
+      get {
+        var state = liveBoardStorage
+        state.selectedFestivalID = selectedFestivalID
+        state.accountGeneration = accountGeneration
+        return state
+      }
+      set {
+        var state = newValue
+        state.selectedFestivalID = nil
+        state.accountGeneration = 0
+        liveBoardStorage = state
+      }
+    }
     public var liveBoard: FestivalLiveBoardSnapshot? {
       get { liveBoardState.snapshot }
       set { liveBoardState.snapshot = newValue }
@@ -496,9 +511,6 @@ public struct FestivalFeature {
     case autoStartLiveActivity(festivalID: String, performanceStart: Date)
     case liveActivityBoundary
     case liveActivityChanged
-    case liveBoardLoaded(String, generation: Int, FestivalLiveBoardSnapshot)
-    case liveBoardFailed(String, generation: Int)
-    case liveBoardUnpublished(String, generation: Int)
     case myScheduleLoaded(festivalID: String, requestID: Int, generation: Int, Set<String>)
     case myScheduleFailed(festivalID: String, requestID: Int, generation: Int)
     case homeDetailsLoaded(String, FestivalPackDetail.Directions?)
@@ -513,7 +525,7 @@ public struct FestivalFeature {
 
   enum CancelID {
     case catalog, packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary
-    case liveBoard, onlineDetail, mySchedule, notificationUnreadCount, notificationMarkRead, toast
+    case onlineDetail, mySchedule, notificationUnreadCount, notificationMarkRead, toast
     case homeWalk
   }
   private struct LiveActivitySyncID: Hashable { let id: String }
@@ -522,7 +534,6 @@ public struct FestivalFeature {
   @Dependency(\.festivalCatalogUseCase) private var catalogUseCase
   @Dependency(\.festivalPackUseCase) private var packUseCase
   @Dependency(\.festivalLibraryUseCase) private var libraryUseCase
-  @Dependency(\.festivalLiveBoardUseCase) private var liveBoardUseCase
   @Dependency(\.festivalScheduleUseCase) private var scheduleUseCase
   @Dependency(\.festivalPackDetailUseCase) private var packDetailUseCase
   @Dependency(\.festivalImageUseCase) private var imageUseCase
@@ -669,7 +680,10 @@ extension FestivalFeature {
       }
       return .merge(
         .cancel(id: CancelID.packUpdates),
-        .cancel(id: CancelID.liveBoard),
+        reduceLiveBoard(
+          state: &state,
+          action: .stopped
+        ),
         .cancel(id: CancelID.liveActivityBoundary),
         .send(.async(.prefetchImages))
       )
@@ -679,7 +693,7 @@ extension FestivalFeature {
       state.viewState = .loading
       state.catalogNextCursor = nil
       let refreshBoard = refreshLiveBoard(
-        state,
+        &state,
         allowsBackground: true
       )
       let refreshHome: Effect<Action>
@@ -848,7 +862,10 @@ extension FestivalFeature {
       // 화면을 떠나면 위치·경로 계산을 멈추고, 다시 보일 때 새로 계산한다.
       state.homeWalk = state.homeWalk.stopped
       return .merge(
-        .cancel(id: CancelID.liveBoard),
+        reduceLiveBoard(
+          state: &state,
+          action: .stopped
+        ),
         .cancel(id: CancelID.onlineDetail),
         .cancel(id: CancelID.homeWalk)
       )
@@ -1071,7 +1088,7 @@ extension FestivalFeature {
       state.crewGather = nil
       state.accountGeneration += 1
       return .merge(downloadIDs.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) } + [
-        state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
+        state.isLiveBoardVisible ? watchLiveBoard(&state) : .none,
         .cancel(id: CancelID.mySchedule),
         .cancel(id: CancelID.notificationUnreadCount),
         .cancel(id: CancelID.notificationMarkRead)
@@ -1105,7 +1122,7 @@ extension FestivalFeature {
       state.autoActivityHandledStarts = [:]
       return .merge(downloadIDs.map { Effect<Action>.cancel(id: PackDownloadID(id: $0)) } + [
         clearBoard,
-        state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
+        state.isLiveBoardVisible ? watchLiveBoard(&state) : .none,
         state.liveActivity.isReady || state.isLiveBoardVisible ? loadMySchedule(&state) : .none,
         hasSession && state.isLiveBoardVisible
           ? .send(.async(.loadNotificationUnreadCount))
@@ -1171,7 +1188,7 @@ extension FestivalFeature {
         watchSelectedPack(state),
         prefetchImages(state),
         state.liveActivity.isReady ? loadLiveActivities(revision: state.liveActivity.revision) : .none,
-        state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
+        state.isLiveBoardVisible ? watchLiveBoard(&state) : .none,
         loadMySchedule(&state)
       )
 
@@ -1183,7 +1200,7 @@ extension FestivalFeature {
         .run { _ in catalogUseCase.saveSelectedFestivalID(id) },
         state.isLiveBoardVisible ? .send(.async(.loadOnlineDetail(id))) : .none,
         watchSelectedPack(state),
-        state.isLiveBoardVisible ? watchLiveBoard(state) : .none,
+        state.isLiveBoardVisible ? watchLiveBoard(&state) : .none,
         state.isLiveBoardVisible && state.cachedPacks[id] != nil
           ? .send(.async(.loadHomeDetails(id))) : .none,
         loadMySchedule(&state),
@@ -1238,7 +1255,7 @@ extension FestivalFeature {
 
     case .startLiveBoard:
       return .merge(
-        watchLiveBoard(state),
+        watchLiveBoard(&state),
         loadMySchedule(&state)
       )
 
@@ -1521,7 +1538,7 @@ extension FestivalFeature {
           retryImagesAfterRecovery(in: &state)
           resolveImageURLs(in: &state)
           let packChanged = previousPackData != pack.pack
-          let refreshBoard = packChanged ? refreshLiveBoard(state) : .none
+          let refreshBoard = packChanged ? refreshLiveBoard(&state) : .none
           let refreshHome = state.isLiveBoardVisible && packChanged
             ? Effect<Action>.send(.async(.loadHomeDetails(id))) : .none
           return previousPack != document || retryPending
@@ -1652,37 +1669,6 @@ extension FestivalFeature {
       state.toast = .packDownloadFailed
       state.toastRevision += 1
       return .send(.async(.expireToast))
-
-    case let .liveBoardLoaded(
-      id,
-      generation,
-      snapshot
-    ):
-      guard state.selectedFestivalID == id, state.accountGeneration == generation else { return .none }
-      return reduceLiveBoard(
-        state: &state,
-        action: .snapshotLoaded(snapshot)
-      )
-
-    case let .liveBoardUnpublished(
-      id,
-      generation
-    ):
-      guard state.selectedFestivalID == id, state.accountGeneration == generation else { return .none }
-      return reduceLiveBoard(
-        state: &state,
-        action: .unpublished
-      )
-
-    case let .liveBoardFailed(
-      id,
-      generation
-    ):
-      guard state.selectedFestivalID == id, state.accountGeneration == generation else { return .none }
-      return reduceLiveBoard(
-        state: &state,
-        action: .failed
-      )
 
     case let .myScheduleLoaded(
       festivalID,
@@ -2126,75 +2112,40 @@ extension FestivalFeature {
       .map(Action.liveBoard)
   }
 
-  private func watchLiveBoard(_ state: State) -> Effect<Action> {
+  /// 포그라운드·화면 표시·축제 선택을 확인해 자식에 조회 시작이나 중지를 전한다.
+  private func watchLiveBoard(_ state: inout State) -> Effect<Action> {
     guard state.isForeground, state.isLiveBoardVisible,
           let id = state.selectedFestivalID else {
-      return .cancel(id: CancelID.liveBoard)
+      return reduceLiveBoard(
+        state: &state,
+        action: .stopped
+      )
     }
     let generation = state.accountGeneration
-    return .run { send in
-      while !Task.isCancelled {
-        var interval: TimeInterval = 35
-        do {
-          let snapshot = try await liveBoardUseCase.liveBoard(for: id)
-          await send(.inner(.liveBoardLoaded(
-            id,
-            generation: generation,
-            snapshot
-          )))
-        } catch FestivalLiveBoardError.festivalNotFound {
-          await send(.inner(.liveBoardUnpublished(
-            id,
-            generation: generation
-          )))
-        } catch FestivalLiveBoardError.rateLimited(let retryAfter) {
-          // 조회 제한은 장애가 아니다. 보이던 보드를 그대로 두고 허용 시각 뒤에 다시 불러온다.
-          interval = max(
-            interval,
-            retryAfter
-          )
-        } catch {
-          await send(.inner(.liveBoardFailed(
-            id,
-            generation: generation
-          )))
-        }
-        try await clock.sleep(for: .seconds(interval))
-      }
-    }
-    .cancellable(
-      id: CancelID.liveBoard,
-      cancelInFlight: true
+    return reduceLiveBoard(
+      state: &state,
+      action: .watchRequested(
+        festivalID: id,
+        generation: generation
+      )
     )
   }
 
   /// 팩 WebSocket이 새 시간표를 알리면 보드 데이터도 즉시 다시 조회한다.
   private func refreshLiveBoard(
-    _ state: State,
+    _ state: inout State,
     allowsBackground: Bool = false
   ) -> Effect<Action> {
     guard (state.isForeground || allowsBackground), state.isLiveBoardVisible,
           let id = state.selectedFestivalID else { return .none }
     let generation = state.accountGeneration
-    return .run { send in
-      do {
-        await send(.inner(.liveBoardLoaded(
-          id,
-          generation: generation,
-          try await liveBoardUseCase.liveBoard(for: id)
-        )))
-      } catch FestivalLiveBoardError.festivalNotFound {
-        await send(.inner(.liveBoardUnpublished(
-          id,
-          generation: generation
-        )))
-      } catch {
-        await send(.inner(.liveBoardFailed(
-          id,
-          generation: generation
-        )))
-      }
-    }
+    return reduceLiveBoard(
+      state: &state,
+      action: .refreshRequested(
+        festivalID: id,
+        generation: generation
+      )
+    )
   }
 
   /// 세션이 있고 축제가 선택되어 있으면 내 일정을 불러와 자동 시작 시각을 계산한다.

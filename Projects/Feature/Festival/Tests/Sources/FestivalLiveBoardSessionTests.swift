@@ -41,7 +41,7 @@ struct FestivalLiveBoardSessionTests {
     store.exhaustivity = .off
 
     await store.send(.view(.remoteContentChanged))
-    await store.receive(\.inner.liveBoardLoaded) {
+    await store.receive(\.liveBoard.inner.liveBoardLoaded) {
       $0.liveBoard = emptyBoard
       $0.liveBoardClockAnchorAt = refreshedAt
       $0.liveBoardReceivedAt = refreshedAt
@@ -100,7 +100,7 @@ struct FestivalLiveBoardSessionTests {
         )
       )
     )
-    await store.receive(\.inner.liveBoardLoaded) {
+    await store.receive(\.liveBoard.inner.liveBoardLoaded) {
       $0.liveBoard = emptyBoard
       $0.liveBoardClockAnchorAt = receivedAt
       $0.liveBoardReceivedAt = receivedAt
@@ -136,13 +136,13 @@ struct FestivalLiveBoardSessionTests {
 
     await store.send(.view(.liveBoardOnAppear)) { $0.isLiveBoardVisible = true }
     await store.receive(\.async.startLiveBoard)
-    await store.receive(\.inner.liveBoardUnpublished) {
+    await store.receive(\.liveBoard.inner.liveBoardUnpublished) {
       $0.liveBoard = nil
       $0.liveBoardUnpublished = true
       $0.liveBoardReceivedAt = nil
     }
     await clock.advance(by: .seconds(35))
-    await store.receive(\.inner.liveBoardLoaded) {
+    await store.receive(\.liveBoard.inner.liveBoardLoaded) {
       $0.liveBoard = emptyBoard
       $0.liveBoardUnpublished = false
       $0.liveBoardClockAnchorAt = receivedAt
@@ -186,7 +186,7 @@ struct FestivalLiveBoardSessionTests {
     #expect(!store.state.liveBoardUnavailable)
     #expect(store.state.liveBoard == previousAccountBoard)
     await clock.advance(by: .seconds(49))
-    await store.receive(\.inner.liveBoardLoaded) {
+    await store.receive(\.liveBoard.inner.liveBoardLoaded) {
       $0.liveBoard = emptyBoard
       $0.liveBoardClockAnchorAt = receivedAt
       $0.liveBoardReceivedAt = receivedAt
@@ -358,15 +358,15 @@ struct FestivalLiveBoardSessionTests {
       $0.sessionUserID = nil
       $0.accountGeneration = 1
     }
-    await store.send(.inner(.liveBoardLoaded(
+    await store.send(.liveBoard(.inner(.liveBoardLoaded(
       "fst",
       generation: 0,
       previousAccountBoard
-    )))
-    await store.send(.inner(.liveBoardFailed(
+    ))))
+    await store.send(.liveBoard(.inner(.liveBoardFailed(
       "fst",
       generation: 0
-    )))
+    ))))
 
     await store.send(.view(.sessionChanged(
       hasSession: true,
@@ -376,11 +376,11 @@ struct FestivalLiveBoardSessionTests {
       $0.sessionUserID = "user-b"
       $0.accountGeneration = 2
     }
-    await store.send(.inner(.liveBoardLoaded(
+    await store.send(.liveBoard(.inner(.liveBoardLoaded(
       "fst",
       generation: 1,
       previousAccountBoard
-    )))
+    ))))
   }
 
   @Test("같은 세션 값이 다시 와도 비우거나 다시 불러오지 않는다")
@@ -430,7 +430,7 @@ struct FestivalLiveBoardSessionTests {
       $0.sessionUserID = nil
       $0.accountGeneration = 1
     }
-    await store.receive(\.inner.liveBoardLoaded) {
+    await store.receive(\.liveBoard.inner.liveBoardLoaded) {
       $0.liveBoard = emptyBoard
       $0.liveBoardClockAnchorAt = receivedAt
       $0.liveBoardReceivedAt = receivedAt
@@ -481,7 +481,7 @@ struct FestivalLiveBoardSessionTests {
       $0.bookedUserID = nil
       $0.bookedFestivalIDs = []
     }
-    await store.receive(\.inner.liveBoardLoaded) {
+    await store.receive(\.liveBoard.inner.liveBoardLoaded) {
       $0.liveBoard = emptyBoard
       $0.liveBoardClockAnchorAt = receivedAt
       $0.liveBoardReceivedAt = receivedAt
@@ -642,11 +642,11 @@ struct FestivalLiveBoardSessionTests {
       $0.date = .constant(revalidatedAt)
     }
 
-    await store.send(.inner(.liveBoardLoaded(
+    await store.send(.liveBoard(.inner(.liveBoardLoaded(
       "fst",
       generation: 0,
       board
-    ))) {
+    )))) {
       $0.liveBoardReceivedAt = revalidatedAt
     }
     #expect(store.state.liveBoardClockAnchorAt == firstReceivedAt)
