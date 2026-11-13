@@ -43,7 +43,7 @@ extension MainTabCoordinator {
     }
     let festivalEffect: Effect<Action> = selectedID == state.flagState.festivalID
       ? .none
-      : .send(.flagDirectory(.festivalChanged(selectedID)))
+      : .send(.flagDirectory(.view(.festivalChanged(selectedID))))
     // 열린 깃발 상세에 팩·내 일정·계정 변경을 알린다.
     guard state.flagCoordinatorState.isDetailOpen else { return festivalEffect }
     return .merge(

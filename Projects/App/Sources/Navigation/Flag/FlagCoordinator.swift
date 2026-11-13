@@ -205,10 +205,10 @@ extension FlagCoordinator {
       .followerCount
     return .send(.router(.routeAction(
       id: 0,
-      action: .directory(.directory(.followChangedElsewhere(
+      action: .directory(.directory(.view(.followChangedElsewhere(
         result,
         baseCount: baseCount
-      )))
+      ))))
     )))
   }
 }

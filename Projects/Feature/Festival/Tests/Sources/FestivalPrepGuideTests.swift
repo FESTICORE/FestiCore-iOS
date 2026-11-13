@@ -126,8 +126,8 @@ struct FestivalPrepGuideTests {
     store.exhaustivity = .off
 
     await store.send(.view(.onAppear))
-    await store.receive(\.flag.appeared)
-    await store.receive(\.flag.loaded)
+    await store.receive(\.flag.view.appeared)
+    await store.receive(\.flag.inner.loaded)
     #expect(analytics.value.isEmpty)
   }
 

@@ -104,24 +104,24 @@ extension FestivalPrepFlagsFeature {
   private func handleViewAction(action: View) -> Effect<Action> {
     switch action {
     case .onAppear:
-      return .send(.flag(.appeared))
+      return .send(.flag(.view(.appeared)))
 
     case .onDisappear:
-      return .send(.flag(.disappeared))
+      return .send(.flag(.view(.disappeared)))
 
     case .tagSelected(let tag):
-      return .send(.flag(.directory(.tagSelected(tag))))
+      return .send(.flag(.directory(.view(.tagSelected(tag)))))
 
     case let .followTapped(
       id,
       follow,
       baseCount
     ):
-      return .send(.flag(.directory(.followTapped(
+      return .send(.flag(.directory(.view(.followTapped(
         id: id,
         follow: follow,
         baseCount: baseCount
-      ))))
+      )))))
 
     case .nextTapped, .skipTapped:
       return .send(.delegate(.finished))

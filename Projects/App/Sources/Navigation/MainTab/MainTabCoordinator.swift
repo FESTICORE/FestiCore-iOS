@@ -422,7 +422,7 @@ extension MainTabCoordinator {
           || accountChanged
           || (oldSession.hasSession && !session.hasSession)
         if refreshAccountData {
-          await send(.flagDirectory(.accountChanged))
+          await send(.flagDirectory(.view(.accountChanged)))
         }
         if accountChanged || (oldSession.hasSession && !session.hasSession) {
           await send(.timetable(.view(.accountChanged)))

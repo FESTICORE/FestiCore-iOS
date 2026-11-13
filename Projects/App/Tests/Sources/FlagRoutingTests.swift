@@ -20,7 +20,7 @@ struct FlagRoutingTests {
     // 상세 상태의 표시 시각(now)은 만들 때의 기기 시각이라 경로·문맥만 확인한다.
     store.exhaustivity = .off
 
-    await store.send(.flagDirectory(.directory(.cardTapped("flg_1"))))
+    await store.send(.flagDirectory(.directory(.view(.cardTapped("flg_1")))))
     await store.receive { $0.flagDirectoryAction == .directory(.delegate(.detailRequested(flagID: "flg_1"))) }
     await store.receive(\.flagCoordinator.delegate.detailRequested)
     await store.receive(\.flagCoordinator.navigation.showDetail)
@@ -141,14 +141,14 @@ struct FlagRoutingTests {
       )))
     ))))
     await store.receive {
-      $0.flagDirectoryAction == .directory(.followChangedElsewhere(
+      $0.flagDirectoryAction == .directory(.view(.followChangedElsewhere(
         FestivalFlagFollowResult(
           flagID: "flg_1",
           isFollowing: true,
           followerCount: 11
         ),
         baseCount: 10
-      ))
+      )))
     }
     let snapshot = try #require(store.state.flagState.snapshot)
     let row = try #require(store.state.flagState.directory.rows(
