@@ -1857,7 +1857,10 @@ struct AppCoordinatorTests {
 
     await store.send(.accountChanged)
     await store.receive {
-      guard case .router(.routeAction(id: 1, action: .liveBoard(.inner(.liveBoardLoaded)))) = $0 else { return false }
+      guard case .router(.routeAction(
+        id: 1,
+        action: .liveBoard(.liveBoard(.inner(.liveBoardLoaded)))
+      )) = $0 else { return false }
       return true
     }
     #expect(store.state.routes.last?.screen.liveBoard?.liveBoard == current)
