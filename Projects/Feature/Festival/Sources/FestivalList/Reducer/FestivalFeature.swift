@@ -614,6 +614,36 @@ public struct FestivalFeature {
           action: .hideFollowGuideTapped
         )
 
+      case .liveBoard(.delegate(.crewLoginRequested)):
+        return handleViewAction(
+          state: &state,
+          action: .crewLoginTapped
+        )
+
+      case .liveBoard(.delegate(.gatherCrewRequested)):
+        return handleViewAction(
+          state: &state,
+          action: .gatherCrewTapped
+        )
+
+      case let .liveBoard(.delegate(.crewZoneRequested(zoneID))):
+        return handleViewAction(
+          state: &state,
+          action: .zoneChipTapped(zoneID)
+        )
+
+      case .liveBoard(.delegate(.createCrewRequested)):
+        return handleViewAction(
+          state: &state,
+          action: .createCrewTapped
+        )
+
+      case .liveBoard(.delegate(.crewOpenRequested)):
+        return handleViewAction(
+          state: &state,
+          action: .crewTapped
+        )
+
       case .liveBoard:
         return .none
 

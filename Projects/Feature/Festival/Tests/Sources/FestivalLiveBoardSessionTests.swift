@@ -765,6 +765,28 @@ struct FestivalLiveBoardSessionTests {
       )
     }
   }
+
+  @Test("크루 섹션의 로그인 탭은 자식 delegate를 거쳐 부모의 로그인 요청을 그대로 보낸다")
+  func crewLoginTappedRunsParentLoginThroughDelegate() async {
+    let store = TestStore(initialState: FestivalFeature.State(selectedFestivalID: "fst")) {
+      FestivalFeature()
+    }
+
+    await store.send(.liveBoard(.view(.crewLoginTapped)))
+    await store.receive(\.liveBoard.delegate.crewLoginRequested)
+    await store.receive(\.delegate.crewLoginRequested)
+  }
+
+  @Test("세션 없이 크루 만들기를 누르면 자식 delegate를 거쳐 부모가 로그인을 요청한다")
+  func createCrewTappedWithoutSessionRunsParentThroughDelegate() async {
+    let store = TestStore(initialState: FestivalFeature.State(selectedFestivalID: "fst")) {
+      FestivalFeature()
+    }
+
+    await store.send(.liveBoard(.view(.createCrewTapped)))
+    await store.receive(\.liveBoard.delegate.createCrewRequested)
+    await store.receive(\.delegate.crewLoginRequested)
+  }
 }
 
 private let emptyBoard = FestivalLiveBoardSnapshot(
