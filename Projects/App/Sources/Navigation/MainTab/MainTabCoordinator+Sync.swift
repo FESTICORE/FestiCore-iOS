@@ -38,15 +38,21 @@ extension MainTabCoordinator {
       zones.map { ($0.id, $0.name) },
       uniquingKeysWith: { first, _ in first }
     )
-    if state.flagState.directory.zoneNames != zoneNames {
-      state.flagState.directory.zoneNames = zoneNames
-    }
+    let zoneEffect: Effect<Action> = state.flagState.directory.zoneNames == zoneNames
+      ? .none
+      : .send(.flagDirectory(.view(.zoneNamesChanged(zoneNames))))
     let festivalEffect: Effect<Action> = selectedID == state.flagState.festivalID
       ? .none
       : .send(.flagDirectory(.view(.festivalChanged(selectedID))))
     // 열린 깃발 상세에 팩·내 일정·계정 변경을 알린다.
-    guard state.flagCoordinatorState.isDetailOpen else { return festivalEffect }
+    guard state.flagCoordinatorState.isDetailOpen else {
+      return .merge(
+        zoneEffect,
+        festivalEffect
+      )
+    }
     return .merge(
+      zoneEffect,
       festivalEffect,
       .send(.flagCoordinator(.navigation(.updateDetailContext(flagDetailContext(state)))))
     )
@@ -83,40 +89,51 @@ extension MainTabCoordinator {
       )
     } ?? []
     let daysChanged = state.timetableState.days != days
-    let selectedDayID = state.timetableState.selectedDay?.id
-    state.timetableState.days = days
-    state.timetableState.selectedDayIndex = days.firstIndex { $0.id == selectedDayID } ?? 0
-    state.timetableState.lineup = pack.map {
+    let lineup = pack.map {
       FestivalPackTimetableMapper.lineup(
         from: $0,
         imageURL: { home?.imageURL(for: $0) }
       )
     } ?? []
-    state.timetableState.source = FestivalPackTimetableMapper.source(pack?.source)
+    let contentStatus: TimetableFeature.ContentStatus
     if festivalID == nil {
-      state.timetableState.contentStatus = .noFestival
+      contentStatus = .noFestival
     } else if let pack {
-      state.timetableState.contentStatus = pack.performances.isEmpty ? .unpublished : .published
+      contentStatus = pack.performances.isEmpty ? .unpublished : .published
     } else if home?.onlineDetailLoading == true
       || (home?.connection == .loading && home?.onlineDetailFailed != true && home?.packWatchFailed != true) {
-      state.timetableState.contentStatus = .loading
+      contentStatus = .loading
     } else {
-      state.timetableState.contentStatus = .failed
+      contentStatus = .failed
     }
-    state.timetableState.offlineMessage = nil
+    var offlineMessage: String?
     if home?.connection == .offline, pack != nil {
       if let id = festivalID, let checkedAt = home?.cachedPacks[id]?.checkedAt {
         let minutes = max(
           0,
           Int(now.timeIntervalSince(checkedAt) / 60)
         )
-        state.timetableState.offlineMessage = minutes == 0
+        offlineMessage = minutes == 0
           ? "오프라인 · 방금 확인한 정보"
           : "오프라인 · \(minutes)분 전 정보"
       } else {
-        state.timetableState.offlineMessage = "오프라인 · 저장된 정보"
+        offlineMessage = "오프라인 · 저장된 정보"
       }
     }
+    // 팩 값은 타임테이블 자기 액션으로 반영하되 이 실행 안에서 바로 처리한다.
+    // 효과로 보내면 같은 묶음 뒤에 보낸 타임테이블 액션(공연 딥링크의 setTapped 등)이 이전 시간표를 읽는다.
+    let packEffect = TimetableFeature()
+      .reduce(
+        into: &state.timetableState,
+        action: .view(.packSynced(
+          days: days,
+          lineup: lineup,
+          source: FestivalPackTimetableMapper.source(pack?.source),
+          contentStatus: contentStatus,
+          offlineMessage: offlineMessage
+        ))
+      )
+      .map { Action.timetableCoordinator(.timetable($0)) }
     if let list = state.timetableCoordinatorState.setList {
       state.timetableCoordinatorState.setList = sameFestival
         ? TimetableSetListFeature.State(
@@ -127,16 +144,22 @@ extension MainTabCoordinator {
         : nil
     }
     if !sameFestival {
-      return .send(.timetable(.view(.festivalChanged(festivalID))))
+      return .merge(
+        packEffect,
+        .send(.timetable(.view(.festivalChanged(festivalID))))
+      )
     }
-    guard daysChanged || appearing else { return .none }
-    return .run { send in
-      if daysChanged {
-        await send(.timetable(.view(.packUpdated)))
+    guard daysChanged || appearing else { return packEffect }
+    return .merge(
+      packEffect,
+      .run { send in
+        if daysChanged {
+          await send(.timetable(.view(.packUpdated)))
+        }
+        if appearing {
+          await send(.timetable(.view(.timetableAppeared)))
+        }
       }
-      if appearing {
-        await send(.timetable(.view(.timetableAppeared)))
-      }
-    }
+    )
   }
 }

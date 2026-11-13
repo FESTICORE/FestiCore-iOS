@@ -245,6 +245,16 @@ public struct TimetableFeature {
     case packUpdated
     /// 부모가 같은 축제로 타임테이블 탭에 다시 들어왔다고 알린다.
     case timetableAppeared
+    /// 부모가 선택 축제 팩에서 옮긴 시간표·라인업·출처·표시 상태를 알린다. 고른 날짜는 같은 날짜 ID로 유지한다.
+    case packSynced(
+      days: [TimetableDay],
+      lineup: [TimetableLineupDay],
+      source: String,
+      contentStatus: ContentStatus,
+      offlineMessage: String?
+    )
+    /// 부모가 다른 화면에서 저장한 같은 축제의 내 일정을 알린다.
+    case mySetIDsChanged(Set<String>)
   }
 
   // MARK: - AsyncAction
@@ -439,6 +449,26 @@ extension TimetableFeature {
       // 내 일정 고르기가 열려 있으면 저장이 겹치지 않도록 다시 읽거나 저장하지 않는다.
       guard state.festivalID != nil, !state.isSaving, state.destination == nil else { return .none }
       return state.uncertainSave == nil ? loadSchedule(state: &state) : saveSchedule(state: &state)
+
+    case let .packSynced(
+      days,
+      lineup,
+      source,
+      contentStatus,
+      offlineMessage
+    ):
+      let selectedDayID = state.selectedDay?.id
+      state.days = days
+      state.selectedDayIndex = days.firstIndex { $0.id == selectedDayID } ?? 0
+      state.lineup = lineup
+      state.source = source
+      state.contentStatus = contentStatus
+      state.offlineMessage = offlineMessage
+      return .none
+
+    case let .mySetIDsChanged(setIDs):
+      state.mySetIDs = setIDs
+      return .none
     }
   }
 

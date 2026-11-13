@@ -101,6 +101,8 @@ public struct FestivalFlagDirectory {
       FestivalFlagFollowResult,
       baseCount: Int?
     )
+    /// 부모가 선택 축제 팩의 구역 이름을 알린다. 카드의 구역 칩에 쓴다.
+    case zoneNamesChanged([String: String])
   }
 
   // MARK: - AsyncAction
@@ -203,6 +205,10 @@ extension FestivalFlagDirectory {
         followerCount: result.followerCount,
         baseCount: baseCount
       )
+      return .none
+
+    case let .zoneNamesChanged(zoneNames):
+      state.zoneNames = zoneNames
       return .none
     }
   }
