@@ -10,6 +10,7 @@ struct FestiCoreFestivalActivityWidget: Widget {
     return ActivityConfiguration(for: FestiCoreFestivalActivityAttributes.self) { context in
       lockScreenCard(
         festivalID: context.attributes.festivalID,
+        festivalName: context.attributes.festivalName,
         state: context.state,
         isStale: context.isStale
       )
@@ -38,6 +39,7 @@ struct FestiCoreFestivalActivityWidget: Widget {
       } compactLeading: {
         Text(headline(
           for: context.state,
+          festivalID: context.attributes.festivalID,
           isStale: context.isStale
         ))
           .font(WidgetFont.bagel(13))
@@ -77,12 +79,14 @@ private extension FestiCoreFestivalActivityWidget {
   @ViewBuilder
   func lockScreenCard(
     festivalID: String,
+    festivalName: String,
     state: FestiCoreFestivalActivityAttributes.ContentState,
     isStale: Bool
   ) -> some View {
     VStack(spacing: 0) {
       nowPlayingPanel(
         festivalID: festivalID,
+        festivalName: festivalName,
         state: state,
         isStale: isStale
       )
@@ -118,6 +122,7 @@ private extension FestiCoreFestivalActivityWidget {
   @ViewBuilder
   func nowPlayingPanel(
     festivalID: String,
+    festivalName: String,
     state: FestiCoreFestivalActivityAttributes.ContentState,
     isStale: Bool
   ) -> some View {
@@ -127,18 +132,12 @@ private extension FestiCoreFestivalActivityWidget {
     ) {
       HStack(alignment: .firstTextBaseline) {
         // Figma: "NOW PLAYING · 리벳 스테이지"처럼 단계와 무대를 한 줄에 둔다.
-        Text([
-          phaseLabel(
-            for: state,
-            isStale: isStale
-          ),
-          currentStageName(
-            for: state,
-            festivalID: festivalID
-          )
-        ]
-          .compactMap { $0 }
-          .joined(separator: " · "))
+        Text(eyebrow(
+          for: state,
+          festivalID: festivalID,
+          festivalName: festivalName,
+          isStale: isStale
+        ))
           .font(.pretendardFontFamily(
             family: .Bold,
             size: 9
@@ -148,6 +147,7 @@ private extension FestiCoreFestivalActivityWidget {
       }
       Text(headline(
         for: state,
+        festivalID: festivalID,
         isStale: false
       ))
         .font(WidgetFont.bagel(34))
@@ -155,7 +155,10 @@ private extension FestiCoreFestivalActivityWidget {
         .opacity(isStale ? 0.4 : 1)
         .minimumScaleFactor(0.7)
         .lineLimit(1)
-      companionLines(for: state)
+      companionLines(
+        for: state,
+        festivalID: festivalID
+      )
     }
     .foregroundStyle(WidgetPalette.black)
     // Figma Lock Live Activity: 글자·카운트다운 좌우 16
@@ -184,7 +187,10 @@ private extension FestiCoreFestivalActivityWidget {
         spacing: FestiCoreSpacing.marginM2
       ) {
         // Figma Lock Live Activity: '다음 내 일정'은 Static Alpha/White 60
-        Text("다음 내 일정")
+        Text(nextLabel(
+          for: state,
+          festivalID: festivalID
+        ))
           .font(.pretendardFontFamily(
             family: .Medium,
             size: 10
@@ -249,8 +255,9 @@ private extension FestiCoreFestivalActivityWidget {
       alignment: .leading,
       spacing: FestiCoreSpacing.marginM2
     ) {
-      Text(phaseLabel(
+      Text(islandPhaseLabel(
         for: state,
+        festivalID: festivalID,
         isStale: isStale
       ))
         .font(.pretendardFontFamily(
@@ -279,8 +286,27 @@ private extension FestiCoreFestivalActivityWidget {
   }
 
   /// Figma: 제목 아래에 "호락호락 · 슬램"(고정 깃발)과 "크루 4명 · 3명 현장"(크루)을 나란히 둔다.
+  /// 오늘 공연이 끝났으면 "조심히 들어가요 · 내일 15:00 개장" 한 줄만 둔다.
   @ViewBuilder
-  func companionLines(for state: FestiCoreFestivalActivityAttributes.ContentState) -> some View {
+  func companionLines(
+    for state: FestiCoreFestivalActivityAttributes.ContentState,
+    festivalID: String
+  ) -> some View {
+    if let status = dayStatus(
+      for: state,
+      festivalID: festivalID
+    ), status.isFinished {
+      companionLabel(
+        goodbyeText(status.next),
+        icon: .circleCheck16
+      )
+    } else {
+      pinnedAndCrewLines(for: state)
+    }
+  }
+
+  @ViewBuilder
+  func pinnedAndCrewLines(for state: FestiCoreFestivalActivityAttributes.ContentState) -> some View {
     let flag = FestivalActivityWidgetContent.pinnedFlagText(state.pinnedFlag)
     let crew = FestivalActivityWidgetContent.crewText(state.crewSummary)
     if flag != nil || crew != nil {
@@ -362,6 +388,7 @@ private extension FestiCoreFestivalActivityWidget {
     ) {
       Text(headline(
         for: state,
+        festivalID: festivalID,
         isStale: false
       ))
         .font(WidgetFont.bagel(28))
@@ -378,7 +405,10 @@ private extension FestiCoreFestivalActivityWidget {
           alignment: .leading,
           spacing: FestiCoreSpacing.marginM2
         ) {
-          Text("다음 내 일정")
+          Text(nextLabel(
+            for: state,
+            festivalID: festivalID
+          ))
             .font(.pretendardFontFamily(
               family: .Medium,
               size: 10
@@ -503,17 +533,115 @@ private extension FestiCoreFestivalActivityWidget {
 
   func headline(
     for state: FestiCoreFestivalActivityAttributes.ContentState,
+    festivalID: String,
     isStale: Bool
   ) -> String {
     if isStale { return "정보를 확인해 주세요" }
     if state.phase == .ongoing, let end = state.endDate,
        end > .now, end.timeIntervalSinceNow <= 3600 { return "귀가 준비!" }
     if let current = state.nowStages.first { return current.artist }
+    if let status = dayStatus(
+      for: state,
+      festivalID: festivalID
+    ) {
+      // Figma Live Activity 공연 전 `15:00 개장`, 종료 후 `오늘 끝!`
+      guard let opensAt = status.opensAt else { return "오늘 끝!" }
+      return "\(opensAt.formatted(.time)) 개장"
+    }
     switch state.phase {
     case .upcoming: return "\(state.startDate.formatted(.time)) 공연 시작"
     case .ongoing: return "다음 공연 준비 중"
     case .finished: return "오늘 끝!"
     }
+  }
+
+  func dayStatus(
+    for state: FestiCoreFestivalActivityAttributes.ContentState,
+    festivalID: String
+  ) -> FestivalActivityWidgetContent.DayStatus? {
+    return FestivalActivityWidgetContent.dayStatus(
+      state: state,
+      snapshot: FestivalWidgetStore.load(),
+      festivalID: festivalID,
+      now: .now,
+      calendar: AppDateFormat.calendar
+    )
+  }
+
+  /// Figma Live Activity: 공연 전 `{축제} · DAY 1`, 종료 후 `{축제} · DAY 1 끝`, 공연 중 `NOW PLAYING · {무대}`.
+  func eyebrow(
+    for state: FestiCoreFestivalActivityAttributes.ContentState,
+    festivalID: String,
+    festivalName: String,
+    isStale: Bool
+  ) -> String {
+    if !isStale, let day = dayLabel(
+      for: state,
+      festivalID: festivalID
+    ) {
+      return "\(festivalName) · \(day)"
+    }
+    return [
+      phaseLabel(
+        for: state,
+        isStale: isStale
+      ),
+      currentStageName(
+        for: state,
+        festivalID: festivalID
+      )
+    ]
+      .compactMap { $0 }
+      .joined(separator: " · ")
+  }
+
+  func islandPhaseLabel(
+    for state: FestiCoreFestivalActivityAttributes.ContentState,
+    festivalID: String,
+    isStale: Bool
+  ) -> String {
+    if !isStale, let day = dayLabel(
+      for: state,
+      festivalID: festivalID
+    ) {
+      return day
+    }
+    return phaseLabel(
+      for: state,
+      isStale: isStale
+    )
+  }
+
+  /// `DAY 1` 또는 `DAY 1 끝`
+  func dayLabel(
+    for state: FestiCoreFestivalActivityAttributes.ContentState,
+    festivalID: String
+  ) -> String? {
+    guard let status = dayStatus(
+      for: state,
+      festivalID: festivalID
+    ) else { return nil }
+    return status.isFinished ? "DAY \(status.day) 끝" : "DAY \(status.day)"
+  }
+
+  /// Figma Live Activity: 공연 전 `첫 내 일정`, 종료 후 `내일 첫 내 일정`.
+  func nextLabel(
+    for state: FestiCoreFestivalActivityAttributes.ContentState,
+    festivalID: String
+  ) -> String {
+    guard let status = dayStatus(
+      for: state,
+      festivalID: festivalID
+    ) else { return "다음 내 일정" }
+    if !status.isFinished { return "첫 내 일정" }
+    return status.next?.isTomorrow == true ? "내일 첫 내 일정" : "다음 내 일정"
+  }
+
+  /// `조심히 들어가요 · 내일 15:00 개장`. 다음 행사일이 내일이 아니면 날짜를, 없으면 인사만 둔다.
+  func goodbyeText(_ next: FestivalActivityWidgetContent.NextOpening?) -> String {
+    guard let next else { return "조심히 들어가요" }
+    let day = next.isTomorrow ? "내일" : next.date.formatted(.festivalDay)
+    return "조심히 들어가요 · \(day) \(next.opensAt.formatted(.time)) 개장"
   }
 
   func shortStatusText(for state: FestiCoreFestivalActivityAttributes.ContentState) -> String {
