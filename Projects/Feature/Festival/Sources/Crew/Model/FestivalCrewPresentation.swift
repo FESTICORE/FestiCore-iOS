@@ -58,8 +58,9 @@ struct FestivalCrewPresentation: Equatable {
     if let archivedAt {
       summary = "\(count)명 · \(archivedAt.formatted(.festivalDay))에 끝남"
     } else {
+      // Figma S07: `N명 · M/d(E) 자정까지 유지`. 보관 시각(다음 날 00:00) 직전 날짜를 쓴다.
       let until = crew.archivesAt.map {
-        " · \($0.formatted(.festivalDay)) \($0.formatted(.time))까지 유지"
+        " · \($0.addingTimeInterval(-1).formatted(.festivalDay)) 자정까지 유지"
       } ?? ""
       summary = "\(count)명\(until)"
     }

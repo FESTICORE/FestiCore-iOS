@@ -185,7 +185,7 @@ struct FestivalCrewFeatureTests {
       summary: "가는 중 2명 · 확인 1명"
     ))
     #expect(presentation.members.first?.isInactive == true)
-    #expect(presentation.summary == "1명 · 1/2(금) 09:00까지 유지")
+    #expect(presentation.summary == "1명 · 1/1(목) 자정까지 유지")
   }
 
   /// Figma S07 F: 받은 크루원은 '가는 중'·'확인' 버튼을 보고, 10분이 지나면 배너가 내려간다.
@@ -323,6 +323,25 @@ struct FestivalCrewFeatureTests {
     #expect(presentation.summary == "1명 · \(now.formatted(.festivalDay))에 끝남")
     #expect(presentation.members.first?.time == now.addingTimeInterval(-60).formatted(.monthDayTime))
     #expect(presentation.members.first?.isMe == true)
+  }
+
+  /// Figma S07: 크루는 마지막 공연이 끝난 날의 자정(KST)까지 유지한다(서버 crewArchiveTime과 같은 기준).
+  @Test(arguments: [
+    ("2026-11-21T22:00:00+09:00", "2026-11-22T23:00:00+09:00", "2026-11-23T00:00:00+09:00"),
+    ("2026-11-23T01:00:00+09:00", "2026-11-23T01:00:00+09:00", "2026-11-24T00:00:00+09:00"),
+    ("2026-11-23T00:00:00+09:00", "2026-11-23T00:00:00+09:00", "2026-11-23T00:00:00+09:00"),
+  ])
+  func archiveTimeIsMidnightAfterLastShow(
+    firstEnd: String,
+    lastEnd: String,
+    expected: String
+  ) throws {
+    let json = #"{"id":"fst_a","days":[{"endsAt":"\#(firstEnd)"},{"endsAt":"\#(lastEnd)"}]}"#
+    let festival = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: Data(json.utf8)
+    )
+    #expect(FestivalCrewFeature.State.archiveTime(festival) == expected.isoDate)
   }
 
   private func state(memberState: String) -> FestivalCrewFeature.State {
