@@ -92,6 +92,10 @@ struct FestivalWidgetProvider: TimelineProvider {
       let boundary = end.addingTimeInterval(-3600)
       if boundary > now, boundary < horizon { dates.insert(boundary) }
     }
+    // Figma Widget 공연 전: 개장 시각에 `15:00 개장`에서 공연 전 상태로 넘어간다.
+    for day in snapshot?.days ?? [] {
+      if let opensAt = day.opensAt, opensAt > now, opensAt < horizon { dates.insert(opensAt) }
+    }
     if let leaveAt = snapshot?.leaveAt {
       for boundary in [leaveAt.addingTimeInterval(-3600), leaveAt] where boundary > now && boundary < horizon {
         dates.insert(boundary)
@@ -166,6 +170,69 @@ extension FestivalWidgetEntry {
     return phase == .finished && !performances.contains { $0.startsAt > date }
   }
 
+  /// 다음 축제 일자의 개장 안내(Figma Widget 종료 후 `내일 DAY 2 · 15:00 개장`).
+  struct UpcomingOpening {
+    let number: Int
+    /// `내일` 또는 `M/d(E)`
+    let dayWord: String
+    let opensAt: Date
+
+    var time: String { return opensAt.formatted(.time) }
+  }
+
+  /// 팩 일자(날짜순). 이전 버전 스냅샷에는 없다.
+  var festivalDays: [FestivalWidgetSnapshot.Day] {
+    return (snapshot?.days ?? []).sorted { $0.date < $1.date }
+  }
+
+  /// 오늘이 축제 몇째 날인지(1부터). 축제 일자가 아니면 nil.
+  var todayNumber: Int? {
+    guard let index = festivalDays.firstIndex(where: {
+      AppDateFormat.calendar.isDate(
+        $0.date,
+        inSameDayAs: date
+      )
+    }) else { return nil }
+    return index + 1
+  }
+
+  /// 공연 전 상태이고 오늘 개장 전이면 오늘 개장 시각(Figma Widget 공연 전 `OPEN 15:00`).
+  var openingToday: Date? {
+    guard phase == .before, let number = todayNumber,
+          let opensAt = festivalDays[number - 1].opensAt, date < opensAt else { return nil }
+    return opensAt
+  }
+
+  /// 오늘 공연이 끝난 뒤 다음 축제 일자의 개장 시각.
+  var upcomingOpening: UpcomingOpening? {
+    guard phase == .finished, !isFestivalOver else { return nil }
+    let calendar = AppDateFormat.calendar
+    let startOfToday = calendar.startOfDay(for: date)
+    guard let index = festivalDays.firstIndex(where: { $0.date > startOfToday }),
+          let opensAt = festivalDays[index].opensAt else { return nil }
+    let tomorrow = calendar.date(
+      byAdding: .day,
+      value: 1,
+      to: startOfToday
+    )
+    let isTomorrow = tomorrow.map { calendar.isDate(
+      festivalDays[index].date,
+      inSameDayAs: $0
+    ) } ?? false
+    return UpcomingOpening(
+      number: index + 1,
+      dayWord: isTomorrow ? "내일" : festivalDays[index].date.formatted(.festivalDay),
+      opensAt: opensAt
+    )
+  }
+
+  /// Figma Widget Small 히어로. 공연 전 개장 전에는 `오늘 개장!`.
+  var smallHeadline: String {
+    if phase == .noPack { return "팩을\n받아요" }
+    if openingToday != nil { return "오늘\n개장!" }
+    return headline
+  }
+
   var headline: String {
     switch phase {
     case .unavailable: return "정보를 불러오지 못했어요"
@@ -176,6 +243,7 @@ extension FestivalWidgetEntry {
       return "\(snapshot.festivalName) 끝"
     case .playing: return current?.artist ?? "다음 공연 준비 중"
     case .before:
+      if let openingToday { return "\(openingToday.formatted(.time)) 개장" }
       guard let first = performances.first(where: { $0.startsAt > date }) else { return "공연을 기다려요" }
       return "\(first.startsAt.formatted(.time)) 공연 시작"
     }
@@ -203,8 +271,11 @@ extension FestivalWidgetEntry {
     case .goingHome: return snapshot?.leaveAt == nil ? "공연 종료" : "귀가 시간"
     case .finished:
       if isFestivalOver { return "다음 페스티벌 보기" }
-      return next == nil ? "다음 페스티벌에서 만나요" : "다음 내 일정"
-    case .before, .playing: return next == nil ? "내 일정이 없어요" : "다음 내 일정"
+      guard let next else { return "다음 페스티벌에서 만나요" }
+      // Figma Widget 종료 후: 다음 날 일정은 `내일 첫 내 일정`.
+      return isTomorrow(next.startsAt) ? "내일 첫 내 일정" : "다음 내 일정"
+    case .before: return next == nil ? "내 일정이 없어요" : "첫 내 일정"
+    case .playing: return next == nil ? "내 일정이 없어요" : "다음 내 일정"
     }
   }
 
@@ -259,10 +330,23 @@ extension FestivalWidgetEntry {
     return "\(next.startsAt.formatted(.festivalDay)) · 내 일정"
   }
 
-  /// Figma Widget Small 칩: 공연 중은 `NOW · 무대`, 그 밖은 상태 머리말.
+  /// Figma Widget Small 칩: 공연 중은 `NOW · 무대`, 개장 전은 `OPEN 15:00`, 그 밖은 상태 머리말.
   var chipTitle: String {
     if phase == .playing, let current { return "NOW · \(current.stageName)" }
+    if let openingToday { return "OPEN \(openingToday.formatted(.time))" }
     return eyebrow
+  }
+
+  func isTomorrow(_ value: Date) -> Bool {
+    guard let tomorrow = AppDateFormat.calendar.date(
+      byAdding: .day,
+      value: 1,
+      to: date
+    ) else { return false }
+    return AppDateFormat.calendar.isDate(
+      value,
+      inSameDayAs: tomorrow
+    )
   }
 
   /// Figma Widget Medium·Large 상단 줄.
@@ -273,7 +357,16 @@ extension FestivalWidgetEntry {
       guard let current else { return eyebrow }
       return "\(eyebrow) · \(current.stageName) · \(current.startsAt.formatted(.time))"
     case .goingHome: return "\(eyebrow) · 종료 1시간 전"
-    case .before, .finished: return snapshot?.festivalName ?? "FESTICORE"
+    case .before:
+      let name = snapshot?.festivalName ?? "FESTICORE"
+      // Figma Widget Medium·Large 공연 전: `{축제} · DAY 1 · 11/21(토)`
+      guard let todayNumber else { return name }
+      return "\(name) · DAY \(todayNumber) · \(date.formatted(.festivalDay))"
+    case .finished:
+      let name = snapshot?.festivalName ?? "FESTICORE"
+      // Figma Widget Medium·Large 종료 후: `{축제} · DAY 1 끝`
+      guard let todayNumber else { return name }
+      return "\(name) · DAY \(todayNumber) 끝"
     }
   }
 
@@ -295,7 +388,11 @@ extension FestivalWidgetEntry {
     case .goingHome:
       guard let last = today.max(by: { $0.endsAt < $1.endsAt }) else { return nil }
       return "@\(last.stageName)  마지막 무대 \(last.artist)"
-    case .unavailable, .finished: return nil
+    case .finished:
+      // Figma Widget Medium 종료 후: `내일 DAY 2 · 15:00 개장`
+      guard let upcomingOpening else { return nil }
+      return "\(upcomingOpening.dayWord) DAY \(upcomingOpening.number) · \(upcomingOpening.time) 개장"
+    case .unavailable: return nil
     }
   }
 
@@ -304,6 +401,10 @@ extension FestivalWidgetEntry {
     switch family {
     case .systemSmall:
       if phase == .noPack { return "탭해서 페스티벌 고르기" }
+      // Figma Widget Small 종료 후: `DAY 2 · 내일 15:00 개장`
+      if let upcomingOpening {
+        return "DAY \(upcomingOpening.number) · \(upcomingOpening.dayWord) \(upcomingOpening.time) 개장"
+      }
       if phase == .before || phase == .playing, let next { return next.artist }
       return footerTitle
     case .systemLarge:
@@ -332,10 +433,44 @@ extension FestivalWidgetEntry {
     }
   }
 
+  /// Figma Widget 종료 후 Small·Medium 하단 바는 남은 시간을 보이지 않는다.
+  var showsBarCountdown: Bool {
+    return phase != .finished
+  }
+
   var rectangularLabel: String {
     if phase == .noPack { return "FESTICORE" }
+    // Figma Lock Screen 종료 후: `{축제} DAY 1`
+    if phase == .finished, !isFestivalOver, let todayNumber, let snapshot {
+      return "\(snapshot.festivalName) DAY \(todayNumber)"
+    }
     if phase == .playing, next == nil, let current { return "지금 \(current.stageName)" }
     return footerTitle
+  }
+
+  /// Figma Lock Screen 인라인 공연 전 `개장 15:00 · 첫 일정 15:30`, 종료 후 `오늘 공연 끝 · 내일 15:00 개장`.
+  var inlineOverride: String? {
+    if let openingToday {
+      let opening = "개장 \(openingToday.formatted(.time))"
+      // 첫 일정은 오늘 저장한 공연만 쓴다. 다른 날 일정을 오늘 첫 일정으로 보이지 않는다.
+      guard let first = today.first(where: { $0.isSaved && $0.startsAt > date }) else { return opening }
+      return "\(opening) · 첫 일정 \(first.startsAt.formatted(.time))"
+    }
+    if let upcomingOpening {
+      return "오늘 공연 끝 · \(upcomingOpening.dayWord) \(upcomingOpening.time) 개장"
+    }
+    return nil
+  }
+
+  /// Figma Lock Screen 사각형 아래 줄. 종료 후에는 다음 날 개장 시각.
+  var rectangularDetail: String {
+    if let upcomingOpening { return "\(upcomingOpening.dayWord) \(upcomingOpening.time) 개장" }
+    return footerDetail
+  }
+
+  /// 잠금화면 원형·사각형 남은 시간. 종료 후에는 `끝`·`오늘 끝!`을 보인다.
+  var accessoryTarget: Date? {
+    return phase == .finished ? nil : target
   }
 
   var inlineText: String {
@@ -353,7 +488,9 @@ struct FestivalWidgetView: View {
   var body: some View {
     switch family {
     case .accessoryInline:
-      if let target = entry.target {
+      if let text = entry.inlineOverride {
+        Text(text)
+      } else if let target = entry.target {
         Text("\(entry.next?.artist ?? entry.footerTitle) ") + Text(
           target,
           style: .relative
@@ -493,7 +630,7 @@ private extension FestivalWidgetView {
       spacing: isSmall || isLarge ? FestiCoreSpacing.marginM6 : FestiCoreSpacing.marginM2
     ) {
       posterHeader()
-      Text(isSmall && entry.phase == .noPack ? "팩을\n받아요" : entry.headline)
+      Text(isSmall ? entry.smallHeadline : entry.headline)
         .font(WidgetFont.bagel(isSmall ? 30 : isLarge ? 44 : 34))
         .widgetAccentable()
         .rotationEffect(.degrees(isSmall || isLarge ? -6 : -4))
@@ -705,7 +842,7 @@ private extension FestivalWidgetView {
         .lineLimit(1)
         .truncationMode(.tail)
       Spacer(minLength: 0)
-      if let target = entry.target, !isLarge {
+      if let target = entry.target, !isLarge, entry.showsBarCountdown {
         (Text(
           target,
           style: .relative
@@ -735,7 +872,7 @@ private extension FestivalWidgetView {
     ZStack {
       AccessoryWidgetBackground()
       VStack(spacing: FestiCoreSpacing.marginM2) {
-        if let target = entry.target {
+        if let target = entry.accessoryTarget {
           Text(
             target,
             style: .relative
@@ -751,7 +888,7 @@ private extension FestivalWidgetView {
         } else {
           Text(entry.phase == .unavailable ? "!" : entry.phase == .finished ? "끝" : "F")
             .font(WidgetFont.bagel(26))
-          circularUnit(entry.phase == .noPack ? "팩 없음" : "FESTICORE")
+          circularUnit(circularFallbackUnit)
         }
       }
       .padding(
@@ -759,6 +896,13 @@ private extension FestivalWidgetView {
         FestiCoreSpacing.paddingP4
       )
     }
+  }
+
+  /// Figma Lock Screen 원형 종료 후는 `끝` + `DAY N`.
+  var circularFallbackUnit: String {
+    if entry.phase == .noPack { return "팩 없음" }
+    if entry.phase == .finished, let number = entry.todayNumber { return "DAY \(number)" }
+    return "FESTICORE"
   }
 
   func circularUnit(_ text: String) -> some View {
@@ -774,7 +918,7 @@ private extension FestivalWidgetView {
 
   @ViewBuilder
   func countdownLabel() -> some View {
-    if let target = entry.target {
+    if let target = entry.accessoryTarget {
       Text(
         target,
         style: .relative
@@ -804,7 +948,7 @@ private extension FestivalWidgetView {
         .font(WidgetFont.bagel(20))
         .lineLimit(1)
         .minimumScaleFactor(0.7)
-      Text(entry.footerDetail)
+      Text(entry.rectangularDetail)
         .font(.pretendardFontFamily(
           family: .Medium,
           size: 11

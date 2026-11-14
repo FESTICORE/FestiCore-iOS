@@ -27,6 +27,21 @@ public struct FestivalWidgetSnapshot: Codable, Equatable, Sendable {
     }
   }
 
+  /// 축제 하루. 위젯이 `DAY N`과 개장 시각(`15:00 개장`)을 보일 때 쓴다.
+  public struct Day: Codable, Equatable, Sendable {
+    /// 그날 00:00(KST)
+    public let date: Date
+    public let opensAt: Date?
+
+    public init(
+      date: Date,
+      opensAt: Date?
+    ) {
+      self.date = date
+      self.opensAt = opensAt
+    }
+  }
+
   public let festivalID: String
   public let festivalName: String
   public let firstDay: Date?
@@ -36,6 +51,8 @@ public struct FestivalWidgetSnapshot: Codable, Equatable, Sendable {
   public let performances: [Performance]
   public let leaveAt: Date?
   public let crewName: String?
+  /// 축제 일자(날짜순). 이전 버전 스냅샷에는 없다.
+  public let days: [Day]?
 
   public init(
     festivalID: String,
@@ -46,7 +63,8 @@ public struct FestivalWidgetSnapshot: Codable, Equatable, Sendable {
     hasPack: Bool,
     performances: [Performance],
     leaveAt: Date? = nil,
-    crewName: String? = nil
+    crewName: String? = nil,
+    days: [Day]? = nil
   ) {
     self.festivalID = festivalID
     self.festivalName = festivalName
@@ -57,6 +75,7 @@ public struct FestivalWidgetSnapshot: Codable, Equatable, Sendable {
     self.performances = performances
     self.leaveAt = leaveAt
     self.crewName = crewName
+    self.days = days
   }
 
   public func withUpdatedAt(_ date: Date) -> Self {
@@ -69,7 +88,8 @@ public struct FestivalWidgetSnapshot: Codable, Equatable, Sendable {
       hasPack: hasPack,
       performances: performances,
       leaveAt: leaveAt,
-      crewName: crewName
+      crewName: crewName,
+      days: days
     )
   }
 }
