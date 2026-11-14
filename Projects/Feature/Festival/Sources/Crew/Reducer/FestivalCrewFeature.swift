@@ -223,9 +223,18 @@ extension FestivalCrewFeature.State {
     return zones.first { $0.id == id }?.name
   }
 
+  /// Figma S07: 크루는 마지막 공연이 끝난 날의 자정(KST)까지 유지한다. 서버 `crewArchiveTime`과 같은 기준이다.
   static func archiveTime(_ festival: FestivalPackDocument?) -> Date? {
     let ends = (festival?.days ?? []).compactMap { $0.endsAt?.isoDate }
-    return ends.max().map { $0.addingTimeInterval(24 * 60 * 60) }
+    guard let lastEnd = ends.max() else { return nil }
+    let calendar = AppDateFormat.calendar
+    let dayStart = calendar.startOfDay(for: lastEnd)
+    guard dayStart != lastEnd else { return lastEnd }
+    return calendar.date(
+      byAdding: .day,
+      value: 1,
+      to: dayStart
+    )
   }
 }
 
