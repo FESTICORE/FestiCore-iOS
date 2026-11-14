@@ -291,36 +291,25 @@ struct ProfileRoutingTests {
     #expect(store.state.profileRoutes.count == 3)
   }
 
-  @Test("마이 설정 홈은 탭바를 보이고 그 아래 계정·설정·정보 화면에서 탭바를 숨기며 복귀하면 표시한다")
+  @Test("마이 설정 홈과 그 아래 계정·설정·정보 화면에서 탭바를 숨기고 복귀하면 표시한다")
   func profileInformationRoutesHideTabBarUntilDismissed() {
     var state = MainTabCoordinator.State(selectedTab: .my)
     #expect(!state.shouldHideTabBar)
     #expect(state.shouldReserveTabBarSpace)
 
-    // Figma S13-0: 설정 홈에는 마이 탭이 선택된 탭바가 있다.
+    // #557: 설정 홈은 탭바 없이 표시한다.
     state.profileState.destination = .settings(.init())
     #expect(state.profileState.profileRoutes.last?.screen.is(\.settings) == true)
-    #expect(!state.shouldHideTabBar)
-    #expect(state.shouldReserveTabBarSpace)
+    #expect(state.shouldHideTabBar)
+    #expect(!state.shouldReserveTabBarSpace)
 
-    // Figma S13-A~D·J: 알림·잠금화면·계정·화면 모드에도 마이 탭이 선택된 탭바가 있다.
-    let tabBarChildren: [SettingsHomeFeature.Destination.State] = [
+    // #557: 알림·잠금화면·계정·화면 모드·공지·약관도 탭바 없이 표시한다.
+    let baseURL = URL(string: "https://festicore-dev.up.railway.app/api/v1/legal")!
+    let children: [SettingsHomeFeature.Destination.State] = [
       .account(.init(profile: nil)),
       .notifications(.init()),
       .lockScreen(.init()),
       .appearance(.init()),
-    ]
-    for child in tabBarChildren {
-      state.profileState.destination = .settings(settings(child))
-      #expect(state.profileState.profileRoutes.count == 3)
-      #expect(state.profileState.profileRoutes.last?.screen.is(\.settings) == false)
-      #expect(!state.shouldHideTabBar)
-      #expect(state.shouldReserveTabBarSpace)
-    }
-
-    // 공지·약관 웹은 시안에 탭바가 없어 숨긴다.
-    let baseURL = URL(string: "https://festicore-dev.up.railway.app/api/v1/legal")!
-    let children: [SettingsHomeFeature.Destination.State] = [
       .noticeList(.init()),
       .legalDocument(.init(
         url: baseURL.appending(path: "terms"),
