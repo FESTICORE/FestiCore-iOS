@@ -110,13 +110,7 @@ struct MainTabView: View {
       height: authSheet.wrappedValue == .onboarding ? .fraction(1) : .auto,
       showsGrabber: authSheet.wrappedValue != .onboarding
     ) { sheet in
-      AuthCoordinatorView(
-        store: store.scope(
-          state: \.authFlow,
-          action: \.auth
-        ),
-        sheet: sheet
-      )
+      authSheetContent(sheet)
     }
     .onPreferenceChange(FCModalPresentedKey.self) { isModalPresented = $0 }
   }
@@ -133,6 +127,29 @@ private extension MainTabView {
     return FCModalBottomExtension(
       height: tabBarHeight + safeAreaBottom,
       safeAreaBottom: safeAreaBottom
+    )
+  }
+
+  /// 인증 시트 내용. Figma S14 로그인 시트 → 가입 정보는 MOVE_FROM_RIGHT라 같은 시트 안에서 가입 정보를 오른쪽에서 밀어 넣는다.
+  func authSheetContent(_ sheet: AuthCoordinatorView.Sheet) -> some View {
+    return ZStack {
+      AuthCoordinatorView(
+        store: store.scope(
+          state: \.authFlow,
+          action: \.auth
+        ),
+        sheet: sheet
+      )
+      .id(sheet)
+      .transition(.asymmetric(
+        insertion: .move(edge: .trailing),
+        removal: .move(edge: .leading)
+      ))
+    }
+    .clipped()
+    .animation(
+      .easeInOut(duration: 0.3),
+      value: sheet
     )
   }
 
