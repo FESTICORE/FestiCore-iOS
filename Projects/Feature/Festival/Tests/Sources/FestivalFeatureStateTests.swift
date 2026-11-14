@@ -121,6 +121,90 @@ struct FestivalFeatureStateTests {
     #expect(state.prefetchImageURLs == [url])
   }
 
+  /// Figma Widget Medium Info·Large 하단 바: 고정 깃발 `{깃발} · {존} · {활동}`, 크루 위치 `크루 N명 {존} · M명 {상태}`.
+  @Test func widgetSummariesUsePinnedFlagAndCrewPlaces() throws {
+    let document = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: Data(#"{"id":"festival","zones":[{"id":"z_slam","name":"슬램존"},{"id":"z_gate","name":"정문"}]}"#.utf8)
+    )
+    let pinned = FestivalLiveBoardSnapshot.Flag(
+      id: "flg_a",
+      name: "호락호락",
+      status: "active",
+      zoneID: "z_slam",
+      activity: "slam",
+      thumbnailURL: nil
+    )
+    let crew = FestivalLiveBoardSnapshot.Crew(
+      id: "crew",
+      name: "락린이들",
+      members: [
+        .init(
+          id: "a",
+          nickname: "a",
+          state: "here",
+          zoneID: "z_gate"
+        ),
+        .init(
+          id: "b",
+          nickname: "b",
+          state: "here",
+          zoneID: "z_slam"
+        ),
+        .init(
+          id: "c",
+          nickname: "c",
+          state: "eating",
+          zoneID: "z_slam"
+        ),
+        .init(
+          id: "d",
+          nickname: "d",
+          state: "here",
+          zoneID: "z_slam"
+        ),
+        .init(
+          id: "e",
+          nickname: "e",
+          state: nil,
+          zoneID: "z_slam"
+        ),
+        .init(
+          id: "f",
+          nickname: "f",
+          state: "here",
+          zoneID: nil
+        ),
+      ]
+    )
+    let board = FestivalLiveBoardSnapshot(
+      festivalID: "festival",
+      activeFlags: [],
+      followedFlags: [pinned],
+      crew: crew,
+      pinnedFlagID: "flg_a"
+    )
+
+    #expect(FestivalFeature.State.widgetPinnedFlagSummary(
+      board,
+      document: document
+    ) == "호락호락 · 슬램존 · 슬램")
+    #expect(FestivalFeature.State.widgetCrewLocationSummary(
+      crew,
+      document: document
+    ) == "크루 3명 슬램존 · 1명 정문")
+    let unpinned = FestivalLiveBoardSnapshot(
+      festivalID: "festival",
+      activeFlags: [],
+      followedFlags: [pinned],
+      crew: nil
+    )
+    #expect(FestivalFeature.State.widgetPinnedFlagSummary(
+      unpinned,
+      document: document
+    ) == nil)
+  }
+
   @Test func widgetContentUsesRealScheduleAndClearsSavedStateOnLogout() throws {
     var state = FestivalFeature.State(selectedFestivalID: "festival")
     state.catalog = [.init(

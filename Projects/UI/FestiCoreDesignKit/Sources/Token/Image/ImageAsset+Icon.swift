@@ -13,6 +13,7 @@ public extension ImageAsset {
   static let chevronLeft = ImageAsset(rawValue: "chevron-left")
   static let circleXmark = ImageAsset(rawValue: "circle-xmark")
   static let flag16 = ImageAsset(rawValue: "flag-16")
+  static let calendarDays16 = ImageAsset(rawValue: "calendar-days-16")
   static let magnifyingGlass = ImageAsset(rawValue: "magnifying-glass")
   static let magnifyingGlass16 = ImageAsset(rawValue: "magnifying-glass-16")
   static let chevronLeft16 = ImageAsset(rawValue: "chevron-left-16")

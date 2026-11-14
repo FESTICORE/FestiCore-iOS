@@ -226,6 +226,58 @@ extension FestivalWidgetEntry {
     )
   }
 
+  /// Figma Widget Medium Info 줄과 Large 하단 바의 아이콘 + 글자.
+  struct InfoLine {
+    let icon: ImageAsset
+    let text: String
+  }
+
+  var crewInfo: InfoLine? {
+    return snapshot?.crewLocationSummary.map { InfoLine(
+      icon: .users24,
+      text: $0
+    ) }
+  }
+
+  /// Figma Widget Medium Info: 공연 중 고정 깃발(없으면 크루 위치), 종료 1시간 전 크루 위치, 종료 후 내일 내 일정 수.
+  /// 공연 전 셔틀 안내는 데이터가 없어 보이지 않는다.
+  var mediumInfo: InfoLine? {
+    switch phase {
+    case .playing:
+      if let summary = snapshot?.pinnedFlagSummary {
+        return InfoLine(
+          icon: .flag16,
+          text: summary
+        )
+      }
+      return crewInfo
+    case .goingHome:
+      return crewInfo
+    case .finished:
+      guard !isFestivalOver, let next, isTomorrow(next.startsAt) else { return nil }
+      let count = performances.filter { performance in
+        return performance.isSaved && AppDateFormat.calendar.isDate(
+          performance.startsAt,
+          inSameDayAs: next.startsAt
+        )
+      }.count
+      return InfoLine(
+        icon: .calendarDays16,
+        text: "내일 내 일정 \(count)개 · 첫 공연 \(next.startsAt.formatted(.time))"
+      )
+    case .before, .noPack, .unavailable:
+      return nil
+    }
+  }
+
+  /// Figma Widget Large 하단 바: 공연 중(내 일정 있음)·종료 1시간 전에는 크루 위치를 보인다.
+  var largeCrewInfo: InfoLine? {
+    switch phase {
+    case .playing where next != nil, .goingHome: return crewInfo
+    default: return nil
+    }
+  }
+
   /// Figma Widget Small 히어로. 공연 전 개장 전에는 `오늘 개장!`.
   var smallHeadline: String {
     if phase == .noPack { return "팩을\n받아요" }
@@ -408,6 +460,7 @@ extension FestivalWidgetEntry {
       if phase == .before || phase == .playing, let next { return next.artist }
       return footerTitle
     case .systemLarge:
+      if let largeCrewInfo { return largeCrewInfo.text }
       switch phase {
       case .noPack: return "탭하면 페스티벌 목록으로 가요"
       case .finished where !isFestivalOver: return "조심히 들어가요 · 팩은 오프라인으로도 볼 수 있어요"
@@ -424,6 +477,7 @@ extension FestivalWidgetEntry {
 
   /// Figma Widget Large 하단 바 아이콘.
   var largeFooterIcon: ImageAsset? {
+    if let largeCrewInfo { return largeCrewInfo.icon }
     switch phase {
     case .noPack: return .chevronRight16
     case .finished: return isFestivalOver ? nil : .circleCheck16
@@ -647,6 +701,9 @@ private extension FestivalWidgetView {
           .rotationEffect(.degrees(-4))
           .lineLimit(1)
       }
+      if !isSmall, !isLarge, let info = entry.mediumInfo {
+        mediumInfoRow(info)
+      }
       if isLarge {
         if entry.phase == .noPack {
           Text("팩을 받으면 지금 무대 · 다음 내 일정 ·\n크루가 여기에 떠요.\n오프라인에서도 그대로 보여요.")
@@ -725,6 +782,27 @@ private extension FestivalWidgetView {
           FestiCoreSpacing.paddingP24 + FestiCoreSpacing.paddingP24
         )
     }
+  }
+
+  /// Figma Widget Medium Info: 아이콘 13 + Pretendard Medium 10 `Static Alpha/Black 60`, 간격 4
+  func mediumInfoRow(_ info: FestivalWidgetEntry.InfoLine) -> some View {
+    return HStack(spacing: FestiCoreSpacing.marginM4) {
+      Image(asset: info.icon)
+        .renderingMode(.template)
+        .resizable()
+        .frame(
+          width: 13,
+          height: 13
+        )
+        .accessibilityHidden(true)
+      Text(info.text)
+        .font(.pretendardFontFamily(
+          family: .Medium,
+          size: 10
+        ))
+        .lineLimit(1)
+    }
+    .foregroundStyle(assistive)
   }
 
   @ViewBuilder

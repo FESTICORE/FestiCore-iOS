@@ -53,6 +53,10 @@ public struct FestivalWidgetSnapshot: Codable, Equatable, Sendable {
   public let crewName: String?
   /// 축제 일자(날짜순). 이전 버전 스냅샷에는 없다.
   public let days: [Day]?
+  /// 고정한 깃발 요약(`호락호락 · 리벳 앞 왼쪽 · 슬램`). 로그인하고 깃발을 고정했을 때만 있다.
+  public let pinnedFlagSummary: String?
+  /// 크루 위치 요약(`크루 3명 슬램존 · 1명 밥`). 크루에 들어 있을 때만 있다.
+  public let crewLocationSummary: String?
 
   public init(
     festivalID: String,
@@ -64,7 +68,9 @@ public struct FestivalWidgetSnapshot: Codable, Equatable, Sendable {
     performances: [Performance],
     leaveAt: Date? = nil,
     crewName: String? = nil,
-    days: [Day]? = nil
+    days: [Day]? = nil,
+    pinnedFlagSummary: String? = nil,
+    crewLocationSummary: String? = nil
   ) {
     self.festivalID = festivalID
     self.festivalName = festivalName
@@ -76,6 +82,8 @@ public struct FestivalWidgetSnapshot: Codable, Equatable, Sendable {
     self.leaveAt = leaveAt
     self.crewName = crewName
     self.days = days
+    self.pinnedFlagSummary = pinnedFlagSummary
+    self.crewLocationSummary = crewLocationSummary
   }
 
   public func withUpdatedAt(_ date: Date) -> Self {
@@ -89,7 +97,9 @@ public struct FestivalWidgetSnapshot: Codable, Equatable, Sendable {
       performances: performances,
       leaveAt: leaveAt,
       crewName: crewName,
-      days: days
+      days: days,
+      pinnedFlagSummary: pinnedFlagSummary,
+      crewLocationSummary: crewLocationSummary
     )
   }
 }
