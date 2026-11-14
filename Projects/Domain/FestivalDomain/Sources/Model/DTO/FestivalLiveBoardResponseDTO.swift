@@ -79,9 +79,11 @@ public struct FestivalFlagsFlagDTO: Decodable, Sendable {
   public let tags: [String]?
   public let followerCount: Int?
   public let homeZoneId: String?
+  /// 공개한 관람 계획(공연 id). 계획을 숨긴 깃발은 빈 배열이다.
+  public let plan: [String]?
 
   private enum CodingKeys: String, CodingKey {
-    case id, name, thumbUrl, tags, followerCount, homeZoneId
+    case id, name, thumbUrl, tags, followerCount, homeZoneId, plan
   }
 
   public init(from decoder: Decoder) throws {
@@ -96,6 +98,10 @@ public struct FestivalFlagsFlagDTO: Decodable, Sendable {
     }
     followerCount = try container.decodeIfPresent(Int.self, forKey: .followerCount)
     homeZoneId = try container.decodeIfPresent(String.self, forKey: .homeZoneId)
+    plan = try? container.decodeIfPresent(
+      [String].self,
+      forKey: .plan
+    )
   }
 
   private struct TagValue: Decodable {

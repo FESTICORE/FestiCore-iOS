@@ -11,15 +11,19 @@ struct FestivalLiveBoardActiveFlagSection: View {
   /// 깃발 구역 이름을 찾는 표시용 팩. 부모 화면이 넘긴다.
   let pack: FestivalPackDocument?
   let now: Date
+  /// 개장 전이면 `도착 예정 순`(Figma S01 B), 그 밖에는 `최근 업데이트 순`으로 쌓는다.
+  let isBeforeOpening: Bool
 
   init(
     store: StoreOf<FestivalLiveBoardFeature>,
     pack: FestivalPackDocument?,
-    now: Date
+    now: Date,
+    isBeforeOpening: Bool
   ) {
     self.store = store
     self.pack = pack
     self.now = now
+    self.isBeforeOpening = isBeforeOpening
   }
 
   var body: some View {
@@ -28,10 +32,10 @@ struct FestivalLiveBoardActiveFlagSection: View {
       spacing: FestiCoreSpacing.paddingP16
     ) {
       FCSectionHeader("활성 깃발")
-        .action("최근 업데이트 순")
+        .action(ordersByArrival ? "도착 예정 순" : "최근 업데이트 순")
       if let active = store.snapshot?.activeFlags, !active.isEmpty {
         VStack(spacing: .zero) {
-          ForEach(FestivalLiveBoardPresentation.sortedActiveFlags(active)) { flag in
+          ForEach(sortedFlags(active)) { flag in
             FestivalLiveBoardActiveFlagRow(flag: presentation(
               flag,
               now: now
@@ -70,6 +74,19 @@ private extension FestivalLiveBoardActiveFlagSection {
     return FestivalLiveBoardPresentation.flag(
       flag,
       zoneName: { pack?.zoneName(for: $0) },
+      now: now
+    )
+  }
+
+  var ordersByArrival: Bool {
+    return isBeforeOpening && pack != nil
+  }
+
+  func sortedFlags(_ flags: [FestivalLiveBoardSnapshot.Flag]) -> [FestivalLiveBoardSnapshot.Flag] {
+    guard ordersByArrival, let pack else { return FestivalLiveBoardPresentation.sortedActiveFlags(flags) }
+    return FestivalLiveBoardPresentation.sortedActiveFlagsByArrival(
+      flags,
+      pack: pack,
       now: now
     )
   }

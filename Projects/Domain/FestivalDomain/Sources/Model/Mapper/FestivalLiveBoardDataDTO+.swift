@@ -66,7 +66,8 @@ public extension FestivalLiveBoardDataDTO {
       tags: profile?.tags ?? [],
       updatedAt: updatedAt,
       followerCount: profile?.followerCount,
-      homeZoneID: profile?.homeZoneId
+      homeZoneID: profile?.homeZoneId,
+      plannedSetIDs: profile?.plan ?? []
     )
   }
 
