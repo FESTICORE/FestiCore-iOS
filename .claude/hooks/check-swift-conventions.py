@@ -310,6 +310,14 @@ def diff_lines(path: str, staged: bool, base: str | None = None) -> set[int]:
     return lines
 
 
+GENERATED_TOKEN_FILES = {
+    "Projects/UI/FestiCoreDesignKit/Sources/Token/Color/FestiCoreSemanticColor.swift",
+    "Projects/UI/FestiCoreDesignKit/Sources/Token/Color/ShapeStyle+.swift",
+    "Projects/UI/FestiCoreDesignKit/Sources/Token/Layout/FestiCoreLayout.swift",
+    "Projects/UI/FestiCoreDesignKit/Sources/Token/Typography/FestiCoreTypography.swift",
+}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("files", nargs="*")
@@ -349,6 +357,8 @@ def main() -> int:
             candidate = pathlib.Path(path).resolve()
             if candidate.is_relative_to(repo) and candidate.is_file():
                 relative = str(candidate.relative_to(repo))
+                if relative in GENERATED_TOKEN_FILES:
+                    continue
                 tracked = subprocess.run(["git", "ls-files", "--error-unmatch", "--", relative],
                                          capture_output=True).returncode == 0
                 lines = diff_lines(relative, staged=False) if tracked else set(range(1, len(candidate.read_text().splitlines()) + 1))
@@ -383,6 +393,9 @@ def main() -> int:
         for file in args.files:
             path = pathlib.Path(file)
             if path.suffix != ".swift":
+                continue
+            # FestiCore-DesignSystem 생성물(scripts/sync-design-tokens.py로 동기화)은 손으로 고치지 않으므로 검사하지 않는다.
+            if file in GENERATED_TOKEN_FILES:
                 continue
             if args.staged:
                 result = subprocess.run(["git", "show", f":{file}"], capture_output=True, text=True)

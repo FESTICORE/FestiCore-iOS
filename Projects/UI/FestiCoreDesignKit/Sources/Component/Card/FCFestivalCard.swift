@@ -9,7 +9,6 @@ import SwiftUI
 
 /// 페스티벌 목록 카드. 상태(D-N, 마감 임박, 예정, 종료) · 예매 여부 · 팩 상태를 표시한다.
 public struct FCFestivalCard<Media: View>: View {
-
   public enum Status: Sendable {
     /// 진행 전, 태그에 D-N을 표시한다.
     case dDay(String)
@@ -122,7 +121,13 @@ private extension FCFestivalCard {
       case let .dDay(label): return (label, .inverseBackground, .inverseLabel)
       case let .closing(label): return (label, .accentPointRed, .staticWhite)
       case let .upcoming(label): return (label, .fillStrong, .labelNormal)
-      case let .ended(label): return (label, .labelAssistive, .staticWhite)
+      // Figma S00 Festival Card status=ended: 마감 태그는 라이트·다크 모두 Atomic/Ink/500(Static/Gray)
+      case let .ended(label):
+        return (
+          label,
+          .staticGray,
+          .staticWhite
+        )
       }
     }()
     return Text(label)
