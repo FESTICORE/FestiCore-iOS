@@ -6,11 +6,11 @@ extension ProfileFeature.State {
   var hidesTabBarForProfileRoute: Bool {
     guard let screen = profileRoutes.last?.screen else { return false }
     switch screen {
-    case .legalDocument, .noticeList, .noticeDetail:
+    // 설정 홈과 그 아래 화면(알림·잠금화면·계정·화면 모드·공지·약관)은 탭바 없이 표시한다(#557).
+    case .settings, .account, .appearance, .lockScreen, .notifications, .legalDocument, .noticeList, .noticeDetail:
       return true
-    // Figma S13-0·A~E·J: 설정 홈과 알림·잠금화면·계정·화면 모드는 마이 탭이 선택된 탭바를 그대로 보인다.
-    // Figma Pack A~H(11-12): 팩 상세·관리도 탭바를 보인다.
-    case .profile, .bearer, .settings, .account, .appearance, .lockScreen, .notifications, .packDetail:
+    // Figma Pack A~H(11-12): 팩 상세·관리는 탭바를 보인다.
+    case .profile, .bearer, .packDetail:
       return false
     }
   }
