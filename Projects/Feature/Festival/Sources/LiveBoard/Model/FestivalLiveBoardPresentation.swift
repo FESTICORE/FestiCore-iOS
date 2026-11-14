@@ -49,6 +49,11 @@ enum FestivalLiveBoardPresentation {
     case finalHour(Countdown)
     case ended
     case unknown
+
+    var isBeforeOpening: Bool {
+      guard case .beforeOpening = self else { return false }
+      return true
+    }
   }
 
   struct CrewMember: Equatable, Identifiable {
@@ -91,6 +96,45 @@ extension FestivalLiveBoardPresentation {
       let left = $0.updatedAt ?? .distantPast
       let right = $1.updatedAt ?? .distantPast
       return left == right ? $0.id < $1.id : left > right
+    }
+  }
+
+  /// Figma S01 B: 개장 전 활성 깃발은 도착 예정 순으로 쌓는다.
+  /// 공개 관람 계획 중 `now` 이후 가장 이른 공연 시작이 빠른 깃발이 앞이고, 계획이 없는 깃발은 뒤에 최근 업데이트 순으로 둔다.
+  static func sortedActiveFlagsByArrival(
+    _ flags: [FestivalLiveBoardSnapshot.Flag],
+    pack: FestivalPackDocument,
+    now: Date
+  ) -> [FestivalLiveBoardSnapshot.Flag] {
+    var starts: [String: Date] = [:]
+    for entry in FestivalLiveBoardSchedule.entries(pack: pack) where entry.slot.startsAt >= now {
+      starts[entry.slot.id] = starts[entry.slot.id] ?? entry.slot.startsAt
+    }
+    // 최근 업데이트 순을 안정 정렬의 기준 순서로 쓴다.
+    let recent = sortedActiveFlags(flags)
+    let keyed = recent.enumerated().map { index, flag in
+      return ArrivalKey(
+        flag: flag,
+        arrival: flag.plannedSetIDs.compactMap { starts[$0] }.min(),
+        recentRank: index
+      )
+    }
+    return keyed.sorted(by: ArrivalKey.precedes).map(\.flag)
+  }
+
+  private struct ArrivalKey {
+    let flag: FestivalLiveBoardSnapshot.Flag
+    let arrival: Date?
+    let recentRank: Int
+
+    static func precedes(
+      _ left: ArrivalKey,
+      _ right: ArrivalKey
+    ) -> Bool {
+      if let lhs = left.arrival, let rhs = right.arrival, lhs != rhs { return lhs < rhs }
+      if left.arrival != nil, right.arrival == nil { return true }
+      if left.arrival == nil, right.arrival != nil { return false }
+      return left.recentRank < right.recentRank
     }
   }
 

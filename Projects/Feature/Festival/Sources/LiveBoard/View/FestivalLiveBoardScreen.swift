@@ -195,7 +195,8 @@ private extension FestivalLiveBoardScreen {
                     action: \.liveBoard
                   ),
                   pack: store.displayDocument,
-                  now: now
+                  now: now,
+                  isBeforeOpening: phase.isBeforeOpening
                 )
               }
             }

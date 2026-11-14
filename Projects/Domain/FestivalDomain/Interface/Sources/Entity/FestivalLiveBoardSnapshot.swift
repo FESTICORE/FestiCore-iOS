@@ -19,11 +19,21 @@ public struct FestivalLiveBoardSnapshot: Equatable, Sendable {
     public let updatedAt: Date?
     public let followerCount: Int?
     public let homeZoneID: String?
+    /// 공개한 관람 계획(공연 id). 개장 전 `도착 예정 순` 정렬에 쓴다.
+    public let plannedSetIDs: [String]
 
     public init(
-      id: String, name: String, status: String, zoneID: String?, activity: String?,
-      thumbnailURL: URL?, tags: [String] = [], updatedAt: Date? = nil,
-      followerCount: Int? = nil, homeZoneID: String? = nil
+      id: String,
+      name: String,
+      status: String,
+      zoneID: String?,
+      activity: String?,
+      thumbnailURL: URL?,
+      tags: [String] = [],
+      updatedAt: Date? = nil,
+      followerCount: Int? = nil,
+      homeZoneID: String? = nil,
+      plannedSetIDs: [String] = []
     ) {
       self.id = id
       self.name = name
@@ -35,6 +45,7 @@ public struct FestivalLiveBoardSnapshot: Equatable, Sendable {
       self.updatedAt = updatedAt
       self.followerCount = followerCount
       self.homeZoneID = homeZoneID
+      self.plannedSetIDs = plannedSetIDs
     }
   }
 

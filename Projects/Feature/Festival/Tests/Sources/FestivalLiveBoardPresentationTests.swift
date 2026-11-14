@@ -30,6 +30,57 @@ struct FestivalLiveBoardPresentationTests {
     #expect(FestivalLiveBoardPresentation.sortedActiveFlags([older, newer]).map(\.id) == ["new", "old"])
   }
 
+  @Test("Figma S01 B: 개장 전 활성 깃발은 앞으로 가장 이른 계획 공연 순, 계획 없는 깃발은 뒤에 최근 업데이트 순")
+  func beforeOpeningSortsActiveFlagsByPlannedArrival() throws {
+    let pack = try document(packJSON)
+    let now = date("2026-10-20T15:10:00+09:00")
+    func flag(
+      _ id: String,
+      updatedAt: TimeInterval,
+      plan: [String]
+    ) -> FestivalLiveBoardSnapshot.Flag {
+      return FestivalLiveBoardSnapshot.Flag(
+        id: id,
+        name: id,
+        status: "active",
+        zoneID: nil,
+        activity: nil,
+        thumbnailURL: nil,
+        updatedAt: Date(timeIntervalSince1970: updatedAt),
+        plannedSetIDs: plan
+      )
+    }
+    let flags = [
+      flag(
+        "side",
+        updatedAt: 500,
+        plan: ["set_side"]
+      ),
+      // 이미 시작한 공연(set_now)은 도착 예정에서 뺀다.
+      flag(
+        "next",
+        updatedAt: 100,
+        plan: ["set_now", "set_next"]
+      ),
+      flag(
+        "none_old",
+        updatedAt: 200,
+        plan: []
+      ),
+      flag(
+        "none_new",
+        updatedAt: 300,
+        plan: ["set_unknown"]
+      ),
+    ]
+
+    #expect(FestivalLiveBoardPresentation.sortedActiveFlagsByArrival(
+      flags,
+      pack: pack,
+      now: now
+    ).map(\.id) == ["next", "side", "none_new", "none_old"])
+  }
+
   @Test("서버 시각은 수신 후 흐른 기기 시간만큼 앞으로 간다")
   func serverNowCorrectsDeviceClockSkew() {
     let serverAt = date("2026-10-20T15:00:00+09:00")
