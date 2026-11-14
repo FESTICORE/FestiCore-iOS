@@ -1,4 +1,5 @@
 import FestiCorePackInterface
+import FestiCoreUtility
 import FestivalDomainInterface
 import Foundation
 import Testing
@@ -131,7 +132,7 @@ struct FestivalFeatureStateTests {
     )]
     state.onlineDetail = try JSONDecoder().decode(
       FestivalPackDocument.self,
-      from: Data(#"{"id":"festival","stages":[{"id":"main","name":"메인"}],"sets":[{"id":"set_1","artist":"가수","stageId":"main","startsAt":"2026-11-05T10:00:00+09:00","endsAt":"2026-11-05T11:00:00+09:00"}]}"#.utf8)
+      from: Data(#"{"id":"festival","days":[{"date":"2026-11-06","startsAt":"2026-11-06T14:00:00+09:00"},{"date":"2026-11-05","startsAt":"2026-11-05T09:00:00+09:00"},{"startsAt":"2026-11-07T09:00:00+09:00"}],"stages":[{"id":"main","name":"메인"}],"sets":[{"id":"set_1","artist":"가수","stageId":"main","startsAt":"2026-11-05T10:00:00+09:00","endsAt":"2026-11-05T11:00:00+09:00"}]}"#.utf8)
     )
     state.hasSession = true
     state.mySchedule = .init(
@@ -147,6 +148,17 @@ struct FestivalFeatureStateTests {
     #expect(signedIn.performances[0].stageName == "메인")
     #expect(signedIn.performances[0].isSaved)
     #expect(signedIn.performances[0].endsAt > signedIn.performances[0].startsAt)
+    // Figma Widget 공연 전·종료 후: 날짜순 일자와 개장 시각. 날짜 없는 일자는 뺀다.
+    #expect(signedIn.days == [
+      .init(
+        date: try #require("2026-11-05".date(as: .day)),
+        opensAt: "2026-11-05T09:00:00+09:00".isoDate
+      ),
+      .init(
+        date: try #require("2026-11-06".date(as: .day)),
+        opensAt: "2026-11-06T14:00:00+09:00".isoDate
+      ),
+    ])
     let comparison = try #require(state.widgetSnapshotContent)
     #expect(comparison.updatedAt == .distantPast)
     #expect(comparison == state.widgetSnapshotContent)

@@ -10,6 +10,7 @@ struct FestivalWidgetContent: Equatable, Sendable {
   let hasPack: Bool
   let performances: [FestivalWidgetSnapshot.Performance]
   let crewName: String?
+  let days: [FestivalWidgetSnapshot.Day]
 
   func snapshot(updatedAt: Date) -> FestivalWidgetSnapshot {
     return FestivalWidgetSnapshot(
@@ -20,7 +21,8 @@ struct FestivalWidgetContent: Equatable, Sendable {
       updatedAt: updatedAt,
       hasPack: hasPack,
       performances: performances,
-      crewName: crewName
+      crewName: crewName,
+      days: days
     )
   }
 }
@@ -66,7 +68,20 @@ extension FestivalFeature.State {
       lastDay: festival.lastDate?.date(as: .day) ?? dayDates.max(),
       hasPack: selectedPack?.id == festival.id && cachedPacks[festival.id] != nil,
       performances: performances,
-      crewName: hasSession && liveBoard?.festivalID == festival.id ? liveBoard?.crew?.name : nil
+      crewName: hasSession && liveBoard?.festivalID == festival.id ? liveBoard?.crew?.name : nil,
+      days: Self.widgetDays(document?.days ?? [])
     )
+  }
+
+  /// 팩 일자를 날짜순 위젯 일자로 바꾼다. 날짜가 없는 일자는 뺀다.
+  static func widgetDays(_ days: [FestivalPackDocument.Day]) -> [FestivalWidgetSnapshot.Day] {
+    return days.compactMap { day -> FestivalWidgetSnapshot.Day? in
+      guard let date = day.date?.date(as: .day) else { return nil }
+      return FestivalWidgetSnapshot.Day(
+        date: date,
+        opensAt: day.startsAt.flatMap(FestivalLiveBoardSchedule.parse)
+      )
+    }
+    .sorted { $0.date < $1.date }
   }
 }
