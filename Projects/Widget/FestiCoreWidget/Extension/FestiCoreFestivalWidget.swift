@@ -278,6 +278,12 @@ extension FestivalWidgetEntry {
     }
   }
 
+  /// Figma Widget 내 일정 없음: 지금 무대의 다음 공연(`다음 NIGHT CORE` + `21:22`).
+  var stageNext: FestivalWidgetSnapshot.Performance? {
+    guard phase == .playing, next == nil, let current else { return nil }
+    return performances.first { $0.stageName == current.stageName && $0.startsAt >= current.endsAt }
+  }
+
   /// Figma Widget Small 히어로. 공연 전 개장 전에는 `오늘 개장!`.
   var smallHeadline: String {
     if phase == .noPack { return "팩을\n받아요" }
@@ -457,6 +463,7 @@ extension FestivalWidgetEntry {
       if let upcomingOpening {
         return "DAY \(upcomingOpening.number) · \(upcomingOpening.dayWord) \(upcomingOpening.time) 개장"
       }
+      if let stageNext { return "다음 \(stageNext.artist)" }
       if phase == .before || phase == .playing, let next { return next.artist }
       return footerTitle
     case .systemLarge:
@@ -471,6 +478,7 @@ extension FestivalWidgetEntry {
     default:
       if phase == .noPack { return "탭해서 시작하기" }
       if phase == .unavailable { return footerTitle }
+      if let stageNext { return "이 무대 다음  \(stageNext.artist) · \(stageNext.stageName)" }
       return "\(footerTitle)  \(footerDetail)"
     }
   }
@@ -518,6 +526,7 @@ extension FestivalWidgetEntry {
 
   /// Figma Lock Screen 사각형 아래 줄. 종료 후에는 다음 날 개장 시각.
   var rectangularDetail: String {
+    if let stageNext { return "다음 \(stageNext.artist) \(stageNext.startsAt.formatted(.time))" }
     if let upcomingOpening { return "\(upcomingOpening.dayWord) \(upcomingOpening.time) 개장" }
     return footerDetail
   }
@@ -685,7 +694,8 @@ private extension FestivalWidgetView {
     ) {
       posterHeader()
       Text(isSmall ? entry.smallHeadline : entry.headline)
-        .font(WidgetFont.bagel(isSmall ? 30 : isLarge ? 44 : 34))
+        // Figma Widget Large 데이터 없음 히어로는 Bagel 38
+        .font(WidgetFont.bagel(isSmall ? 30 : isLarge ? (entry.phase == .noPack ? 38 : 44) : 34))
         .widgetAccentable()
         .rotationEffect(.degrees(isSmall || isLarge ? -6 : -4))
         .lineLimit(isSmall ? 2 : 1)
@@ -709,7 +719,7 @@ private extension FestivalWidgetView {
           Text("팩을 받으면 지금 무대 · 다음 내 일정 ·\n크루가 여기에 떠요.\n오프라인에서도 그대로 보여요.")
             .font(.pretendardFontFamily(
               family: .Medium,
-              size: 12
+              size: 13
             ))
             .foregroundStyle(assistive)
             .padding(
@@ -925,6 +935,13 @@ private extension FestivalWidgetView {
           target,
           style: .relative
         ) + Text(" 후"))
+          .font(WidgetFont.bagel(isSmall ? 15 : 16))
+          .foregroundStyle(barTint)
+          .lineLimit(1)
+          .fixedSize()
+      } else if let stageNext = entry.stageNext, !isLarge {
+        // Figma Widget 내 일정 없음: 남은 시간 대신 다음 공연 시각
+        Text(stageNext.startsAt.formatted(.time))
           .font(WidgetFont.bagel(isSmall ? 15 : 16))
           .foregroundStyle(barTint)
           .lineLimit(1)
