@@ -31,7 +31,12 @@ public struct SchedulePickView: View {
         }
         .padding(FestiCoreSpacing.paddingP16)
       }
-      bottomBar
+      .safeAreaInset(
+        edge: .bottom,
+        spacing: .zero
+      ) {
+        bottomBar
+      }
     }
     .background(FestiCoreSemanticColor.backgroundElevated.color)
   }
@@ -121,7 +126,13 @@ private extension SchedulePickView {
     .overlay(alignment: .top) {
       FestiCoreSemanticColor.lineNormal.color.frame(height: 1)
     }
-    .background(FestiCoreSemanticColor.backgroundElevated.color)
+    // Figma S15 Bottom Bar: Material/Glass 20% + 배경 흐림, 스크롤 내용이 바 아래로 지나간다.
+    .background {
+      Rectangle()
+        .fill(.ultraThinMaterial)
+        .overlay(FestiCoreSemanticColor.materialGlass.color)
+        .ignoresSafeArea(edges: .bottom)
+    }
   }
 
   var dayBinding: Binding<Int> {

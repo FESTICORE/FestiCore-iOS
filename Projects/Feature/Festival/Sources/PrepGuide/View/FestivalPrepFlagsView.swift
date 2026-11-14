@@ -36,7 +36,12 @@ public struct FestivalPrepFlagsView: View {
         .padding(FestiCoreSpacing.paddingP16)
       }
       .scrollIndicators(.hidden)
-      bottomBar
+      .safeAreaInset(
+        edge: .bottom,
+        spacing: .zero
+      ) {
+        bottomBar
+      }
     }
     .background(FestiCoreSemanticColor.backgroundElevated.color)
     .onAppear { send(.onAppear) }
@@ -184,7 +189,13 @@ private extension FestivalPrepFlagsView {
     .overlay(alignment: .top) {
       FestiCoreSemanticColor.lineNormal.color.frame(height: Metric.divider)
     }
-    .background(FestiCoreSemanticColor.backgroundElevated.color)
+    // Figma S15 Bottom Bar: Material/Glass 20% + 배경 흐림, 스크롤 내용이 바 아래로 지나간다.
+    .background {
+      Rectangle()
+        .fill(.ultraThinMaterial)
+        .overlay(FestiCoreSemanticColor.materialGlass.color)
+        .ignoresSafeArea(edges: .bottom)
+    }
   }
 
   enum Metric {
