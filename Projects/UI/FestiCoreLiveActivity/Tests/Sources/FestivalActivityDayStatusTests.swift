@@ -109,6 +109,37 @@ struct FestivalActivityDayStatusTests {
     #expect(status == nil)
   }
 
+  @Test func dayBeforeFestivalPointsToTomorrowFirstOpening() throws {
+    let opening = try #require(FestivalActivityWidgetContent.firstOpening(
+      snapshot: try Self.snapshot(),
+      festivalID: "festival",
+      now: try Self.date("2026-11-20T20:00:00+09:00"),
+      calendar: Self.calendar
+    ))
+
+    #expect(opening.day == 1)
+    #expect(opening.isTomorrow)
+    #expect(opening.opensAt == (try Self.date("2026-11-21T15:00:00+09:00")))
+  }
+
+  @Test func firstOpeningIsAbsentOnFestivalDayOrOtherFestival() throws {
+    let festivalDay = FestivalActivityWidgetContent.firstOpening(
+      snapshot: try Self.snapshot(),
+      festivalID: "festival",
+      now: try Self.date("2026-11-21T12:00:00+09:00"),
+      calendar: Self.calendar
+    )
+    let otherFestival = FestivalActivityWidgetContent.firstOpening(
+      snapshot: try Self.snapshot(),
+      festivalID: "other",
+      now: try Self.date("2026-11-19T12:00:00+09:00"),
+      calendar: Self.calendar
+    )
+
+    #expect(festivalDay == nil)
+    #expect(otherFestival == nil)
+  }
+
   @Test func otherFestivalSnapshotHasNoDayStatus() throws {
     let status = FestivalActivityWidgetContent.dayStatus(
       state: Self.state(),
