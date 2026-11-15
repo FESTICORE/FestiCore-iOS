@@ -220,7 +220,18 @@ private extension FestiCoreFestivalActivityWidget {
     for state: FestiCoreFestivalActivityAttributes.ContentState,
     festivalID: String
   ) -> some View {
-    if let next = resolvedNextMine(
+    if let ride = homeRide(
+      for: state,
+      festivalID: festivalID
+    ) {
+      Text(ride.detail)
+        .font(.pretendardFontFamily(
+          family: .Bold,
+          size: 13
+        ))
+        .foregroundStyle(FestiCoreSemanticColor.staticWhite.color)
+        .lineLimit(1)
+    } else if let next = resolvedNextMine(
       for: state,
       festivalID: festivalID
     ) {
@@ -475,10 +486,10 @@ private extension FestiCoreFestivalActivityWidget {
     festivalID: String,
     size: CGFloat
   ) -> some View {
-    if let next = resolvedNextMine(
+    if let start = countdownTarget(
       for: state,
       festivalID: festivalID
-    ), let start = performanceDate(next.startsAt) {
+    ) {
       // Figma: "12분 후". 시스템이 분 단위로 갱신하는 상대 표기를 쓴다.
       Text(
         .currentDate,
@@ -492,6 +503,38 @@ private extension FestiCoreFestivalActivityWidget {
         .lineLimit(1)
         .foregroundStyle(FestiCoreSemanticColor.staticLime.color)
     }
+  }
+
+  /// Figma Live Activity 종료 1시간 전은 마지막 셔틀(없으면 막차)까지, 그 밖에는 다음 내 일정까지 센다.
+  func countdownTarget(
+    for state: FestiCoreFestivalActivityAttributes.ContentState,
+    festivalID: String
+  ) -> Date? {
+    if let ride = homeRide(
+      for: state,
+      festivalID: festivalID
+    ) {
+      return ride.target
+    }
+    return resolvedNextMine(
+      for: state,
+      festivalID: festivalID
+    ).flatMap { performanceDate($0.startsAt) }
+  }
+
+  /// Figma Live Activity 종료 1시간 전 하단: `마지막 셔틀` · `정문 23:40 · 막차 23:52`. 셔틀·막차가 없거나 지났으면 nil.
+  func homeRide(
+    for state: FestiCoreFestivalActivityAttributes.ContentState,
+    festivalID: String
+  ) -> FestivalActivityWidgetContent.HomeRide? {
+    guard state.phase == .ongoing, let end = state.endDate,
+          end > .now, end.timeIntervalSinceNow <= 3600 else { return nil }
+    return FestivalActivityWidgetContent.homeRide(
+      snapshot: FestivalWidgetStore.load(),
+      festivalID: festivalID,
+      now: .now,
+      calendar: AppDateFormat.calendar
+    )
   }
 
   /// 서버 payload에 다음 내 일정이 없으면 앱과 공유한 저장 일정으로 채운다(앱이 빈 일정을 확인했으면 채우지 않는다).
@@ -634,11 +677,17 @@ private extension FestiCoreFestivalActivityWidget {
     return status.isFinished ? "DAY \(status.day) 끝" : "DAY \(status.day)"
   }
 
-  /// Figma Live Activity: 공연 전 `첫 내 일정`, 종료 후 `내일 첫 내 일정`.
+  /// Figma Live Activity: 공연 전 `첫 내 일정`, 종료 1시간 전 `마지막 셔틀`, 종료 후 `내일 첫 내 일정`.
   func nextLabel(
     for state: FestiCoreFestivalActivityAttributes.ContentState,
     festivalID: String
   ) -> String {
+    if let ride = homeRide(
+      for: state,
+      festivalID: festivalID
+    ) {
+      return ride.label
+    }
     guard let status = dayStatus(
       for: state,
       festivalID: festivalID

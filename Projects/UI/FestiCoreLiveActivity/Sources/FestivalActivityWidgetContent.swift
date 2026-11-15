@@ -151,6 +151,73 @@ public enum FestivalActivityWidgetContent {
     )
   }
 
+  /// Figma Widget·Live Activity 종료 1시간 전 귀가 안내. 12시간 안에 떠날 마지막 셔틀·막차만 담는다.
+  public struct HomeRide: Equatable, Sendable {
+    public let shuttleAt: Date?
+    public let shuttleStopName: String?
+    public let trainAt: Date?
+    public let trainStationName: String?
+    /// 남은 시간을 셀 시각. 셔틀이 있으면 셔틀, 없으면 막차.
+    public let target: Date
+    /// `마지막 셔틀`, 셔틀이 없으면 `막차`
+    public let label: String
+    /// `정문 23:40 · 막차 23:52`. 셔틀만 있으면 `정문 23:40`, 막차만 있으면 `23:52 킨텍스역`.
+    public let detail: String
+    /// Figma Widget Small Bar: `셔틀 23:40`, 셔틀이 없으면 `막차 23:52`.
+    public let shortText: String
+    /// Figma Lock Screen 사각형 아래 줄: `정문 · 막차 23:52`. 막차만 있으면 `detail`과 같다.
+    public let accessoryDetail: String
+  }
+
+  /// 앱과 공유한 마지막 셔틀·막차 중 아직 떠나지 않았고 12시간 안에 떠날 편으로 귀가 안내를 만든다. 자정을 넘겨 떠나는 편도 담는다.
+  /// 시각은 `calendar`의 시간대로 쓴다. 둘 다 없으면 nil.
+  public static func homeRide(
+    snapshot: FestivalWidgetSnapshot?,
+    festivalID: String,
+    now: Date,
+    calendar: Calendar
+  ) -> HomeRide? {
+    guard let snapshot, snapshot.festivalID == festivalID else { return nil }
+    let isUpcoming = { (date: Date) -> Bool in
+      return date > now && date.timeIntervalSince(now) <= 12 * 3600
+    }
+    let shuttleAt = snapshot.lastShuttleAt.flatMap { isUpcoming($0) ? $0 : nil }
+    let trainAt = snapshot.lastTrainAt.flatMap { isUpcoming($0) ? $0 : nil }
+    guard let target = shuttleAt ?? trainAt else { return nil }
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = calendar.timeZone
+    formatter.dateFormat = "HH:mm"
+    let stopName = nonempty(snapshot.shuttleStopName)
+    let stationName = nonempty(snapshot.trainStationName)
+    let detail: String
+    let accessoryDetail: String
+    if let shuttleAt {
+      let shuttle = [stopName, formatter.string(from: shuttleAt)]
+        .compactMap { $0 }
+        .joined(separator: " ")
+      detail = trainAt.map { "\(shuttle) · 막차 \(formatter.string(from: $0))" } ?? shuttle
+      let places = [stopName, trainAt.map { "막차 \(formatter.string(from: $0))" }].compactMap { $0 }
+      accessoryDetail = places.isEmpty ? formatter.string(from: shuttleAt) : places.joined(separator: " · ")
+    } else {
+      detail = [formatter.string(from: target), stationName]
+        .compactMap { $0 }
+        .joined(separator: " ")
+      accessoryDetail = detail
+    }
+    return HomeRide(
+      shuttleAt: shuttleAt,
+      shuttleStopName: stopName,
+      trainAt: trainAt,
+      trainStationName: stationName,
+      target: target,
+      label: shuttleAt == nil ? "막차" : "마지막 셔틀",
+      detail: detail,
+      shortText: "\(shuttleAt == nil ? "막차" : "셔틀") \(formatter.string(from: target))",
+      accessoryDetail: accessoryDetail
+    )
+  }
+
   /// 고정 깃발 줄. 예: "호락호락 · 슬램", 쉬는 중이면 "호락호락 · 쉬는 중".
   public static func pinnedFlagText(
     _ flag: FestiCoreFestivalActivityAttributes.ContentState.PinnedFlag?
@@ -196,6 +263,11 @@ public enum FestivalActivityWidgetContent {
       opensAt: opensAt,
       isTomorrow: isTomorrow
     )
+  }
+
+  static func nonempty(_ value: String?) -> String? {
+    guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
+    return value
   }
 
   static func activityTitle(_ raw: String) -> String? {
