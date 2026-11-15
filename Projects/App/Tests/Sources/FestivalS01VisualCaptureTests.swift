@@ -169,7 +169,7 @@ final class FestivalS01VisualCaptureTests: XCTestCase {
       .state(sheetState)
       .scheduleTexts(
         title: "내 일정에 넣기",
-        helper: "내 일정에 저장돼요"
+        helper: "공연 10분 전에 알려 드려요"
       )
       .stageAction {}
       .artistImage(imageURL)

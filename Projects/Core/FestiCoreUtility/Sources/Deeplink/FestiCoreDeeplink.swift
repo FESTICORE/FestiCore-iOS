@@ -15,7 +15,7 @@ public enum FestiCoreDeeplink: Equatable, Sendable {
   case festival(id: String)
   /// 깃발 상세(S05).
   case flag(id: String)
-  /// 축제 타임테이블의 공연 상세(S03). 공연 2시간 전 알림이 연다.
+  /// 축제 타임테이블의 공연 상세(S03). 공연 10분 전 알림이 연다.
   case set(
     festivalID: String,
     setID: String

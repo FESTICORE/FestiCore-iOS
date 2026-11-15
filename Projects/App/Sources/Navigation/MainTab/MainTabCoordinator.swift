@@ -295,7 +295,7 @@ extension MainTabCoordinator {
       return .send(.festival(.openWidgetFestival(id)))
 
     case let .set(festivalID, setID):
-      // 공연 2시간 전 알림: 축제를 고른 뒤 타임테이블에서 그 공연 상세를 연다.
+      // 공연 10분 전 알림: 축제를 고른 뒤 타임테이블에서 그 공연 상세를 연다.
       return .concatenate(
         .send(.festival(.openWidgetFestival(festivalID))),
         .send(.selectTab(.timetable)),
