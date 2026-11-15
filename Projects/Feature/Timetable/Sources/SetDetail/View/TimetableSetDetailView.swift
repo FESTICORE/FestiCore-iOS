@@ -62,7 +62,7 @@ extension TimetableSetDetailView {
     return .default
   }
 
-  /// 알림 기능 전까지는 저장된다는 사실만 안내한다.
+  /// 서버가 저장한 공연을 시작 10분 전에 알린다(Figma S03).
   private var scheduleHelper: String {
     if store.content.isScheduleLoading {
       return "내 일정을 불러오는 중이에요"
@@ -70,7 +70,7 @@ extension TimetableSetDetailView {
     if store.content.isScheduleLimitReached {
       return "내 일정은 최대 \(TimetableFeature.scheduleLimit)개까지 저장할 수 있어요"
     }
-    return "내 일정에 저장돼요"
+    return "공연 10분 전에 알려 드려요"
   }
 }
 
