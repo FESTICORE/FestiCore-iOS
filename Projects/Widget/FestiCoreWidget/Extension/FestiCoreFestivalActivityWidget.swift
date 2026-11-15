@@ -549,7 +549,17 @@ private extension FestiCoreFestivalActivityWidget {
       return "\(opensAt.formatted(.time)) 개장"
     }
     switch state.phase {
-    case .upcoming: return "\(state.startDate.formatted(.time)) 공연 시작"
+    case .upcoming:
+      // startDate는 첫날 00:00이라 시각 대신 첫날 개장을 보인다.
+      if let opening = FestivalActivityWidgetContent.firstOpening(
+        snapshot: FestivalWidgetStore.load(),
+        festivalID: festivalID,
+        now: .now,
+        calendar: AppDateFormat.calendar
+      ) {
+        return openingText(opening)
+      }
+      return "\(state.startDate.formatted(.festivalDay)) 개막"
     case .ongoing: return "다음 공연 준비 중"
     case .finished: return "오늘 끝!"
     }
@@ -640,8 +650,13 @@ private extension FestiCoreFestivalActivityWidget {
   /// `조심히 들어가요 · 내일 15:00 개장`. 다음 행사일이 내일이 아니면 날짜를, 없으면 인사만 둔다.
   func goodbyeText(_ next: FestivalActivityWidgetContent.NextOpening?) -> String {
     guard let next else { return "조심히 들어가요" }
-    let day = next.isTomorrow ? "내일" : next.date.formatted(.festivalDay)
-    return "조심히 들어가요 · \(day) \(next.opensAt.formatted(.time)) 개장"
+    return "조심히 들어가요 · \(openingText(next))"
+  }
+
+  /// `내일 15:00 개장`, 내일이 아니면 `11/21(토) 15:00 개장`.
+  func openingText(_ opening: FestivalActivityWidgetContent.NextOpening) -> String {
+    let day = opening.isTomorrow ? "내일" : opening.date.formatted(.festivalDay)
+    return "\(day) \(opening.opensAt.formatted(.time)) 개장"
   }
 
   func shortStatusText(for state: FestiCoreFestivalActivityAttributes.ContentState) -> String {

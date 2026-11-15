@@ -131,6 +131,26 @@ public enum FestivalActivityWidgetContent {
     )
   }
 
+  /// 첫 행사일 전 제목에 쓸 첫날 개장. 예: `내일 15:00 개장`.
+  public static func firstOpening(
+    snapshot: FestivalWidgetSnapshot?,
+    festivalID: String,
+    now: Date,
+    calendar: Calendar
+  ) -> NextOpening? {
+    guard let snapshot,
+          snapshot.festivalID == festivalID,
+          snapshot.hasPack else { return nil }
+    let days = (snapshot.days ?? []).sorted { $0.date < $1.date }
+    guard let first = days.first, calendar.startOfDay(for: now) < first.date else { return nil }
+    return nextOpening(
+      days: days,
+      after: -1,
+      now: now,
+      calendar: calendar
+    )
+  }
+
   /// 고정 깃발 줄. 예: "호락호락 · 슬램", 쉬는 중이면 "호락호락 · 쉬는 중".
   public static func pinnedFlagText(
     _ flag: FestiCoreFestivalActivityAttributes.ContentState.PinnedFlag?
