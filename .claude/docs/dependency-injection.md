@@ -1,5 +1,13 @@
 # 의존성 주입
 
+## 원칙
+
+- Point-Free Dependencies를 사용한다. 의존성 인터페이스는 해당 Core·Service·Domain 모듈의 Interface 타깃에, 라이브 구현의 `DependencyKey.liveValue`는 구현 또는 조립 모듈에 둔다. 앱 시작점에서 전역 등록하지 않으며 별도 런타임 DI 컨테이너는 만들지 않는다.
+- Feature는 `@Dependency`로 필요한 인터페이스를 사용하고 테스트에서 결정적인 대역을 주입한다. 테스트나 별도 `DependencyValues` 범위에서는 필요한 `register(into:)`를 명시적으로 호출한다. WeaveDI는 사용하지 않는다.
+- 앱 호스팅 단위 테스트에서는 루트 Store의 자동 시작 효과를 실행하지 않는다. 테스트 기본 Mock의 미등록 이슈를 무음 처리해 실패를 숨기지 말고, 개별 테스트에 필요한 의존성을 명시적으로 주입한다.
+
+## 현재 구성
+
 `AppCoordinator.State()`는 Splash에서 시작하며, 완료 액션을 받아 Home으로 전환한다. `FestiCoreApp`은 각 `WindowGroup` 장면에서 루트 Store를 생성한다. Feature는 Point-Free `Dependencies`의 `@Dependency`로 필요한 클라이언트를 사용한다.
 
 Core 모듈의 Interface와 구현 타깃은 경계를 나눈다. `FestiCoreStorage`는 `SharedValueStorageDependency.liveValue`를 제공하고, `ServiceAssembly`는 `NetworkClientDependency`와 `AuthServiceDependency`의 `liveValue`를 제공한다. `NetworkContainer`는 인증 서비스와 네트워크 클라이언트를 같은 수명주기로 조립한다. `FeatureAssembly`는 Feature와 `ServiceAssembly`를 앱에 연결한다.

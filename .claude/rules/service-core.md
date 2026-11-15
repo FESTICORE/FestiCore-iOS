@@ -6,7 +6,7 @@ paths:
 
 # Service · Core 경로 규칙
 
-상세 문서: `docs/agent/domain-modules.md`, `docs/agent/dependency-injection.md`, `AGENTS.md`의 "통신과 Domain 모듈"
+상세 문서: `.claude/docs/domain-modules.md`, `.claude/docs/dependency-injection.md`, `.claude/docs/storage.md`, `.claude/docs/analytics.md`
 
 ## Hard
 

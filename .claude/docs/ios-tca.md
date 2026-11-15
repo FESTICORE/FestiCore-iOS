@@ -1,5 +1,7 @@
 # TCA 패턴
 
+Feature는 `@Reducer`로 상태와 동작을 정의하고 View에는 `StoreOf<Feature>`를 전달한다.
+
 ## 리듀서 구성
 
 Attendance(`Projects/Feature/Management/Sources/StaffMain/Reducer/StaffFeature.swift`)와 같은 구성을 따른다. 이 저장소에서는 `Projects/Feature/Auth/Sources/Login/Reducer/LoginFeature.swift`가 기준 예시다.
@@ -14,7 +16,7 @@ Attendance(`Projects/Feature/Management/Sources/StaffMain/Reducer/StaffFeature.s
 - `.run` 효과는 async 핸들러에서 시작한다. view 핸들러는 중복 입력 가드와 상태 변경 뒤 `.send(.async(...))`로 넘긴다.
 - 취소·중복 요청 정책은 `CancelID`로 명시한다.
 - `State`에 저장 속성이 많으면 같은 화면 책임으로 함께 변하는 값을 하위 상태 타입으로 묶는다. 화면 전용 로딩과 표시 값은 Feature의 State/Model에, 공개 업무 값은 Domain Entity에 둔다. 상태를 이동한 뒤 `TestStore`로 전이·취소·재시도를 확인한다.
-- 유한한 단계와 상호 배타적인 상태는 여러 불리언 대신 enum으로 표현한다. `view` 액션은 View의 `send`에서 시작해 Reducer의 `handleViewAction`에서 처리한다.
+- 유한한 단계와 상호 배타적인 상태는 문자열·불리언 조합 대신 enum으로 표현한다. `view` 액션은 View의 `send`에서 시작해 Reducer의 `handleViewAction`에서 처리한다.
 
 ## 화면과 리듀서
 

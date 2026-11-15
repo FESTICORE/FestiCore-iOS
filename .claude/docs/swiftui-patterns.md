@@ -1,5 +1,7 @@
 # SwiftUI View 패턴
 
+앱·Feature·Widget·DesignKit·SharedUI의 SwiftUI View에 같은 규칙을 적용한다. View 분리는 상태 전환, TCA 액션, 접근성, 다크 모드와 화면 동작을 바꾸지 않는 범위에서 한다. 여러 화면이 실제로 공유하는 컴포넌트만 공용 UI 모듈로 이동한다.
+
 ## 화면 View
 
 `Projects/Feature/Auth/Sources/Login/View/LoginView.swift`가 기준 예시다.
@@ -26,7 +28,7 @@ private extension LoginView {
 }
 ```
 
-- 화면 View는 store 하나만 받는다. 값·클로저 묶음을 init으로 받지 않는다.
+- 화면 View는 `@ViewAction`을 붙이고 store 하나만 받는다. 값·클로저 묶음을 init으로 받지 않는다. 확인 팝업은 SharedUI `Alert/`의 `fcAlert`, 바텀시트는 SharedUI `Modal/`의 `fcModal`로 띄운다([팝업·모달](popup-modal-system.md)).
 - 하위 `<화면>/Components` View만 원시 값을 받는다. 자식 화면에는 scope한 store를 넘긴다.
 - 타입 본문에는 저장 속성, 초기화, `body`만 둔다. 화면 섹션, 하위 뷰 빌더, UI 전용 계산 값과 액션 헬퍼는 같은 파일의 `private extension`에 둔다. 테스트가 접근하는 내부 헬퍼가 있으면 일반 `extension`에서 비공개 멤버에 각각 `private`를 붙인다. 외부에서 호출하는 체이닝 설정은 `public extension`에 둔다.
 - 단일 View 조각은 계산 `var ...: some View`로 두고, 여러 View를 묶거나 분기하는 섹션은 `@ViewBuilder func ... -> some View`로 분리한다. 일반 계산 속성과 함수에는 명시적 `return`을 사용하되 결과 빌더는 Swift 문법을 따른다.

@@ -1,4 +1,4 @@
-"""Stop 훅: 검증하지 않은 코드 변경이 있으면 한 번 종료를 막고 verify를 안내한다. (docs/agent/harness.md)
+"""Stop 훅: 검증하지 않은 코드 변경이 있으면 한 번 종료를 막고 verify를 안내한다. (.claude/docs/harness.md)
 
 - 같은 응답에서 이미 한 번 막았으면(stop_hook_active) 그대로 끝낸다. 무한 반복을 막기 위해서다.
 - 문서(*.md) · DesignExports만 바뀌었으면 막지 않는다.

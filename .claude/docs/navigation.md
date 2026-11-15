@@ -1,5 +1,7 @@
 # 화면 전환
 
+앱은 `FestiCoreApp`에서 `AppCoordinator` Store를 만들고 `AppCoordinatorView`를 표시한다. 루트 화면 전환은 `AppCoordinator.State`의 enum case와 `store.state` 분기가 담당한다.
+
 `AppCoordinator`는 Splash, Onboarding, Home의 루트 전환을 enum 상태로 관리한다. 탭 안에서 다른 화면으로 이동할 때는 App 계층의 Coordinator가 `TCAFlowRouter` 경로를 소유한다. Feature의 View에서 `NavigationStack`이나 `fullScreenCover`로 상세 화면을 직접 열지 않는다.
 
 `FestivalCoordinator`는 축제 목록을 루트로 두고 라이브 보드와 알림함을 `push`한다. 뒤로 가기는 경로를 `goBack()`으로 닫는다. 기수 보드처럼 화면 전체를 덮는 목적지만 `presentCover`를 사용한다.

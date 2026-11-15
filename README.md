@@ -193,15 +193,15 @@ Festival 모듈의 파일을 추가하거나 이동한 뒤에는 `./make generat
 
 - [디자인 시스템](docs/design-system.md): 토큰 출처와 DesignKit 사용
 - [Live Activity](docs/live-activity.md): 위젯 구성과 남은 화면·기기 검증
-- [TCA 패턴](docs/agent/tca-patterns.md), [화면 전환](docs/agent/tcaflow-navigation.md)
-- [SwiftUI 패턴](docs/agent/swiftui-patterns.md), [Swift 코딩 규칙](docs/agent/swift-coding-rules.md)
-- [의존성 주입](docs/agent/dependency-injection.md), [개발 환경](docs/agent/development-environment.md)
+- [TCA 패턴](.claude/docs/ios-tca.md), [화면 전환](.claude/docs/navigation.md)
+- [SwiftUI 패턴](.claude/docs/swiftui-patterns.md), [Swift 코딩 규칙](.claude/docs/code-convention.md)
+- [의존성 주입](.claude/docs/dependency-injection.md), [개발 환경](.claude/docs/development-environment.md)
 
-프로젝트 운영 규칙과 AI 에이전트 지침은 [AGENTS.md](AGENTS.md)를 기준으로 합니다. 커밋 전 훅(`.claude/hooks/pre-commit-check.sh`)이 Swift 규칙을 검사합니다. 인자가 2개 이상인 호출은 인자마다 줄을 나누고, `switch`의 `case` 패턴 매칭만 한 줄로 쓸 수 있습니다.
+프로젝트 운영 규칙과 AI 에이전트 지침은 [CLAUDE.md](CLAUDE.md)와 `.claude/docs/`를 기준으로 합니다(Codex는 [AGENTS.md](AGENTS.md)에서 시작). 커밋 전 훅(`.claude/hooks/pre-commit-check.sh`)이 Swift 규칙을 검사합니다. 인자가 2개 이상인 호출은 인자마다 줄을 나누고, `switch`의 `case` 패턴 매칭만 한 줄로 쓸 수 있습니다.
 
 ## 브랜치 전략
 
-`feature/<작업명>` 브랜치에서 작업하고 `develop`으로 PR을 보냅니다. 검증된 PR은 스쿼시 머지합니다. 자세한 규칙은 [Git 워크플로](docs/agent/git-workflow.md)에 있습니다.
+`feature/<작업명>` 브랜치에서 작업하고 `develop`으로 PR을 보냅니다. 검증된 PR은 스쿼시 머지합니다. 자세한 규칙은 [Git 워크플로](.claude/docs/git-workflow.md)에 있습니다.
 
 ## 문의
 

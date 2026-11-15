@@ -6,7 +6,7 @@ paths:
 
 # App · Extension 경로 규칙
 
-상세 문서: `docs/agent/tcaflow-navigation.md`, `docs/agent/dependency-injection.md`, `AGENTS.md`의 딥링크 · 푸시 항목
+상세 문서: `.claude/docs/navigation.md`, `.claude/docs/dependency-injection.md`, `.claude/docs/push-deeplink.md`
 
 ## Hard
 

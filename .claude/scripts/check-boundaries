@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""모듈 경계 검사. AGENTS.md가 정한 의존 방향을 import로 확인하고 어기면 실패한다. (docs/agent/harness.md)
+"""모듈 경계 검사. CLAUDE.md · .claude/docs/architecture.md가 정한 의존 방향을 import로 확인하고 어기면 실패한다. (.claude/docs/harness.md)
 
 사용: .claude/scripts/check-boundaries      (verify가 Projects/ 변경이 있을 때 실행한다)
-규칙을 더하려면 RULES에 한 줄 추가하고 AGENTS.md · docs/agent/ 문서에 같은 규칙이 있는지 확인한다.
+규칙을 더하려면 RULES에 한 줄 추가하고 .claude/docs/ 문서에 같은 규칙이 있는지 확인한다.
 """
 import os
 import re
@@ -27,7 +27,7 @@ def rules(root):
          "Domain Interface(<X>DomainInterface)의 UseCase를 @Dependency로 받는다. 조립은 FeatureAssembly가 한다"),
         ("Feature는 API · APIEndpoint · Network · Auth Service를 import하지 않는다", feature_code, [],
          r"^\s*(?:@testable\s+)?import\s+(?:API|APIEndpoint|FestiCoreNetwork\w*|FestiCoreAuth\w*)\b",
-         "Feature는 Domain UseCase와 시스템 의존성만 주입받는다(docs/agent/domain-modules.md)"),
+         "Feature는 Domain UseCase와 시스템 의존성만 주입받는다(.claude/docs/domain-modules.md)"),
         ("APIEndpoint는 Domain · Auth Service에 의존하지 않는다", ["Projects/Service/APIEndpoint/Sources/**/*.swift"], [],
          r"^\s*(?:@testable\s+)?import\s+(?:\w+Domain\w*|FestiCoreAuth\w*)\b",
          "DTO ↔ Entity 변환은 Domain Mapper가 맡는다"),
@@ -76,7 +76,7 @@ def main():
                 line = text.count("\n", 0, m.start()) + 1
                 violations.append(f"  {path}:{line}  [{name}] → {hint}")
     if violations:
-        print("모듈 경계 위반 (AGENTS.md · docs/agent/domain-modules.md):")
+        print("모듈 경계 위반 (.claude/docs/architecture.md · .claude/docs/domain-modules.md):")
         print("\n".join(violations))
         return 1
     print(f"모듈 경계 검사 통과 (규칙 {len(checks)}개)")

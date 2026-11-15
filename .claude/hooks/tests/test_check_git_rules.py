@@ -210,7 +210,10 @@ class VerifyAndBoundaryTests(unittest.TestCase):
         import harness_state as hs
         self.assertFalse(hs.is_code("Projects/App/README.md"))
         self.assertFalse(hs.is_code("DesignExports/S10/screen.png"))
-        self.assertFalse(hs.is_code("docs/agent/harness.md"))
+        self.assertFalse(hs.is_code(".claude/docs/harness.md"))
+        self.assertFalse(hs.is_code(".claude/docs/specs/README.md"))
+        self.assertFalse(hs.is_code(".claude/skills/tuist/SKILL.md"))
+        self.assertFalse(hs.is_code("CLAUDE.md"))
         self.assertTrue(hs.is_code("Projects/App/Sources/A.swift"))
         self.assertTrue(hs.is_code(".claude/hooks/check_git_rules.py"))
 
