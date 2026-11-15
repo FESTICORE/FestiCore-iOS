@@ -5,7 +5,7 @@ paths:
 
 # Feature 경로 규칙
 
-상세 문서: `docs/agent/tca-patterns.md`, `docs/agent/swiftui-patterns.md`, `docs/agent/popup-modal-system.md`, `docs/agent/tcaflow-navigation.md`, `docs/agent/dependency-injection.md`
+상세 문서: `.claude/docs/ios-tca.md`, `.claude/docs/swiftui-patterns.md`, `.claude/docs/popup-modal-system.md`, `.claude/docs/navigation.md`, `.claude/docs/dependency-injection.md`
 
 ## Hard
 

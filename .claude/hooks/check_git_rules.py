@@ -1,4 +1,4 @@
-"""Git 규칙 검사 (docs/agent/git-workflow.md · docs/agent/harness.md).
+"""Git 규칙 검사 (.claude/docs/git-workflow.md · .claude/docs/harness.md).
 
 check-git-rules.sh가 git commit / push가 보일 때만 호출한다.
 
@@ -43,7 +43,7 @@ HOOK_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def fail(reason):
-    sys.stderr.write(f"[git 규칙 위반] {reason}\n규칙: docs/agent/git-workflow.md · docs/agent/harness.md\n")
+    sys.stderr.write(f"[git 규칙 위반] {reason}\n규칙: .claude/docs/git-workflow.md · .claude/docs/harness.md\n")
     sys.exit(2)
 
 

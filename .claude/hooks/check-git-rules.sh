@@ -1,9 +1,9 @@
 #!/bin/bash
-# Git 규칙 검사 훅 진입점 (Claude Code PreToolUse · Bash). 설명: docs/agent/harness.md
+# Git 규칙 검사 훅 진입점 (Claude Code PreToolUse · Bash). 설명: .claude/docs/harness.md
 #
 # 모든 Bash 명령마다 실행된다. git commit / push가 아니면 외부 프로세스 없이 bash 문자열 비교만 하고 끝낸다.
 # 해당하면 check_git_rules.py를 한 번 실행해 브랜치 · 커밋 메시지 · .DS_Store · 스테이징된 Swift(pre-commit-check.sh) ·
-# 검증 기록을 모두 본다. 규칙: docs/agent/git-workflow.md
+# 검증 기록을 모두 본다. 규칙: .claude/docs/git-workflow.md
 #
 # 직접 실행 (Codex 등 훅이 없는 환경):
 #   bash .claude/hooks/check-git-rules.sh --check-message "설명 추가 #396"

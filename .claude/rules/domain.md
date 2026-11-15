@@ -5,7 +5,7 @@ paths:
 
 # Domain 경로 규칙
 
-상세 문서: `docs/agent/domain-modules.md`, `docs/agent/dependency-injection.md`
+상세 문서: `.claude/docs/domain-modules.md`, `.claude/docs/dependency-injection.md`
 구조 원본: Attendance_iOS `Projects/Domain/AttendanceDomain`(읽기 전용). 새 파일은 같은 역할 파일과 대조한다.
 
 ## Hard

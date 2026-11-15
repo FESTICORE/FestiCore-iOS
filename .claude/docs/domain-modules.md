@@ -1,5 +1,9 @@
 # Domain 모듈
 
+디자인(DesignExports·Figma 시안)과 API 연동은 보류하지 않는다. 필요한 API가 없으면 개발 환경 백엔드에 만들고 iOS Domain·Feature까지 연동한다. 운영 DB 변경·운영 배포·라이선스 승인만 사람의 승인을 기다린다.
+
+## 모듈 구성
+
 - 기능 단위로 Domain 모듈을 둔다(`AuthDomain`, `FestivalDomain`, `TimetableDomain`). 새 모듈은 `Projects/Domain/<이름>Domain/Project.swift`로 등록하고 `Plugins/DependencyPlugin`의 Domain 목록, 조립 모듈, `FestiCore.xctestplan` 테스트 타깃을 함께 갱신한다.
 - 파일을 만들기 전에 Attendance_iOS `Projects/Domain/AttendanceDomain`과 `Projects/Service/{API,APIEndpoint}`에서 같은 역할의 파일을 열어 배치와 주입 방식을 대조한다.
 - 폴더 구성(Attendance `AttendanceDomain`과 같다):
@@ -11,6 +15,8 @@
   - `Sources/Model/DTO`·`Sources/Model/Mapper`: DTO·Mapper
   - `Sources/<X>LiveDependencies.swift`: 모듈의 `extension <X>Dependency: DependencyKey` `liveValue` 등록을 한 파일에 모은다. `<X>`는 모듈 이름에서 `Domain`을 뺀 이름이다(Attendance `AttendanceDomain`→`AttendanceLiveDependencies.swift`, FestiCore `AuthDomain`→`AuthLiveDependencies.swift`). `FestivalDomain`의 등록 파일은 `Sources/FestivalLiveDependencies.swift`다.
   - `Sources/Exported`: 구현 모듈의 `@_exported import`
+- 테스트·프리뷰 기본값은 명시적인 Mock을 제공하고 미주입 호출은 테스트 이슈로 기록한다.
+- Domain Repository·UseCase 계약과 구현 타입 위에는 역할과 경계를 설명하는 한두 줄의 `///` 문서 주석을 단다. (`check-swift-conventions.py`가 검사)
 - 이전 배치(`Sources/Repository`·`Exported`로 옮길 대상): 현재 FestiCore Domain 6개는 위 구성과 다르다. 새 코드는 위 구성을 따르고 기존 모듈의 배치를 본보기로 삼지 않는다.
   - `<X>RepositoryImpl`이 `Sources/<기능>`에 있다: `AuthDomain/Sources/Auth/AuthRepositoryImpl`, `NoticeDomain/Sources/Notice/NoticeRepositoryImpl`, `BearerDomain/Sources/Bearer/BearerRepositoryImpl`, `UserNotificationDomain/Sources/UserNotification/UserNotificationRepositoryImpl`, `FestivalDomain/Sources`의 `Catalog/FestivalCatalogRepositoryImpl`·`Crew/FestivalCrewRepositoryImpl`·`FlagDetail/FestivalFlagDetailRepositoryImpl`·`Pack/FestivalPackSyncRepositoryImpl`·`PackDetail/FestivalPackRepositoryImpl`. 모두 `Sources/Repository`로 옮긴다.
   - OAuth 제공자 Repository는 Attendance `AuthDomain`(`Sources/Google`, `Sources/OAuth/Apple`)처럼 제공자 폴더에 둔다. `AuthDomain/Sources/Google/GoogleOAuthRepositoryImpl`은 이미 같고, `Sources/Apple/AppleOAuthRepositoryImpl`은 `Sources/OAuth/Apple`로 옮길 대상이다.
@@ -18,7 +24,7 @@
   - `FestivalDomain`의 등록은 `Sources/FestivalLiveDependencies.swift` 한 파일로 모은다. 지금의 `Sources/FestivalPackLiveDependencies.swift`는 이 이름으로 바꾸고, 계약별 `<계약 이름>+Live.swift`(예: `Catalog/FestivalCatalogUseCase+Live.swift`)의 `liveValue` 등록을 이 파일로 합친다. 새 등록도 이 파일에 둔다.
 - Feature가 쓰는 공개 값 타입은 해당 Domain `Interface/Sources/Entity`에 둔다. Feature 모듈 `Model`에 공개 엔티티를 두지 않는다. 팩 문서처럼 디코딩하는 모델은 Domain `Sources/Model`의 DTO·Mapper로 둔다.
 - UseCase는 화면이 하는 일 단위로 묶는다. Feature는 UseCase Interface만, `<X>UseCaseImpl`은 Repository Interface만 `@Dependency`로 주입받는다. Attendance UseCaseImpl 10개는 모두 Repository만 받는다(`MyPageUseCaseImpl`은 이니셜라이저로). 서버 통신·로컬 저장·시스템 클라이언트는 `<X>RepositoryImpl`이나 `Sources/Repository/Local/<X>LocalDataSource` 뒤에 둔다.
-- RepositoryImpl 주입 범위(이 항목이 유일한 정의다. [의존성 주입](dependency-injection.md)과 AGENTS.md는 이 항목을 따른다). `<X>RepositoryImpl`은 Attendance `Sources/Repository`·`Sources/OAuth`의 RepositoryImpl과 같이 아래 네 가지만 `@Dependency`로 주입받는다.
+- RepositoryImpl 주입 범위(이 항목이 유일한 정의다. [의존성 주입](dependency-injection.md)과 CLAUDE.md는 이 항목을 따른다). `<X>RepositoryImpl`은 Attendance `Sources/Repository`·`Sources/OAuth`의 RepositoryImpl과 같이 아래 네 가지만 `@Dependency`로 주입받는다.
   - 공용 Network·Auth Interface: `networkClient`·`authService`(Attendance `AttendanceRepositoryImpl`·`AuthRepositoryImpl`).
   - 같은 Domain의 `Sources/Repository/Local/<X>LocalDataSource`(Attendance `ScheduleRepositoryImpl`의 `scheduleLocalDataSource`, `ProfileRepositoryImpl`의 `profileLocalDataSource`).
   - 플랫폼 클라이언트 Interface: OS 기능 호출을 감싸 해당 Domain `Interface/Sources/<기능>`에 둔 클라이언트(Attendance `AppleOAuthRepositoryImpl`의 `appleManger`, 계약은 `AuthDomain/Interface/Sources/Apple/AppleAuthRequestInterface`). FestiCore의 `festivalNotificationPermission`·`festivalWiFiStatus`·`festivalImagePrefetchClient`·`festivalLiveActivityClient`가 여기에 해당한다.
@@ -29,6 +35,7 @@
     - `festivalLiveBoardService`(`refresh(for:)`): 새 `LiveBoard/FestivalLiveBoardRepositoryInterface`와 `Sources/Repository/FestivalLiveBoardRepositoryImpl`. `FestivalFlagUseCaseImpl`·`FestivalLiveBoardUseCaseImpl`이 주입받는다.
     - `festivalFlagFollowService`(`setFollowing(_:flagID:)`): 새 `FlagFollow/FestivalFlagFollowRepositoryInterface`와 `Sources/Repository/FestivalFlagFollowRepositoryImpl`. `FestivalFlagUseCaseImpl`이 주입받는다.
     - `festivalScheduleService`(`fetch(festivalID:)`·`replace`): 새 `Schedule/FestivalScheduleRepositoryInterface`와 `Sources/Repository/FestivalScheduleRepositoryImpl`. `FestivalScheduleUseCaseImpl`이 주입받는다.
+- Repository 구현은 공용 Network·Auth Interface를 주입받는다. 새 클라이언트나 토큰 저장소를 Domain마다 만들지 않는다. 로그인 응답을 검증한 뒤 공용 인증 세션에 저장한다.
 - `@Shared`는 `@Dependency`와 구분한다. Domain `Interface/Sources/Entity`에 `PersistentSharedKey`로 선언한 단순 공유 값은 Attendance `AuthUseCaseImpl`·`ProfileUseCaseImpl`·`ProfileRepositoryImpl`의 `@Shared(.userSession)`·`@Shared(.staffRole)`처럼 `@Shared`로 읽고 쓴다. 레코드 저장은 `@Shared`가 아니라 Repository와 LocalDataSource를 거친다.
 - 의도한 예외(여기에 이름을 적은 것만 허용한다):
   - `FestivalDomain`의 알림 설정 UseCase는 Repository 없이 `FestiCoreDeviceInterface`의 `DeviceNotificationSettingsService`를 직접 주입받는다(`.service(.device, .interface)` 의존). 기기 인증이 Device 서비스 안에 있기 때문이다. 같은 UseCase의 `festivalNotificationPermission` 권한 클라이언트는 예외가 아니며 Repository 뒤로 옮길 아래 이전 대상이다. Device 요청 타입은 `DeviceRegistrationRequest`처럼 API·APIEndpoint가 아니라 `Service/FestiCoreDevice/Sources`에 둔다.
@@ -37,3 +44,12 @@
 - 이전 대상(UseCaseImpl이 Service·Store·Client를 직접 주입받는 곳, Repository나 `Repository/Local/<X>LocalDataSource` 뒤로 옮긴다). 공용 Core·Service Interface와 플랫폼 클라이언트는 위 주입 범위대로 `<X>RepositoryImpl`이 주입받고, `*Store`·`bearerStatusOutbox` 같은 로컬 저장은 `<X>LocalDataSource`나 `@Shared`로, Domain 전용 서비스는 위 이전 대상과 같이 RepositoryImpl의 요청과 LocalDataSource 캐시로 옮긴다.
   - `BearerDomain/Sources/Bearer/BearerUseCaseImpl`: `packSyncService`, `bearerStatusOutbox`
   - `FestivalDomain/Sources`: `Catalog/FestivalCatalogUseCaseImpl`(`festivalSelectionStore`), `Flag/FestivalFlagUseCaseImpl`(`festivalLiveBoardService`·`festivalFlagFollowService`), `Guide/FestivalGuideVisibilityUseCaseImpl`(`festivalGuideVisibilityStore`), `Image/FestivalImageUseCaseImpl`(`festivalCatalogService`·`festivalImagePrefetchClient`), `Library/FestivalLibraryUseCaseImpl`(`festivalBookedStore`·`festivalRecentSearchStore`), `LiveActivity/FestivalLiveActivityUseCaseImpl`(`festivalLiveActivityClient`), `LiveBoard/FestivalLiveBoardUseCaseImpl`(`festivalLiveBoardService`), `NotificationSettings/FestivalNotificationSettingsUseCaseImpl`(`festivalNotificationPermission`), `PackDetail/FestivalPackDetailUseCaseImpl`(`packSyncService`·`festivalCatalogService`·`festivalPackLocalStore`), `ReceivedPack/FestivalReceivedPackUseCaseImpl`(`packSyncService`·`festivalCatalogService`·`festivalPackLocalStore`·`festivalWiFiStatus`), `Schedule/FestivalScheduleUseCaseImpl`(`festivalScheduleService`)
+
+## 통신 (API · APIEndpoint · Network)
+
+- API 경로는 `API`, `FestiCoreDataRequest` 요청은 `APIEndpoint`에 둔다. 요청마다 path, HTTP method, authorization, `Encodable & Sendable` body, 재시도 정책을 명시한다. DTO에서 Entity로의 변환과 도메인 값에서 요청 body로의 변환은 Domain Mapper가 담당한다. APIEndpoint는 Domain이나 Auth Service에 의존하지 않는다.
+- 공개 로그인·토큰 갱신은 `.none`, 로그아웃은 `.automatic`을 사용한다. 인증 요청은 응답 DTO를 명시해 `send(_:as:)`로 전송한다. 최종 URL이 `/api/v1/auth/` 로그 본문 보호 규칙과 일치해야 한다. 토큰·인가 코드·비밀 값은 로그와 테스트 실패 메시지에 넣지 않는다.
+- 요청의 실제 URL·method·인증·body와 nullable DTO 매핑, 오류 전파, 로그인·로그아웃·갱신의 세션 변경을 테스트한다. `FestiCore.xctestplan`에 새 테스트 타깃을 추가해 CI에서 실행되는지 확인한다. 오래된 WeaveDI 문서나 다른 앱 전용 API 계약은 복사하지 않는다.
+- HTTP와 WebSocket은 `Projects/Core/FestiCoreNetwork`의 Alamofire 구조(`SessionFactory`의 Session, `NetworkClient`, `AuthorizingInterceptor`·`FestiCoreAuthenticator`, `FestiCoreEventMonitor`·`NetworkLogRedactor`, `FestiCoreEndpoint` 재시도 정책) 안에 둔다. WebSocket도 같은 Session·인터셉터·EventMonitor·로그 보호·재시도 정책 체계를 공유하고, 호출부는 HTTP 요청과 같은 체이닝·async 방식으로 쓴다. 재시도에서 연결 재접속과 메시지 재전송을 구분하고 멱등하지 않은 메시지는 자동 재전송하지 않는다. WebSocket 이전은 끝났다. `NetworkClientFactory.webSocket()`의 `NetworkClient`가 `FestiCoreWebSocketRequest`로 `Session.webSocketRequest`를 연다(`Sources/WebSocket/WebSocketConnection`·`WebSocketHandshakeInterceptor`). 이 구조 밖에 새 통신 코드를 만들지 않는다.
+
+로컬 DB·레거시 이전은 [로컬 저장소](storage.md), 분석은 [분석](analytics.md)에 있다.

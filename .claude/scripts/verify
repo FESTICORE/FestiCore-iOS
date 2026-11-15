@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""변경 경로에 맞는 검사 · 생성 · 테스트를 실행하고 결과를 증거로 남긴다. (docs/agent/harness.md 검증 게이트)
+"""변경 경로에 맞는 검사 · 생성 · 테스트를 실행하고 결과를 증거로 남긴다. (.claude/docs/harness.md 검증 게이트)
 
 사용: .claude/scripts/verify          develop 이후 바뀐 코드에 맞는 단계만 실행
       .claude/scripts/verify --all    모든 단계 실행(./make test 전체)

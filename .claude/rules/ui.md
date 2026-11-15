@@ -6,7 +6,7 @@ paths:
 
 # UI · Widget 경로 규칙
 
-상세 문서: `docs/agent/swiftui-patterns.md`, `docs/agent/popup-modal-system.md`, `docs/agent/figma-design.md`
+상세 문서: `.claude/docs/swiftui-patterns.md`, `.claude/docs/popup-modal-system.md`, `.claude/docs/figma-design.md`
 
 ## Hard
 
@@ -18,5 +18,5 @@ paths:
 
 ## Soft (기존 코드가 다르면 기존 코드를 따른다)
 
-- 아직 이니셜라이저 옵션으로 남은 기존 컴포넌트는 본보기로 삼지 않는다(`docs/agent/swiftui-patterns.md`의 이전 대상).
+- 아직 이니셜라이저 옵션으로 남은 기존 컴포넌트는 본보기로 삼지 않는다(`.claude/docs/swiftui-patterns.md`의 이전 대상).
 - View 분리는 상태 전환 · TCA 액션 · 접근성 · 다크 모드를 바꾸지 않는 범위에서 한다.

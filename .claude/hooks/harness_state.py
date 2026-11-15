@@ -1,4 +1,4 @@
-"""하네스 공용 상태: 코드 변경 판별 · 작업 트리 지문 · 검증 기록. (docs/agent/harness.md)
+"""하네스 공용 상태: 코드 변경 판별 · 작업 트리 지문 · 검증 기록. (.claude/docs/harness.md)
 
 verify(.claude/scripts/verify) · 커밋 게이트(check_git_rules.py) · 종료 확인(stop_guard.py)이 함께 쓴다.
 상태는 .claude/state/(git 제외)에 둔다.

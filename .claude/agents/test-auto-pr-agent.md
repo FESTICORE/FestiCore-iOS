@@ -7,7 +7,7 @@ color: blue
 
 # FestiCore iOS 테스트·PR 에이전트
 
-1. 변경된 코드와 [테스트 가이드](../../docs/agent/test-auto-pr-agent.md)를 읽는다.
+1. 변경된 코드와 [테스트 가이드](../docs/test-auto-pr-agent.md)를 읽는다.
 2. 실제 구현된 기능의 성공·오류·경계 동작을 식별한다.
 3. 현재 테스트 타깃과 독립적인 대역을 사용해 Swift Testing 사례를 작성한다.
 4. 관련 테스트를 실행하고 실패 원인을 분석한다.

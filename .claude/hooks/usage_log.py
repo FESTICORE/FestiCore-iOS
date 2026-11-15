@@ -1,4 +1,4 @@
-"""PostToolUse(Read · Skill) 훅: 하네스 문서 · 규칙 · 에이전트 · 스킬 사용을 로컬에 기록한다. (docs/agent/harness.md 관측)
+"""PostToolUse(Read · Skill) 훅: 하네스 문서 · 규칙 · 에이전트 · 스킬 사용을 로컬에 기록한다. (.claude/docs/harness.md 관측)
 
 기록: .claude/state/usage.jsonl (git 제외). 경로와 스킬 이름만 남기고 사용자 입력은 남기지 않는다.
 리포트: .claude/scripts/harness-report
@@ -8,7 +8,7 @@ import os
 import sys
 import time
 
-HARNESS_PREFIXES = ("docs/agent/", ".claude/rules/", ".claude/agents/", "AGENTS.md", "CLAUDE.md")
+HARNESS_PREFIXES = (".claude/docs/", ".claude/rules/", ".claude/agents/", ".claude/skills/", "AGENTS.md", "CLAUDE.md")
 
 
 def main():

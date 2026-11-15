@@ -1,6 +1,6 @@
 # 에이전트 하네스
 
-하네스는 에이전트가 일하는 환경 전체다. 규칙 문서, 경로별 규칙, 훅, 검증 스크립트로 이루어진다. 구조는 CIRQLE-Native-Mobile의 하네스를 FestiCore 규칙에 맞게 옮겼다.
+하네스는 에이전트가 일하는 환경 전체다. 규칙 문서, 경로별 규칙, 스킬, 훅, 검증 스크립트로 이루어진다. 구조는 CIRQLE-Native-Mobile의 하네스를 FestiCore 규칙에 맞게 옮겼다.
 
 - 프롬프트 지시는 확률이고 실행되는 검사는 보장이다. 같은 실수가 반복되면 문서보다 검사로 막는다.
 - 세 축으로 관리한다. **Context**(무엇을 읽게 할지) · **Control**(무엇을 막고 확인할지) · **Observability**(무엇이 쓰이는지 보고 정리).
@@ -8,14 +8,32 @@
 
 ## 구성
 
-| 종류 | 위치 | 역할 |
-| --- | --- | --- |
-| 프로젝트 규칙 | `AGENTS.md` | 개요 · 작업 규칙 · 문서 색인 |
-| 상세 문서 | `docs/agent/*.md` | 영역별 규칙과 예시 |
-| 경로별 규칙 | `.claude/rules/*.md` | frontmatter `paths`에 맞는 파일을 다룰 때 적용 |
-| 훅 | `.claude/hooks/*` + `.claude/settings.json` | 규칙을 실행으로 강제 · 사용 기록 |
-| 스크립트 | `.claude/scripts/verify` · `check-boundaries` · `harness-report` | 검증 · 모듈 경계 · 사용 리포트 |
-| 로컬 상태 | `.claude/state/` (git 제외) | 검증 기록(`verify.json`) · 검증 로그 · 사용 기록 |
+| 종류 | 위치 | 역할 | 언제 읽히나 |
+| --- | --- | --- | --- |
+| 프로젝트 규칙 | `CLAUDE.md` | 개요 · Hard 규칙 · 문서 색인 · 명령 | 세션 시작 시 항상 |
+| Codex 진입점 | `AGENTS.md` | `CLAUDE.md`와 `.claude/docs`를 읽으라는 안내 · 경로별 규칙 표 · Claudex Loop | Codex 세션 시작 시 |
+| 상세 문서 | `.claude/docs/*.md` | 영역별 규칙과 예시 | 작업에 맞는 문서를 골라 읽음 |
+| 설계 | `.claude/docs/specs/*.md` | 구현 전 합의한 설계([Spec 가이드](spec-guide.md)) | 해당 작업 시 |
+| 경로별 규칙 | `.claude/rules/*.md` | frontmatter `paths`에 맞는 파일을 다룰 때 적용 | 자동 (Claude) · 직접 (Codex) |
+| 스킬 | `.claude/skills/*/SKILL.md` | 작업 순서 · 외부 Swift 스킬(출처는 `THIRD_PARTY_NOTICES.md`) | 작업이 스킬 설명과 맞을 때 |
+| 에이전트 | `.claude/agents/*.md` | 테스트 · PR 전용 에이전트 | 직접 부를 때 |
+| 훅 | `.claude/hooks/*` + `.claude/settings.json` | 규칙을 실행으로 강제 · 사용 기록 | 도구 실행 전후 · 응답 종료 시 |
+| 스크립트 | `.claude/scripts/verify` · `check-boundaries` · `harness-report` | 검증 · 모듈 경계 · 사용 리포트 | 직접 실행 · verify가 실행 |
+| 로컬 상태 | `.claude/state/` (git 제외) | 검증 기록(`verify.json`) · 검증 로그 · 사용 기록 | 훅 · 스크립트가 읽고 씀 |
+
+`docs/`의 문서는 사람이 읽는 설계 · 운영 문서다. 에이전트 규칙은 `CLAUDE.md`와 `.claude/docs/`에만 둔다.
+
+### 스킬
+
+| 스킬 | 쓰는 때 |
+| --- | --- |
+| `tca-feature` | 화면 Reducer · View · 테스트 |
+| `screen-flow` | Coordinator · 화면 전환 |
+| `tuist` | 모듈 생성 · 의존 추가 · 생성 오류 |
+| `spec-first` | 기능 spec · 설계 문서 먼저 쓰기 |
+| `swiftui-pro` · `swift-concurrency-pro` · `swift-testing-pro` | SwiftUI · 동시성 · Swift Testing 검토 (외부 스킬, 본문은 원본 그대로) |
+
+CLI에 연결된 공유 iOS 스킬(개인 환경의 스킬)은 현재 환경과 작업 범위에 맞을 때만 사용한다.
 
 ## 경로별 규칙
 
@@ -33,7 +51,7 @@
 | --- | --- | --- |
 | `PreToolUse` (Bash) | `check-git-rules.sh` → `check_git_rules.py` | 아래 커밋 · 푸시 검사 |
 | `PostToolUse` (Edit · Write · MultiEdit · Bash) | `check-swift-conventions.py --hook` | 바뀐 Swift 줄의 규칙 위반을 알린다(막지 않음) |
-| `PostToolUse` (Read · Skill) | `usage_log.py` | 하네스 문서 · 규칙 · 에이전트 · 스킬 사용을 `.claude/state/usage.jsonl`에 기록 |
+| `PostToolUse` (Read · Skill) | `usage_log.py` | 하네스 문서(`.claude/docs/` · `CLAUDE.md` · `AGENTS.md`) · 규칙 · 에이전트 · 스킬 사용을 `.claude/state/usage.jsonl`에 기록 |
 | `Stop` | `stop_guard.py` | 검증 안 된 코드 변경이 있으면 응답 종료를 한 번 막고 verify를 안내 |
 
 `git commit` · `git push` 검사 순서:
@@ -84,7 +102,7 @@ python3 -m unittest discover -s .claude/hooks/tests < /dev/null
 
 ### 모듈 경계 (`check-boundaries`)
 
-AGENTS.md의 의존 방향을 import 문으로 확인한다. 규칙을 더하면 AGENTS.md나 `docs/agent/` 문서에 같은 규칙이 있는지 확인한다.
+[프로젝트와 구조](architecture.md)의 의존 방향을 import 문으로 확인한다. 규칙을 더하면 `CLAUDE.md`나 `.claude/docs/` 문서에 같은 규칙이 있는지 확인한다.
 
 | 규칙 | 검사 대상 |
 | --- | --- |
@@ -112,13 +130,19 @@ AGENTS.md의 의존 방향을 import 문으로 확인한다. 규칙을 더하면
 - `codex exec` 등 외부 CLI는 stdin을 닫지 않으면 입력을 기다리며 멈춘다. `< /dev/null`을 붙인다.
 - `cd 경로 && git commit`의 경로에 변수(`$DIR`)가 있으면 훅은 해석하지 못하고 훅 입력의 cwd를 본다.
 - `./make test -only-testing:`은 바뀐 모듈의 테스트만 돌린다. 그 모듈에 의존하는 다른 모듈의 테스트는 CI의 전체 실행이 맡는다. 필요하면 `--all`을 쓴다.
-- Codex에는 Claude 훅이 걸리지 않는다. Codex는 커밋 전에 위 직접 검사와 verify를 실행한다.
+- Codex에는 Claude 훅이 걸리지 않는다(`.codex/hooks.json`의 Swift 규칙 검사만 걸린다). Codex는 커밋 전에 위 직접 검사와 verify를 실행한다.
 - 훅은 실수를 막는 장치이지 보안 경계가 아니다. `env git commit`·`sudo git commit`·`/usr/bin/git commit`처럼 `git`으로 시작하지 않는 명령, 셸 변수·편집기·파일로 준 커밋 메시지는 검사하지 않는다. 이런 형태로 검사를 피하지 않는다.
 - `gh pr merge --squash`의 제목·본문은 훅이 검사하지 않는다. 스쿼시 머지 때 [Git/PR](git-workflow.md) 규칙대로 직접 지정하고 머지 후 커밋 메시지를 확인한다.
 - 따옴표 안의 `; git commit` 같은 문자열도 커밋으로 볼 수 있다(오탐). feature 브랜치에서 올바른 검증 기록이 있으면 통과한다.
 
+## Claude와 Codex
+
+- 규칙 원본은 `CLAUDE.md`와 `.claude/docs/` 하나다. `AGENTS.md`에는 규칙을 복사하지 않고 읽을 위치와 Claudex Loop 안내만 적는다.
+- 교차 검토: 한쪽이 계획하거나 구현하면 다른 쪽이 같은 문서를 기준으로 검토한다(`AGENTS.md`의 Claudex Loop).
+
 ## 하네스 관리
 
 - 규칙을 바꾸면 같은 PR에서 문서와 훅을 함께 고친다.
+- Claude Code의 공유 설정은 `.claude/settings.json`에 둔다. 개인 권한 · 기억 파일(`settings.local.json` 등)은 커밋하지 않는다.
 - 에이전트가 같은 실수를 두 번 하면 문서에 적고, 반복되면 훅이나 check-boundaries 규칙으로 만든다.
 - 필요 없어진 규칙과 훅은 지운다. 검증과 보호 브랜치 규칙은 남긴다.
