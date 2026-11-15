@@ -69,6 +69,27 @@ struct FestivalPackDocumentTests {
     }
   }
 
+  @Test("공연 한 줄 메모를 읽고 빈 값·잘못된 형식은 버린다")
+  func decodesPerformanceNote() throws {
+    let pack = try document(#"""
+      {"id":"fst_test","stages":[{"id":"stg_a","name":"메인"}],"sets":[
+      {"id":"set_a","artist":"A","stageId":"stg_a","note":" 앵콜 없이 정시에 끝나요 "},
+      {"id":"set_b","artist":"B","stageId":"stg_a","note":"  "},
+      {"id":"set_c","artist":"C","stageId":"stg_a","note":12},
+      {"id":"set_d","artist":"D","stageId":"stg_a"}]}
+      """#)
+
+    #expect(pack.performances.map(\.note) == ["앵콜 없이 정시에 끝나요", nil, nil, nil])
+    #expect(pack.performances.map(\.stageName) == ["메인", "메인", "메인", "메인"])
+  }
+
+  @Test("시간표 공연의 한 줄 메모를 읽는다")
+  func decodesTimetableNote() throws {
+    let pack = try document(#"{"id":"fst_test","timetable":[{"id":"set_a","artist":"A","note":"리벳 앞 왼쪽이 덜 붐벼요."}]}"#)
+
+    #expect(pack.performances.first?.note == "리벳 앞 왼쪽이 덜 붐벼요.")
+  }
+
   private func document(_ json: String) throws -> FestivalPackDocument {
     try JSONDecoder().decode(FestivalPackDocument.self, from: Data(json.utf8))
   }

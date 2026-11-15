@@ -75,7 +75,8 @@ public struct FestivalPackDocument: Decodable, Equatable, Sendable {
         stageName: performance.stageName ?? performance.stageId.flatMap { stageNames[$0] },
         startsAt: performance.startsAt,
         endsAt: performance.endsAt,
-        imageUrl: performance.imageUrl
+        imageUrl: performance.imageUrl,
+        note: performance.note
       )
     }
   }
@@ -156,6 +157,12 @@ public struct FestivalPackDocument: Decodable, Equatable, Sendable {
     public let startsAt: String?
     public let endsAt: String?
     public let imageUrl: String?
+    /// 공연 상세 시트의 한 줄 메모(S03). 없으면 nil이다.
+    public let note: String?
+
+    private enum CodingKeys: String, CodingKey {
+      case id, artist, stageId, stageName, startsAt, endsAt, imageUrl, note
+    }
 
     init(
       id: String,
@@ -164,7 +171,8 @@ public struct FestivalPackDocument: Decodable, Equatable, Sendable {
       stageName: String?,
       startsAt: String?,
       endsAt: String?,
-      imageUrl: String?
+      imageUrl: String?,
+      note: String?
     ) {
       self.id = id
       self.artist = artist
@@ -173,6 +181,32 @@ public struct FestivalPackDocument: Decodable, Equatable, Sendable {
       self.startsAt = startsAt
       self.endsAt = endsAt
       self.imageUrl = imageUrl
+      self.note = note
+    }
+
+    /// 메모 형식이 달라도 공연과 팩 전체는 그대로 읽는다.
+    public init(from decoder: Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      func string(_ key: CodingKeys) throws -> String? {
+        return try container.decodeIfPresent(
+          String.self,
+          forKey: key
+        )
+      }
+      id = try container.decode(
+        String.self,
+        forKey: .id
+      )
+      artist = try string(.artist)
+      stageId = try string(.stageId)
+      stageName = try string(.stageName)
+      startsAt = try string(.startsAt)
+      endsAt = try string(.endsAt)
+      imageUrl = try string(.imageUrl)
+      note = (try? string(.note))
+        .flatMap { $0 }
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .flatMap { $0.isEmpty ? nil : $0 }
     }
   }
 }

@@ -165,7 +165,8 @@ public struct TimetableFeature {
         overlap: overlaps(of: set, in: day).first,
         previousTime: set.previousTime,
         change: set.startChange,
-        imageURL: set.imageURL
+        imageURL: set.imageURL,
+        memo: set.note
       )
       return TimetableSetDetailFeature.Content(
         detail: detail,

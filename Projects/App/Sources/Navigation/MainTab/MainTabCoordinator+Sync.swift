@@ -88,7 +88,8 @@ extension MainTabCoordinator {
         imageURL: { home?.imageURL(for: $0) }
       )
     } ?? []
-    let daysChanged = state.timetableState.days != days
+    // 메모만 바뀌면 열어 둔 내 일정 고르기를 닫지 않는다. 메모는 packSynced가 그대로 옮긴다.
+    let daysChanged = state.timetableState.days.map(\.ignoringNotes) != days.map(\.ignoringNotes)
     let lineup = pack.map {
       FestivalPackTimetableMapper.lineup(
         from: $0,
