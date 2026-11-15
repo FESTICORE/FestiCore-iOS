@@ -10,44 +10,6 @@ import FestiCoreStorageInterface
 
 @MainActor
 struct NotificationPermissionTests {
-  @Test("온보딩에서는 알림 권한을 묻지 않고 홈 진입 중복 요청을 막는다")
-  func permissionRefreshWaitsForHomeAndCoalescesRequests() {
-    var gate = NotificationPermissionRefreshGate()
-    let splash = gate.beginIfNeeded(isHome: false)
-    let onboarding = gate.beginIfNeeded(isHome: false)
-    let home = gate.beginIfNeeded(isHome: true)
-    let duplicate = gate.beginIfNeeded(isHome: true)
-    #expect(!splash)
-    #expect(!onboarding)
-    #expect(home)
-    #expect(!duplicate)
-    gate.finish()
-    let foreground = gate.beginIfNeeded(isHome: true)
-    #expect(foreground)
-  }
-
-  @Test("거부 안내는 세션에서 한 번만 표시한다")
-  func settingsAlertShowsOnce() {
-    var gate = NotificationSettingsAlertGate()
-
-    let firstDenial = gate.shouldShow(for: .denied)
-    let repeatedDenial = gate.shouldShow(for: .denied)
-    #expect(firstDenial)
-    #expect(!repeatedDenial)
-  }
-
-  @Test("허용 또는 권한 조회 실패는 안내 횟수를 소모하지 않는다")
-  func settingsAlertIgnoresOtherResults() {
-    var gate = NotificationSettingsAlertGate()
-
-    let authorized = gate.shouldShow(for: .authorized)
-    let unavailable = gate.shouldShow(for: .unavailable)
-    let denied = gate.shouldShow(for: .denied)
-    #expect(!authorized)
-    #expect(!unavailable)
-    #expect(denied)
-  }
-
   @Test("앱 시작 시 저장된 APNs 토큰을 서버 등록에 전달한다")
   func registersStoredTokenOnLaunch() async {
     let service = RecordingDeviceRegistrationService()
@@ -75,6 +37,23 @@ struct NotificationPermissionTests {
     #expect(delegate.deviceRegistration.lastMetadata == registrations.last)
     #expect(state.registrationCount == 1)
     #expect(delegate.notificationAuthorization.hasRequestedAPNsRegistration)
+  }
+
+  @Test("앱 호스팅 테스트에서는 시작 시 실제 권한 팝업을 띄우지 않는다")
+  func launchSkipsPermissionPromptInTestHost() async {
+    let delegate = AppDelegate()
+    let state = NotificationPermissionState(
+      status: .notDetermined,
+      requestResult: true
+    )
+    delegate.notificationAuthorization.client = state.client
+
+    delegate.configurePushNotifications()
+    await Task.yield()
+
+    #expect(delegate.notificationAuthorization.task == nil)
+    #expect(state.requestCount == 0)
+    #expect(state.registrationCount == 0)
   }
 
   @Test("진행 중인 권한 요청 Task를 재사용한다")

@@ -86,6 +86,8 @@ struct AppCoordinator {
     case foregrounded
     case backgrounded
     case remoteContentChanged
+    /// 알림 권한 확인 결과. 홈이 거부 안내를 띄울지 정한다.
+    case notificationPermissionResolved(NotificationPermissionResult)
     /// 위젯·푸시 딥링크로 화면을 연다.
     case openDeeplink(FestiCoreDeeplink)
     /// 대기 저장소에 새 딥링크가 들어왔다. 홈이면 바로 꺼내 연다.
@@ -254,6 +256,10 @@ extension AppCoordinator {
     case .remoteContentChanged:
       guard case .home = state else { return .none }
       return .send(.scope(.home(.festival(.remoteContentChanged))))
+
+    case let .notificationPermissionResolved(result):
+      guard case .home = state else { return .none }
+      return .send(.scope(.home(.notificationPermissionResolved(result))))
 
     case let .openDeeplink(deeplink):
       guard case .home = state else { return .none }

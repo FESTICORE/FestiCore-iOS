@@ -12,21 +12,6 @@ import CoreAssembly
 import FestiCoreLiveActivity
 import ServiceAssembly
 
-@MainActor
-final class RemoteContentRefreshRequest: NSObject {
-  private var completion: ((UIBackgroundFetchResult) -> Void)?
-
-  init(completion: @escaping (UIBackgroundFetchResult) -> Void) {
-    self.completion = completion
-  }
-
-  func finish(_ result: UIBackgroundFetchResult) {
-    guard let completion else { return }
-    self.completion = nil
-    completion(result)
-  }
-}
-
 extension AppDelegate {
   func application(
     _ application: UIApplication,
@@ -128,45 +113,21 @@ extension AppDelegate {
     registerDevice(apnsToken: apnsToken)
   }
 
-  func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    let apnsToken = deviceToken.map { String(format: "%02x", $0) }.joined()
-    do {
-      try secureStorage.save(apnsToken, for: .apnsToken)
-    } catch {
-      FestiCoreLogger.error("APNs 토큰 저장 실패: \(error.localizedDescription)", category: .app)
-    }
-    registerDevice(apnsToken: apnsToken)
-  }
-
-  func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-    notificationAuthorization.hasRequestedAPNsRegistration = false
-    FestiCoreLogger.error("APNs 토큰 등록 실패: \(error.localizedDescription)", category: .app)
-  }
-
-  private func registerDevice(apnsToken: String?) {
-    let infoDictionary = Bundle.main.infoDictionary ?? [:]
-    let apnsEnvironment: DeviceRegistrationMetadata.APNsEnvironment
-    switch infoDictionary["FestiCoreAPNsEnvironment"] as? String {
-    case "development": apnsEnvironment = .sandbox
-    case "production": apnsEnvironment = .production
-    default:
-      FestiCoreLogger.error("기기 등록 건너뜀: FestiCoreAPNsEnvironment 설정이 유효하지 않음", category: .app)
-      return
-    }
-    guard let appVersion = infoDictionary["CFBundleShortVersionString"] as? String, !appVersion.isEmpty else {
-      FestiCoreLogger.error("기기 등록 건너뜀: CFBundleShortVersionString 설정이 유효하지 않음", category: .app)
-      return
-    }
-
-    let metadata = DeviceRegistrationMetadata(
-      apnsEnvironment: apnsEnvironment,
+  func registerDevice(apnsToken: String?) {
+    guard let metadata = PushRegistrationService.metadata(
+      infoDictionary: Bundle.main.infoDictionary ?? [:],
       apnsToken: apnsToken,
-      liveActivityPushToStartToken: deviceRegistration.liveActivityStartToken,
-      appVersion: appVersion,
+      liveActivityStartToken: deviceRegistration.liveActivityStartToken,
       osVersion: UIDevice.current.systemVersion,
       locale: Locale.current.identifier(.bcp47),
       timezone: TimeZone.current.identifier
-    )
+    ) else {
+      FestiCoreLogger.error(
+        "기기 등록 건너뜀: FestiCoreAPNsEnvironment 또는 CFBundleShortVersionString 설정이 유효하지 않음",
+        category: .app
+      )
+      return
+    }
 
     let previousRegistration = deviceRegistration.task
     deviceRegistration.task = Task {
@@ -191,29 +152,4 @@ extension AppDelegate {
       }
     }
   }
-}
-
-enum NotificationPermissionResult: Equatable, Sendable {
-  case authorized
-  case denied
-  case unavailable
-}
-
-@MainActor
-struct NotificationAuthorizationClient {
-  var authorizationStatus: () async -> UNAuthorizationStatus
-  var requestAuthorization: () async throws -> Bool
-  var registerForRemoteNotifications: () -> Void
-
-  static let live = Self(
-    authorizationStatus: {
-      return await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
-    },
-    requestAuthorization: {
-      return try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
-    },
-    registerForRemoteNotifications: {
-      UIApplication.shared.registerForRemoteNotifications()
-    }
-  )
 }

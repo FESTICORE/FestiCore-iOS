@@ -124,25 +124,7 @@ final class PackDownloadDeviceUITests: XCTestCase {
     let app = XCUIApplication()
     app.launchEnvironment["FESTICORE_PACK_UI_TEST"] = "1"
     app.launch()
-
-    let onboardingSkip = app.buttons["onboarding.skip"]
-    if onboardingSkip.waitForExistence(timeout: 8) {
-      onboardingSkip.tap()
-    }
-    let notificationDeny = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-      .buttons["허용 안 함"]
-    if notificationDeny.waitForExistence(timeout: 8) {
-      notificationDeny.tap()
-    }
-    let notificationLater = app.alerts["알림이 꺼져 있어요"].buttons["나중에"]
-    if notificationLater.waitForExistence(timeout: 8) {
-      notificationLater.tap()
-    }
-    // 로그아웃 상태로 켜면 S14 A 첫 진입 화면이 홈을 덮는다.
-    let launchLoginSkip = app.buttons["launchLogin.skip"]
-    if launchLoginSkip.waitForExistence(timeout: 8) {
-      launchLoginSkip.tap()
-    }
+    app.passLaunchFlow()
     return app
   }
 
