@@ -45,9 +45,6 @@ private struct RootView: View {
     FestivalPackUITestFixture.configure(&$0)
     #endif
   }
-  @State private var showNotificationSettingsAlert = false
-  @State private var notificationSettingsAlertGate = NotificationSettingsAlertGate()
-  @State private var notificationPermissionRefreshGate = NotificationPermissionRefreshGate()
   /// 마이 > 화면 모드(Figma S13-J)
   @SharedReader(.appearanceMode) private var storedAppearanceMode
 
@@ -81,54 +78,16 @@ private struct RootView: View {
       .onDisappear {
         appDelegate.remoteContentHandler = nil
       }
-      .alert("알림이 꺼져 있어요", isPresented: $showNotificationSettingsAlert) {
-        Button("설정 열기") {
-          if let url = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(url)
-          }
-        }
-        Button("나중에", role: .cancel) {}
-      } message: {
-        Text("알림을 받으려면 설정에서 알림을 허용해 주세요. 알림 없이도 앱을 사용할 수 있어요.")
-      }
   }
 }
 
 private extension RootView {
+  /// 홈일 때만 권한 결과를 홈에 넘긴다. 중복 요청은 진행 중인 권한 요청 Task를 재사용해 막는다.
   func refreshNotificationPermission() async {
     guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
-          notificationPermissionRefreshGate.beginIfNeeded(
-            isHome: store.state.animationID == "home"
-          ) else { return }
-    defer { notificationPermissionRefreshGate.finish() }
+          store.state.animationID == "home" else { return }
     let result = await appDelegate.requestNotificationPermission()
-    if notificationSettingsAlertGate.shouldShow(for: result) {
-      showNotificationSettingsAlert = true
-    }
-  }
-}
-
-struct NotificationPermissionRefreshGate {
-  private var isRefreshing = false
-
-  mutating func beginIfNeeded(isHome: Bool) -> Bool {
-    guard isHome, !isRefreshing else { return false }
-    isRefreshing = true
-    return true
-  }
-
-  mutating func finish() {
-    isRefreshing = false
-  }
-}
-
-struct NotificationSettingsAlertGate {
-  private var hasShown = false
-
-  mutating func shouldShow(for result: NotificationPermissionResult) -> Bool {
-    guard result == .denied, !hasShown else { return false }
-    hasShown = true
-    return true
+    store.send(.view(.notificationPermissionResolved(result)))
   }
 }
 

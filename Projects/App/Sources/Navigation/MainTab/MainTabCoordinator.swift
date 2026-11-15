@@ -10,14 +10,17 @@ import ComposableArchitecture
 import FeatureAssembly
 import FestivalDomainInterface
 import FestiCoreDesignKit
+import FestiCoreSharedUI
 import Foundation
 import FestiCoreUtility
+import UIKit
 
 @Reducer
 struct MainTabCoordinator {
   typealias Tab = FCTabBar.Tab
   @Dependency(\.festivalBookedStore) private var bookedStore
   @Dependency(\.date.now) var now
+  @Dependency(\.openURL) private var openURL
 
   @ObservableState
   struct State: Equatable {
@@ -42,6 +45,9 @@ struct MainTabCoordinator {
       set { profileCoordinatorState.root = newValue }
     }
     var authFlow = AuthFlowState()
+    /// 알림 꺼짐 안내. 거부 결과를 받으면 세션에서 한 번만 띄운다.
+    @Presents var notificationSettingsAlert: FCAlertState<FCAlertAction>?
+    var hasShownNotificationSettingsAlert = false
 
     /// 기수 코드를 넣을 페스티벌. 라이브 탭에서 연 페스티벌, 없으면 받은 팩이 하나일 때 그 팩이다.
     var bearerFestivalID: String? {
@@ -126,6 +132,8 @@ struct MainTabCoordinator {
     case account(AccountCoordinator.Action)
     case authInputsChanged(previous: AuthInputs?, current: AuthInputs)
     case completePendingBookmark(id: String, userID: String, shouldBeBooked: Bool)
+    case notificationPermissionResolved(NotificationPermissionResult)
+    case notificationSettingsAlert(PresentationAction<FCAlertAction>)
   }
 
   var body: some ReducerOf<Self> {
@@ -192,6 +200,12 @@ struct MainTabCoordinator {
         action: action
       )
     }
+    .ifLet(
+      \.$notificationSettingsAlert,
+      action: \.notificationSettingsAlert
+    ) {
+      FCConfirmAlert()
+    }
   }
 
   func handleRoute(
@@ -244,6 +258,53 @@ struct MainTabCoordinator {
         userID: userID,
         shouldBeBooked: shouldBeBooked
       )
+
+    case let .notificationPermissionResolved(result):
+      return handleNotificationPermissionResolved(
+        state: &state,
+        result: result
+      )
+
+    case let .notificationSettingsAlert(action):
+      return handleNotificationSettingsAlert(
+        state: &state,
+        action: action
+      )
+    }
+  }
+}
+
+// MARK: - 알림 권한 안내
+
+extension MainTabCoordinator {
+  /// 거부 결과만 안내를 띄운다. 허용·조회 실패는 표시 기록을 소모하지 않는다.
+  func handleNotificationPermissionResolved(
+    state: inout State,
+    result: NotificationPermissionResult
+  ) -> Effect<Action> {
+    guard result == .denied, !state.hasShownNotificationSettingsAlert else { return .none }
+    state.hasShownNotificationSettingsAlert = true
+    state.notificationSettingsAlert = .notificationSettings()
+    return .none
+  }
+
+  /// 확인은 설정 앱을 열고, 확인·취소 모두 안내를 닫는다.
+  func handleNotificationSettingsAlert(
+    state: inout State,
+    action: PresentationAction<FCAlertAction>
+  ) -> Effect<Action> {
+    switch action {
+    case .presented(.confirmTapped):
+      state.notificationSettingsAlert = nil
+      guard let url = URL(string: UIApplication.openSettingsURLString) else { return .none }
+      return .run { _ in await openURL(url) }
+
+    case .presented(.cancelTapped):
+      state.notificationSettingsAlert = nil
+      return .none
+
+    case .dismiss:
+      return .none
     }
   }
 }

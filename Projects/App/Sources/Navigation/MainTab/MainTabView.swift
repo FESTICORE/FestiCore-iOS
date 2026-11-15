@@ -101,6 +101,14 @@ struct MainTabView: View {
           ))
       }
     }
+    .overlay {
+      // 알림 꺼짐 안내는 첫 진입 화면까지 덮도록 가장 위에 띄운다.
+      Color.clear
+        .fcAlert($store.scope(
+          state: \.notificationSettingsAlert,
+          action: \.notificationSettingsAlert
+        ))
+    }
     .animation(
       .easeInOut(duration: 0.35),
       value: store.authFlow.coversMainTab
