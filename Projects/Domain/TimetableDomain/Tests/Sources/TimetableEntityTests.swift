@@ -22,6 +22,32 @@ struct TimetableEntityTests {
     ]
   )
 
+  @Test func ignoringNotesComparesOnlyScheduleFields() {
+    let day = TimetableDay(
+      id: "day",
+      title: "토",
+      date: Date(timeIntervalSince1970: 0),
+      stages: [],
+      sets: [TimetableSet(
+        id: "set",
+        artist: "A",
+        stageID: "stage",
+        start: 600,
+        end: 660,
+        note: "앵콜 없이 정시에 끝나요."
+      )]
+    )
+    var noteChanged = day
+    noteChanged.sets[0].note = "리벳 앞 왼쪽이 덜 붐벼요."
+    var timeChanged = day
+    timeChanged.sets[0].start = 610
+
+    #expect(day != noteChanged)
+    #expect(day.ignoringNotes == noteChanged.ignoringNotes)
+    #expect(day.ignoringNotes != timeChanged.ignoringNotes)
+    #expect(day.ignoringNotes.sets.first?.note == nil)
+  }
+
   @Test func timeTextsMatchDesign() {
     #expect(day.sets[1].timeRange == "23:30–다음날 01:30")
     #expect(TimetableSet(id: "a", artist: "", stageID: "", start: 750, end: 790).timeRange == "12:30–13:10")

@@ -297,6 +297,24 @@ struct TimetableFeatureTests {
     #expect(changed.visibleOverlaps == state.overlaps)
   }
 
+  @Test func setDetailShowsTheSetNoteAsMemo() throws {
+    var state = TimetableFeature.State.sample()
+    let dayIndex = try #require(state.days.firstIndex { $0.sets.contains { $0.id == "cryingbird" } })
+    let setIndex = try #require(state.days[dayIndex].sets.firstIndex { $0.id == "cryingbird" })
+    let now = try #require(state.selectedDay?.date)
+    #expect(state.setDetailContent(
+      id: "cryingbird",
+      now: now
+    )?.detail.memo == nil)
+
+    state.days[dayIndex].sets[setIndex].note = "앵콜 없이 정시에 끝나요."
+    let content = try #require(state.setDetailContent(
+      id: "cryingbird",
+      now: now
+    ))
+    #expect(content.detail.memo == "앵콜 없이 정시에 끝나요.")
+  }
+
   @Test func addingAnOverlappingSetShowsTheBoardWarning() throws {
     let feature = TimetableFeature()
     var state = TimetableFeature.State.sample()

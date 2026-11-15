@@ -58,7 +58,8 @@ enum FestivalPackTimetableMapper {
           start: Int(start.timeIntervalSince(dayStart) / 60),
           end: Int(end.timeIntervalSince(dayStart) / 60),
           previousStart: previous.map { $0.start == minute ? $0.previousStart : $0.start } ?? nil,
-          imageURL: imageURL(performance.imageUrl)
+          imageURL: imageURL(performance.imageUrl),
+          note: performance.note
         )
       }
       return TimetableDay(

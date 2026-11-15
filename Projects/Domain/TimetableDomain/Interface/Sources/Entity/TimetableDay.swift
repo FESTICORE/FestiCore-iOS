@@ -67,6 +67,8 @@ public struct TimetableSet: Equatable, Identifiable, Sendable {
   public var previousStart: Int?
   /// 출연진 사진. 없으면 nil이다.
   public var imageURL: URL?
+  /// 공연 상세 시트의 한 줄 메모. 없으면 nil이다.
+  public var note: String?
 
   public init(
     id: String,
@@ -75,7 +77,8 @@ public struct TimetableSet: Equatable, Identifiable, Sendable {
     start: Int,
     end: Int,
     previousStart: Int? = nil,
-    imageURL: URL? = nil
+    imageURL: URL? = nil,
+    note: String? = nil
   ) {
     self.id = id
     self.artist = artist
@@ -84,6 +87,7 @@ public struct TimetableSet: Equatable, Identifiable, Sendable {
     self.end = end
     self.previousStart = previousStart
     self.imageURL = imageURL
+    self.note = note
   }
 
   func overlaps(_ other: TimetableSet) -> Bool {
@@ -92,6 +96,17 @@ public struct TimetableSet: Equatable, Identifiable, Sendable {
 }
 
 public extension TimetableDay {
+  /// 한 줄 메모를 뺀 사본. 내 일정 고르기에 보이지 않는 메모만 바뀐 팩 갱신을 구분한다.
+  var ignoringNotes: TimetableDay {
+    var day = self
+    day.sets = sets.map { set in
+      var set = set
+      set.note = nil
+      return set
+    }
+    return day
+  }
+
   /// 그날 0시부터의 분을 `HH:mm`으로 적는다. 자정을 넘긴 시각은 다음날 시각으로 적는다.
   static func clock(_ minute: Int) -> String {
     let value = minute % (24 * 60)

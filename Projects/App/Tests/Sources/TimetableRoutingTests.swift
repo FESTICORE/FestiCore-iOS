@@ -76,6 +76,15 @@ struct TimetableRoutingTests {
     #expect(repeated == changed)
   }
 
+  @Test func mapperPassesPerformanceNoteToSet() throws {
+    let data = Data(#"{"id":"festival","timetable":[{"id":"set","artist":"아티스트","startsAt":"2026-08-07T17:00:00+09:00","endsAt":"2026-08-07T18:00:00+09:00","note":"앵콜 없이 정시에 끝나요."}]}"#.utf8)
+    let pack = try JSONDecoder().decode(
+      FestivalPackDocument.self,
+      from: data
+    )
+    #expect(FestivalPackTimetableMapper.days(from: pack).first?.sets.first?.note == "앵콜 없이 정시에 끝나요.")
+  }
+
   @Test func unpublishedLineupDoesNotInventArtistDates() throws {
     let data = Data(#"{"id":"festival","days":[{"date":"2026-08-07"}],"artists":[{"name":"아티스트"}]}"#.utf8)
     let pack = try JSONDecoder().decode(
