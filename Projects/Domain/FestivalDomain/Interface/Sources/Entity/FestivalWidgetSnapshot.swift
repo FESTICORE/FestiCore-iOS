@@ -57,6 +57,12 @@ public struct FestivalWidgetSnapshot: Codable, Equatable, Sendable {
   public let pinnedFlagSummary: String?
   /// 크루 위치 요약(`크루 3명 슬램존 · 1명 밥`). 크루에 들어 있을 때만 있다.
   public let crewLocationSummary: String?
+  /// 마지막 셔틀 출발 시각과 정류장(`정문 셔틀 정류장`). 이전 버전 스냅샷에는 없다.
+  public let lastShuttleAt: Date?
+  public let shuttleStopName: String?
+  /// 막차 시각과 가까운 역(`킨텍스역`). 이전 버전 스냅샷에는 없다.
+  public let lastTrainAt: Date?
+  public let trainStationName: String?
 
   public init(
     festivalID: String,
@@ -70,7 +76,11 @@ public struct FestivalWidgetSnapshot: Codable, Equatable, Sendable {
     crewName: String? = nil,
     days: [Day]? = nil,
     pinnedFlagSummary: String? = nil,
-    crewLocationSummary: String? = nil
+    crewLocationSummary: String? = nil,
+    lastShuttleAt: Date? = nil,
+    shuttleStopName: String? = nil,
+    lastTrainAt: Date? = nil,
+    trainStationName: String? = nil
   ) {
     self.festivalID = festivalID
     self.festivalName = festivalName
@@ -84,6 +94,10 @@ public struct FestivalWidgetSnapshot: Codable, Equatable, Sendable {
     self.days = days
     self.pinnedFlagSummary = pinnedFlagSummary
     self.crewLocationSummary = crewLocationSummary
+    self.lastShuttleAt = lastShuttleAt
+    self.shuttleStopName = shuttleStopName
+    self.lastTrainAt = lastTrainAt
+    self.trainStationName = trainStationName
   }
 
   public func withUpdatedAt(_ date: Date) -> Self {
@@ -99,7 +113,11 @@ public struct FestivalWidgetSnapshot: Codable, Equatable, Sendable {
       crewName: crewName,
       days: days,
       pinnedFlagSummary: pinnedFlagSummary,
-      crewLocationSummary: crewLocationSummary
+      crewLocationSummary: crewLocationSummary,
+      lastShuttleAt: lastShuttleAt,
+      shuttleStopName: shuttleStopName,
+      lastTrainAt: lastTrainAt,
+      trainStationName: trainStationName
     )
   }
 }

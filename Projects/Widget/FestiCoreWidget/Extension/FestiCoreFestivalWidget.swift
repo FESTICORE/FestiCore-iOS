@@ -96,6 +96,10 @@ struct FestivalWidgetProvider: TimelineProvider {
     for day in snapshot?.days ?? [] {
       if let opensAt = day.opensAt, opensAt > now, opensAt < horizon { dates.insert(opensAt) }
     }
+    // Figma Widget 종료 1시간 전: 셔틀·막차가 떠나면 다음 편이나 기존 줄로 바꾼다.
+    for departure in [snapshot?.lastShuttleAt, snapshot?.lastTrainAt].compactMap({ $0 }) where departure > now && departure < horizon {
+      dates.insert(departure)
+    }
     if let leaveAt = snapshot?.leaveAt {
       for boundary in [leaveAt.addingTimeInterval(-3600), leaveAt] where boundary > now && boundary < horizon {
         dates.insert(boundary)
@@ -278,6 +282,17 @@ extension FestivalWidgetEntry {
     }
   }
 
+  /// Figma Widget 종료 1시간 전 하단 바 `마지막 셔틀  정문 23:40 · 막차 23:52`와 Large `GO HOME` 목록.
+  var homeRide: FestivalActivityWidgetContent.HomeRide? {
+    guard phase == .goingHome, let snapshot else { return nil }
+    return FestivalActivityWidgetContent.homeRide(
+      snapshot: snapshot,
+      festivalID: snapshot.festivalID,
+      now: date,
+      calendar: AppDateFormat.calendar
+    )
+  }
+
   /// Figma Widget 내 일정 없음: 지금 무대의 다음 공연(`다음 NIGHT CORE` + `21:22`).
   var stageNext: FestivalWidgetSnapshot.Performance? {
     guard phase == .playing, next == nil, let current else { return nil }
@@ -318,7 +333,8 @@ extension FestivalWidgetEntry {
   }
 
   var target: Date? {
-    if phase == .goingHome { return snapshot?.leaveAt }
+    // Figma Widget 종료 1시간 전: 남은 시간은 마지막 셔틀(없으면 막차)까지 센다.
+    if phase == .goingHome { return homeRide?.target ?? snapshot?.leaveAt }
     return next?.startsAt
   }
 
@@ -326,7 +342,9 @@ extension FestivalWidgetEntry {
     switch phase {
     case .unavailable: return "앱에서 다시 확인해 주세요"
     case .noPack: return "팩을 받으면 시작돼요"
-    case .goingHome: return snapshot?.leaveAt == nil ? "공연 종료" : "귀가 시간"
+    case .goingHome:
+      if let homeRide { return homeRide.label }
+      return snapshot?.leaveAt == nil ? "공연 종료" : "귀가 시간"
     case .finished:
       if isFestivalOver { return "다음 페스티벌 보기" }
       guard let next else { return "다음 페스티벌에서 만나요" }
@@ -341,6 +359,7 @@ extension FestivalWidgetEntry {
     if phase == .unavailable { return "잠시 후 다시 시도할게요" }
     if phase == .noPack { return "앱에서 페스티벌 고르기" }
     if phase == .goingHome {
+      if let homeRide { return homeRide.detail }
       return (snapshot?.leaveAt ?? today.map(\.endsAt).max())?.formatted(.time) ?? "귀가 시간을 확인해 주세요"
     }
     if let next { return "\(next.artist) · \(next.stageName) \(next.startsAt.formatted(.time))" }
@@ -369,11 +388,67 @@ extension FestivalWidgetEntry {
     return Array(saved.prefix(4))
   }
 
+  /// Figma Widget Large List 한 줄: 시각 · 이름 · 무대. 첫 줄은 무대 대신 남은 시간 알약을 둘 수 있다.
+  struct ScheduleLine {
+    let id: String
+    let time: Date
+    let title: String
+    let detail: String
+    /// 알약이 셀 시각. 없으면 무대 이름을 보인다.
+    let countdownTarget: Date?
+  }
+
+  /// Figma Widget Large 종료 1시간 전 `GO HOME`: 마지막 셔틀(알약) · 막차 · 마지막 무대 끝. 그 밖에는 내 일정 행.
+  var scheduleLines: [ScheduleLine] {
+    guard let homeRide else {
+      return rows.enumerated().map { index, performance in
+        let showsPill = index == 0 && performance.id == next?.id && phase != .finished
+        return ScheduleLine(
+          id: performance.id,
+          time: performance.startsAt,
+          title: performance.artist,
+          detail: performance.stageName,
+          countdownTarget: showsPill ? performance.startsAt : nil
+        )
+      }
+    }
+    var lines: [ScheduleLine] = []
+    if let shuttleAt = homeRide.shuttleAt {
+      lines.append(ScheduleLine(
+        id: "shuttle",
+        time: shuttleAt,
+        title: "마지막 셔틀",
+        detail: homeRide.shuttleStopName ?? "",
+        countdownTarget: shuttleAt
+      ))
+    }
+    if let trainAt = homeRide.trainAt {
+      lines.append(ScheduleLine(
+        id: "train",
+        time: trainAt,
+        title: "막차",
+        detail: homeRide.trainStationName ?? "",
+        countdownTarget: lines.isEmpty ? trainAt : nil
+      ))
+    }
+    if let last = today.max(by: { $0.endsAt < $1.endsAt }) {
+      lines.append(ScheduleLine(
+        id: last.id,
+        time: last.endsAt,
+        title: "\(last.artist) 끝",
+        detail: last.stageName,
+        countdownTarget: nil
+      ))
+    }
+    return lines
+  }
+
 
   var scheduleHeading: String {
     if phase == .unavailable { return "정보 확인 필요" }
-    // Figma Widget Large: 공연 중은 NEXT, 다음 날 일정은 TOMORROW로 묶는다.
+    // Figma Widget Large: 공연 중은 NEXT, 종료 1시간 전 셔틀·막차는 GO HOME, 다음 날 일정은 TOMORROW로 묶는다.
     if phase == .playing { return "NEXT" }
+    if homeRide != nil { return "GO HOME" }
     guard phase == .finished, let next else { return "TODAY · 내 일정" }
     if let tomorrow = AppDateFormat.calendar.date(
       byAdding: .day,
@@ -464,6 +539,8 @@ extension FestivalWidgetEntry {
         return "DAY \(upcomingOpening.number) · \(upcomingOpening.dayWord) \(upcomingOpening.time) 개장"
       }
       if let stageNext { return "다음 \(stageNext.artist)" }
+      // Figma Widget Small 종료 1시간 전: `셔틀 23:40`
+      if let homeRide { return homeRide.shortText }
       if phase == .before || phase == .playing, let next { return next.artist }
       return footerTitle
     case .systemLarge:
@@ -527,6 +604,8 @@ extension FestivalWidgetEntry {
   /// Figma Lock Screen 사각형 아래 줄. 종료 후에는 다음 날 개장 시각.
   var rectangularDetail: String {
     if let stageNext { return "다음 \(stageNext.artist) \(stageNext.startsAt.formatted(.time))" }
+    // Figma Lock Screen 종료 1시간 전: `정문 · 막차 23:52`
+    if let homeRide { return homeRide.accessoryDetail }
     if let upcomingOpening { return "\(upcomingOpening.dayWord) \(upcomingOpening.time) 개장" }
     return footerDetail
   }
@@ -829,7 +908,7 @@ private extension FestivalWidgetView {
         ))
         .tracking(1.2)
         .foregroundStyle(assistive)
-      if entry.rows.isEmpty {
+      if entry.scheduleLines.isEmpty {
         Text(entry.phase == .unavailable ? entry.footerDetail : "내 일정을 담으면 남은 시간을 알려드려요")
           .font(.pretendardFontFamily(
             family: .Medium,
@@ -838,10 +917,10 @@ private extension FestivalWidgetView {
           .foregroundStyle(assistive)
       } else {
         ForEach(
-          entry.rows,
+          entry.scheduleLines,
           id: \.id
-        ) { performance in
-          scheduleRow(performance)
+        ) { line in
+          scheduleRow(line)
         }
       }
     }
@@ -855,11 +934,10 @@ private extension FestivalWidgetView {
     )
   }
 
-  func scheduleRow(_ performance: FestivalWidgetSnapshot.Performance) -> some View {
-    let isFirst = performance.id == entry.rows.first?.id
-    let showsPill = isFirst && performance.id == entry.next?.id && entry.phase != .finished
+  func scheduleRow(_ line: FestivalWidgetEntry.ScheduleLine) -> some View {
+    let isFirst = line.id == entry.scheduleLines.first?.id
     return HStack(spacing: FestiCoreSpacing.marginM8) {
-      Text(performance.startsAt.formatted(.time))
+      Text(line.time.formatted(.time))
         .font(.pretendardFontFamily(
           family: .Black,
           size: 11
@@ -869,14 +947,14 @@ private extension FestivalWidgetView {
           width: 36,
           alignment: .leading
         )
-      Text(performance.artist)
+      Text(line.title)
         .font(WidgetFont.bagel(isFirst ? 24 : 18))
         .lineLimit(1)
         .minimumScaleFactor(0.7)
-      if showsPill {
+      if let countdownTarget = line.countdownTarget {
         Spacer(minLength: 0)
         (Text(
-          performance.startsAt,
+          countdownTarget,
           style: .relative
         ) + Text(" 후"))
           .font(WidgetFont.bagel(12))
@@ -896,7 +974,7 @@ private extension FestivalWidgetView {
             in: Capsule()
           )
       } else {
-        Text(performance.stageName)
+        Text(line.detail)
           .font(.pretendardFontFamily(
             family: .Bold,
             size: 10

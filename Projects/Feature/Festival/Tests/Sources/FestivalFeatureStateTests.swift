@@ -205,6 +205,46 @@ struct FestivalFeatureStateTests {
     ) == nil)
   }
 
+  /// Figma Widget 종료 1시간 전: 귀가 카드가 받은 가는 길의 마지막 셔틀·막차를 위젯 스냅샷에 함께 저장한다.
+  @Test func widgetSnapshotCarriesLoadedShuttleAndTrain() throws {
+    var state = FestivalFeature.State(selectedFestivalID: "festival")
+    state.catalog = [.init(
+      id: "festival",
+      name: "축제",
+      packVersion: 1
+    )]
+    #expect(state.widgetSnapshotContent?.lastShuttleAt == nil)
+
+    state.homeDetails = .loaded(
+      "festival",
+      FestivalPackDetail.Directions(
+        lastShuttleAt: "2026-11-22T22:20:00+09:00",
+        lastTrainAt: "2026-11-22T22:32:00+09:00",
+        shuttle: .init(
+          body: nil,
+          stopName: "정문 셔틀 정류장"
+        ),
+        transit: .init(
+          body: nil,
+          stationName: "킨텍스역"
+        )
+      )
+    )
+
+    let snapshot = try #require(state.widgetSnapshotContent)
+    #expect(snapshot.lastShuttleAt == "2026-11-22T22:20:00+09:00".isoDate)
+    #expect(snapshot.shuttleStopName == "정문 셔틀 정류장")
+    #expect(snapshot.lastTrainAt == "2026-11-22T22:32:00+09:00".isoDate)
+    #expect(snapshot.trainStationName == "킨텍스역")
+
+    // 다른 축제의 가는 길은 쓰지 않는다.
+    state.homeDetails = .loaded(
+      "other",
+      FestivalPackDetail.Directions(lastShuttleAt: "2026-11-22T22:20:00+09:00")
+    )
+    #expect(state.widgetSnapshotContent?.lastShuttleAt == nil)
+  }
+
   @Test func widgetContentUsesRealScheduleAndClearsSavedStateOnLogout() throws {
     var state = FestivalFeature.State(selectedFestivalID: "festival")
     state.catalog = [.init(

@@ -13,6 +13,7 @@ struct FestivalWidgetContent: Equatable, Sendable {
   let days: [FestivalWidgetSnapshot.Day]
   let pinnedFlagSummary: String?
   let crewLocationSummary: String?
+  let directions: FestivalPackDetail.Directions?
 
   func snapshot(updatedAt: Date) -> FestivalWidgetSnapshot {
     return FestivalWidgetSnapshot(
@@ -26,7 +27,11 @@ struct FestivalWidgetContent: Equatable, Sendable {
       crewName: crewName,
       days: days,
       pinnedFlagSummary: pinnedFlagSummary,
-      crewLocationSummary: crewLocationSummary
+      crewLocationSummary: crewLocationSummary,
+      lastShuttleAt: directions?.lastShuttleAt.flatMap(FestivalLiveBoardSchedule.parse),
+      shuttleStopName: directions?.shuttleStopName,
+      lastTrainAt: directions?.lastTrainAt.flatMap(FestivalLiveBoardSchedule.parse),
+      trainStationName: directions?.transit?.stationName
     )
   }
 }
@@ -82,7 +87,9 @@ extension FestivalFeature.State {
       crewLocationSummary: board?.crew.flatMap { Self.widgetCrewLocationSummary(
         $0,
         document: document
-      ) }
+      ) },
+      // Figma Widget 종료 1시간 전: 귀가 카드가 받은 가는 길의 마지막 셔틀·막차
+      directions: homeDetails.directions(for: festival.id)
     )
   }
 
