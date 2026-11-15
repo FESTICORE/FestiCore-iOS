@@ -5,6 +5,7 @@
 //  Created by FestiCore on 10/26/26.
 //
 
+import DependencyPlugin
 import ProjectDescription
 import ProjectTemplatePlugin
 
@@ -12,5 +13,8 @@ let project = Project.makeAppExtensionModule(
   name: "FestiCoreNotificationService",
   targetName: "FestiCoreNotificationServiceExtension",
   bundleId: "\(Project.Environment.mainBundleId).NotificationService",
-  infoPlist: .notificationServiceInfoPlist
+  infoPlist: .notificationServiceInfoPlist,
+  dependencies: [
+    .core(.utility)
+  ]
 )

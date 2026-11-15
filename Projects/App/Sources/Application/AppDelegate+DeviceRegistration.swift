@@ -12,10 +12,6 @@ import CoreAssembly
 import FestiCoreLiveActivity
 import ServiceAssembly
 
-extension Notification.Name {
-  static let festiCoreRemoteContentDidChange = Notification.Name("FestiCoreRemoteContentDidChange")
-}
-
 @MainActor
 final class RemoteContentRefreshRequest: NSObject {
   private var completion: ((UIBackgroundFetchResult) -> Void)?
@@ -38,12 +34,12 @@ extension AppDelegate {
     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
   ) {
     let request = RemoteContentRefreshRequest(completion: completionHandler)
-    NotificationCenter.default.post(
-      name: .festiCoreRemoteContentDidChange,
-      object: request,
-      userInfo: userInfo
-    )
-    return
+    guard let remoteContentHandler else {
+      // 씬 없이 백그라운드로 깨어나면 갱신할 화면 상태가 없다. 앱을 열 때 새로 받으므로 바로 마친다.
+      request.finish(.noData)
+      return
+    }
+    remoteContentHandler(request)
   }
 
   func configureDeviceRegistration() {
