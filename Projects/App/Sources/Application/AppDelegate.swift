@@ -21,6 +21,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   @Dependency(\.analyticsUseCase) var analyticsUseCase
   var deviceRegistration = DeviceRegistrationRuntime()
   var notificationAuthorization = NotificationAuthorizationRuntime()
+  /// 화면이 떠 있을 때만 RootView가 등록한다. 씬 없이 백그라운드로 실행되면 비어 있다.
+  var remoteContentHandler: ((RemoteContentRefreshRequest) -> Void)?
 
   @MainActor
   struct DeviceRegistrationRuntime {
