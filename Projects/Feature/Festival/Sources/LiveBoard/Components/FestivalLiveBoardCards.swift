@@ -110,9 +110,10 @@ private extension FestivalLiveBoardCrewCard {
             : FestiCoreSemanticColor.labelAssistive.color)
       }
     }
+    // Figma S01 Crew Row(161:2073): 높이 82, 위아래 여백 12.
     .padding(
       .vertical,
-      FestiCoreSpacing.paddingP16
+      FestiCoreSpacing.paddingP12
     )
     .padding(.horizontal, FestiCoreSpacing.paddingP16)
     .opacity(member.isLeaving ? 0.6 : 1)
@@ -207,9 +208,10 @@ struct FestivalLiveBoardActiveFlagRow: View {
         }
       }
     }
+    // Figma S01 Active Flag Row(160:261): 높이 70, 위아래 여백 12.
     .padding(
       .vertical,
-      FestiCoreSpacing.paddingP16
+      FestiCoreSpacing.paddingP12
     )
     .padding(.horizontal, FestiCoreSpacing.paddingP16)
     .accessibilityElement(children: .combine)
