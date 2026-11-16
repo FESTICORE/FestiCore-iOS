@@ -6,7 +6,7 @@
 //
 
 import FestiCoreLogger
-@preconcurrency import Sentry
+@preconcurrency import SentrySwift
 
 /// FestiCoreLogger 로그를 Sentry Logs로 보낸다. 분석 이벤트 추적과는 별개다.
 ///

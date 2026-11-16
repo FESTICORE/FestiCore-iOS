@@ -16,8 +16,7 @@ let project = Project.makeModule(
   dependencies: [
     .core(.logger),
     .SPM.mixpanel,
-    .SPM.sentry,
-    .SPM.sentrySwiftUI
+    .SPM.sentry
   ],
   hasTests: true,
   hasInterface: true,
