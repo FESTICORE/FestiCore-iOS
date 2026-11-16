@@ -67,7 +67,8 @@ public extension Project {
             basedOnDependencyAnalysis: false
           )
         ],
-        dependencies: [.target(name: name)] + testDependencies
+        dependencies: [.target(name: name)] + testDependencies,
+        settings: .testSigningSettings()
       ))
     }
     if hasUITests {
@@ -80,7 +81,7 @@ public extension Project {
         infoPlist: .default,
         buildableFolders: ["Tests/UITests"],
         dependencies: [.target(name: name)],
-        settings: .settings(base: ["TEST_TARGET_NAME": .string(name)])
+        settings: .testSigningSettings(["TEST_TARGET_NAME": .string(name)])
       ))
     }
     return Project(
@@ -167,7 +168,8 @@ public extension Project {
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .default,
         buildableFolders: ["Tests"],
-        dependencies: [.target(name: name)] + (hasInterface ? [.target(name: "\(name)Interface")] : []) + testDependencies
+        dependencies: [.target(name: name)] + (hasInterface ? [.target(name: "\(name)Interface")] : []) + testDependencies,
+        settings: .testSigningSettings()
       ))
     }
 

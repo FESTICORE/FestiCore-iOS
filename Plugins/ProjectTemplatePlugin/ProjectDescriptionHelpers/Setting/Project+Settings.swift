@@ -40,6 +40,15 @@ public extension Settings {
     )
   }
 
+  /// 테스트 번들은 앱의 match 수동 프로파일(번들 ID가 다르다)을 물려받지 않고 자동 서명한다. 실기기 테스트에 필요하다.
+  static func testSigningSettings(_ base: SettingsDictionary = [:]) -> Settings {
+    return .settings(base: base.merging([
+      "CODE_SIGN_STYLE": "Automatic",
+      "DEVELOPMENT_TEAM": .string(Project.Environment.organizationTeamId),
+      "PROVISIONING_PROFILE_SPECIFIER": ""
+    ]) { current, _ in current })
+  }
+
   static var moduleSettings: Settings {
     .settings(base: [
       "OTHER_SWIFT_FLAGS": "$(inherited) -module-alias Sharing=FestiCorePointFreeSharing"
