@@ -178,6 +178,41 @@ def ensure_beta_app_information(app)
   Spaceship::ConnectAPI.patch_beta_app_review_detail(app_id: app.id, attributes: { demoAccountRequired: false })
 end
 
+# 외부 심사 제출 거절 응답에는 빠진 항목 이름이 없어, 제출에 필요한 값 중 비어 있는 항목 이름만 로그에 남긴다.
+# 연락처 같은 개인 정보 값은 남기지 않는다. 진단이 실패해도 배포 흐름은 바꾸지 않는다.
+def log_missing_beta_review_fields(app, build)
+  blank = ->(value) { value.to_s.strip.empty? }
+  missing = []
+  localizations = app.get_beta_app_localizations
+  missing << "베타 앱 정보(언어 없음)" if localizations.empty?
+  localizations.each do |localization|
+    missing << "베타 앱 설명(#{localization.locale})" if blank.call(localization.description)
+    missing << "피드백 이메일(#{localization.locale})" if blank.call(localization.feedback_email)
+    missing << "개인정보 처리방침 URL(#{localization.locale})" if blank.call(localization.privacy_policy_url)
+  end
+  detail = Spaceship::ConnectAPI.get_beta_app_review_detail(filter: { app: app.id }).to_models.first
+  if detail.nil?
+    missing << "베타 심사 정보"
+  else
+    missing << "심사 연락처 이름" if blank.call(detail.contact_first_name)
+    missing << "심사 연락처 성" if blank.call(detail.contact_last_name)
+    missing << "심사 연락처 전화번호" if blank.call(detail.contact_phone)
+    missing << "심사 연락처 이메일" if blank.call(detail.contact_email)
+  end
+  build_locales = build.get_beta_build_localizations.reject { |localization| blank.call(localization.whats_new) }.map(&:locale)
+  missing << "테스트할 사항(언어 없음)" if build_locales.empty?
+  expected_locales = (localizations.map(&:locale) + [app.primary_locale]).compact.uniq
+  (expected_locales - build_locales).each { |locale| missing << "테스트할 사항(#{locale})" }
+  missing << "암호화 신고(usesNonExemptEncryption)" if build.uses_non_exempt_encryption.nil?
+  if missing.empty?
+    UI.important("비어 있는 TestFlight 테스트 정보 항목을 찾지 못했습니다. App Store Connect에서 직접 제출해 원인을 확인하세요.")
+  else
+    UI.important("비어 있는 TestFlight 테스트 정보 항목: #{missing.join(', ')}")
+  end
+rescue StandardError => error
+  UI.important("TestFlight 테스트 정보 진단 실패: #{error.class}")
+end
+
 # 내부 그룹 FestiCore와 외부 그룹 festiCore는 이름이 대소문자만 달라 서버 이름 필터에 기대지 않는다.
 # 앱의 그룹 전체에서 내부·외부 구분과 이름이 정확히 같은 그룹을 고른다.
 def find_beta_group(app, name, internal:)
@@ -461,7 +496,9 @@ platform :ios do
         # 베타 설명·심사 연락처 등 App Store Connect 정보가 빠진 경우는 배포를 실패로 만들지 않고, 무엇이 빠졌는지 남긴다.
         # Apple 약관 미동의("agreement is missing")는 계정 차단이라 경고로 넘기지 않는다.
         raise if error.message.include?("agreement")
-        raise unless error.message.include?("is missing") || error.message.include?("is required")
+        missing_info = ["is missing", "is required", "Missing required information"].any? { |phrase| error.message.include?(phrase) }
+        raise unless missing_info
+        log_missing_beta_review_fields(app, build)
         UI.important("#{EXTERNAL_TESTFLIGHT_GROUP} 베타 심사 제출에 필요한 App Store Connect 정보가 없습니다: #{error.message.lines.first.to_s.strip}")
         UI.important("빌드 #{build_number}은 외부 그룹에 들어갔지만 심사에는 제출되지 않았습니다. TestFlight > 테스트 정보를 채운 뒤 다시 제출하세요.")
         next
