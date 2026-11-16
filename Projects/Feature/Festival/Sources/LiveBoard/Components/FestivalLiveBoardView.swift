@@ -72,9 +72,10 @@ private extension FestivalLiveBoardView {
         }
       }
     }
+    // Figma S01 Stage Row(160:204): 높이 106, 위아래 여백 16.
     .padding(
       .vertical,
-      FestiCoreSpacing.paddingP20
+      FestiCoreSpacing.paddingP16
     )
     .padding(
       .horizontal,
@@ -91,6 +92,7 @@ private extension FestivalLiveBoardView {
       VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP4) {
         Text(slot.artist)
           .festiCoreFont(kind == .now ? .baseBodyBold : .baseCalloutMedium)
+          .festiCoreLineBox(kind == .now ? .baseBodyBold : .baseCalloutMedium)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         Text(slot.time)
           .festiCoreFont(.baseCaption1Regular)
