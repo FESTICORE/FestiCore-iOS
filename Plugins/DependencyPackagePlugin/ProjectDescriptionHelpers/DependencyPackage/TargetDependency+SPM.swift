@@ -27,6 +27,6 @@ public extension TargetDependency.SPM {
   static let svgKit = TargetDependency.external(name: "SVGKit")
   static let lottie = TargetDependency.external(name: "Lottie")
   static let mixpanel = TargetDependency.external(name: "Mixpanel")
-  static let sentry = TargetDependency.external(name: "Sentry")
-  static let sentrySwiftUI = TargetDependency.external(name: "SentrySwiftUI")
+  // Sentry 9.34.0 이하 바이너리 xcframework는 서명 인증서가 폐기돼(sentry-cocoa #9633) 소스 빌드 제품을 쓴다.
+  static let sentry = TargetDependency.external(name: "SentrySPM")
 }

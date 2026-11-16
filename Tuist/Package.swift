@@ -56,9 +56,7 @@ let packageSettings = PackageSettings(
     "FirebaseCrashlytics": .framework,
     "Kingfisher": .framework,
     "SVGKit": .framework,
-    "Mixpanel": .framework,
-    "Sentry": .framework,
-    "SentrySwiftUI": .framework
+    "Mixpanel": .framework
   ],
   baseSettings: packageBaseSettings,
   targetSettings: [
@@ -88,6 +86,9 @@ let package = Package(
     .package(url: "https://github.com/SVGKit/SVGKit.git", exact: "3.0.0"),
     .package(url: "https://github.com/airbnb/lottie-spm.git", exact: "4.5.2"),
     .package(url: "https://github.com/mixpanel/mixpanel-swift.git", exact: "7.0.0"),
-    .package(url: "https://github.com/getsentry/sentry-cocoa", exact: "9.30.1")
+    .package(
+      url: "https://github.com/getsentry/sentry-cocoa",
+      exact: "9.34.0"
+    )
   ]
 )

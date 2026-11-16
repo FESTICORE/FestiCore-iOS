@@ -11,7 +11,7 @@ import ComposableArchitecture
 import FestiCoreAnalyticsInterface
 import FestiCoreLogger
 import Mixpanel
-@preconcurrency import Sentry
+@preconcurrency import SentrySwift
 
 // MARK: - Live
 
