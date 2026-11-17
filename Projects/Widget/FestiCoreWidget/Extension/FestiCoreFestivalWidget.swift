@@ -547,14 +547,15 @@ extension FestivalWidgetEntry {
       if let largeCrewInfo { return largeCrewInfo.text }
       switch phase {
       case .noPack: return "탭하면 페스티벌 목록으로 가요"
-      case .finished where !isFestivalOver: return "조심히 들어가요 · 팩은 오프라인으로도 볼 수 있어요"
+      case .finished where isFestivalOver: return footerTitle
+      case .finished: return "조심히 들어가요 · 팩은 오프라인으로도 볼 수 있어요"
       case .before where next == nil, .playing where next == nil: return "내 일정을 넣으면 남은 시간을 알려 드려요"
       case .unavailable: return footerTitle
       default: return "\(footerTitle)  \(footerDetail)"
       }
     default:
       if phase == .noPack { return "탭해서 시작하기" }
-      if phase == .unavailable { return footerTitle }
+      if phase == .unavailable || isFestivalOver { return footerTitle }
       if let stageNext { return "이 무대 다음  \(stageNext.artist) · \(stageNext.stageName)" }
       return "\(footerTitle)  \(footerDetail)"
     }
@@ -565,7 +566,8 @@ extension FestivalWidgetEntry {
     if let largeCrewInfo { return largeCrewInfo.icon }
     switch phase {
     case .noPack: return .chevronRight16
-    case .finished: return isFestivalOver ? nil : .circleCheck16
+    // 축제가 끝나면 탭이 축제 목록으로 가므로 데이터 없음과 같은 화살표를 쓴다.
+    case .finished: return isFestivalOver ? .chevronRight16 : .circleCheck16
     case .goingHome: return .route16
     case .before, .playing: return next == nil ? .plus16 : nil
     case .unavailable: return nil
@@ -660,6 +662,7 @@ private extension FestivalWidgetView {
 
   var isSmall: Bool { return family == .systemSmall }
   var isLarge: Bool { return family == .systemLarge }
+  var isLargeFestivalOver: Bool { return isLarge && entry.isFestivalOver }
   var foreground: Color { return renderingMode == .fullColor ? WidgetPalette.black : .primary }
   /// Figma `Static Alpha/Black 60`. 틴트 모드에서는 primary 60%로 낮춘다.
   var assistive: Color {
@@ -777,11 +780,13 @@ private extension FestivalWidgetView {
         .font(WidgetFont.bagel(isSmall ? 30 : isLarge ? (entry.phase == .noPack ? 38 : 44) : 34))
         .widgetAccentable()
         .rotationEffect(.degrees(isSmall || isLarge ? -6 : -4))
-        .lineLimit(isSmall ? 2 : 1)
+        // `{축제명} 끝`은 이름이 길어도 `끝`이 남아야 한다. Large는 일정 목록이 없어 두 줄까지 쓴다.
+        .lineLimit(isSmall || isLargeFestivalOver ? 2 : 1)
+        .truncationMode(entry.isFestivalOver ? .middle : .tail)
         .minimumScaleFactor(0.65)
         .frame(
           maxWidth: .infinity,
-          maxHeight: isSmall ? 72 : isLarge ? 60 : 44,
+          maxHeight: isSmall ? 72 : isLargeFestivalOver ? 110 : isLarge ? 60 : 44,
           alignment: .leading
         )
       if !isSmall, !isLarge, let subline = entry.subline {
@@ -796,6 +801,22 @@ private extension FestivalWidgetView {
       if isLarge {
         if entry.phase == .noPack {
           Text("팩을 받으면 지금 무대 · 다음 내 일정 ·\n크루가 여기에 떠요.\n오프라인에서도 그대로 보여요.")
+            .font(.pretendardFontFamily(
+              family: .Medium,
+              size: 13
+            ))
+            .foregroundStyle(assistive)
+            .padding(
+              .vertical,
+              FestiCoreSpacing.paddingP12 + FestiCoreSpacing.marginM2
+            )
+            .padding(
+              .horizontal,
+              FestiCoreSpacing.marginM2
+            )
+        } else if entry.isFestivalOver {
+          // 끝난 축제에는 담을 일정이 없어, 내 일정 안내 대신 팩을 계속 볼 수 있다는 것만 알린다.
+          Text("팩은 오프라인으로도 볼 수 있어요")
             .font(.pretendardFontFamily(
               family: .Medium,
               size: 13
