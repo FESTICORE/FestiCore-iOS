@@ -122,6 +122,8 @@ public struct SignUpFeature {
     /// 시트를 닫을 때 닉네임·알림·소유자는 두고 필수 약관 체크만 지운다.
     public mutating func resetForDismissal() {
       clearRequiredTerms()
+      // 키보드가 뜬 채 닫히면 숨김 알림을 받지 못하므로 다음 진입 전에 여백을 비운다.
+      keyboardInset = 0
     }
 
     /// 초안을 처음 바꿀 때 현재 계정을 소유자로 기록한다.
@@ -147,7 +149,8 @@ public struct SignUpFeature {
 
   @CasePathable
   public enum View: Equatable {
-    case keyboardFrameChanged(minY: CGFloat, screenHeight: CGFloat)
+    /// 키보드 윗변(`minY`)과 화면 아래 끝(`contentBottom`)은 같은 전역 좌표다.
+    case keyboardFrameChanged(minY: CGFloat, contentBottom: CGFloat)
     case keyboardHidden
     case nicknameChanged(String)
     case termsAcceptanceChanged(Bool)
@@ -187,11 +190,11 @@ extension SignUpFeature {
     switch action {
     case let .keyboardFrameChanged(
       minY,
-      screenHeight
+      contentBottom
     ):
       state.keyboardInset = max(
         0,
-        screenHeight - minY
+        contentBottom - minY
       )
       return .none
 

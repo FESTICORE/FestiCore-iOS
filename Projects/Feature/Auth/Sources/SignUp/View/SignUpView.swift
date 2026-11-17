@@ -16,6 +16,8 @@ import UIKit
 @ViewAction(for: SignUpFeature.self)
 public struct SignUpView: View {
   @Bindable public var store: StoreOf<SignUpFeature>
+  /// 화면 아래 끝의 전역 y. 키보드와 겹치는 높이를 구할 때만 쓰는 배치 값이다.
+  @State private var contentBottom: CGFloat = .zero
 
   public init(store: StoreOf<SignUpFeature>) {
     self.store = store
@@ -77,14 +79,28 @@ private extension SignUpView {
       .bottom,
       store.keyboardInset
     )
+    .onGeometryChange(for: CGFloat.self) { proxy in
+      return proxy.frame(in: .global).maxY
+    } action: { maxY in
+      contentBottom = maxY
+    }
+    // 전체 화면에서는 SwiftUI 키보드 회피가, 시트에서는 회피가 꺼져 있어 화면마다 달라진다.
+    // 회피를 끄고 화면 아래 끝과 키보드가 겹치는 높이만 여백으로 둬 두 번 밀리지 않게 한다.
+    .ignoresSafeArea(
+      .keyboard,
+      edges: .bottom
+    )
     .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
       guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
       send(.keyboardFrameChanged(
         minY: frame.minY,
-        screenHeight: UIScreen.main.bounds.height
+        contentBottom: contentBottom
       ))
     }
     .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+      send(.keyboardHidden)
+    }
+    .onDisappear {
       send(.keyboardHidden)
     }
   }
