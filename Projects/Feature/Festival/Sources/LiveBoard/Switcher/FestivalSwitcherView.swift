@@ -26,12 +26,13 @@ public struct FestivalSwitcherView: View {
         204
       ))
 
+      // Figma Festival Switch Sheet: 목록·구분선·전체 보기 행 사이 8
       Rectangle()
         .fill(FestiCoreSemanticColor.lineNormal.color)
         .frame(height: 1)
         .padding(
-          .top,
-          FestiCoreSpacing.paddingP16
+          .vertical,
+          FestiCoreSpacing.paddingP8
         )
 
       allFestivalsRow
@@ -56,22 +57,18 @@ private extension FestivalSwitcherView {
       spacing: FestiCoreSpacing.paddingP4
     ) {
       Text("페스티벌 바꾸기")
-        .festiCoreFont(.baseHeadlineBold)
-        .festiCoreLineBox(.baseHeadlineBold)
+        .festiCoreFont(.baseTitle3Bold)
+        .festiCoreLineBox(.baseTitle3Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         .accessibilityAddTraits(.isHeader)
       Text("내가 예매한 페스티벌")
-        .festiCoreFont(.baseCaption1Regular)
-        .festiCoreLineBox(.baseCaption1Regular)
-        .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+        .festiCoreFont(.baseFootnoteRegular)
+        .festiCoreLineBox(.baseFootnoteRegular)
+        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
     }
     .frame(
       maxWidth: .infinity,
       alignment: .leading
-    )
-    .padding(
-      .top,
-      FestiCoreSpacing.paddingP4
     )
     .padding(
       .bottom,
@@ -91,10 +88,12 @@ private extension FestivalSwitcherView {
             width: 44,
             height: 44
           )
+          // Figma Thumbnail 모서리 12
+          .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r12))
           .accessibilityHidden(true)
         VStack(
           alignment: .leading,
-          spacing: FestiCoreSpacing.paddingP4
+          spacing: FestiCoreSpacing.marginM2
         ) {
           Text(festival.name)
             .festiCoreFont(.baseCalloutMedium)
@@ -102,9 +101,9 @@ private extension FestivalSwitcherView {
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
             .lineLimit(1)
           Text(festival.subtitle)
-            .festiCoreFont(.baseCaption1Regular)
-            .festiCoreLineBox(.baseCaption1Regular)
-            .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+            .festiCoreFont(.baseFootnoteRegular)
+            .festiCoreLineBox(.baseFootnoteRegular)
+            .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
             .lineLimit(1)
         }
         .frame(
@@ -115,8 +114,8 @@ private extension FestivalSwitcherView {
           Image(asset: .check)
             .resizable()
             .frame(
-              width: 16,
-              height: 16
+              width: 20,
+              height: 20
             )
             .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
             .accessibilityHidden(true)
@@ -135,8 +134,8 @@ private extension FestivalSwitcherView {
     Button { send(.allFestivalsTapped) } label: {
       HStack {
         Text("전체 페스티벌 보기")
-          .festiCoreFont(.baseCalloutRegular)
-          .festiCoreLineBox(.baseCalloutRegular)
+          .festiCoreFont(.baseBodyRegular)
+          .festiCoreLineBox(.baseBodyRegular)
           .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
         Spacer()
         Image(asset: .chevronRight16)
@@ -148,7 +147,7 @@ private extension FestivalSwitcherView {
           .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
           .accessibilityHidden(true)
       }
-      .frame(height: 64)
+      .frame(height: 56)
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
