@@ -106,6 +106,10 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
   @State private var isDragging = false
   @State private var pendingDismissal: DispatchWorkItem?
   @State private var isDismissDisabled = false
+  /// 닫기 애니메이션이 진행 중이면 true. 딤을 시트 이동과 같은 시간에 걷어 낸다.
+  @State private var isDismissing = false
+  /// 화면 아래 끝까지 포함한 시트 높이. 닫을 때 시트가 화면 밖으로 완전히 나가는 거리로 쓴다.
+  @State private var sheetHeight: CGFloat = 0
 
   public init(
     item: Binding<Item?>,
@@ -132,6 +136,7 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
           dragOffset = 0
           dismissOffset = 0
           isDragging = false
+          isDismissing = false
         }
       }
       .overlay {
@@ -140,6 +145,8 @@ public struct FCSheetModifier<Item: Identifiable & Equatable, SheetContent: View
             if item != nil {
               FestiCoreSemanticColor.materialDimmer.color
                 .ignoresSafeArea()
+                // 시트가 내려가는 동안 딤도 함께 걷혀 닫힘이 한 동작으로 이어진다.
+                .opacity(isDismissing ? 0 : 1)
                 .transition(.opacity)
                 .onTapGesture { if !isDismissDisabled { dismiss() } }
                 .accessibilityLabel("닫기")
@@ -193,6 +200,11 @@ extension FCSheetModifier {
       )
       .background(FestiCoreSemanticColor.backgroundElevated.color)
       .clipShape(UnevenRoundedRectangle(topLeadingRadius: FestiCoreRadius.r24, topTrailingRadius: FestiCoreRadius.r24))
+      .onGeometryChange(for: CGFloat.self) { proxy in
+        return proxy.size.height
+      } action: { height in
+        sheetHeight = height
+      }
       .overlay(alignment: .top) {
         accessory(currentItem)
           .alignmentGuide(.top) { $0[.bottom] + FestiCoreSpacing.paddingP16 }
@@ -211,6 +223,7 @@ extension FCSheetModifier {
         dragOffset = 0
         dismissOffset = 0
         isDragging = false
+        isDismissing = false
       }
       .onDisappear { [pendingDismissal] in
         // 배경 콘텐츠와 별개로 제거되는 시트의 예약 작업을 정리한다.
@@ -242,16 +255,22 @@ extension FCSheetModifier {
   private func dismiss() {
     guard let dismissedItem = item else { return }
     cancelPendingDismissal()
+    // 끌던 위치를 그대로 둔 채 남은 거리만 내려가야 시트가 위로 튀지 않는다.
+    // 고정 거리 대신 시트 높이만큼 내려 화면 밖으로 완전히 나간 뒤 제거한다.
     withAnimation(.easeOut(duration: Metric.mediumDuration)) {
-      dismissOffset = Metric.slideDistance
+      dismissOffset = max(
+        sheetHeight,
+        Metric.slideDistance
+      )
+      isDismissing = true
     }
-    dragOffset = 0
     let work = DispatchWorkItem {
       guard item == dismissedItem else { return }
       Self.completeDismissal(
         of: dismissedItem,
         item: $item
       )
+      dragOffset = 0
       dismissOffset = 0
       pendingDismissal = nil
     }
