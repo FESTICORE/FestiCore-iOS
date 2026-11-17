@@ -17,19 +17,19 @@ struct SignUpFeatureTests {
 
     await store.send(.view(.keyboardFrameChanged(
       minY: 600,
-      screenHeight: 844
+      contentBottom: 844
     ))) {
       $0.keyboardInset = 244
     }
     await store.send(.view(.keyboardFrameChanged(
       minY: 900,
-      screenHeight: 844
+      contentBottom: 844
     ))) {
       $0.keyboardInset = 0
     }
     await store.send(.view(.keyboardFrameChanged(
       minY: 500,
-      screenHeight: 844
+      contentBottom: 844
     ))) {
       $0.keyboardInset = 344
     }
@@ -206,12 +206,15 @@ struct SignUpFeatureTests {
     state.draftOwnerID = "user-a"
     state.acceptedServiceTerms = true
     state.termsDraftVersion = "2026-10"
+    state.keyboardInset = 300
 
     state.resetForDismissal()
     #expect(state.nickname == "작성 중")
     #expect(state.draftOwnerID == "user-a")
     #expect(!state.acceptedServiceTerms)
     #expect(state.termsDraftVersion == nil)
+    // 키보드가 뜬 채 닫혀도 다음 진입 때 아래 여백이 남지 않는다.
+    #expect(state.keyboardInset == 0)
   }
 
   @Test func reconcileDropsDraftFromAnotherAccount() {
