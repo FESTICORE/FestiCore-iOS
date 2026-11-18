@@ -33,7 +33,7 @@ struct MainTabView: View {
           \.fcModalBottomExtension,
           modalBottomExtension
         )
-      if store.shouldReserveTabBarSpace {
+      if reservesTabBarSpace {
         FCTabBar(
           selection: Binding(
             get: { store.selectedTab },
@@ -129,9 +129,15 @@ private extension MainTabView {
     return store.shouldHideTabBar || isModalPresented
   }
 
-  /// 탭바 자리를 남겨 둔 동안 탭 화면 안의 시트·팝업이 그 자리와 하단 안전 영역까지 덮게 한다.
+  /// 시트가 떠 있으면 탭바 자리를 비워 탭 화면을 화면 아래 끝까지 늘린다.
+  /// 탭 화면의 NavigationStack이 자기 영역 밖을 잘라, 시트를 탭바 자리까지 늘려 그려도 그 부분이 보이지 않았다.
+  var reservesTabBarSpace: Bool {
+    return store.shouldReserveTabBarSpace && !isModalPresented
+  }
+
+  /// 탭바 자리를 남겨 둔 동안 탭 화면 안의 팝업이 그 자리와 하단 안전 영역까지 덮게 한다.
   var modalBottomExtension: FCModalBottomExtension {
-    guard store.shouldReserveTabBarSpace else { return .zero }
+    guard reservesTabBarSpace else { return .zero }
     return FCModalBottomExtension(
       height: tabBarHeight + safeAreaBottom,
       safeAreaBottom: safeAreaBottom
