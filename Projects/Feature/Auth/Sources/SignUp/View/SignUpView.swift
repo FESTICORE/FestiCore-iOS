@@ -124,6 +124,14 @@ private extension SignUpView {
         }
         .tag("필수")
         .onDetail(legalLink(.privacy))
+        FCConsentRow(
+          LegalDocument.location.title,
+          isChecked: store.acceptedLocationTerms
+        ) {
+          send(.locationTermsChanged(!store.acceptedLocationTerms))
+        }
+        .tag("필수")
+        .onDetail(legalLink(.location))
       }
       .padding(.vertical, FestiCoreSpacing.paddingP8)
     }

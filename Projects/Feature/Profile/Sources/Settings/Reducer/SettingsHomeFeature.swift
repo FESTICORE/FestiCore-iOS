@@ -91,6 +91,7 @@ public struct SettingsHomeFeature {
     case sourcesTapped
     case termsTapped
     case privacyTapped
+    case locationTermsTapped
   }
 
   // MARK: - AsyncAction 비동기 처리 액션
@@ -209,6 +210,13 @@ extension SettingsHomeFeature {
       return showLegalDocument(
         path: "privacy",
         title: "개인정보 처리방침",
+        state: &state
+      )
+
+    case .locationTermsTapped:
+      return showLegalDocument(
+        path: "location",
+        title: "위치기반서비스 이용약관",
         state: &state
       )
     }
