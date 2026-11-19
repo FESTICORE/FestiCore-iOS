@@ -493,15 +493,15 @@ platform :ios do
         ensure_beta_app_information(app)
         build.post_beta_app_review_submission
       rescue StandardError => error
-        # 베타 설명·심사 연락처 등 App Store Connect 정보가 빠진 경우는 배포를 실패로 만들지 않고, 무엇이 빠졌는지 남긴다.
-        # Apple 약관 미동의("agreement is missing")는 계정 차단이라 경고로 넘기지 않는다.
+        # 베타 설명·피드백 이메일·심사 연락처 등 App Store Connect 정보가 빠지면 무엇이 빠졌는지 남기고 배포를 실패로 끝낸다.
+        # 경고로 넘기면 배포가 성공으로 보여 외부 심사 미제출을 알아차리지 못한다(#610).
+        # Apple 약관 미동의("agreement is missing")는 원래 오류 그대로 올린다.
         raise if error.message.include?("agreement")
         missing_info = ["is missing", "is required", "Missing required information"].any? { |phrase| error.message.include?(phrase) }
         raise unless missing_info
         log_missing_beta_review_fields(app, build)
-        UI.important("#{EXTERNAL_TESTFLIGHT_GROUP} 베타 심사 제출에 필요한 App Store Connect 정보가 없습니다: #{error.message.lines.first.to_s.strip}")
-        UI.important("빌드 #{build_number}은 외부 그룹에 들어갔지만 심사에는 제출되지 않았습니다. TestFlight > 테스트 정보를 채운 뒤 다시 제출하세요.")
-        next
+        UI.user_error!("#{EXTERNAL_TESTFLIGHT_GROUP} 베타 심사 제출에 필요한 App Store Connect 정보가 없습니다: #{error.message.lines.first.to_s.strip}\n" \
+                       "빌드 #{build_number}은 외부 그룹에 들어갔지만 심사에는 제출되지 않았습니다. TestFlight > 테스트 정보를 채운 뒤 iOS Deploy를 다시 실행하세요.")
       end
       UI.success("#{EXTERNAL_TESTFLIGHT_GROUP} 외부 테스트 그룹에 넣고 베타 심사에 제출: #{version} (#{build_number})")
     when states::WAITING_FOR_BETA_REVIEW, states::IN_BETA_REVIEW, states::BETA_APPROVED,
