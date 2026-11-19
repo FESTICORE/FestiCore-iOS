@@ -135,6 +135,26 @@ class GitRulesHookTests(unittest.TestCase):
             f.write("C = 3\n")
         self.assertBlocked(self.hook('git commit -m "설정을 바꾼다 #396"'), "검증하지 않은")
 
+    def test_other_repo_commit_uses_its_own_harness_state(self):
+        other = os.path.join(self.tmp, "other")
+        hooks = os.path.join(other, ".claude", "hooks")
+        os.makedirs(hooks)
+        run("git", "init", "-q", "-b", "develop", cwd=other)
+        run("git", "config", "user.name", "tester", cwd=other)
+        run("git", "config", "user.email", "tester@example.com", cwd=other)
+        run("git", "commit", "-q", "--allow-empty", "-m", "init", cwd=other)
+        run("git", "checkout", "-q", "-b", "feature/other-repo", cwd=other)
+        # 이 저장소의 규칙(iOS)으로는 .claude/hooks 변경이 미검증이지만, 대상 저장소 규칙은 검증됐다고 본다.
+        with open(os.path.join(hooks, "harness_state.py"), "w") as f:
+            f.write("def unverified(root):\n    return []\n")
+        run("git", "-c", "core.excludesFile=/dev/null", "add", "-A", cwd=other)
+        command = f'cd {other} && git commit -m "다른 저장소를 맞춘다 #607"'
+        self.assertEqual(0, self.hook(command).returncode)
+        with open(os.path.join(hooks, "harness_state.py"), "w") as f:
+            f.write("def unverified(root):\n    return ['src/a.ts']\n")
+        run("git", "-c", "core.excludesFile=/dev/null", "add", "-A", cwd=other)
+        self.assertBlocked(self.hook(command), "src/a.ts")
+
     def test_docs_only_change_needs_no_verify(self):
         os.makedirs(os.path.join(self.repo, "DesignExports"))
         for path in ("README.md", "DesignExports/screen.png"):
