@@ -102,6 +102,25 @@ struct MainTabView: View {
       }
     }
     .overlay {
+      // 로그인 시트에서 이어진 가입 정보(S14 B2)는 시트를 닫고 메인 탭 위 전체 화면에 오른쪽에서 밀어 넣는다.
+      // 알림 꺼짐 안내보다 아래 층이라 두 상태가 겹쳐도 안내를 누를 수 있다.
+      if store.authFlow.showsSignUpCover {
+        AuthCoordinatorView(
+          store: store.scope(
+            state: \.authFlow,
+            action: \.auth
+          ),
+          sheet: .onboarding
+        )
+        .background(FestiCoreSemanticColor.backgroundNormal.color)
+        .transition(.move(edge: .trailing))
+      }
+    }
+    .animation(
+      .easeInOut(duration: 0.3),
+      value: store.authFlow.showsSignUpCover
+    )
+    .overlay {
       // 알림 꺼짐 안내는 첫 진입 화면까지 덮도록 가장 위에 띄운다.
       Color.clear
         .fcAlert($store.scope(
@@ -144,7 +163,7 @@ private extension MainTabView {
     )
   }
 
-  /// 인증 시트 내용. Figma S14 로그인 시트 → 가입 정보는 MOVE_FROM_RIGHT라 같은 시트 안에서 가입 정보를 오른쪽에서 밀어 넣는다.
+  /// 인증 시트 내용(로그인·이전 확인·재시도). 가입 정보는 시트가 아니라 전체 화면 덮개(`showsSignUpCover`)에서 그린다.
   func authSheetContent(_ sheet: AuthCoordinatorView.Sheet) -> some View {
     return ZStack {
       AuthCoordinatorView(
@@ -197,8 +216,8 @@ private extension MainTabView {
   var authSheet: Binding<AuthCoordinatorView.Sheet?> {
     return Binding(
       get: {
-        // 첫 진입 흐름의 가입은 시트가 아니라 메인 탭을 덮는 화면에서 그린다.
-        guard !store.authFlow.showsLaunchSignUp else { return nil }
+        // 가입 정보·기수 설정은 시트가 아니라 메인 탭을 덮는 전체 화면에서 그린다(첫 진입·로그인 시트 모두).
+        guard !store.authFlow.showsLaunchSignUp, !store.authFlow.showsSignUpCover else { return nil }
         return AuthCoordinatorView.Sheet(store.authFlow.presentation)
       },
       set: { value in

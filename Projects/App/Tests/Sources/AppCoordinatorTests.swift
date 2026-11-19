@@ -389,11 +389,22 @@ struct AppCoordinatorTests {
     // 가입을 마치고 기수 설정 중이면 계속 메인 탭을 덮는다.
     #expect(flow.coversMainTab)
     #expect(flow.showsLaunchSignUp)
-    // 메인 안 로그인 시트에서 시작한 가입은 시트로 그린다.
+    #expect(!flow.showsSignUpCover)
+    // 메인 안 로그인 시트에서 시작한 가입은 메인 탭은 그대로 두고 그 위 전체 화면 덮개로 그린다(S14 B2).
     flow.isLaunchFlow = false
     flow.presentation = .onboarding
     #expect(!flow.coversMainTab)
     #expect(!flow.showsLaunchSignUp)
+    #expect(flow.showsSignUpCover)
+    flow.presentation = .bearerSetup
+    #expect(flow.showsSignUpCover)
+    // 로그인 시트·이전 확인·재시도는 시트로 남는다.
+    for presentation in [AuthFlowState.Presentation.login, .migration, .retry, .directLogin] {
+      flow.presentation = presentation
+      #expect(!flow.showsSignUpCover)
+    }
+    flow.presentation = nil
+    #expect(!flow.showsSignUpCover)
   }
 
   @Test func launchLoginFailureKeepsScreen() async {

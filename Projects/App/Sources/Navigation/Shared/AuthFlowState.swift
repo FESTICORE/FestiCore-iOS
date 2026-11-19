@@ -92,6 +92,12 @@ extension AuthFlowState {
   var showsLaunchSignUp: Bool {
     return isLaunchFlow && (presentation == .onboarding || presentation == .bearerSetup)
   }
+
+  /// 로그인 시트·마이 로그인에서 이어진 가입 정보(S14 B2)부터 기수 설정까지.
+  /// Figma B2는 B와 같은 전체 화면이라 시트가 아니라 메인 탭 위 전체 화면에 push처럼 그린다.
+  var showsSignUpCover: Bool {
+    return !isLaunchFlow && (presentation == .onboarding || presentation == .bearerSetup)
+  }
 }
 
 // MARK: - 요청 세대
