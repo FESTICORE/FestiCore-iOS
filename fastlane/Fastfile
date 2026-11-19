@@ -426,6 +426,21 @@ platform :ios do
     File.open(ENV["GITHUB_OUTPUT"], "a") { |file| file.puts("build_number=#{build_number}") } if ENV["GITHUB_OUTPUT"]
   end
 
+  desc "운영(Prod) 구성 빌드를 TestFlight에만 업로드. App Store 버전은 준비하지 않는다"
+  lane :prod_testflight do |options|
+    release_credentials!
+    version = options[:version] || ENV["FESTICORE_VERSION"]
+    UI.user_error!("version 옵션 또는 FESTICORE_VERSION이 필요합니다.") if version.to_s.empty?
+    api_key = connect_api_key
+    build_number = next_build_number(api_key, version)
+    ipa = signed_ipa(PROD_SCHEME, "Prod", version, build_number, api_key)
+    upload_stage_build(
+      api_key: api_key,
+      ipa: ipa
+    )
+    File.open(ENV["GITHUB_OUTPUT"], "a") { |file| file.puts("build_number=#{build_number}") } if ENV["GITHUB_OUTPUT"]
+  end
+
   desc "업로드한 빌드의 처리 완료를 기다린 뒤 FestiCore 내부 테스트 그룹에 배포"
   lane :distribute_internal do |options|
     version = options[:version].to_s

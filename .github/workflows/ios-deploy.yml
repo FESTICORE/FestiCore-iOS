@@ -4,6 +4,12 @@ on:
   push:
     branches: [develop]
   workflow_dispatch:
+    inputs:
+      target:
+        description: "TestFlight에 올릴 구성 (prod는 내부 그룹에만 배포)"
+        type: choice
+        options: [stage, prod]
+        default: stage
 
 # 셀프호스티드 러너가 한 대뿐이라 배포는 항상 직렬로 실행한다.
 concurrency:
@@ -58,7 +64,10 @@ jobs:
         timeout-minutes: 50
         run: |
           set +e
-          bundle exec fastlane ios QA version:"${{ steps.ver.outputs.version }}" 2>&1 | tee fastlane-qa.log
+          # develop 푸시는 입력이 없어 Stage(QA)로 올린다.
+          LANE=QA
+          [[ "${{ inputs.target }}" == "prod" ]] && LANE=prod_testflight
+          bundle exec fastlane ios "$LANE" version:"${{ steps.ver.outputs.version }}" 2>&1 | tee fastlane-qa.log
           DEPLOY_EXIT_CODE=${PIPESTATUS[0]}
           # 컴파일 에러는 fastlane 로그가 아니라 gym의 원본 xcodebuild 로그에 남는다.
           if [[ "$DEPLOY_EXIT_CODE" -ne 0 ]]; then
@@ -73,9 +82,11 @@ jobs:
           bundle exec fastlane ios distribute_internal
           version:"${{ steps.ver.outputs.version }}"
           build_number:"${{ steps.deploy.outputs.build_number }}"
-          changelog:"$(git log -1 --pretty=%s)"
+          changelog:"${{ inputs.target == 'prod' && '[운영] ' || '' }}$(git log -1 --pretty=%s)"
       # 외부 테스트는 Apple 베타 심사를 거친다. 내부 배포가 끝난 빌드만 제출한다.
+      # 운영(prod) 수동 배포는 내부 확인용이라 외부 그룹에 넣지 않는다.
       - name: Distribute to external TestFlight group
+        if: ${{ inputs.target != 'prod' }}
         timeout-minutes: 15
         run: >-
           bundle exec fastlane ios distribute_external

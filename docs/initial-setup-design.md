@@ -18,7 +18,7 @@ Tuist 플러그인 분리, 모듈 카탈로그, `make → TuistTool.swift` 개�
 
 Stage와 Prod는 `Config/*.xcconfig`로 분리하고 앱 스킴은 `FestiCore-Stage`, `FestiCore-Prod`다. 초기 API 호스트는 `example.invalid`이며 실제 서버 계약을 구현한 값이 아니다. 로컬·CI 시뮬레이터 검증에서는 서명 없이 빌드한다.
 
-Fastlane의 `test`와 `build`는 로컬 검증용이다. `QA`, `release`, `submit_for_review`, `tdd_ci` lane을 FestiCore 스킴과 앱 ID에 맞게 구성한다. QA는 Stage의 Debug 구성으로 아카이브하며, Prod 스킴에는 Release 구성 테스트 액션을 두지 않는다. `release`는 Prod 빌드를 TestFlight에 업로드하고 App Store 버전을 준비한다. `submit_for_review`에는 검토할 `version`과 `build_number`를 명시한다. 배포 lane은 Match 저장소, 비밀번호, App Store Connect 팀과 API 키를 환경 변수로 받아 서명·아카이브·업로드한다. 다른 앱의 개인 Match 저장소, Slack 알림, 앱 메타데이터와 인증 자료는 복사하지 않는다. TestFlight 업로드와 App Store 심사 제출은 이번 PR에서 실행하지 않는다.
+Fastlane의 `test`와 `build`는 로컬 검증용이다. `QA`, `release`, `submit_for_review`, `tdd_ci` lane을 FestiCore 스킴과 앱 ID에 맞게 구성한다. QA는 Stage의 Debug 구성으로 아카이브하며, Prod 스킴에는 Release 구성 테스트 액션을 두지 않는다. `release`는 Prod 빌드를 TestFlight에 업로드하고 App Store 버전을 준비한다. `prod_testflight`는 Prod 빌드를 TestFlight에만 올리며, `iOS Deploy` 수동 실행에서 `target: prod`를 고르면 내부 그룹에만 배포한다. `submit_for_review`에는 검토할 `version`과 `build_number`를 명시한다. 배포 lane은 Match 저장소, 비밀번호, App Store Connect 팀과 API 키를 환경 변수로 받아 서명·아카이브·업로드한다. 다른 앱의 개인 Match 저장소, Slack 알림, 앱 메타데이터와 인증 자료는 복사하지 않는다. TestFlight 업로드와 App Store 심사 제출은 이번 PR에서 실행하지 않는다.
 
 ## PR과 완료 기준
 
