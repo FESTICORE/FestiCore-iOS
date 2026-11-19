@@ -1034,6 +1034,7 @@ struct AppCoordinatorTests {
     home.authFlow.signUp.nickname = "테스터"
     home.authFlow.signUp.acceptedServiceTerms = true
     home.authFlow.signUp.acceptedPrivacyTerms = true
+    home.authFlow.signUp.acceptedLocationTerms = true
     home.authFlow.signUp.termsDraftVersion = "2026-09"
     home.authFlow.signUp.draftOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
@@ -1066,6 +1067,7 @@ struct AppCoordinatorTests {
       home.authFlow.hasRetriedTermsUpdate = true
       home.authFlow.signUp.acceptedServiceTerms = false
       home.authFlow.signUp.acceptedPrivacyTerms = false
+      home.authFlow.signUp.acceptedLocationTerms = false
       home.authFlow.signUp.termsDraftVersion = nil
       home.authFlow.message = "약관이 변경됐어요. 내용을 확인하고 다시 동의해 주세요."
       home.authFlow.generation = 2
@@ -1097,6 +1099,7 @@ struct AppCoordinatorTests {
     home.authFlow.signUp.nickname = "작성 중"
     home.authFlow.signUp.acceptedServiceTerms = true
     home.authFlow.signUp.acceptedPrivacyTerms = true
+    home.authFlow.signUp.acceptedLocationTerms = true
     home.authFlow.signUp.termsDraftVersion = "2026-10"
     home.authFlow.signUp.draftOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
@@ -1132,7 +1135,7 @@ struct AppCoordinatorTests {
     #expect(refreshed.authFlow.signUp.acceptedServiceTerms && refreshed.authFlow.signUp.acceptedPrivacyTerms)
   }
 
-  @Test func requiredTermsCountOnlyWhenBothRowsAreChecked() async {
+  @Test func requiredTermsCountOnlyWhenAllRowsAreChecked() async {
     var home = MainTabCoordinator.State()
     home.authFlow.profile = AuthProfile(user: signUpUser("user-a"), currentTermsVersion: "2026-10")
     home.authFlow.presentation = .onboarding
@@ -1150,16 +1153,23 @@ struct AppCoordinatorTests {
 
     await store.send(.scope(.home(.auth(.signUp(.view(.privacyTermsChanged(true)))))))
     await store.receive(\.scope.home.auth.signUp.router)
+    guard case let .home(two) = store.state else { return }
+    #expect(!two.authFlow.signUp.acceptedTerms)
+    #expect(two.authFlow.signUp.consentedVersion == nil)
+
+    await store.send(.scope(.home(.auth(.signUp(.view(.locationTermsChanged(true)))))))
+    await store.receive(\.scope.home.auth.signUp.router)
     guard case let .home(both) = store.state else { return }
     #expect(both.authFlow.signUp.acceptedTerms)
     #expect(both.authFlow.signUp.consentedVersion == "2026-10")
-    // 시안 S14-2는 필수 약관 2개만 받으므로 둘 다 켜지면 전체 동의다.
+    // 필수 약관은 서비스·개인정보·위치기반서비스 3개라 셋 다 켜지면 전체 동의다.
     #expect(both.authFlow.signUp.isAllConsented)
 
     await store.send(.scope(.home(.auth(.signUp(.view(.allConsentToggled))))))
     await store.receive(\.scope.home.auth.signUp.router)
     guard case let .home(none) = store.state else { return }
     #expect(!none.authFlow.signUp.acceptedServiceTerms && !none.authFlow.signUp.acceptedPrivacyTerms)
+    #expect(!none.authFlow.signUp.acceptedLocationTerms)
     #expect(!none.authFlow.signUp.acceptedTerms)
     #expect(none.authFlow.signUp.consentedVersion == nil)
   }
@@ -1217,6 +1227,7 @@ struct AppCoordinatorTests {
     home.authFlow.generation = 1
     home.authFlow.signUp.nickname = "주인 없음"
     home.authFlow.signUp.acceptedPrivacyTerms = true
+    home.authFlow.signUp.acceptedLocationTerms = true
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
     }
@@ -1240,6 +1251,7 @@ struct AppCoordinatorTests {
     home.authFlow.lastVerifiedUserID = "user-a"
     home.authFlow.signUp.acceptedServiceTerms = true
     home.authFlow.signUp.acceptedPrivacyTerms = true
+    home.authFlow.signUp.acceptedLocationTerms = true
     home.authFlow.signUp.termsDraftVersion = "2026-10"
     home.authFlow.signUp.draftOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
@@ -1405,6 +1417,7 @@ struct AppCoordinatorTests {
     home.authFlow.signUp.nicknameEdited = true
     home.authFlow.signUp.acceptedServiceTerms = true
     home.authFlow.signUp.acceptedPrivacyTerms = true
+    home.authFlow.signUp.acceptedLocationTerms = true
     home.authFlow.signUp.termsDraftVersion = "2026-10"
     home.authFlow.signUp.draftOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
@@ -1445,6 +1458,7 @@ struct AppCoordinatorTests {
     home.authFlow.hasRetriedTermsUpdate = true
     home.authFlow.signUp.acceptedServiceTerms = true
     home.authFlow.signUp.acceptedPrivacyTerms = true
+    home.authFlow.signUp.acceptedLocationTerms = true
     home.authFlow.signUp.termsDraftVersion = "2026-10"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) {
       AppCoordinator()
@@ -1461,6 +1475,7 @@ struct AppCoordinatorTests {
       home.authFlow.termsUpdateExhausted = true
       home.authFlow.signUp.acceptedServiceTerms = false
       home.authFlow.signUp.acceptedPrivacyTerms = false
+      home.authFlow.signUp.acceptedLocationTerms = false
       home.authFlow.signUp.termsDraftVersion = nil
       home.authFlow.message = "약관이 다시 변경됐어요. 나중에 다시 시도해 주세요."
       $0 = .home(home)
@@ -2724,6 +2739,7 @@ struct AppCoordinatorTests {
     home.authFlow.signUp.nickname = "작성 중"
     home.authFlow.signUp.acceptedServiceTerms = true
     home.authFlow.signUp.acceptedPrivacyTerms = true
+    home.authFlow.signUp.acceptedLocationTerms = true
     home.authFlow.signUp.termsDraftVersion = "2026-10"
     home.authFlow.message = "이전 안내"
     home.authFlow.hasRetriedTermsUpdate = true

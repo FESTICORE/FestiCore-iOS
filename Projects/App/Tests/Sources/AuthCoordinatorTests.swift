@@ -10,6 +10,7 @@ struct AuthCoordinatorTests {
     var signUp = SignUpFeature.State()
     signUp.nickname = "테스터"
     signUp.acceptedPrivacyTerms = true
+    signUp.acceptedLocationTerms = true
     var state = AuthCoordinator.State()
     state.signUpFlow = AuthCoordinator.SignUpFlow(signUp: signUp)
     let store = TestStore(initialState: state) {

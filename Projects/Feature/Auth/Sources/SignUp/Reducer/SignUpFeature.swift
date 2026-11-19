@@ -30,6 +30,7 @@ public struct SignUpFeature {
     public var nicknameEdited = false
     public var acceptedServiceTerms = false
     public var acceptedPrivacyTerms = false
+    public var acceptedLocationTerms = false
     /// 필수 약관을 체크할 때의 약관 버전. 새 버전 프로필이 오면 체크를 지운다.
     public var termsDraftVersion: String?
     /// 가입 초안(닉네임·약관)을 만든 계정. 계정이 확인될 때 다르면 초안을 버린다.
@@ -47,18 +48,18 @@ public struct SignUpFeature {
       self.canOpenLegal = canOpenLegal
     }
 
-    /// 두 필수 약관(서비스 이용약관·개인정보 수집 이용)이 모두 체크됐을 때만 true다.
+    /// 세 필수 약관(서비스 이용약관·개인정보 수집 이용·위치기반서비스 이용약관)이 모두 체크됐을 때만 true다.
     public var acceptedTerms: Bool {
-      return acceptedServiceTerms && acceptedPrivacyTerms
+      return acceptedServiceTerms && acceptedPrivacyTerms && acceptedLocationTerms
     }
 
-    /// 두 필수 약관이 모두 체크됐을 때만 체크한 시점의 약관 버전에 동의한 것으로 본다.
+    /// 필수 약관이 모두 체크됐을 때만 체크한 시점의 약관 버전에 동의한 것으로 본다.
     public var consentedVersion: String? {
       return acceptedTerms ? termsDraftVersion : nil
     }
 
     public var isAllConsented: Bool {
-      return acceptedServiceTerms && acceptedPrivacyTerms
+      return acceptedTerms
     }
 
     /// 현재 약관 버전에 동의했고 닉네임이 있으며 제출할 수 있는 상태일 때만 true다.
@@ -78,7 +79,7 @@ public struct SignUpFeature {
     }
 
     var hasDraft: Bool {
-      return !nickname.isEmpty || nicknameEdited || acceptedServiceTerms || acceptedPrivacyTerms
+      return !nickname.isEmpty || nicknameEdited || acceptedServiceTerms || acceptedPrivacyTerms || acceptedLocationTerms
     }
 
     /// 계정이 확인될 때 다른 계정이 만들었거나 소유자를 모르는 초안은 버린다. 초안을 버렸으면 true다.
@@ -116,6 +117,7 @@ public struct SignUpFeature {
     public mutating func clearRequiredTerms() {
       acceptedServiceTerms = false
       acceptedPrivacyTerms = false
+      acceptedLocationTerms = false
       termsDraftVersion = nil
     }
 
@@ -133,7 +135,7 @@ public struct SignUpFeature {
 
     /// 필수 약관을 처음 체크할 때의 약관 버전을 기록하고, 모두 해제하면 지운다.
     mutating func syncRequiredTerms() {
-      if acceptedServiceTerms || acceptedPrivacyTerms {
+      if acceptedServiceTerms || acceptedPrivacyTerms || acceptedLocationTerms {
         if termsDraftVersion == nil { termsDraftVersion = currentTermsVersion }
       } else {
         termsDraftVersion = nil
@@ -156,6 +158,7 @@ public struct SignUpFeature {
     case termsAcceptanceChanged(Bool)
     case serviceTermsChanged(Bool)
     case privacyTermsChanged(Bool)
+    case locationTermsChanged(Bool)
     case allConsentToggled
     case legalDocumentTapped(LegalDocument)
     case submitTapped
@@ -212,6 +215,7 @@ extension SignUpFeature {
       state.claimDraft()
       state.acceptedServiceTerms = accepted
       state.acceptedPrivacyTerms = accepted
+      state.acceptedLocationTerms = accepted
       state.syncRequiredTerms()
       return .none
 
@@ -227,11 +231,18 @@ extension SignUpFeature {
       state.syncRequiredTerms()
       return .none
 
+    case let .locationTermsChanged(accepted):
+      state.claimDraft()
+      state.acceptedLocationTerms = accepted
+      state.syncRequiredTerms()
+      return .none
+
     case .allConsentToggled:
       state.claimDraft()
       let accepted = !state.isAllConsented
       state.acceptedServiceTerms = accepted
       state.acceptedPrivacyTerms = accepted
+      state.acceptedLocationTerms = accepted
       state.syncRequiredTerms()
       return .none
 
@@ -277,6 +288,7 @@ extension LegalDocument {
     return switch self {
     case .terms: "서비스 이용약관"
     case .privacy: "개인정보 수집 · 이용"
+    case .location: "위치기반서비스 이용약관"
     }
   }
 }

@@ -61,6 +61,7 @@ struct SignUpFeatureTests {
     state.nickname = "테스터"
     state.acceptedServiceTerms = true
     state.acceptedPrivacyTerms = true
+    state.acceptedLocationTerms = true
     state.termsDraftVersion = "2026-10"
     #expect(state.canSubmit)
 
@@ -81,6 +82,7 @@ struct SignUpFeatureTests {
     withoutLegal.nickname = "테스터"
     withoutLegal.acceptedServiceTerms = true
     withoutLegal.acceptedPrivacyTerms = true
+    withoutLegal.acceptedLocationTerms = true
     withoutLegal.termsDraftVersion = "2026-10"
     #expect(!withoutLegal.canSubmit)
   }
@@ -163,6 +165,11 @@ struct SignUpFeatureTests {
     await store.send(.view(.privacyTermsChanged(true))) {
       $0.acceptedPrivacyTerms = true
     }
+    // 위치기반서비스 이용약관까지 체크해야 필수 약관 동의가 끝난다.
+    #expect(!store.state.acceptedTerms)
+    await store.send(.view(.locationTermsChanged(true))) {
+      $0.acceptedLocationTerms = true
+    }
     #expect(store.state.acceptedTerms)
     #expect(store.state.consentedVersion == "2026-10")
 
@@ -171,8 +178,32 @@ struct SignUpFeatureTests {
     }
     await store.send(.view(.privacyTermsChanged(false))) {
       $0.acceptedPrivacyTerms = false
+    }
+    await store.send(.view(.locationTermsChanged(false))) {
+      $0.acceptedLocationTerms = false
       $0.termsDraftVersion = nil
     }
+  }
+
+  @Test @MainActor func allConsentIncludesLocationTerms() async {
+    var state = SignUpFeature.State()
+    state.currentUserID = "user-a"
+    state.currentTermsVersion = "2026-11"
+    let store = TestStore(initialState: state) { SignUpFeature() }
+
+    await store.send(.view(.allConsentToggled)) {
+      $0.acceptedServiceTerms = true
+      $0.acceptedPrivacyTerms = true
+      $0.acceptedLocationTerms = true
+      $0.termsDraftVersion = "2026-11"
+      $0.draftOwnerID = "user-a"
+    }
+    #expect(store.state.isAllConsented)
+    await store.send(.view(.locationTermsChanged(false))) {
+      $0.acceptedLocationTerms = false
+    }
+    #expect(!store.state.isAllConsented)
+    #expect(!store.state.acceptedTerms)
   }
 
   @Test func applyFillsServerNicknameOnlyWhenNotEdited() {
@@ -192,6 +223,7 @@ struct SignUpFeatureTests {
     state.nickname = "작성 중"
     state.acceptedServiceTerms = true
     state.acceptedPrivacyTerms = true
+    state.acceptedLocationTerms = true
     state.termsDraftVersion = "2026-10"
 
     state.apply(profileUserID: "user-a", serverNickname: nil, termsVersion: "2026-11")
@@ -237,6 +269,7 @@ struct SignUpFeatureTests {
     state.nickname = nickname
     state.acceptedServiceTerms = true
     state.acceptedPrivacyTerms = true
+    state.acceptedLocationTerms = true
     state.termsDraftVersion = "2026-10"
     return state
   }

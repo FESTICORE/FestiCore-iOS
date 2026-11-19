@@ -33,6 +33,7 @@ public struct SignUpSubmission: Equatable, Sendable {
 public enum LegalDocument: String, Equatable, Sendable {
   case terms
   case privacy
+  case location
 
   /// 약관 기준 주소 뒤에 붙는 경로
   public var path: String { rawValue }

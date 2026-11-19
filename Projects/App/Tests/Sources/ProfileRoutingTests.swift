@@ -123,6 +123,15 @@ struct ProfileRoutingTests {
     await store.send(.destination(.presented(.legalDocument(.delegate(.backToRoot))))) {
       $0.destination = nil
     }
+    await store.send(.view(.locationTermsTapped)) {
+      $0.destination = .legalDocument(.init(
+        url: base.appending(path: "location"),
+        title: "위치기반서비스 이용약관"
+      ))
+    }
+    await store.send(.destination(.presented(.legalDocument(.delegate(.backToRoot))))) {
+      $0.destination = nil
+    }
   }
 
   @Test("설정 홈 아래 화면의 뒤로 가기도 코디네이터 안에서 처리한다")

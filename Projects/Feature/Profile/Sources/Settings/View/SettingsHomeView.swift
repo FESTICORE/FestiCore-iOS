@@ -95,6 +95,8 @@ private extension SettingsHomeView {
       FCListRow("이용약관") { send(.termsTapped) }
       rowDivider
       FCListRow("개인정보 처리방침") { send(.privacyTapped) }
+      rowDivider
+      FCListRow("위치기반서비스 이용약관") { send(.locationTermsTapped) }
     }
   }
 
