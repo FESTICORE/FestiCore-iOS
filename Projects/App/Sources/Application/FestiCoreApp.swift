@@ -43,6 +43,7 @@ private struct RootView: View {
     $0.date = .init { Date() }
     #if DEBUG
     FestivalPackUITestFixture.configure(&$0)
+    OnboardingUITestFixture.configure(&$0)
     #endif
   }
   /// 마이 > 화면 모드(Figma S13-J)
@@ -133,6 +134,17 @@ private enum FestivalPackUITestFixture {
     dependencies.festivalLiveBoardUseCase = MockFestivalLiveBoardUseCase(liveBoard: { _ in
       throw FestivalLiveBoardError.festivalNotFound
     })
+  }
+}
+
+/// UI 테스트에서 설치 기록과 상관없이 첫 실행 온보딩부터 보이게 한다. 완료 기록도 남기지 않는다.
+private enum OnboardingUITestFixture {
+  static func configure(_ dependencies: inout DependencyValues) {
+    guard ProcessInfo.processInfo.environment["FESTICORE_ONBOARDING_UI_TEST"] == "1" else { return }
+    dependencies.firstInstallOnboardingStore = FirstInstallOnboardingStore(
+      hasCompleted: { return false },
+      markCompleted: {}
+    )
   }
 }
 #endif

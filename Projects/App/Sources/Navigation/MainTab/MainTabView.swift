@@ -121,7 +121,7 @@ struct MainTabView: View {
       value: store.authFlow.showsSignUpCover
     )
     .overlay {
-      // 알림 꺼짐 안내는 첫 진입 화면까지 덮도록 가장 위에 띄운다.
+      // 알림 꺼짐 안내는 가입 정보 덮개 위에 띄운다. 첫 진입 흐름이 덮는 동안은 리듀서가 표시를 미룬다.
       Color.clear
         .fcAlert($store.scope(
           state: \.notificationSettingsAlert,
