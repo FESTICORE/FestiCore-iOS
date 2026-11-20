@@ -24,8 +24,30 @@ struct FestivalNotificationSettingsUseCaseTests {
     let settings = try await useCase.updateSettings([.crewStatus: false, .packUpdates: true])
 
     #expect(service.changes.value == [DeviceNotificationSettingsChange(crewStatus: false, packUpdates: true)])
-    #expect(settings == FestivalNotificationSettings(crewStatus: false, homecoming: false))
-    #expect(try await useCase.settings() == FestivalNotificationSettings(crewStatus: false, homecoming: false))
+    // 이 서버 응답에는 officialNews가 없어 화면에서 숨긴다.
+    let expected = FestivalNotificationSettings(
+      crewStatus: false,
+      homecoming: false,
+      isOfficialNewsAvailable: false
+    )
+    #expect(settings == expected)
+    #expect(try await useCase.settings() == expected)
+  }
+
+  @Test func officialNewsIsShownOnlyWhenServerReturnsIt() async throws {
+    let service = StubSettingsService(officialNews: false)
+    let useCase = withDependencies {
+      $0.deviceNotificationSettingsService = service
+    } operation: {
+      FestivalNotificationSettingsUseCaseImpl()
+    }
+
+    let settings = try await useCase.updateSettings([.officialNews: false])
+
+    #expect(service.changes.value == [DeviceNotificationSettingsChange(officialNews: false)])
+    #expect(settings.officialNews == false)
+    #expect(settings.isOfficialNewsAvailable)
+    #expect(settings[.officialNews] == false)
   }
 
   @Test func serviceErrorsBecomeDomainErrors() async {
@@ -45,12 +67,20 @@ struct FestivalNotificationSettingsUseCaseTests {
 
 private struct StubSettingsService: DeviceNotificationSettingsService {
   var error: DeviceNotificationSettingsError?
+  var officialNews: Bool?
   let changes = LockIsolated<[DeviceNotificationSettingsChange]>([])
 
-  private let server = DeviceNotificationSettings(
-    flagStatus: true, crewStatus: false, crewGather: true,
-    setReminders: true, homecoming: false, packUpdates: true
-  )
+  private var server: DeviceNotificationSettings {
+    return DeviceNotificationSettings(
+      flagStatus: true,
+      crewStatus: false,
+      crewGather: true,
+      setReminders: true,
+      homecoming: false,
+      packUpdates: true,
+      officialNews: officialNews
+    )
+  }
 
   func settings() async throws -> DeviceNotificationSettings {
     if let error { throw error }

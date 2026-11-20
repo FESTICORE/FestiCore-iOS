@@ -13,6 +13,8 @@ import Dependencies
 public protocol FestivalLiveBoardUseCaseInterface: Sendable {
   /// 축제의 현재 공연과 공개 깃발 상태를 다시 조회한다.
   func liveBoard(for festivalID: String) async throws -> FestivalLiveBoardSnapshot
+  /// 축제 공식 인스타그램 최근 게시물을 조회한다.
+  func officialNews(for festivalID: String) async throws -> FestivalOfficialNews
 }
 
 public enum FestivalLiveBoardUseCaseDependency: TestDependencyKey {

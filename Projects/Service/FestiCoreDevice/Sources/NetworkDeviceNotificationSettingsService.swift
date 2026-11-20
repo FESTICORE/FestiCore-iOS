@@ -89,11 +89,18 @@ struct DeviceNotificationSettingsEnvelope: Decodable, Sendable {
     let setReminders: Bool
     let homecoming: Bool
     let packUpdates: Bool
+    /// 이전 서버 응답에는 없다.
+    let officialNews: Bool?
 
     var settings: DeviceNotificationSettings {
-      DeviceNotificationSettings(
-        flagStatus: flagStatus, crewStatus: crewStatus, crewGather: crewGather,
-        setReminders: setReminders, homecoming: homecoming, packUpdates: packUpdates
+      return DeviceNotificationSettings(
+        flagStatus: flagStatus,
+        crewStatus: crewStatus,
+        crewGather: crewGather,
+        setReminders: setReminders,
+        homecoming: homecoming,
+        packUpdates: packUpdates,
+        officialNews: officialNews
       )
     }
   }

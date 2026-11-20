@@ -21,8 +21,17 @@ public struct FestivalLiveBoardFeature {
     /// 응답이 지금 축제·계정의 것인지 확인하는 데만 쓰고, 부모 저장 상태에는 남기지 않는다.
     public var selectedFestivalID: String?
     public var accountGeneration = 0
+    /// 축제 공식 인스타그램 최근 게시물과 그 축제 ID. 다른 축제로 바꾸면 새 소식을 받기 전까지 숨긴다.
+    public var officialNews: FestivalOfficialNews?
+    public var officialNewsFestivalID: String?
 
     public init() {}
+
+    /// 지금 선택한 축제의 공식 소식. 받기 전이거나 다른 축제 것이면 nil이다.
+    public var visibleOfficialNews: FestivalOfficialNews? {
+      guard let officialNews, officialNewsFestivalID == selectedFestivalID else { return nil }
+      return officialNews
+    }
   }
 
   public enum Action: ViewAction, Equatable {
@@ -65,6 +74,8 @@ public struct FestivalLiveBoardFeature {
     case createCrewTapped
     /// 크루 카드 열기 탭. 처리는 부모가 한다.
     case crewTapped
+    /// 공식 인스타그램 게시물 탭. 원본 게시물을 연다.
+    case officialNewsPostTapped(URL)
   }
 
   // MARK: - InnerAction
@@ -74,6 +85,7 @@ public struct FestivalLiveBoardFeature {
     case liveBoardLoaded(String, generation: Int, FestivalLiveBoardSnapshot)
     case liveBoardFailed(String, generation: Int)
     case liveBoardUnpublished(String, generation: Int)
+    case officialNewsLoaded(String, generation: Int, FestivalOfficialNews)
   }
 
   // MARK: - DelegateAction
@@ -93,11 +105,16 @@ public struct FestivalLiveBoardFeature {
 
   enum CancelID {
     case liveBoard
+    case officialNews
   }
+
+  /// 서버가 공식 인스타그램을 5분마다 받으므로 앱도 같은 간격으로 다시 읽는다.
+  static let officialNewsInterval: Duration = .seconds(300)
 
   @Dependency(\.festivalLiveBoardUseCase) private var liveBoardUseCase
   @Dependency(\.date) private var date
   @Dependency(\.continuousClock) private var clock
+  @Dependency(\.openURL) private var openURL
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -133,9 +150,15 @@ extension FestivalLiveBoardFeature {
       festivalID,
       generation
     ):
-      return watchLiveBoard(
-        festivalID: festivalID,
-        generation: generation
+      return .merge(
+        watchLiveBoard(
+          festivalID: festivalID,
+          generation: generation
+        ),
+        watchOfficialNews(
+          festivalID: festivalID,
+          generation: generation
+        )
       )
 
     case let .refreshRequested(
@@ -148,7 +171,10 @@ extension FestivalLiveBoardFeature {
       )
 
     case .stopped:
-      return .cancel(id: CancelID.liveBoard)
+      return .merge(
+        .cancel(id: CancelID.liveBoard),
+        .cancel(id: CancelID.officialNews)
+      )
 
     case .retried:
       state.isUnavailable = false
@@ -184,6 +210,11 @@ extension FestivalLiveBoardFeature {
 
     case .crewTapped:
       return .send(.delegate(.crewOpenRequested))
+
+    case let .officialNewsPostTapped(url):
+      return .run { _ in
+        await openURL(url)
+      }
     }
   }
 
@@ -226,6 +257,16 @@ extension FestivalLiveBoardFeature {
       guard state.selectedFestivalID == id, state.accountGeneration == generation else { return .none }
       state.isUnavailable = true
       return .none
+
+    case let .officialNewsLoaded(
+      id,
+      generation,
+      news
+    ):
+      guard state.selectedFestivalID == id, state.accountGeneration == generation else { return .none }
+      state.officialNews = news
+      state.officialNewsFestivalID = id
+      return .none
     }
   }
 
@@ -265,6 +306,32 @@ extension FestivalLiveBoardFeature {
     }
     .cancellable(
       id: CancelID.liveBoard,
+      cancelInFlight: true
+    )
+  }
+
+  /// 공식 인스타그램 최근 게시물을 5분마다 다시 읽는다. 보조 정보라 실패하면 보이던 소식을 그대로 두고,
+  /// 결과가 바뀌었을 때만 상태에 반영한다. 처음에는 비어 있는 소식으로 보고 같으면 보내지 않는다.
+  private func watchOfficialNews(
+    festivalID id: String,
+    generation: Int
+  ) -> Effect<Action> {
+    return .run { send in
+      var lastSent = FestivalOfficialNews.unavailable
+      while !Task.isCancelled {
+        if let news = try? await liveBoardUseCase.officialNews(for: id), news != lastSent {
+          lastSent = news
+          await send(.inner(.officialNewsLoaded(
+            id,
+            generation: generation,
+            news
+          )))
+        }
+        try await clock.sleep(for: Self.officialNewsInterval)
+      }
+    }
+    .cancellable(
+      id: CancelID.officialNews,
       cancelInFlight: true
     )
   }

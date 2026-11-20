@@ -281,4 +281,8 @@ private struct CurrentCrewBoard: FestivalLiveBoardUseCaseInterface {
       )
     )
   }
+
+  func officialNews(for festivalID: String) async throws -> FestivalOfficialNews {
+    return .unavailable
+  }
 }
