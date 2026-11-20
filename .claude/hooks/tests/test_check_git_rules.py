@@ -179,6 +179,68 @@ class GitRulesHookTests(unittest.TestCase):
         self.assertBlocked(self.hook('git commit -m "하네스를 맞춘다 #396"', cwd=worktree), "보호 브랜치")
         self.assertBlocked(self.hook(f'cd {worktree} && git commit -m "하네스를 맞춘다 #396"'), "보호 브랜치")
 
+    def test_skipping_pre_commit_gate_blocked(self):
+        no_verify = "--no-" + "verify"  # 이 테스트를 실행하는 명령이 훅에 걸리지 않게 나눠 쓴다
+        for command in (f'git commit {no_verify} -m "하네스를 맞춘다 #617"',
+                        'git commit -n -m "하네스를 맞춘다 #617"',
+                        'git commit -an -m "하네스를 맞춘다 #617"',
+                        'git commit --no-v -m "하네스를 맞춘다 #617"',
+                        f"bash -c 'git commit {no_verify} -m \"하네스를 맞춘다 #617\"'"):
+            self.assertBlocked(self.hook(command), "검증 게이트")
+        # -m 값 안의 -n과 ; 는 옵션이 아니다
+        self.assertEqual(0, self.hook('git commit -m "옵션 -n; 설명 #617"').returncode)
+
+    def test_hooks_path_change_blocked(self):
+        for command in ("git config core.hooksPath /dev/null",
+                        "git config --unset core.hooksPath",
+                        'git -c core.hooksPath=/tmp commit -m "하네스를 맞춘다 #617"'):
+            self.assertBlocked(self.hook(command), "core.hooksPath")
+        for command in ("git config core.hooksPath .githooks", "git config --get core.hooksPath"):
+            self.assertEqual(0, self.hook(command).returncode, command)
+
+    def test_pre_commit_gate_compares_index_with_verify_record(self):
+        sys.path.insert(0, os.path.join(self.repo, ".claude", "hooks"))
+        import harness_state as hs
+        shutil.copytree(REPO / ".githooks", os.path.join(self.repo, ".githooks"))
+        hs.install_git_hooks(self.repo)
+        self.assertEqual(".githooks", run("git", "config", "--get", "core.hooksPath", cwd=self.repo).stdout.strip())
+        config = os.path.join(self.repo, "Config", "Stage.xcconfig")
+
+        def commit():
+            return run("git", "commit", "-q", "-m", "설정을 바꾼다 #617", cwd=self.repo, check=False)
+
+        with open(config, "a") as f:
+            f.write("B = 2\n")
+        run("git", "add", "-A", "Config", cwd=self.repo)
+        result = commit()
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("[검증 게이트]", result.stderr)
+        # 지문만 있는 옛 기록으로는 통과하지 않는다
+        hs.save(self.repo, {"passed": True, "fingerprint": hs.fingerprint(self.repo)})
+        self.assertNotEqual(0, commit().returncode)
+        hs.save(self.repo, {"passed": True, "fingerprint": hs.fingerprint(self.repo), "code": hs.code_entries(self.repo)})
+        # 검증 뒤 작업 트리만 바뀌고 index가 검증 내용과 같으면 커밋된다
+        with open(config, "a") as f:
+            f.write("C = 3\n")
+        result = commit()
+        self.assertEqual(0, result.returncode, result.stderr)
+        # 검증 뒤 고친 내용을 스테이징하면 막힌다
+        run("git", "add", "-A", "Config", cwd=self.repo)
+        self.assertIn("Config/Stage.xcconfig", commit().stderr)
+        # 삭제도 verify 때 지워져 있어야 통과한다
+        run("git", "reset", "-q", "--", "Config", cwd=self.repo)
+        run("git", "checkout", "-q", "--", "Config", cwd=self.repo)
+        run("git", "rm", "-q", "Config/Stage.xcconfig", cwd=self.repo)
+        self.assertIn("Config/Stage.xcconfig", commit().stderr)
+        hs.save(self.repo, {"passed": True, "fingerprint": hs.fingerprint(self.repo), "code": hs.code_entries(self.repo)})
+        self.assertEqual(hs.DELETED, hs.load(self.repo)["code"]["Config/Stage.xcconfig"])
+        self.assertEqual(0, commit().returncode)
+        # 문서만 담은 커밋은 게이트가 보지 않는다
+        with open(os.path.join(self.repo, "README.md"), "w") as f:
+            f.write("x")
+        run("git", "add", "README.md", cwd=self.repo)
+        self.assertEqual(0, commit().returncode)
+
     def test_stop_guard_blocks_once(self):
         with open(os.path.join(self.repo, "Config", "Stage.xcconfig"), "a") as f:
             f.write("B = 2\n")
@@ -236,6 +298,8 @@ class VerifyAndBoundaryTests(unittest.TestCase):
         self.assertFalse(hs.is_code("CLAUDE.md"))
         self.assertTrue(hs.is_code("Projects/App/Sources/A.swift"))
         self.assertTrue(hs.is_code(".claude/hooks/check_git_rules.py"))
+        # 게이트 스크립트를 고친 커밋도 검증을 거친다
+        self.assertTrue(hs.is_code(".githooks/pre-commit"))
 
     def test_boundary_glob_stays_in_one_folder(self):
         matches = self.boundaries.matches

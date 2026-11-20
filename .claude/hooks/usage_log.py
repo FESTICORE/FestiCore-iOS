@@ -23,7 +23,7 @@ def main():
         target = "skill:" + str(tool_input.get("skill", ""))
     elif tool == "Read":
         path = os.path.relpath(os.path.abspath(str(tool_input.get("file_path", ""))), root)
-        if not path.startswith(HARNESS_PREFIXES):
+        if not (path.startswith(HARNESS_PREFIXES) or "/.spec/" in path or path.startswith(".spec/")):
             return
         target = path
     else:
