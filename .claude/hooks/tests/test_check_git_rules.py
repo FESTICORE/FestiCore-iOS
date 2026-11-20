@@ -193,6 +193,7 @@ class GitRulesHookTests(unittest.TestCase):
     def test_hooks_path_change_blocked(self):
         for command in ("git config core.hooksPath /dev/null",
                         "git config --unset core.hooksPath",
+                        'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git commit -m "x #1"',
                         'git -c core.hooksPath=/tmp commit -m "하네스를 맞춘다 #617"'):
             self.assertBlocked(self.hook(command), "core.hooksPath")
         for command in ("git config core.hooksPath .githooks", "git config --get core.hooksPath"):
@@ -280,12 +281,50 @@ class VerifyAndBoundaryTests(unittest.TestCase):
         names = lambda files, run_all=False: [n for n, _ in self.verify.steps_for(files, run_all, "BASE")
                                               if n != "install"]
         self.assertEqual([], names([]))
-        self.assertEqual(["harness-syntax", "harness-tests"], names([".claude/hooks/check_git_rules.py"]))
-        self.assertEqual(["boundaries", "swift-conventions", "generate", "test"],
+        self.assertEqual(["harness-syntax", "harness-tests", "security"], names([".claude/hooks/check_git_rules.py"]))
+        self.assertEqual(["security", "boundaries", "swift-conventions", "generate", "test"],
                          names(["Projects/App/Sources/A.swift"]))
+        self.assertEqual(["security"], names([".github/workflows/ios-deploy.yml"]))
         steps = dict(self.verify.steps_for(["Projects/App/Sources/A.swift"], False, "BASE"))
         self.assertEqual(["./make", "test", "-only-testing:FestiCoreTests"], steps["test"])
         self.assertEqual(["./make", "test"], dict(self.verify.steps_for([], True, "BASE"))["test"])
+
+    def test_security_check_finds_secrets_injection_and_ats(self):
+        security = load_script("check_security", SCRIPTS / "check-security")
+        tmp = tempfile.mkdtemp(prefix="security-test-")
+        try:
+            files = {
+                # 패턴을 나눠 써서 이 테스트 파일 자체가 비밀 값으로 잡히지 않게 한다
+                "Config/Stage.xcconfig": "FESTICORE_API_HOST = http:" + "//example.com\n",
+                "Projects/App/Info.plist": "<key>NSAllowsArbitrary" + "Loads</key>\n",
+                ".github/workflows/a.yml": "jobs:\n  a:\n    steps:\n      - run: echo \"${{ github.event"
+                                           + ".pull_request.title }}\"\n      - env:\n          T: ${{ github.event"
+                                           + ".pull_request.title }}\n        run: echo \"$T\"\n",
+                "Projects/App/Key.swift": "let key = \"-----BEGIN " + "PRIVATE KEY-----\"\n",
+                "Projects/App/Safe.swift": "let host = \"https://example.com\"\n",
+            }
+            for path, text in files.items():
+                os.makedirs(os.path.join(tmp, os.path.dirname(path)), exist_ok=True)
+                with open(os.path.join(tmp, path), "w") as f:
+                    f.write(text)
+            found = (security.check_forbidden(tmp, list(files)) + security.check_workflows(tmp, list(files))
+                     + security.check_secrets(tmp, list(files)))
+            joined = "\n".join(found)
+            self.assertIn("[http 주소 금지] Config/Stage.xcconfig:1", joined)
+            self.assertIn("[iOS ATS 예외 금지] Projects/App/Info.plist:1", joined)
+            # run에 바로 넣은 4번째 줄만 잡고, env로 받은 줄은 통과한다
+            self.assertIn("[워크플로 셸 주입] .github/workflows/a.yml:4", joined)
+            self.assertNotIn("a.yml:6", joined)
+            self.assertIn("[비밀 값: 개인 키] Projects/App/Key.swift:1", joined)
+            self.assertNotIn("Safe.swift", joined)
+            # 브랜치 이름 · 라벨 · 커밋 작성자처럼 외부에서 정할 수 있는 값도 잡고, 번호 · 해시는 통과한다
+            for value in ("github.head_ref", "github.event.pull_request.head.label",
+                          "github.event.commits[0].author.email", "github.event.workflow_run.head_branch"):
+                self.assertTrue(security.WORKFLOW_INJECTION.search("${{ " + value + " }}"), value)
+            for value in ("github.event.pull_request.number", "github.event.pull_request.head.repo.full_name", "github.sha"):
+                self.assertFalse(security.WORKFLOW_INJECTION.search("${{ " + value + " }}"), value)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
     def test_docs_and_design_exports_are_not_code(self):
         sys.path.insert(0, str(HOOKS))

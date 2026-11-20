@@ -46,7 +46,9 @@ HOOK_DIR = os.path.dirname(os.path.abspath(__file__))
 GATE_VALUE = r"(?!(?-i:\.githooks|\"\.githooks\"|'\.githooks')(?:\s|$|[;&|]))"  # 따옴표 포함 값 전체가 정확히 .githooks
 HOOKS_PATH_CHANGE_RE = re.compile(
     r"core\.hooksPath[\"']?\s*=\s*" + GATE_VALUE + r"|config\b[^;&|\n]*?(?:--unset|--replace-all|--add)[^;&|\n]*core\.hooksPath"
-    r"|config\b(?:\s+--(?:local|global|system|worktree))*\s+[\"']?core\.hooksPath[\"']?\s+" + GATE_VALUE + r"[^\s;&|]",
+    r"|config\b(?:\s+--(?:local|global|system|worktree))*\s+[\"']?core\.hooksPath[\"']?\s+" + GATE_VALUE + r"[^\s;&|]"
+    # 환경 변수로 넘기는 설정(GIT_CONFIG_KEY_0=core.hooksPath · GIT_CONFIG_PARAMETERS)도 훅을 끈다
+    r"|GIT_CONFIG_(?:KEY_\d+|PARAMETERS)=[\"']?[^\s;&|]*core\.hooksPath",
     re.I)
 SHELL_STRING_PREV = {"-c", "eval"}  # bash -c '…' · eval '…' 문자열 안의 명령도 본다
 NO_VERIFY = "--no-" + "verify"

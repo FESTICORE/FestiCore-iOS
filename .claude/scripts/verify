@@ -60,6 +60,9 @@ def steps_for(files, run_all, base):
                                          'for f in .claude/hooks/*.sh .githooks/*; do bash -n "$f" || exit 1; done && '
                                          'python3 -c "import json; json.load(open(\'.claude/settings.json\'))"']))
         steps.append(("harness-tests", ["python3", "-m", "unittest", "discover", "-s", ".claude/hooks/tests"]))
+    if run_all or files:
+        # 비밀 값 · 워크플로 셸 주입 · ATS 예외가 들어오지 않았는지 저장소 전체를 본다(1초 안팎)
+        steps.append(("security", [os.path.join(".claude", "scripts", "check-security")]))
     if touched(("Projects/",)):
         steps.append(("boundaries", [os.path.join(".claude", "scripts", "check-boundaries")]))
     if run_all or any(f.endswith(".swift") for f in files):
