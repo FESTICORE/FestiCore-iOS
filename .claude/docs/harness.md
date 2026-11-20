@@ -99,6 +99,7 @@ python3 -m unittest discover -s .claude/hooks/tests < /dev/null
 | 바뀐 경로 | 단계 | 명령 |
 | --- | --- | --- |
 | `.claude/hooks/` · `.claude/scripts/` · `.claude/settings.json` · `.githooks/` | harness-syntax · harness-tests | `bash -n`(훅 셸 · `.githooks`) · settings.json 파싱, `python3 -m unittest discover -s .claude/hooks/tests` |
+| 코드 변경 전체(`.github/workflows/` 포함) | security | `.claude/scripts/check-security` |
 | `Projects/` | boundaries | `.claude/scripts/check-boundaries` |
 | `*.swift` | swift-conventions | `python3 .claude/hooks/check-swift-conventions.py --base <develop 분기점>` |
 | `Projects/` · `Plugins/` · `Tuist/` · `Config/` · `Tuist.swift` · `Workspace.swift` · `TuistTool.swift` · `make` | (install) · generate · test | `Tuist/.build/checkouts`가 없으면 `mise exec -- tuist install`, `./make generate --no-open`, `./make test -only-testing:<바뀐 모듈>Tests` |
@@ -109,6 +110,20 @@ python3 -m unittest discover -s .claude/hooks/tests < /dev/null
 - 모든 명령은 stdin을 `/dev/null`로 닫고 실행한다. 출력은 `.claude/state/verify/<단계>.log`에 남기고 단계별 · 전체 소요 시간을 출력한다. 종료 코드를 파이프로 가리지 않는다.
 - 통과하면 작업 트리 코드 내용의 지문과 코드 파일별 내용(`code`)을 `.claude/state/verify.json`에 남긴다. 커밋을 여러 개로 나눠도 내용이 같으면 다시 돌리지 않는다. 통과 후 코드를 한 줄이라도 고치면 다시 verify를 돌린다.
 - 같은 단계가 연속 2번 실패하면 세 번째 시도 전에 시도한 내용과 실패 원인을 사용자에게 보고하고 승인을 받는다.
+
+### 보안 검사 (`check-security`)
+
+추적 파일과 아직 추적하지 않은 파일(.gitignore 제외)을 모두 본다. 하나라도 걸리면 실패한다.
+
+| 검사 | 대상 | 막는 것 |
+| --- | --- | --- |
+| 비밀 값 | 바이너리를 뺀 모든 파일 | 개인 키, GitHub · Slack · Atlassian · AWS · Google 키, Slack 웹훅, Sentry DSN |
+| 워크플로 셸 주입 | `.github/workflows/*.yml` | `run`에 외부에서 정할 수 있는 값(`github.head_ref`, 이슈 · PR · 댓글 · 리뷰 · 토론의 제목 · 본문, 브랜치 이름 · 라벨, 커밋 메시지 · 작성자)을 `${{ }}`로 바로 넣는 것. env로 받아 `"$VAR"`로 쓴다 |
+| iOS ATS 예외 | `Projects/` · `Plugins/` Swift · plist, `Config/*.xcconfig` | `NSAllowsArbitraryLoads` · `NSExceptionAllowsInsecureHTTPLoads` |
+| http 주소 | `Config/*.xcconfig` | `FESTICORE_*_URL` · `FESTICORE_*_HOST`가 `http:`로 시작 |
+
+- 규칙을 더하려면 스크립트의 `FORBIDDEN` · `SECRET_PATTERNS`에 한 줄을 더하고 이 표에 같은 규칙을 적는다.
+- CIRQLE-Native-Mobile의 `check-security`에서 범용 검사만 가져왔다. Android R8 · KMP 헤더 · iOS Release 심볼 제거 필수 검사는 FestiCore에 해당 설정이 없어 넣지 않았다.
 
 ### 모듈 경계 (`check-boundaries`)
 

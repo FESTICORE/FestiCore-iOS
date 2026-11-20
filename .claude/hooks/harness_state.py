@@ -12,7 +12,7 @@ import tempfile
 import time
 
 # 검증이 필요한 코드 경로. 문서(*.md)와 DesignExports만 바뀌면 검증하지 않는다.
-CODE_DIRS = ("Projects", "Plugins", "Tuist", "Config", ".claude/hooks", ".claude/scripts", ".githooks")
+CODE_DIRS = ("Projects", "Plugins", "Tuist", "Config", ".claude/hooks", ".claude/scripts", ".githooks", ".github/workflows")
 CODE_FILES = ("Tuist.swift", "Workspace.swift", "TuistTool.swift", "make", ".mise.toml", ".claude/settings.json")
 STATE_DIR = os.path.join(".claude", "state")
 VERIFY_FILE = os.path.join(STATE_DIR, "verify.json")
