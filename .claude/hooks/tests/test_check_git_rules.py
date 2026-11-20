@@ -193,6 +193,7 @@ class GitRulesHookTests(unittest.TestCase):
     def test_hooks_path_change_blocked(self):
         for command in ("git config core.hooksPath /dev/null",
                         "git config --unset core.hooksPath",
+                        'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git commit -m "x #1"',
                         'git -c core.hooksPath=/tmp commit -m "하네스를 맞춘다 #617"'):
             self.assertBlocked(self.hook(command), "core.hooksPath")
         for command in ("git config core.hooksPath .githooks", "git config --get core.hooksPath"):

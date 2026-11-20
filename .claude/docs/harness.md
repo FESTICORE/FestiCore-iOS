@@ -62,7 +62,7 @@ CLI에 연결된 공유 iOS 스킬(개인 환경의 스킬)은 현재 환경과 
 4. `.DS_Store`가 스테이징돼 있으면 막는다.
 5. 스테이징된 Swift: 기존 `pre-commit-check.sh`를 그대로 실행한다(SwiftFormat 적용 후 다시 stage, SwiftLint error, `check-swift-conventions.py --staged`).
 6. 검증 게이트: 코드 변경이 있는데 `verify.json`의 통과 지문과 지금 작업 트리 지문이 다르면 막는다.
-7. 게이트 우회 금지: `git commit`에 훅을 건너뛰는 옵션(긴 이름 · 축약 · `-n` · `-an` 같은 묶음, `bash -c` 안 포함)을 쓰거나 `core.hooksPath`를 바꾸는(`config` · `--unset` · `git -c core.hooksPath=…`) 명령을 막는다. 조회와 `.githooks`로 켜는 명령은 통과한다.
+7. 게이트 우회 금지: `git commit`에 훅을 건너뛰는 옵션(긴 이름 · 축약 · `-n` · `-an` 같은 묶음, `bash -c` 안 포함)을 쓰거나 `core.hooksPath`를 바꾸는(`config` · `--unset` · `git -c core.hooksPath=…` · `GIT_CONFIG_KEY_n`/`GIT_CONFIG_PARAMETERS` 환경 변수) 명령을 막는다. 조회와 `.githooks`로 켜는 명령은 통과한다.
 
 - 메시지는 `-m` · `--message` · `-F 파일` · `-F - <<EOF` · `-m "$(cat <<'EOF' … EOF)"`에서 읽는다. 편집기로 쓰거나 셸 변수인 제목은 실행 전에 알 수 없어 제목 검사를 건너뛴다.
 - 5단계의 SwiftFormat이 파일을 고치면 지문이 바뀌어 6단계에서 막힌다. verify를 다시 돌린 뒤 커밋한다.
