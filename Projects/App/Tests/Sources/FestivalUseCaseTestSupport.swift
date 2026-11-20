@@ -38,6 +38,10 @@ private struct ServiceBackedLiveBoardUseCase: FestivalLiveBoardUseCaseInterface 
   func liveBoard(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
     try await liveBoardService.refresh(for: festivalID)
   }
+
+  func officialNews(for festivalID: String) async throws -> FestivalOfficialNews {
+    return .unavailable
+  }
 }
 
 private struct ServiceBackedScheduleUseCase: FestivalScheduleUseCaseInterface {

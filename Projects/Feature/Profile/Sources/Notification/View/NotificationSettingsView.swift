@@ -80,6 +80,14 @@ extension NotificationSettingsView {
             rows: [("팩 업데이트", .packUpdates)],
             footnote: "시간표가 바뀌면 받은 팩을 새로 받으라고 알려 드려요."
           )
+          // Figma S13-A에 아직 없는 그룹이다. 이 항목을 아는 서버일 때만 보인다.
+          if store.settings?.isOfficialNewsAvailable == true {
+            group(
+              "축제 소식",
+              rows: [("공식 인스타그램 새 게시물", .officialNews)],
+              footnote: "고정한 축제의 공식 인스타그램에 새 게시물이 올라오면 알려 드려요."
+            )
+          }
           if let message = store.message {
             Text(message)
               .festiCoreFont(.baseFootnoteRegular)

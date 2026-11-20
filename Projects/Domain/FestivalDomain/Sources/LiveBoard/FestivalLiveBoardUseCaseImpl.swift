@@ -11,11 +11,17 @@ import FestivalDomainInterface
 /// 라이브 보드 서비스의 최신 축제 상태를 제공한다.
 public struct FestivalLiveBoardUseCaseImpl: FestivalLiveBoardUseCaseInterface {
   @Dependency(\.festivalLiveBoardService) private var liveBoardService
+  @Dependency(\.festivalOfficialNewsService) private var officialNewsService
 
   public init() {}
 
   /// 선택한 축제의 최신 라이브 보드를 조회한다.
   public func liveBoard(for festivalID: String) async throws -> FestivalLiveBoardSnapshot {
     try await liveBoardService.refresh(for: festivalID)
+  }
+
+  /// 선택한 축제의 공식 인스타그램 최근 게시물을 조회한다.
+  public func officialNews(for festivalID: String) async throws -> FestivalOfficialNews {
+    return try await officialNewsService.officialNews(for: festivalID)
   }
 }

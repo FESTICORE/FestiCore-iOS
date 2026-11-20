@@ -15,10 +15,17 @@ public struct DeviceNotificationSettings: Sendable, Equatable {
   public let setReminders: Bool
   public let homecoming: Bool
   public let packUpdates: Bool
+  /// 공식 인스타그램 새 게시물 알림. 이 항목을 모르는 이전 서버면 nil이다.
+  public let officialNews: Bool?
 
   public init(
-    flagStatus: Bool, crewStatus: Bool, crewGather: Bool,
-    setReminders: Bool, homecoming: Bool, packUpdates: Bool
+    flagStatus: Bool,
+    crewStatus: Bool,
+    crewGather: Bool,
+    setReminders: Bool,
+    homecoming: Bool,
+    packUpdates: Bool,
+    officialNews: Bool? = nil
   ) {
     self.flagStatus = flagStatus
     self.crewStatus = crewStatus
@@ -26,6 +33,7 @@ public struct DeviceNotificationSettings: Sendable, Equatable {
     self.setReminders = setReminders
     self.homecoming = homecoming
     self.packUpdates = packUpdates
+    self.officialNews = officialNews
   }
 }
 
@@ -37,10 +45,16 @@ public struct DeviceNotificationSettingsChange: Sendable, Equatable, Encodable {
   public var setReminders: Bool?
   public var homecoming: Bool?
   public var packUpdates: Bool?
+  public var officialNews: Bool?
 
   public init(
-    flagStatus: Bool? = nil, crewStatus: Bool? = nil, crewGather: Bool? = nil,
-    setReminders: Bool? = nil, homecoming: Bool? = nil, packUpdates: Bool? = nil
+    flagStatus: Bool? = nil,
+    crewStatus: Bool? = nil,
+    crewGather: Bool? = nil,
+    setReminders: Bool? = nil,
+    homecoming: Bool? = nil,
+    packUpdates: Bool? = nil,
+    officialNews: Bool? = nil
   ) {
     self.flagStatus = flagStatus
     self.crewStatus = crewStatus
@@ -48,6 +62,7 @@ public struct DeviceNotificationSettingsChange: Sendable, Equatable, Encodable {
     self.setReminders = setReminders
     self.homecoming = homecoming
     self.packUpdates = packUpdates
+    self.officialNews = officialNews
   }
 }
 

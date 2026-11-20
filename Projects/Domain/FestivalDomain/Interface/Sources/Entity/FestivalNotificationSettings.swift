@@ -13,10 +13,20 @@ public struct FestivalNotificationSettings: Equatable, Sendable {
   public var setReminders: Bool
   public var homecoming: Bool
   public var packUpdates: Bool
+  /// 고정한 축제의 공식 인스타그램 새 게시물 알림
+  public var officialNews: Bool
+  /// 서버가 `officialNews`를 지원하는지. 이전 서버는 이 항목을 모르고 보내면 거절하므로 화면에서 숨긴다.
+  public var isOfficialNewsAvailable: Bool
 
   public init(
-    flagStatus: Bool = true, crewStatus: Bool = true, crewGather: Bool = true,
-    setReminders: Bool = true, homecoming: Bool = true, packUpdates: Bool = true
+    flagStatus: Bool = true,
+    crewStatus: Bool = true,
+    crewGather: Bool = true,
+    setReminders: Bool = true,
+    homecoming: Bool = true,
+    packUpdates: Bool = true,
+    officialNews: Bool = true,
+    isOfficialNewsAvailable: Bool = true
   ) {
     self.flagStatus = flagStatus
     self.crewStatus = crewStatus
@@ -24,6 +34,8 @@ public struct FestivalNotificationSettings: Equatable, Sendable {
     self.setReminders = setReminders
     self.homecoming = homecoming
     self.packUpdates = packUpdates
+    self.officialNews = officialNews
+    self.isOfficialNewsAvailable = isOfficialNewsAvailable
   }
 }
 
@@ -35,6 +47,7 @@ public enum FestivalNotificationKind: CaseIterable, Hashable, Sendable {
   case setReminders
   case homecoming
   case packUpdates
+  case officialNews
 }
 
 public extension FestivalNotificationSettings {
@@ -47,6 +60,7 @@ public extension FestivalNotificationSettings {
       case .setReminders: setReminders
       case .homecoming: homecoming
       case .packUpdates: packUpdates
+      case .officialNews: officialNews
       }
     }
     set {
@@ -57,6 +71,7 @@ public extension FestivalNotificationSettings {
       case .setReminders: setReminders = newValue
       case .homecoming: homecoming = newValue
       case .packUpdates: packUpdates = newValue
+      case .officialNews: officialNews = newValue
       }
     }
   }

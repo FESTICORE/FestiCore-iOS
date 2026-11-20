@@ -112,6 +112,7 @@ private extension FestivalLiveBoardScreen {
                 now: now
               )
               homeCard(now: now)
+              officialNewsSection(now: now)
               crewSection(now: now)
               if model.pack?.flagsEnabled != false {
                 FestivalLiveBoardFollowedFlagSection(
@@ -176,6 +177,7 @@ private extension FestivalLiveBoardScreen {
                   )
                 }
               }
+              officialNewsSection(now: now)
               crewSection(now: now)
               if model.pack?.flagsEnabled != false {
                 FestivalLiveBoardFollowedFlagSection(
@@ -485,6 +487,16 @@ private extension FestivalLiveBoardScreen {
         .frame(height: 164)
         .accessibilityLabel("오늘의 공연 요약을 불러오는 중")
     }
+  }
+
+  func officialNewsSection(now: Date) -> some View {
+    return FestivalLiveBoardOfficialNewsSection(
+      store: store.scope(
+        state: \.liveBoardState,
+        action: \.liveBoard
+      ),
+      now: now
+    )
   }
 
   func crewSection(now: Date) -> some View {
