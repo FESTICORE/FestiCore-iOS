@@ -51,7 +51,7 @@ CLI에 연결된 공유 iOS 스킬(개인 환경의 스킬)은 현재 환경과 
 | --- | --- | --- |
 | `PreToolUse` (Bash) | `check-git-rules.sh` → `check_git_rules.py` | 아래 커밋 · 푸시 검사 |
 | `PostToolUse` (Edit · Write · MultiEdit · Bash) | `check-swift-conventions.py --hook` | 바뀐 Swift 줄의 규칙 위반을 알린다(막지 않음) |
-| `PostToolUse` (Read · Skill) | `usage_log.py` | 하네스 문서(`.claude/docs/` · `CLAUDE.md` · `AGENTS.md`) · 규칙 · 에이전트 · 스킬 사용을 `.claude/state/usage.jsonl`에 기록 |
+| `PostToolUse` (Read · Skill) | `usage_log.py` | 하네스 문서(`.claude/docs/` · `CLAUDE.md` · `AGENTS.md`) · 규칙 · 에이전트 · 스킬 · 모듈 `.spec/` 사용을 `.claude/state/usage.jsonl`에 기록 |
 | `Stop` | `stop_guard.py` | 검증 안 된 코드 변경이 있으면 응답 종료를 한 번 막고 verify를 안내 |
 
 `git commit` · `git push` 검사 순서:
@@ -62,6 +62,7 @@ CLI에 연결된 공유 iOS 스킬(개인 환경의 스킬)은 현재 환경과 
 4. `.DS_Store`가 스테이징돼 있으면 막는다.
 5. 스테이징된 Swift: 기존 `pre-commit-check.sh`를 그대로 실행한다(SwiftFormat 적용 후 다시 stage, SwiftLint error, `check-swift-conventions.py --staged`).
 6. 검증 게이트: 코드 변경이 있는데 `verify.json`의 통과 지문과 지금 작업 트리 지문이 다르면 막는다.
+7. 게이트 우회 금지: `git commit`에 훅을 건너뛰는 옵션(긴 이름 · 축약 · `-n` · `-an` 같은 묶음, `bash -c` 안 포함)을 쓰거나 `core.hooksPath`를 바꾸는(`config` · `--unset` · `git -c core.hooksPath=…`) 명령을 막는다. 조회와 `.githooks`로 켜는 명령은 통과한다.
 
 - 메시지는 `-m` · `--message` · `-F 파일` · `-F - <<EOF` · `-m "$(cat <<'EOF' … EOF)"`에서 읽는다. 편집기로 쓰거나 셸 변수인 제목은 실행 전에 알 수 없어 제목 검사를 건너뛴다.
 - 5단계의 SwiftFormat이 파일을 고치면 지문이 바뀌어 6단계에서 막힌다. verify를 다시 돌린 뒤 커밋한다.
@@ -69,6 +70,15 @@ CLI에 연결된 공유 iOS 스킬(개인 환경의 스킬)은 현재 환경과 
 - `cd 경로 && git commit …`, `git -C 경로 commit …`은 그 경로의 저장소를 본다.
 - 위반하면 `exit 2`와 stderr 메시지로 명령을 막는다. 고친 뒤 다시 실행한다.
 - 개인 전역 gitignore가 `.claude/`를 무시하면 새 하네스 파일은 `git add -f`로 올린다. 지문 계산은 전역 gitignore를 보지 않고 저장소 `.gitignore`만 적용한다.
+
+### git pre-commit 게이트 (`.githooks/pre-commit`)
+
+Claude 훅은 `git commit` 명령만 보므로, 사람이 Xcode · 터미널에서 직접 커밋하거나 같은 명령 안에서 고친 뒤 `commit -a`하는 경우는 git 훅이 잡는다. `verify`가 실행될 때 `core.hooksPath`를 `.githooks`로 켠다.
+
+1. `check-swift-conventions.py --staged`: 스테이징된 Swift 파일 규칙.
+2. `pre_commit_gate.py`: 커밋될 index의 코드 파일을 `verify.json`의 `code`(통과 시점 파일별 `모드 blob`)와 대조한다. 하나라도 다르면 막는다. 지운 파일은 verify 때도 지워져 있어야 한다. 통과 기록이 없거나 `code`가 없는 옛 기록이면 코드 커밋을 막는다. 문서(`.md` · `DesignExports/`)만 담은 커밋은 보지 않는다.
+
+- 검증 뒤 작업 트리만 더 고치고 스테이징하지 않았다면, index가 검증 내용과 같으므로 커밋된다.
 
 직접 검사 (Codex 등 Claude 훅이 없는 환경은 커밋 전에 실행한다):
 
@@ -88,7 +98,7 @@ python3 -m unittest discover -s .claude/hooks/tests < /dev/null
 
 | 바뀐 경로 | 단계 | 명령 |
 | --- | --- | --- |
-| `.claude/hooks/` · `.claude/scripts/` · `.claude/settings.json` | harness-syntax · harness-tests | `bash -n` · settings.json 파싱, `python3 -m unittest discover -s .claude/hooks/tests` |
+| `.claude/hooks/` · `.claude/scripts/` · `.claude/settings.json` · `.githooks/` | harness-syntax · harness-tests | `bash -n`(훅 셸 · `.githooks`) · settings.json 파싱, `python3 -m unittest discover -s .claude/hooks/tests` |
 | `Projects/` | boundaries | `.claude/scripts/check-boundaries` |
 | `*.swift` | swift-conventions | `python3 .claude/hooks/check-swift-conventions.py --base <develop 분기점>` |
 | `Projects/` · `Plugins/` · `Tuist/` · `Config/` · `Tuist.swift` · `Workspace.swift` · `TuistTool.swift` · `make` | (install) · generate · test | `Tuist/.build/checkouts`가 없으면 `mise exec -- tuist install`, `./make generate --no-open`, `./make test -only-testing:<바뀐 모듈>Tests` |
@@ -97,7 +107,7 @@ python3 -m unittest discover -s .claude/hooks/tests < /dev/null
 - 앱 호스트 테스트는 git 제외 파일 `Projects/App/Resources/GoogleService-Info.plist`가 필요하다. 없으면 verify가 원본 checkout에서 복사하라는 안내와 함께 실패한다(새 worktree에서 자주 겪는다).
 - `.md` · `DesignExports/`만 바뀌면 검증하지 않는다.
 - 모든 명령은 stdin을 `/dev/null`로 닫고 실행한다. 출력은 `.claude/state/verify/<단계>.log`에 남기고 단계별 · 전체 소요 시간을 출력한다. 종료 코드를 파이프로 가리지 않는다.
-- 통과하면 작업 트리 코드 내용의 지문을 `.claude/state/verify.json`에 남긴다. 커밋을 여러 개로 나눠도 내용이 같으면 다시 돌리지 않는다. 통과 후 코드를 한 줄이라도 고치면 다시 verify를 돌린다.
+- 통과하면 작업 트리 코드 내용의 지문과 코드 파일별 내용(`code`)을 `.claude/state/verify.json`에 남긴다. 커밋을 여러 개로 나눠도 내용이 같으면 다시 돌리지 않는다. 통과 후 코드를 한 줄이라도 고치면 다시 verify를 돌린다.
 - 같은 단계가 연속 2번 실패하면 세 번째 시도 전에 시도한 내용과 실패 원인을 사용자에게 보고하고 승인을 받는다.
 
 ### 모듈 경계 (`check-boundaries`)

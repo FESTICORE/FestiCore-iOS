@@ -17,6 +17,6 @@ fi
 
 input=$(cat)
 case "$input" in
-  *git*commit*|*git*push*) printf '%s' "$input" | exec python3 -I -S "$py" ;;
+  *git*commit*|*git*push*|*hooksPath*) printf '%s' "$input" | exec python3 -I -S "$py" ;;
   *) exit 0 ;;
 esac
