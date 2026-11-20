@@ -178,6 +178,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      issues: write
       pull-requests: write
       checks: write
     env:
@@ -284,14 +285,23 @@ jobs:
           Refs #3
           EOF
           NUMBER="$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number // empty')"
-          if [[ -z "$NUMBER" ]]; then
-            gh pr create --base develop --head "$BRANCH" --assignee Roy-wonji --title 'chore: 디자인 토큰 자동 동기화 #3' --body-file "$BODY"
-          else
+          if [[ -n "$NUMBER" ]]; then
             gh pr edit "$NUMBER" --add-assignee Roy-wonji --body-file "$BODY"
-          fi
-          if [[ "$(gh pr view "$BRANCH" --json assignees --jq 'any(.assignees[]; .login == "Roy-wonji")')" != true ]]; then
-            echo "Design token PR assignee is missing: Roy-wonji" >&2
-            exit 1
+            if [[ "$(gh pr view "$BRANCH" --json assignees --jq 'any(.assignees[]; .login == "Roy-wonji")')" != true ]]; then
+              echo "Design token PR assignee is missing: Roy-wonji" >&2
+              exit 1
+            fi
+          else
+            # FESTICORE 조직 정책상 Actions는 PR을 만들 수 없다. 검증된 브랜치의 PR 열기 링크와 본문을 #3에 남기고, PR은 사람이 연다(사람이 연 PR이라 CI · AI 리뷰도 돈다).
+            COMPARE="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/develop...$BRANCH?expand=1"
+            {
+              echo "검증된 디자인 토큰 브랜치 \`$BRANCH\`가 준비됐다. PR 열기: $COMPARE"
+              echo
+              echo "제목 \`chore: 디자인 토큰 자동 동기화 #3\` · 담당자 Roy-wonji · 아래 본문으로 연다."
+              cat "$BODY"
+            } > "$BODY.comment"
+            gh issue comment 3 --body-file "$BODY.comment"
+            echo "PR 열기 링크를 #3에 남겼다: $COMPARE" >> "$GITHUB_STEP_SUMMARY"
           fi
 
   report-verification-failure:
