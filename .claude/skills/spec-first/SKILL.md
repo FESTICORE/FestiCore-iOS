@@ -1,6 +1,6 @@
 ---
 name: spec-first
-description: FestiCore에서 기능을 만들거나 동작을 바꾸기 전에 spec을 먼저 쓸 때 사용한다. 기능 spec(모듈 .spec/<기능>.md)과 설계 문서(.claude/docs/specs/) 중 무엇을 쓸지 판단, 소유 모듈 위치 정하기, 템플릿 채우기, 기존 spec 갱신(작업 모듈 · 영향 범위 · 변경 이력), 미해결 질문 정리. 새 Feature · Domain · Core · Service 모듈, 화면 흐름, API 동작, 인증 · 저장소 방식 변경을 시작할 때 쓴다. 구현은 tca-feature · screen-flow · tuist 스킬로 넘어간다.
+description: FestiCore에서 기능을 만들거나 동작을 바꾸기 전에 spec을 먼저 쓸 때 사용한다. 기능 spec(모듈 .spec/<기능>.md)과 설계 문서(.claude/docs/specs/) 중 무엇을 쓸지 판단, 소유 모듈 위치 정하기, 템플릿 채우기, 기존 spec 갱신(작업 모듈 · 영향 범위 · 변경 이력), 미해결 질문 정리. 새 Feature · Domain · Core · Service 모듈, 화면 흐름, API 동작, 인증 · 저장소 방식 변경을 시작할 때 쓴다. 구현은 tca-feature · screen-flow · tuist 스킬로 넘어간다. 완료 체크리스트(checklist.md)로 스스로 검증한다.
 ---
 
 # Spec 먼저 쓰기 (FestiCore)
@@ -49,3 +49,9 @@ description: FestiCore에서 기능을 만들거나 동작을 바꾸기 전에 s
 | 모듈 생성 · 의존 | `tuist` |
 
 spec의 동작 규칙마다 테스트가 하나씩 있는지 PR 전에 대조한다.
+
+## 6. 완료 체크리스트
+
+spec을 올리기 전에 `checklist.md`를 확인한다. 못 채운 항목이 있으면 올리지 않고 무엇이 남았는지 보고한다. spec 규칙과 실제 테스트의 대조는 구현 스킬(`tca-feature` · `screen-flow`)의 체크리스트에서 한다.
+
+작업 중 틀렸다는 지적을 받으면 채팅에서 고치고 끝내지 않는다. 같은 PR에서 원인이 된 문서 · 이 스킬 · `checklist.md`를 고친다.

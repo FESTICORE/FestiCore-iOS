@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""새 Swift 파일의 헤더를 검사하거나 붙인다. (.claude/docs/code-convention.md 파일 헤더, CIRQLE-Native-Mobile file-header)
+
+사용: .claude/scripts/file-header                 develop 이후 새로 추가한 Swift 파일만 검사
+      .claude/scripts/file-header --base <ref>    <ref> 이후 새로 추가한 Swift 파일만 검사(verify가 쓴다)
+      .claude/scripts/file-header [--fix] 파일 · 폴더 ...   지정한 파일 검사 · 헤더 붙이기
+
+형식:
+    //
+    //  {파일 이름}
+    //  {모듈}
+    //
+    //  Created by FestiCore on {M/D/YY}.
+    //
+
+헤더가 없는 옛 파일은 건드리지 않는다. 새로 만든 파일만 막는다.
+"""
+import datetime
+import os
+import re
+import subprocess
+import sys
+
+AUTHOR = "FestiCore"
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+sys.path.insert(0, os.path.join(ROOT, ".claude", "hooks"))
+import harness_state as hs  # noqa: E402
+
+# 생성물 · 빌드 결과물은 헤더를 붙이지 않는다.
+EXCLUDE = re.compile(r"(^|/)(Derived|DerivedData|\.build|\.omc|\.claude)/|\.xcodeproj/|\.xcworkspace/|^Tuist/\.build/")
+HEADER_RE = re.compile(
+    r"\A//\n//  (?P<file>[^\n]+)\n//  (?P<module>[^\n]+)\n//\n"
+    r"//  Created by (?P<author>[^\n]+) on (?P<date>\d{1,2}/\d{1,2}/\d{2})\.\n//\n"
+)
+# 옛 헤더(파일 이름 · Created by 줄이 있는 맨 위 주석 묶음)는 새 헤더로 바꾼다. 이어지는 다른 주석은 남긴다.
+OLD_HEADER_RE = re.compile(r"\A(?://[^\n]*\n)*?//\s+Created by [^\n]*\n(?://[ \t]*(?:Copyright[^\n]*)?\n)*\n*")
+SUFFIX_FOLDERS = ("Interface", "Tests", "Testing", "Demo")
+
+
+def module_names(path):
+    """경로에서 정한 모듈 이름. 첫 값이 --fix가 쓰는 이름이고, 나머지도 맞는 이름으로 받는다."""
+    parts = path.split("/")
+    if parts[0] != "Projects" or len(parts) < 3:
+        return ["FestiCore"]  # Plugins · Tuist · 루트 매니페스트
+    if parts[1] == "App":
+        if len(parts) > 3 and parts[2] == "Tests":
+            return ["FestiCoreUITests"] if "UITests" in parts[3:-1] else ["FestiCoreTests"]
+        return ["FestiCore"]
+    module = parts[2]
+    if len(parts) == 4:
+        return [module]  # 모듈 루트의 Project.swift
+    folder = parts[3]
+    if folder in SUFFIX_FOLDERS:
+        return [module + folder]
+    if folder == "Sources":
+        return [module]
+    return [module, module + folder]  # Extension 등 타깃 폴더
+
+
+def header(path, date):
+    name = os.path.basename(path)
+    return f"//\n//  {name}\n//  {module_names(path)[0]}\n//\n//  Created by {AUTHOR} on {date}.\n//\n\n"
+
+
+def valid_date(date):
+    try:
+        datetime.datetime.strptime(date, "%m/%d/%y")
+        return True
+    except ValueError:
+        return False
+
+
+def problem(path, text):
+    """헤더가 맞으면 None, 아니면 이유."""
+    match = HEADER_RE.match(text)
+    if not match:
+        return "헤더가 없거나 형식이 다릅니다"
+    if match["file"] != os.path.basename(path):
+        return f"파일 이름이 {os.path.basename(path)}가 아닙니다({match['file']})"
+    if match["module"] not in module_names(path):
+        return f"모듈이 {module_names(path)[0]}가 아닙니다({match['module']})"
+    if match["author"] != AUTHOR:
+        return f"작성자가 {AUTHOR}가 아닙니다({match['author']})"
+    if not valid_date(match["date"]):
+        return f"날짜가 M/D/YY가 아닙니다({match['date']})"
+    return None
+
+
+def created_date(path):
+    out = subprocess.run(
+        ["git", "log", "--diff-filter=A", "--follow", "--format=%ad", "--date=format:%m/%d/%y", "--", path],
+        cwd=ROOT, capture_output=True, text=True, stdin=subprocess.DEVNULL,
+    ).stdout.strip().splitlines()
+    month, day, year = (out[-1] if out else datetime.date.today().strftime("%m/%d/%y")).split("/")
+    return f"{int(month)}/{int(day)}/{year}"
+
+
+def git_lines(*args):
+    return subprocess.run(
+        ["git", *args], cwd=ROOT, capture_output=True, text=True, stdin=subprocess.DEVNULL, check=True,
+    ).stdout.splitlines()
+
+
+def added_files(base):
+    """base 이후 새로 추가한 Swift 파일(커밋 · 스테이징 · 추적 전 파일 모두)."""
+    tracked = git_lines("diff", "--name-only", "--diff-filter=A", base, "--", "*.swift")
+    untracked = git_lines("ls-files", "--others", "--exclude-standard", "--", "*.swift")
+    return sorted(set(tracked + untracked))
+
+
+def given_files(args):
+    files = []
+    for arg in args:
+        if os.path.isdir(arg):
+            files += [os.path.join(d, f) for d, _, names in os.walk(arg) for f in names]
+        else:
+            files.append(arg)
+    return [os.path.relpath(os.path.abspath(f), ROOT) for f in files]
+
+
+def targets(files):
+    return [f for f in files if f.endswith(".swift") and not EXCLUDE.search(f) and os.path.isfile(os.path.join(ROOT, f))]
+
+
+def main(argv):
+    fix = "--fix" in argv
+    args = [a for a in argv if a != "--fix"]
+    base = None
+    if "--base" in args:
+        index = args.index("--base")
+        if index + 1 >= len(args):
+            print("--base 다음에 기준 커밋을 주세요.", file=sys.stderr)
+            return 2
+        base = args[index + 1]
+        args = args[:index] + args[index + 2:]
+    files = targets(given_files(args) if args else added_files(base or hs.base_ref(ROOT)))
+
+    problems = []
+    for path in files:
+        full = os.path.join(ROOT, path)
+        with open(full, encoding="utf-8") as f:
+            text = f.read()
+        reason = problem(path, text)
+        if reason is None:
+            continue
+        if not fix:
+            problems.append((path, reason))
+            continue
+        match = HEADER_RE.match(text)
+        date = match["date"] if match and valid_date(match["date"]) else created_date(path)
+        body = HEADER_RE.sub("", text, count=1) if match else OLD_HEADER_RE.sub("", text, count=1)
+        # 헤더 뒤에는 빈 줄 하나만 둔다(CIRQLE file-header와 같은 정규화). 본문 앞의 남는 빈 줄은 지운다.
+        with open(full, "w", encoding="utf-8") as f:
+            f.write(header(path, date) + body.lstrip("\n"))
+        print("헤더 추가:", path)
+    if problems:
+        print("새 Swift 파일의 헤더가 없거나 틀립니다. .claude/scripts/file-header --fix <파일>로 고치세요:", file=sys.stderr)
+        for path, reason in problems[:30]:
+            print(f"  {path}: {reason}", file=sys.stderr)
+        if len(problems) > 30:
+            print(f"  외 {len(problems) - 30}개", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
