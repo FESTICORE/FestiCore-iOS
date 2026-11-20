@@ -17,10 +17,25 @@
 
 ## 스쿼시 머지 메시지
 
-- 최종 커밋 제목은 변경 의도를 간결한 한국어로 적고 해당 작업 이슈 번호를 끝에 붙인다.
-- 본문에는 변경 요약 한두 문장만 남긴다. 세부 항목 목록, 확인·검증 내역, GitHub가 자동으로 채운 개별 커밋 제목과 본문 목록은 머지 전에 모두 삭제한다. 세부 내용은 PR 설명에만 남긴다.
-- CLI에서는 `gh pr merge <PR 번호> --squash --subject '<한국어 제목 #이슈번호>' --body-file <요약 파일>`처럼 제목과 본문을 모두 명시한다. 요약 파일에도 개별 커밋 내역을 넣지 않는다.
-- 머지 후 `gh pr view <PR 번호> --json mergeCommit -q .mergeCommit.oid`로 해당 PR의 머지 커밋을 찾고, `gh api repos/FESTICORE/FestiCore-iOS/commits/<OID> --jq '.commit.message'`로 최종 메시지를 확인한다. 자동 생성 커밋 목록이 남았다면 기록하고 다음 머지부터 규칙을 적용한다. 메시지 수정을 위해 `develop` 이력을 다시 쓰지 않는다.
+CIRQLE-Native-Mobile과 같은 방식이다.
+
+- 머지는 squash merge만 쓴다. 스쿼시 커밋은 **제목 한 줄만** 남기고 본문은 비운다.
+- 제목은 PR 제목에 ` (#PR번호)`를 붙인 것이다. PR 제목을 한국어로 쓰고 끝에 작업 이슈 번호를 붙여 두면 그대로 커밋 제목이 된다. (예: `온보딩 페이지 점을 한 화면에 고정하고 온보딩 뒤 로그인으로 바로 잇는다 #629 (#632)`)
+- 작업 내용 · 검증 · 변경 요약은 PR 본문에만 남기고 커밋 기록에는 넣지 않는다.
+- 머지 후 원격 브랜치와 로컬 브랜치를 모두 지운다.
+
+```bash
+gh pr checks <PR 번호> --watch      # CI가 모두 통과할 때까지 기다린다
+gh pr merge <PR 번호> --squash --delete-branch --subject '<PR 제목> (#<PR 번호>)' --body ""
+git switch develop && git pull --ff-only
+git fetch --prune
+test "$(gh pr view <PR 번호> --json state -q .state)" = MERGED && git branch -D feature/<작업명>
+```
+
+- 스쿼시 머지는 기록이 달라 `git branch -d`가 "병합 안 됨"으로 거부한다. PR이 `MERGED`인지 확인하고 `-D`로 지운다. 작업 트리를 썼다면 `git worktree remove`로 함께 지운다.
+- 머지 후 `gh pr view <PR 번호> --json mergeCommit -q .mergeCommit.oid`로 머지 커밋을 찾고, `gh api repos/FESTICORE/FestiCore-iOS/commits/<OID> --jq '.commit.message'`로 제목 한 줄만 남았는지 확인한다. 메시지 수정을 위해 `develop` 이력을 다시 쓰지 않는다.
+- 저장소 설정으로도 강제한다(관리자 변경): 스쿼시 전용, 제목 `PR_TITLE`, 본문 `BLANK`. 확인 명령:
+  `gh api repos/FESTICORE/FestiCore-iOS --jq '.allow_merge_commit, .allow_rebase_merge, .squash_merge_commit_title, .squash_merge_commit_message'` → `false` · `false` · `PR_TITLE` · `BLANK`
 
 ## PR 검증
 
