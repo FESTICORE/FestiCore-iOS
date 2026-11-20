@@ -24,6 +24,27 @@ struct NotificationSettingsAlertTests {
     await store.send(.notificationPermissionResolved(.denied))
   }
 
+  @Test("첫 진입 화면이 덮는 동안 받은 거부 결과는 화면이 닫힌 뒤 안내한다")
+  func deniedWhileLaunchLoginWaitsUntilClosed() async {
+    var state = MainTabCoordinator.State()
+    state.authFlow.presentation = .launchLogin
+    let store = TestStore(initialState: state) {
+      MainTabCoordinator()
+    }
+
+    await store.send(.notificationPermissionResolved(.denied)) {
+      $0.hasShownNotificationSettingsAlert = true
+      $0.isNotificationSettingsAlertPending = true
+    }
+    store.exhaustivity = .off
+    await store.send(.auth(.login(.view(.closeTapped))))
+    await store.receive(\.auth.login.delegate.closeRequested) {
+      $0.authFlow.presentation = nil
+      $0.isNotificationSettingsAlertPending = false
+      $0.notificationSettingsAlert = .notificationSettings()
+    }
+  }
+
   @Test("허용 또는 권한 조회 실패는 안내 기록을 소모하지 않는다")
   func otherResultsKeepAlertAvailable() async {
     let store = TestStore(initialState: MainTabCoordinator.State()) {

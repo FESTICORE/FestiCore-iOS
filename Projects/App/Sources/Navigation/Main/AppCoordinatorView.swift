@@ -35,7 +35,8 @@ struct AppCoordinatorView: View {
       case .home:
         if let homeStore = store.scope(\.home, action: \.scope.home) {
           MainTabView(store: homeStore)
-            .transition(.asymmetric(
+            // Figma: Onboarding → S14 A 첫 진입 화면은 DISSOLVE. 로그인된 홈은 오른쪽에서 밀어 넣는다.
+            .transition(store.state.isLaunchLoginPresented ? .opacity : .asymmetric(
               insertion: .move(edge: .trailing),
               removal: .move(edge: .leading)
             ))

@@ -12,13 +12,29 @@ public struct OnboardingView: View {
 
   public var body: some View {
     return GeometryReader { geometry in
-      TabView(selection: pageSelection) {
-        ForEach(OnboardingPage.all.indices, id: \.self) { index in
-          pageView(at: index, size: geometry.size)
+      // 건너뛰기와 페이지 점은 한 화면에 고정하고 그림·문구만 넘긴다.
+      VStack(
+        alignment: .leading,
+        spacing: .zero
+      ) {
+        topActions
+
+        TabView(selection: pageSelection) {
+          ForEach(
+            OnboardingPage.all.indices,
+            id: \.self
+          ) { index in
+            pageContents(
+              at: index,
+              size: geometry.size
+            )
             .tag(index)
+          }
         }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+
+        pageIndicator
       }
-      .tabViewStyle(.page(indexDisplayMode: .never))
       .background(Color.backgroundNormal)
     }
     .background(Color.backgroundNormal.ignoresSafeArea())
@@ -33,54 +49,37 @@ private extension OnboardingView {
     )
   }
 
-  @ViewBuilder
-  func pageView(
-    at index: Int,
-    size: CGSize
-  ) -> some View {
-    VStack(
-      alignment: .leading,
-      spacing: .zero
-    ) {
-      // Figma Onboarding Top Actions: 높이 52, 좌우 8, ghost·M 건너뛰기 버튼
-      HStack {
-        Spacer()
-        FCButton("건너뛰기") { send(.skipTapped) }
-          .style(.ghost)
-          .size(.medium)
-          .accessibilityIdentifier("onboarding.skip")
-      }
-      .frame(height: 52)
-      .padding(
-        .horizontal,
-        FestiCoreSpacing.paddingP8
-      )
-
-      onboardingContents(
-        at: index,
-        size: size
-      )
+  /// Figma Onboarding Top Actions: 높이 52, 좌우 8, ghost·M 건너뛰기 버튼
+  var topActions: some View {
+    return HStack {
+      Spacer()
+      FCButton("건너뛰기") { send(.skipTapped) }
+        .style(.ghost)
+        .size(.medium)
+        .accessibilityIdentifier("onboarding.skip")
     }
-    .frame(
-      maxWidth: .infinity,
-      maxHeight: .infinity
+    .frame(height: 52)
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP8
     )
-    .background(Color.backgroundNormal)
   }
 
-  /// Figma Onboarding Contents: 간격 32, 좌우 24·위 24·아래 40
-  @ViewBuilder
-  func onboardingContents(
+  /// Figma Onboarding Contents의 그림·문구: 간격 32, 좌우 24·위 24
+  func pageContents(
     at index: Int,
     size: CGSize
   ) -> some View {
-    VStack(
+    return VStack(
       alignment: .leading,
       spacing: Metric.contentSpacing
     ) {
-
       Button {
-        send(.nextTapped)
+        // 그림을 눌러 넘길 때도 스와이프처럼 페이지가 밀려 나간다.
+        send(
+          .nextTapped,
+          animation: .easeInOut(duration: Metric.pageAnimationDuration)
+        )
       } label: {
         Image(
           OnboardingPage.all[index].imageAsset.rawValue,
@@ -120,16 +119,6 @@ private extension OnboardingView {
           .foregroundStyle(Color.labelNeutral)
           .fixedSize(horizontal: false, vertical: true)
       }
-
-      HStack(spacing: 8) {
-        ForEach(OnboardingPage.all.indices, id: \.self) { dot in
-          Circle()
-            .fill(dot == index ? Color.primaryNormal : Color.fillStrong)
-            .frame(width: 8, height: 8)
-        }
-      }
-      .accessibilityElement(children: .ignore)
-      .accessibilityLabel("\(index + 1) / \(OnboardingPage.all.count) 페이지")
     }
     .padding(
       .horizontal,
@@ -139,14 +128,47 @@ private extension OnboardingView {
       .top,
       FestiCoreSpacing.paddingP24
     )
+    .frame(
+      maxWidth: .infinity,
+      maxHeight: .infinity,
+      alignment: .top
+    )
+  }
+
+  /// Figma Onboarding 페이지 점: 8×8, 간격 8, 문구와 32 · 아래 40. 넘기면 현재 점만 바뀐다.
+  var pageIndicator: some View {
+    return HStack(spacing: 8) {
+      ForEach(
+        OnboardingPage.all.indices,
+        id: \.self
+      ) { dot in
+        Circle()
+          .fill(dot == store.page ? Color.primaryNormal : Color.fillStrong)
+          .frame(
+            width: 8,
+            height: 8
+          )
+      }
+    }
+    .animation(
+      .easeInOut(duration: Metric.pageAnimationDuration),
+      value: store.page
+    )
+    .padding(
+      .horizontal,
+      FestiCoreSpacing.paddingP24
+    )
+    .padding(
+      .top,
+      Metric.contentSpacing
+    )
     .padding(
       .bottom,
       Metric.bottomPadding
     )
-    .frame(
-      maxHeight: .infinity,
-      alignment: .top
-    )
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("\(store.page + 1) / \(OnboardingPage.all.count) 페이지")
+    .accessibilityIdentifier("onboarding.pageIndicator")
   }
 }
 
@@ -157,6 +179,7 @@ private extension OnboardingView {
     static let visualMaxHeight: CGFloat = 431
     static let visualMinHeight: CGFloat = 200
     static let nonVisualHeight: CGFloat = 328
+    static let pageAnimationDuration: Double = 0.3
   }
 }
 

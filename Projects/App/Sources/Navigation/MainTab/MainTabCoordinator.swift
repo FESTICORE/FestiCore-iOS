@@ -48,6 +48,8 @@ struct MainTabCoordinator {
     /// 알림 꺼짐 안내. 거부 결과를 받으면 세션에서 한 번만 띄운다.
     @Presents var notificationSettingsAlert: FCAlertState<FCAlertAction>?
     var hasShownNotificationSettingsAlert = false
+    /// 첫 진입 흐름이 메인 탭을 덮는 동안 받은 거부 결과. 덮개가 걷히면 안내를 띄운다.
+    var isNotificationSettingsAlertPending = false
 
     /// 기수 코드를 넣을 페스티벌. 라이브 탭에서 연 페스티벌, 없으면 받은 팩이 하나일 때 그 팩이다.
     var bearerFestivalID: String? {
@@ -145,6 +147,7 @@ struct MainTabCoordinator {
         action: action
       )
       state.reconcileAccountDisplayData(previousSession: previousSession)
+      state.presentPendingNotificationSettingsAlert()
       return effect
     }
   }
@@ -277,14 +280,15 @@ struct MainTabCoordinator {
 // MARK: - 알림 권한 안내
 
 extension MainTabCoordinator {
-  /// 거부 결과만 안내를 띄운다. 허용·조회 실패는 표시 기록을 소모하지 않는다.
+  /// 거부 결과만 안내를 예약한다. 허용·조회 실패는 표시 기록을 소모하지 않는다.
+  /// 실제 표시는 첫 진입 흐름이 걷힌 뒤 `presentPendingNotificationSettingsAlert()`가 한다.
   func handleNotificationPermissionResolved(
     state: inout State,
     result: NotificationPermissionResult
   ) -> Effect<Action> {
     guard result == .denied, !state.hasShownNotificationSettingsAlert else { return .none }
     state.hasShownNotificationSettingsAlert = true
-    state.notificationSettingsAlert = .notificationSettings()
+    state.isNotificationSettingsAlertPending = true
     return .none
   }
 
@@ -306,6 +310,15 @@ extension MainTabCoordinator {
     case .dismiss:
       return .none
     }
+  }
+}
+
+extension MainTabCoordinator.State {
+  /// 온보딩 뒤 S14 A 첫 진입 화면이 바로 이어지도록, 첫 진입 흐름이 메인 탭을 덮는 동안은 안내를 미룬다.
+  mutating func presentPendingNotificationSettingsAlert() {
+    guard isNotificationSettingsAlertPending, !authFlow.coversMainTab else { return }
+    isNotificationSettingsAlertPending = false
+    notificationSettingsAlert = .notificationSettings()
   }
 }
 
