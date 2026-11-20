@@ -67,6 +67,8 @@ def steps_for(files, run_all, base):
         steps.append(("boundaries", [os.path.join(".claude", "scripts", "check-boundaries")]))
     if run_all or any(f.endswith(".swift") for f in files):
         steps.append(("swift-conventions", ["python3", ".claude/hooks/check-swift-conventions.py", "--base", base]))
+        # 새로 추가한 Swift 파일은 헤더를 갖춰야 한다(.claude/docs/code-convention.md 파일 헤더)
+        steps.append(("file-header", [os.path.join(".claude", "scripts", "file-header"), "--base", base]))
     ios_files = [f for f in files if f.startswith(IOS_PREFIXES) or f in IOS_FILES]
     if run_all or ios_files:
         # 새 worktree는 외부 의존성이 없다. 실패한 generate가 빈 Tuist/.build만 만들 수 있어 checkouts로 본다.

@@ -2,7 +2,7 @@
 
 ## 현재 코드 기준
 
-- 새 Swift 파일 헤더는 파일명, `FestiCore`, `Created by FestiCore` 형식을 따른다.
+- 새 Swift 파일 헤더는 파일명, 모듈, `Created by FestiCore on M/D/YY.` 형식을 따른다. 모듈은 경로로 정한다: `Sources`는 모듈 이름, `Interface` · `Tests` · `Testing` · `Demo`는 모듈 이름 뒤에 그 폴더 이름, 그 밖의 타깃 폴더(Extension 등)는 모듈 이름이나 모듈 이름 뒤에 폴더 이름, 앱은 `FestiCore` · `FestiCoreTests` · `FestiCoreUITests`, Plugins · Tuist는 `FestiCore`. verify의 `file-header` 단계가 새로 추가한 Swift 파일만 검사하고, `.claude/scripts/file-header --fix <파일>`이 헤더를 붙인다. 헤더가 없는 옛 파일은 건드리지 않는다.
 - 공개 API는 필요한 타입과 멤버에만 `public`을 붙인다. 모듈 간 접근은 매니페스트의 의존성 방향을 먼저 확인한다.
 - Swift 6 동시성 경고를 무시하지 않는다. 공유 상태는 격리와 생명주기를 명확히 한다.
 - 오류를 무조건 삼키거나 강제 언래핑하지 않는다. 에러 전파와 복구 지점을 호출자에게 명확하게 제공한다.

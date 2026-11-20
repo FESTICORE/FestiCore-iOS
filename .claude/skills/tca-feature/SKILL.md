@@ -1,6 +1,6 @@
 ---
 name: tca-feature
-description: FestiCore iOS 화면을 TCA로 만들거나 고칠 때 사용한다. Feature 모듈 만들기(./make module Feature), Reducer State · Action(view · async · inner · delegate) 구성, extension의 handle*Action 함수, Domain Interface UseCase를 @Dependency로 쓰기, @ViewAction View 연결, Swift Testing + TestStore 테스트. Projects/Feature · Projects/App의 Reducer · View를 고칠 때 쓴다. 화면 사이 이동은 screen-flow, 모듈 · 의존 설정은 tuist 스킬.
+description: FestiCore iOS 화면을 TCA로 만들거나 고칠 때 사용한다. Feature 모듈 만들기(./make module Feature), Reducer State · Action(view · async · inner · delegate) 구성, extension의 handle*Action 함수, Domain Interface UseCase를 @Dependency로 쓰기, @ViewAction View 연결, Swift Testing + TestStore 테스트. Projects/Feature · Projects/App의 Reducer · View를 고칠 때 쓴다. 화면 사이 이동은 screen-flow, 모듈 · 의존 설정은 tuist 스킬. 완료 체크리스트(checklist.md)로 스스로 검증한다.
 ---
 
 # iOS 화면 (TCA)
@@ -191,7 +191,12 @@ struct LoginFeatureTests {
 - 상태 전이 · 취소 · 재시도와 async 단계의 `receive`를 확인한다.
 - 새 테스트 타깃은 `Projects/App/Tests/FestiCore.xctestplan`에 추가한다.
 
-## 5. 확인
+## 5. 확인 · 완료 체크리스트
+
+`checklist.md`의 항목을 하나씩 증거(명령 · 종료 코드 · 파일 경로)와 함께 확인한다. 하나라도 못 채우면 완료로 보고하지 않고 무엇이 남았는지 보고한다.
+
+작업 중 틀렸다는 지적을 받으면 채팅에서 고치고 끝내지 않는다. 같은 PR에서 원인이 된 문서 · 이 스킬 · `checklist.md`를 고친다.
+
 
 ```bash
 python3 .claude/hooks/check-swift-conventions.py <바꾼 Swift 파일...>

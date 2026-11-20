@@ -18,7 +18,7 @@
 | 스킬 | `.claude/skills/*/SKILL.md` | 작업 순서 · 외부 Swift 스킬(출처는 `THIRD_PARTY_NOTICES.md`) | 작업이 스킬 설명과 맞을 때 |
 | 에이전트 | `.claude/agents/*.md` | 테스트 · PR 전용 에이전트 | 직접 부를 때 |
 | 훅 | `.claude/hooks/*` + `.claude/settings.json` | 규칙을 실행으로 강제 · 사용 기록 | 도구 실행 전후 · 응답 종료 시 |
-| 스크립트 | `.claude/scripts/verify` · `check-boundaries` · `harness-report` | 검증 · 모듈 경계 · 사용 리포트 | 직접 실행 · verify가 실행 |
+| 스크립트 | `.claude/scripts/verify` · `check-boundaries` · `check-security` · `file-header` · `harness-report` | 검증 · 모듈 경계 · 보안 · 새 파일 헤더 · 사용 리포트 | 직접 실행 · verify가 실행 |
 | 로컬 상태 | `.claude/state/` (git 제외) | 검증 기록(`verify.json`) · 검증 로그 · 사용 기록 | 훅 · 스크립트가 읽고 씀 |
 
 `docs/`의 문서는 사람이 읽는 설계 · 운영 문서다. 에이전트 규칙은 `CLAUDE.md`와 `.claude/docs/`에만 둔다.
@@ -34,6 +34,19 @@
 | `swiftui-pro` · `swift-concurrency-pro` · `swift-testing-pro` | SwiftUI · 동시성 · Swift Testing 검토 (외부 스킬, 본문은 원본 그대로) |
 
 CLI에 연결된 공유 iOS 스킬(개인 환경의 스킬)은 현재 환경과 작업 범위에 맞을 때만 사용한다.
+
+### 작업 영역 매뉴얼 · 체크리스트
+
+반복되는 작업 영역은 에이전트를 따로 만들지 않고 매뉴얼을 준다. 에이전트는 하나, 작업마다 같은 매뉴얼 · 스킬 · 체크리스트를 쓴다(CIRQLE-Native-Mobile과 같은 구성).
+
+| 영역 | 매뉴얼 | 스킬 · 체크리스트 |
+| --- | --- | --- |
+| iOS 화면 | `.claude/docs/ios-tca.md` · `swiftui-patterns.md` | `tca-feature` · `checklist.md` |
+| 화면 전환 | `.claude/docs/navigation.md` | `screen-flow` · `checklist.md` |
+| 기능 spec | `.claude/docs/spec-guide.md` | `spec-first` · `checklist.md` |
+
+- 완료 보고 전에 체크리스트 항목을 증거(명령 · 종료 코드 · 파일 경로)와 함께 확인하고 PR 본문에 옮긴다. 못 채운 항목이 있으면 완료로 보고하지 않는다.
+- 작업 중 받은 지적은 채팅에서 끝내지 않고 같은 PR에서 원인이 된 매뉴얼 · 스킬 · 체크리스트를 고친다.
 
 ## 경로별 규칙
 
@@ -102,6 +115,7 @@ python3 -m unittest discover -s .claude/hooks/tests < /dev/null
 | 코드 변경 전체(`.github/workflows/` 포함) | security | `.claude/scripts/check-security` |
 | `Projects/` | boundaries | `.claude/scripts/check-boundaries` |
 | `*.swift` | swift-conventions | `python3 .claude/hooks/check-swift-conventions.py --base <develop 분기점>` |
+| `*.swift` | file-header | `.claude/scripts/file-header --base <develop 분기점>`(새로 추가한 Swift 파일만) |
 | `Projects/` · `Plugins/` · `Tuist/` · `Config/` · `Tuist.swift` · `Workspace.swift` · `TuistTool.swift` · `make` | (install) · generate · test | `Tuist/.build/checkouts`가 없으면 `mise exec -- tuist install`, `./make generate --no-open`, `./make test -only-testing:<바뀐 모듈>Tests` |
 
 - 테스트 타깃은 `Projects/<계층>/<모듈>/…` → `<모듈>Tests`로 고른다. `Projects/App` 변경과 `FestiCore.xctestplan`에 테스트 타깃이 없는 모듈(FeatureAssembly · Widget · Extension 등)은 `FestiCoreTests`다. `Plugins/` · `Tuist/` · `Config/` · 루트 Tuist 파일 · 테스트 플랜이 바뀌면 `./make test` 전체를 돌린다.

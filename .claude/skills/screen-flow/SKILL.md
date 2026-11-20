@@ -1,6 +1,6 @@
 ---
 name: screen-flow
-description: FestiCore 화면 전환을 만들거나 고칠 때 사용한다. TCAFlow @FlowCoordinator(routes · router · delegate · handleRoute), 새 화면을 흐름에 추가, 기능 밖으로 나가는 이동(부모 delegate), 앱 루트 흐름 전환(AppCoordinator State enum), 계정 변경 시 경로 정리, 이동 테스트. Projects/App/Sources/Navigation의 Coordinator · CoordinatorView를 고칠 때 쓴다. 화면 하나의 내부는 tca-feature.
+description: FestiCore 화면 전환을 만들거나 고칠 때 사용한다. TCAFlow @FlowCoordinator(routes · router · delegate · handleRoute), 새 화면을 흐름에 추가, 기능 밖으로 나가는 이동(부모 delegate), 앱 루트 흐름 전환(AppCoordinator State enum), 계정 변경 시 경로 정리, 이동 테스트. Projects/App/Sources/Navigation의 Coordinator · CoordinatorView를 고칠 때 쓴다. 화면 하나의 내부는 tca-feature. 완료 체크리스트(checklist.md)로 스스로 검증한다.
 ---
 
 # 화면 전환 (TCAFlow)
@@ -49,3 +49,9 @@ description: FestiCore 화면 전환을 만들거나 고칠 때 사용한다. TC
 - `TestStore`로 자식 `delegate`를 보내고 `routes` 변화를 검증한다. 루트는 `AppCoordinatorTests`처럼 State case 전환을 본다.
 - 실제 경로 상태, 자식 액션 전달, 뒤로 가기, 탭바 표시, 계정 변경 시 경로 정리를 확인한다.
 - 앱 호스트 테스트는 루트 Store의 자동 시작 효과를 실행하지 않고 필요한 의존성을 명시적으로 주입한다.
+
+## 완료 체크리스트
+
+`checklist.md`의 항목을 하나씩 증거(명령 · 종료 코드 · 파일 경로)와 함께 확인한다. 하나라도 못 채우면 완료로 보고하지 않고 무엇이 남았는지 보고한다.
+
+작업 중 틀렸다는 지적을 받으면 채팅에서 고치고 끝내지 않는다. 같은 PR에서 원인이 된 문서 · 이 스킬 · `checklist.md`를 고친다.
