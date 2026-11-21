@@ -92,3 +92,6 @@ __pycache__/
 
 # macOS Finder
 .DS_Store
+
+# 로컬 코드 검색 인덱스 (ChunkHound, .claude/docs/code-search.md)
+.chunkhound/

@@ -19,6 +19,7 @@
 | 에이전트 | `.claude/agents/*.md` | 테스트 · PR 전용 에이전트 | 직접 부를 때 |
 | 훅 | `.claude/hooks/*` + `.claude/settings.json` | 규칙을 실행으로 강제 · 사용 기록 | 도구 실행 전후 · 응답 종료 시 |
 | 스크립트 | `.claude/scripts/verify` · `check-boundaries` · `check-security` · `file-header` · `harness-report` | 검증 · 모듈 경계 · 보안 · 새 파일 헤더 · 사용 리포트 | 직접 실행 · verify가 실행 |
+| MCP 서버 | `.mcp.json` (`chunkhound`) · `.chunkhound.json` | 로컬 코드 의미 검색([코드 검색](code-search.md)) | 에이전트가 필요할 때 |
 | 로컬 상태 | `.claude/state/` (git 제외) | 검증 기록(`verify.json`) · 검증 로그 · 사용 기록 | 훅 · 스크립트가 읽고 씀 |
 
 `docs/`의 문서는 사람이 읽는 설계 · 운영 문서다. 에이전트 규칙은 `CLAUDE.md`와 `.claude/docs/`에만 둔다.
@@ -31,6 +32,7 @@
 | `screen-flow` | Coordinator · 화면 전환 |
 | `tuist` | 모듈 생성 · 의존 추가 · 생성 오류 |
 | `spec-first` | 기능 spec · 설계 문서 먼저 쓰기 |
+| `code-search` | 이름을 모를 때 동작 설명으로 코드 찾기(로컬 ChunkHound) |
 | `swiftui-pro` · `swift-concurrency-pro` · `swift-testing-pro` | SwiftUI · 동시성 · Swift Testing 검토 (외부 스킬, 본문은 원본 그대로) |
 
 CLI에 연결된 공유 iOS 스킬(개인 환경의 스킬)은 현재 환경과 작업 범위에 맞을 때만 사용한다.

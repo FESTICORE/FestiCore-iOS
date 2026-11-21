@@ -56,6 +56,7 @@ docs/         사람이 읽는 설계 문서
 | 성능 | `.claude/docs/performance-integration-guide.md` (점검 · 개선 · PFW 관점 문서로 이어짐) |
 | 기능 spec · 설계 문서 | `.claude/docs/spec-guide.md` · 스킬 `spec-first` → 모듈 `.spec/` · `.claude/docs/specs/` |
 | 에이전트 · 훅 · 검증 게이트 | `.claude/docs/harness.md` |
+| 동작 설명으로 코드 찾기 (로컬 의미 검색) | `.claude/docs/code-search.md` · 스킬 `code-search` |
 
 문서는 경로와 기능이 실제로 존재하는지 확인한 후 적용한다.
 
