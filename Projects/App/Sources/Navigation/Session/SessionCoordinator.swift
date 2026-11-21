@@ -333,7 +333,9 @@ private extension SessionCoordinator {
         serverNickname: profile.user.nickname,
         termsVersion: profile.currentTermsVersion
       )
-      state.message = state.hasRetriedTermsUpdate ? State.Message.termsChangedReconsent : nil
+      // 예전 약관에 동의한 기존 회원은 가입이 아니라 재동의라는 점을 처음부터 알린다.
+      let isReconsent = state.hasRetriedTermsUpdate || profile.user.termsAcceptedAt != nil
+      state.message = isReconsent ? State.Message.termsChangedReconsent : nil
       return .send(.delegate(.bookmarksReloadRequested(userID: nil)))
 
     case .failure(.notAuthenticated):

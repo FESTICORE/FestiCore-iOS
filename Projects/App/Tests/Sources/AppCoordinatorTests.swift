@@ -382,6 +382,47 @@ struct AppCoordinatorTests {
     #expect(!store.state.isMainTabCovered)
   }
 
+  @Test("예전 약관에 동의한 기존 회원은 가입 화면에서 재동의 안내를 처음부터 본다")
+  func launchLoginForOutdatedTermsShowsReconsentNotice() async {
+    let user = AuthUser(
+      id: "user-a",
+      provider: "apple",
+      email: nil,
+      nickname: "로이",
+      nicknameConfirmed: true,
+      termsAcceptedAt: "2026-10-01T00:00:00.000Z",
+      termsVersion: "2026-10",
+      pushOptIn: false,
+      profileImageURL: nil
+    )
+    let store = TestStore(initialState: AppCoordinator.State.home(launchLoginHome())) {
+      AppCoordinator()
+    } withDependencies: {
+      $0.useAppCoordinatorFestivalUseCases()
+      $0.festivalCatalogService = EmptyFestivalCatalogService()
+      $0.analyticsUseCase = .recording()
+      $0.oauthUseCase = SucceedingOAuthUseCase(result: AuthLoginResult(
+        newUser: false,
+        user: user
+      ))
+      $0.authUseCase = ReturningProfileAuthUseCase(profile: AuthProfile(
+        user: user,
+        currentTermsVersion: "2026-11"
+      ))
+      $0.authService = StubAuthService(
+        loggedIn: true,
+        userID: "user-a"
+      )
+    }
+    store.exhaustivity = .off
+    await store.send(.scope(.home(.auth(.login(.view(.signInTapped(.apple)))))))
+    await store.receive(\.scope.home.auth.login.delegate.signedIn)
+    await store.receive(\.scope.home.session.inner.profileLoaded)
+    guard case let .home(home) = store.state else { return }
+    #expect(home.authFlow.presentation == .onboarding)
+    #expect(home.authFlow.message == "변경된 약관을 확인하고 다시 동의해 주세요.")
+  }
+
   @Test func launchSignUpCoverEndsWhenBearerFlowCloses() {
     var flow = AuthFlowState()
     flow.isLaunchFlow = true
