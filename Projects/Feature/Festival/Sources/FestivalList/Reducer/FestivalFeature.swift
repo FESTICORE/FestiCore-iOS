@@ -539,7 +539,7 @@ public struct FestivalFeature {
   @Dependency(\.festivalImageUseCase) private var imageUseCase
   @Dependency(\.festivalLiveActivityUseCase) private var liveActivityUseCase
   @Dependency(\.userNotificationUseCase) var userNotificationUseCase
-  @Dependency(\.date) private var date
+  @Dependency(\.date) var date
   @Dependency(\.continuousClock) private var clock
   @Dependency(\.festivalGuideVisibilityUseCase) private var guideVisibilityUseCase
   @Dependency(\.locationClient) var locationClient
