@@ -74,6 +74,7 @@ struct FestivalNotificationBadgeTests {
         ) },
         unreadCount: { 1 }
       )
+      $0.date = .constant(Date(timeIntervalSince1970: 300))
     }
     await store.send(.async(.loadNotificationUnreadCount))
     await store.receive(\.inner.notificationUnreadCountLoaded) { $0.notificationUnreadCount = 1 }
@@ -86,6 +87,36 @@ struct FestivalNotificationBadgeTests {
       $0.notificationUnreadCount = 0
       $0.notificationBanner = nil
     }
+  }
+
+  @Test("24시간이 지난 안 읽은 알림은 배너에 띄우지 않고 배지에만 남긴다")
+  func oldUnreadNotificationIsNotBanner() async {
+    let old = UserNotificationItem(
+      id: "old",
+      type: "crew",
+      festivalID: "festival-a",
+      title: "크루원 상태 변경",
+      body: "한솔님의 상태가 바뀌었어요.",
+      createdAt: Date(timeIntervalSince1970: 0),
+      readAt: nil,
+      route: nil
+    )
+    var state = FestivalFeature.State()
+    state.hasSession = true
+    let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.userNotificationUseCase = MockUserNotificationUseCase(
+        notifications: { _ in UserNotificationPage(
+          items: [old],
+          nextCursor: nil
+        ) },
+        unreadCount: { 1 }
+      )
+      $0.date = .constant(Date(timeIntervalSince1970: FestivalFeature.notificationBannerLifetime))
+    }
+    await store.send(.async(.loadNotificationUnreadCount))
+    await store.receive(\.inner.notificationUnreadCountLoaded) { $0.notificationUnreadCount = 1 }
+    await store.receive(\.inner.notificationBannerLoaded)
+    #expect(store.state.notificationBanner == nil)
   }
 
   @Test("읽음 요청 실패 뒤에도 보드가 배지를 다시 조회한다")
@@ -106,6 +137,7 @@ struct FestivalNotificationBadgeTests {
           throw UserNotificationError.unavailable
         }
       )
+      $0.date = .constant(Date(timeIntervalSince1970: 0))
     }
 
     await store.send(.async(.markNotificationRead("new")))

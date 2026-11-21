@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import Foundation
 
 extension FestivalFeature {
   func markNotificationRead(
@@ -14,6 +15,10 @@ extension FestivalFeature {
     .cancellable(id: CancelID.notificationMarkRead)
   }
 
+  /// 상단 배너는 이 시간 안에 온 안 읽은 알림만 띄운다. 오래된 알림은 배지와 알림함에만 남긴다.
+  /// 서버 시계가 조금 앞서 미래 시각으로 온 방금 알림도 배너로 띄운다.
+  static let notificationBannerLifetime: TimeInterval = 24 * 60 * 60
+
   func loadNotificationUnreadCount(_ state: State) -> Effect<Action> {
     guard state.hasSession else { return .none }
     let generation = state.accountGeneration
@@ -25,8 +30,14 @@ extension FestivalFeature {
           generation: generation
         )))
         if count > 0 {
+          let now = date.now
           let page = try await userNotificationUseCase.notifications(before: nil)
-          let latest = page.items.filter { $0.readAt == nil }.max { $0.createdAt < $1.createdAt }
+          let latest = page.items
+            .filter { item in
+              return item.readAt == nil
+                && now.timeIntervalSince(item.createdAt) < Self.notificationBannerLifetime
+            }
+            .max { $0.createdAt < $1.createdAt }
           await send(.inner(.notificationBannerLoaded(
             latest,
             generation: generation
