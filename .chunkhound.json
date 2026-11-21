@@ -1,0 +1,14 @@
+{
+  "embedding": {
+    "provider": "openai",
+    "model": "qwen3-embedding:0.6b",
+    "base_url": "http://localhost:11434/v1",
+    "api_key": "ollama"
+  },
+  "database": {
+    "path": ".chunkhound/db"
+  },
+  "indexing": {
+    "exclude": ["**/build/**", "**/.build/**", "**/Derived/**", "**/*.xcframework/**", "**/*.xcodeproj/**", "**/*.xcworkspace/**", "Tuist/.build/**", "DesignExports/**", "fastlane/**", "**/.omc/**", "**/.claude/state/**", "**/.claude/worktrees/**", "**/node_modules/**"]
+  }
+}
