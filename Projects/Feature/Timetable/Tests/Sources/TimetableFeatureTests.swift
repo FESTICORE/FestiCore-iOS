@@ -436,6 +436,42 @@ struct TimetableFeatureTests {
     }
   }
 
+  @Test(
+    "처음 받은 시간표는 오늘 날짜를, 축제 기간 밖이면 첫날을 고른다",
+    arguments: [
+      // 8/8 15:00 KST · 8/9 0:00 KST · 8/7 직전 · 8/10 0:00 KST (2026-08-07 0:00 KST = 1_786_028_400)
+      (TimeInterval(1_786_168_800), 1),
+      (TimeInterval(1_786_201_200), 2),
+      (TimeInterval(1_786_028_399), 0),
+      (TimeInterval(1_786_287_600), 0),
+    ] as [(TimeInterval, Int)]
+  )
+  func firstPackSyncSelectsToday(
+    now: TimeInterval,
+    expectedIndex: Int
+  ) async {
+    let days = TimetableFeature.State.sample().days
+    let store = TestStore(initialState: TimetableFeature.State(
+      days: [],
+      source: ""
+    )) {
+      TimetableFeature()
+    } withDependencies: {
+      $0.date = .constant(Date(timeIntervalSince1970: now))
+    }
+
+    await store.send(.view(.packSynced(
+      days: days,
+      lineup: [],
+      source: "",
+      contentStatus: .published,
+      offlineMessage: nil
+    ))) {
+      $0.days = days
+      $0.selectedDayIndex = expectedIndex
+    }
+  }
+
   @Test func parentScheduleChangeReplacesMySets() async {
     let store = TestStore(initialState: TimetableFeature.State.sample()) {
       TimetableFeature()

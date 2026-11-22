@@ -19,6 +19,9 @@ public struct TimetableFeature {
   /// 서버 일정은 최대 60개까지 저장된다.
   public static let scheduleLimit = 60
 
+  /// 날짜 하나의 길이. `TimetableDay.date`(그날 0시)부터 이만큼을 그날로 본다.
+  static let dayLength: TimeInterval = 24 * 60 * 60
+
   public enum ScheduleSync: Equatable, Sendable {
     /// 축제가 없어 이 기기에만 표시한다.
     case idle
@@ -460,7 +463,12 @@ extension TimetableFeature {
     ):
       let selectedDayID = state.selectedDay?.id
       state.days = days
-      state.selectedDayIndex = days.firstIndex { $0.id == selectedDayID } ?? 0
+      // 고른 날짜가 새 시간표에 있으면 유지하고, 처음 받거나 축제가 바뀌면 오늘(없으면 첫날)을 고른다.
+      if let index = days.firstIndex(where: { $0.id == selectedDayID }) {
+        state.selectedDayIndex = index
+      } else {
+        state.selectedDayIndex = todayIndex(in: days) ?? 0
+      }
       state.lineup = lineup
       state.source = source
       state.contentStatus = contentStatus
@@ -474,6 +482,15 @@ extension TimetableFeature {
   }
 
   /// 날짜는 팩에서 서울 자정으로 정규화한다. 자정을 넘는 공연은 1440분 이상으로 계속 표시한다.
+  /// 오늘이 축제 날짜 중 하나면 그 위치. 날짜가 없으면 시각을 읽지 않는다.
+  private func todayIndex(in days: [TimetableDay]) -> Int? {
+    guard !days.isEmpty else { return nil }
+    let now = date.now
+    return days.firstIndex { day in
+      return now >= day.date && now < day.date.addingTimeInterval(Self.dayLength)
+    }
+  }
+
   private func updateClock(
     state: inout State,
     date: Date
