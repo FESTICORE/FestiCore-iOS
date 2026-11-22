@@ -19,6 +19,13 @@ extension FestivalFeature {
   /// 서버 시계가 조금 앞서 미래 시각으로 온 방금 알림도 배너로 띄운다.
   static let notificationBannerLifetime: TimeInterval = 24 * 60 * 60
 
+  /// 공연 시작 알림("10분 후 시작")은 공연이 시작되면 뜻이 없어 배너에 짧게만 띄운다.
+  static let setReminderBannerLifetime: TimeInterval = 30 * 60
+
+  static func bannerLifetime(for type: String) -> TimeInterval {
+    return type == "festival.set_reminder" ? setReminderBannerLifetime : notificationBannerLifetime
+  }
+
   func loadNotificationUnreadCount(_ state: State) -> Effect<Action> {
     guard state.hasSession else { return .none }
     let generation = state.accountGeneration
@@ -35,7 +42,7 @@ extension FestivalFeature {
           let latest = page.items
             .filter { item in
               return item.readAt == nil
-                && now.timeIntervalSince(item.createdAt) < Self.notificationBannerLifetime
+                && now.timeIntervalSince(item.createdAt) < Self.bannerLifetime(for: item.type)
             }
             .max { $0.createdAt < $1.createdAt }
           await send(.inner(.notificationBannerLoaded(
