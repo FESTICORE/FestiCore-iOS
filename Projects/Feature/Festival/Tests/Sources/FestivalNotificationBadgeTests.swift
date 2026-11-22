@@ -75,6 +75,7 @@ struct FestivalNotificationBadgeTests {
         unreadCount: { 1 }
       )
       $0.date = .constant(Date(timeIntervalSince1970: 300))
+      $0.continuousClock = TestClock()
     }
     await store.send(.async(.loadNotificationUnreadCount))
     await store.receive(\.inner.notificationUnreadCountLoaded) { $0.notificationUnreadCount = 1 }
@@ -117,6 +118,110 @@ struct FestivalNotificationBadgeTests {
     await store.receive(\.inner.notificationUnreadCountLoaded) { $0.notificationUnreadCount = 1 }
     await store.receive(\.inner.notificationBannerLoaded)
     #expect(store.state.notificationBanner == nil)
+  }
+
+  @Test(
+    "공연 시작 알림은 30분 동안만 배너에 띄우고 다른 알림은 24시간 규칙을 따르며, 열어 둔 배너도 시간이 지나면 내린다",
+    arguments: [
+      ("festival.set_reminder", TimeInterval(29 * 60), true),
+      ("festival.set_reminder", TimeInterval(30 * 60), false),
+      ("crew", TimeInterval(30 * 60), true),
+    ] as [(String, TimeInterval, Bool)]
+  )
+  func setReminderBannerLifetime(
+    type: String,
+    elapsed: TimeInterval,
+    isShown: Bool
+  ) async {
+    let clock = TestClock()
+    let item = UserNotificationItem(
+      id: "reminder",
+      type: type,
+      festivalID: "festival-a",
+      title: "WONDERLIVET 2026",
+      body: "MRCH 공연이 10분 후 LIVET STAGE 무대에서 시작돼요.",
+      createdAt: Date(timeIntervalSince1970: 0),
+      readAt: nil,
+      route: nil
+    )
+    var state = FestivalFeature.State()
+    state.hasSession = true
+    let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.userNotificationUseCase = MockUserNotificationUseCase(
+        notifications: { _ in UserNotificationPage(
+          items: [item],
+          nextCursor: nil
+        ) },
+        unreadCount: { 1 }
+      )
+      $0.date = .constant(Date(timeIntervalSince1970: elapsed))
+      $0.continuousClock = clock
+    }
+    await store.send(.async(.loadNotificationUnreadCount))
+    await store.receive(\.inner.notificationUnreadCountLoaded) { $0.notificationUnreadCount = 1 }
+    if isShown {
+      await store.receive(\.inner.notificationBannerLoaded) { $0.notificationBanner = item }
+      // 보드를 열어 둔 채 표시 시간이 지나면 배너가 내려간다.
+      await clock.advance(by: .seconds(FestivalFeature.bannerLifetime(for: type) - elapsed))
+      await store.receive(\.inner.notificationBannerLoaded) { $0.notificationBanner = nil }
+    } else {
+      await store.receive(\.inner.notificationBannerLoaded)
+      #expect(store.state.notificationBanner == nil)
+    }
+  }
+
+  @Test(
+    "배너가 떠 있을 때 미읽음 0건·로그아웃·계정 변경은 배너와 만료 타이머를 함께 지운다",
+    arguments: [
+      "unreadZero",
+      "logout",
+      "accountSwitch",
+    ]
+  )
+  func bannerExpiryIsCancelled(trigger: String) async {
+    let item = UserNotificationItem(
+      id: "reminder",
+      type: "festival.set_reminder",
+      festivalID: "festival-a",
+      title: "WONDERLIVET 2026",
+      body: "MRCH 공연이 10분 후 LIVET STAGE 무대에서 시작돼요.",
+      createdAt: Date(timeIntervalSince1970: 0),
+      readAt: nil,
+      route: nil
+    )
+    var state = FestivalFeature.State()
+    state.hasSession = true
+    state.sessionUserID = "user-a"
+    state.notificationUnreadCount = 1
+    let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
+      $0.useServiceBackedFestivalUseCases()
+      $0.date = .constant(Date(timeIntervalSince1970: 0))
+      $0.continuousClock = TestClock()
+    }
+    store.exhaustivity = .off
+    await store.send(.inner(.notificationBannerLoaded(
+      item,
+      generation: 0
+    ))) {
+      $0.notificationBanner = item
+    }
+    switch trigger {
+    case "unreadZero":
+      await store.send(.inner(.notificationUnreadCountLoaded(
+        0,
+        generation: 0
+      )))
+    case "logout":
+      await store.send(.view(.accountChanged))
+    default:
+      await store.send(.view(.sessionChanged(
+        hasSession: true,
+        userID: "user-b"
+      )))
+    }
+    #expect(store.state.notificationBanner == nil)
+    // 만료 타이머가 취소되지 않았으면 남은 효과 때문에 실패한다.
+    await store.finish()
   }
 
   @Test("읽음 요청 실패 뒤에도 보드가 배지를 다시 조회한다")

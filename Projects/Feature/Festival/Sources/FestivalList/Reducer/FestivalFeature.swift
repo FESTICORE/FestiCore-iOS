@@ -526,6 +526,7 @@ public struct FestivalFeature {
   enum CancelID {
     case catalog, packUpdates, imagePrefetch, liveActivityChanges, liveActivityBoundary
     case onlineDetail, mySchedule, notificationUnreadCount, notificationMarkRead, toast
+    case notificationBannerExpiry
     case homeWalk
   }
   private struct LiveActivitySyncID: Hashable { let id: String }
@@ -1100,8 +1101,9 @@ extension FestivalFeature {
         0,
         count
       )
-      if count <= 0 { state.notificationBanner = nil }
-      return .none
+      guard count <= 0 else { return .none }
+      state.notificationBanner = nil
+      return .cancel(id: CancelID.notificationBannerExpiry)
 
     case let .ticketLinkTapped(festivalID):
       // 카탈로그·팩 매퍼가 https 링크만 남긴다. 결제 앱 전환은 예매 범위의 웹 화면이 맡는다.
@@ -1145,7 +1147,8 @@ extension FestivalFeature {
         state.isLiveBoardVisible ? watchLiveBoard(&state) : .none,
         .cancel(id: CancelID.mySchedule),
         .cancel(id: CancelID.notificationUnreadCount),
-        .cancel(id: CancelID.notificationMarkRead)
+        .cancel(id: CancelID.notificationMarkRead),
+        .cancel(id: CancelID.notificationBannerExpiry)
       ])
 
     case let .sessionChanged(
@@ -1181,7 +1184,8 @@ extension FestivalFeature {
         hasSession && state.isLiveBoardVisible
           ? .send(.async(.loadNotificationUnreadCount))
           : .cancel(id: CancelID.notificationUnreadCount),
-        .cancel(id: CancelID.notificationMarkRead)
+        .cancel(id: CancelID.notificationMarkRead),
+        .cancel(id: CancelID.notificationBannerExpiry)
       ])
 
     case let .myScheduleSaved(
@@ -1803,7 +1807,23 @@ extension FestivalFeature {
     ):
       guard state.hasSession, state.accountGeneration == generation, state.notificationUnreadCount > 0 else { return .none }
       state.notificationBanner = item
-      return .none
+      guard let item else { return .cancel(id: CancelID.notificationBannerExpiry) }
+      // 보드를 열어 둔 채 표시 시간이 지나도 배너를 내린다.
+      let remaining = Self.bannerLifetime(for: item.type) - date.now.timeIntervalSince(item.createdAt)
+      return .run { send in
+        try await clock.sleep(for: .seconds(max(
+          0,
+          remaining
+        )))
+        await send(.inner(.notificationBannerLoaded(
+          nil,
+          generation: generation
+        )))
+      }
+      .cancellable(
+        id: CancelID.notificationBannerExpiry,
+        cancelInFlight: true
+      )
 
     case let .notificationUnreadCountLoaded(
       count,
@@ -1814,8 +1834,9 @@ extension FestivalFeature {
         0,
         count
       )
-      if count <= 0 { state.notificationBanner = nil }
-      return .none
+      guard count <= 0 else { return .none }
+      state.notificationBanner = nil
+      return .cancel(id: CancelID.notificationBannerExpiry)
 
     case let .liveActivitiesLoaded(
       activities,
