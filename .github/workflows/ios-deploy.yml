@@ -70,9 +70,10 @@ jobs:
           bundle exec fastlane ios "$LANE" version:"${{ steps.ver.outputs.version }}" 2>&1 | tee fastlane-qa.log
           DEPLOY_EXIT_CODE=${PIPESTATUS[0]}
           # 컴파일 에러는 fastlane 로그가 아니라 gym의 원본 xcodebuild 로그에 남는다.
+          # 컴파일러 크래시는 error: 없이 Stack dump만 남기므로 실패한 명령 줄도 함께 보인다(#641).
           if [[ "$DEPLOY_EXIT_CODE" -ne 0 ]]; then
             GYM_LOG=$(ls -t ~/Library/Logs/gym/*.log 2>/dev/null | head -1)
-            [[ -n "$GYM_LOG" ]] && grep -E "error:|\*\* ARCHIVE FAILED" "$GYM_LOG" | tail -40
+            [[ -n "$GYM_LOG" ]] && grep -E "error:|\*\* ARCHIVE FAILED|Stack dump:|While emitting|^[[:space:]]+(SwiftCompile|CompileSwift|Ld) .*\(in target" "$GYM_LOG" | cut -c1-400 | tail -40
           fi
           exit "$DEPLOY_EXIT_CODE"
       # Apple 처리 대기는 업로드와 분리해 제한 시간을 따로 둔다. 실패해도 업로드는 이미 끝난 상태다.

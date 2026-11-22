@@ -31,7 +31,7 @@ public extension Project {
       buildableFolders: resources != nil ? ["Sources", "Resources"] : ["Sources"],
       entitlements: entitlements,
       dependencies: dependencies,
-      settings: .settings(base: [
+      settings: .archivedTargetSettings([
         "TARGETED_DEVICE_FAMILY": "1",
         "SWIFT_VERSION": "6.0"
       ])
@@ -104,7 +104,7 @@ public extension Project {
     name: String,
     product: Product = .staticFramework,
     dependencies: [TargetDependency] = [],
-    targetSettings: Settings? = nil,
+    targetSettings: SettingsDictionary = [:],
     sources _: SourceFilesList = ["Sources/**"],
     resources: ResourceFileElements? = nil,
     testResources _: ResourceFileElements? = nil,
@@ -126,7 +126,8 @@ public extension Project {
         deploymentTargets: Environment.deploymentTarget,
         infoPlist: .moduleInfoPlist,
         buildableFolders: ["Interface"],
-        dependencies: interfaceDependencies
+        dependencies: interfaceDependencies,
+        settings: .archivedTargetSettings()
       ))
     }
 
@@ -139,7 +140,7 @@ public extension Project {
         infoPlist: .moduleInfoPlist,
         buildableFolders: resources != nil ? ["Sources", "Resources"] : ["Sources"],
         dependencies: (hasInterface ? [.target(name: "\(name)Interface")] : []) + dependencies,
-        settings: targetSettings
+        settings: .archivedTargetSettings(targetSettings)
       ))
 
     if hasDemo {
@@ -218,22 +219,28 @@ public extension Project {
           buildableFolders: ["Extension"],
           entitlements: entitlements,
           dependencies: dependencies,
-          settings: .settings(base: [
-            "APPLICATION_EXTENSION_API_ONLY": "YES",
-            "CODE_SIGN_STYLE": "Manual",
-            "DEVELOPMENT_TEAM": .string(Environment.organizationTeamId)
-          ], configurations: [
-            .debug(
-              name: BuildEnvironment.stage.configurationName,
-              settings: ["PROVISIONING_PROFILE_SPECIFIER": .string("match Development \(bundleId)")],
-              xcconfig: BuildEnvironment.stage.xcconfigPath
-            ),
-            .release(
-              name: BuildEnvironment.prod.configurationName,
-              settings: ["PROVISIONING_PROFILE_SPECIFIER": .string("match AppStore \(bundleId)")],
-              xcconfig: BuildEnvironment.prod.xcconfigPath
-            )
-          ])
+          settings: .settings(
+            base: [
+              "APPLICATION_EXTENSION_API_ONLY": "YES",
+              "CODE_SIGN_STYLE": "Manual",
+              "DEVELOPMENT_TEAM": .string(Environment.organizationTeamId)
+            ],
+            configurations: [
+              .debug(
+                name: BuildEnvironment.stage.configurationName,
+                settings: ["PROVISIONING_PROFILE_SPECIFIER": .string("match Development \(bundleId)")].merging(
+                  Settings.stageOptimizationSettings,
+                  uniquingKeysWith: { current, _ in current }
+                ),
+                xcconfig: BuildEnvironment.stage.xcconfigPath
+              ),
+              .release(
+                name: BuildEnvironment.prod.configurationName,
+                settings: ["PROVISIONING_PROFILE_SPECIFIER": .string("match AppStore \(bundleId)")],
+                xcconfig: BuildEnvironment.prod.xcconfigPath
+              )
+            ]
+          )
         )
       ]
     )
