@@ -57,4 +57,36 @@ public extension Settings {
       .release(name: BuildEnvironment.prod.configurationName, xcconfig: BuildEnvironment.prod.xcconfigPath)
     ])
   }
+
+  /// Stage는 로컬 디버깅용이라 최적화를 끈다. TestFlight로 나가는 Stage 빌드만 `FESTICORE_STAGE_OPTIMIZE=YES`로 켠다(#626).
+  /// 최적화를 xcargs로 넘기면 SPM 패키지까지 적용돼 Swift 6.4가 swift-issue-reporting을 컴파일하다 크래시한다(#641).
+  /// 그래서 archive에 들어가는 우리 타깃에만 둔다. Tuist의 타깃 기본값(-Onone 등)을 덮도록 타깃 수준에 넣는다.
+  static var stageOptimizationSettings: SettingsDictionary {
+    return [
+      "FESTICORE_STAGE_OPTIMIZE": "NO",
+      "FESTICORE_STAGE_SWIFT_OPTIMIZATION_LEVEL_NO": "-Onone",
+      "FESTICORE_STAGE_SWIFT_OPTIMIZATION_LEVEL_YES": "-O",
+      "FESTICORE_STAGE_SWIFT_COMPILATION_MODE_NO": "singlefile",
+      "FESTICORE_STAGE_SWIFT_COMPILATION_MODE_YES": "wholemodule",
+      "FESTICORE_STAGE_GCC_OPTIMIZATION_LEVEL_NO": "0",
+      "FESTICORE_STAGE_GCC_OPTIMIZATION_LEVEL_YES": "s",
+      "SWIFT_OPTIMIZATION_LEVEL": "$(FESTICORE_STAGE_SWIFT_OPTIMIZATION_LEVEL_$(FESTICORE_STAGE_OPTIMIZE))",
+      "SWIFT_COMPILATION_MODE": "$(FESTICORE_STAGE_SWIFT_COMPILATION_MODE_$(FESTICORE_STAGE_OPTIMIZE))",
+      "GCC_OPTIMIZATION_LEVEL": "$(FESTICORE_STAGE_GCC_OPTIMIZATION_LEVEL_$(FESTICORE_STAGE_OPTIMIZE))"
+    ]
+  }
+
+  /// archive에 들어가는 앱 · 모듈 타깃 설정. Stage 구성에 TestFlight 최적화 스위치를 붙인다.
+  static func archivedTargetSettings(_ base: SettingsDictionary = [:]) -> Settings {
+    return .settings(
+      base: base,
+      configurations: [
+        .debug(
+          name: BuildEnvironment.stage.configurationName,
+          settings: stageOptimizationSettings
+        ),
+        .release(name: BuildEnvironment.prod.configurationName)
+      ]
+    )
+  }
 }

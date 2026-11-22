@@ -245,7 +245,8 @@ def signed_ipa(scheme, configuration, version, build_number, api_key)
   mixpanel_arg = mixpanel_token.to_s.empty? ? "" : " FESTICORE_MIXPANEL_TOKEN=#{Shellwords.escape(mixpanel_token)}"
   # Stage 구성은 로컬 디버깅용이라 최적화가 꺼져 있다(-Onone). TestFlight로 나가는 Stage 빌드만 최적화한다.
   # 아이폰 12 Pro 실측: 라이브 보드 감속 끊김 비율 19.2 → 0 ms/s, 타임테이블 끊김 0.2 → 0회(#626).
-  optimization_arg = configuration == "Stage" ? " SWIFT_OPTIMIZATION_LEVEL=-O SWIFT_COMPILATION_MODE=wholemodule GCC_OPTIMIZATION_LEVEL=s" : ""
+  # 최적화 값은 우리 프로젝트의 Stage 설정에만 있다. 여기서 직접 넘기면 SPM 패키지까지 적용돼 컴파일러가 크래시한다(#641).
+  optimization_arg = configuration == "Stage" ? " FESTICORE_STAGE_OPTIMIZE=YES" : ""
   # 배포 archive는 서명되지 않은 Tuist 바이너리 캐시를 쓰지 않고 소스에서 빌드한다.
   prepare_workspace(cache_profile: "none")
   prepare_signing_keychain

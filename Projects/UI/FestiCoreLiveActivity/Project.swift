@@ -18,6 +18,6 @@ let project = Project.makeModule(
     .domain(.festival, .interface),
     .SPM.dependencies
   ],
-  targetSettings: .settings(base: ["APPLICATION_EXTENSION_API_ONLY": "YES"]),
+  targetSettings: ["APPLICATION_EXTENSION_API_ONLY": "YES"],
   hasTests: true
 )
