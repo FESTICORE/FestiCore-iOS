@@ -95,6 +95,7 @@ private actor RecordingAuthUseCase: AuthUseCaseInterface {
   }
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func withdraw() async throws {}
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
 
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")

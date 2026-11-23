@@ -123,6 +123,23 @@ struct AuthRequestTests {
     #expect(body["pushOptIn"] as? Bool == false)
   }
 
+  @Test("기수 모드 변경은 인증된 PUT me/bearer-mode 요청이고 enabled만 보낸다")
+  func updateBearerMode() throws {
+    let sessionID = UUID()
+    let endpoint = AuthRequest.updateBearerMode(
+      body: AuthBearerModeBody(enabled: true),
+      sessionID: sessionID
+    )
+    let request = try endpoint.asURLRequest(baseURL: baseURL)
+    #expect(request.url?.path == "/api/v1/me/bearer-mode")
+    #expect(request.httpMethod == "PUT")
+    #expect(endpoint.authorization == .sessionBound(sessionID))
+    #expect(endpoint.maxRetryAttempts == 0)
+    let body = try jsonBody(request)
+    #expect(body.count == 1)
+    #expect(body["enabled"] as? Bool == true)
+  }
+
   private func jsonBody(_ request: URLRequest) throws -> [String: Any] {
     let data = try #require(request.httpBody)
     return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])

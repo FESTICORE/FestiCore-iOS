@@ -18,6 +18,8 @@ public protocol AuthUseCaseInterface: Sendable {
   func updateNickname(_ nickname: String) async throws -> AuthUser
   func signOut() async throws
   func withdraw() async throws
+  /// 계정 기수 모드를 켜거나 끈다. 서버가 저장한 값을 돌려준다.
+  func setBearerMode(enabled: Bool) async throws -> Bool
   /// 로그인 응답으로 받은 임시 세션을 확정한다. 확정했으면 `true`.
   func commitSession(_ id: UUID) async -> Bool
   /// 확정 전의 임시 세션을 버린다. 버렸으면 `true`.

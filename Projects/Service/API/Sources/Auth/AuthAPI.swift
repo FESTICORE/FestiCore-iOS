@@ -11,6 +11,7 @@ public enum AuthAPI: String, CaseIterable, Sendable {
   case logout
   case me
   case withdraw
+  case bearerMode
 
   public var path: String {
     switch self {
@@ -19,6 +20,7 @@ public enum AuthAPI: String, CaseIterable, Sendable {
     case .logout: return "\(FestiCoreDomain.auth.path)/logout"
     case .me: return FestiCoreDomain.me.path
     case .withdraw: return FestiCoreDomain.me.path
+    case .bearerMode: return "\(FestiCoreDomain.me.path)/bearer-mode"
     }
   }
 }

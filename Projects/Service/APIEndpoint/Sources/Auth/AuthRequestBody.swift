@@ -54,3 +54,12 @@ public struct AuthNicknameUpdateBody: Encodable, Sendable {
     self.nickname = nickname
   }
 }
+
+/// 계정 기수 모드를 켜거나 끈다.
+public struct AuthBearerModeBody: Encodable, Sendable {
+  public let enabled: Bool
+
+  public init(enabled: Bool) {
+    self.enabled = enabled
+  }
+}

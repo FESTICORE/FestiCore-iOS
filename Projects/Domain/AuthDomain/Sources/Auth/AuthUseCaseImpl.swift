@@ -39,6 +39,10 @@ public struct AuthUseCaseImpl: AuthUseCaseInterface {
     try await repository.withdraw()
   }
 
+  public func setBearerMode(enabled: Bool) async throws -> Bool {
+    return try await repository.setBearerMode(enabled: enabled)
+  }
+
   public func commitSession(_ id: UUID) async -> Bool {
     return await repository.commitSession(id)
   }

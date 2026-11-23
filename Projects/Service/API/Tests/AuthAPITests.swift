@@ -13,7 +13,7 @@ import API
 struct AuthAPITests {
   @Test("로그인·갱신·로그아웃·탈퇴 경로를 선언한다")
   func paths() {
-    #expect(AuthAPI.allCases == [.login, .refresh, .logout, .me, .withdraw])
+    #expect(AuthAPI.allCases == [.login, .refresh, .logout, .me, .withdraw, .bearerMode])
     #expect(FestiCoreDomain.auth.path == "api/v1/auth")
     #expect(FestiCoreDomain.me.path == "api/v1/me")
     #expect(AuthAPI.login.path == "api/v1/auth/login")
@@ -21,5 +21,6 @@ struct AuthAPITests {
     #expect(AuthAPI.logout.path == "api/v1/auth/logout")
     #expect(AuthAPI.me.path == FestiCoreDomain.me.path)
     #expect(AuthAPI.withdraw.path == FestiCoreDomain.me.path)
+    #expect(AuthAPI.bearerMode.path == "\(FestiCoreDomain.me.path)/bearer-mode")
   }
 }

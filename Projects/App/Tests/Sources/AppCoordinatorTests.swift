@@ -1215,6 +1215,65 @@ struct AppCoordinatorTests {
     #expect(none.authFlow.signUp.consentedVersion == nil)
   }
 
+  @Test("기수 모드를 확정한 뒤 늦게 온 같은 세대의 프로필 재조회는 확정한 값을 지키고, 다른 계정의 확정은 받지 않는다")
+  func lateProfileKeepsConfirmedBearerMode() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 2
+    home.authFlow.isLoading = true
+    home.authFlow.hasSession = true
+    home.authFlow.lastVerifiedUserID = "user-a"
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useAppCoordinatorFestivalUseCases()
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.session(.view(.bearerModeUpdated(
+      userID: "user-b",
+      enabled: true
+    ))))))
+    guard case let .home(ignored) = store.state else { return }
+    #expect(ignored.authFlow.confirmedBearerMode == nil)
+
+    await store.send(.scope(.home(.session(.view(.bearerModeUpdated(
+      userID: "user-a",
+      enabled: true
+    ))))))
+    // 토글 전에 시작한 재조회가 예전 값(false)을 들고 늦게 온다.
+    await store.send(.scope(.home(.session(.inner(.profileLoaded(
+      generation: 2,
+      .success(eligibleProfile(id: "user-a"))
+    ))))))
+    guard case let .home(loaded) = store.state else { return }
+    #expect(loaded.authFlow.profile?.bearerMode == true)
+    #expect(loaded.authFlow.confirmedBearerMode == nil)
+  }
+
+  @Test("기수 모드 확정 뒤 새로 시작한 재조회는 서버 값을 따른다")
+  func newerProfileFollowsServerBearerMode() async {
+    var home = MainTabCoordinator.State()
+    home.authFlow.generation = 3
+    home.authFlow.isLoading = true
+    home.authFlow.hasSession = true
+    home.authFlow.lastVerifiedUserID = "user-a"
+    home.authFlow.confirmedBearerMode = ConfirmedBearerMode(
+      userID: "user-a",
+      enabled: true,
+      generation: 2
+    )
+    let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
+      $0.useAppCoordinatorFestivalUseCases()
+    }
+    store.exhaustivity = .off
+
+    await store.send(.scope(.home(.session(.inner(.profileLoaded(
+      generation: 3,
+      .success(eligibleProfile(id: "user-a"))
+    ))))))
+    guard case let .home(loaded) = store.state else { return }
+    #expect(loaded.authFlow.profile?.bearerMode == false)
+    #expect(loaded.authFlow.confirmedBearerMode == nil)
+  }
+
   @Test func draftFromAnotherAccountIsClearedWhenProfileLoads() async {
     var home = MainTabCoordinator.State()
     home.authFlow.generation = 1
@@ -3906,6 +3965,8 @@ private struct FailingMyAuthUseCase: AuthUseCaseInterface {
   func signOut() async throws { throw AuthDomainError.unavailable }
   func withdraw() async throws { throw withdrawError }
 
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
+
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")
     return false
@@ -3953,6 +4014,8 @@ private struct SuspendedWithdrawalAuthUseCase: AuthUseCaseInterface {
   func signOut() async throws { throw AuthDomainError.notAuthenticated }
   func withdraw() async throws { try await gate.wait() }
 
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
+
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")
     return false
@@ -3990,6 +4053,8 @@ private struct UnauthenticatedAuthUseCase: AuthUseCaseInterface {
   func signOut() async throws { calls?.withValue { $0.append("signOut") } }
   func withdraw() async throws {}
 
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
+
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")
     return false
@@ -4021,6 +4086,8 @@ private struct RecordingWithdrawalAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.notAuthenticated }
   func signOut() async throws { calls.withValue { $0.append("signOut") } }
   func withdraw() async throws { calls.withValue { $0.append("withdraw") } }
+
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
 
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")
@@ -4059,6 +4126,8 @@ private struct FailingProfileAuthUseCase: AuthUseCaseInterface {
   func signOut() async throws {}
   func withdraw() async throws {}
 
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
+
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")
     return false
@@ -4086,6 +4155,8 @@ private struct ReturningProfileAuthUseCase: AuthUseCaseInterface {
   func signOut() async throws {}
   func withdraw() async throws {}
 
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
+
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")
     return false
@@ -4112,6 +4183,8 @@ private struct OutdatedTermsAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func signOut() async throws {}
   func withdraw() async throws {}
+
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
 
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")
@@ -4165,6 +4238,8 @@ private struct SessionForwardingAuthUseCase: AuthUseCaseInterface {
   func withdraw() async throws {
     try await base.withdraw()
   }
+
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
 
   func commitSession(_ id: UUID) async -> Bool {
     return await auth.commitSession(id)

@@ -45,6 +45,11 @@ public struct MockAuthRepository: AuthInterface {
     throw AuthDomainError.configurationMissing
   }
 
+  public func setBearerMode(enabled: Bool) async throws -> Bool {
+    reportIssue("\(dependencyName) 미등록")
+    throw AuthDomainError.configurationMissing
+  }
+
   public func commitSession(_ id: UUID) async -> Bool {
     reportIssue("\(dependencyName) 미등록")
     return false

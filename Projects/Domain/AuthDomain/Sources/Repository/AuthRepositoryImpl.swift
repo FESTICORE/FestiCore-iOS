@@ -105,6 +105,29 @@ public struct AuthRepositoryImpl: AuthInterface {
     }
   }
 
+  public func setBearerMode(enabled: Bool) async throws -> Bool {
+    guard let sessionID = await authService.authenticatedSessionID else {
+      throw AuthDomainError.notAuthenticated
+    }
+    do {
+      let response = try await client.send(
+        AuthRequest.updateBearerMode(
+          body: AuthBearerModeBody(enabled: enabled),
+          sessionID: sessionID
+        ),
+        as: AuthBearerModeResponseDTO.self
+      )
+      guard response.code == "SUCCESS" else { throw AuthDomainError.invalidResponse }
+      return response.data.bearerMode
+    } catch {
+      try await clearUnauthorizedSession(
+        error,
+        sessionID: sessionID
+      )
+      throw AuthDomainError.mapping(error)
+    }
+  }
+
   private func clearUnauthorizedSession(_ error: any Error, sessionID: UUID) async throws {
     if let networkError = error as? FestiCoreNetworkError,
        case let .response(response) = networkError,

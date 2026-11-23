@@ -9,10 +9,20 @@ import AuthDomainInterface
 
 extension AuthProfileDataDTO {
   func toDomain() -> AuthProfile {
-    AuthProfile(user: AuthUser(
-      id: id, provider: provider, email: email, nickname: nickname,
-      nicknameConfirmed: nicknameConfirmed, termsAcceptedAt: termsAcceptedAt,
-      termsVersion: termsVersion, pushOptIn: pushOptIn, profileImageURL: profileImageUrl
-    ), currentTermsVersion: currentTermsVersion)
+    return AuthProfile(
+      user: AuthUser(
+        id: id,
+        provider: provider,
+        email: email,
+        nickname: nickname,
+        nicknameConfirmed: nicknameConfirmed,
+        termsAcceptedAt: termsAcceptedAt,
+        termsVersion: termsVersion,
+        pushOptIn: pushOptIn,
+        profileImageURL: profileImageUrl
+      ),
+      currentTermsVersion: currentTermsVersion,
+      bearerMode: bearerMode ?? false
+    )
   }
 }

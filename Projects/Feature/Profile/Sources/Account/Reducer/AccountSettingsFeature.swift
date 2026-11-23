@@ -159,7 +159,11 @@ extension AccountSettingsFeature {
     case .presented(.nickname(.delegate(.saved(let user)))):
       state.destination = nil
       if let profile = state.profile {
-        state.profile = AuthProfile(user: user, currentTermsVersion: profile.currentTermsVersion)
+        state.profile = AuthProfile(
+          user: user,
+          currentTermsVersion: profile.currentTermsVersion,
+          bearerMode: profile.bearerMode
+        )
       }
       return .send(.delegate(.nicknameUpdated(user)))
 
