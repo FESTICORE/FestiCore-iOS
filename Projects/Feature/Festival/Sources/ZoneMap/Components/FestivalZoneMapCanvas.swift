@@ -317,7 +317,12 @@ struct FestivalZoneMapMarker: View {
       circle
         .frame(
           width: Metric.box,
-          height: Metric.box
+          height: hasLabel ? circleSize : Metric.box
+        )
+        // 원 중심은 40pt 칸 가운데에 두고, 이름표는 칸이 아니라 원 바로 아래 8pt에 둔다(Figma Map Marker).
+        .padding(
+          .top,
+          hasLabel ? (Metric.box - circleSize) / 2 : .zero
         )
       if hasLabel {
         Text(marker.name)
@@ -368,6 +373,15 @@ private extension FestivalZoneMapMarker {
     switch marker.kind {
     case .followedFlag, .crew: return true
     case .otherFlag: return false
+    }
+  }
+
+  /// 마커 원 지름. 크루는 FCAvatar small(28)에 흰 테두리 2를 두른다.
+  var circleSize: CGFloat {
+    switch marker.kind {
+    case .followedFlag: return Metric.followedSize
+    case .crew: return Metric.crewSize
+    case .otherFlag: return Metric.otherSize
     }
   }
 
@@ -467,6 +481,7 @@ private extension FestivalZoneMapMarker {
     static let labeledWidth: CGFloat = 52
     // Figma Map Marker: flag 36·flag-small 24, 원과 이름표 사이 8
     static let followedSize: CGFloat = 36
+    static let crewSize: CGFloat = 32
     static let followedIcon: CGFloat = 16
     static let otherSize: CGFloat = 24
     static let otherIcon: CGFloat = 12
