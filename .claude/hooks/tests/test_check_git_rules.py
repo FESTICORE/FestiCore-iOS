@@ -281,12 +281,12 @@ class VerifyAndBoundaryTests(unittest.TestCase):
         names = lambda files, run_all=False: [n for n, _ in self.verify.steps_for(files, run_all, "BASE")
                                               if n != "install"]
         self.assertEqual([], names([]))
-        self.assertEqual(["harness-syntax", "harness-tests", "security"], names([".claude/hooks/check_git_rules.py"]))
-        self.assertEqual(["security", "boundaries", "swift-conventions", "file-header", "generate", "test"],
+        self.assertEqual(["harness-syntax", "harness-tests", "security", "test-integrity"], names([".claude/hooks/check_git_rules.py"]))
+        self.assertEqual(["security", "test-integrity", "boundaries", "swift-conventions", "file-header", "generate", "test"],
                          names(["Projects/App/Sources/A.swift"]))
         self.assertEqual([".claude/scripts/file-header", "--base", "BASE"],
                          dict(self.verify.steps_for(["Projects/App/Sources/A.swift"], False, "BASE"))["file-header"])
-        self.assertEqual(["security"], names([".github/workflows/ios-deploy.yml"]))
+        self.assertEqual(["security", "test-integrity"], names([".github/workflows/ios-deploy.yml"]))
         steps = dict(self.verify.steps_for(["Projects/App/Sources/A.swift"], False, "BASE"))
         self.assertEqual(["./make", "test", "-only-testing:FestiCoreTests"], steps["test"])
         self.assertEqual(["./make", "test"], dict(self.verify.steps_for([], True, "BASE"))["test"])

@@ -1,0 +1,3 @@
+#!/bin/sh
+# 보호 브랜치에서 병합 커밋을 막는다. (.claude/docs/harness.md)
+exec python3 -I -S "$(git rev-parse --show-toplevel)/.claude/hooks/pre_commit_gate.py" --branch-only

@@ -22,6 +22,9 @@ jobs:
           persist-credentials: false
       - name: Verify convention checker
         run: python3 -m unittest discover -s .claude/hooks/tests -p 'test_check_swift_conventions.py'
+      # 이슈 참조 없이 테스트를 끈 곳(보상 해킹)을 로컬 verify 밖에서도 막는다
+      - name: Test integrity
+        run: python3 .claude/scripts/check-test-integrity
       - name: Check changed Swift lines
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
