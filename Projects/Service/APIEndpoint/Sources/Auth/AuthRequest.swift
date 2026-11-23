@@ -18,6 +18,7 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
   case updateMe(body: AuthProfileUpdateBody, sessionID: UUID)
   case updateNickname(body: AuthNicknameUpdateBody, sessionID: UUID)
   case withdraw(sessionID: UUID)
+  case updateBearerMode(body: AuthBearerModeBody, sessionID: UUID)
 
   public var path: String { return api.path }
 
@@ -27,6 +28,7 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
     case .me: return .get
     case .updateMe, .updateNickname: return .patch
     case .withdraw: return .delete
+    case .updateBearerMode: return .put
     }
   }
 
@@ -35,6 +37,11 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
     case .login, .refresh: return .none
     case let .logout(sessionID), let .me(sessionID), let .updateMe(_, sessionID),
          let .updateNickname(_, sessionID), let .withdraw(sessionID):
+      return .sessionBound(sessionID)
+    case let .updateBearerMode(
+      _,
+      sessionID
+    ):
       return .sessionBound(sessionID)
     }
   }
@@ -47,6 +54,11 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
     case let .refresh(refreshToken): return RefreshBody(refreshToken: refreshToken)
     case let .updateMe(body, _): return body
     case let .updateNickname(body, _): return body
+    case let .updateBearerMode(
+      body,
+      _
+    ):
+      return body
     case .logout, .me, .withdraw: return nil
     }
   }
@@ -58,6 +70,7 @@ public enum AuthRequest: FestiCoreDataRequest, Sendable {
     case .logout: return .logout
     case .me, .updateMe, .updateNickname: return .me
     case .withdraw: return .withdraw
+    case .updateBearerMode: return .bearerMode
     }
   }
 }

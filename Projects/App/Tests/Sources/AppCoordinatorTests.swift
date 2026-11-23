@@ -3906,6 +3906,8 @@ private struct FailingMyAuthUseCase: AuthUseCaseInterface {
   func signOut() async throws { throw AuthDomainError.unavailable }
   func withdraw() async throws { throw withdrawError }
 
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
+
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")
     return false
@@ -3953,6 +3955,8 @@ private struct SuspendedWithdrawalAuthUseCase: AuthUseCaseInterface {
   func signOut() async throws { throw AuthDomainError.notAuthenticated }
   func withdraw() async throws { try await gate.wait() }
 
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
+
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")
     return false
@@ -3990,6 +3994,8 @@ private struct UnauthenticatedAuthUseCase: AuthUseCaseInterface {
   func signOut() async throws { calls?.withValue { $0.append("signOut") } }
   func withdraw() async throws {}
 
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
+
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")
     return false
@@ -4021,6 +4027,8 @@ private struct RecordingWithdrawalAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.notAuthenticated }
   func signOut() async throws { calls.withValue { $0.append("signOut") } }
   func withdraw() async throws { calls.withValue { $0.append("withdraw") } }
+
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
 
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")
@@ -4059,6 +4067,8 @@ private struct FailingProfileAuthUseCase: AuthUseCaseInterface {
   func signOut() async throws {}
   func withdraw() async throws {}
 
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
+
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")
     return false
@@ -4086,6 +4096,8 @@ private struct ReturningProfileAuthUseCase: AuthUseCaseInterface {
   func signOut() async throws {}
   func withdraw() async throws {}
 
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
+
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")
     return false
@@ -4112,6 +4124,8 @@ private struct OutdatedTermsAuthUseCase: AuthUseCaseInterface {
   func updateNickname(_ nickname: String) async throws -> AuthUser { throw AuthDomainError.invalidResponse }
   func signOut() async throws {}
   func withdraw() async throws {}
+
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
 
   func commitSession(_ id: UUID) async -> Bool {
     Issue.record("authUseCase.commitSession 미등록")
@@ -4165,6 +4179,8 @@ private struct SessionForwardingAuthUseCase: AuthUseCaseInterface {
   func withdraw() async throws {
     try await base.withdraw()
   }
+
+  func setBearerMode(enabled: Bool) async throws -> Bool { throw AuthDomainError.unavailable }
 
   func commitSession(_ id: UUID) async -> Bool {
     return await auth.commitSession(id)

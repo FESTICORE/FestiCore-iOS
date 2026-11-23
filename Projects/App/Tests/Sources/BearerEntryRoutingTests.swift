@@ -5,6 +5,7 @@
 //  Created by FestiCore on 11/8/26.
 //
 
+import AuthDomainInterface
 import AuthInterface
 import BearerDomainInterface
 import ComposableArchitecture
@@ -369,7 +370,7 @@ struct BearerEntryRoutingTests {
     #expect(store.state.routes.first?.screen.is(\.register) == true)
   }
 
-  @Test("마이 탭은 핀 요청을 라이브 탭 페스티벌 선택으로 넘긴다")
+  @Test("마이 탭은 핀 요청을 라이브 탭 페스티벌 선택으로 넘기고, 기수 모드가 켜졌으니 계정 정보를 다시 읽는다")
   func pinRequestSelectsFestival() async {
     var state = loggedInState()
     state.profileCoordinatorState.bearer = BearerEntryCoordinator.State(
@@ -377,7 +378,16 @@ struct BearerEntryRoutingTests {
       viewerUserID: "usr_me",
       asksRole: false
     )
-    let store = TestStore(initialState: state) { MainTabCoordinator() }
+    let store = TestStore(initialState: state) {
+      MainTabCoordinator()
+    } withDependencies: {
+      // 등록 완료는 세션 재조회로 이어지므로 그 효과의 의존성과 로그아웃 상태를 명시한다.
+      $0.useAppCoordinatorFestivalUseCases()
+      $0.authService = StubAuthService(
+        loggedIn: false,
+        userID: nil
+      )
+    }
     store.exhaustivity = .off
 
     await store.send(.profileCoordinator(.bearer(.delegate(.festivalPinRequested("fst_9")))))
@@ -385,7 +395,36 @@ struct BearerEntryRoutingTests {
       guard case .festival(.pinFestival("fst_9")) = action else { return false }
       return true
     }
+    await store.receive(\.session.view.retryProfile)
     #expect(store.state.profileCoordinatorState.bearer != nil)
+  }
+
+  @Test("마이 '내 역할'에서 바꾼 기수 모드를 세션 계정 정보에 반영한다")
+  func bearerModeUpdatedSyncsSession() async {
+    var state = loggedInState()
+    let profile = AuthProfile(
+      user: AuthUser(
+        id: "usr_me",
+        provider: "google",
+        email: nil,
+        nickname: "로이",
+        nicknameConfirmed: true,
+        termsAcceptedAt: "2026-10-30T00:00:00Z",
+        termsVersion: "2026-10",
+        pushOptIn: false,
+        profileImageURL: nil
+      ),
+      currentTermsVersion: "2026-10",
+      bearerMode: true
+    )
+    state.authFlow.profile = profile
+    let store = TestStore(initialState: state) { MainTabCoordinator() }
+    store.exhaustivity = .off
+
+    await store.send(.profileCoordinator(.profile(.delegate(.bearerModeUpdated(false)))))
+    await store.receive(\.session.view.bearerModeUpdated)
+    #expect(store.state.authFlow.profile?.bearerMode == false)
+    #expect(store.state.authFlow.profile?.user == profile.user)
   }
 
 

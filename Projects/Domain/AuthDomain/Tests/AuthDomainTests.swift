@@ -60,6 +60,57 @@ struct AuthDomainTests {
     #expect(!stale.isEligible)
   }
 
+  @Test("GET me의 bearerMode를 읽고, 없는 예전 응답은 꺼진 것으로 본다")
+  func profileBearerMode() throws {
+    let on = Data(#"{"code":"SUCCESS","message":"OK","data":{"id":"user-1","provider":"google","nicknameConfirmed":true,"termsAcceptedAt":"2026-10-30T00:00:00Z","termsVersion":"2026-10","pushOptIn":false,"currentTermsVersion":"2026-10","bearerMode":true}}"#.utf8)
+    let off = Data(#"{"code":"SUCCESS","message":"OK","data":{"id":"user-1","provider":"google","nicknameConfirmed":true,"termsAcceptedAt":"2026-10-30T00:00:00Z","termsVersion":"2026-10","pushOptIn":false,"currentTermsVersion":"2026-10","bearerMode":false}}"#.utf8)
+    let decoded = try [on, off, profileBody].map { body in
+      return try JSONDecoder().decode(
+        AuthProfileResponseDTO.self,
+        from: body
+      ).data.toDomain().bearerMode
+    }
+    #expect(decoded == [true, false, false])
+  }
+
+  @Test("기수 모드 변경은 인증된 PUT me/bearer-mode로 보내고 서버 값을 돌려준다")
+  func setBearerMode() async throws {
+    let auth = StubAuthService(loggedIn: true)
+    let sessionID = await auth.sessionID
+    let body = Data(#"{"code":"SUCCESS","message":"OK","data":{"bearerMode":false}}"#.utf8)
+    let client = StubClient(result: .success(body))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = auth
+    } operation: { AuthRepositoryImpl() }
+    let bearerMode = try await repository.setBearerMode(enabled: false)
+    #expect(!bearerMode)
+    #expect(await client.lastRequestPath == "api/v1/me/bearer-mode")
+    #expect(await client.lastRequestMethod == "PUT")
+    #expect(await client.lastRequestBoundSessionID == sessionID)
+    let request = AuthRequest.updateBearerMode(
+      body: AuthBearerModeBody(enabled: false),
+      sessionID: sessionID
+    )
+    let encoded = try JSONEncoder().encode(AnyEncodable(request.parameters))
+    let json = String(
+      decoding: encoded,
+      as: UTF8.self
+    )
+    #expect(json == #"{"enabled":false}"#)
+  }
+
+  @Test("미로그인 기수 모드 변경은 네트워크 전에 거부한다")
+  func setBearerModeRequiresSession() async {
+    let client = StubClient(result: .success(Data()))
+    let repository = withDependencies {
+      $0.networkClient = client
+      $0.authService = StubAuthService(loggedIn: false)
+    } operation: { AuthRepositoryImpl() }
+    await #expect(throws: AuthDomainError.notAuthenticated) { try await repository.setBearerMode(enabled: true) }
+    #expect(await client.calls == 0)
+  }
+
   @Test("GET me가 현재 약관 버전을 누락하면 실패한다")
   func missingTermsVersion() async {
     let auth = StubAuthService(loggedIn: true)

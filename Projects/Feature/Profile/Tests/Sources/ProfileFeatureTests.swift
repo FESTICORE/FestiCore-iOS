@@ -148,10 +148,12 @@ struct ProfileFeatureTests {
     await store.receive(\.inner.packsFailed)
   }
 
-  @Test("로그아웃 상태의 마이(More B)는 로그인 카드만 두고 기수 카드를 숨긴다")
-  func guestHidesBearerPrompt() {
-    #expect(!ProfileFeature.State().showsBearerPrompt)
-    #expect(signedInState().showsBearerPrompt)
+  @Test("로그아웃 상태의 마이(More B)는 로그인 카드만 두고 '내 역할' 그룹을 숨긴다")
+  func guestHidesRoleSection() {
+    #expect(!ProfileFeature.State().showsRoleSection)
+    // 계정 정보를 받기 전에는 기수 모드를 모르므로 숨긴다.
+    #expect(!signedInState().showsRoleSection)
+    #expect(roleState(bearerMode: false).showsRoleSection)
   }
 
   @Test("받은 팩이 없을 때 '페스티벌 둘러보기'는 페스티벌 목록을 요청한다")
@@ -368,12 +370,12 @@ struct ProfileFeatureTests {
         return [hidden, flag]
       })
     }
-    #expect(store.state.showsBearerPrompt)
+    #expect(store.state.myFlag == nil)
 
     await store.send(.view(.onAppear)) { $0.bearerFlags = .loading }
     await store.receive(\.async.fetchBearerFlags)
     await store.receive(\.inner.bearerFlagsLoaded) { $0.bearerFlags = .loaded([flag]) }
-    #expect(!store.state.showsBearerPrompt)
+    #expect(store.state.myFlag == flag)
     #expect(store.state.myFlagMeta == "원더리벳 2026 · 팔로워 128 · 예정")
 
     await store.send(.view(.myFlagTapped))
@@ -384,7 +386,7 @@ struct ProfileFeatureTests {
     await store.receive(\.delegate.bearerRequested)
   }
 
-  @Test("기수 깃발을 읽지 못하면 기수 카드를 그대로 두고, 로그아웃하면 지운다")
+  @Test("기수 깃발을 읽지 못하면 내 깃발 그룹을 두지 않고, 로그아웃하면 지운다")
   func myFlagFailureKeepsPrompt() async {
     var state = signedInState()
     state.packLoad = .loading
@@ -397,7 +399,7 @@ struct ProfileFeatureTests {
     await store.send(.view(.bearerFlagsRefreshRequested)) { $0.bearerFlags = .loading }
     await store.receive(\.async.fetchBearerFlags)
     await store.receive(\.inner.bearerFlagsFailed) { $0.bearerFlags = .failed }
-    #expect(store.state.showsBearerPrompt)
+    #expect(store.state.myFlag == nil)
 
     await store.send(.view(.accountChanged(
       profile: nil,
@@ -416,10 +418,260 @@ struct ProfileFeatureTests {
     await store.send(.view(.bearerFlagsRefreshRequested))
   }
 
+  @Test("서버 기본값이 켜짐이어도 내 소유 깃발이 없으면 관객으로 보이고, 기수 모드가 꺼지면 내 깃발 그룹을 숨긴다")
+  func roleFollowsBearerModeAndOwnedFlag() {
+    let noFlag = roleState(
+      bearerMode: true,
+      flags: []
+    )
+    let coBearerOnly = roleState(
+      bearerMode: true,
+      flags: [ownedFlag(isOwner: false)]
+    )
+    let bearer = roleState(
+      bearerMode: true,
+      flags: [ownedFlag()]
+    )
+    let paused = roleState(
+      bearerMode: false,
+      flags: [ownedFlag()]
+    )
+    #expect(!noFlag.isBearerMode)
+    #expect(!coBearerOnly.isBearerMode)
+    #expect(bearer.isBearerMode)
+    #expect(!paused.isBearerMode)
+    // 깃발을 아직 읽지 못했으면 계정 값을 따른다.
+    #expect(roleState(bearerMode: true).isBearerMode)
+
+    #expect(bearer.myFlag == ownedFlag())
+    #expect(paused.myFlag == nil)
+  }
+
+  @Test("내 소유 깃발이 없을 때 기수 모드를 켜면 API 없이 코드 없는 깃발 등록을 요청한다")
+  func turnOnWithoutFlagRequestsRegister() async {
+    let store = TestStore(initialState: roleState(
+      bearerMode: true,
+      flags: [ownedFlag(isOwner: false)]
+    )) {
+      ProfileFeature()
+    }
+
+    await store.send(.view(.bearerModeToggled(true)))
+    await store.receive(\.delegate.bearerRequested)
+  }
+
+  @Test("내 소유 깃발이 있으면 확인 없이 기수 모드를 켜고 세션에 알린다")
+  func turnOnWithFlagCallsAPI() async {
+    let requested = LockIsolated<[Bool]>([])
+    let store = TestStore(initialState: roleState(
+      bearerMode: false,
+      flags: [ownedFlag()]
+    )) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.authUseCase = ProfileAuthUseCase(onSetBearerMode: { enabled in
+        requested.withValue { $0.append(enabled) }
+        return enabled
+      })
+    }
+
+    await store.send(.view(.bearerModeToggled(true)))
+    await store.receive(\.async.setBearerMode) { $0.isBearerModeUpdating = true }
+    await store.receive(\.inner.bearerModeUpdated) {
+      $0.isBearerModeUpdating = false
+      $0.profile = self.profile(bearerMode: true)
+    }
+    await store.receive(\.delegate.bearerModeUpdated)
+    #expect(requested.value == [true])
+    #expect(store.state.isBearerMode)
+  }
+
+  @Test("기수 모드를 끄면 확인 팝업을 띄우고, 끄기를 누르면 API를 호출한다")
+  func turnOffConfirmCallsAPI() async {
+    let requested = LockIsolated<[Bool]>([])
+    let store = TestStore(initialState: roleState(
+      bearerMode: true,
+      flags: [ownedFlag()]
+    )) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.authUseCase = ProfileAuthUseCase(onSetBearerMode: { enabled in
+        requested.withValue { $0.append(enabled) }
+        return enabled
+      })
+    }
+
+    await store.send(.view(.bearerModeToggled(false))) {
+      $0.destination = .alert(ProfileFeature.bearerModeOffAlert)
+    }
+    #expect(store.state.destination?.alert?.title == "기수 모드를 끌까요?")
+    #expect(store.state.destination?.alert?.confirmTitle == "끄기")
+    #expect(store.state.destination?.alert?.cancelTitle == "취소")
+    await store.send(.destination(.presented(.alert(.confirmTapped)))) { $0.destination = nil }
+    await store.receive(\.async.setBearerMode) { $0.isBearerModeUpdating = true }
+    await store.receive(\.inner.bearerModeUpdated) {
+      $0.isBearerModeUpdating = false
+      $0.profile = self.profile(bearerMode: false)
+    }
+    await store.receive(\.delegate.bearerModeUpdated)
+    #expect(requested.value == [false])
+    #expect(!store.state.isBearerMode)
+    #expect(store.state.myFlag == nil)
+  }
+
+  @Test("기수 모드 끄기 확인에서 취소하면 아무것도 바꾸지 않는다")
+  func turnOffCancelKeepsMode() async {
+    let store = TestStore(initialState: roleState(
+      bearerMode: true,
+      flags: [ownedFlag()]
+    )) {
+      ProfileFeature()
+    }
+
+    await store.send(.view(.bearerModeToggled(false))) {
+      $0.destination = .alert(ProfileFeature.bearerModeOffAlert)
+    }
+    await store.send(.destination(.presented(.alert(.cancelTapped)))) { $0.destination = nil }
+    #expect(store.state.isBearerMode)
+  }
+
+  @Test("기수 모드를 바꾸지 못하면 토글을 원래 값으로 두고 오류를 보인다")
+  func failureRevertsToggle() async {
+    let store = TestStore(initialState: roleState(
+      bearerMode: false,
+      flags: [ownedFlag()]
+    )) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.authUseCase = ProfileAuthUseCase(onSetBearerMode: { _ in throw AuthDomainError.unavailable })
+    }
+
+    await store.send(.view(.bearerModeToggled(true)))
+    await store.receive(\.async.setBearerMode) { $0.isBearerModeUpdating = true }
+    await store.receive(\.inner.bearerModeFailed) {
+      $0.isBearerModeUpdating = false
+      $0.bearerModeMessage = ProfileFeature.bearerModeFailureMessage
+    }
+    #expect(!store.state.isBearerMode)
+    #expect(store.state.profile?.bearerMode == false)
+  }
+
+  @Test("요청 중이거나 로그아웃 상태면 토글을 무시한다")
+  func toggleIgnoredWhileUpdatingOrSignedOut() async {
+    var updating = roleState(
+      bearerMode: false,
+      flags: [ownedFlag()]
+    )
+    updating.isBearerModeUpdating = true
+    let busy = TestStore(initialState: updating) { ProfileFeature() }
+    await busy.send(.view(.bearerModeToggled(true)))
+
+    let guest = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
+    await guest.send(.view(.bearerModeToggled(true)))
+  }
+
   private func signedInState() -> ProfileFeature.State {
     var state = ProfileFeature.State()
     state.hasSession = true
     return state
+  }
+
+  private func profile(bearerMode: Bool) -> AuthProfile {
+    return AuthProfile(
+      user: AuthUser(
+        id: "usr_me",
+        provider: "google",
+        email: nil,
+        nickname: "로이",
+        nicknameConfirmed: true,
+        termsAcceptedAt: "2026-10-30T00:00:00Z",
+        termsVersion: "2026-10",
+        pushOptIn: false,
+        profileImageURL: nil
+      ),
+      currentTermsVersion: "2026-10",
+      bearerMode: bearerMode
+    )
+  }
+
+  private func roleState(
+    bearerMode: Bool,
+    flags: [BearerOwnedFlag]? = nil
+  ) -> ProfileFeature.State {
+    var state = signedInState()
+    state.profile = profile(bearerMode: bearerMode)
+    if let flags { state.bearerFlags = .loaded(flags) }
+    return state
+  }
+
+  private func ownedFlag(isOwner: Bool = true) -> BearerOwnedFlag {
+    return BearerOwnedFlag(
+      festivalID: "fst_1",
+      isOwner: isOwner,
+      joinedAt: nil,
+      profile: BearerFlagProfile(
+        id: "flg_1",
+        name: "호락호락"
+      ),
+      lifecycle: nil,
+      isHidden: false
+    )
+  }
+}
+
+/// 마이 '내 역할' 토글이 쓰는 기수 모드 변경만 채운 대역. 다른 호출은 테스트 이슈다.
+private struct ProfileAuthUseCase: AuthUseCaseInterface {
+  var onSetBearerMode: @Sendable (Bool) async throws -> Bool
+
+  func setBearerMode(enabled: Bool) async throws -> Bool {
+    return try await onSetBearerMode(enabled)
+  }
+
+  func signIn(with credential: AuthCredential) async throws -> AuthLoginResult {
+    Issue.record("authUseCase.signIn 미등록")
+    throw AuthDomainError.configurationMissing
+  }
+
+  func fetchProfile() async throws -> AuthProfile {
+    Issue.record("authUseCase.fetchProfile 미등록")
+    throw AuthDomainError.configurationMissing
+  }
+
+  func updateProfile(
+    nickname: String,
+    termsVersion: String,
+    pushOptIn: Bool
+  ) async throws -> AuthUser {
+    Issue.record("authUseCase.updateProfile 미등록")
+    throw AuthDomainError.configurationMissing
+  }
+
+  func updateNickname(_ nickname: String) async throws -> AuthUser {
+    Issue.record("authUseCase.updateNickname 미등록")
+    throw AuthDomainError.configurationMissing
+  }
+
+  func signOut() async throws {
+    Issue.record("authUseCase.signOut 미등록")
+  }
+
+  func withdraw() async throws {
+    Issue.record("authUseCase.withdraw 미등록")
+  }
+
+  func commitSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.commitSession 미등록")
+    return false
+  }
+
+  func discardSession(_ id: UUID) async -> Bool {
+    Issue.record("authUseCase.discardSession 미등록")
+    return false
+  }
+
+  func signOut(ifSession id: UUID) async -> Bool {
+    Issue.record("authUseCase.signOut(ifSession:) 미등록")
+    return false
   }
 }
 

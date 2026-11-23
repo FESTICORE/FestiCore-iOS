@@ -260,6 +260,9 @@ extension MainTabCoordinator {
     case let .profile(.delegate(.profileUpdated(user))):
       return .send(.session(.view(.profileUpdated(user))))
 
+    case let .profile(.delegate(.bearerModeUpdated(enabled))):
+      return .send(.session(.view(.bearerModeUpdated(enabled))))
+
     case .profile(.destination(.presented(.packDetail(.delegate(.packDeleted))))),
          .profile(.destination(.presented(.packDetail(.delegate(.packChanged))))):
       return .send(.festival(.reloadCachedPacks))
@@ -312,9 +315,13 @@ extension MainTabCoordinator {
 
     case let .festivalPinRequested(festivalID):
       // Figma S14 E: 깃발을 만든 페스티벌을 자동으로 핀해 라이브 탭이 그 페스티벌로 열린다.
+      // 등록하면 서버가 기수 모드를 켜므로 마이에서 연 흐름은 계정 정보를 다시 읽어 '내 역할' 토글을 맞춘다.
+      // 가입 흐름은 기수 설정 중이라 계정을 다시 확인하지 않는다.
+      let refreshProfile: Effect<Action> = host == .my ? .send(.session(.view(.retryProfile))) : .none
       return .merge(
         .send(.festival(.pinFestival(festivalID))),
-        refreshFlags
+        refreshFlags,
+        refreshProfile
       )
 
     case let .packRequested(festivalID):

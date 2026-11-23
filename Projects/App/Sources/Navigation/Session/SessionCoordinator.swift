@@ -31,6 +31,8 @@ struct SessionCoordinator {
     case retryProfile
     /// 마이에서 바꾼 프로필을 표시 이름에 바로 반영한다.
     case profileUpdated(AuthUser)
+    /// 마이 '내 역할'에서 바꾼 기수 모드를 계정 정보에 바로 반영한다.
+    case bearerModeUpdated(Bool)
     /// 인증 만료 알림이나 계정 작업 중 인증 상실로 세션을 끝낸다.
     case sessionExpired
     /// 로그인 확정 뒤 열린 세대로 프로필을 읽는다.
@@ -137,7 +139,17 @@ extension SessionCoordinator {
       guard let previous = state.profile, previous.user.id == user.id else { return .none }
       state.profile = AuthProfile(
         user: user,
-        currentTermsVersion: previous.currentTermsVersion
+        currentTermsVersion: previous.currentTermsVersion,
+        bearerMode: previous.bearerMode
+      )
+      return .none
+
+    case let .bearerModeUpdated(enabled):
+      guard let previous = state.profile else { return .none }
+      state.profile = AuthProfile(
+        user: previous.user,
+        currentTermsVersion: previous.currentTermsVersion,
+        bearerMode: enabled
       )
       return .none
 
@@ -396,7 +408,8 @@ private extension SessionCoordinator {
       }
       let profile = AuthProfile(
         user: user,
-        currentTermsVersion: previous.currentTermsVersion
+        currentTermsVersion: previous.currentTermsVersion,
+        bearerMode: previous.bearerMode
       )
       state.profile = profile
       if profile.isEligible {

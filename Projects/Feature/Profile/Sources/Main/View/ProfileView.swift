@@ -45,11 +45,11 @@ extension ProfileView {
           if store.showsLoginPrompt {
             loginPrompt
           }
+          if store.showsRoleSection {
+            roleSection()
+          }
           if store.myFlag != nil {
             myFlagSection()
-          } else if store.showsBearerPrompt {
-            // Figma More 기수 카드: 코드 없이 깃발 프로필을 만드는 흐름(S14 D)으로 잇는다.
-            FCBearerPrompt(sub: "깃발 프로필을 만들면 바로 기수로 시작해요") { send(.bearerTapped) }
           }
 
           receivedPacks
@@ -139,6 +139,62 @@ private extension ProfileView {
       RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
         .fill(FestiCoreSemanticColor.backgroundElevated.color)
     }
+  }
+
+  /// Figma More A·D: 맨 위 '내 역할' 그룹. 기수 모드 토글과 지금 역할을 설명하는 문구를 둔다.
+  @ViewBuilder
+  func roleSection() -> some View {
+    VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP8
+    ) {
+      sectionTitle("내 역할")
+        .padding(
+          .horizontal,
+          FestiCoreSpacing.paddingP4
+        )
+      FCListRow(
+        "기수 모드",
+        isOn: Binding(
+          get: { store.isBearerMode },
+          set: { send(.bearerModeToggled($0)) }
+        )
+      )
+      .disabled(store.isBearerModeUpdating)
+      .background {
+        RoundedRectangle(cornerRadius: FestiCoreRadius.r16)
+          .fill(FestiCoreSemanticColor.backgroundElevated.color)
+      }
+      .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
+      Text(store.isBearerMode
+        ? "지금 기수예요. 끄면 내 깃발이 목록·지도에서 숨겨지고, 프로필과 팔로워는 그대로 남아요."
+        : "지금 관객이에요. 켜면 내 깃발 프로필을 만들고 기수로 시작해요.")
+        .festiCoreFont(.baseFootnoteRegular)
+        .festiCoreLineBox(.baseFootnoteRegular)
+        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+        .fixedSize(
+          horizontal: false,
+          vertical: true
+        )
+        .padding(
+          .horizontal,
+          FestiCoreSpacing.paddingP4
+        )
+      if let message = store.bearerModeMessage {
+        Text(message)
+          .festiCoreFont(.baseFootnoteRegular)
+          .foregroundStyle(FestiCoreSemanticColor.statusNegative.color)
+          .padding(
+            .horizontal,
+            FestiCoreSpacing.paddingP4
+          )
+          .accessibilityAddTraits(.updatesFrequently)
+      }
+    }
+    .frame(
+      maxWidth: .infinity,
+      alignment: .leading
+    )
   }
 
   /// Figma More D: '내 깃발'(오른쪽 '기수') 아래 깃발 줄·기수 보드 열기·다른 페스티벌 깃발 만들기
