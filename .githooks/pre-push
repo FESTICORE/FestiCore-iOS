@@ -1,0 +1,11 @@
+#!/bin/sh
+# 보호 브랜치(main · develop)로 가는 push를 push 순간에 막는다. 명령 시작 뒤 다른 세션이 브랜치를 바꿔도 잡는다. (.claude/docs/harness.md)
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main | refs/heads/develop)
+      echo "[git 규칙] 보호 브랜치 ${remote_ref#refs/heads/}로 push하지 않습니다. feature 브랜치에서 PR로 머지하세요. 규칙: .claude/docs/git-workflow.md" >&2
+      exit 1
+      ;;
+  esac
+done
+exit 0

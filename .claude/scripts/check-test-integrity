@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+"""이슈 참조 없이 테스트를 끄는 표시를 막는다. (docs/agent/harness.md 자기개선 루프 · 평가 장치 보호)
+
+사용: .claude/scripts/check-test-integrity
+
+- 테스트를 끄면 검증이 통과해도 확인한 것이 없다(보상 해킹). 끌 때는 이유가 된 이슈를 같은 줄이나 바로 윗줄에 `#번호`로 적는다.
+- 조건부 건너뛰기(`XCTSkipIf` · `XCTSkipUnless`, `#if` 안의 표시, `if` · `guard` · `else` · `switch` 블록 안의 `XCTSkip`)는
+  실기기 · OS 버전처럼 정당한 이유가 많아 보지 않는다. 조건 없이 테스트를 끄는 표시만 막는다.
+"""
+import os
+import re
+import subprocess
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+# iOS Tests · UITests 폴더, Gradle 소스셋(test · commonTest · iosSimulatorArm64Test · testStageDebug …)
+TEST_PATH = re.compile(r"(^|/)[A-Za-z]*Tests/|(^|/)src/[A-Za-z0-9]*[Tt]est[A-Za-z0-9]*/")
+EXCLUDE = re.compile(r"(^|/)(build|Derived|\.build|\.gradle|DerivedData)/")
+MARKERS = [
+    ("XCTSkip", re.compile(r"\bXCTSkip\(")),
+    ("Swift Testing .enabled(if: false)", re.compile(r"\.enabled\(if:\s*false\s*[,)]")),
+    # 한정 이름은 테스트 프레임워크 것만 본다(@androidx.room.Ignore 같은 필드 어노테이션 제외)
+    ("@Ignore", re.compile(r"@((kotlin\.test|org\.junit)\.)?Ignore\b")),
+    ("@Disabled", re.compile(r"@(org\.junit\.jupiter\.api\.)?Disabled\b")),
+]
+# SwiftUI `.disabled(false)`와 구분하려고 @Test · @Suite 괄호 안의 .disabled(만 본다
+TRAIT_START = re.compile(r"@(Testing\.)?(Test|Suite)\s*\(")
+DISABLED_TRAIT = re.compile(r"\.disabled\(")
+ISSUE_REF = re.compile(r"#\d+")
+CONDITION = re.compile(r"\b(if|guard|else|switch|case|catch|while|for)\b(?!\s*:)")  # for: 같은 인자 레이블 제외
+STRING = re.compile(r'"(?:\\.|[^"\\])*"')
+BLOCK_COMMENT = re.compile(r"/\*.*?\*/")
+
+
+def test_files():
+    # 아직 추적하지 않은 파일(.gitignore 제외)도 커밋 전에 본다
+    out = subprocess.run(["git", "-C", ROOT, "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+                         capture_output=True, check=True).stdout
+    paths = [os.fsdecode(p) for p in out.split(b"\0") if p]
+    return [p for p in paths if p.endswith((".swift", ".kt")) and TEST_PATH.search(p) and not EXCLUDE.search(p)]
+
+
+def trait_text(code, depth):
+    """이 줄에서 @Test( · @Suite( 괄호 안에 든 글자와 줄 끝의 괄호 깊이를 돌려준다."""
+    out, i = [], 0
+    while i < len(code):
+        if not depth:
+            start = TRAIT_START.search(code, i)
+            if not start:
+                break
+            i = start.end()
+            depth = 1
+            continue
+        if code[i] == "(":
+            depth += 1
+        elif code[i] == ")":
+            depth -= 1
+        out.append(code[i])
+        i += 1
+    return "".join(out), depth
+
+
+def main():
+    problems = []
+    for path in test_files():
+        try:
+            with open(os.path.join(ROOT, path), encoding="utf-8") as f:
+                lines = f.read().splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        depth = 0  # @Test( · @Suite( 괄호 깊이. 여러 줄에 걸친 trait도 본다
+        if_depth = 0  # #if 영역 깊이
+        blocks = []  # 열린 { 마다 조건 블록인지
+        previous = ""
+        for i, line in enumerate(lines):
+            # 문자열(테스트 이름 · URL)과 주석 속 글자는 보지 않는다. 이슈 참조는 주석까지 본다
+            code = BLOCK_COMMENT.sub("", STRING.sub('""', line)).split("//", 1)[0]
+            stripped = code.strip()
+            if stripped.startswith("#if"):
+                if_depth += 1
+            elif stripped.startswith("#endif"):
+                if_depth = max(if_depth - 1, 0)
+            conditional = if_depth > 0
+            found = [name for name, pattern in MARKERS if pattern.search(code)
+                     and not (conditional and name in ("XCTSkip", "Swift Testing .enabled(if: false)"))]
+            trait, depth = trait_text(code, depth)
+            if DISABLED_TRAIT.search(trait) and not conditional:
+                found.append("Swift Testing .disabled")
+            for j, char in enumerate(code):
+                if char == "{":
+                    opener = code[:j]
+                    # 줄 첫 글자가 { 이거나 조건을 여러 줄로 나눴으면 윗줄까지 본다
+                    if not opener.strip() or previous.rstrip().endswith((",", "&&", "||", "(")):
+                        opener = previous + " " + opener
+                    blocks.append(bool(CONDITION.search(opener)))
+                elif char == "}" and blocks:
+                    blocks.pop()
+                elif char == "X" and code.startswith("XCTSkip(", j) and any(blocks) and "XCTSkip" in found:
+                    found.remove("XCTSkip")
+            if stripped:
+                previous = code
+            if found and not ISSUE_REF.search(line) and not (i and ISSUE_REF.search(lines[i - 1])):
+                problems.extend(f"{path}:{i + 1}: {name}" for name in found)
+    if problems:
+        print("이슈 참조 없이 테스트를 끈 곳이 있습니다. 테스트를 고치거나, 사용자 승인을 받은 뒤 "
+              "같은 줄 · 바로 윗줄에 이유가 된 이슈(#번호)를 적으세요:", file=sys.stderr)
+        for problem in problems:
+            print("  " + problem, file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

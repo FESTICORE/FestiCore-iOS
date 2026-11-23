@@ -5,6 +5,7 @@
 - 프롬프트 지시는 확률이고 실행되는 검사는 보장이다. 같은 실수가 반복되면 문서보다 검사로 막는다.
 - 세 축으로 관리한다. **Context**(무엇을 읽게 할지) · **Control**(무엇을 막고 확인할지) · **Observability**(무엇이 쓰이는지 보고 정리).
 - 규칙 파일은 200줄 미만으로 두고 경로별로 나눠 해당 파일을 다룰 때만 읽게 한다. 규칙은 Hard(반드시)와 Soft(기존 코드가 다르면 기존 코드)를 나눈다.
+- 평가 장치(verify · 검사 · 훅 · CI)는 고쳐지는 대상 밖에 둔다. 실패 기록으로 하네스를 고치되, 평가를 약하게 해서 통과하지 않는다(아래 자기개선 루프).
 
 ## 구성
 
@@ -18,9 +19,9 @@
 | 스킬 | `.claude/skills/*/SKILL.md` | 작업 순서 · 외부 Swift 스킬(출처는 `THIRD_PARTY_NOTICES.md`) | 작업이 스킬 설명과 맞을 때 |
 | 에이전트 | `.claude/agents/*.md` | 테스트 · PR 전용 에이전트 | 직접 부를 때 |
 | 훅 | `.claude/hooks/*` + `.claude/settings.json` | 규칙을 실행으로 강제 · 사용 기록 | 도구 실행 전후 · 응답 종료 시 |
-| 스크립트 | `.claude/scripts/verify` · `check-boundaries` · `check-security` · `file-header` · `harness-report` | 검증 · 모듈 경계 · 보안 · 새 파일 헤더 · 사용 리포트 | 직접 실행 · verify가 실행 |
+| 스크립트 | `.claude/scripts/verify` · `check-boundaries` · `check-security` · `check-test-integrity` · `file-header` · `harness-report` | 검증 · 모듈 경계 · 보안 · 테스트 끄기 검사 · 새 파일 헤더 · 사용 · 실패 리포트 | 직접 실행 · verify가 실행 |
 | MCP 서버 | `.mcp.json` (`chunkhound`) · `.chunkhound.json` | 로컬 코드 의미 검색([코드 검색](code-search.md)) | 에이전트가 필요할 때 |
-| 로컬 상태 | `.claude/state/` (git 제외) | 검증 기록(`verify.json`) · 검증 로그 · 사용 기록 | 훅 · 스크립트가 읽고 씀 |
+| 로컬 상태 | `.claude/state/` (git 제외) | 검증 기록(`verify.json`) · 검증 로그 · 사용 기록 · 검증 실행 기록(`verify-history.jsonl`) | 훅 · 스크립트가 읽고 씀 |
 
 `docs/`의 문서는 사람이 읽는 설계 · 운영 문서다. 에이전트 규칙은 `CLAUDE.md`와 `.claude/docs/`에만 둔다.
 
@@ -86,14 +87,18 @@ CLI에 연결된 공유 iOS 스킬(개인 환경의 스킬)은 현재 환경과 
 - 위반하면 `exit 2`와 stderr 메시지로 명령을 막는다. 고친 뒤 다시 실행한다.
 - 개인 전역 gitignore가 `.claude/`를 무시하면 새 하네스 파일은 `git add -f`로 올린다. 지문 계산은 전역 gitignore를 보지 않고 저장소 `.gitignore`만 적용한다.
 
-### git pre-commit 게이트 (`.githooks/pre-commit`)
+### git 훅 (`.githooks/`)
 
-Claude 훅은 `git commit` 명령만 보므로, 사람이 Xcode · 터미널에서 직접 커밋하거나 같은 명령 안에서 고친 뒤 `commit -a`하는 경우는 git 훅이 잡는다. `verify`가 실행될 때 `core.hooksPath`를 `.githooks`로 켠다.
+Claude 훅은 `git commit` 명령만 보고, 명령이 시작될 때 브랜치를 본다. 사람이 Xcode · 터미널에서 직접 커밋하거나, 같은 명령 안에서 고친 뒤 `commit -a`하거나, 명령 시작 뒤 같은 작업 트리를 쓰는 다른 세션이 브랜치를 바꾸는 경우는 git 훅이 잡는다. `verify`가 실행될 때 `core.hooksPath`를 `.githooks`로 켠다.
+
+`pre-commit`:
 
 1. `check-swift-conventions.py --staged`: 스테이징된 Swift 파일 규칙.
-2. `pre_commit_gate.py`: 커밋될 index의 코드 파일을 `verify.json`의 `code`(통과 시점 파일별 `모드 blob`)와 대조한다. 하나라도 다르면 막는다. 지운 파일은 verify 때도 지워져 있어야 한다. 통과 기록이 없거나 `code`가 없는 옛 기록이면 코드 커밋을 막는다. 문서(`.md` · `DesignExports/`)만 담은 커밋은 보지 않는다.
+2. `pre_commit_gate.py`: 커밋 순간 브랜치가 `develop` · `main`이면 막는다(전체 ref로 비교). 그다음 커밋될 index의 코드 파일을 `verify.json`의 `code`(통과 시점 파일별 `모드 blob`)와 대조한다. 하나라도 다르면 막는다. 지운 파일은 verify 때도 지워져 있어야 한다. 통과 기록이 없거나 `code`가 없는 옛 기록이면 코드 커밋을 막는다. 문서(`.md` · `DesignExports/`)만 담은 커밋은 보지 않는다.
 
 - 검증 뒤 작업 트리만 더 고치고 스테이징하지 않았다면, index가 검증 내용과 같으므로 커밋된다.
+- `pre-push`: push 대상이 `develop` · `main`이면 막는다. `pre-merge-commit`: 보호 브랜치에서 병합 커밋을 막는다(`pre_commit_gate.py --branch-only`).
+- 커밋 메시지를 편집하는 사이에 브랜치가 바뀌는 아주 짧은 틈은 남지만 push는 `pre-push`가 막는다.
 
 직접 검사 (Codex 등 Claude 훅이 없는 환경은 커밋 전에 실행한다):
 
@@ -115,6 +120,7 @@ python3 -m unittest discover -s .claude/hooks/tests < /dev/null
 | --- | --- | --- |
 | `.claude/hooks/` · `.claude/scripts/` · `.claude/settings.json` · `.githooks/` | harness-syntax · harness-tests | `bash -n`(훅 셸 · `.githooks`) · settings.json 파싱, `python3 -m unittest discover -s .claude/hooks/tests` |
 | 코드 변경 전체(`.github/workflows/` 포함) | security | `.claude/scripts/check-security` |
+| 코드 변경 전체 (PR CI에서도) | test-integrity | `.claude/scripts/check-test-integrity` (이슈 참조 없이 테스트를 끈 곳, 아래 평가 장치 보호) |
 | `Projects/` | boundaries | `.claude/scripts/check-boundaries` |
 | `*.swift` | swift-conventions | `python3 .claude/hooks/check-swift-conventions.py --base <develop 분기점>` |
 | `*.swift` | file-header | `.claude/scripts/file-header --base <develop 분기점>`(새로 추가한 Swift 파일만) |
@@ -126,6 +132,7 @@ python3 -m unittest discover -s .claude/hooks/tests < /dev/null
 - 모든 명령은 stdin을 `/dev/null`로 닫고 실행한다. 출력은 `.claude/state/verify/<단계>.log`에 남기고 단계별 · 전체 소요 시간을 출력한다. 종료 코드를 파이프로 가리지 않는다.
 - 통과하면 작업 트리 코드 내용의 지문과 코드 파일별 내용(`code`)을 `.claude/state/verify.json`에 남긴다. 커밋을 여러 개로 나눠도 내용이 같으면 다시 돌리지 않는다. 통과 후 코드를 한 줄이라도 고치면 다시 verify를 돌린다.
 - 같은 단계가 연속 2번 실패하면 세 번째 시도 전에 시도한 내용과 실패 원인을 사용자에게 보고하고 승인을 받는다.
+- 실행마다 단계 결과(실패한 단계는 이유와 로그 마지막 10줄)를 `.claude/state/verify-history.jsonl`에 한 줄씩 더한다. 단계 로그는 다음 실행이 덮어쓰지만 이 기록은 지우지 않는다.
 
 ### 보안 검사 (`check-security`)
 
@@ -161,10 +168,40 @@ python3 -m unittest discover -s .claude/hooks/tests < /dev/null
 ```
 
 - 문서 · 규칙 · 에이전트 · 스킬별 읽은 횟수와 마지막 사용일, 기간 안에 한 번도 쓰이지 않은 항목을 보여준다. 기록에는 경로와 스킬 이름만 남긴다.
+- verify 단계별 실패 / 실행 횟수와 마지막 실패 이유를 보여준다. 같은 단계가 반복해 실패하면 겪은 문제에 적을 후보다.
 - 오래 안 읽힌 문서는 합치거나 지우고, 동작하지 않는 스킬은 고친다. 정리는 이슈 · PR로 한다.
+
+## 자기개선 루프
+
+모델은 그대로 두고 하네스(문서 · 스킬 · 훅 · 검사)를 실패 기록으로 고친다. 참고: Lilian Weng "Harness Engineering for Self-Improvement"(Lil'Log, 2026-07-04)와 거기 인용된 ACE(플레이북을 항목 단위로 갱신) · AHE(평가자와 권한은 루프 밖, 고칠 때마다 반증 가능한 예측) · Self-Harness(하네스 변경은 회귀 확인 후 채택).
+
+| 단계 | 하는 일 | 도구 |
+| --- | --- | --- |
+| 관찰 | 무엇을 읽었고 어디서 실패했는지 남긴다. 실패한 시도도 지우지 않는다 | `usage.jsonl` · `verify-history.jsonl` · `harness-report` |
+| 회고 | 실패를 검증기가 본 증상, 에이전트가 한 행동, 그렇게 된 원인으로 나눠 적는다 | 겪은 문제 항목 |
+| 큐레이션 | 겪은 문제를 항목 단위로 더하고 합치고 지운다 | 아래 규칙 |
+| 강제 | 두 번째 같은 실수는 문서, 반복되면 훅 · 검사 | `.claude/hooks` · `.claude/scripts/check-*` |
+| 평가 | 하네스를 고친 변경이 의도한 실패를 막고 정상 작업을 깨지 않는지 확인 | 아래 PR 형식 · `.claude/hooks/tests` |
+
+### 겪은 문제 큐레이션
+
+- 항목 하나는 bullet 하나로 증상 → 원인 → 대처를 쓰고, 끝에 강제 수단(문서 · 훅 · 검사 이름)과 이슈 번호를 단다.
+- 항목 단위로만 고친다. 절 전체를 요약해 다시 쓰지 않는다. 요약하면 구체 사실(명령 · 옵션 · 이슈 번호)이 사라진다.
+- 더하기: 같은 원인의 실수가 두 번째거나, 처음이라도 다시 겪으면 비용이 큰 문제. 합치기: 원인이 같은 항목. 줄이기 · 지우기: 훅 · 검사가 막게 되면 검사 이름 참조로 줄이고, 원인이 사라지면 지우고 PR 본문에 이유를 적는다.
+
+### 평가 장치 보호
+
+- 평가 장치(`verify` · `.claude/scripts/check-*` · `.claude/hooks` · `.githooks` · `.github/workflows`)를 약하게 하는 변경(단계 삭제 · 조건 완화 · 실패를 성공으로)은 기능 PR에 섞지 않는다. 별도 PR로 이유를 적고 사람의 승인을 받는다.
+- 테스트를 꺼서 통과시키지 않는다. `check-test-integrity`가 테스트 파일의 `XCTSkip(` · `@Test`/`@Suite`의 `.disabled(` · `.enabled(if: false` · `@Ignore` · `@Disabled`에 이슈 참조가 없으면 verify와 PR CI(Swift Conventions)에서 실패시킨다. 꼭 꺼야 하면 사용자 승인을 받고 같은 줄이나 바로 윗줄에 이유가 된 이슈 `#번호`를 적는다. 조건부 건너뛰기(`XCTSkipIf` · `XCTSkipUnless`, `#if targetEnvironment(simulator)` 안의 표시, `if` · `guard` · `else` · `switch` 블록 안의 `XCTSkip`)는 실기기 · OS 조건처럼 정당한 경우가 많아 보지 않는다.
+- 한계: PR CI는 그 PR이 바꾼 검사 스크립트를 실행한다. `check-test-integrity`는 줄 단위 글자 검사라 여러 줄로 나눈 `.enabled(if:`, 여러 줄 주석 · 문자열 속 예시, 한 줄에 조건부와 무조건 `XCTSkip`이 함께 있는 형태는 잘못 판정할 수 있다. 두 경우 모두 리뷰가 마지막 확인이다.
+
+### 하네스를 고치는 PR
+
+PR 본문에 막으려는 실패 · 예상 회귀(오탐) · 확인 방법을 적는다. 다음 `harness-report`에서 예측이 맞았는지 본다.
 
 ## 겪은 문제와 한계
 
+- 같은 작업 트리를 쓰던 다른 세션이 `checkout develop` · `pull`을 한 7초 뒤 feature 브랜치용 커밋 · 푸시가 develop에서 실행됐다(CIRQLE-Native-Mobile, PreToolUse 훅은 명령 시작 때 브랜치를 봐서 못 막음) → 여러 세션이 동시에 일하면 세션마다 git worktree를 쓴다. 강제: `.githooks` `pre-commit` · `pre-push` · `pre-merge-commit` 보호 브랜치 검사
 - 검증 명령 뒤 `| tail`은 종료 코드를 가린다. 로그 파일로 남기고 종료 코드를 직접 본다.
 - `git stash`는 다른 세션의 변경을 날릴 수 있다. 지문 계산은 복사한 임시 index로 한다.
 - 훅 단위 검사만 통과하고 실제 세션에서는 동작하지 않을 수 있다. 훅을 바꾸면 실제로 막히는지 본다.
