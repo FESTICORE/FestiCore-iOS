@@ -177,11 +177,7 @@ private extension AccountSettingsView {
   var divider: some View {
     FestiCoreSemanticColor.lineNormal.color
       .frame(height: 1)
-      // Figma S13-D Divider: 좌우 16 안쪽(345)
-      .padding(
-        .horizontal,
-        FestiCoreSpacing.paddingP16
-      )
+      // Figma S13-D Divider: 카드 너비를 채운다(361)
   }
 
   func providerName(_ provider: String) -> String {
