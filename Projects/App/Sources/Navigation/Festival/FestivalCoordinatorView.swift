@@ -21,6 +21,7 @@ struct FestivalCoordinatorView: View {
           .swipeBackButtonHidden()
       case let .zoneMap(zoneMapStore):
         FestivalZoneMapView(store: zoneMapStore)
+          .swipeBackButtonHidden()
       case let .crew(crewStore):
         FestivalCrewView(store: crewStore)
           .swipeBackButtonHidden()
