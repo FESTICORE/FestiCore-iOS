@@ -326,10 +326,6 @@ private extension ProfileView {
   var rowDivider: some View {
     FestiCoreSemanticColor.lineNormal.color
       .frame(height: 1)
-      // Figma More Divider: 좌우 16 안쪽(345)
-      .padding(
-        .horizontal,
-        FestiCoreSpacing.paddingP16
-      )
+      // Figma More Divider: 카드 너비를 채운다(361)
   }
 }
