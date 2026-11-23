@@ -43,6 +43,8 @@ struct AuthFlowState: Equatable {
   var pendingCommitSessionID: UUID?
   var verifiedUserID: String?
   var lastVerifiedUserID: String?
+  /// 마이 '내 역할'에서 확정한 기수 모드. 그 전에 시작한 프로필 재조회가 늦게 와도 이 값을 지킨다.
+  var confirmedBearerMode: ConfirmedBearerMode?
   var hasSession = false
   /// 관찰 추적 접근자 대신 didSet을 유지하려고 추적에서 뺀다. 화면은 이 값을 직접 읽지 않는다.
   @ObservationStateIgnored
@@ -98,6 +100,15 @@ extension AuthFlowState {
   var showsSignUpCover: Bool {
     return !isLaunchFlow && (presentation == .onboarding || presentation == .bearerSetup)
   }
+}
+
+// MARK: - 기수 모드
+
+/// 기수 모드를 확정한 계정과 그때의 요청 세대
+struct ConfirmedBearerMode: Equatable {
+  let userID: String
+  let enabled: Bool
+  let generation: Int
 }
 
 // MARK: - 요청 세대

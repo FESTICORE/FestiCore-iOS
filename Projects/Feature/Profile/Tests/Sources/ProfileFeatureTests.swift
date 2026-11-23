@@ -476,9 +476,9 @@ struct ProfileFeatureTests {
     }
 
     await store.send(.view(.bearerModeToggled(true)))
-    await store.receive(\.async.setBearerMode) { $0.isBearerModeUpdating = true }
+    await store.receive(\.async.setBearerMode) { $0.bearerModeRequestUserID = "usr_me" }
     await store.receive(\.inner.bearerModeUpdated) {
-      $0.isBearerModeUpdating = false
+      $0.bearerModeRequestUserID = nil
       $0.profile = self.profile(bearerMode: true)
     }
     await store.receive(\.delegate.bearerModeUpdated)
@@ -508,9 +508,9 @@ struct ProfileFeatureTests {
     #expect(store.state.destination?.alert?.confirmTitle == "끄기")
     #expect(store.state.destination?.alert?.cancelTitle == "취소")
     await store.send(.destination(.presented(.alert(.confirmTapped)))) { $0.destination = nil }
-    await store.receive(\.async.setBearerMode) { $0.isBearerModeUpdating = true }
+    await store.receive(\.async.setBearerMode) { $0.bearerModeRequestUserID = "usr_me" }
     await store.receive(\.inner.bearerModeUpdated) {
-      $0.isBearerModeUpdating = false
+      $0.bearerModeRequestUserID = nil
       $0.profile = self.profile(bearerMode: false)
     }
     await store.receive(\.delegate.bearerModeUpdated)
@@ -547,9 +547,9 @@ struct ProfileFeatureTests {
     }
 
     await store.send(.view(.bearerModeToggled(true)))
-    await store.receive(\.async.setBearerMode) { $0.isBearerModeUpdating = true }
+    await store.receive(\.async.setBearerMode) { $0.bearerModeRequestUserID = "usr_me" }
     await store.receive(\.inner.bearerModeFailed) {
-      $0.isBearerModeUpdating = false
+      $0.bearerModeRequestUserID = nil
       $0.bearerModeMessage = ProfileFeature.bearerModeFailureMessage
     }
     #expect(!store.state.isBearerMode)
@@ -562,12 +562,190 @@ struct ProfileFeatureTests {
       bearerMode: false,
       flags: [ownedFlag()]
     )
-    updating.isBearerModeUpdating = true
+    updating.bearerModeRequestUserID = "usr_me"
     let busy = TestStore(initialState: updating) { ProfileFeature() }
     await busy.send(.view(.bearerModeToggled(true)))
 
     let guest = TestStore(initialState: ProfileFeature.State()) { ProfileFeature() }
     await guest.send(.view(.bearerModeToggled(true)))
+  }
+
+  @Test("내 깃발을 읽지 못한 채 켜면 목록을 다시 읽은 뒤, 소유 깃발이 있으면 기수 모드를 켠다")
+  func turnOnWaitsForFlagsThenCallsAPI() async {
+    var state = roleState(bearerMode: false)
+    state.bearerFlags = .failed
+    let flag = ownedFlag()
+    let store = TestStore(initialState: state) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.bearerUseCase = ProfileBearerUseCase(flags: { _ in return [flag] })
+      $0.authUseCase = ProfileAuthUseCase(onSetBearerMode: { enabled in return enabled })
+    }
+
+    await store.send(.view(.bearerModeToggled(true))) {
+      $0.isBearerModeOnPending = true
+      $0.bearerFlags = .loading
+    }
+    await store.receive(\.async.fetchBearerFlags)
+    await store.receive(\.inner.bearerFlagsLoaded) {
+      $0.bearerFlags = .loaded([flag])
+      $0.isBearerModeOnPending = false
+    }
+    await store.receive(\.async.setBearerMode) { $0.bearerModeRequestUserID = "usr_me" }
+    await store.receive(\.inner.bearerModeUpdated) {
+      $0.bearerModeRequestUserID = nil
+      $0.profile = self.profile(bearerMode: true)
+    }
+    await store.receive(\.delegate.bearerModeUpdated)
+  }
+
+  @Test("내 깃발 확인을 기다리는 동안 다시 켜도 아무것도 보내지 않는다")
+  func turnOnWhilePendingIsIgnored() async {
+    var state = roleState(bearerMode: false)
+    state.isBearerModeOnPending = true
+    state.bearerFlags = .loading
+    let store = TestStore(initialState: state) {
+      ProfileFeature()
+    }
+
+    #expect(store.state.isBearerModeUpdating)
+    await store.send(.view(.bearerModeToggled(true)))
+  }
+
+  @Test("내 깃발을 읽기 전에 켜고 목록에 소유 깃발이 없으면 API 없이 깃발 등록을 요청한다")
+  func turnOnWaitsForFlagsThenRequestsRegister() async {
+    let store = TestStore(initialState: roleState(bearerMode: false)) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.bearerUseCase = ProfileBearerUseCase(flags: { _ in return [] })
+    }
+
+    await store.send(.view(.bearerModeToggled(true))) {
+      $0.isBearerModeOnPending = true
+      $0.bearerFlags = .loading
+    }
+    await store.receive(\.async.fetchBearerFlags)
+    await store.receive(\.inner.bearerFlagsLoaded) {
+      $0.bearerFlags = .loaded([])
+      $0.isBearerModeOnPending = false
+    }
+    await store.receive(\.delegate.bearerRequested)
+  }
+
+  @Test("켜기를 기다리던 내 깃발 목록을 또 읽지 못하면 켜지 않고 오류를 보인다")
+  func turnOnPendingFlagsFailureShowsMessage() async {
+    let store = TestStore(initialState: roleState(bearerMode: false)) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.bearerUseCase = ProfileBearerUseCase(flags: { _ in throw BearerError.offline })
+    }
+
+    await store.send(.view(.bearerModeToggled(true))) {
+      $0.isBearerModeOnPending = true
+      $0.bearerFlags = .loading
+    }
+    await store.receive(\.async.fetchBearerFlags)
+    await store.receive(\.inner.bearerFlagsFailed) {
+      $0.isBearerModeOnPending = false
+      $0.bearerModeMessage = ProfileFeature.bearerModeFailureMessage
+      $0.bearerFlags = .failed
+    }
+    #expect(!store.state.isBearerMode)
+  }
+
+  @Test("로그아웃하면 진행 중인 기수 모드 요청을 버리고, 늦게 온 응답도 반영하지 않는다")
+  func logoutDropsLateBearerModeResponse() async {
+    var state = roleState(
+      bearerMode: false,
+      flags: [ownedFlag()]
+    )
+    state.bearerModeRequestUserID = "usr_me"
+    let store = TestStore(initialState: state) { ProfileFeature() }
+
+    await store.send(.view(.accountChanged(
+      profile: nil,
+      hasSession: false,
+      isLoading: false,
+      message: nil
+    ))) {
+      $0.bearerModeRequestUserID = nil
+      $0.profile = nil
+      $0.hasSession = false
+      $0.bearerFlags = .idle
+    }
+    await store.send(.inner(.bearerModeUpdated(
+      userID: "usr_me",
+      enabled: true
+    )))
+    await store.send(.inner(.bearerModeFailed(userID: "usr_me")))
+  }
+
+  @Test("다른 계정으로 바뀌면 이전 계정의 기수 모드 응답을 반영하지 않는다")
+  func accountSwitchDropsPreviousBearerModeResponse() async {
+    var state = roleState(
+      bearerMode: false,
+      flags: [ownedFlag()]
+    )
+    state.bearerModeRequestUserID = "usr_other"
+    let current = profile(bearerMode: false)
+    let store = TestStore(initialState: state) { ProfileFeature() }
+
+    await store.send(.view(.accountChanged(
+      profile: current,
+      hasSession: true,
+      isLoading: false,
+      message: nil
+    ))) {
+      $0.bearerModeRequestUserID = nil
+    }
+    await store.send(.inner(.bearerModeUpdated(
+      userID: "usr_other",
+      enabled: true
+    )))
+    #expect(store.state.profile?.bearerMode == false)
+  }
+
+  @Test("다른 계정으로 바뀌면 이전 계정의 켜기 대기를 버리고 새 계정 깃발을 다시 읽는다")
+  func accountSwitchDropsPendingTurnOn() async {
+    var state = roleState(bearerMode: false)
+    state.isBearerModeOnPending = true
+    state.bearerFlags = .loading
+    let other = AuthProfile(
+      user: AuthUser(
+        id: "usr_new",
+        provider: "apple",
+        email: nil,
+        nickname: "민지",
+        nicknameConfirmed: true,
+        termsAcceptedAt: "2026-10-30T00:00:00Z",
+        termsVersion: "2026-10",
+        pushOptIn: false,
+        profileImageURL: nil
+      ),
+      currentTermsVersion: "2026-10",
+      bearerMode: true
+    )
+    let store = TestStore(initialState: state) {
+      ProfileFeature()
+    } withDependencies: {
+      $0.bearerUseCase = ProfileBearerUseCase(flags: { _ in return [] })
+    }
+
+    await store.send(.view(.accountChanged(
+      profile: other,
+      hasSession: true,
+      isLoading: false,
+      message: nil
+    ))) {
+      $0.profile = other
+      $0.isBearerModeOnPending = false
+      $0.bearerFlags = .loading
+    }
+    await store.receive(\.async.fetchBearerFlags)
+    // 이전 계정의 켜기 대기가 남아 있지 않으므로 등록 흐름이나 켜기 요청을 보내지 않는다.
+    await store.receive(\.inner.bearerFlagsLoaded) {
+      $0.bearerFlags = .loaded([])
+    }
   }
 
   private func signedInState() -> ProfileFeature.State {

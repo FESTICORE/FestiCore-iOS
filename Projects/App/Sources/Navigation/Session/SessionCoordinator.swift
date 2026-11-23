@@ -32,7 +32,10 @@ struct SessionCoordinator {
     /// 마이에서 바꾼 프로필을 표시 이름에 바로 반영한다.
     case profileUpdated(AuthUser)
     /// 마이 '내 역할'에서 바꾼 기수 모드를 계정 정보에 바로 반영한다.
-    case bearerModeUpdated(Bool)
+    case bearerModeUpdated(
+      userID: String,
+      enabled: Bool
+    )
     /// 인증 만료 알림이나 계정 작업 중 인증 상실로 세션을 끝낸다.
     case sessionExpired
     /// 로그인 확정 뒤 열린 세대로 프로필을 읽는다.
@@ -144,12 +147,25 @@ extension SessionCoordinator {
       )
       return .none
 
-    case let .bearerModeUpdated(enabled):
-      guard let previous = state.profile else { return .none }
-      state.profile = AuthProfile(
-        user: previous.user,
-        currentTermsVersion: previous.currentTermsVersion,
-        bearerMode: enabled
+    case let .bearerModeUpdated(
+      userID,
+      enabled
+    ):
+      // 요청한 계정의 결과만 받는다. 재조회 중이라 프로필이 비어 있으면 마지막으로 확인한 계정과 비교한다.
+      guard state.hasSession,
+            (state.profile?.user.id ?? state.lastVerifiedUserID) == userID else { return .none }
+      if let previous = state.profile {
+        state.profile = AuthProfile(
+          user: previous.user,
+          currentTermsVersion: previous.currentTermsVersion,
+          bearerMode: enabled
+        )
+      }
+      // 지금 세대의 재조회 응답은 이 변경 전에 읽은 값일 수 있어 확정한 값으로 덮는다.
+      state.confirmedBearerMode = ConfirmedBearerMode(
+        userID: userID,
+        enabled: enabled,
+        generation: state.generation
       )
       return .none
 
@@ -313,12 +329,32 @@ private extension SessionCoordinator {
     )
   }
 
+  /// 기수 모드를 확정한 뒤 도착한 같은 세대의 응답은 확정한 값을 따른다. 새 세대의 응답은 서버 값을 따른다.
+  func keepingConfirmedBearerMode(
+    _ profile: AuthProfile,
+    state: inout State
+  ) -> AuthProfile {
+    defer { state.confirmedBearerMode = nil }
+    guard let confirmed = state.confirmedBearerMode,
+          confirmed.generation == state.generation,
+          confirmed.userID == profile.user.id else { return profile }
+    return AuthProfile(
+      user: profile.user,
+      currentTermsVersion: profile.currentTermsVersion,
+      bearerMode: confirmed.enabled
+    )
+  }
+
   func handleProfileLoaded(
     state: inout State,
     result: Result<AuthProfile, AuthDomainError>
   ) -> Effect<Action> {
     switch result {
-    case let .success(profile):
+    case let .success(loaded):
+      let profile = keepingConfirmedBearerMode(
+        loaded,
+        state: &state
+      )
       bookedStore.setOfflineEligible(
         profile.user.id,
         profile.isEligible

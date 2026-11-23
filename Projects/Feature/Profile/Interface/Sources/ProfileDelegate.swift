@@ -34,5 +34,8 @@ public enum ProfileDelegate: Equatable, Sendable {
   /// 닉네임을 바꿔 세션의 표시 이름을 갱신해야 한다.
   case profileUpdated(AuthUser)
   /// '내 역할' 토글로 바꾼 기수 모드를 세션의 계정 정보에 반영해야 한다.
-  case bearerModeUpdated(Bool)
+  case bearerModeUpdated(
+    userID: String,
+    enabled: Bool
+  )
 }

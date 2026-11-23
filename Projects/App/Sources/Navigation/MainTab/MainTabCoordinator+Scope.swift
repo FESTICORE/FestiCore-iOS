@@ -260,8 +260,14 @@ extension MainTabCoordinator {
     case let .profile(.delegate(.profileUpdated(user))):
       return .send(.session(.view(.profileUpdated(user))))
 
-    case let .profile(.delegate(.bearerModeUpdated(enabled))):
-      return .send(.session(.view(.bearerModeUpdated(enabled))))
+    case let .profile(.delegate(.bearerModeUpdated(
+      userID,
+      enabled
+    ))):
+      return .send(.session(.view(.bearerModeUpdated(
+        userID: userID,
+        enabled: enabled
+      ))))
 
     case .profile(.destination(.presented(.packDetail(.delegate(.packDeleted))))),
          .profile(.destination(.presented(.packDetail(.delegate(.packChanged))))):

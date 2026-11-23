@@ -35,8 +35,10 @@ public struct ProfileFeature {
     public var packLoad = PackLoad.idle
     /// More D 내 깃발. 로그인했을 때만 읽는다.
     public var bearerFlags = BearerFlagsLoad.idle
-    /// '내 역할' 토글로 기수 모드를 바꾸는 중이면 토글을 막는다.
-    public var isBearerModeUpdating = false
+    /// 기수 모드 변경을 요청한 계정. 요청 중이면 토글을 막고, 다른 계정의 응답은 버린다.
+    public var bearerModeRequestUserID: String?
+    /// 내 깃발 목록을 확인하기 전에 누른 켜기. 목록을 읽은 뒤 이어서 처리한다.
+    public var isBearerModeOnPending = false
     /// 기수 모드를 바꾸지 못했을 때 '내 역할' 그룹 아래에 보이는 오류
     public var bearerModeMessage: String?
     /// 아직 연결되지 않은 이동은 누를 수 없게 둔다.
@@ -52,6 +54,11 @@ public struct ProfileFeature {
     /// Figma More A·D: '내 역할' 그룹은 로그인해 계정 정보를 받았을 때만 맨 위에 둔다.
     public var showsRoleSection: Bool {
       return profile != nil
+    }
+
+    /// 요청 중이거나 내 깃발 확인을 기다리는 동안 토글을 막는다.
+    public var isBearerModeUpdating: Bool {
+      return bearerModeRequestUserID != nil || isBearerModeOnPending
     }
 
     /// '내 역할' 토글 값. 서버 기본값이 켜짐이라, 내가 소유한 깃발이 없다고 확인되면 관객으로 본다.
@@ -101,7 +108,7 @@ public struct ProfileFeature {
     case failed
   }
 
-  private enum CancelID { case packs, bearerFlags }
+  private enum CancelID { case packs, bearerFlags, bearerMode }
 
   @Reducer
   public enum Destination {
@@ -164,8 +171,11 @@ public struct ProfileFeature {
   public enum InnerAction: Equatable {
     case bearerFlagsLoaded([BearerOwnedFlag])
     case bearerFlagsFailed
-    case bearerModeUpdated(Bool)
-    case bearerModeFailed
+    case bearerModeUpdated(
+      userID: String,
+      enabled: Bool
+    )
+    case bearerModeFailed(userID: String)
     case packsLoaded([FestivalReceivedPack])
     /// 서버 목록으로 새 버전 여부를 갱신한 결과
     case packsRefreshed([FestivalReceivedPack])
@@ -220,28 +230,42 @@ extension ProfileFeature {
   ) -> Effect<Action> {
     switch action {
     case let .accountChanged(profile, hasSession, isLoading, message):
+      // 로그아웃하거나 다른 계정으로 바뀌면 진행 중인 기수 모드 요청을 버린다.
+      let otherAccount = profile.map { $0.user.id != state.bearerModeRequestUserID } ?? false
+      let cancelBearerMode: Effect<Action>
+      if state.bearerModeRequestUserID != nil, !hasSession || otherAccount {
+        state.bearerModeRequestUserID = nil
+        cancelBearerMode = .cancel(id: CancelID.bearerMode)
+      } else {
+        cancelBearerMode = .none
+      }
+      // 다른 계정으로 바뀌면 이전 계정의 깃발 조회와 켜기 대기를 버리고 새 계정 깃발을 다시 읽는다.
+      let previousUserID = state.profile?.user.id
+      let switchedAccount = previousUserID != nil && profile != nil && profile?.user.id != previousUserID
       let lostSession = state.hasSession && !hasSession
-      if lostSession {
+      let cancelBearerFlags: Effect<Action> = switchedAccount || lostSession
+        ? .cancel(id: CancelID.bearerFlags)
+        : .none
+      if switchedAccount {
         state.bearerFlags = .idle
+        state.isBearerModeOnPending = false
         state.bearerModeMessage = nil
       }
-      state.profile = profile
-      state.hasSession = hasSession
-      state.isLoading = isLoading
-      state.message = message
-      guard let settings = state.destination?.settings else { return .none }
-      // 계정 화면에서 로그아웃되면 설정 홈째로 닫고 마이로 돌아온다.
-      if lostSession, settings.destination?.account != nil {
-        state.destination = nil
-        return .none
-      }
-      // 설정 홈이 열려 있으면 계정 줄과 계정 화면이 같은 값을 보이게 전달한다.
-      return .send(.destination(.presented(.settings(.view(.accountChanged(
+      let applied = applyAccountChanged(
+        state: &state,
         profile: profile,
         hasSession: hasSession,
         isLoading: isLoading,
         message: message
-      ))))))
+      )
+      return .merge(
+        cancelBearerMode,
+        .concatenate(
+          cancelBearerFlags,
+          switchedAccount ? refreshBearerFlags(state: &state) : .none
+        ),
+        applied
+      )
 
     case .onAppear:
       analyticsUseCase.track(.screenView(
@@ -298,11 +322,13 @@ extension ProfileFeature {
         state.destination = .alert(Self.bearerModeOffAlert)
         return .none
       }
-      // 내 소유 깃발이 없으면 코드 없는 깃발 등록(S14 D)을 연다. 등록하면 서버가 기수 모드를 켠다.
-      if case let .loaded(flags) = state.bearerFlags, !flags.contains(where: { $0.isOwner }) {
-        return .send(.delegate(.bearerRequested))
+      // 내 깃발을 확인하기 전이면 켜기를 받아 두고 목록을 읽은 뒤 이어서 처리한다. 실패했던 목록은 다시 읽는다.
+      guard case let .loaded(flags) = state.bearerFlags else {
+        state.isBearerModeOnPending = true
+        guard state.bearerFlags != .loading else { return .none }
+        return refreshBearerFlags(state: &state)
       }
-      return .send(.async(.setBearerMode(true)))
+      return turnOnBearerMode(flags: flags)
 
     case .searchTapped:
       return .send(.delegate(.searchRequested))
@@ -357,14 +383,25 @@ extension ProfileFeature {
       )
 
     case .setBearerMode(let enabled):
-      state.isBearerModeUpdating = true
+      guard let userID = state.profile?.user.id else { return .none }
+      state.bearerModeRequestUserID = userID
       return .run { send in
         do {
-          await send(.inner(.bearerModeUpdated(try await authUseCase.setBearerMode(enabled: enabled))))
+          let bearerMode = try await authUseCase.setBearerMode(enabled: enabled)
+          await send(.inner(.bearerModeUpdated(
+            userID: userID,
+            enabled: bearerMode
+          )))
+        } catch is CancellationError {
+          return
         } catch {
-          await send(.inner(.bearerModeFailed))
+          await send(.inner(.bearerModeFailed(userID: userID)))
         }
       }
+      .cancellable(
+        id: CancelID.bearerMode,
+        cancelInFlight: true
+      )
 
     case .fetchPacks:
       return .run { send in
@@ -406,29 +443,48 @@ extension ProfileFeature {
     switch action {
     case .bearerFlagsLoaded(let flags):
       // 숨긴 깃발은 마이 카드에 올리지 않는다.
-      state.bearerFlags = .loaded(flags.filter { !$0.isHidden })
-      return .none
+      let visible = flags.filter { !$0.isHidden }
+      state.bearerFlags = .loaded(visible)
+      // 목록을 기다리던 켜기를 이어서 처리한다. 그사이 이미 켜졌으면 그대로 둔다.
+      guard state.isBearerModeOnPending else { return .none }
+      state.isBearerModeOnPending = false
+      guard state.profile != nil, !state.isBearerMode else { return .none }
+      return turnOnBearerMode(flags: visible)
 
     case .bearerFlagsFailed:
+      if state.isBearerModeOnPending {
+        state.isBearerModeOnPending = false
+        state.bearerModeMessage = Self.bearerModeFailureMessage
+      }
       // 이미 보여 준 깃발이 있으면 그대로 둔다.
       if case .loaded = state.bearerFlags { return .none }
       state.bearerFlags = .failed
       return .none
 
-    case .bearerModeUpdated(let enabled):
-      state.isBearerModeUpdating = false
-      guard let profile = state.profile else { return .none }
-      state.profile = AuthProfile(
-        user: profile.user,
-        currentTermsVersion: profile.currentTermsVersion,
-        bearerMode: enabled
-      )
+    case let .bearerModeUpdated(
+      userID,
+      enabled
+    ):
+      // 로그아웃·계정 전환 뒤 늦게 온 응답은 버린다.
+      guard state.bearerModeRequestUserID == userID else { return .none }
+      state.bearerModeRequestUserID = nil
+      if let profile = state.profile, profile.user.id == userID {
+        state.profile = AuthProfile(
+          user: profile.user,
+          currentTermsVersion: profile.currentTermsVersion,
+          bearerMode: enabled
+        )
+      }
       // 앱 세션의 계정 정보도 같은 값으로 맞춰, 다음 계정 상태 전달이 토글을 되돌리지 않게 한다.
-      return .send(.delegate(.bearerModeUpdated(enabled)))
+      return .send(.delegate(.bearerModeUpdated(
+        userID: userID,
+        enabled: enabled
+      )))
 
-    case .bearerModeFailed:
+    case .bearerModeFailed(let userID):
+      guard state.bearerModeRequestUserID == userID else { return .none }
       // 토글은 바뀌지 않은 계정 값을 그대로 따르므로 원래 자리로 돌아간다.
-      state.isBearerModeUpdating = false
+      state.bearerModeRequestUserID = nil
       state.bearerModeMessage = Self.bearerModeFailureMessage
       return .none
 
@@ -526,6 +582,45 @@ extension ProfileFeature {
     action: DelegateAction
   ) -> Effect<Action> {
     return .none
+  }
+
+  /// 계정 상태를 반영하고, 설정 홈이 열려 있으면 같은 값을 전달한다.
+  private func applyAccountChanged(
+    state: inout State,
+    profile: AuthProfile?,
+    hasSession: Bool,
+    isLoading: Bool,
+    message: String?
+  ) -> Effect<Action> {
+    let lostSession = state.hasSession && !hasSession
+    if lostSession {
+      state.bearerFlags = .idle
+      state.bearerModeMessage = nil
+      state.isBearerModeOnPending = false
+    }
+    state.profile = profile
+    state.hasSession = hasSession
+    state.isLoading = isLoading
+    state.message = message
+    guard let settings = state.destination?.settings else { return .none }
+    // 계정 화면에서 로그아웃되면 설정 홈째로 닫고 마이로 돌아온다.
+    if lostSession, settings.destination?.account != nil {
+      state.destination = nil
+      return .none
+    }
+    // 설정 홈이 열려 있으면 계정 줄과 계정 화면이 같은 값을 보이게 전달한다.
+    return .send(.destination(.presented(.settings(.view(.accountChanged(
+      profile: profile,
+      hasSession: hasSession,
+      isLoading: isLoading,
+      message: message
+    ))))))
+  }
+
+  /// 내 소유 깃발이 없으면 코드 없는 깃발 등록(S14 D)을 연다. 등록하면 서버가 기수 모드를 켠다.
+  private func turnOnBearerMode(flags: [BearerOwnedFlag]) -> Effect<Action> {
+    guard flags.contains(where: { $0.isOwner }) else { return .send(.delegate(.bearerRequested)) }
+    return .send(.async(.setBearerMode(true)))
   }
 
   /// 로그인했을 때만 내 깃발을 읽는다. 이미 보여 준 카드는 다시 읽는 동안 그대로 둔다.

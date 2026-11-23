@@ -421,7 +421,10 @@ struct BearerEntryRoutingTests {
     let store = TestStore(initialState: state) { MainTabCoordinator() }
     store.exhaustivity = .off
 
-    await store.send(.profileCoordinator(.profile(.delegate(.bearerModeUpdated(false)))))
+    await store.send(.profileCoordinator(.profile(.delegate(.bearerModeUpdated(
+      userID: "usr_me",
+      enabled: false
+    )))))
     await store.receive(\.session.view.bearerModeUpdated)
     #expect(store.state.authFlow.profile?.bearerMode == false)
     #expect(store.state.authFlow.profile?.user == profile.user)
