@@ -213,6 +213,15 @@ PR 본문에 막으려는 실패 · 예상 회귀(오탐) · 확인 방법을 �
 - `gh pr merge --squash`의 제목·본문은 훅이 검사하지 않는다. 스쿼시 머지 때 [Git/PR](git-workflow.md) 규칙대로 제목 한 줄(PR 제목 + ` (#PR번호)`)과 빈 본문을 지정하고 머지 후 커밋 메시지를 확인한다.
 - 따옴표 안의 `; git commit` 같은 문자열도 커밋으로 볼 수 있다(오탐). feature 브랜치에서 올바른 검증 기록이 있으면 통과한다.
 
+## 리드 워크플로와 코드 모드
+
+사용자 범위 플러그인 `roy`(claude-config)의 스킬과 에이전트를 이 저장소 규칙 위에서 쓴다.
+
+- 서브에이전트가 필요한 작업은 `roy:leadrun`으로 진행한다. 할 일 3~5개를 서로 같은 파일을 고치지 않게 나누고, 나눔을 사용자에게 확인받은 뒤 `.omc/leadrun/TASKS.md`(추적 안 함, 리드만 수정)에 적는다.
+- 할 일마다 이슈를 만들고 `lead-helper`를 워크트리에서 **한 번에 하나씩** 띄운다. 프롬프트에 기준 브랜치 `develop`, 브랜치 `feature/<작업명>`, 이슈 번호, 검증 명령 `.claude/scripts/verify`를 넣는다.
+- 도우미는 커밋까지만 한다. 푸시 · PR · 스쿼시 머지는 리드가 사용자 허락을 받은 뒤 [Git/PR](git-workflow.md) 규칙대로 한다.
+- MCP는 `roy:code-mode`로 스크립트에서 불러 필요한 결과만 받는다. 짧은 결과 1회 호출과 Figma · Tuist 같은 claude.ai/플러그인 커넥터는 직접 호출한다.
+
 ## Claude와 Codex
 
 - 규칙 원본은 `CLAUDE.md`와 `.claude/docs/` 하나다. `AGENTS.md`에는 규칙을 복사하지 않고 읽을 위치와 Claudex Loop 안내만 적는다.
