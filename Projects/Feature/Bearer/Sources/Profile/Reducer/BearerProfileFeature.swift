@@ -28,6 +28,8 @@ public struct BearerProfileFeature {
     public let flagID: String
     /// 코드로 막 기수가 된 경우. 제목과 저장 버튼 문구가 다르다.
     public let isNewBearer: Bool
+    /// 마이 내 깃발(More D)에서 연 수정(Figma S10 F). 참여 페스티벌을 잠가 보이고, 저장하면 완료 화면 없이 마이로 돌아간다.
+    public let isEditMode: Bool
     public var festivalName: String?
     public var zones: [BearerZone] = []
     public var isLoading: Bool
@@ -65,10 +67,17 @@ public struct BearerProfileFeature {
     @Presents public var destination: Destination.State?
 
     /// - Parameter profile: 코드 등록 응답의 프로필. 없으면 서버에서 읽는다.
-    public init(festivalID: String, flagID: String, profile: BearerFlagProfile? = nil, isNewBearer: Bool = false) {
+    public init(
+      festivalID: String,
+      flagID: String,
+      profile: BearerFlagProfile? = nil,
+      isNewBearer: Bool = false,
+      isEditMode: Bool = false
+    ) {
       self.festivalID = festivalID
       self.flagID = flagID
       self.isNewBearer = isNewBearer
+      self.isEditMode = isEditMode
       isLoading = profile == nil
       if let profile {
         apply(profile)
@@ -419,6 +428,8 @@ extension BearerProfileFeature {
     case .saved(let profile):
       state.isSaving = false
       state.isPlanEdited = false
+      // Figma S10 F: 마이에서 연 수정은 저장하면 바로 마이 D로 돌아간다.
+      guard !state.isEditMode else { return .send(.delegate(.closeRequested)) }
       state.savedProfile = profile
       return .none
 

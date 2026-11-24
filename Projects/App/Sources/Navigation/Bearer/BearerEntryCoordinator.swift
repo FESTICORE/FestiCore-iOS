@@ -49,7 +49,8 @@ struct BearerEntryCoordinator {
         ))
         : .profile(BearerProfileFeature.State(
           festivalID: festivalID,
-          flagID: flagID
+          flagID: flagID,
+          isEditMode: true
         ))
       routes = [.root(
         root,

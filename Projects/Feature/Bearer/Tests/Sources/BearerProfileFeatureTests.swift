@@ -139,6 +139,37 @@ struct BearerProfileFeatureTests {
     await store.receive(.delegate(.finished(flagID: "flg_1")))
   }
 
+  @Test("마이에서 연 수정(S10 F)은 저장하면 완료 화면 없이 바로 닫는다")
+  func editModeSaveCloses() async {
+    let saved = BearerFlagProfile(
+      id: "flg_1",
+      name: "호락호락"
+    )
+    var state = BearerProfileFeature.State(
+      festivalID: "fst_1",
+      flagID: "flg_1",
+      profile: BearerFlagProfile(
+        id: "flg_1",
+        name: "호락"
+      ),
+      isEditMode: true
+    )
+    state.name = "호락호락"
+    state.tags = [.slam]
+    let store = TestStore(initialState: state) {
+      BearerProfileFeature()
+    } withDependencies: {
+      $0.bearerUseCase = BearerUseCaseStub(updateProfile: { _, _ in
+        return saved
+      })
+    }
+
+    await store.send(.view(.saveTapped)) { $0.isSaving = true }
+    await store.receive(\.async.save)
+    await store.receive(\.inner.saved) { $0.isSaving = false }
+    await store.receive(.delegate(.closeRequested))
+  }
+
   @Test("오늘 계획을 다시 고르면 저장할 때 plan을 함께 보내고, 고르지 않았으면 보내지 않는다")
   func savesEditedPlan() async {
     let saved = BearerFlagProfile(

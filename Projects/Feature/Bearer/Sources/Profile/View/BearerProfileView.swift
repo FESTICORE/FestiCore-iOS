@@ -12,7 +12,7 @@ import FestiCoreSharedUI
 import PhotosUI
 import SwiftUI
 
-/// Figma S10 A~E 깃발 프로필 등록·수정과 저장 완료
+/// Figma S10 A~E 깃발 프로필 등록·수정과 저장 완료, S10 F 마이에서 연 프로필 수정
 @ViewAction(for: BearerProfileFeature.self)
 public struct BearerProfileView: View {
   @Bindable public var store: StoreOf<BearerProfileFeature>
@@ -50,7 +50,10 @@ public struct BearerProfileView: View {
 extension BearerProfileView {
   private var formContent: some View {
     VStack(spacing: .zero) {
-      FCTopBar(.back, title: "깃발 프로필")
+      FCTopBar(
+        .back,
+        title: store.isEditMode ? "프로필 수정" : "깃발 프로필"
+      )
         .onBack { send(.backTapped) }
       if store.isLoading {
         loadingContent
@@ -61,6 +64,9 @@ extension BearerProfileView {
             spacing: Metric.sectionSpacing
           ) {
             header
+            if store.isEditMode {
+              festivalSection()
+            }
             photoSection
             FCTextField(text: Binding(get: { store.name }, set: { send(.nameChanged($0)) }), placeholder: "예) 호락호락")
               .label("깃발 이름")
@@ -136,10 +142,31 @@ extension BearerProfileView {
         .festiCoreFont(.baseTitle2Bold)
         .festiCoreLineBox(.baseTitle2Bold)
         .foregroundStyle(FestiCoreSemanticColor.labelNormal.color)
-      Text("팔로워에게 보일 깃발 프로필이에요.\n언제든 고칠 수 있어요.")
+      Text(headerSubtitle)
         .festiCoreFont(.baseCalloutRegular)
         .festiCoreLineBox(.baseCalloutRegular)
         .foregroundStyle(FestiCoreSemanticColor.labelNeutral.color)
+    }
+  }
+
+  /// Figma S10 F Group · 페스티벌: 참여 페스티벌은 잠겨 있다(바꾸려면 새 깃발을 만든다).
+  @ViewBuilder
+  private func festivalSection() -> some View {
+    VStack(
+      alignment: .leading,
+      spacing: Metric.groupSpacing
+    ) {
+      sectionLabel(
+        "참여 페스티벌",
+        count: nil
+      )
+      BearerZoneButton(
+        name: store.festivalName ?? "참여 페스티벌",
+        isSelected: true
+      ) {}
+      .allowsHitTesting(false)
+      .accessibilityHint("참여 페스티벌은 바꿀 수 없어요")
+      helper("참여 페스티벌은 바꿀 수 없어요. 다른 페스티벌 깃발은 마이 > '다른 페스티벌 깃발 만들기'에서 새로 만들어요.")
     }
   }
 
@@ -387,13 +414,20 @@ extension BearerProfileView {
   }
 
   private var headerTitle: String {
+    if store.isEditMode { return "깃발 프로필 수정" }
     guard store.isNewBearer else { return "깃발 프로필을 고쳐요" }
     return "\(store.festivalName ?? "페스티벌") 기수가 됐어요"
+  }
+
+  private var headerSubtitle: String {
+    if store.isEditMode { return "팔로워에게 보이는 내 깃발이에요.\n고친 내용은 저장하면 바로 반영돼요." }
+    return "팔로워에게 보일 깃발 프로필이에요.\n언제든 고칠 수 있어요."
   }
 
   private var saveTitle: String {
     if store.isUploadingPhoto { return "사진 올리는 중이에요" }
     if store.isSaving { return "저장하는 중이에요" }
+    if store.isEditMode { return "저장" }
     return store.isNewBearer ? "등록하고 기수 시작하기" : "저장하기"
   }
 
