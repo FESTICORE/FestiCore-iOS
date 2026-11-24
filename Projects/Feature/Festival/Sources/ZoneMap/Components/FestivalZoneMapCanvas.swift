@@ -376,7 +376,7 @@ private extension FestivalZoneMapMarker {
     }
   }
 
-  /// 마커 원 지름. 크루는 FCAvatar small(28)에 흰 테두리 2를 두른다.
+  /// 마커 원 레이아웃 지름. 테두리 2는 바깥에 그려 보이는 지름은 4 크다.
   var circleSize: CGFloat {
     switch marker.kind {
     case .followedFlag: return Metric.followedSize
@@ -414,16 +414,11 @@ private extension FestivalZoneMapMarker {
       FCAvatar(badge.initial)
         .tint(badge.tint)
         .size(.small)
-        .padding(Metric.border)
-        .background(
-          FestiCoreSemanticColor.staticWhite.color,
-          in: Circle()
-        )
-        .overlay {
-          Circle().strokeBorder(
-            FestiCoreSemanticColor.staticWhite.color,
-            lineWidth: Metric.border
-          )
+        // Figma 테두리는 원 바깥(OUTSIDE) 2라 레이아웃은 28 그대로 두고 밖으로 그린다.
+        .background {
+          Circle()
+            .fill(FestiCoreSemanticColor.staticWhite.color)
+            .padding(-Metric.border)
         }
         .shadow(
           color: FestiCoreSemanticColor.staticalphaBlack20.color,
@@ -463,11 +458,11 @@ private extension FestivalZoneMapMarker {
         fill,
         in: Circle()
       )
-      .overlay {
-        Circle().strokeBorder(
-          stroke,
-          lineWidth: Metric.border
-        )
+      // Figma 테두리는 원 바깥(OUTSIDE) 2라 레이아웃 크기는 두고 밖으로 그린다.
+      .background {
+        Circle()
+          .fill(stroke)
+          .padding(-Metric.border)
       }
       .shadow(
         color: FestiCoreSemanticColor.staticalphaBlack20.color,
@@ -479,9 +474,9 @@ private extension FestivalZoneMapMarker {
   enum Metric {
     static let box: CGFloat = 40
     static let labeledWidth: CGFloat = 52
-    // Figma Map Marker: flag 36·flag-small 24, 원과 이름표 사이 8
+    // Figma Map Marker: flag 36·crew 28·flag-small 24(테두리 2는 바깥), 원과 이름표 사이 8
     static let followedSize: CGFloat = 36
-    static let crewSize: CGFloat = 32
+    static let crewSize: CGFloat = 28
     static let followedIcon: CGFloat = 16
     static let otherSize: CGFloat = 24
     static let otherIcon: CGFloat = 12
@@ -514,11 +509,11 @@ struct FestivalZoneMapCluster: View {
         FestiCoreSemanticColor.inverseBackground.color,
         in: Circle()
       )
-      .overlay {
-        Circle().strokeBorder(
-          FestiCoreSemanticColor.backgroundElevated.color,
-          lineWidth: Metric.border
-        )
+      // Figma 테두리는 원 바깥(OUTSIDE) 2다.
+      .background {
+        Circle()
+          .fill(FestiCoreSemanticColor.backgroundElevated.color)
+          .padding(-Metric.border)
       }
       .shadow(
         color: FestiCoreSemanticColor.staticalphaBlack20.color,
