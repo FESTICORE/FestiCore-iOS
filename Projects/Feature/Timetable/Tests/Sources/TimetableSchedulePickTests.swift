@@ -31,6 +31,189 @@ struct TimetableSchedulePickTests {
     }
   }
 
+  @Test func unavailableScheduleLoadKeepsPickerClosed() async {
+    let store = makeStore(
+      readyState(mine: ["lime"]),
+      save: { _, _, _ throws(FestivalScheduleError) in
+        Issue.record("조회 실패로 일정을 저장하면 안 된다")
+        throw .unavailable
+      },
+      fetch: { _ throws(FestivalScheduleError) in
+        throw .unavailable
+      }
+    )
+
+    await store.send(.view(.timetableAppeared)) {
+      $0.scheduleSync = .loading
+      $0.loadRequestID = 1
+    }
+    await store.receive(\.async.fetchSchedule)
+    await store.receive(\.inner.scheduleLoaded) {
+      $0.scheduleSync = .localOnly
+    }
+    #expect(!store.state.canPickSchedule)
+    #expect(store.state.mySetIDs == ["lime"])
+    await store.send(.view(.schedulePickTapped))
+  }
+
+  @Test func retryLoadsServerScheduleBeforeOpeningPickerWithoutSavingLocalEdits() async {
+    let clock = TestClock()
+    let attempts = LockIsolated(0)
+    let store = makeStore(
+      readyState(mine: ["lime"]),
+      save: { _, _, _ throws(FestivalScheduleError) in
+        Issue.record("재조회는 기기의 선택을 서버에 저장하면 안 된다")
+        throw .unavailable
+      },
+      fetch: { _ throws(FestivalScheduleError) in
+        let attempt = attempts.withValue { value in
+          value += 1
+          return value
+        }
+        if attempt == 1 { throw .unavailable }
+        try? await clock.sleep(for: .seconds(1))
+        return FestivalSchedule(setIDs: ["noise", "removed-from-pack"])
+      }
+    )
+
+    await store.send(.view(.timetableAppeared)) {
+      $0.scheduleSync = .loading
+      $0.loadRequestID = 1
+    }
+    await store.receive(\.async.fetchSchedule)
+    await store.receive(\.inner.scheduleLoaded) {
+      $0.scheduleSync = .localOnly
+    }
+    #expect(store.state.canRetrySchedule)
+    #expect(!store.state.canPickSchedule)
+    await store.send(.view(.schedulePickTapped))
+
+    await store.send(.view(.scheduleRetryTapped)) {
+      $0.scheduleSync = .loading
+      $0.loadRequestID = 2
+    }
+    await store.receive(\.async.fetchSchedule)
+    #expect(!store.state.canRetrySchedule)
+    await store.send(.view(.scheduleRetryTapped))
+    await store.send(.view(.schedulePickTapped))
+    await clock.advance(by: .seconds(1))
+    await store.receive(\.inner.scheduleLoaded) {
+      $0.mySetIDs = ["noise"]
+      $0.scheduleSync = .ready
+    }
+    #expect(attempts.value == 2)
+    #expect(store.state.canPickSchedule)
+    #expect(!store.state.canRetrySchedule)
+    await store.send(.view(.schedulePickTapped)) {
+      $0.destination = .schedulePick(SchedulePickFeature.State(
+        festivalID: "fst",
+        days: $0.days,
+        selectedSetIDs: ["noise"]
+      ))
+    }
+  }
+
+  @Test func retryReplacesDeviceOnlyEditsWithNonemptyServerSelection() async {
+    var state = readyState()
+    state.scheduleSync = .localOnly
+    // 조회 실패 후 기기에서만 바꾼 선택을 가진 상태에서 시작한다.
+    state.mySetIDs = ["lime"]
+    let store = makeStore(
+      state,
+      save: { _, _, _ throws(FestivalScheduleError) in
+        Issue.record("기기에서만 바꾼 선택을 재조회 중 저장하면 안 된다")
+        throw .unavailable
+      },
+      fetch: { _ throws(FestivalScheduleError) in
+        return FestivalSchedule(setIDs: ["noise"])
+      }
+    )
+    await store.send(.view(.scheduleRetryTapped)) {
+      $0.scheduleSync = .loading
+      $0.loadRequestID = 1
+    }
+    await store.receive(\.async.fetchSchedule)
+    await store.receive(\.inner.scheduleLoaded) {
+      $0.mySetIDs = ["noise"]
+      $0.scheduleSync = .ready
+    }
+    await store.send(.view(.schedulePickTapped)) {
+      $0.destination = .schedulePick(SchedulePickFeature.State(
+        festivalID: "fst",
+        days: $0.days,
+        selectedSetIDs: ["noise"]
+      ))
+    }
+  }
+
+  @Test(arguments: [FestivalScheduleError.unavailable, .unauthorized, .rejected])
+  func failedRetryKeepsLocalSelectionAndAllowsAnotherAttempt(error: FestivalScheduleError) async {
+    var state = readyState(mine: ["lime"])
+    state.scheduleSync = .localOnly
+    let attempts = LockIsolated(0)
+    let store = makeStore(
+      state,
+      save: { _, _, _ throws(FestivalScheduleError) in
+        Issue.record("실패한 재조회로 저장하면 안 된다")
+        throw .unavailable
+      },
+      fetch: { _ throws(FestivalScheduleError) in
+        attempts.withValue { $0 += 1 }
+        throw error
+      }
+    )
+
+    for requestID in 1...2 {
+      await store.send(.view(.scheduleRetryTapped)) {
+        $0.scheduleSync = .loading
+        $0.loadRequestID = requestID
+      }
+      await store.receive(\.async.fetchSchedule)
+      await store.receive(\.inner.scheduleLoaded) {
+        $0.scheduleSync = .localOnly
+      }
+      #expect(store.state.canRetrySchedule)
+      #expect(!store.state.canPickSchedule)
+      #expect(store.state.mySetIDs == ["lime"])
+      await store.send(.view(.schedulePickTapped))
+    }
+    #expect(attempts.value == 2)
+  }
+
+  @Test func retryIsIgnoredOutsideSafeLocalOnlyState() async {
+    var base = readyState()
+    base.scheduleSync = .localOnly
+    var missingFestival = base
+    missingFestival.festivalID = nil
+    var unpublished = base
+    unpublished.contentStatus = .unpublished
+    var saving = base
+    saving.isSaving = true
+    var uncertain = base
+    uncertain.uncertainSave = TimetableFeature.ScheduleSave(
+      setIDs: [],
+      clientAt: now,
+      generation: 0
+    )
+    var idle = base
+    idle.scheduleSync = .idle
+    var loading = base
+    loading.scheduleSync = .loading
+    let states = [missingFestival, unpublished, saving, uncertain, opened(base), idle, loading, readyState()]
+
+    for state in states {
+      let store = makeStore(
+        state,
+        save: { _, _, _ throws(FestivalScheduleError) in
+          Issue.record("재조회 금지 상태에서 저장하면 안 된다")
+          throw .unavailable
+        }
+      )
+      #expect(!store.state.canRetrySchedule)
+      await store.send(.view(.scheduleRetryTapped))
+    }
+  }
+
   @Test func tappingButtonWhileLoadingScheduleDoesNotOpen() async {
     var state = readyState()
     state.scheduleSync = .loading

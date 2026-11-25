@@ -116,6 +116,12 @@ public struct TimetableFeature {
       return festivalID != nil && isPublished && scheduleSync == .ready && !isSaving
     }
 
+    /// 서버 일정을 다시 읽어도 저장 중인 선택에 영향을 주지 않는지.
+    public var canRetrySchedule: Bool {
+      return festivalID != nil && isPublished && scheduleSync == .localOnly
+        && !isSaving && destination == nil && uncertainSave == nil
+    }
+
     public var mySetCount: Int {
       return selectedDay?.sets.count { mySetIDs.contains($0.id) } ?? 0
     }
@@ -241,6 +247,7 @@ public struct TimetableFeature {
     case enablePackNotifications
     case notifyTapped
     case schedulePickTapped
+    case scheduleRetryTapped
     /// 부모가 선택한 축제를 알린다. 팩이 없으면 nil이다.
     case festivalChanged(String?)
     /// 부모가 인증 계정이 바뀌거나 세션을 잃었다고 알린다.
@@ -422,6 +429,10 @@ extension TimetableFeature {
     case .notifyTapped:
       return .send(.delegate(.requestNotification))
 
+    case .scheduleRetryTapped:
+      guard state.canRetrySchedule else { return .none }
+      return loadSchedule(state: &state)
+
     case .schedulePickTapped:
       guard state.destination == nil, state.canPickSchedule, let festivalID = state.festivalID else { return .none }
       state.destination = .schedulePick(SchedulePickFeature.State(
@@ -583,9 +594,9 @@ extension TimetableFeature {
 
     case let .clockUpdated(date):
       updateClock(
-          state: &state,
-          date: date
-        )
+        state: &state,
+        date: date
+      )
       return .none
 
     case let .scheduleLoaded(festivalID, requestID, result):

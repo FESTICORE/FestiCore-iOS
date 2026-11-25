@@ -163,29 +163,73 @@ private extension TimetableView {
   }
 
   var filter: some View {
-    return HStack {
-      FCChip("내 일정만") {
-        send(.mineOnlyToggled)
+    return VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP8
+    ) {
+      HStack {
+        FCChip("내 일정만") {
+          send(.mineOnlyToggled)
+        }
+        .isSelected(store.showsMineOnly)
+        Spacer()
+        Button {
+          send(store.scheduleSync == .localOnly ? .scheduleRetryTapped : .schedulePickTapped)
+        } label: {
+          Text(scheduleButtonTitle)
+            .festiCoreFont(.baseFootnoteRegular)
+            .festiCoreLineBox(.baseFootnoteRegular)
+            .foregroundStyle(scheduleButtonColor)
+        }
+        .buttonStyle(.plain)
+        .disabled(store.scheduleSync == .localOnly ? !store.canRetrySchedule : !store.canPickSchedule)
+        .accessibilityLabel(
+          store.scheduleSync == .localOnly || store.scheduleSync == .loading
+            ? scheduleButtonTitle : "내 일정 고르기"
+        )
+        .accessibilityHint(store.scheduleSync == .localOnly ? scheduleRetryHint : "")
       }
-      .isSelected(store.showsMineOnly)
-      Spacer()
-      Button {
-        send(.schedulePickTapped)
-      } label: {
-        Text(store.visibleOverlaps.isEmpty ? "내 일정 \(store.mySetCount)개" : "겹치는 일정 \(store.visibleOverlaps.count)개")
+      if store.scheduleSync == .localOnly {
+        Text(scheduleRetryHint)
+          .accessibilityHidden(true)
           .festiCoreFont(.baseFootnoteRegular)
-          .festiCoreLineBox(.baseFootnoteRegular)
-          .foregroundStyle(
-            store.visibleOverlaps.isEmpty
-              ? FestiCoreSemanticColor.labelAssistive.color
-              : FestiCoreSemanticColor.accentPointOrange.color
+          .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+          .fixedSize(
+            horizontal: false,
+            vertical: true
           )
       }
-      .buttonStyle(.plain)
-      .disabled(!store.canPickSchedule)
-      .accessibilityLabel("내 일정 고르기")
     }
     .padding(FestiCoreSpacing.paddingP16)
+  }
+
+  var scheduleButtonColor: Color {
+    switch store.scheduleSync {
+    case .localOnly:
+      return store.canRetrySchedule
+        ? FestiCoreSemanticColor.accentPointOrange.color : FestiCoreSemanticColor.labelAssistive.color
+    case .loading:
+      return FestiCoreSemanticColor.labelAssistive.color
+    case .idle, .ready:
+      return store.visibleOverlaps.isEmpty
+        ? FestiCoreSemanticColor.labelAssistive.color : FestiCoreSemanticColor.accentPointOrange.color
+    }
+  }
+
+  var scheduleButtonTitle: String {
+    switch store.scheduleSync {
+    case .localOnly:
+      return "내 일정 다시 불러오기"
+    case .loading:
+      return "내 일정 불러오는 중"
+    case .idle, .ready:
+      return store.visibleOverlaps.isEmpty
+        ? "내 일정 \(store.mySetCount)개" : "겹치는 일정 \(store.visibleOverlaps.count)개"
+    }
+  }
+
+  var scheduleRetryHint: String {
+    return "로그인과 연결을 확인해 주세요. 기기에만 반영한 일정은 서버 일정으로 바뀌어요."
   }
 }
 
