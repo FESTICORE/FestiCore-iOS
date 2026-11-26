@@ -161,6 +161,38 @@ extension FlagCoordinator {
         )
       )
 
+    case let .routeAction(
+      id: _,
+      action: .detail(.delegate(.festivalTransferRequested(
+        flagID,
+        festivalID
+      )))
+    ):
+      state.routes.push(.festivalTransfer(BearerFestivalTransferFeature.State(
+        flagID: flagID,
+        fromFestivalID: festivalID
+      )))
+      return .none
+
+    // MARK: 다른 페스티벌로 옮기기
+    case .routeAction(
+      id: _,
+      action: .festivalTransfer(.delegate(.backRequested))
+    ):
+      state.routes.goBack()
+      return .none
+
+    case .routeAction(
+      id: _,
+      action: .festivalTransfer(.delegate(.transferred))
+    ):
+      state.routes.goBack()
+      guard let index = state.routes.lastIndex(where: { $0.screen.is(\.detail) }) else { return .none }
+      return .send(.router(.routeAction(
+        id: index,
+        action: .detail(.view(.festivalTransferred))
+      )))
+
     default:
       return .none
     }
@@ -218,6 +250,8 @@ extension FlagCoordinator {
   enum FlagScreen {
     case directory(FestivalFlagFeature)
     case detail(FestivalFlagDetailFeature)
+    /// 깃발 상세 메뉴의 다른 페스티벌로 옮기기
+    case festivalTransfer(BearerFestivalTransferFeature)
   }
 }
 

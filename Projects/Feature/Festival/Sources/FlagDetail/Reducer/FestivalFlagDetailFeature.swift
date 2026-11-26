@@ -5,6 +5,7 @@
 //  Created by FestiCore on 11/7/26.
 //
 
+import BearerDomainInterface
 import ComposableArchitecture
 import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
@@ -40,6 +41,7 @@ public struct FestivalFlagDetailFeature {
       case alreadyReported
       case reportFailed
       case pinFailed
+      case transferred
     }
 
     /// 팔로우 응답으로 바뀐 값. 다음 조회 결과가 오면 비운다.
@@ -63,6 +65,8 @@ public struct FestivalFlagDetailFeature {
     public var isOffline = false
     public var isFollowPending = false
     public var isReportPending = false
+    /// 내가 원래 기수이고 공동 기수가 없을 때 깃발의 지금 페스티벌. 있으면 '다른 페스티벌로 옮기기'를 보인다.
+    public var transferFestivalID: String?
     public var toast: Toast?
     public var now: Date
     @Presents public var destination: Destination.State?
@@ -102,6 +106,9 @@ public struct FestivalFlagDetailFeature {
     case backTapped
     case lockScreenToggled(Bool)
     case reportTapped
+    case transferTapped
+    /// 부모가 이동 완료를 알린다. 새 페스티벌 값으로 다시 불러온다.
+    case festivalTransferred
     /// 부모가 축제 팩·내 일정·계정이 바뀌었을 때 보내는 새 표시 입력.
     case contextChanged(FestivalFlagDetailContext)
   }
@@ -125,7 +132,8 @@ public struct FestivalFlagDetailFeature {
     case loaded(
       generation: Int,
       detail: FestivalFlagDetail,
-      at: Date
+      at: Date,
+      transferFestivalID: String?
     )
     case loadFailed(
       generation: Int,
@@ -167,6 +175,7 @@ public struct FestivalFlagDetailFeature {
 
   @Dependency(\.festivalFlagDetailUseCase) private var detailUseCase
   @Dependency(\.festivalFlagUseCase) private var flagUseCase
+  @Dependency(\.bearerUseCase) private var bearerUseCase
   @Dependency(\.date) private var date
   @Dependency(\.continuousClock) private var clock
   @Dependency(\.analyticsUseCase) private var analyticsUseCase
@@ -273,6 +282,22 @@ extension FestivalFlagDetailFeature {
       state.destination = .report(FestivalFlagReportFeature.State())
       return .none
 
+    case .transferTapped:
+      guard state.showsTransferMenu, let festivalID = state.transferFestivalID else { return .none }
+      return .send(.delegate(.festivalTransferRequested(
+        flagID: state.flagID,
+        festivalID: festivalID
+      )))
+
+    case .festivalTransferred:
+      // 옮긴 페스티벌 기준 메뉴 노출은 다시 받은 값으로 정한다.
+      state.transferFestivalID = nil
+      state.loadGeneration += 1
+      return .merge(
+        .send(.async(.load(generation: state.loadGeneration))),
+        .send(.async(.showToast(.transferred)))
+      )
+
     case let .contextChanged(context):
       let isAccountChanged = context.hasSession != state.context.hasSession
         || context.accountID != state.context.accountID
@@ -287,6 +312,7 @@ extension FestivalFlagDetailFeature {
     state.followOverride = nil
     state.isFollowPending = false
     state.isReportPending = false
+    state.transferFestivalID = nil
     state.pin = State.PinState()
     state.destination = nil
     state.content = .loading
@@ -311,13 +337,21 @@ extension FestivalFlagDetailFeature {
     switch action {
     case let .load(generation):
       let flagID = state.flagID
-      return .run { [detailUseCase, date] send in
+      let hasSession = state.context.hasSession
+      return .run { [detailUseCase, bearerUseCase, date] send in
         do {
           let detail = try await detailUseCase.detail(flagID: flagID)
+          let transferFestivalID = hasSession
+            ? await Self.transferFestivalID(
+              flagID: flagID,
+              bearerUseCase: bearerUseCase
+            )
+            : nil
           await send(.inner(.loaded(
             generation: generation,
             detail: detail,
-            at: date.now
+            at: date.now,
+            transferFestivalID: transferFestivalID
           )))
         } catch let error as FestivalFlagDetailError {
           await send(.inner(.loadFailed(
@@ -438,10 +472,12 @@ extension FestivalFlagDetailFeature {
     case let .loaded(
       generation,
       detail,
-      at
+      at,
+      transferFestivalID
     ):
       guard generation == state.loadGeneration else { return .none }
       state.content = .loaded(detail)
+      state.transferFestivalID = transferFestivalID
       state.lastLoadedAt = at
       state.now = at
       state.isOffline = false
@@ -629,6 +665,11 @@ extension FestivalFlagDetailFeature.State {
     return pin.override ?? detail?.isPinned ?? (context.pinnedFlagID == flagID)
   }
 
+  /// '다른 페스티벌로 옮기기'는 내가 원래 기수이고 공동 기수가 없는 깃발을 연결된 상태에서 볼 때만 보인다.
+  public var showsTransferMenu: Bool {
+    return detail != nil && transferFestivalID != nil && !isOffline
+  }
+
   /// "잠금화면에 표시"는 로그인해 팔로우 중인 깃발에만 보인다.
   public var showsLockScreenToggle: Bool {
     return detail != nil && context.hasSession && isFollowing
@@ -726,5 +767,22 @@ extension FestivalFlagDetailFeature.State {
   ) -> FestivalFlagDetailPlanRow.Timing {
     if isEnded || performance.endsAt <= now { return .past }
     return performance.startsAt <= now ? .now : .upcoming
+  }
+}
+
+// MARK: - 다른 페스티벌로 옮기기
+
+extension FestivalFlagDetailFeature {
+  /// 내가 원래 기수이고 공동 기수가 없으면 깃발의 지금 페스티벌을 돌려준다. 확인하지 못하면 메뉴를 숨기도록 nil이다.
+  static func transferFestivalID(
+    flagID: String,
+    bearerUseCase: any BearerUseCaseInterface
+  ) async -> String? {
+    guard let owned = try? await bearerUseCase.fetchBearerFlags(festivalID: nil)
+      .first(where: { $0.id == flagID }),
+      owned.isOwner,
+      let board = try? await bearerUseCase.fetchBoard(flagID: flagID),
+      board.coBearers.isEmpty else { return nil }
+    return owned.festivalID
   }
 }

@@ -1,3 +1,4 @@
+import BearerDomainInterface
 import ComposableArchitecture
 import FestiCoreAnalyticsInterface
 import FestivalDomainInterface
@@ -98,7 +99,8 @@ struct FestivalFlagDetailFeatureTests {
     await store.send(.inner(.loaded(
       generation: 7,
       detail: Self.detail(),
-      at: Self.now
+      at: Self.now,
+      transferFestivalID: nil
     )))
     #expect(store.state.content == .loading)
     await store.send(.inner(.loadFailed(
@@ -608,6 +610,135 @@ struct FestivalFlagDetailFeatureTests {
     let failure: FestivalFlagDetailFeature.State.Failure
   }
 
+  // MARK: - 다른 페스티벌로 옮기기
+
+  @Test("내가 원래 기수이고 공동 기수가 없으면 옮기기 메뉴를 보인다")
+  func showsTransferMenuForSoleOwner() async {
+    let store = makeStore(bearerUseCase: FestivalBearerUseCaseStub(
+      flags: { _ in return [Self.ownedFlag(isOwner: true)] },
+      board: { flagID in
+        #expect(flagID == "flg_1")
+        return Self.board(coBearers: [])
+      }
+    ))
+    store.exhaustivity = .off
+
+    await store.send(.view(.onAppear))
+    await store.receive(\.inner.loaded) {
+      $0.transferFestivalID = "fst_wonder"
+    }
+    #expect(store.state.showsTransferMenu)
+    await store.send(.view(.onDisappear))
+  }
+
+  @Test("공동 기수가 있거나 원래 기수가 아니거나 내 깃발이 아니면 옮기기 메뉴를 숨긴다")
+  func hidesTransferMenu() async {
+    let cases: [FestivalBearerUseCaseStub] = [
+      FestivalBearerUseCaseStub(
+        flags: { _ in return [Self.ownedFlag(isOwner: true)] },
+        board: { _ in
+          return Self.board(coBearers: [BearerCoBearer(
+            userID: "usr_2",
+            nickname: "둘째"
+          )])
+        }
+      ),
+      // 공동 기수는 보드를 읽지 않는다(읽으면 미등록 대역이 실패시킨다).
+      FestivalBearerUseCaseStub(flags: { _ in return [Self.ownedFlag(isOwner: false)] }),
+      FestivalBearerUseCaseStub(flags: { _ in return [] }),
+      FestivalBearerUseCaseStub(flags: { _ in throw BearerError.offline }),
+    ]
+    for bearerUseCase in cases {
+      let store = makeStore(bearerUseCase: bearerUseCase)
+      store.exhaustivity = .off
+
+      await store.send(.view(.onAppear))
+      await store.receive(\.inner.loaded)
+      #expect(store.state.transferFestivalID == nil)
+      #expect(!store.state.showsTransferMenu)
+      await store.send(.view(.onDisappear))
+    }
+  }
+
+  @Test("로그인하지 않았으면 기수 깃발을 읽지 않는다")
+  func guestSkipsOwnership() async {
+    let store = makeStore(
+      state: Self.state(hasSession: false),
+      bearerUseCase: FestivalBearerUseCaseStub(flags: { _ in
+        Issue.record("비로그인인데 기수 깃발을 읽었다")
+        return []
+      })
+    )
+    store.exhaustivity = .off
+
+    await store.send(.view(.onAppear))
+    await store.receive(\.inner.loaded)
+    #expect(store.state.transferFestivalID == nil)
+    await store.send(.view(.onDisappear))
+  }
+
+  @Test("옮기기를 누르면 부모에 지금 페스티벌과 함께 축제 고르기를 요청한다")
+  func transferTappedRequestsPicker() async {
+    var state = Self.state()
+    state.content = .loaded(Self.detail())
+    state.transferFestivalID = "fst_wonder"
+    let store = makeStore(state: state)
+
+    await store.send(.view(.transferTapped))
+    await store.receive(\.delegate.festivalTransferRequested)
+  }
+
+  @Test("옮긴 뒤에는 상세를 다시 불러오고 완료 안내를 보인다")
+  func transferredReloads() async {
+    var state = Self.state()
+    state.content = .loaded(Self.detail())
+    state.transferFestivalID = "fst_wonder"
+    let store = makeStore(state: state)
+    store.exhaustivity = .off
+
+    await store.send(.view(.festivalTransferred)) {
+      $0.transferFestivalID = nil
+      $0.loadGeneration = 1
+    }
+    await store.receive(\.async.load)
+    await store.receive(\.async.showToast) {
+      $0.toast = .transferred
+    }
+    await store.send(.view(.onDisappear))
+  }
+
+  private nonisolated static func ownedFlag(isOwner: Bool) -> BearerOwnedFlag {
+    return BearerOwnedFlag(
+      festivalID: "fst_wonder",
+      isOwner: isOwner,
+      joinedAt: nil,
+      profile: BearerFlagProfile(
+        id: "flg_1",
+        name: "호락호락"
+      ),
+      lifecycle: .scheduled,
+      isHidden: false
+    )
+  }
+
+  private nonisolated static func board(coBearers: [BearerCoBearer]) -> BearerBoard {
+    return BearerBoard(
+      profile: BearerFlagProfile(
+        id: "flg_1",
+        name: "호락호락"
+      ),
+      status: BearerFlagStatus(
+        flagID: "flg_1",
+        lifecycle: .scheduled,
+        zoneID: nil,
+        activity: nil,
+        updatedAt: now
+      ),
+      followerCount: 0,
+      coBearers: coBearers
+    )
+  }
+
   private func makeStore(
     state: FestivalFlagDetailFeature.State = Self.state(),
     clock: TestClock<Duration> = TestClock(),
@@ -632,7 +763,8 @@ struct FestivalFlagDetailFeatureTests {
       _ throws(FestivalFlagPinError) in
       throw .unavailable
     },
-    analytics: LockIsolated<[AnalyticsEvent]> = LockIsolated([])
+    analytics: LockIsolated<[AnalyticsEvent]> = LockIsolated([]),
+    bearerUseCase: FestivalBearerUseCaseStub = FestivalBearerUseCaseStub()
   ) -> TestStoreOf<FestivalFlagDetailFeature> {
     return TestStore(initialState: state) {
       FestivalFlagDetailFeature()
@@ -646,6 +778,7 @@ struct FestivalFlagDetailFeatureTests {
         setPinnedFlag: setPinnedFlag
       )
       $0.festivalFlagUseCase = MockFestivalFlagUseCase(setFollowing: setFollowing)
+      $0.bearerUseCase = bearerUseCase
     }
   }
 
