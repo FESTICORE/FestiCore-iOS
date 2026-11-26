@@ -20,6 +20,8 @@ public protocol BearerRepositoryInterface: Sendable {
   /// 내가 팔로우한 깃발(최근 팔로우순)과 이름. 공개 조회할 수 없는 깃발은 뺀다.
   func fetchFollowedFlags(festivalID: String?) async throws -> [BearerFollowedFlag]
   func fetchBoard(flagID: String) async throws -> BearerBoard
+  /// 원래 기수가 깃발을 다른 발행 축제로 옮긴다. 공동 기수가 있으면 `BearerError.hasCoBearers`다.
+  func transferFestival(_ request: BearerFestivalTransferRequest) async throws -> BearerFestivalTransfer
   func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile
   /// 업로드 규격(JPEG·5MB 이하)을 맞춘 데이터를 multipart로 올리며 보낸 비율을 알린다.
   func uploadPhoto(

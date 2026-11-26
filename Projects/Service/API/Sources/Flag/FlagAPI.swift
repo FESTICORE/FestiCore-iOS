@@ -15,6 +15,8 @@ public enum FlagAPI: Sendable, Equatable {
   case status(flagID: String)
   case inviteCoBearer(flagID: String)
   case coBearer(flagID: String, userID: String)
+  /// 원래 기수가 깃발을 다른 발행 축제로 옮긴다
+  case festivalTransfer(flagID: String)
   case claim
   /// 코드 없는 기수 등록
   case register
@@ -33,6 +35,7 @@ public enum FlagAPI: Sendable, Equatable {
     case let .status(flagID): return "\(FestiCoreDomain.flags.path)/\(flagID)/status"
     case let .inviteCoBearer(flagID): return "\(FestiCoreDomain.flags.path)/\(flagID)/co-bearers/invite"
     case let .coBearer(flagID, userID): return "\(FestiCoreDomain.flags.path)/\(flagID)/co-bearers/\(userID)"
+    case let .festivalTransfer(flagID): return "\(FestiCoreDomain.flags.path)/\(flagID)/festival-transfer"
     case .claim: return "\(FestiCoreDomain.bearer.path)/claim"
     case .register: return "\(FestiCoreDomain.bearer.path)/register"
     case .bearerFlags: return "\(FestiCoreDomain.me.path)/bearer-flags"

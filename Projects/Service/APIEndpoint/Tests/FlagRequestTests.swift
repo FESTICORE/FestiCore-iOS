@@ -219,6 +219,30 @@ struct FlagRequestTests {
     #expect(body["tags"] as? [String] == ["slam", "sing"])
   }
 
+  @Test("축제 이동은 멱등키 헤더를 붙인 세션 POST이며 두 축제 ID만 보낸다")
+  func festivalTransfer() throws {
+    let endpoint = FlagRequest.festivalTransfer(
+      flagID: "flg_1",
+      body: FlagFestivalTransferBody(
+        fromFestivalId: "fst_old",
+        toFestivalId: "fst_new"
+      ),
+      idempotencyKey: "transfer-1",
+      sessionID: sessionID
+    )
+    let request = try endpoint.asURLRequest(baseURL: baseURL)
+
+    #expect(request.url?.absoluteString == "https://festicore-dev.up.railway.app/api/v1/flags/flg_1/festival-transfer")
+    #expect(request.httpMethod == "POST")
+    #expect(request.value(forHTTPHeaderField: "Idempotency-Key") == "transfer-1")
+    #expect(endpoint.authorization == .sessionBound(sessionID))
+    #expect(endpoint.maxRetryAttempts == 0)
+    let body = try jsonBody(request)
+    #expect(body.keys.sorted() == ["fromFestivalId", "toFestivalId"])
+    #expect(body["fromFestivalId"] as? String == "fst_old")
+    #expect(body["toFestivalId"] as? String == "fst_new")
+  }
+
   @Test("기수 깃발 목록은 페스티벌을 쿼리로 붙이는 세션 GET이다")
   func bearerFlags() throws {
     let filtered = FlagRequest.bearerFlags(

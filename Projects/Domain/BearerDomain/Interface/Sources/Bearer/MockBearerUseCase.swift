@@ -59,6 +59,24 @@ public struct MockBearerUseCase: BearerUseCaseInterface {
     try await repository.fetchBoard(flagID: flagID)
   }
 
+  public func makeFestivalTransferRequest(
+    flagID: String,
+    fromFestivalID: String,
+    toFestivalID: String
+  ) -> BearerFestivalTransferRequest {
+    reportIssue("\(dependencyName) 미등록")
+    return BearerFestivalTransferRequest(
+      flagID: flagID,
+      fromFestivalID: fromFestivalID,
+      toFestivalID: toFestivalID,
+      idempotencyKey: ""
+    )
+  }
+
+  public func transferFestival(_ request: BearerFestivalTransferRequest) async throws -> BearerFestivalTransfer {
+    return try await repository.transferFestival(request)
+  }
+
   public func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile {
     try await repository.updateProfile(flagID: flagID, change: change)
   }

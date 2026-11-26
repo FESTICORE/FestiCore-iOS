@@ -29,6 +29,12 @@ public enum BearerError: Error, Sendable, Equatable {
   case coBearerFull
   /// 축제당 한 깃발만 맡을 수 있다.
   case bearerLimit
+  /// 깃발의 현재 축제가 옮기기 전 축제와 다르다(409 `FESTIVAL_MISMATCH`). 다른 곳에서 이미 옮겼다.
+  case festivalMismatch
+  /// 공동 기수가 있는 깃발은 옮길 수 없다(409 `FLAG_HAS_CO_BEARERS`).
+  case hasCoBearers
+  /// 소유자가 기수 모드를 껐다(409 `BEARER_MODE_OFF`).
+  case bearerModeOff
   /// 원래 기수는 해제할 수 없다.
   case ownerRequired
   /// 코드가 맞지 않다. 서버가 남은 횟수를 주면 함께 담는다.

@@ -40,6 +40,10 @@ public struct MockBearerRepository: BearerRepositoryInterface {
     throw unregistered()
   }
 
+  public func transferFestival(_ request: BearerFestivalTransferRequest) async throws -> BearerFestivalTransfer {
+    throw unregistered()
+  }
+
   public func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile {
     throw unregistered()
   }

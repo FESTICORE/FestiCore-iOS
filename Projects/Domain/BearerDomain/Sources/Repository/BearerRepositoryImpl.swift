@@ -140,6 +140,20 @@ public struct BearerRepositoryImpl: BearerRepositoryInterface {
     return try response.data.toDomain(baseURL: baseURL)
   }
 
+  public func transferFestival(_ request: BearerFestivalTransferRequest) async throws -> BearerFestivalTransfer {
+    let sessionID = try await authenticatedSessionID()
+    let response = try await send(
+      FlagRequest.festivalTransfer(
+        flagID: request.flagID,
+        body: request.body,
+        idempotencyKey: request.idempotencyKey,
+        sessionID: sessionID
+      ),
+      as: BearerFestivalTransferResponseDTO.self
+    )
+    return response.data.toDomain(baseURL: baseURL)
+  }
+
   public func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile {
     let sessionID = try await authenticatedSessionID()
     let response = try await send(
@@ -257,6 +271,12 @@ extension BearerRepositoryImpl {
     case (409, "CO_BEARER_FULL"): return .coBearerFull
     case (409, "BEARER_LIMIT"): return .bearerLimit
     case (409, "FLAG_OWNER_REQUIRED"): return .ownerRequired
+    case (409, "FESTIVAL_MISMATCH"):
+      return .festivalMismatch
+    case (409, "FLAG_HAS_CO_BEARERS"):
+      return .hasCoBearers
+    case (409, "BEARER_MODE_OFF"):
+      return .bearerModeOff
     case (409, _): return .conflict
     case (413, _): return .photoTooLarge
     case (415, _): return .unsupportedPhoto

@@ -70,6 +70,18 @@ struct BearerUseCaseStub: BearerUseCaseInterface {
   func fetchPinnedFlag() async throws -> BearerPinnedFlag? { return try await fetchPinnedFlagHandler() }
   func fetchFollowedFlags(festivalID: String?) async throws -> [BearerFollowedFlag] { return try await fetchFollowedFlagsHandler(festivalID) }
   func fetchBoard(flagID: String) async throws -> BearerBoard { try await fetchBoard(flagID) }
+  func makeFestivalTransferRequest(
+    flagID: String,
+    fromFestivalID: String,
+    toFestivalID: String
+  ) -> BearerFestivalTransferRequest {
+    return MockBearerUseCase().makeFestivalTransferRequest(
+      flagID: flagID,
+      fromFestivalID: fromFestivalID,
+      toFestivalID: toFestivalID
+    )
+  }
+  func transferFestival(_ request: BearerFestivalTransferRequest) async throws -> BearerFestivalTransfer { return try unexpected() }
   func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile {
     try await updateProfile(flagID, change)
   }
