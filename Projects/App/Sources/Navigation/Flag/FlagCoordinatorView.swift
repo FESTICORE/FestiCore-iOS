@@ -34,6 +34,13 @@ struct FlagCoordinatorView: View {
             for: .navigationBar
           )
           .swipeBackButtonHidden()
+
+      case let .festivalTransfer(transferStore):
+        BearerFestivalTransferView(store: transferStore)
+          .toolbar(
+            .hidden,
+            for: .navigationBar
+          )
       }
     }
   }

@@ -18,6 +18,11 @@ public enum FestivalFlagDetailDelegate: Equatable, Sendable {
   case termsAcceptanceRequested
   /// 비로그인 신고·대표 깃발 지정. 부모가 일반 로그인 시트를 띄운다.
   case reportLoginRequested
+  /// '다른 페스티벌로 옮기기'. 부모가 기수의 페스티벌 고르기 화면을 띄운다.
+  case festivalTransferRequested(
+    flagID: String,
+    festivalID: String
+  )
   /// 상세에서 팔로우를 바꿨다. 부모가 깃발 목록 카드에 같은 값을 반영한다.
   case followChanged(
     flagID: String,

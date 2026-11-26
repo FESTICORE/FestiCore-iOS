@@ -53,6 +53,22 @@ struct BearerUseCaseStub: BearerUseCaseInterface {
   var retryPendingStatus: @Sendable () async -> Void = { Issue.record("retryPendingStatus 미주입") }
   var inviteCoBearer: @Sendable (String) async throws -> BearerInvite = { _ in try unexpected() }
   var removeCoBearer: @Sendable (String, String) async throws -> Void = { _, _ in try unexpected() }
+  var makeFestivalTransferRequestHandler: @Sendable (
+    String,
+    String,
+    String
+  ) -> BearerFestivalTransferRequest = { flagID, fromFestivalID, toFestivalID in
+    Issue.record("makeFestivalTransferRequest 미주입")
+    return BearerFestivalTransferRequest(
+      flagID: flagID,
+      fromFestivalID: fromFestivalID,
+      toFestivalID: toFestivalID,
+      idempotencyKey: ""
+    )
+  }
+  var transferFestivalHandler: @Sendable (BearerFestivalTransferRequest) async throws -> BearerFestivalTransfer = { _ in
+    return try unexpected()
+  }
 
   func claim(festivalID: String, code: String) async throws -> BearerClaim { try await claim(festivalID, code) }
   func fetchFestival(festivalID: String) async throws -> BearerFestival { try await fetchFestival(festivalID) }
@@ -75,13 +91,15 @@ struct BearerUseCaseStub: BearerUseCaseInterface {
     fromFestivalID: String,
     toFestivalID: String
   ) -> BearerFestivalTransferRequest {
-    return MockBearerUseCase().makeFestivalTransferRequest(
-      flagID: flagID,
-      fromFestivalID: fromFestivalID,
-      toFestivalID: toFestivalID
+    return makeFestivalTransferRequestHandler(
+      flagID,
+      fromFestivalID,
+      toFestivalID
     )
   }
-  func transferFestival(_ request: BearerFestivalTransferRequest) async throws -> BearerFestivalTransfer { return try unexpected() }
+  func transferFestival(_ request: BearerFestivalTransferRequest) async throws -> BearerFestivalTransfer {
+    return try await transferFestivalHandler(request)
+  }
   func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile {
     try await updateProfile(flagID, change)
   }

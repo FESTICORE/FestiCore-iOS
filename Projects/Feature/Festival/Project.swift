@@ -22,6 +22,10 @@ let project = Project.makeModule(
       .interface
     ),
     .core(.utility),
+    .domain(
+      .bearer,
+      .interface
+    ),
     .domain(.festival, .interface),
     .domain(.userNotification, .interface),
     .service(

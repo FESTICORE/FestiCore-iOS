@@ -44,6 +44,16 @@ extension FCAlertState where Action == FCAlertAction {
     )
   }
 
+  /// 깃발 상세 메뉴의 다른 페스티벌로 옮기기 확인. 이전 페스티벌에 묶인 값은 서버가 비운다.
+  static func bearerFestivalTransfer(festivalName: String) -> FCAlertState<FCAlertAction> {
+    return .alert(
+      title: "다른 페스티벌로 옮길까요?",
+      message: "\(festivalName)\n계획·주로 있는 존·현장 상태가 초기화돼요. 이름·사진·팔로워는 그대로예요.",
+      confirmTitle: "옮기기",
+      cancelTitle: "취소"
+    )
+  }
+
   /// 기수 보드 오늘 종료 확인
   static func bearerEndToday() -> FCAlertState<FCAlertAction> {
     return .alert(

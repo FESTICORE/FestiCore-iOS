@@ -135,12 +135,17 @@ private extension FestivalFlagDetailView {
 
           planSection(detail)
 
-          // Figma 신고 줄은 위 패딩 8을 갖는다.
-          reportButton
-            .padding(
-              .top,
-              FestiCoreSpacing.paddingP8
-            )
+          // Figma 신고 줄은 위 패딩 8을 갖는다. 이동 전용 시안이 없어 옮기기 줄도 신고 줄 스타일을 쓴다.
+          VStack(spacing: FestiCoreSpacing.paddingP12) {
+            if store.showsTransferMenu {
+              transferButton
+            }
+            reportButton
+          }
+          .padding(
+            .top,
+            FestiCoreSpacing.paddingP8
+          )
         }
         .padding(
           .top,
@@ -227,6 +232,20 @@ private extension FestivalFlagDetailView {
       )
       .clipShape(RoundedRectangle(cornerRadius: FestiCoreRadius.r16))
     }
+  }
+
+  /// 내 깃발(원래 기수·공동 기수 없음)에만 보이는 '다른 페스티벌로 옮기기'. 신고 줄과 같은 스타일이다.
+  var transferButton: some View {
+    return Button { send(.transferTapped) } label: {
+      Text("다른 페스티벌로 옮기기")
+        .festiCoreFont(.baseFootnoteMedium)
+        .festiCoreLineBox(.baseFootnoteMedium)
+        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityIdentifier(FestivalAccessibilityID.flagDetailTransfer)
   }
 
   /// 계획 아래 가운데 신고 버튼. 누르면 사유 선택 시트를 띄운다.
@@ -365,6 +384,10 @@ private extension FestivalFlagDetailView {
     case .alreadyReported: return info("이미 신고한 깃발이에요")
     case .reportFailed: return info("신고하지 못했어요. 잠시 후 다시 시도해 주세요")
     case .pinFailed: return info("잠금화면 표시를 바꾸지 못했어요")
+    case .transferred: return FCToast.Item(
+      icon: .check,
+      message: "다른 페스티벌로 옮겼어요"
+    )
     }
   }
 
