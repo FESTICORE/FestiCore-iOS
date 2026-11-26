@@ -24,6 +24,13 @@ public protocol BearerUseCaseInterface: Sendable {
   /// 기기에 받아 둔 팩에서 축제 이름과 존을 읽는다. 팩이 없으면 빈 존 목록이다.
   func fetchFestival(festivalID: String) async throws -> BearerFestival
   func fetchBoard(flagID: String) async throws -> BearerBoard
+  /// 새 멱등키(`transfer-<uuid>`)로 축제 이동 한 건을 만든다. 응답을 받지 못해 다시 보낼 때는 만든 값을 그대로 쓴다.
+  func makeFestivalTransferRequest(
+    flagID: String,
+    fromFestivalID: String,
+    toFestivalID: String
+  ) -> BearerFestivalTransferRequest
+  func transferFestival(_ request: BearerFestivalTransferRequest) async throws -> BearerFestivalTransfer
   func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile
   /// 고른 사진을 JPEG 5MB 이하로 맞춘 뒤 올린다. 256×256보다 작으면 올리지 않는다.
   /// 스트림을 끝까지 읽지 않고 취소하면 전송도 취소한다.

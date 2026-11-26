@@ -96,6 +96,17 @@ extension BearerClaimDataDTO {
   }
 }
 
+extension BearerFestivalTransferDataDTO {
+  func toDomain(baseURL: URL?) -> BearerFestivalTransfer {
+    return BearerFestivalTransfer(
+      flagID: flagId,
+      previousFestivalID: previousFestivalId,
+      festivalID: festivalId,
+      profile: flag.toDomain(baseURL: baseURL)
+    )
+  }
+}
+
 extension BearerFlagsDataDTO.Item {
   /// 모르는 상태 값은 버리지 않고 nil로 두어 목록에서 깃발을 잃지 않는다.
   func toDomain(baseURL: URL?) -> BearerOwnedFlag {

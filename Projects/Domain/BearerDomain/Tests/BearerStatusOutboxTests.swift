@@ -248,6 +248,7 @@ private actor ScriptedRepository: BearerRepositoryInterface {
 
   func claim(festivalID: String, code: String) async throws -> BearerClaim { throw BearerError.unavailable }
   func fetchBoard(flagID: String) async throws -> BearerBoard { throw BearerError.unavailable }
+  func transferFestival(_ request: BearerFestivalTransferRequest) async throws -> BearerFestivalTransfer { throw BearerError.unavailable }
   func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile { throw BearerError.unavailable }
   func uploadPhoto(flagID: String, jpegData: Data, progress: @escaping @Sendable (Double) -> Void) async throws -> BearerFlagPhoto {
     throw BearerError.unavailable
@@ -310,6 +311,7 @@ private actor GatedRepository: BearerRepositoryInterface {
 
   func claim(festivalID: String, code: String) async throws -> BearerClaim { throw BearerError.unavailable }
   func fetchBoard(flagID: String) async throws -> BearerBoard { throw BearerError.unavailable }
+  func transferFestival(_ request: BearerFestivalTransferRequest) async throws -> BearerFestivalTransfer { throw BearerError.unavailable }
   func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile { throw BearerError.unavailable }
   func uploadPhoto(flagID: String, jpegData: Data, progress: @escaping @Sendable (Double) -> Void) async throws -> BearerFlagPhoto {
     throw BearerError.unavailable

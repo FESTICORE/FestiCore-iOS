@@ -18,6 +18,7 @@ typealias BearerFlagsResponseDTO = BaseResponseDTO<BearerFlagsDataDTO>
 typealias BearerPinnedFlagResponseDTO = BaseResponseDTO<BearerPinnedFlagDataDTO>
 typealias BearerFollowsResponseDTO = BaseResponseDTO<BearerFollowsDataDTO>
 typealias BearerFollowedFlagDetailResponseDTO = BaseResponseDTO<BearerFollowedFlagDetailDTO>
+typealias BearerFestivalTransferResponseDTO = BaseResponseDTO<BearerFestivalTransferDataDTO>
 
 /// `GET me/bearer-flags` data
 struct BearerFlagsDataDTO: Decodable, Sendable, Equatable {
@@ -106,6 +107,14 @@ struct BearerClaimDataDTO: Decodable, Sendable, Equatable {
   let flag: BearerFlagProfileDTO
   let isNew: Bool?
   let coBearers: [String]?
+}
+
+/// `POST flags/:flagId/festival-transfer` data
+struct BearerFestivalTransferDataDTO: Decodable, Sendable, Equatable {
+  let flagId: String
+  let previousFestivalId: String
+  let festivalId: String
+  let flag: BearerFlagProfileDTO
 }
 
 struct BearerPhotoDataDTO: Decodable, Sendable, Equatable {

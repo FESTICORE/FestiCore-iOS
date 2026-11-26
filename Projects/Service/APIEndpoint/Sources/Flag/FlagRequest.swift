@@ -24,6 +24,13 @@ public enum FlagRequest: FestiCoreDataRequest, Sendable {
     idempotencyKey: String,
     sessionID: UUID
   )
+  /// 깃발 축제 이동. 재시도할 때도 같은 멱등키와 같은 본문을 보낸다.
+  case festivalTransfer(
+    flagID: String,
+    body: FlagFestivalTransferBody,
+    idempotencyKey: String,
+    sessionID: UUID
+  )
   /// 내가 기수인 깃발 목록. 페스티벌을 주면 그 페스티벌 것만 받는다.
   case bearerFlags(
     query: BearerFlagsQuery,
@@ -43,7 +50,7 @@ public enum FlagRequest: FestiCoreDataRequest, Sendable {
     switch self {
     case .bearer, .bearerFlags, .pinnedFlag, .follows: return .get
     case .updateProfile: return .patch
-    case .status, .inviteCoBearer, .claim, .register: return .post
+    case .status, .inviteCoBearer, .claim, .register, .festivalTransfer: return .post
     case .removeCoBearer: return .delete
     }
   }
@@ -53,6 +60,8 @@ public enum FlagRequest: FestiCoreDataRequest, Sendable {
     case let .status(_, _, idempotencyKey, _): return ["Idempotency-Key": idempotencyKey]
     case let .claim(_, deviceID, _): return ["X-Device-Id": deviceID]
     case let .register(_, idempotencyKey, _):
+      return ["Idempotency-Key": idempotencyKey]
+    case let .festivalTransfer(_, _, idempotencyKey, _):
       return ["Idempotency-Key": idempotencyKey]
     case .bearer, .updateProfile, .inviteCoBearer, .removeCoBearer, .bearerFlags, .pinnedFlag, .follows: return [:]
     }
@@ -77,6 +86,8 @@ public enum FlagRequest: FestiCoreDataRequest, Sendable {
       return .sessionBound(sessionID)
     case let .register(_, _, sessionID):
       return .sessionBound(sessionID)
+    case let .festivalTransfer(_, _, _, sessionID):
+      return .sessionBound(sessionID)
     case let .bearerFlags(_, sessionID):
       return .sessionBound(sessionID)
     case let .pinnedFlag(sessionID):
@@ -95,6 +106,8 @@ public enum FlagRequest: FestiCoreDataRequest, Sendable {
     case let .claim(body, _, _): return body
     case let .register(body, _, _):
       return body
+    case let .festivalTransfer(_, body, _, _):
+      return body
     case let .bearerFlags(query, _):
       return query
     case let .follows(query, _):
@@ -112,6 +125,8 @@ public enum FlagRequest: FestiCoreDataRequest, Sendable {
     case let .removeCoBearer(flagID, userID, _): return .coBearer(flagID: flagID, userID: userID)
     case .claim: return .claim
     case .register: return .register
+    case let .festivalTransfer(flagID, _, _, _):
+      return .festivalTransfer(flagID: flagID)
     case .bearerFlags: return .bearerFlags
     case .pinnedFlag: return .pinnedFlag
     case .follows: return .follows

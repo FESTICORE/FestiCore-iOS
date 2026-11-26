@@ -891,6 +891,18 @@ struct ProfileBearerUseCase: BearerUseCaseInterface {
     return try await unregistered.fetchFestival(festivalID: festivalID)
   }
   func fetchBoard(flagID: String) async throws -> BearerBoard { return try await unregistered.fetchBoard(flagID: flagID) }
+  func makeFestivalTransferRequest(
+    flagID: String,
+    fromFestivalID: String,
+    toFestivalID: String
+  ) -> BearerFestivalTransferRequest {
+    return unregistered.makeFestivalTransferRequest(
+      flagID: flagID,
+      fromFestivalID: fromFestivalID,
+      toFestivalID: toFestivalID
+    )
+  }
+  func transferFestival(_ request: BearerFestivalTransferRequest) async throws -> BearerFestivalTransfer { return try await unregistered.transferFestival(request) }
   func updateProfile(
     flagID: String,
     change: BearerProfileChange

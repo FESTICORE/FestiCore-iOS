@@ -132,6 +132,20 @@ public struct BearerRegisterBody: Encodable, Sendable, Equatable {
   }
 }
 
+/// `POST flags/:flagId/festival-transfer` 본문. 옮기기 전 축제가 서버 값과 다르면 409 `FESTIVAL_MISMATCH`다.
+public struct FlagFestivalTransferBody: Encodable, Sendable, Equatable {
+  public let fromFestivalId: String
+  public let toFestivalId: String
+
+  public init(
+    fromFestivalId: String,
+    toFestivalId: String
+  ) {
+    self.fromFestivalId = fromFestivalId
+    self.toFestivalId = toFestivalId
+  }
+}
+
 /// `GET me/bearer-flags` 쿼리. 페스티벌이 없으면 키를 보내지 않는다.
 public struct BearerFlagsQuery: Encodable, Sendable, Equatable {
   public let festivalId: String?

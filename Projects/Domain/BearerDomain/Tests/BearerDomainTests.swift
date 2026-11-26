@@ -361,6 +361,7 @@ private actor PhotoRepository: BearerRepositoryInterface {
 
   func claim(festivalID: String, code: String) async throws -> BearerClaim { throw BearerError.unavailable }
   func fetchBoard(flagID: String) async throws -> BearerBoard { throw BearerError.unavailable }
+  func transferFestival(_ request: BearerFestivalTransferRequest) async throws -> BearerFestivalTransfer { throw BearerError.unavailable }
   func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile { throw BearerError.unavailable }
   func sendStatus(flagID: String, request: BearerStatusRequest) async throws -> BearerFlagStatus { throw BearerError.unavailable }
   func inviteCoBearer(flagID: String) async throws -> BearerInvite { throw BearerError.unavailable }
@@ -429,6 +430,7 @@ private struct ClaimRecordingRepository: BearerRepositoryInterface {
   }
 
   func fetchBoard(flagID: String) async throws -> BearerBoard { throw BearerError.unavailable }
+  func transferFestival(_ request: BearerFestivalTransferRequest) async throws -> BearerFestivalTransfer { throw BearerError.unavailable }
   func updateProfile(flagID: String, change: BearerProfileChange) async throws -> BearerFlagProfile { throw BearerError.unavailable }
   func uploadPhoto(flagID: String, jpegData: Data, progress: @escaping @Sendable (Double) -> Void) async throws -> BearerFlagPhoto {
     throw BearerError.unavailable

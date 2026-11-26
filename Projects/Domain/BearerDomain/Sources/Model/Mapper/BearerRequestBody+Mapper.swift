@@ -46,6 +46,15 @@ extension BearerRegisterRequest {
   }
 }
 
+extension BearerFestivalTransferRequest {
+  var body: FlagFestivalTransferBody {
+    return FlagFestivalTransferBody(
+      fromFestivalId: fromFestivalID,
+      toFestivalId: toFestivalID
+    )
+  }
+}
+
 extension BearerProfileChange {
   /// 앞뒤 공백을 지우고, 비운 소개·존은 null로 보낸다.
   var body: FlagProfileBody {
