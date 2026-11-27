@@ -14,11 +14,21 @@ let project = Project.makeModule(
   name: "FestiCoreAnalytics",
   product: .framework,
   dependencies: [
+    .SPM.firebaseCore,
+    .SPM.firebaseAnalyticsCore,
     .core(.logger),
+    .core(
+      .storage,
+      .interface
+    ),
     .SPM.mixpanel,
     .SPM.sentry
   ],
+  targetSettings: [
+    "OTHER_LDFLAGS": "$(inherited) -ObjC"
+  ],
   hasTests: true,
+  testDependencies: [.service(.config)],
   hasInterface: true,
   interfaceDependencies: [
     .SPM.composableArchitecture

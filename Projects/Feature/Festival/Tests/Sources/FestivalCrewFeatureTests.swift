@@ -1,3 +1,4 @@
+import FestiCoreAnalyticsInterface
 import ComposableArchitecture
 import FestiCoreSharedUI
 import FestiCoreUtility
@@ -15,6 +16,7 @@ struct FestivalCrewFeatureTests {
     let store = TestStore(initialState: state(memberState: "here")) {
       FestivalCrewFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalCrewUseCase = CrewSpy(detail: crew)
     }
     await store.send(.view(.onAppear))
@@ -33,6 +35,7 @@ struct FestivalCrewFeatureTests {
     let store = TestStore(initialState: initial) {
       FestivalCrewFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.date.now = now
       $0.festivalCrewUseCase = CrewSpy(status: { state, zone in
         sent.withValue { $0.append("\(state.rawValue)/\(zone ?? "-")") }
@@ -59,6 +62,7 @@ struct FestivalCrewFeatureTests {
     let store = TestStore(initialState: initial) {
       FestivalCrewFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.date.now = now
       $0.continuousClock = clock
       $0.festivalCrewUseCase = CrewSpy(
@@ -224,6 +228,7 @@ struct FestivalCrewFeatureTests {
     let store = TestStore(initialState: gatherState(byUserID: "user_b")) {
       FestivalCrewFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalCrewUseCase = CrewSpy(respond: { gatherID, response in
         calls.withValue { $0 += 1 }
         #expect(gatherID == "gth_1")
@@ -266,6 +271,7 @@ struct FestivalCrewFeatureTests {
     let store = TestStore(initialState: initial) {
       FestivalCrewFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.continuousClock = clock
       $0.festivalCrewUseCase = CrewSpy(
         detail: serverCrew,

@@ -19,17 +19,38 @@ enum SentryConfiguration {
 
   /// DSN·환경은 xcconfig → Info.plist로 주입된 값을 읽는다. 둘 중 하나라도 유효하지 않으면 시작하지 않는다.
   static func options(infoDictionary: [String: Any]) -> Options? {
-    guard let dsn = (infoDictionary["FestiCoreSentryDSN"] as? String)?
-      .trimmingCharacters(in: .whitespacesAndNewlines), !dsn.isEmpty,
-      let components = URLComponents(string: dsn),
-      components.scheme == "https", components.host != nil,
-      components.user != nil,
-      Int(components.path.dropFirst()) != nil,
+    guard let configuredDSN = (infoDictionary["FestiCoreSentryDSN"] as? String)?
+      .trimmingCharacters(in: .whitespacesAndNewlines), !configuredDSN.isEmpty else {
+      return nil
+    }
+    // xcconfig에서 //가 주석으로 해석되므로 스킴 없는 DSN도 허용한다.
+    let hasScheme = configuredDSN.range(
+      of: "^[A-Za-z][A-Za-z0-9+.-]*://",
+      options: .regularExpression
+    ) != nil
+    let dsn = hasScheme ? configuredDSN : "https://\(configuredDSN)"
+    guard var components = URLComponents(string: dsn),
+      components.scheme?.lowercased() == "https",
+      let host = components.host, !host.isEmpty,
+      let user = components.user, !user.isEmpty,
+      components.password == nil, components.port == nil,
+      components.query == nil, components.fragment == nil,
+      components.percentEncodedPath.range(
+        of: "^/[0-9]+$",
+        options: .regularExpression
+      ) != nil,
       let environment = infoDictionary["FestiCoreEnvironment"] as? String,
       environment == "stage" || environment == "production" else {
       return nil
     }
-    return Options(dsn: dsn, environment: environment)
+    components.scheme = "https"
+    guard let normalizedDSN = components.string else {
+      return nil
+    }
+    return Options(
+      dsn: normalizedDSN,
+      environment: environment
+    )
   }
 
   /// 가장 먼저 호출해 초기 크래시까지 포착한다.
@@ -38,7 +59,10 @@ enum SentryConfiguration {
       let dsn = (infoDictionary["FestiCoreSentryDSN"] as? String)?
         .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
       if !dsn.isEmpty {
-        FestiCoreLogger.error("Sentry 시작 건너뜀: FestiCoreEnvironment 설정이 유효하지 않음", category: .app)
+        FestiCoreLogger.error(
+          "Sentry 시작 건너뜀: DSN 또는 환경 설정이 유효하지 않음",
+          category: .app
+        )
       }
       return
     }
@@ -50,10 +74,12 @@ enum SentryConfiguration {
       options.sendDefaultPii = false
 
       #if DEBUG
-        options.debug = true
+        options.debug = environment == "stage"
       #else
         options.debug = false
       #endif
+
+      options.diagnosticLevel = environment == "production" ? .error : .warning
 
       options.releaseName = (infoDictionary["CFBundleShortVersionString"] as? String).map {
         "festicore-ios@\($0)+\((infoDictionary["CFBundleVersion"] as? String) ?? "")"
@@ -76,8 +102,8 @@ enum SentryConfiguration {
 
       options.enableSwizzling = true
       options.enableAutoPerformanceTracing = true
-      options.enableNetworkTracking = true
-      options.enableNetworkBreadcrumbs = true
+      options.enableNetworkTracking = false
+      options.enableNetworkBreadcrumbs = false
 
       // 안정성 모니터링 활성화.
       // 앱 행(ANR): 완전 차단뿐 아니라 부분 차단(비블로킹)까지 리포트, 임계 2초.
@@ -94,7 +120,7 @@ enum SentryConfiguration {
       // 크래시 순간 진행 중이던 트레이스를 보존해 유실 방지.
       options.enablePersistingTracesWhenCrashing = true
 
-      options.enableCaptureFailedRequests = true
+      options.enableCaptureFailedRequests = false
       options.failedRequestStatusCodes = [
         HttpStatusCodeRange(
           min: 400,
@@ -103,7 +129,7 @@ enum SentryConfiguration {
       ]
 
       // 크래시 컨텍스트 첨부.
-      options.attachScreenshot = true
+      options.attachScreenshot = false
       options.attachViewHierarchy = false
 
       // Session Replay는 쓰지 않는다. 켜더라도 텍스트·이미지는 가린다.
@@ -113,7 +139,6 @@ enum SentryConfiguration {
       options.sessionReplay.onErrorSampleRate = 0.0
     }
 
-    sendSentryVerificationTelemetry(environment: environment)
     emitLaunchMetrics(environment: environment)
   }
 
@@ -128,9 +153,17 @@ enum SentryConfiguration {
     let memoryMB = Double(process.physicalMemory) / 1_048_576.0
 
     // 카운트: 앱 실행 횟수(리텐션/DAU 보조 지표).
-    SentrySDK.metrics.count(key: "app.launch.count", value: 1, attributes: attributes)
+    SentrySDK.metrics.count(
+      key: "app.launch.count",
+      value: 1,
+      attributes: attributes
+    )
     // 게이지: 실행 시점 기기 리소스 스냅샷.
-    SentrySDK.metrics.gauge(key: "app.device.memory_total_mb", value: memoryMB, attributes: attributes)
+    SentrySDK.metrics.gauge(
+      key: "app.device.memory_total_mb",
+      value: memoryMB,
+      attributes: attributes
+    )
     SentrySDK.metrics.gauge(
       key: "app.device.processor_count",
       value: Double(process.activeProcessorCount),
@@ -148,45 +181,4 @@ enum SentryConfiguration {
     )
   }
 
-  /// Sentry 연동 검증용 로그·메트릭. DEBUG(Stage) 빌드에서만 전송해 운영 데이터 오염을 막는다.
-  private static func sendSentryVerificationTelemetry(environment: String) {
-    #if DEBUG
-      let logAttributes: [String: Any] = [
-        "log_type": "test",
-        "environment": environment,
-        "source": "app_launch"
-      ]
-      let metricAttributes: [String: any SentryAttributeValue] = [
-        "log_type": "test",
-        "environment": environment,
-        "source": "app_launch"
-      ]
-
-      SentrySDK.logger.info(
-        "Sending a test info log",
-        attributes: logAttributes
-      )
-      SentrySDK.logger.warn(
-        "Sending a test warning log",
-        attributes: logAttributes
-      )
-
-      SentrySDK.metrics.count(
-        key: "app.launch.count",
-        value: 1,
-        attributes: metricAttributes
-      )
-      SentrySDK.metrics.gauge(
-        key: "app.launch.queue_depth",
-        value: 1.0,
-        attributes: metricAttributes
-      )
-      SentrySDK.metrics.distribution(
-        key: "app.launch.verification_time",
-        value: 1.0,
-        unit: .millisecond,
-        attributes: metricAttributes
-      )
-    #endif
-  }
 }

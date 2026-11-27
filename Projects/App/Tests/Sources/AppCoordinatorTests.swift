@@ -613,6 +613,7 @@ struct AppCoordinatorTests {
     home.authFlow.pendingOwnerID = "user-a"
     let store = TestStore(initialState: AppCoordinator.State.home(home)) { AppCoordinator() } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
+      $0.analyticsUseCase = .recording()
       $0.continuousClock = clock
       $0.festivalBookedStore = FestivalBookedStore(
         load: { userID in userID == "user-a" ? box.ids : [] },
@@ -2137,6 +2138,7 @@ struct AppCoordinatorTests {
       MainTabCoordinator()
     } withDependencies: {
       $0.useAppCoordinatorFestivalUseCases()
+      $0.analyticsUseCase = .recording()
       $0.continuousClock = clock
       $0.festivalBookedStore = bookedStore
     }
@@ -3511,8 +3513,14 @@ struct AppCoordinatorTests {
     #expect(committed.authFlow.hasSession)
     #expect(committed.authFlow.verifiedUserID == "user-a")
     #expect(await auth.committed == [sessionID])
-    // 기존 계정은 sign_up 없이 사용자만 연결한다.
-    #expect(analytics.value == [.identify("user-a", "apple")])
+    // 기존 계정은 사용자 연결과 로그인 완료만 기록한다.
+    #expect(analytics.value == [
+      .identify(
+        "user-a",
+        "apple"
+      ),
+      .track(.festivalJourney(.init(action: .loginCompleted)))
+    ])
     await store.receive(\.scope.home.session.inner.profileLoaded)
   }
 
@@ -3534,7 +3542,14 @@ struct AppCoordinatorTests {
 
     await store.send(.scope(.home(.auth(.login(.delegate(.signedIn(result)))))))
     await store.receive(\.scope.home.auth.inner.loginCommitted)
-    #expect(analytics.value == [.identify("user-a", "apple"), .track(.signUp(method: .apple))])
+    #expect(analytics.value == [
+      .identify(
+        "user-a",
+        "apple"
+      ),
+      .track(.festivalJourney(.init(action: .loginCompleted))),
+      .track(.signUp(method: .apple))
+    ])
     await store.receive(\.scope.home.session.inner.profileLoaded)
   }
 

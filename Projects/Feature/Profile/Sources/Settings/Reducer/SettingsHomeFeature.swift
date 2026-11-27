@@ -7,6 +7,7 @@
 
 import AuthDomainInterface
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCoreSharedUI
 import FestiCoreStorageInterface
 import FestivalDomainInterface
@@ -27,6 +28,8 @@ public struct SettingsHomeFeature {
     public var hasSession: Bool
     public var isLoading: Bool
     public var message: String?
+    /// 사용자가 설정에서 선택한 분석·진단 수집 동의.
+    @SharedReader(.analyticsCollectionEnabled) public var analyticsCollectionEnabled
     /// 영속 저장소의 화면 모드 원시 값
     @SharedReader(.appearanceMode) public var storedAppearanceMode
     /// '화면 모드' 줄에 보이는 값
@@ -84,6 +87,7 @@ public struct SettingsHomeFeature {
     case backTapped
     case notificationsTapped
     case lockScreenTapped
+    case analyticsCollectionChanged(Bool)
     case appearanceTapped
     case accountTapped
     case noticeTapped
@@ -109,6 +113,7 @@ public struct SettingsHomeFeature {
   /// 이동 계약은 ProfileInterface에 있다.
   public typealias DelegateAction = SettingsHomeDelegate
 
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
   @Dependency(\.festivalNotificationSettingsUseCase) private var notificationSettingsUseCase
 
   public var body: some ReducerOf<Self> {
@@ -173,6 +178,19 @@ extension SettingsHomeFeature {
 
     case .lockScreenTapped:
       state.destination = .lockScreen(.init(hasSession: state.showsAccount))
+      return .none
+
+    case let .analyticsCollectionChanged(enabled):
+      analyticsUseCase.setCollectionEnabled(enabled)
+      if enabled {
+        analyticsUseCase.registerBaseProperties()
+        if let user = state.profile?.user {
+          analyticsUseCase.identify(
+            user.id,
+            user.provider
+          )
+        }
+      }
       return .none
 
     case .appearanceTapped:

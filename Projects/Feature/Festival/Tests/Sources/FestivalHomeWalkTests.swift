@@ -5,6 +5,7 @@
 //  Created by FestiCore on 11/8/26.
 //
 
+import FestiCoreAnalyticsInterface
 import ComposableArchitecture
 import FestiCoreLocationInterface
 import FestiCoreUtility
@@ -389,6 +390,7 @@ struct FestivalHomeWalkTests {
     let store = TestStore(initialState: homeState()) {
       FestivalFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.date.now = at("23:00")
       $0.appleMapsClient = MockAppleMapsClient(openWalkingDirections: { place in
         opened.withValue { $0.append(place) }
@@ -415,6 +417,7 @@ struct FestivalHomeWalkTests {
     let store = TestStore(initialState: state) {
       FestivalFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.date.now = at("23:45")
       $0.appleMapsClient = MockAppleMapsClient(openWalkingDirections: { place in
         opened.withValue { $0.append(place) }
@@ -432,6 +435,7 @@ struct FestivalHomeWalkTests {
     let store = TestStore(initialState: homeState()) {
       FestivalFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.date.now = at("23:00")
       $0.appleMapsClient = MockAppleMapsClient(openWalkingDirections: { _ in false })
     }
@@ -447,6 +451,7 @@ struct FestivalHomeWalkTests {
     let store = TestStore(initialState: homeState(directions: .init(lastTrainAt: "23:52"))) {
       FestivalFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.date.now = at("23:00")
     }
 

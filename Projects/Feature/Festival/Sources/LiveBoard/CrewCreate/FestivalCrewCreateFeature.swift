@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCoreSharedUI
 import FestivalDomainInterface
 import Foundation
@@ -92,6 +93,7 @@ public struct FestivalCrewCreateFeature {
   }
 
   @Dependency(\.festivalCrewUseCase) private var crewUseCase
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
 
   private enum CancelID { case create }
 
@@ -184,9 +186,14 @@ private extension FestivalCrewCreateFeature {
     case let .createSucceeded(crew):
       state.isSubmitting = false
       state.step = .created(crew)
+      analyticsUseCase.track(.crewAction(AnalyticsCrewEvent(action: .created)))
       return .send(.delegate(.created(crew)))
     case let .createFailed(error):
       state.isSubmitting = false
+      analyticsUseCase.track(.crewAction(AnalyticsCrewEvent(
+        action: .created,
+        result: .failure
+      )))
       if error == .unauthenticated { return .send(.delegate(.loginRequested)) }
       if let message = Self.message(for: error) {
         state.errorMessage = message

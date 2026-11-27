@@ -1,3 +1,4 @@
+import FestiCoreAnalyticsInterface
 import ComposableArchitecture
 import FestivalDomainInterface
 import Foundation
@@ -41,6 +42,7 @@ struct FestivalTicketLinkToastTests {
       FestivalFeature()
     } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
+      $0.analyticsUseCase.track = { _ in }
     }
 
     await store.send(.view(.ticketLinkTapped(festivalID: "festival"))) {

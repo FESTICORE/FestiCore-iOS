@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCoreSharedUI
 import FestiCoreUtility
 import FestivalDomainInterface
@@ -151,6 +152,7 @@ public struct FestivalCrewFeature {
   static let toastDuration: Duration = .seconds(2)
 
   @Dependency(\.festivalCrewUseCase) private var useCase
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
   @Dependency(\.date) private var date
   @Dependency(\.continuousClock) private var clock
 
@@ -245,6 +247,10 @@ private extension FestivalCrewFeature {
   ) -> Effect<Action> {
     switch action {
     case .onAppear:
+      analyticsUseCase.track(.screenView(
+        screen: .crew,
+        referrer: nil
+      ))
       guard state.crew == nil else { return .none }
       return .send(.async(.load))
     case .retryTapped:
@@ -464,9 +470,14 @@ private extension FestivalCrewFeature {
       return .none
     case .statusUpdated:
       state.isSendingStatus = false
+      analyticsUseCase.track(.crewAction(AnalyticsCrewEvent(action: .statusChanged)))
       return .none
     case .statusFailed:
       state.isSendingStatus = false
+      analyticsUseCase.track(.crewAction(AnalyticsCrewEvent(
+        action: .statusChanged,
+        result: .failure
+      )))
       return .merge(
         show(
           .statusFailed,
@@ -477,9 +488,14 @@ private extension FestivalCrewFeature {
     case let .gatherResponded(reply):
       state.isRespondingGather = false
       state.gatherReply = reply
+      analyticsUseCase.track(.crewAction(AnalyticsCrewEvent(action: .gatherResponded)))
       return .none
     case let .gatherResponseFailed(error):
       state.isRespondingGather = false
+      analyticsUseCase.track(.crewAction(AnalyticsCrewEvent(
+        action: .gatherResponded,
+        result: .failure
+      )))
       if error == .gatherExpired {
         state.expiredGatherID = state.live?.gatherRequest?.id
         return .merge(
@@ -569,6 +585,7 @@ private extension FestivalCrewFeature {
     switch action {
     case .presented(.gather(.delegate(.gathered))):
       state.destination = nil
+      analyticsUseCase.track(.crewAction(AnalyticsCrewEvent(action: .gatherCreated)))
       return .send(.async(.load))
     case let .presented(.menu(.delegate(delegate))):
       return handleMenuDelegate(

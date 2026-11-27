@@ -53,6 +53,18 @@ let packageSettings = PackageSettings(
     "GTMSessionFetcherCore": .framework,
 
     "FirebaseCore": .framework,
+    "FirebaseAnalytics": .framework,
+    "FirebaseInstallations": .framework,
+    // 빈 Analytics wrapper는 정적으로 연결해 실제 SDK의 전이 의존성을 전달한다.
+    "FirebaseAnalyticsCoreTarget": .staticFramework,
+    "FirebaseAnalyticsCoreWrapper": .staticFramework,
+    // 여러 Firebase/Google 모듈이 사용하는 구현은 동적 라이브러리 하나로 공유한다.
+    "nanopb": .framework,
+    "FBLPromises": .framework,
+    "GoogleUtilities-Environment": .framework,
+    "GoogleUtilities-Logger": .framework,
+    "GoogleUtilities-NSData": .framework,
+    "GoogleUtilities-UserDefaults": .framework,
     "FirebaseCrashlytics": .framework,
     "Kingfisher": .framework,
     "SVGKit": .framework,

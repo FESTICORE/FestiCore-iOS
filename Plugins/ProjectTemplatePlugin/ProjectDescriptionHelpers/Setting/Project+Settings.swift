@@ -16,6 +16,7 @@ public extension Settings {
         "DEVELOPMENT_TEAM": .string(Project.Environment.organizationTeamId),
         "MARKETING_VERSION": "$(FESTICORE_VERSION)",
         "CURRENT_PROJECT_VERSION": "$(FESTICORE_BUILD_NUMBER)",
+        "OTHER_LDFLAGS": "$(inherited) -ObjC",
         // 앱도 모듈과 같이 Point-Free Sharing을 별칭으로 가져온다(딥링크 대기 저장소의 @Shared).
         "OTHER_SWIFT_FLAGS": "$(inherited) -module-alias Sharing=FestiCorePointFreeSharing"
       ],

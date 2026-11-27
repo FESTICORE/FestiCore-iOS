@@ -11,6 +11,52 @@ import Testing
 @testable import FestiCoreAnalytics
 
 struct SentryLogSinkTests {
+  @Test func disabledSDKDropsWritesAndReenabledSDKResumes() {
+    let enabled = OSAllocatedUnfairLock(initialState: false)
+    let count = OSAllocatedUnfairLock(initialState: 0)
+    let sink = SentryLogSink(isEnabled: { enabled.withLock { $0 } }) { _, _, _ in
+      count.withLock { $0 += 1 }
+    }
+    let log = entry(
+      .error,
+      .app,
+      "diagnostic"
+    )
+
+    sink.send(log)
+    #expect(count.withLock { $0 } == 0)
+    enabled.withLock { $0 = true }
+    sink.send(log)
+    #expect(count.withLock { $0 } == 1)
+    enabled.withLock { $0 = false }
+    sink.send(log)
+    #expect(count.withLock { $0 } == 1)
+  }
+
+  @Test func productionMinimumDropsNoticeAndInfo() {
+    let count = OSAllocatedUnfairLock(initialState: 0)
+    let sink = SentryLogSink(
+      minimumLevel: .error,
+      isEnabled: { true }
+    ) { _, _, _ in count.withLock { $0 += 1 } }
+    sink.send(entry(
+      .info,
+      .app,
+      "info"
+    ))
+    sink.send(entry(
+      .notice,
+      .app,
+      "notice"
+    ))
+    sink.send(entry(
+      .error,
+      .app,
+      "error"
+    ))
+    #expect(count.withLock { $0 } == 1)
+  }
+
   @Test func mapsLoggerLevelsToSentryLevels() {
     #expect(SentryLogSink.level(for: .debug) == .debug)
     #expect(SentryLogSink.level(for: .info) == .info)
@@ -19,18 +65,22 @@ struct SentryLogSinkTests {
     #expect(SentryLogSink.level(for: .fault) == .fatal)
   }
 
-  @Test func forwardsMessageWithCategoryAttribute() {
+  @Test func stripsRawMessageButPreservesCategoryAttribute() {
     let written = OSAllocatedUnfairLock<[(SentryLogSink.Level, String, String?)]>(uncheckedState: [])
-    let sink = SentryLogSink { level, message, attributes in
+    let sink = SentryLogSink(isEnabled: { true }) { level, message, attributes in
       written.withLockUnchecked { $0.append((level, message, attributes["category"] as? String)) }
     }
 
-    sink.send(entry(.error, .auth, "로그인 실패"))
+    sink.send(entry(
+      .error,
+      .auth,
+      "token=secret-token email=user@example.invalid"
+    ))
 
     let records = written.withLockUnchecked { $0 }
     #expect(records.count == 1)
     #expect(records.first?.0 == .error)
-    #expect(records.first?.1 == "로그인 실패")
+    #expect(records.first?.1 == "app_log")
     #expect(records.first?.2 == "auth")
   }
 
@@ -44,7 +94,7 @@ struct SentryLogSinkTests {
 
   @Test func skipsNetworkLogs() {
     let count = OSAllocatedUnfairLock(initialState: 0)
-    let sink = SentryLogSink { _, _, _ in count.withLock { $0 += 1 } }
+    let sink = SentryLogSink(isEnabled: { true }) { _, _, _ in count.withLock { $0 += 1 } }
 
     sink.send(entry(.error, .network, "GET https://example.invalid/me → 500"))
 

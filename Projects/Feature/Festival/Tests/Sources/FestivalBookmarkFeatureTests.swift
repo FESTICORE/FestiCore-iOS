@@ -1,3 +1,4 @@
+import FestiCoreAnalyticsInterface
 import ComposableArchitecture
 import FestivalDomainInterface
 import Testing
@@ -22,6 +23,7 @@ struct FestivalBookmarkFeatureTests {
     let clock = TestClock()
     let store = TestStore(initialState: FestivalFeature.State()) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
+      $0.analyticsUseCase.track = { _ in }
       $0.continuousClock = clock
     }
 

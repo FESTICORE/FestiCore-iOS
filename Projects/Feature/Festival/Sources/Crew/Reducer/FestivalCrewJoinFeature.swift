@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCoreSharedUI
 import FestivalDomainInterface
 import Foundation
@@ -102,6 +103,7 @@ public struct FestivalCrewJoinFeature {
 
   @Dependency(\.festivalCrewUseCase) private var useCase
   @Dependency(\.festivalLiveBoardUseCase) private var liveBoardUseCase
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
 
   public var body: some ReducerOf<Self> {
     Reduce { state, action in
@@ -203,6 +205,7 @@ private extension FestivalCrewJoinFeature {
         // 기존 크루에서 나가지 못하면 참여하지 않는다.
         do {
           try await useCase.leave(crewID: crewID)
+          analyticsUseCase.track(.crewAction(AnalyticsCrewEvent(action: .left)))
         } catch {
           await send(.inner(.leaveFailed(error as? FestivalCrewError ?? .unavailable)))
           return
@@ -230,11 +233,16 @@ private extension FestivalCrewJoinFeature {
       return .none
     case let .joined(crew):
       state.isJoining = false
+      analyticsUseCase.track(.crewAction(AnalyticsCrewEvent(action: .joined)))
       return .send(.delegate(.joined(
         crewID: crew.id,
         festivalID: crew.festivalID
       )))
     case let .joinFailed(error):
+      analyticsUseCase.track(.crewAction(AnalyticsCrewEvent(
+        action: .joined,
+        result: .failure
+      )))
       if error == .alreadyInCrew, let invite = state.invite {
         // 참여 중 표시를 유지한 채 지금 크루를 찾아 S08 D 확인을 띄운다.
         return .send(.async(.findCurrentCrew(festivalID: invite.festivalID)))

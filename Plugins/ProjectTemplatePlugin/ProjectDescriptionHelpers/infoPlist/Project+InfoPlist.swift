@@ -15,6 +15,22 @@ public extension InfoPlist {
       .setCFBundleShortVersionString("$(FESTICORE_VERSION)")
       .setCFBundleVersion("$(FESTICORE_BUILD_NUMBER)")
       .setFestiCoreEnvironment("$(FESTICORE_ENVIRONMENT)")
+      .set(
+        "FirebaseAutomaticScreenReportingEnabled",
+        .boolean(false)
+      )
+      .set(
+        "FIREBASE_ANALYTICS_COLLECTION_ENABLED",
+        .boolean(false)
+      )
+      .set(
+        "GOOGLE_ANALYTICS_IDFV_COLLECTION_ENABLED",
+        .boolean(false)
+      )
+      .set(
+        "GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS",
+        .boolean(false)
+      )
       .set("FestiCoreAPNsEnvironment", .string("$(FESTICORE_APNS_ENVIRONMENT)"))
       .setFestiCoreAPIHost("$(FESTICORE_API_HOST)")
       .setFestiCoreLegalBaseURL("$(FESTICORE_LEGAL_BASE_URL)")

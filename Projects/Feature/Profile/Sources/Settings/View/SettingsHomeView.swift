@@ -34,6 +34,7 @@ public struct SettingsHomeView: View {
             accountGroup
           }
           informationGroup
+          analyticsGroup
           versionText
         }
         .padding(
@@ -76,6 +77,26 @@ private extension SettingsHomeView {
       rowDivider
       FCListRow("화면 모드") { send(.appearanceTapped) }
         .value(store.appearanceMode.summary)
+    }
+  }
+
+  var analyticsGroup: some View {
+    return VStack(
+      alignment: .leading,
+      spacing: FestiCoreSpacing.paddingP8
+    ) {
+      section("개인정보 선택") {
+        FCListRow(
+          "분석 및 진단 정보 공유",
+          isOn: Binding(
+          get: { store.analyticsCollectionEnabled },
+            set: { send(.analyticsCollectionChanged($0)) }
+          )
+        )
+      }
+      Text("앱 이용 기록과 오류 정보를 서비스 개선에 사용해요. 선택 사항이며 언제든 끌 수 있어요. 수집 항목과 처리 방법은 개인정보 처리방침에서 확인해 주세요.")
+        .festiCoreFont(.baseFootnoteRegular)
+        .foregroundStyle(FestiCoreSemanticColor.labelAssistive.color)
     }
   }
 
