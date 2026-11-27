@@ -4,7 +4,7 @@
 
 ## 제출 전 결정해야 할 항목
 
-- [ ] 분석 변경을 포함한 새 최종 Prod archive와 앱/확장 서명 확인. 기존 디자인 커밋 ebef6eb archive는 검증 통과했으나 새 분석 변경을 포함하지 않는다.
+- [x] 분석·위젯 코드 aa97ab7을 포함한 새 signed Prod archive와 앱/확장3개 서명 확인. 아래 최종 근거 참조.
 - [ ] ASC에서 선택할 실제 버전/빌드 대조. 기본 xcconfig 값은 1.0.0 (1)이며 업로드된 빌드 번호를 의미하지 않는다. Fastlane은 업로드 직전 기존 TestFlight 번호와 시각 기반 번호를 비교한다. 임의 번호 변경/업로드하지 않는다.
 - [ ] ASC 앱 개인정보 답변을 아래 실제 수집 대응표와 대조하고 공개 정책 문구 확정. 외부 서비스 이름 누락 자체를 법적 위반/거절로 단정하지 않는다.
 - [ ] 로그인 기능에 접근할 심사용 계정 또는 Apple이 수용할 대체 접근 방법 제공. 새 계정/암호를 만들거나 이 문서에 비밀값을 적지 않는다. Google/Apple 소셜 로그인만으로 심사자가 모든 계정 기능에 접근 가능한지 사업자가 확인한다.
@@ -44,7 +44,7 @@ App Group은 파일로 공유하며 직접 App Group UserDefaults 사용은 발�
 
 ## 분석·진단과 ASC 개인정보 입력 대응표
 
-아래는 11/28 분석 변경 작업 트리의 정적 확인이다. 최종 커밋·테스트·새 signed archive 증거는 검증 완료 후 고정한다. 기존 ebef6eb archive는 이 변경을 포함하지 않는다. 실제 SDK 대시보드 수신·크래시 보고는 아직 미검증이다.
+아래는 코드 aa97ab7의 정적 수집 확인이며 전체verify와 새 signed Prod archive 검증을 완료했다. 기존 ebef6eb archive는 이 변경을 포함하지 않는다. 실제 SDK 대시보드 수신·크래시 보고는 아직 미검증이다.
 
 | 서비스 | 수집 조건·기본값 | 데이터·식별·철회 | 환경별 로그·제한 |
 | --- | --- | --- | --- |
@@ -88,7 +88,7 @@ SDK 근거: [Firebase 수집 설정](https://firebase.google.com/docs/analytics/
 
 ## 필요한 기존 설정 목록
 
-Stage/Prod의 기존 Mixpanel 설정과 GoogleService-Info.plist가 로컬에 존재한다. Sentry는 메인 체크아웃의 기존 Config/Stage.local.xcconfig·Prod.local.xcconfig를 이 worktree의 Git 제외 경로에 복사했고, 11/28 xcodebuild resolved settings에서 두 환경 모두 값 존재·치환 완료·Git 제외를 확인했다. 이전 DSN 부재 결론은 local override가 없던 이전 archive에만 해당한다. 값은 로그·문서·커밋에 기록하지 않았다. 새 archive의 실제 주입은 별도 검증 대상이다. 현재 Sentry CLI 인증은 없고 연결된 브라우저도 발견되지 않아 대시보드 실수신은 미확인이다.
+Stage/Prod의 기존 Mixpanel 설정과 GoogleService-Info.plist가 로컬에 존재한다. Sentry는 메인 체크아웃의 기존 Config/Stage.local.xcconfig·Prod.local.xcconfig를 이 worktree의 Git 제외 경로에 복사했고, 11/28 xcodebuild resolved settings에서 두 환경 모두 값 존재·치환 완료·Git 제외를 확인했다. 이전 DSN 부재 결론은 local override가 없던 이전 archive에만 해당한다. 값은 로그·문서·커밋에 기록하지 않았다. 새 signed Prod archive에서 실제 DSN 존재·치환·형식 검증을 완료했다. 현재 Sentry CLI 인증은 없고 연결된 브라우저도 발견되지 않아 대시보드 실수신은 미확인이다.
 
 ## 로컬 검증 기록
 
@@ -151,3 +151,23 @@ GitHub 배포 설정 읽기 확인: ios-deploy/ios-preview는 기존 FESTICORE_S
 완성된 결과의 테스트 출력34파일에서 FBLPromise 중복 구현0, Sentry-tagged 시작 전 호출 경고0을 확인했다. 모든 실제 제품 실행이나 대시보드 수신을 검증했다는 의미는 아니다. 테스트 종료 뒤 해당 run의 진단 수집 PID·부모·경로를 확인해 소유 simctl diagnose만 SIGINT로 끝냈고 공유 시뮬레이터 프로세스는 종료하지 않았다.
 
 전체 `.claude/scripts/verify`633초 통과(exit0). Tuist Air 원격 테스트 결과 업로드 한도 경고는 로컬 검증 성공과 별개이며 요금제/결제/설정은 변경하지 않았다.
+
+
+새 코드 aa97ab7의 Gemini COMMENTED에는 P2 의견4개(네트워크/실패 요청 자동 수집OFF, 원문 로그 치환, 콘텐츠 ID 제거에 따른 진단·분석 상세도 감소)가 있었다. 의도한 수집 제한과 남겨둔 오류·성능·고정 행동 맥락을 각 스레드에 답변하고 해결 처리했다. 상세 네트워크 요청과 콘텐츠별 인기도 분석을 제공하지 않는 한계는 유지한다. 승인 review나 지적0건으로 보고하지 않는다.
+
+skipped6은 실기기 Live Activity2, 일정picker1, 스크롤 성능2, 위젯 cold launch1이며 expected failure5는 미등록 의존성 진단이다. 테스트 삭제/skip 추가로 통과시킨 변경은 없다.
+
+
+## 최종 분석·위젯 signed Prod archive — aa97ab7
+
+승인된1회 archive 성공(exit0), 소스 파일 해시가 aa97ab7과 동일함을 확인했다. 문서만 후속 갱신하며 새 소스 변경은 없다.
+
+- 앱/LiveActivity/NotificationService3타깃의 strict 서명, 앱 deep strict 서명, embedded AppStore profile·App Group·application identifier 일치, get-task-allow=false. 기존 프로파일 만료2027-04-09; 신규 발급/키체인 변경 없음.
+- 실제 앱 Info.plist: 기존 Sentry DSN 존재·치환·https 형식 확인, Mixpanel 토큰 존재·치환, GoogleService plist 포함, environment=production, API host=festicore.up.railway.app. 값 자체는 기록하지 않았다.
+- GA 자동 수집/화면 추적/IDFV는 OFF. 기본 선택 동의OFF·광고 동의denied는 코드/테스트와 함께 확인했다. 실제 대시보드 실수신·크래시는 미검증이다.
+- PrivacyInfo 총33개, 모두 plist 파싱 성공. 기존27개의 byte 내용 모두 보존(공유 프레임워크 전환으로 FBLPromises와 GoogleUtilities4개는 표준 Frameworks 경로로 이동). Sentry 원본 SHA256 일치·정확히1개, FirebaseInstallations 원본 포함.
+- FBLPromises.framework strict 서명 및 FirebaseInstallations의 해당 공유 프레임워크 링크 확인. 테스트 출력34파일에서 중복 구현 경고0이며 모든 제품 실행의 무경고를 보장하지 않는다.
+- 3타깃 버전1.0.0(1). ASC 대조·export·업로드·실제 제출 미실행.
+- 산출물: `/Users/suhwonji/orca/reports/item6-ios-design-20261127/FestiCore-Prod-analytics-widget.xcarchive`; `analytics-widget-archive-verification.json`, `archive-source-link-verification.json`, `archive-analytics-widget.log`.
+
+기존 Swift macro 의존성 스캔 경고는 archive 성공과 별도로 남는다. 해당 경고를 이유로 관련 없는 의존성 소스를 변경하지 않았다. 위젯 시스템 호스트·실기기 흐름·ASC 개인정보/심사 접근 정보·정책 게시 등 상단 외부 확인을 완료하기 전에는 ‘심사 제출 준비 전체 완료’로 표시하지 않는다.
