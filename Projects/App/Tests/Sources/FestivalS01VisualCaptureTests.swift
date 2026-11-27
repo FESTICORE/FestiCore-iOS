@@ -8,6 +8,7 @@ import TimetableDomainInterface
 import UIKit
 import UserNotificationDomainInterface
 import XCTest
+@testable import FestiCore
 @testable import Festival
 @testable import Timetable
 
@@ -214,20 +215,53 @@ final class FestivalS01VisualCaptureTests: XCTestCase {
       }
     )
     state.viewState = .loaded
-    let store = Store(initialState: state) {
-      EmptyReducer<FestivalFlagFeature.State, FestivalFlagFeature.Action>()
-    }
-    try await capture(
-      FestivalFlagView(store: store)
-        .safeAreaInset(edge: .bottom) {
-          FCTabBar(selection: .constant(.flag))
-        },
-      name: "S04-A-basic",
-      size: CGSize(
-        width: 393,
-        height: 852
+    for menuPresented in [false, true] {
+      state.directory.isSortMenuPresented = menuPresented
+      let store = Store(initialState: state) {
+        EmptyReducer<FestivalFlagFeature.State, FestivalFlagFeature.Action>()
+      }
+      try await capture(
+        FestivalFlagView(store: store)
+          .safeAreaInset(edge: .bottom) {
+            FCTabBar(selection: .constant(.flag))
+          },
+        name: menuPresented ? "S04-sort-menu" : "S04-A-basic",
+        size: CGSize(
+          width: 393,
+          height: 852
+        )
       )
-    )
+    }
+  }
+
+  func testCaptureSetSheetInMainTab() async throws {
+    for width in [320.0, 393.0] {
+      var state = MainTabCoordinator.State(selectedTab: .timetable)
+      state.timetableState = timetableFixture(.overlap)
+      var content = try XCTUnwrap(state.timetableState.setDetailContent(
+        id: "one-oak",
+        now: Date()
+      ))
+      content.interval = DateInterval(
+        start: Date().addingTimeInterval(3600),
+        duration: 3000
+      )
+      state.timetableState.setDetail = .init(
+        setID: "one-oak",
+        content: content
+      )
+      let store = Store(initialState: state) {
+        EmptyReducer<MainTabCoordinator.State, MainTabCoordinator.Action>()
+      }
+      try await capture(
+        MainTabView(store: store),
+        name: "S03-main-tab-overlap-\(Int(width))",
+        size: CGSize(
+          width: width,
+          height: width == 320 ? 667 : 852
+        )
+      )
+    }
   }
 
   func testCaptureFlagDetailStates() async throws {

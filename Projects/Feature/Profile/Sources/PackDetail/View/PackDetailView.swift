@@ -198,7 +198,10 @@ extension PackDetailView {
     @ViewBuilder actions: () -> some View
   ) -> some View {
     card {
-      VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP12) {
+      VStack(
+        alignment: .leading,
+        spacing: FestiCoreSpacing.paddingP8
+      ) {
         VStack(alignment: .leading, spacing: FestiCoreSpacing.paddingP8) {
           cardTitle(title)
           if let body = sectionBody(section) {
