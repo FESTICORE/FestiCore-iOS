@@ -4,7 +4,8 @@
 
 ## 제출 전 결정해야 할 항목
 
-- [ ] 최종 Prod archive와 서명 확인, ASC에서 선택할 실제 버전/빌드 대조. 기본 xcconfig 값은 1.0.0 (1)이며 업로드된 빌드 번호를 의미하지 않는다. Fastlane은 업로드 직전 기존 TestFlight 번호와 시각 기반 번호를 비교한다. 임의 번호 변경/업로드하지 않는다.
+- [x] 최종 Prod archive와 앱/확장 서명 확인.
+- [ ] ASC에서 선택할 실제 버전/빌드 대조. 기본 xcconfig 값은 1.0.0 (1)이며 업로드된 빌드 번호를 의미하지 않는다. Fastlane은 업로드 직전 기존 TestFlight 번호와 시각 기반 번호를 비교한다. 임의 번호 변경/업로드하지 않는다.
 - [ ] ASC 앱 개인정보 답변을 아래 실제 수집 대응표와 대조하고 공개 정책 문구 확정. 외부 서비스 이름 누락 자체를 법적 위반/거절로 단정하지 않는다.
 - [ ] 로그인 기능에 접근할 심사용 계정 또는 Apple이 수용할 대체 접근 방법 제공. 새 계정/암호를 만들거나 이 문서에 비밀값을 적지 않는다. Google/Apple 소셜 로그인만으로 심사자가 모든 계정 기능에 접근 가능한지 사업자가 확인한다.
 - [ ] ASC 필수 메타데이터, 연락처, 연령 등급, 콘텐츠 권리, 수출규정 답변, 스크린샷 및 선택 빌드 처리 상태 확인. 현재 프로세스에는 ASC API 인증 환경변수 3개가 없어 API 조회로 확인하지 못했다. 새 로그인/자격증명을 발급하지 않는다.
@@ -37,7 +38,7 @@
 | FestiCoreStorageInterface | 이전 화면 모드 UserDefaults 읽기 | UserDefaults `CA92.1` |
 | FestiCorePack | 앱 캐시 파일 `contentModificationDateKey` | FileTimestamp `C617.1` |
 
-App Group은 파일로 공유하며 직접 App Group UserDefaults 사용은 발견하지 않아 `1C8F.1`을 추가하지 않았다. 디스크 공간/시스템 부팅 시각 이유도 앱 코드 근거 없이 추가하지 않는다. 수집 데이터 없음/추적 없음 선언을 임의로 만들지 않았다. SDK 자체 manifest를 앱 선언으로 대체하지 않는다. unsigned Prod archive에서 자체4개를 포함한26개 manifest가 확인됐다. Sentry 누락은 아래 패키징으로 보완하며 최종 signed archive에서 재확인한다.
+App Group은 파일로 공유하며 직접 App Group UserDefaults 사용은 발견하지 않아 `1C8F.1`을 추가하지 않았다. 디스크 공간/시스템 부팅 시각 이유도 앱 코드 근거 없이 추가하지 않는다. 수집 데이터 없음/추적 없음 선언을 임의로 만들지 않았다. SDK 자체 manifest를 앱 선언으로 대체하지 않는다. unsigned Prod archive에서 자체4개를 포함한26개 manifest가 확인됐다. Sentry 누락을 아래 패키징으로 보완했고 최종 signed archive에서 기존26개 동일 내용 보존과 원본1개 추가(총27개)를 확인했다.
 
 공식 근거: [Apple required-reason API](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api), [이유 코드](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype), [ATT 정의](https://developer.apple.com/app-store/user-privacy-and-data-use/).
 
@@ -111,4 +112,20 @@ unsigned Prod archive에서 26개 manifest를 열거했으나 Sentry 원본은 �
 
 따라서 이미 사용하는 Tuist 모듈 `Sources` 리소스 전달 경로로 **FestiCoreAnalytics.framework/PrivacyInfo.xcprivacy**를 포함한다. 다른 SDK/앱 manifest를 덮어쓰지 않으며 SDK 원본 내용은 수정하지 않는다. 앱의 사용자 연결/추가 수집에 관한 ASC 답변은 SDK 기본 선언과 별도로 위 대응표에 기록한다.
 
-원천: [pinned SDK 원본](https://github.com/getsentry/sentry-cocoa/blob/aa91bcf6bd6f383dbc49f38bf785d1d775c4f751/Sources/Resources/PrivacyInfo.xcprivacy), SHA256 `118b16e0e97ffe8b6f1f01b7e04f68e5da764474a4d39d2933b0eeaef3cdc0ca`. 다운로드한 원본과 로컬 SDK 파일의 byte 일치를 확인했다. 업그레이드 시 이 사본을 새 pinned 원본과 비교하고 SDK가 리소스를 전달하도록 수정되면 중복 사본을 제거해야 한다. 최종 signed archive의 경로·내용·중복 수를 다시 확인한다.
+원천: [pinned SDK 원본](https://github.com/getsentry/sentry-cocoa/blob/aa91bcf6bd6f383dbc49f38bf785d1d775c4f751/Sources/Resources/PrivacyInfo.xcprivacy), SHA256 `118b16e0e97ffe8b6f1f01b7e04f68e5da764474a4d39d2933b0eeaef3cdc0ca`. 다운로드한 원본과 로컬 SDK 파일의 byte 일치를 확인했다. 업그레이드 시 이 사본을 새 pinned 원본과 비교하고 SDK가 리소스를 전달하도록 수정되면 중복 사본을 제거해야 한다. 최종 signed archive의 `Products/Applications/FestiCore.app/Frameworks/FestiCoreAnalytics.framework/PrivacyInfo.xcprivacy`가 위 SHA256과 일치하며 동일 원본은 정확히1개다. 기존26개 manifest는 모두 동일 경로·동일 SHA256으로 보존됐다.
+
+## PR 리뷰 경계
+
+PR #670의 최초 HEAD에서 Gemini는 P1/P2 지적 없이 COMMENTED했으며 승인 review는 아니다. Codex 자동 리뷰는 quota 초과로 미생성되어 이번 제출 준비의 필수 게이트에서 명시 면제했다(msg_25df7910b3aa). 교차검토 생략 승인과 별개로 로컬 verify, 자체 diff 점검, 빌드 CI와 archive 검증 결과를 기록한다.
+
+## 최종 Prod archive 검증
+
+승인된 unsigned1회와 타깃 한정 signed1회 모두 성공했다. 서명 설정은 생성된 Xcode 프로젝트의 앱/확장3타깃 Prod에만 기존 Apple Distribution identity를 적용했고 전역 매크로/의존성에는 전파하지 않았다. 저장소 Fastlane과 같은 타깃 범위이며 이 로컬 생성물 변경은 커밋하지 않는다.
+
+- `codesign --verify --deep --strict` 앱 검증 통과, 각 확장 `--verify --strict` 통과.
+- `io.festiCore.co`, `.LiveActivity`, `.NotificationService`의 모든 서명 entitlements가 embedded AppStore profile과 일치한다. `get-task-allow=false`; 프로파일 만료2027-04-09. 앱 push는 production, Apple 로그인/App Group 권한도 일치한다.
+- 버전/빌드3타깃 모두1.0.0(1). ASC 업로드 빌드와의 대조·export·업로드·제출은 하지 않았다.
+- manifest 총27개: 자체4개, 기존SDK 등22개 보존, Sentry 원본1개. 모든 plist 파싱 통과, 기존26개 해시 보존, Sentry 원본 중복 없음.
+- 로컬 산출물: `/Users/suhwonji/orca/reports/item6-ios-design-20261127/FestiCore-Prod-signed.xcarchive`; 증거 `signed-archive-verification.json`, `archive-signed.log`, `verify-final-summary.json`.
+
+서명 archive 성공은 ASC 처리 완료 또는 심사 제출 가능성에 대한 서버 검증 성공을 의미하지 않는다. 상단 외부 확인 항목을 제출 전에 완료해야 한다.
