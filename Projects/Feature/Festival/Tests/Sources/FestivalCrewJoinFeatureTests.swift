@@ -1,3 +1,4 @@
+import FestiCoreAnalyticsInterface
 import ComposableArchitecture
 import FestiCoreSharedUI
 import FestivalDomainInterface
@@ -55,6 +56,7 @@ struct FestivalCrewJoinFeatureTests {
     let store = TestStore(initialState: initial) {
       FestivalCrewJoinFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalCrewUseCase = CrewSpy(join: joined)
     }
     await store.send(.view(.joinTapped)) { $0.isJoining = true }
@@ -73,6 +75,7 @@ struct FestivalCrewJoinFeatureTests {
     let store = TestStore(initialState: initial) {
       FestivalCrewJoinFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalCrewUseCase = CrewSpy(joinError: .full)
     }
     await store.send(.view(.joinTapped)) { $0.isJoining = true }
@@ -130,6 +133,7 @@ struct FestivalCrewJoinFeatureTests {
     let store = TestStore(initialState: loadedState()) {
       FestivalCrewJoinFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalLiveBoardUseCase = CurrentCrewBoard()
       $0.festivalCrewUseCase = AlreadyInCrewSpy(
         calls: calls,

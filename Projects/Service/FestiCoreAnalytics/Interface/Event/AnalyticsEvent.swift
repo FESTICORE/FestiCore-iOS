@@ -20,4 +20,10 @@ public enum AnalyticsEvent: Equatable, Sendable {
   case timetableAction(TimetableActionData)
   /// 페스티벌 팩 동기화 결과.
   case packSync(PackSyncData)
+  /// 축제 탐색·준비 흐름의 명시적 사용자 액션.
+  case festivalJourney(AnalyticsJourneyEvent)
+  /// 크루의 생성·참여·상태 공유 흐름. 크루 ID·이름·위치 값은 포함하지 않는다.
+  case crewAction(AnalyticsCrewEvent)
+  /// Live Activity를 사용자가 시작하거나 멈춘 결과.
+  case liveActivityAction(AnalyticsLiveActivityEvent)
 }

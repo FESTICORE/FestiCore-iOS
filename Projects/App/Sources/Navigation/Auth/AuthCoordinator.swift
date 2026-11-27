@@ -470,6 +470,7 @@ private extension AuthCoordinator {
       result.user.id,
       result.user.provider
     )
+    analyticsUseCase.track(.festivalJourney(AnalyticsJourneyEvent(action: .loginCompleted)))
     if result.newUser, let provider = AnalyticsProvider(rawValue: result.user.provider) {
       analyticsUseCase.track(.signUp(method: provider))
     }

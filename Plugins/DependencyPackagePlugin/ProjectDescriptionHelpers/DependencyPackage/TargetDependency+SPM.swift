@@ -22,6 +22,7 @@ public extension TargetDependency.SPM {
   static let sdwebImage = TargetDependency.external(name: "SDWebImageSwiftUI")
   static let googleSignIn = TargetDependency.external(name: "GoogleSignIn")
   static let firebaseCore = TargetDependency.external(name: "FirebaseCore")
+  static let firebaseAnalyticsCore = TargetDependency.external(name: "FirebaseAnalyticsCore")
   static let firebaseCrashlytics = TargetDependency.external(name: "FirebaseCrashlytics")
   static let kingfisher = TargetDependency.external(name: "Kingfisher")
   static let svgKit = TargetDependency.external(name: "SVGKit")

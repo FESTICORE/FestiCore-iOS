@@ -29,6 +29,15 @@ public struct TimetableView: View {
       Spacer(minLength: .zero)
       if !store.source.isEmpty {
         FCSourceLine(store.source)
+          .inset(false)
+          .padding(
+            .horizontal,
+            FestiCoreSpacing.paddingP16
+          )
+          .padding(
+            .vertical,
+            FestiCoreSpacing.paddingP12
+          )
       }
     }
     .frame(

@@ -7,6 +7,7 @@
 
 import ComposableArchitecture
 import FeatureAssembly
+import FestiCoreAnalyticsInterface
 import FestiCorePackInterface
 import FestivalDomainInterface
 import Foundation
@@ -35,9 +36,11 @@ struct FestivalPrepGuideRoutingTests {
 
   @Test("처음 받은 팩은 서버 내 일정으로 1단계를 열고, 저장하면 2단계로 가며 타임테이블에 알린다")
   func opensScheduleThenFlags() async {
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
     let store = TestStore(initialState: listState()) {
       FestivalCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
       $0.festivalScheduleUseCase = MockFestivalScheduleUseCase(mySchedule: { _ throws(FestivalScheduleError) in
         return FestivalSchedule(setIDs: ["set_1"])
       })
@@ -49,6 +52,7 @@ struct FestivalPrepGuideRoutingTests {
       action: .festivalList(.delegate(.prepGuideRequested(festivalID: "festival")))
     )))
     await store.receive(\.prepScheduleLoaded)
+    #expect(analytics.value == [.festivalJourney(.init(action: .prepGuideOpened))])
     let pick = store.state.routes.last?.screen.prepSchedule
     #expect(pick?.festivalID == "festival")
     #expect(pick?.selectedSetIDs == ["set_1"])
@@ -91,9 +95,11 @@ struct FestivalPrepGuideRoutingTests {
 
   @Test("서버 내 일정을 읽지 못하면 덮어쓰지 않게 1단계를 건너뛰고 2단계부터 연다")
   func skipsScheduleWhenUnavailable() async {
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
     let store = TestStore(initialState: listState()) {
       FestivalCoordinator()
     } withDependencies: {
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
       $0.festivalScheduleUseCase = MockFestivalScheduleUseCase(mySchedule: { _ throws(FestivalScheduleError) in
         throw .unavailable
       })
@@ -105,6 +111,7 @@ struct FestivalPrepGuideRoutingTests {
       action: .festivalList(.delegate(.prepGuideRequested(festivalID: "festival")))
     )))
     await store.receive(\.prepScheduleLoaded)
+    #expect(analytics.value == [.festivalJourney(.init(action: .prepGuideOpened))])
     #expect(store.state.routes.count == 2)
     #expect(store.state.routes.last?.screen.is(\.prepFlags) == true)
   }

@@ -48,7 +48,7 @@ struct TimetableBoard: View {
         await Task.yield()
         proxy.scrollTo(
           now / 60,
-          anchor: .top
+          anchor: .topLeading
         )
       }
     }

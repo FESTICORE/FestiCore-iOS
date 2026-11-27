@@ -119,12 +119,20 @@ private extension FCBearerCTA {
     let shape = RoundedRectangle(cornerRadius: FestiCoreRadius.r24)
     return Button(action: action) {
       Text(copy.buttonTitle)
-        .festiCoreFont(.baseCalloutBold)
+        .festiCoreFont(.baseTitle2Bold)
+        .festiCoreLineBox(.baseTitle2Bold)
         .foregroundStyle(state == .start ? FestiCoreSemanticColor.staticInk.color : FestiCoreSemanticColor.inverseLabel.color)
-        .lineLimit(1)
+        .fixedSize(
+          horizontal: false,
+          vertical: true
+        )
         .padding(.horizontal, FestiCoreSpacing.paddingP20)
+        .padding(
+          .vertical,
+          FestiCoreSpacing.paddingP12
+        )
         .frame(maxWidth: .infinity)
-        .frame(height: Metric.ctaHeight)
+        .frame(minHeight: Metric.ctaHeight)
         .background(
           state == .start ? FestiCoreSemanticColor.accentPointLime.color : FestiCoreSemanticColor.inverseBackground.color,
           in: shape

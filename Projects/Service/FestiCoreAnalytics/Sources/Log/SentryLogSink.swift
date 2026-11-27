@@ -11,7 +11,7 @@ import FestiCoreLogger
 /// FestiCoreLogger 로그를 Sentry Logs로 보낸다. 분석 이벤트 추적과는 별개다.
 ///
 /// 네트워크 로그는 URL·응답 본문이 들어갈 수 있어 보내지 않는다.
-/// 네트워크 실패는 Sentry의 실패 요청 캡처와 네트워크 breadcrumb가 따로 남긴다.
+/// 원문 대신 고정 메시지와 코드 위치만 남기며 네트워크 자동 캡처도 끈다.
 struct SentryLogSink: FestiCoreLogSink {
   enum Level: Equatable {
     case debug
@@ -21,9 +21,27 @@ struct SentryLogSink: FestiCoreLogSink {
     case fatal
   }
 
+  private let minimumLevel: FestiCoreLogLevel
+  private let isEnabled: @Sendable () -> Bool
   private let write: @Sendable (Level, String, [String: Any]) -> Void
 
-  init(write: @escaping @Sendable (Level, String, [String: Any]) -> Void = { SentryLogSink.writeToSentry($0, $1, $2) }) {
+  init(
+    minimumLevel: FestiCoreLogLevel = .info,
+    isEnabled: @escaping @Sendable () -> Bool = { SentrySDK.isEnabled },
+    write: @escaping @Sendable (
+      Level,
+      String,
+      [String: Any]
+    ) -> Void = {
+      SentryLogSink.writeToSentry(
+        $0,
+        $1,
+        $2
+      )
+    }
+  ) {
+    self.minimumLevel = minimumLevel
+    self.isEnabled = isEnabled
     self.write = write
   }
 
@@ -47,8 +65,13 @@ struct SentryLogSink: FestiCoreLogSink {
   }
 
   func send(_ entry: FestiCoreLogEntry) {
-    guard entry.category != .network else { return }
-    write(Self.level(for: entry.level), entry.message, Self.attributes(for: entry))
+    guard isEnabled(), entry.category != .network, entry.level >= minimumLevel else { return }
+    // 원문에는 서버 오류·사용자 입력이 섞일 수 있으므로 고정 메시지와 코드 위치만 보낸다.
+    write(
+      Self.level(for: entry.level),
+      "app_log",
+      Self.attributes(for: entry)
+    )
   }
 
   static func writeToSentry(_ level: Level, _ message: String, _ attributes: [String: Any]) {

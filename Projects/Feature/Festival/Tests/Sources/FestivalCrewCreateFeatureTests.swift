@@ -1,3 +1,4 @@
+import FestiCoreAnalyticsInterface
 import ComposableArchitecture
 import FestivalDomainInterface
 import Foundation
@@ -13,6 +14,7 @@ struct FestivalCrewCreateFeatureTests {
     let store = TestStore(initialState: FestivalCrewCreateFeature.State(festivalID: "festival-1")) {
       FestivalCrewCreateFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalCrewUseCase = CrewCreateStub(
         result: .success(crew),
         recorder: recorder
@@ -51,6 +53,7 @@ struct FestivalCrewCreateFeatureTests {
     let store = TestStore(initialState: FestivalCrewCreateFeature.State(festivalID: "festival-1")) {
       FestivalCrewCreateFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalCrewUseCase = CrewCreateStub(result: .failure(.alreadyInCrew))
     }
 
@@ -75,6 +78,7 @@ struct FestivalCrewCreateFeatureTests {
     let store = TestStore(initialState: FestivalCrewCreateFeature.State(festivalID: "festival-1")) {
       FestivalCrewCreateFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalCrewUseCase = CrewCreateStub(result: .failure(.unauthenticated))
     }
 
@@ -106,6 +110,7 @@ struct FestivalCrewCreateFeatureTests {
     let store = TestStore(initialState: FestivalCrewCreateFeature.State(festivalID: "festival-1")) {
       FestivalCrewCreateFeature()
     } withDependencies: {
+      $0.analyticsUseCase.track = { _ in }
       $0.festivalCrewUseCase = CrewCreateStub(result: .failure(.unavailable))
     }
 

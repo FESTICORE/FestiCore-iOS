@@ -579,14 +579,26 @@ extension FestivalWidgetEntry {
     return phase != .finished
   }
 
-  var rectangularLabel: String {
-    if phase == .noPack { return "FESTICORE" }
-    // Figma Lock Screen 종료 후: `{축제} DAY 1`
-    if phase == .finished, !isFestivalOver, let todayNumber, let snapshot {
-      return "\(snapshot.festivalName) DAY \(todayNumber)"
+  /// 최신 Lock Screen 컴포넌트: 다음 내 일정이 있으면 해당 아티스트를 히어로로 쓴다.
+  var rectangularHeadline: String {
+    switch phase {
+    case .noPack: return "FESTICORE"
+    case .goingHome: return homeRide?.label ?? footerTitle
+    case .before, .playing: return next?.artist ?? headline
+    case .finished, .unavailable: return headline
     }
-    if phase == .playing, next == nil, let current { return "지금 \(current.stageName)" }
-    return footerTitle
+  }
+
+  var rectangularLabel: String {
+    if let homeRide {
+      return [homeRide.shuttleStopName ?? homeRide.trainStationName, homeRide.target.formatted(.time)]
+        .compactMap { $0 }
+        .joined(separator: " ")
+    }
+    if let upcomingOpening { return "\(upcomingOpening.dayWord) 개장" }
+    if phase == .before, let next { return "\(next.stageName) \(next.startsAt.formatted(.time))" }
+    if phase == .playing { return next?.stageName ?? current?.stageName ?? footerTitle }
+    return footerDetail
   }
 
   /// Figma Lock Screen 인라인 공연 전 `개장 15:00 · 첫 일정 15:30`, 종료 후 `오늘 공연 끝 · 내일 15:00 개장`.
@@ -601,15 +613,6 @@ extension FestivalWidgetEntry {
       return "오늘 공연 끝 · \(upcomingOpening.dayWord) \(upcomingOpening.time) 개장"
     }
     return nil
-  }
-
-  /// Figma Lock Screen 사각형 아래 줄. 종료 후에는 다음 날 개장 시각.
-  var rectangularDetail: String {
-    if let stageNext { return "다음 \(stageNext.artist) \(stageNext.startsAt.formatted(.time))" }
-    // Figma Lock Screen 종료 1시간 전: `정문 · 막차 23:52`
-    if let homeRide { return homeRide.accessoryDetail }
-    if let upcomingOpening { return "\(upcomingOpening.dayWord) \(upcomingOpening.time) 개장" }
-    return footerDetail
   }
 
   /// 잠금화면 원형·사각형 남은 시간. 종료 후에는 `끝`·`오늘 끝!`을 보인다.
@@ -1103,53 +1106,56 @@ private extension FestivalWidgetView {
     return Text(text)
       .font(.pretendardFontFamily(
         family: .Bold,
-        size: 9
+        size: 10
       ))
       .lineLimit(1)
       .minimumScaleFactor(0.7)
-      .foregroundStyle(.secondary)
+      .foregroundStyle(.primary)
   }
 
   @ViewBuilder
-  func countdownLabel() -> some View {
+  func rectangularValue() -> some View {
     if let target = entry.accessoryTarget {
       Text(
         target,
         style: .relative
       ) + Text(" 후")
-    } else if entry.phase == .noPack {
-      Text("팩 없음")
-    } else {
-      Text(entry.headline)
+    } else if let opening = entry.upcomingOpening {
+      Text(opening.time)
+    } else if entry.phase == .playing {
+      Text("공연 중")
     }
   }
 
-  @ViewBuilder
   func rectangular() -> some View {
-    // Figma Lock Screen Rectangular: 배경 20% r14, 패딩 12/8, 간격 2
+    // 최신 밝은 배경 A~E: 히어로 22(최소 16), 무대 12 / 값 16. 색은 시스템 vibrant에 맡긴다.
     VStack(
       alignment: .leading,
-      spacing: FestiCoreSpacing.marginM2
+      spacing: FestiCoreSpacing.marginM6 / 2
     ) {
-      Text(entry.rectangularLabel)
-        .font(.pretendardFontFamily(
-          family: .SemiBold,
-          size: 11
-        ))
-        .foregroundStyle(.secondary)
+      Text(entry.rectangularHeadline)
+        .font(WidgetFont.bagel(22))
         .lineLimit(1)
-      countdownLabel()
-        .font(WidgetFont.bagel(20))
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
-      Text(entry.rectangularDetail)
-        .font(.pretendardFontFamily(
-          family: .Medium,
-          size: 11
-        ))
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
+        .minimumScaleFactor(16.0 / 22.0)
+      HStack(spacing: FestiCoreSpacing.marginM4) {
+        Text(entry.rectangularLabel)
+          .font(.pretendardFontFamily(
+            family: .Bold,
+            size: 12
+          ))
+          .lineLimit(1)
+        Spacer(minLength: 0)
+        rectangularValue()
+          .font(WidgetFont.bagel(16))
+          .lineLimit(1)
+          .fixedSize(
+            horizontal: true,
+            vertical: false
+          )
+          .layoutPriority(1)
+      }
     }
+    .foregroundStyle(.primary)
     .padding(
       .horizontal,
       FestiCoreSpacing.paddingP12

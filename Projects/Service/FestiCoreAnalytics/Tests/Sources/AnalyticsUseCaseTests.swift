@@ -11,6 +11,53 @@ import Testing
 @testable import FestiCoreAnalytics
 
 struct AnalyticsUseCaseTests {
+  @Test func consentGatesFirebaseEventsAndIdentityButResetAlwaysRuns() {
+    let enabled = LockIsolated(true)
+    let calls = LockIsolated<[String]>([])
+    let firebase = AnalyticsUseCase(
+      registerBaseProperties: { calls.withValue { $0.append("base") } },
+      identify: { id, method in calls.withValue { $0.append("identify:\(id):\(method ?? "")") } },
+      track: { event in calls.withValue { $0.append(AnalyticsUseCase.eventName(event)) } },
+      reset: { calls.withValue { $0.append("reset") } }
+    )
+    let live = AnalyticsUseCase.makeLiveValue(
+      firebase: firebase,
+      collectionEnabled: { enabled.value }
+    )
+    live.registerBaseProperties()
+    live.identify(
+      "test-user",
+      "apple"
+    )
+    live.track(.screenView(
+      screen: .profile,
+      referrer: nil
+    ))
+    enabled.setValue(false)
+    live.registerBaseProperties()
+    live.identify(
+      "blocked-user",
+      "google"
+    )
+    live.track(.signUp(method: .google))
+    live.reset()
+    #expect(calls.value == ["base", "identify:test-user:apple", "screen_view", "reset"])
+  }
+
+  @Test func firebaseScreenEventUsesGA4ScreenParameters() {
+    let event = AnalyticsEvent.screenView(
+      screen: .profile,
+      referrer: nil
+    )
+    let parameters = AnalyticsUseCase.firebaseProperties(
+      for: event,
+      fallback: AnalyticsUseCase.eventProperties(event)
+    )
+    #expect(parameters["screen_name"] as? String == "profile")
+    #expect(parameters["screen_class"] as? String == "profile")
+    #expect(parameters["screen"] == nil)
+  }
+
   @Test func eventNamesAreSnakeCase() {
     let events: [(AnalyticsEvent, String)] = [
       (.signUp(method: .apple), "sign_up"),
@@ -44,18 +91,21 @@ struct AnalyticsUseCaseTests {
     #expect(uiAction["screen"] as? String == "profile")
 
     let follow = AnalyticsUseCase.eventProperties(.flagFollow(.init(flagID: "flag", isFollowing: false)))
-    #expect(follow["flag_id"] as? String == "flag")
+    #expect(follow.count == 1)
+    #expect(follow["flag_id"] == nil)
     #expect(follow["is_following"] as? Bool == false)
 
     let timetable = AnalyticsUseCase.eventProperties(.timetableAction(.init(action: .scheduleToggle, festivalID: "fst")))
-    #expect(timetable.count == 2)
+    #expect(timetable.count == 1)
     #expect(timetable["action"] as? String == "schedule_toggle")
-    #expect(timetable["festival_id"] as? String == "fst")
+    #expect(timetable["festival_id"] == nil)
     let setOpen = AnalyticsUseCase.eventProperties(.timetableAction(.init(action: .setOpen, festivalID: "fst", setID: "set")))
-    #expect(setOpen["set_id"] as? String == "set")
+    #expect(setOpen.count == 1)
+    #expect(setOpen["set_id"] == nil)
 
     let pack = AnalyticsUseCase.eventProperties(.packSync(.init(festivalID: "fst", result: .notModified)))
-    #expect(pack["festival_id"] as? String == "fst")
+    #expect(pack.count == 1)
+    #expect(pack["festival_id"] == nil)
     #expect(pack["result"] as? String == "not_modified")
   }
 
@@ -68,7 +118,7 @@ struct AnalyticsUseCaseTests {
 
   @Test func baseSuperPropertiesCarryPlatformAndVersion() {
     let properties = AnalyticsUseCase.baseSuperProperties()
-    #expect(Set(properties.keys) == ["os_type", "app_version", "build"])
+    #expect(Set(properties.keys) == ["os_type", "app_version", "build", "environment"])
     #expect(properties["os_type"] as? String == "ios")
   }
 

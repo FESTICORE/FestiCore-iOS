@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import CoreAssembly
+import FestiCoreAnalyticsInterface
 import FeatureAssembly
 import FestivalDomainInterface
 import TCAFlow
@@ -8,6 +9,7 @@ import TCAFlow
 struct FestivalCoordinator {
   @Dependency(\.festivalPackUseCase) private var packUseCase
   @Dependency(\.festivalScheduleUseCase) private var scheduleUseCase
+  @Dependency(\.analyticsUseCase) private var analyticsUseCase
   @Dependency(\.continuousClock) private var clock
   private enum CancelID { case widgetLink, widgetLookupToast }
 
@@ -287,6 +289,7 @@ struct FestivalCoordinator {
         action: .festivalList(.delegate(.prepGuideRequested(festivalID)))
       )):
       guard !state.isPrepGuideOpen else { return .none }
+      analyticsUseCase.track(.festivalJourney(AnalyticsJourneyEvent(action: .prepGuideOpened)))
       return .run { send in
         do throws(FestivalScheduleError) {
           let schedule = try await scheduleUseCase.mySchedule(festivalID: festivalID)

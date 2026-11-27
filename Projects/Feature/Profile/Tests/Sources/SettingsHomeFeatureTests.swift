@@ -7,6 +7,8 @@
 
 import AuthDomainInterface
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
+import FestiCoreStorageInterface
 import FestiCoreSharedUI
 import FestivalDomainInterface
 import Foundation
@@ -15,6 +17,27 @@ import Testing
 
 @MainActor
 struct SettingsHomeFeatureTests {
+  @Test func analyticsConsentDefaultsOffAndCanBeWithdrawn() async {
+    @Shared(.analyticsCollectionEnabled) var consent = false
+    let requests = LockIsolated<[Bool]>([])
+    let store = TestStore(initialState: SettingsHomeFeature.State()) { SettingsHomeFeature() }
+      withDependencies: {
+        $0.analyticsUseCase = .previewValue
+        $0.analyticsUseCase.setCollectionEnabled = { enabled in
+          requests.withValue { $0.append(enabled) }
+          $consent.withLock { $0 = enabled }
+        }
+      }
+    #expect(!store.state.analyticsCollectionEnabled)
+    await store.send(.view(.analyticsCollectionChanged(true))) { _ in
+      $consent.withLock { $0 = true }
+    }
+    await store.send(.view(.analyticsCollectionChanged(false))) { _ in
+      $consent.withLock { $0 = false }
+    }
+    #expect(requests.value == [true, false])
+  }
+
   @Test("로그아웃 상태의 설정 홈은 계정 그룹을 숨기고 계정 줄 입력을 무시한다")
   func guestHidesAccountGroup() async {
     #expect(!SettingsHomeFeature.State().showsAccount)

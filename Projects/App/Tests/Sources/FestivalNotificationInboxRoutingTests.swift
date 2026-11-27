@@ -1,5 +1,7 @@
 import ComposableArchitecture
 import FeatureAssembly
+import FestiCoreAnalyticsInterface
+import os
 import FestivalDomainInterface
 import FestiCoreSharedUI
 import Testing
@@ -70,9 +72,11 @@ struct FestivalNotificationInboxRoutingTests {
     var state = FestivalCoordinator.State()
     state.routes.push(.liveBoard(.init(selectedFestivalID: "fst")))
     let clock = TestClock()
+    let events = OSAllocatedUnfairLock<[AnalyticsEvent]>(initialState: [])
     let store = TestStore(initialState: state) { FestivalCoordinator() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
       $0.continuousClock = clock
+      $0.analyticsUseCase.track = { event in events.withLock { $0.append(event) } }
     }
     store.exhaustivity = .off
 
@@ -85,6 +89,7 @@ struct FestivalNotificationInboxRoutingTests {
     }
     #expect(store.state.routes[0].screen.festivalList?.toast == nil)
     #expect(store.state.routes[1].screen.liveBoard?.toast == .bookmarked)
+    #expect(events.withLock { $0 } == [.festivalJourney(AnalyticsJourneyEvent(action: .bookmarked))])
   }
 
   @Test("로그인한 라이브 보드에서 알림함을 열고 뒤로 돌아온다")

@@ -1,6 +1,7 @@
 import AuthDomainInterface
 import ComposableArchitecture
 import FestiCoreSharedUI
+import FestiCoreStorageInterface
 import FestivalDomainInterface
 import Foundation
 import SwiftUI
@@ -9,6 +10,30 @@ import XCTest
 
 /// Figma S13 A~E 설정(알림·기기 알림 꺼짐·잠금화면·계정·로그아웃 확인)을 고정 상태로 렌더한다(다크 393). 시각 자료 생성용이다.
 extension FestivalS01VisualCaptureTests {
+  func testCaptureAnalyticsConsentSettings() async throws {
+    @Shared(.analyticsCollectionEnabled) var consent = false
+    for enabled in [false, true] {
+      $consent.withLock { $0 = enabled }
+      for width: CGFloat in [320, 393] {
+        for scheme in [ColorScheme.dark, .light] {
+          let store = Store(initialState: SettingsHomeFeature.State()) {
+            EmptyReducer<SettingsHomeFeature.State, SettingsHomeFeature.Action>()
+          }
+          try await capture(
+            SettingsHomeView(store: store),
+            name: "S13-consent-\(enabled ? "on" : "off")-\(Int(width))-\(scheme == .dark ? "dark" : "light")",
+            size: CGSize(
+              width: width,
+              height: width == 320 ? 568 : 852
+            ),
+            colorScheme: scheme
+          )
+        }
+      }
+    }
+    $consent.withLock { $0 = false }
+  }
+
   func testCaptureSettingsStates() async throws {
     for permission in [
       FestivalNotificationPermission.allowed,

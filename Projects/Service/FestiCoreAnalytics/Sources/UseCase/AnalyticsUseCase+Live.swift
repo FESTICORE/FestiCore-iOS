@@ -10,6 +10,9 @@ import Foundation
 import ComposableArchitecture
 import FestiCoreAnalyticsInterface
 import FestiCoreLogger
+import FestiCoreStorageInterface
+import FirebaseAnalytics
+import FirebaseCore
 import Mixpanel
 @preconcurrency import SentrySwift
 
@@ -21,6 +24,7 @@ extension AnalyticsUseCase: DependencyKey {
     let info = Bundle.main.infoDictionary
     return [
       "os_type": "ios",
+      "environment": (info?["FestiCoreEnvironment"] as? String) ?? "unknown",
       "app_version": (info?["CFBundleShortVersionString"] as? String) ?? "",
       "build": (info?["CFBundleVersion"] as? String) ?? ""
     ]
@@ -28,12 +32,27 @@ extension AnalyticsUseCase: DependencyKey {
 
   /// 토큰이 없어 Mixpanel을 시작하지 않았으면 `safeMainInstance()`가 nil이라 보내지 않는다.
   /// Sentry도 시작하지 않았으면 호출이 무시된다.
-  public static let liveValue = AnalyticsUseCase(
+  public static let liveValue = makeLiveValue(
+    firebase: firebaseValue,
+    collectionEnabled: { FestiCoreAnalyticsConfiguration.isCollectionEnabled }
+  )
+
+  static func makeLiveValue(
+    firebase: AnalyticsUseCase,
+    collectionEnabled: @escaping @Sendable () -> Bool
+  ) -> AnalyticsUseCase {
+    return AnalyticsUseCase(
     registerBaseProperties: {
+      guard collectionEnabled() else { return }
       Mixpanel.safeMainInstance()?.registerSuperProperties(baseSuperProperties())
+      firebase.registerBaseProperties()
     },
     identify: { userID, method in
-      guard !userID.isEmpty else { return }
+      guard !userID.isEmpty, collectionEnabled() else { return }
+      firebase.identify(
+        userID,
+        method
+      )
 
       if let mixpanel = Mixpanel.safeMainInstance() {
         mixpanel.identify(distinctId: userID)
@@ -55,18 +74,64 @@ extension AnalyticsUseCase: DependencyKey {
       SentrySDK.setUser(user)
     },
     track: { event in
+      guard collectionEnabled() else { return }
       let name = eventName(event)
       let properties = eventProperties(event)
-      FestiCoreLogger.debug("Mixpanel track — event: \(name), properties: \(String(describing: properties))", category: .app)
+      FestiCoreLogger.debug(
+        "Analytics event — name: \(name), property_keys: \(properties.keys.sorted())",
+        category: .app
+      )
       Mixpanel.safeMainInstance()?.track(event: name, properties: properties)
+      firebase.track(event)
       monitorInSentry(name: name, properties: properties)
     },
     reset: {
+      firebase.reset()
       if let mixpanel = Mixpanel.safeMainInstance() {
         mixpanel.reset() // 슈퍼 프로퍼티 포함 전체 초기화 → 계정 분리.
         mixpanel.registerSuperProperties(baseSuperProperties()) // 공통 프로퍼티 재등록(is_logged_in 미포함 = 로그아웃).
       }
       SentrySDK.setUser(nil) // 다음 이슈가 이전 계정에 붙지 않도록 함께 끊는다.
+    },
+    setCollectionEnabled: { enabled in
+      @Shared(.analyticsCollectionEnabled) var storedConsent
+      $storedConsent.withLock { $0 = enabled }
+      FestiCoreAnalyticsConfiguration.applyCollectionPreference()
+    }
+    )
+  }
+
+  private static let firebaseValue = AnalyticsUseCase(
+    registerBaseProperties: {
+      guard FirebaseApp.app() != nil else { return }
+      Analytics.setDefaultEventParameters(baseSuperProperties().mapValues { $0 as Any })
+    },
+    identify: { userID, method in
+      guard FirebaseApp.app() != nil else { return }
+      Analytics.setUserID(userID)
+      Analytics.setUserProperty(
+        method,
+        forName: "login_provider"
+      )
+    },
+    track: { event in
+      guard FirebaseApp.app() != nil else { return }
+      Analytics.logEvent(
+        eventName(event),
+        parameters: firebaseProperties(
+          for: event,
+          fallback: eventProperties(event)
+        )
+      )
+    },
+    reset: {
+      guard FirebaseApp.app() != nil else { return }
+      Analytics.setUserID(nil)
+      Analytics.setUserProperty(
+        nil,
+        forName: "login_provider"
+      )
+      Analytics.resetAnalyticsData()
     }
   )
 
@@ -93,6 +158,9 @@ extension AnalyticsUseCase: DependencyKey {
     case .flagFollow: "flag_follow"
     case .timetableAction: "timetable_action"
     case .packSync: "pack_sync"
+    case .festivalJourney: "festival_journey"
+    case .crewAction: "crew_action"
+    case .liveActivityAction: "live_activity_action"
     }
   }
 
@@ -112,20 +180,53 @@ extension AnalyticsUseCase: DependencyKey {
       return ["action": action.rawValue, "screen": screen.rawValue]
 
     case let .flagFollow(data):
-      return ["flag_id": data.flagID, "is_following": data.isFollowing]
+      return ["is_following": data.isFollowing]
 
     case let .timetableAction(data):
-      var properties: Properties = [
-        "action": data.action.rawValue,
-        "festival_id": data.festivalID
+      let properties: Properties = [
+        "action": data.action.rawValue
       ]
-      if let setID = data.setID {
-        properties["set_id"] = setID
-      }
       return properties
 
     case let .packSync(data):
-      return ["festival_id": data.festivalID, "result": data.result.rawValue]
+      return ["result": data.result.rawValue]
+
+    case let .festivalJourney(data):
+      return ["action": data.action.rawValue]
+
+    case let .crewAction(data):
+      return [
+        "action": data.action.rawValue,
+        "result": data.result.rawValue
+      ]
+
+    case let .liveActivityAction(data):
+      return [
+        "action": data.action.rawValue,
+        "result": data.result.rawValue
+      ]
+    }
+  }
+
+  static func firebaseProperties(
+    for event: AnalyticsEvent,
+    fallback properties: Properties
+  ) -> [String: Any] {
+    if case let .screenView(
+      screen,
+      referrer
+    ) = event {
+      var parameters: [String: Any] = [
+        AnalyticsParameterScreenName: screen.rawValue,
+        AnalyticsParameterScreenClass: screen.rawValue
+      ]
+      if let referrer {
+        parameters["referrer_screen"] = referrer.rawValue
+      }
+      return parameters
+    }
+    return properties.reduce(into: [String: Any]()) { result, pair in
+      result[pair.key] = pair.value
     }
   }
 }

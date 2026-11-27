@@ -1,6 +1,7 @@
 
 import BearerDomainInterface
 import ComposableArchitecture
+import FestiCoreDesignKit
 import FestiCoreSharedUI
 import Foundation
 import SwiftUI
@@ -9,6 +10,38 @@ import XCTest
 
 /// Figma S09 기수 보드 A~J를 고정 상태로 렌더한다. 시각 자료 생성용이며 디자인 일치 판정 테스트는 아니다.
 extension FestivalS01VisualCaptureTests {
+  func testCaptureBearerCTANarrowAndAccessibility() async throws {
+    let states: [FCBearerCTA.State] = [.start, .restart]
+    for ctaState in states {
+      for width in [320.0, 393.0] {
+        for isLong in [false, true] {
+          for scheme in [ColorScheme.dark, .light] {
+            let cta = FCBearerCTA(ctaState) {}
+              .copy(isLong ? .init(
+                title: "오늘 깃발을 올릴 준비가 됐나요?",
+                buttonTitle: "친구들과 함께 오늘 깃발 다시 올리기",
+                caption: "올리면 팔로워에게 알림이 가요"
+              ) : nil)
+            try await capture(
+              cta
+                .padding(
+                  .horizontal,
+                  FestiCoreSpacing.paddingP16
+                )
+                .dynamicTypeSize(.accessibility5),
+              name: "S09-CTA-\(ctaState)-\(Int(width))-\(isLong ? "long" : "default")-\(scheme)-AX5",
+              size: CGSize(
+                width: width,
+                height: 700
+              ),
+              colorScheme: scheme
+            )
+          }
+        }
+      }
+    }
+  }
+
   func testCaptureBearerBoardStates() async throws {
     for scenario in BearerBoardScenario.allCases {
       let store = Store(initialState: bearerBoardState(scenario)) {

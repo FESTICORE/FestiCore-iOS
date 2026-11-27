@@ -425,7 +425,9 @@ struct FestivalFlagDirectoryTests {
       $0.isVisible = false
       $0.directory.pendingFollows = [:]
     }
-    await clock.run()
+    // 화면을 떠나면 60초 응답을 진행하는 대신 요청 effect 자체가 끝나야 한다.
+    // clock.run은 취소 정리와 가상 시간 진행을 경합시켜 이 계약을 검증하지 못한다.
+    await store.finish()
 
     // 다시 들어와 조회가 실패하면 이전 스냅샷과 함께 성공값을 계속 보인다.
     await store.send(.view(.appeared)) {

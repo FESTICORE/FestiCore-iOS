@@ -133,6 +133,7 @@ public struct FestivalFeature {
     public var packCacheReadFailed = false
     var liveActivity = LiveActivityRuntimeState()
     var autoActivityHandledStarts: [String: Date] = [:]
+    var pendingUserLiveActivityAction: AnalyticsLiveActivityAction?
     /// 마이 > 잠금화면의 '당일 자동 시작'(Figma S13-C). 끄면 라이브 활동을 자동으로 시작하지 않는다.
     @SharedReader(.liveActivityAutoStart) var isLiveActivityAutoStartOn
 
@@ -785,6 +786,7 @@ extension FestivalFeature {
 
     case let .selectFestival(id):
       guard state.festivals.contains(where: { $0.id == id }) else { return .none }
+      analyticsUseCase.track(.festivalJourney(AnalyticsJourneyEvent(action: .selected)))
       state.selectedFestivalID = id
       if state.selectedCatalogItem != nil, let item = state.catalog[id: id] {
         state.selectedCatalogItem = item
@@ -835,11 +837,15 @@ extension FestivalFeature {
       _,
       booked
     ):
+      analyticsUseCase.track(.festivalJourney(AnalyticsJourneyEvent(
+        action: booked ? .bookmarked : .unbookmarked
+      )))
       state.toast = booked ? .bookmarked : .unbookmarked
       state.toastRevision += 1
       return .send(.async(.expireToast))
 
     case let .recentSearchSubmitted(query):
+      analyticsUseCase.track(.festivalJourney(AnalyticsJourneyEvent(action: .searchSubmitted)))
       state.recentSearches = libraryUseCase.addRecentSearch(
         query,
         for: state.bookedUserID
@@ -892,6 +898,7 @@ extension FestivalFeature {
       )
 
     case .liveBoardOnAppear:
+      analyticsUseCase.track(.festivalJourney(AnalyticsJourneyEvent(action: .liveBoardOpened)))
       analyticsUseCase.track(.screenView(
         screen: .liveBoard,
         referrer: nil
@@ -954,6 +961,7 @@ extension FestivalFeature {
           state.autoActivityHandledStarts[festival.id] = performanceStart
         }
         state.liveActivity.busyFestivalID = festival.id
+        state.pendingUserLiveActivityAction = .stopped
         state.liveActivity.revision += 1
         return .send(.async(.endLiveActivity(
           festivalID: festival.id,
@@ -962,6 +970,7 @@ extension FestivalFeature {
       }
       guard state.liveActivityState.isEnabled else { return .none }
       state.liveActivity.busyFestivalID = festival.id
+      state.pendingUserLiveActivityAction = .started
       state.liveActivity.revision += 1
       return .send(.async(.startLiveActivity(festivalID: festival.id)))
 
@@ -1047,6 +1056,7 @@ extension FestivalFeature {
 
     case .homeDirectionsTapped:
       guard let festival = state.selectedFestival else { return .none }
+      analyticsUseCase.track(.festivalJourney(AnalyticsJourneyEvent(action: .directionsOpened)))
       let now = FestivalLiveBoardPresentation.serverNow(
         serverAt: state.liveBoard?.serverAt,
         clockAnchorAt: state.liveBoardClockAnchorAt,
@@ -1108,6 +1118,7 @@ extension FestivalFeature {
     case let .ticketLinkTapped(festivalID):
       // 카탈로그·팩 매퍼가 https 링크만 남긴다. 결제 앱 전환은 예매 범위의 웹 화면이 맡는다.
       if let url = state.festivals.first(where: { $0.id == festivalID })?.ticketURL {
+        analyticsUseCase.track(.festivalJourney(AnalyticsJourneyEvent(action: .ticketOpened)))
         state.ticket = WebFeature.State(
           url: url,
           title: "티켓 예매",
@@ -1862,6 +1873,13 @@ extension FestivalFeature {
       state.liveActivity.busyFestivalID = nil
       state.liveActivity.revision += 1
       state.liveActivity.activities[activity.festivalID] = activity
+      if state.pendingUserLiveActivityAction == .started {
+        analyticsUseCase.track(.liveActivityAction(AnalyticsLiveActivityEvent(
+          action: .started,
+          result: .success
+        )))
+        state.pendingUserLiveActivityAction = nil
+      }
       return liveActivityBoundary(state)
 
     case let .liveActivityUpdated(activity):
@@ -1880,12 +1898,26 @@ extension FestivalFeature {
       if state.liveActivity.activities[festivalID]?.id == activityID {
         state.liveActivity.activities.removeValue(forKey: festivalID)
       }
+      if state.pendingUserLiveActivityAction == .stopped {
+        analyticsUseCase.track(.liveActivityAction(AnalyticsLiveActivityEvent(
+          action: .stopped,
+          result: .success
+        )))
+        state.pendingUserLiveActivityAction = nil
+      }
       return liveActivityBoundary(state)
 
     case let .liveActivityFailed(message):
       state.liveActivity.busyFestivalID = nil
       state.liveActivity.revision += 1
       state.liveActivity.error = message
+      if let action = state.pendingUserLiveActivityAction {
+        analyticsUseCase.track(.liveActivityAction(AnalyticsLiveActivityEvent(
+          action: action,
+          result: .failure
+        )))
+        state.pendingUserLiveActivityAction = nil
+      }
       return .none
 
     case let .autoStartLiveActivity(

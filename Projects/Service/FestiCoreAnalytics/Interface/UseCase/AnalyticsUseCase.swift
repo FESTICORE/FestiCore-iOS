@@ -21,17 +21,21 @@ public struct AnalyticsUseCase: Sendable {
   public var track: @Sendable (_ event: AnalyticsEvent) -> Void
   /// 로그아웃·탈퇴 시 계정 분리(reset)와 공통 프로퍼티 재등록.
   public var reset: @Sendable () -> Void
+  /// 설정에서 분석·진단 수집 동의를 변경한다.
+  public var setCollectionEnabled: @Sendable (Bool) -> Void
 
   public init(
     registerBaseProperties: @escaping @Sendable () -> Void,
     identify: @escaping @Sendable (_ userID: String, _ method: String?) -> Void,
     track: @escaping @Sendable (_ event: AnalyticsEvent) -> Void,
-    reset: @escaping @Sendable () -> Void
+    reset: @escaping @Sendable () -> Void,
+    setCollectionEnabled: @escaping @Sendable (Bool) -> Void = { _ in }
   ) {
     self.registerBaseProperties = registerBaseProperties
     self.identify = identify
     self.track = track
     self.reset = reset
+    self.setCollectionEnabled = setCollectionEnabled
   }
 }
 
@@ -43,7 +47,8 @@ extension AnalyticsUseCase: TestDependencyKey {
     registerBaseProperties: {},
     identify: { _, _ in reportIssue("analyticsUseCase.identify 미주입") },
     track: { _ in reportIssue("analyticsUseCase.track 미주입") },
-    reset: { reportIssue("analyticsUseCase.reset 미주입") }
+    reset: { reportIssue("analyticsUseCase.reset 미주입") },
+    setCollectionEnabled: { _ in reportIssue("analyticsUseCase.setCollectionEnabled 미주입") }
   )
   public static let previewValue = AnalyticsUseCase(
     registerBaseProperties: {},

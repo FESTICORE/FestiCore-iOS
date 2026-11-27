@@ -272,10 +272,13 @@ struct FestivalLiveBoardSessionTests {
       $0.isLiveBoardVisible = false
     }
     #expect(fetched.value == 0)
-    #expect(analytics.value == [.screenView(
-      screen: .liveBoard,
-      referrer: nil
-    )])
+    #expect(analytics.value == [
+      .festivalJourney(AnalyticsJourneyEvent(action: .liveBoardOpened)),
+      .screenView(
+        screen: .liveBoard,
+        referrer: nil
+      )
+    ])
   }
 
   @Test("다른 축제·이전 요청·이전 세대의 내 일정 응답은 버리고 화면을 닫아도 일정을 유지한다")

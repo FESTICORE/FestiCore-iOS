@@ -1,5 +1,6 @@
 import Clocks
 import ComposableArchitecture
+import FestiCoreAnalyticsInterface
 import FestiCoreStorageInterface
 import FestivalDomainInterface
 import Foundation
@@ -256,6 +257,7 @@ struct HomeLiveActivityTests {
   }
 
   @Test @MainActor func successfulStartCanBeStoppedByUser() async {
+    let analytics = LockIsolated<[AnalyticsEvent]>([])
     let now = ISO8601DateFormatter().date(from: "2026-10-29T09:30:00Z")!
     let startDate = ISO8601DateFormatter().date(from: "2026-10-29T09:00:00Z")!
     let endDate = ISO8601DateFormatter().date(from: "2026-10-30T09:00:00Z")!
@@ -274,6 +276,7 @@ struct HomeLiveActivityTests {
     state.liveActivity.now = now
     let store = TestStore(initialState: state) { FestivalFeature() } withDependencies: {
       $0.useServiceBackedFestivalUseCases()
+      $0.analyticsUseCase.track = { event in analytics.withValue { $0.append(event) } }
       $0.date.now = now
       $0.continuousClock = clock
       $0.festivalLiveActivityClient = .init(
@@ -289,11 +292,13 @@ struct HomeLiveActivityTests {
     await store.send(.view(.liveActivityTapped)) {
       $0.liveActivity.busyFestivalID = "festival"
       $0.liveActivity.revision = 1
+      $0.pendingUserLiveActivityAction = .started
     }
     await store.receive(\.async.startLiveActivity)
     await store.receive(\.inner.liveActivityStarted) {
       $0.liveActivity.busyFestivalID = nil
       $0.liveActivity.revision = 2
+      $0.pendingUserLiveActivityAction = nil
       $0.liveActivity.activities["festival"] = .init(
         id: "activity",
         festivalID: "festival",
@@ -302,18 +307,34 @@ struct HomeLiveActivityTests {
         endDate: endDate
       )
     }
+    #expect(analytics.value == [.liveActivityAction(.init(
+      action: .started,
+      result: .success
+    ))])
     #expect(store.state.liveActivityState.title == "Live Activity 끄기")
     await store.send(.view(.liveActivityTapped)) {
       $0.liveActivity.busyFestivalID = "festival"
       $0.liveActivity.revision = 3
+      $0.pendingUserLiveActivityAction = .stopped
       $0.autoActivityHandledStarts["festival"] = ISO8601DateFormatter().date(from: "2026-10-29T10:00:00Z")!
     }
     await store.receive(\.async.endLiveActivity)
     await store.receive(\.inner.liveActivityStopped) {
       $0.liveActivity.busyFestivalID = nil
       $0.liveActivity.revision = 4
+      $0.pendingUserLiveActivityAction = nil
       $0.liveActivity.activities = [:]
     }
+    #expect(analytics.value == [
+      .liveActivityAction(.init(
+        action: .started,
+        result: .success
+      )),
+      .liveActivityAction(.init(
+        action: .stopped,
+        result: .success
+      ))
+    ])
     await store.send(.view(.foregroundChanged(false))) {
       $0.isForeground = false
     }
