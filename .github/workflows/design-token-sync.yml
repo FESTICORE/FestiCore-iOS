@@ -210,6 +210,7 @@ jobs:
           test -s "$RUNNER_TEMP/verified-design-tokens/coverage.json"
 
       - name: Reuse fixed branch and pull request
+        shell: /bin/bash --noprofile --norc -e -o pipefail {0}
         run: |
           set -euo pipefail
           BRANCH=chore/design-tokens-sync
